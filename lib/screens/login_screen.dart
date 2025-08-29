@@ -1,0 +1,146 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:bloc_onboarding/bloc/auth/auth_bloc.dart';
+import 'package:bloc_onboarding/bloc/auth/auth_event.dart';
+import 'package:bloc_onboarding/bloc/auth/auth_state.dart';
+import 'package:bloc_onboarding/screens/otp_screen.dart';
+
+class LoginScreen extends StatefulWidget {
+  @override
+  _LoginScreenState createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController phoneController = TextEditingController();
+  bool _isLoading = false;  // Loading state flag
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0, // Remove the default app bar shadow
+        backgroundColor: Colors.transparent, // Make the app bar transparent
+      ),
+      body: Center(  // Center the entire content vertically and horizontally
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,  // Center vertically
+            crossAxisAlignment: CrossAxisAlignment.center,  // Center horizontally
+            children: [
+              // App Logo
+              Image.asset(
+                'assets/images/splash_logo.png', // Ensure this file is placed in your assets folder
+                height: 100,
+              ),
+              SizedBox(height: 20),
+              // Tagline
+              Text(
+                "Where beauty and convenience unite",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 20),
+              // Tagline with bullets
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text("● Shine bright  "),
+                  Text("● Feel radiant  "),
+                  Text("● Choose Glowante!"),
+                ],
+              ),
+              SizedBox(height: 30), // Increase space between the bullet points and input
+              // Mobile number input
+              TextField(
+                controller: phoneController,
+                decoration: InputDecoration(
+                  labelText: 'Mobile Number',
+                  hintText: 'Enter mobile number',
+                  border: OutlineInputBorder(),
+                  errorText: phoneController.text.length > 10
+                      ? 'Phone number cannot be more than 10 digits'
+                      : null,
+                ),
+                keyboardType: TextInputType.phone,
+                maxLength: 10, // Enforces a maximum of 10 characters
+              ),
+              SizedBox(height: 20),
+              // Listen for login success and navigate to OTP screen
+              BlocListener<AuthBloc, AuthState>(
+                listener: (context, state) {
+                  if (state is AuthLoginSuccess) {
+                    final phoneNumber = state.response['phoneNumber'];
+                    final otp = state.response['otp'];
+                    setState(() {
+                      _isLoading = false;  // Reset loading state
+                    });
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => OtpScreen(phoneNumber: phoneNumber, otp: otp ?? ''),
+                      ),
+                    );
+                  }
+                  if (state is AuthError) {
+                    setState(() {
+                      _isLoading = false;  // Reset loading state
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(state.message)),
+                    );
+                  }
+                },
+                child: ElevatedButton(
+                  onPressed: () {
+                    final phoneNumber = phoneController.text;
+                    if (phoneNumber.length == 10) {
+                      setState(() {
+                        _isLoading = true;  // Start loading
+                      });
+                      BlocProvider.of<AuthBloc>(context).add(AuthLoginEvent(phoneNumber: phoneNumber));
+                    } else {
+                      // Show a SnackBar message for invalid phone number length
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Please enter a valid 10-digit mobile number')),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: Size(double.infinity, 50), // Full width button
+                    backgroundColor: Colors.orange, // Background color
+                    shape: RoundedRectangleBorder(  // Slightly curved button
+                      borderRadius: BorderRadius.circular(8),  // Adding a little curve
+                    ),
+                  ),
+                  child: _isLoading
+                      ? CircularProgressIndicator(color: Colors.white)  // Show loader when loading
+                      : Text("Continue"),
+                ),
+              ),
+              SizedBox(height: 20),
+              // Footer text for additional options or messages
+              BlocBuilder<AuthBloc, AuthState>(
+                builder: (context, state) {
+                  if (state is AuthLoginSuccess) {
+                    return Text(
+                      'Login Success: ${state.response['message']}',
+                      style: TextStyle(color: Colors.green),
+                    );
+                  }
+                  if (state is AuthError) {
+                    return Text(
+                      'Error: ${state.message}',
+                      style: TextStyle(color: Colors.red),
+                    );
+                  }
+                  return SizedBox.shrink();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
