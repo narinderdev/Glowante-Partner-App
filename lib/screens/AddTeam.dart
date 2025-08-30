@@ -140,51 +140,49 @@ Future<void> _fetchRolesAndSpecializations() async {
   }
 }
 Future<void> _handleVerifyPhoneNumber() async {
-  if (_phoneCtrl.text.isNotEmpty) {
-    try {
-      // Step 1: Call the login API to get the OTP
-      final loginResponse = await ApiService().loginUser(_phoneCtrl.text);
+  // Get phone number entered by the user
+  String phoneNumber = _phoneCtrl.text;
 
-      // Log the login response to check if OTP exists
-      print('Response (Login): $loginResponse');
+  try {
+    // Make the API call to verify phone number and fetch user data
+    var response = await ApiService.checkUserAndSendOtp(phoneNumber);
 
-      // Step 2: Check if OTP exists in the response and auto-fill it
-      String? otp = loginResponse['data']?['otp']; // Safely access OTP field
-      if (otp != null) {
-        setState(() {
-          _otpCtrl.text = otp; // Auto-fill OTP
-          _otpFilled = true;
-        });
+    // Check if the API response is successful
+    if (response['success']) {
+      var userData = response['data']['user'];  // Get the user data
+      bool userExists = response['data']['exists'];  // Check if the user exists
 
-        // Step 3: Call OTP verify API once OTP is filled
-        final otpResponse = await ApiService().verifyOTP(_phoneCtrl.text, otp);
-
-        // Log the OTP verification response
-        print('Response (Verify OTP): $otpResponse');
-
-        // Step 4: Check if user details are available and auto-fill them
-        if (otpResponse['success'] == true && otpResponse['data']?.containsKey('user') == true) {
-          var user = otpResponse['data']['user'];
-
-          // Log the user details to verify if they are correct
-          print('User Details: $user');
-
-          // Auto-fill first name, last name, and email
-          setState(() {
-            _firstNameCtrl.text = user['firstName'] ?? '';  // Auto-fill First Name
-            _lastNameCtrl.text = user['lastName'] ?? '';    // Auto-fill Last Name
-            _emailCtrl.text = user['email'] ?? '';          // Auto-fill Email
-          });
-        } else {
-          print('User details not found in the response.');
+      // If user exists, auto-fill the fields
+      if (userExists) {
+        if (userData != null) {
+          print('User Data: $userData');  // Print user data to debug
+          _firstNameCtrl.text = userData['firstName'] ?? '';  // Default to empty string if null
+          _lastNameCtrl.text = userData['lastName'] ?? '';   // Default to empty string if null
+          _emailCtrl.text = userData['email'] ?? '';         // Default to empty string if null
         }
       } else {
-        print('OTP is not available in the response');
+        print('No user data found. User might not exist.');
+        // Optionally, you can show a message indicating the user doesn't exist
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No user found.')));
       }
-    } catch (e) {
-      print("Error: $e");
-      // Handle any errors that occur during the process (e.g., show an error message)
+
+      // Set the OTP in the OTP field
+      _otpCtrl.text = response['data']['otp']; // Set the OTP received from the API
+
+      // Update the phone verification status
+      setState(() {
+        _phoneVerified = true;
+      });
+
+      // Optionally, you can display a success message
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Phone Verified Successfully')));
+    } else {
+      // Handle failure (e.g., OTP error, invalid phone)
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${response['message']}')));
     }
+  } catch (e) {
+    // Handle network or other errors
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An error occurred: $e')));
   }
 }
 

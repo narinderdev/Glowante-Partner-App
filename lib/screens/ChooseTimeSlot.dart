@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // For formatting date/time
 import 'AddTeam.dart'; // Import AddTeam screen to navigate back
 import 'team_member_screen.dart'; // Import TeamMember screen to navigate to
+import '../utils/api_service.dart';
 
 class ChooseTimeSlot extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -105,6 +106,81 @@ class _ChooseTimeSlotState extends State<ChooseTimeSlot> {
       updateTime(day, index, timeType, formattedTime); // Update the selected time
     }
   }
+Future<void> _addTeamMember() async {
+  // Gather the schedule data in the required format
+  List<Map<String, String>> scheduleData = [];
+  for (var day in weeklySchedule.keys) {
+    for (var slot in weeklySchedule[day]!) {
+      scheduleData.add({
+        'day': day.toLowerCase(),  // Ensure the day is lowercase
+        'startTime': slot['start'] ?? '09:00 AM',
+        'endTime': slot['end'] ?? '05:00 PM',
+      });
+    }
+  }
+
+  // Prepare the payload (data to be sent in the POST request)
+  Map<String, dynamic> teamMemberData = {
+    "phoneNumber": widget.formData['phoneNumber'],
+    "firstName": widget.formData['firstName'],
+    "lastName": widget.formData['lastName'],
+    "email": widget.formData['email'],
+    "gender": widget.formData['gender'].toLowerCase(),  // Ensure gender is lowercase
+    "joiningDate": DateFormat('yyyy-MM-dd').format(widget.formData['joiningDate']),
+    "info": widget.formData['brief'],
+    "roles": widget.formData['roles'],
+    "specialities": widget.formData['specializations'],
+    "schedules": scheduleData,
+    "otp": widget.formData['otp'].toString(),
+  };
+
+  try {
+    // Call the API to add the team member
+    ApiService apiService = ApiService();
+    final branchId = widget.formData['branchId']; // Get branchId
+    Map<String, dynamic> response = await apiService.addTeamMember(branchId, teamMemberData);
+
+    // Handle the response
+    if (response['success']) {
+      // Successfully added the team member
+      print('Team member added: ${response['data']}');
+      // Optionally, navigate to the TeamMemberScreen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => TeamMemberScreen(branchDetails: widget.formData)),
+      );
+    } else {
+      // If the API returns an error, display the response message in an alert dialog
+      print('API Response: ${response['message']}');
+      _showErrorDialog(response['message']);  // Pass the API error message here (e.g., "Invalid OTP")
+    }
+  } catch (e) {
+    // Handle unexpected errors (e.g., network issues)
+    print('Unexpected error: $e');
+    _showErrorDialog('An unexpected error occurred.');  // Display a generic message
+  }
+}
+
+void _showErrorDialog(String message) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Response'),  // Title of the dialog
+        content: Text(message),   // This will display the message from the API (e.g., "Invalid OTP")
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();  // Close the dialog
+            },
+            child: Text('OK'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -389,28 +465,22 @@ class _ChooseTimeSlotState extends State<ChooseTimeSlot> {
                         SizedBox(height: 16),
                       ],
                     ),
-                     Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Action for adding team member (navigate to AddTeamScreen)
-                      Navigator.push(
-                        context,
-               MaterialPageRoute(
-  builder: (_) => TeamMemberScreen(branchDetails: widget.formData), // Pass formData as branchDetails
-)
+       Padding(
+  padding: const EdgeInsets.symmetric(vertical: 16),
+  child: ElevatedButton(
+    onPressed: () async {
+      await _addTeamMember(); // Make sure to call it when the button is clicked
+    },
+    child: Text('Add TeamMember'),
+    style: ElevatedButton.styleFrom(
+      minimumSize: Size(double.infinity, 50), // Button takes full width
+      backgroundColor: Colors.orange, // Customize the color if needed
+      foregroundColor: Colors.white,
+    ),
+  ),
+),
 
 
-                      );
-                    },
-                    child: Text('Add Teammember'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: Size(double.infinity, 50), // Button takes full width
-                      backgroundColor: Colors.orange, // Customize the color if needed
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
               ],
             ),
           ),

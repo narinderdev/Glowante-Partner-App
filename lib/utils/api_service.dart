@@ -24,6 +24,7 @@ class ApiService {
   static const String serviceCatalog = "service-catalog";
   static const String getBranchServices = "salon-service/catalog";
    static const String addSubCategory = "/salons/{salonId}/categories/{categoryId}/subcategories";
+  static const String checkSendOtpEndpoint = "users/check-and-send-otp";
  static String addServiceAPI(int salonId) =>
       "salons/$salonId/services";
 
@@ -46,8 +47,7 @@ static String getServicesAPI(int salonId) =>
     return "salons/$salonId/branches/add";
   }
 
-
-  static String addTeamMember(int id) {
+static String addTeamMemberEndpoint(int id) {
     return "branches/$id/add-user";
   }
 static const String getRolesSpecialization = "users/constants";
@@ -780,6 +780,95 @@ final url = Uri.parse(baseUrl + 'salons/$salonId/subcategories/$subCategoryId');
     // Log the error
     print('Error fetching roles and specializations: $e');
     throw Exception('Error fetching roles and specializations: $e');
+  }
+}
+
+// Endpoint to check user existence and send OTP
+static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) async {
+  final url = Uri.parse('$baseUrl$checkSendOtpEndpoint');
+  print('Sending request to: $url');
+
+  final headers = {
+    'Content-Type': 'application/json',
+  };
+
+  // Fetch the token and include it in the header
+  ApiService apiService = ApiService();  // Create an instance of ApiService to access the method
+  String token = await apiService.getAuthToken(); // Call getAuthToken() using the instance
+  if (token.isNotEmpty) {
+    headers['Authorization'] = 'Bearer $token';  // Add token to the headers
+  }
+
+  // Print the headers
+  print('Headers: { "Authorization": "Bearer $token" }');
+
+  final body = json.encode({
+    'phoneNumber': phoneNumber,
+  });
+
+  try {
+    final response = await http.post(url, headers: headers, body: body);
+
+    // Log the response status code and body
+    print('Response Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    // Update to handle both 200 and 201 as success codes
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // If successful, parse the response JSON
+      return json.decode(response.body);
+    } else {
+      // If request fails, throw an error
+      throw Exception('Failed to send OTP');
+    }
+  } catch (e) {
+    // Handle errors (e.g., network issues)
+    print('Error: $e');
+    return {'success': false, 'message': 'Error: $e'};
+  }
+}
+
+  // ---------------------- ADD TEAM MEMBER ----------------------
+  Future<Map<String, dynamic>> addTeamMember(int branchId, Map<String, dynamic> teamMemberData) async {
+  // Generate the full URL using static method
+  final url = Uri.parse('$baseUrl${addTeamMemberEndpoint(branchId)}');
+
+  // Get the auth token first
+  String token = await getAuthToken();
+
+  // Log the URL and the body being sent
+  print('API URL: $url');
+  print('Request Body: $teamMemberData');
+
+  // Prepare headers, including the Authorization token
+  final headers = {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $token', // Use the actual token here
+  };
+
+  final body = json.encode(teamMemberData); // Encode the data as JSON
+
+  try {
+    // Log the HTTP request being made
+    print('Making POST request to: $url');
+
+    final response = await http.post(url, headers: headers, body: body);
+
+    // Log the status code of the response
+    print('Response Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 201) {
+      // If successful, parse the response JSON
+      return json.decode(response.body);
+    } else {
+      // If request fails, throw an error
+      throw Exception('Failed to add user');
+    }
+  } catch (e) {
+    // Handle errors (e.g., network issues)
+    print('Error: $e');
+    return {'success': false, 'message': 'Error: $e'};
   }
 }
 
