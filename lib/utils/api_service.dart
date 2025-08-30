@@ -872,6 +872,51 @@ static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) asyn
   }
 }
 
+  // ---------------------- GET TEAM MEMBERS ----------------------
+static Future<Map<String, dynamic>> getTeamMembers(int branchId) async {
+  try {
+    // Create an instance of ApiService to call the non-static getAuthToken method
+    ApiService apiService = ApiService();
+
+    // Fetch the token dynamically from SharedPreferences
+    final String token = await apiService.getAuthToken();  // Call it on the instance
+
+    if (token.isEmpty) {
+      throw Exception('No token found');
+    }
+
+    // Construct the API URL using the static method
+    final url = Uri.parse('$baseUrl${getTeamMember(branchId)}'); // Use getTeamMember method to get the endpoint
+
+    // Log the URL and headers being sent
+    print('API URL: $url');
+    print('Request Headers: { "Authorization": "Bearer $token" }');
+
+    // Prepare headers, including the Authorization token
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token', // Use the token here
+    };
+
+    // Making the GET request
+    final response = await http.get(url, headers: headers);
+
+    // Log the response status code and body
+    print('Response Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      // If successful, parse the response JSON
+      return json.decode(response.body);
+    } else {
+      throw Exception('Failed to load team members');
+    }
+  } catch (e) {
+    // Log and handle errors
+    print('Error: $e');
+    return {'success': false, 'message': 'Error: $e'};
+  }
+}
 }
 
 
