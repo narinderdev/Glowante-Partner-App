@@ -2,90 +2,143 @@ import 'package:flutter/material.dart';
 import 'services_screen.dart';
 import 'team_member_screen.dart';
 import 'reviews_screen.dart';
-import 'about_screen.dart'; 
+import 'about_screen.dart';
 import 'Package.dart';
 
 class BranchScreen extends StatelessWidget {
   final int salonId;
   final Map<String, dynamic> branchDetails;
 
-  const BranchScreen({Key? key, required this.salonId, required this.branchDetails}) : super(key: key);
+  const BranchScreen({
+    Key? key,
+    required this.salonId,
+    required this.branchDetails,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final branchDetails = this.branchDetails;
     final imageUrl = branchDetails['imageUrl'];
-    final description = branchDetails['description'] ?? 'No description available';
+    final String branchName = branchDetails['name'] ?? 'Branch Name';
+    final String line1 = branchDetails['address']?['line1'] ?? 'No address';
 
     return DefaultTabController(
-      length: 5, // Number of tabs
+      length: 4,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text('Branch Details'),
-        ),
-        body: Column(
-          children: [
-            // Image with location
-            Stack(
-              children: [
-                // Image (50% height)
-                Container(
-                  height: MediaQuery.of(context).size.height * 0.4,
-                  width: MediaQuery.of(context).size.width,
-                  child: imageUrl != null && imageUrl.isNotEmpty
-                      ? Image.network(imageUrl, width: MediaQuery.of(context).size.width, height: MediaQuery.of(context).size.height * 0.5, fit: BoxFit.cover)
-                      : Icon(Icons.store, size: 70, color: Colors.grey),
-                ),
-                // Location at the bottom left of the image
-                Positioned(
-                  left: 16,
-                  bottom: 16,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(branchDetails['name'] ?? 'Branch Name', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                      SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Icon(Icons.location_on, color: Colors.white, size: 18), // Black location icon
-                          SizedBox(width: 2), // Space between icon and address
-                          Text('${branchDetails['address']['line1'] ?? 'No address'}', style: TextStyle(color: Colors.white, fontSize: 14)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        body: NestedScrollView(
+          headerSliverBuilder: (context, _) => [
+            // App bar with back button only
+            SliverAppBar(
+              pinned: true,
+              title: const Text('Branch Details'),
+              automaticallyImplyLeading: true,
+              iconTheme: const IconThemeData(color: Colors.white),
+              backgroundColor: Colors.purple,
             ),
-            // Scrollable TabBar below the image
-            Container(
-              color: Colors.white, // Optional: Set a background color for the TabBar
-              child: TabBar(
-                isScrollable: true, // Enable horizontal scrolling for tabs
-                tabs: [
-                  Tab(text: 'Services'),
-                  Tab(text: 'Deals'),
-                  Tab(text: 'Team Member'),
-                  Tab(text: 'Reviews'),
-                  Tab(text: 'About'),
+
+            // Image with overlay details
+            SliverToBoxAdapter(
+              child: Stack(
+                children: [
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.40,
+                    width: double.infinity,
+                    child: imageUrl != null && imageUrl.isNotEmpty
+                        ? Image.network(imageUrl, fit: BoxFit.cover)
+                        : const Center(
+                            child: Icon(Icons.store, size: 70, color: Colors.grey),
+                          ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    bottom: 16,
+                    right: 16,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          branchName,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on, size: 16, color: Colors.white),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                line1,
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-            // TabBarView below the TabBar
-            Expanded(
-              child: TabBarView(
-                children: [
-                  ServicesScreen(branchId: branchDetails['id']), 
-                  PackageScreen(isFromBranchScreen: true),  // Pass flag to PackageScreen
-                  TeamMemberScreen(branchDetails: branchDetails), // Team Member Tab
-                  ReviewsScreen(),  // Reviews Tab
-                  AboutScreen(branchDetails: branchDetails), // About Tab
-                ],
+
+            // Tab bar pinned below the image
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _TabBarDelegate(
+                const TabBar(
+                  isScrollable: true,
+                  labelColor: Colors.purple,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Colors.purple,
+                  tabs: [
+                    Tab(text: 'Services'),
+                    // Tab(text: 'Deals'),
+                    Tab(text: 'Team Member'),
+                    Tab(text: 'Reviews'),
+                    Tab(text: 'About'),
+                  ],
+                ),
               ),
             ),
           ],
+          body: TabBarView(
+            children: [
+              ServicesTab(branchId: branchDetails['id']),
+              // PackageScreen(isFromBranchScreen: true),
+              TeamMemberScreen(branchDetails: branchDetails,),
+              ReviewsScreen(),
+              AboutScreen(branchDetails: branchDetails),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+// Delegate for pinned TabBar
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar _tabBar;
+  _TabBarDelegate(this._tabBar);
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Colors.white,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_TabBarDelegate oldDelegate) => false;
 }

@@ -145,10 +145,12 @@ Future<void> _addTeamMember() async {
       // Successfully added the team member
       print('Team member added: ${response['data']}');
       // Optionally, navigate to the TeamMemberScreen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => TeamMemberScreen(branchDetails: widget.formData)),
-      );
+    Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (_) => TeamMemberScreen(branchDetails: {'id': branchId}),
+    ),
+  );
     } else {
       // If the API returns an error, display the response message in an alert dialog
       print('API Response: ${response['message']}');
@@ -225,33 +227,33 @@ void _showErrorDialog(String message) {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Display profile image and details above Set Weekly Working Hours section
-                profileImage != null
-                    ? CircleAvatar(
-                        radius: 40,
-                        backgroundImage: NetworkImage(profileImage), // Load the image from URL
-                      )
-                    : const Icon(Icons.camera_alt, size: 40), // Default camera icon if no image
+                // profileImage != null
+                //     ? CircleAvatar(
+                //         radius: 40,
+                //         backgroundImage: NetworkImage(profileImage), // Load the image from URL
+                //       )
+                //     : const Icon(Icons.camera_alt, size: 40), // Default camera icon if no image
 
-                const SizedBox(height: 16),
+                // const SizedBox(height: 16),
 
-                // Show the image URL as text
-                if (profileImage != null)
-                  Text('Profile Image URL: $profileImage'),
+                // // Show the image URL as text
+                // if (profileImage != null)
+                //   Text('Profile Image URL: $profileImage'),
 
-                const SizedBox(height: 16),
-               Text('Branch ID: ${widget.formData['branchId']}'),
-                Text('Phone Number: $phoneNumber'),
-                Text('First Name: $firstName'),
-                Text('Last Name: $lastName'),
-                Text('Email: $email'),
-                Text('OTP: $otp'),
-                Text('Gender: $gender'),
-                Text('Roles: $roles'),
-                Text('Specializations: $specializations'),
-                Text('Joining Date: $formattedJoiningDate'),
-                Text('Brief About Member: $brief'),
+              //   const SizedBox(height: 16),
+              //  Text('Branch ID: ${widget.formData['branchId']}'),
+              //   Text('Phone Number: $phoneNumber'),
+              //   Text('First Name: $firstName'),
+              //   Text('Last Name: $lastName'),
+              //   Text('Email: $email'),
+              //   Text('OTP: $otp'),
+              //   Text('Gender: $gender'),
+              //   Text('Roles: $roles'),
+              //   Text('Specializations: $specializations'),
+              //   Text('Joining Date: $formattedJoiningDate'),
+              //   Text('Brief About Member: $brief'),
 
-                const SizedBox(height: 24), // Add space before "Set Weekly Working Hours" section
+                // const SizedBox(height: 24), // Add space before "Set Weekly Working Hours" section
 
                 // Now "Set Weekly Working Hours" section
                 Text(
