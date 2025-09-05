@@ -4,6 +4,8 @@ import 'team_member_screen.dart';
 import 'reviews_screen.dart';
 import 'about_screen.dart';
 import 'Package.dart';
+import 'Deal.dart';
+import 'bookings.dart';
 
 class BranchScreen extends StatelessWidget {
   final int salonId;
@@ -22,7 +24,7 @@ class BranchScreen extends StatelessWidget {
     final String line1 = branchDetails['address']?['line1'] ?? 'No address';
 
     return DefaultTabController(
-      length: 4,
+      length: 7,
       child: Scaffold(
         body: NestedScrollView(
           headerSliverBuilder: (context, _) => [
@@ -96,8 +98,10 @@ class BranchScreen extends StatelessWidget {
                   unselectedLabelColor: Colors.grey,
                   indicatorColor: Colors.purple,
                   tabs: [
+                    Tab(text: 'Bookings'),
                     Tab(text: 'Services'),
-                    // Tab(text: 'Deals'),
+                    Tab(text: 'Packages'),
+                    Tab(text: 'Deals'),
                     Tab(text: 'Team Member'),
                     Tab(text: 'Reviews'),
                     Tab(text: 'About'),
@@ -108,8 +112,10 @@ class BranchScreen extends StatelessWidget {
           ],
           body: TabBarView(
             children: [
+              BookingsScreen(),
               ServicesTab(branchId: branchDetails['id']),
-              // PackageScreen(isFromBranchScreen: true),
+              PackageScreen(),
+              DealScreen(),
               TeamMemberScreen(branchDetails: branchDetails,),
               ReviewsScreen(),
               AboutScreen(branchDetails: branchDetails),

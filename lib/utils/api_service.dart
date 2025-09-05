@@ -11,6 +11,8 @@ import '../Viewmodels/AddCategory.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 import '../Viewmodels/AddSalonBranchRequest.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
+import 'dart:async'; 
+
 class ApiService {
   static const String baseUrl = "https://dev4-api.glowante.com/";
 
@@ -56,6 +58,19 @@ static const String getRolesSpecialization = "users/constants";
     return "branches/$id/team";
   }
 
+  static String addSalonOffer(int salonId) {
+    return "salons/$salonId/offers";
+  }
+  static String getSalonPackagesDeals(int salonId) {
+    return "salons/$salonId/offers";
+  }
+
+   static String deleteSalonOffer(int salonId, int offerId) {
+    return "salons/$salonId/offers/$offerId";
+  }
+   static String getSalonUser(int salonId, bool isActiveOnly) {
+    return "salons/$salonId/users?activeOnly=true";
+  }
 // / ---------------------- IMAGE UPLOAD ----------------------
 
   Future<String?> uploadImage(File file) async {
@@ -917,6 +932,116 @@ static Future<Map<String, dynamic>> getTeamMembers(int branchId) async {
     return {'success': false, 'message': 'Error: $e'};
   }
 }
+
+Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
+    final url = Uri.parse(baseUrl + getSalonPackagesDeals(salonId));
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data; // contains success, message, and data (list of offers)
+      } else {
+        throw Exception("Failed to fetch salon packages: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("❌ Error fetching salon packages: $e");
+      return {
+        "success": false,
+        "message": "Error fetching salon packages",
+        "data": []
+      };
+    }
+  }
+   
+   Future<Map<String, dynamic>> deleteSalonOfferApi({
+  required int salonId,
+  required int offerId,
+}) async {
+  final uri = Uri.parse("$baseUrl${ApiService.deleteSalonOffer(salonId, offerId)}");
+
+  print("DELETE Request: $uri");
+
+  try {
+   final resp = await http.delete(
+  uri,
+  headers: const {
+    'Accept': 'application/json',
+    // Don't send Content-Type since there is no body
+  },
+).timeout(const Duration(seconds: 25));
+
+    print("Response [${resp.statusCode}]: ${resp.body}");
+
+    final Map<String, dynamic> body =
+        resp.body.isEmpty ? {} : (jsonDecode(resp.body) as Map<String, dynamic>);
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      return {
+        'success': body['success'] ?? true,
+        'message': body['message'] ?? 'Deleted',
+        'data': body['data'],
+      };
+    } else {
+      return {
+        'success': body['success'] ?? false,
+        'message': body['message'] ?? 'Failed to delete offer',
+        'statusCode': resp.statusCode,
+        'data': body['data'],
+      };
+    }
+  } on TimeoutException {
+    print("❌ DELETE timeout");
+    return {'success': false, 'message': 'Request timed out'};
+  } catch (e) {
+    print("❌ DELETE error: $e");
+    return {'success': false, 'message': e.toString()};
+  }
+}
+
+Future<Map<String, dynamic>> getSalonUsersApi(int salonId, {bool activeOnly = true}) async {
+  final uri = Uri.parse(baseUrl + getSalonUser(salonId, activeOnly));
+
+  print("GET Request: $uri");
+
+  try {
+    final token = await getAuthToken(); // ✅ fetch token
+
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token', // ✅ use token
+    };
+
+    final resp = await http.get(uri, headers: headers).timeout(const Duration(seconds: 25));
+
+    print("Response [${resp.statusCode}]: ${resp.body}");
+
+    final Map<String, dynamic> body =
+        resp.body.isEmpty ? {} : (jsonDecode(resp.body) as Map<String, dynamic>);
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      return {
+        'success': body['success'] ?? true,
+        'message': body['message'] ?? 'Success',
+        'data': body['data'] ?? [],
+      };
+    } else {
+      return {
+        'success': body['success'] ?? false,
+        'message': body['message'] ?? 'Failed to fetch salon users',
+        'statusCode': resp.statusCode,
+        'data': body['data'] ?? [],
+      };
+    }
+  } on TimeoutException {
+    print("❌ GET timeout");
+    return {'success': false, 'message': 'Request timed out', 'data': []};
+  } catch (e) {
+    print("❌ GET error: $e");
+    return {'success': false, 'message': e.toString(), 'data': []};
+  }
+}
+
 }
 
 

@@ -1,225 +1,507 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'SelectServices.dart';
+import '../utils/api_service.dart';
 
 class AddDealsScreen extends StatefulWidget {
+  final int salonId;
+  final String salonName;
+
+  const AddDealsScreen({
+    Key? key,
+    required this.salonId,
+    required this.salonName,
+  }) : super(key: key);
+
   @override
-  _AddDealsScreenState createState() => _AddDealsScreenState();
+  State<AddDealsScreen> createState() => _AddDealsScreenState();
 }
 
 class _AddDealsScreenState extends State<AddDealsScreen> {
-  // Controller for text fields
-  final TextEditingController salonNameController = TextEditingController();
+  // controllers
   final TextEditingController dealTitleController = TextEditingController();
   final TextEditingController validFromController = TextEditingController();
   final TextEditingController validTillController = TextEditingController();
-  final TextEditingController actualPriceController = TextEditingController();
+  final TextEditingController originalPriceController = TextEditingController();
   final TextEditingController discountedPriceController = TextEditingController();
-  final TextEditingController minOrderValueController = TextEditingController();
+  final TextEditingController amountOffController = TextEditingController();
   final TextEditingController maxDiscountController = TextEditingController();
-  final TextEditingController descriptionController = TextEditingController();
 
-  // For handling checkbox selection
-  List<String> selectedServices = [];
+  // ui state
+  String pricingMode = 'Fixed'; // Fixed | Discount
+  String discountType = 'Flat'; // Flat | Percent
+  final List<String> pricingModes = const ['Fixed', 'Discount'];
+  final List<String> discountTypes = const ['Flat', 'Percent'];
 
-  // Function to format date to DD:MM:YYYY
-  String _formatDate(DateTime date) {
-    return DateFormat('dd-MM-yyyy').format(date);
+  // Selected services from modal
+  List<Map<String, dynamic>> _selectedServices = [];
+
+  String _formatDate(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
+
+  // styles
+  final _radius = BorderRadius.circular(12);
+  final _accent = const Color(0xFFDD8B1F);
+
+  InputDecoration _decor({
+    required String label,
+    String? hint,
+    IconData? prefix,
+    Widget? suffix,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: prefix == null ? null : Icon(prefix),
+      suffixIcon: suffix,
+      filled: false,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(borderRadius: _radius),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: _radius,
+        borderSide: BorderSide(color: Colors.black.withOpacity(.15)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: _radius,
+        borderSide: BorderSide(color: _accent, width: 1.6),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          text,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
+      );
+
+  Future<void> _pickDate(TextEditingController c) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) c.text = _formatDate(picked);
+  }
+
+  // ---------- helpers for selected services ----------
+  int _originalTotalInt() {
+    int sum = 0;
+    for (final s in _selectedServices) {
+      final int price = (s['price'] ?? 0) as int;
+      final int qty = (s['qty'] ?? 0) as int;
+      sum += price * qty;
+    }
+    return sum;
+  }
+
+  String _rsInt(int v) => '₹$v';
+  String _rs2(num v) => '₹${v.toStringAsFixed(2)}';
+
+  // If modal returns {id: qty} instead of full objects, map them here
+  Future<List<Map<String, dynamic>>> _hydrateFromIds(Map<int, int> idQty) async {
+    final resp = await ApiService().getService(salonId: widget.salonId);
+    final cats = (resp['data']?['categories'] ?? []) as List;
+    // Flatten services
+    final svcById = <int, Map<String, dynamic>>{};
+    void addAll(List list) {
+      for (final s in list) {
+        svcById[s['id'] as int] = s as Map<String, dynamic>;
+      }
+    }
+
+    for (final c in cats) {
+      addAll(c['services'] ?? []);
+      for (final sub in c['subCategories'] ?? []) {
+        addAll(sub['services'] ?? []);
+      }
+    }
+
+    final out = <Map<String, dynamic>>[];
+    idQty.forEach((id, qty) {
+      final s = svcById[id];
+      if (s != null && qty > 0) {
+        out.add({
+          'id': id,
+          'name': s['displayName'],
+          'price': s['priceMinor'],
+          'qty': qty,
+        });
+      }
+    });
+    return out;
   }
 
   @override
   Widget build(BuildContext context) {
+    final showDiscountRow = pricingMode == 'Discount';
+    final showFlatField = pricingMode == 'Discount' && discountType == 'Flat';
+    final showPercentField =
+        pricingMode == 'Discount' && discountType == 'Percent';
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Add Deals"),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            // Salon Name
-            TextField(
-              controller: salonNameController,
-              decoration: InputDecoration(
-                labelText: 'Salon Name *',
-                hintText: 'Enter your salon name',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // Deal Title
-            TextField(
-              controller: dealTitleController,
-              decoration: InputDecoration(
-                labelText: 'Deal Title *',
-                hintText: "e.g. Men’s Grooming Package",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // Valid From and Valid Till in a single row
-            Row(
-              children: [
-                // Valid From (Date Picker)
-                Expanded(
-                  child: TextField(
-                    controller: validFromController,
-                    decoration: InputDecoration(
-                      labelText: 'Valid From *',
-                      hintText: 'e.g. 15:01:2025',
-                      border: OutlineInputBorder(),
-                      suffixIcon: Icon(Icons.calendar_today),
-                    ),
-                    readOnly: true,
-                    onTap: () async {
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2101),
-                      );
-                      if (pickedDate != null) {
-                        validFromController.text = _formatDate(pickedDate);
-                      }
-                    },
-                  ),
+      appBar: AppBar(title: const Text('Create Package Deal')),
+      body: Container(
+        color: const Color(0xFFFEFBF5),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Deal Information
+              _sectionTitle('Deal Information'),
+              TextField(
+                controller: dealTitleController,
+                decoration: _decor(
+                  label: 'Deal Title *',
+                  hint: "e.g. Men's Grooming Package",
                 ),
-                SizedBox(width: 16), // Space between the two fields
-                // Valid Till (Date Picker)
-                Expanded(
-                  child: TextField(
-                    controller: validTillController,
-                    decoration: InputDecoration(
-                      labelText: 'Valid Till *',
-                      hintText: 'e.g. 19:01:2025',
-                      border: OutlineInputBorder(),
-                      suffixIcon: Icon(Icons.calendar_today),
-                    ),
-                    readOnly: true,
-                    onTap: () async {
-                      DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2101),
-                      );
-                      if (pickedDate != null) {
-                        validTillController.text = _formatDate(pickedDate);
-                      }
-                    },
+              ),
+              const SizedBox(height: 16),
+
+              // Pricing Mode / Discount Type
+              if (!showDiscountRow) ...[
+                Text('Pricing Mode *',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 13)),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: pricingMode,
+                  items: pricingModes
+                      .map((e) =>
+                          DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (v) => setState(() => pricingMode = v ?? 'Fixed'),
+                  decoration: _decor(
+                    label: '',
+                    prefix: Icons.local_offer_outlined,
                   ),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                ),
+              ] else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Pricing Mode *',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: pricingMode,
+                            items: pricingModes
+                                .map((e) =>
+                                    DropdownMenuItem(value: e, child: Text(e)))
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => pricingMode = v ?? 'Discount'),
+                            decoration: _decor(
+                              label: '',
+                              prefix: Icons.local_offer_outlined,
+                            ),
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Discount Type *',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 13)),
+                          const SizedBox(height: 6),
+                          DropdownButtonFormField<String>(
+                            value: discountType,
+                            items: discountTypes
+                                .map((e) =>
+                                    DropdownMenuItem(value: e, child: Text(e)))
+                                .toList(),
+                            onChanged: (v) =>
+                                setState(() => discountType = v ?? 'Flat'),
+                            decoration: _decor(
+                              label: '',
+                              prefix: Icons.sell_outlined,
+                            ),
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-            SizedBox(height: 16),
 
-            // Actual Price
-            TextField(
-              controller: actualPriceController,
-              decoration: InputDecoration(
-                labelText: 'Actual Price *',
-                hintText: 'e.g. 1200',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 18),
+
+              // Services
+              _sectionTitle('Services'),
+              InkWell(
+                onTap: () async {
+  // build initial qty map from current selections
+  final initQty = <int, int>{
+    for (final s in _selectedServices) (s['id'] as int): (s['qty'] as int),
+  };
+
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => SelectServicesModal(
+        salonId: widget.salonId,
+        initialSelectedQty: initQty, // ← keep previously picked
+      ),
+    ),
+  );
+
+  if (result == null) return;
+
+  if (result is List) {
+    // modal returns the FULL updated list (id, name, price, qty)
+    setState(() {
+      _selectedServices = result.cast<Map<String, dynamic>>();
+      originalPriceController.text =
+          _originalTotalInt().toDouble().toStringAsFixed(2);
+    });
+  } else if (result is Map) {
+    // (fallback) modal returned {id: qty}; hydrate to full objects
+    final hydrated = await _hydrateFromIds(Map<int, int>.from(result));
+    setState(() {
+      _selectedServices = hydrated;
+      originalPriceController.text =
+          _originalTotalInt().toDouble().toStringAsFixed(2);
+    });
+  }
+},
+
+                borderRadius: _radius,
+                child: Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: _radius,
+                    border: Border.all(color: Colors.black.withOpacity(.12)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.add, color: Color(0xFF946317)),
+                      SizedBox(width: 8),
+                      Text(
+                        'Select Services',
+                        style: TextStyle(
+                          color: Color(0xFF946317),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              keyboardType: TextInputType.number,
-            ),
-            SizedBox(height: 16),
 
-            // Discounted Price
-            TextField(
-              controller: discountedPriceController,
-              decoration: InputDecoration(
-                labelText: 'Discounted Price',
-                hintText: 'e.g. 1000',
-                border: OutlineInputBorder(),
+              // -------- Selected Services UI (exact like screenshot) --------
+              if (_selectedServices.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Selected Services',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                ..._selectedServices.map((s) {
+                  final name = (s['name'] ?? '').toString();
+                  final price = (s['price'] ?? 0) as int;
+                  final qty = (s['qty'] ?? 0) as int;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: _radius,
+                      border: Border.all(color: Colors.black.withOpacity(.12)),
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _rsInt(price),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Qty: $qty × ${_rsInt(price)}',
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+
+              const SizedBox(height: 18),
+
+              // Discount-specific field
+              if (pricingMode == 'Discount' && discountType == 'Flat') ...[
+                TextField(
+                  controller: amountOffController,
+                  keyboardType: TextInputType.number,
+                  decoration: _decor(
+                    label: 'Amount Off (Rs) *',
+                    hint: 'e.g. 200',
+                    prefix: Icons.currency_rupee,
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (pricingMode == 'Discount' && discountType == 'Percent') ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: amountOffController,
+                        keyboardType: TextInputType.number,
+                        decoration: _decor(
+                          label: 'Percent Off (%) *',
+                          hint: 'e.g. 10',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: maxDiscountController,
+                        keyboardType: TextInputType.number,
+                        decoration: _decor(
+                          label: 'Max Discount (Rs)',
+                          hint: 'e.g. 200',
+                          prefix: Icons.currency_rupee,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+
+              // Original / Discounted Price
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: originalPriceController,
+                      readOnly: true, // auto-filled from selected services
+                      keyboardType: TextInputType.number,
+                      decoration: _decor(
+                        label: 'Original Price *',
+                        hint: 'eg. 500',
+                        prefix: Icons.currency_rupee,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: discountedPriceController,
+                      keyboardType: TextInputType.number,
+                      decoration: _decor(
+                        label: 'Discounted Price *',
+                        hint: 'eg. 400',
+                        prefix: Icons.currency_rupee,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              keyboardType: TextInputType.number,
-            ),
-            SizedBox(height: 16),
 
-            // Minimum Order Value
-            TextField(
-              controller: minOrderValueController,
-              decoration: InputDecoration(
-                labelText: 'Minimum Order Value *',
-                hintText: 'Min. booking value',
-                border: OutlineInputBorder(),
+              const SizedBox(height: 22),
+
+              // // Validity Period
+              // _sectionTitle('Validity Period'),
+              // Row(
+              //   children: [
+              //     Expanded(
+              //       child: TextField(
+              //         controller: validFromController,
+              //         readOnly: true,
+              //         onTap: () => _pickDate(validFromController),
+              //         decoration: _decor(
+              //           label: 'Valid From *',
+              //           hint: 'Valid from',
+              //           suffix: const Icon(Icons.calendar_today),
+              //         ),
+              //       ),
+              //     ),
+              //     const SizedBox(width: 12),
+              //     Expanded(
+              //       child: TextField(
+              //         controller: validTillController,
+              //         readOnly: true,
+              //         onTap: () => _pickDate(validTillController),
+              //         decoration: _decor(
+              //           label: 'Valid Till *',
+              //           hint: 'Valid till',
+              //           suffix: const Icon(Icons.calendar_today),
+              //         ),
+              //       ),
+              //     ),
+              //   ],
+              // ),
+
+              // const SizedBox(height: 24),
+
+              // Add Packages button
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () {
+                    debugPrint(
+                      'mode=$pricingMode '
+                      'type=$discountType '
+                      'selected=${_selectedServices.length} '
+                      'originalTotal=${_originalTotalInt()} '
+                      'discounted=${discountedPriceController.text} '
+                      'amountOff=${amountOffController.text} '
+                      'maxDisc=${maxDiscountController.text}',
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _accent,
+                    shape: RoundedRectangleBorder(borderRadius: _radius),
+                  ),
+                  child: const Text(
+                    'Add Packages',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                  ),
+                ),
               ),
-            ),
-            SizedBox(height: 16),
-
-            // Maximum Discount
-            TextField(
-              controller: maxDiscountController,
-              decoration: InputDecoration(
-                labelText: 'Maximum Discount',
-                hintText: 'Percentage-based',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 16),
-
-            // Service List (Checkbox)
-            Text('Service List'),
-            CheckboxListTile(
-              title: Text("Papaya Facial"),
-              value: selectedServices.contains("Papaya Facial"),
-              onChanged: (bool? value) {
-                setState(() {
-                  if (value!) {
-                    selectedServices.add("Papaya Facial");
-                  } else {
-                    selectedServices.remove("Papaya Facial");
-                  }
-                });
-              },
-            ),
-            CheckboxListTile(
-              title: Text("Hair Styling"),
-              value: selectedServices.contains("Hair Styling"),
-              onChanged: (bool? value) {
-                setState(() {
-                  if (value!) {
-                    selectedServices.add("Hair Styling");
-                  } else {
-                    selectedServices.remove("Hair Styling");
-                  }
-                });
-              },
-            ),
-            SizedBox(height: 16),
-
-            // Description
-            TextField(
-              controller: descriptionController,
-              decoration: InputDecoration(
-                labelText: 'Description *',
-                hintText: 'e.g. Free Cancellation, How to use...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-            SizedBox(height: 16),
-
-            // Submit Button
-            ElevatedButton(
-              onPressed: () {
-                // Handle submission logic here (e.g., saving data)
-                print("Salon Name: ${salonNameController.text}");
-                print("Deal Title: ${dealTitleController.text}");
-                print("Valid From: ${validFromController.text}");
-                print("Valid Till: ${validTillController.text}");
-                print("Actual Price: ${actualPriceController.text}");
-                print("Discounted Price: ${discountedPriceController.text}");
-                print("Min Order Value: ${minOrderValueController.text}");
-                print("Max Discount: ${maxDiscountController.text}");
-                print("Selected Services: $selectedServices");
-                print("Description: ${descriptionController.text}");
-              },
-              child: Text('Add Deal'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

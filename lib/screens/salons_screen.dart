@@ -6,6 +6,9 @@ import '../screens/add_branch_screen.dart';
 import '../screens/add_salon_screen.dart';
 import '../Viewmodels/BranchViewModel.dart';
 import '../screens/Package.dart';
+import '../screens/Deal.dart';
+import '../screens/Teams.dart';
+
 class SalonsScreen extends StatefulWidget {
   @override
   _SalonsScreenState createState() => _SalonsScreenState();
@@ -317,14 +320,23 @@ Widget _fabMenuItem(IconData icon, String label) {
             print("$label clicked");
 
             // Add navigation logic based on the label
-            if (label == "Packages") {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => PackageScreen()), // Navigate to PackageScreen
-              );
-            } else {
-              // Handle other cases for "Team" and "Deals" if needed
-            }
+         if (label == "Packages") {
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => PackageScreen()),
+  );
+} else if (label == "Deals") {
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => DealScreen()),
+  );
+} else if (label == "Team") {
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => TeamScreen()),
+  );
+}
+
           },
         ),
         SizedBox(height: 4),
