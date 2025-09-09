@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'SelectServices.dart';
 import '../utils/api_service.dart';
+import 'dart:math' as math;
 
 class AddDealsScreen extends StatefulWidget {
   final int salonId;
@@ -24,8 +25,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   final TextEditingController validTillController = TextEditingController();
   final TextEditingController originalPriceController = TextEditingController();
   final TextEditingController discountedPriceController = TextEditingController();
-  final TextEditingController amountOffController = TextEditingController();
-  final TextEditingController maxDiscountController = TextEditingController();
+  final TextEditingController amountOffController = TextEditingController(); // Flat or Percent
+  final TextEditingController maxDiscountController = TextEditingController(); // only for Percent
 
   // ui state
   String pricingMode = 'Fixed'; // Fixed | Discount
@@ -36,11 +37,155 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   // Selected services from modal
   List<Map<String, dynamic>> _selectedServices = [];
 
-  String _formatDate(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
+  // internal flags
+  bool _settingFields = false;
+  bool _autoSetMaxFromPercent = false; // auto-fill "Max Discount" once from Percent Off
 
   // styles
   final _radius = BorderRadius.circular(12);
   final _accent = const Color(0xFFDD8B1F);
+
+  @override
+void initState() {
+  super.initState();
+  amountOffController.addListener(() {
+    if (_settingFields) return;
+    _autoSetMaxFromPercent = true; // allow auto-fill again when typing percent
+    _recalcDiscounted();
+  });
+  maxDiscountController.addListener(() {
+    if (_settingFields) return;
+    _autoSetMaxFromPercent = false; // user edited max discount manually
+    _recalcDiscounted();
+  });
+}
+
+  @override
+  void dispose() {
+    dealTitleController.dispose();
+    validFromController.dispose();
+    validTillController.dispose();
+    originalPriceController.dispose();
+    discountedPriceController.dispose();
+    amountOffController.dispose();
+    maxDiscountController.dispose();
+    super.dispose();
+  }
+
+  // ---------- helpers ----------
+  String _formatDate(DateTime d) => DateFormat('dd-MM-yyyy').format(d);
+
+  Future<void> _pickDate(TextEditingController c) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked != null) c.text = _formatDate(picked);
+  }
+
+  int _originalTotalInt() {
+    int sum = 0;
+    for (final s in _selectedServices) {
+      final int price = (s['price'] ?? 0) as int;
+      final int qty = (s['qty'] ?? 0) as int;
+      sum += price * qty;
+    }
+    return sum;
+  }
+
+  String _rsInt(int v) => '₹$v';
+  String _rs2(num v) => '₹${v.toStringAsFixed(2)}';
+
+  double _parseNum(String s) {
+    if (s.trim().isEmpty) return 0;
+    return double.tryParse(s.trim()) ?? 0;
+  }
+
+  String _moneyStr(num v) => v.toStringAsFixed(2);
+
+  void _setTextSafe(TextEditingController c, String v) {
+    _settingFields = true;
+    c.text = v;
+    c.selection = TextSelection.fromPosition(TextPosition(offset: c.text.length));
+    _settingFields = false;
+  }
+  
+  void _recalcDiscounted() {
+  final original = _parseNum(originalPriceController.text);
+  if (original <= 0) {
+    _setTextSafe(discountedPriceController, '');
+    return;
+  }
+
+  double discounted = original;
+
+  if (pricingMode == 'Fixed') {
+    // Case 1: Fixed → user enters Amount Off (Rs)
+    final amountOff = _parseNum(amountOffController.text);
+    final applied = amountOff.clamp(0, original);
+    discounted = original - applied;
+  } else {
+    // pricingMode = Discount
+    if (discountType == 'Flat') {
+      // Case 2: Discount + Flat
+      final amountOff = _parseNum(amountOffController.text);
+      final applied = amountOff.clamp(0, original);
+      discounted = original - applied;
+    } else {
+      // Case 3: Discount + Percent
+     // Case 3: Discount + Percent
+final percent = _parseNum(amountOffController.text).clamp(0, 100);
+final percentDiscount = original * (percent / 100.0);
+
+// Auto-fill max discount only if user hasn't overridden it
+if (_autoSetMaxFromPercent && maxDiscountController.text.isEmpty) {
+  _setTextSafe(maxDiscountController, _moneyStr(percentDiscount));
+}
+
+final maxCap = _parseNum(maxDiscountController.text);
+final applied = maxCap > 0 ? math.min(percentDiscount, maxCap) : percentDiscount;
+
+discounted = (original - applied).clamp(0, original);
+    }
+  }
+
+  _setTextSafe(discountedPriceController, _moneyStr(discounted));
+}
+
+  // If modal returns {id: qty} instead of full objects, map them here
+  Future<List<Map<String, dynamic>>> _hydrateFromIds(Map<int, int> idQty) async {
+    final resp = await ApiService().getService(salonId: widget.salonId);
+    final cats = (resp['data']?['categories'] ?? []) as List;
+    // Flatten services
+    final svcById = <int, Map<String, dynamic>>{};
+    void addAll(List list) {
+      for (final s in list) {
+        svcById[s['id'] as int] = s as Map<String, dynamic>;
+      }
+    }
+    for (final c in cats) {
+      addAll(c['services'] ?? []);
+      for (final sub in c['subCategories'] ?? []) {
+        addAll(sub['services'] ?? []);
+      }
+    }
+    final out = <Map<String, dynamic>>[];
+    idQty.forEach((id, qty) {
+      final s = svcById[id];
+      if (s != null && qty > 0) {
+        out.add({
+          'id': id,
+          'name': s['displayName'],
+          'price': s['priceMinor'],
+          'qty': qty,
+        });
+      }
+    });
+    return out;
+  }
 
   InputDecoration _decor({
     required String label,
@@ -75,71 +220,12 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         ),
       );
 
-  Future<void> _pickDate(TextEditingController c) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 5),
-    );
-    if (picked != null) c.text = _formatDate(picked);
-  }
-
-  // ---------- helpers for selected services ----------
-  int _originalTotalInt() {
-    int sum = 0;
-    for (final s in _selectedServices) {
-      final int price = (s['price'] ?? 0) as int;
-      final int qty = (s['qty'] ?? 0) as int;
-      sum += price * qty;
-    }
-    return sum;
-  }
-
-  String _rsInt(int v) => '₹$v';
-  String _rs2(num v) => '₹${v.toStringAsFixed(2)}';
-
-  // If modal returns {id: qty} instead of full objects, map them here
-  Future<List<Map<String, dynamic>>> _hydrateFromIds(Map<int, int> idQty) async {
-    final resp = await ApiService().getService(salonId: widget.salonId);
-    final cats = (resp['data']?['categories'] ?? []) as List;
-    // Flatten services
-    final svcById = <int, Map<String, dynamic>>{};
-    void addAll(List list) {
-      for (final s in list) {
-        svcById[s['id'] as int] = s as Map<String, dynamic>;
-      }
-    }
-
-    for (final c in cats) {
-      addAll(c['services'] ?? []);
-      for (final sub in c['subCategories'] ?? []) {
-        addAll(sub['services'] ?? []);
-      }
-    }
-
-    final out = <Map<String, dynamic>>[];
-    idQty.forEach((id, qty) {
-      final s = svcById[id];
-      if (s != null && qty > 0) {
-        out.add({
-          'id': id,
-          'name': s['displayName'],
-          'price': s['priceMinor'],
-          'qty': qty,
-        });
-      }
-    });
-    return out;
-  }
-
   @override
   Widget build(BuildContext context) {
     final showDiscountRow = pricingMode == 'Discount';
-    final showFlatField = pricingMode == 'Discount' && discountType == 'Flat';
-    final showPercentField =
-        pricingMode == 'Discount' && discountType == 'Percent';
+    // Flat field visible in Fixed OR Discount+Flat
+    final showFlatField = (pricingMode == 'Fixed') || (pricingMode == 'Discount' && discountType == 'Flat');
+    final showPercentField = pricingMode == 'Discount' && discountType == 'Percent';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Create Package Deal')),
@@ -164,20 +250,19 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
               // Pricing Mode / Discount Type
               if (!showDiscountRow) ...[
                 Text('Pricing Mode *',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 13)),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   value: pricingMode,
-                  items: pricingModes
-                      .map((e) =>
-                          DropdownMenuItem(value: e, child: Text(e)))
-                      .toList(),
-                  onChanged: (v) => setState(() => pricingMode = v ?? 'Fixed'),
-                  decoration: _decor(
-                    label: '',
-                    prefix: Icons.local_offer_outlined,
-                  ),
+                  items: pricingModes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) {
+                    setState(() {
+                      pricingMode = v ?? 'Fixed';
+                      _autoSetMaxFromPercent = true;
+                    });
+                    _recalcDiscounted();
+                  },
+                  decoration: _decor(label: '', prefix: Icons.local_offer_outlined),
                   icon: const Icon(Icons.keyboard_arrow_down_rounded),
                 ),
               ] else ...[
@@ -188,21 +273,19 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Pricing Mode *',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 13)),
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             value: pricingMode,
-                            items: pricingModes
-                                .map((e) =>
-                                    DropdownMenuItem(value: e, child: Text(e)))
-                                .toList(),
-                            onChanged: (v) =>
-                                setState(() => pricingMode = v ?? 'Discount'),
-                            decoration: _decor(
-                              label: '',
-                              prefix: Icons.local_offer_outlined,
-                            ),
+                            items: pricingModes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                            onChanged: (v) {
+                              setState(() {
+                                pricingMode = v ?? 'Discount';
+                                _autoSetMaxFromPercent = true;
+                              });
+                              _recalcDiscounted();
+                            },
+                            decoration: _decor(label: '', prefix: Icons.local_offer_outlined),
                             icon: const Icon(Icons.keyboard_arrow_down_rounded),
                           ),
                         ],
@@ -214,21 +297,19 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Discount Type *',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 13)),
+                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             value: discountType,
-                            items: discountTypes
-                                .map((e) =>
-                                    DropdownMenuItem(value: e, child: Text(e)))
-                                .toList(),
-                            onChanged: (v) =>
-                                setState(() => discountType = v ?? 'Flat'),
-                            decoration: _decor(
-                              label: '',
-                              prefix: Icons.sell_outlined,
-                            ),
+                            items: discountTypes.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                            onChanged: (v) {
+                              setState(() {
+                                discountType = v ?? 'Flat';
+                                _autoSetMaxFromPercent = true;
+                              });
+                              _recalcDiscounted();
+                            },
+                            decoration: _decor(label: '', prefix: Icons.sell_outlined),
                             icon: const Icon(Icons.keyboard_arrow_down_rounded),
                           ),
                         ],
@@ -244,41 +325,37 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
               _sectionTitle('Services'),
               InkWell(
                 onTap: () async {
-  // build initial qty map from current selections
-  final initQty = <int, int>{
-    for (final s in _selectedServices) (s['id'] as int): (s['qty'] as int),
-  };
+                  final initQty = <int, int>{
+                    for (final s in _selectedServices) (s['id'] as int): (s['qty'] as int),
+                  };
 
-  final result = await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => SelectServicesModal(
-        salonId: widget.salonId,
-        initialSelectedQty: initQty, // ← keep previously picked
-      ),
-    ),
-  );
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => SelectServicesModal(
+                        salonId: widget.salonId,
+                        initialSelectedQty: initQty,
+                      ),
+                    ),
+                  );
 
-  if (result == null) return;
+                  if (result == null) return;
 
-  if (result is List) {
-    // modal returns the FULL updated list (id, name, price, qty)
-    setState(() {
-      _selectedServices = result.cast<Map<String, dynamic>>();
-      originalPriceController.text =
-          _originalTotalInt().toDouble().toStringAsFixed(2);
-    });
-  } else if (result is Map) {
-    // (fallback) modal returned {id: qty}; hydrate to full objects
-    final hydrated = await _hydrateFromIds(Map<int, int>.from(result));
-    setState(() {
-      _selectedServices = hydrated;
-      originalPriceController.text =
-          _originalTotalInt().toDouble().toStringAsFixed(2);
-    });
-  }
-},
-
+                  if (result is List) {
+                    setState(() {
+                      _selectedServices = result.cast<Map<String, dynamic>>();
+                      originalPriceController.text = _originalTotalInt().toDouble().toStringAsFixed(2);
+                    });
+                    _recalcDiscounted();
+                  } else if (result is Map) {
+                    final hydrated = await _hydrateFromIds(Map<int, int>.from(result));
+                    setState(() {
+                      _selectedServices = hydrated;
+                      originalPriceController.text = _originalTotalInt().toDouble().toStringAsFixed(2);
+                    });
+                    _recalcDiscounted();
+                  }
+                },
                 borderRadius: _radius,
                 child: Container(
                   height: 48,
@@ -288,8 +365,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                     border: Border.all(color: Colors.black.withOpacity(.12)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    children: const [
+                  child: const Row(
+                    children: [
                       Icon(Icons.add, color: Color(0xFF946317)),
                       SizedBox(width: 8),
                       Text(
@@ -304,7 +381,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                 ),
               ),
 
-              // -------- Selected Services UI (exact like screenshot) --------
               if (_selectedServices.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 const Text(
@@ -359,49 +435,60 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
               ],
 
               const SizedBox(height: 18),
 
-              // Discount-specific field
-              if (pricingMode == 'Discount' && discountType == 'Flat') ...[
+              // Discount-specific fields
+              if (showFlatField) ...[
                 TextField(
                   controller: amountOffController,
                   keyboardType: TextInputType.number,
                   decoration: _decor(
-                    label: 'Amount Off (Rs) *',
+                    label: pricingMode == 'Fixed' ? 'Amount Off (Rs) *' : 'Amount Off (Rs) *',
                     hint: 'e.g. 200',
                     prefix: Icons.currency_rupee,
                   ),
                 ),
                 const SizedBox(height: 16),
               ],
-              if (pricingMode == 'Discount' && discountType == 'Percent') ...[
+              if (showPercentField) ...[
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: amountOffController,
-                        keyboardType: TextInputType.number,
-                        decoration: _decor(
-                          label: 'Percent Off (%) *',
-                          hint: 'e.g. 10',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: maxDiscountController,
-                        keyboardType: TextInputType.number,
-                        decoration: _decor(
-                          label: 'Max Discount (Rs)',
-                          hint: 'e.g. 200',
-                          prefix: Icons.currency_rupee,
-                        ),
-                      ),
-                    ),
+  child: TextField(
+    controller: amountOffController,
+    keyboardType: TextInputType.number,
+    decoration: _decor(
+      label: 'Percent Off (%) *',
+      hint: 'e.g. 20',
+      prefix: Icons.percent,
+    ),
+    onChanged: (_) {
+      _autoSetMaxFromPercent = true; // reset auto-fill for max when user types percent
+      _recalcDiscounted();
+    },
+  ),
+),
+const SizedBox(width: 12),
+Expanded(
+  child: TextField(
+    controller: maxDiscountController,
+    keyboardType: TextInputType.number,
+    readOnly: false, // let user override
+    decoration: _decor(
+      label: 'Max Discount (Rs)',
+      hint: 'auto from %',
+      prefix: Icons.currency_rupee,
+    ),
+    onChanged: (_) {
+      _autoSetMaxFromPercent = false; // stop auto-overwriting if user edits
+      _recalcDiscounted();
+    },
+  ),
+),
+
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -417,7 +504,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                       keyboardType: TextInputType.number,
                       decoration: _decor(
                         label: 'Original Price *',
-                        hint: 'eg. 500',
+                        hint: 'eg. 2400',
                         prefix: Icons.currency_rupee,
                       ),
                     ),
@@ -427,9 +514,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                     child: TextField(
                       controller: discountedPriceController,
                       keyboardType: TextInputType.number,
+                      readOnly: true, // auto-calculated
                       decoration: _decor(
                         label: 'Discounted Price *',
-                        hint: 'eg. 400',
+                        hint: 'eg. 2400',
                         prefix: Icons.currency_rupee,
                       ),
                     ),
@@ -438,54 +526,20 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
               ),
 
               const SizedBox(height: 22),
-
-              // // Validity Period
-              // _sectionTitle('Validity Period'),
-              // Row(
-              //   children: [
-              //     Expanded(
-              //       child: TextField(
-              //         controller: validFromController,
-              //         readOnly: true,
-              //         onTap: () => _pickDate(validFromController),
-              //         decoration: _decor(
-              //           label: 'Valid From *',
-              //           hint: 'Valid from',
-              //           suffix: const Icon(Icons.calendar_today),
-              //         ),
-              //       ),
-              //     ),
-              //     const SizedBox(width: 12),
-              //     Expanded(
-              //       child: TextField(
-              //         controller: validTillController,
-              //         readOnly: true,
-              //         onTap: () => _pickDate(validTillController),
-              //         decoration: _decor(
-              //           label: 'Valid Till *',
-              //           hint: 'Valid till',
-              //           suffix: const Icon(Icons.calendar_today),
-              //         ),
-              //       ),
-              //     ),
-              //   ],
-              // ),
-
-              // const SizedBox(height: 24),
-
               // Add Packages button
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
                   onPressed: () {
+                    _recalcDiscounted(); // ensure latest calc before submit
                     debugPrint(
                       'mode=$pricingMode '
                       'type=$discountType '
                       'selected=${_selectedServices.length} '
-                      'originalTotal=${_originalTotalInt()} '
+                      'originalTotal=${originalPriceController.text} '
                       'discounted=${discountedPriceController.text} '
-                      'amountOff=${amountOffController.text} '
+                      'amountOff/percent=${amountOffController.text} '
                       'maxDisc=${maxDiscountController.text}',
                     );
                   },
@@ -495,8 +549,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                   ),
                   child: const Text(
                     'Add Packages',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                   ),
                 ),
               ),

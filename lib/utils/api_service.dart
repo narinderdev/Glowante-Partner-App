@@ -71,6 +71,10 @@ static const String getRolesSpecialization = "users/constants";
    static String getSalonUser(int salonId, bool isActiveOnly) {
     return "salons/$salonId/users?activeOnly=true";
   }
+
+   static String addBranchOffer(int branchId) {
+    return "branches/$branchId/offers";
+  }
 // / ---------------------- IMAGE UPLOAD ----------------------
 
   Future<String?> uploadImage(File file) async {
@@ -1042,6 +1046,22 @@ Future<Map<String, dynamic>> getSalonUsersApi(int salonId, {bool activeOnly = tr
   }
 }
 
+  // ---------------------- CREATE OFFER ----------------------
+static Future<Map<String, dynamic>> createOffer(int salonId, Map<String, dynamic> offerData) async {
+    final url = Uri.parse(baseUrl + addSalonOffer(salonId));
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: jsonEncode(offerData),
+    );
+
+    if (response.statusCode == 201) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to create offer. Status code: ${response.statusCode}');
+    }
+  }
 }
-
-

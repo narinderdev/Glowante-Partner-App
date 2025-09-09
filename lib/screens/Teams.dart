@@ -254,7 +254,7 @@ floatingActionButton: FloatingActionButton.extended(
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Branch ID missing. Cannot add team."),
+          content: Text("Please select a branch first."),
         ),
       );
     }

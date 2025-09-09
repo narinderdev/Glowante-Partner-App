@@ -208,7 +208,7 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
             Navigator.push(context, MaterialPageRoute(builder: (_) => AddTeamScreen(branchId: idForNav)));
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Branch ID missing. Cannot add team.')),
+              const SnackBar(content: Text('Please select a branch first.')),
             );
           }
         },
