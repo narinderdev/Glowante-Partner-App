@@ -3,8 +3,8 @@ import 'services_screen.dart';
 import 'team_member_screen.dart';
 import 'reviews_screen.dart';
 import 'about_screen.dart';
-import 'Package.dart';
-import 'Deal.dart';
+import '../screens/BranchPackages.dart';
+import '../screens/BranchDeals.dart';
 import '../screens/BranchBookings.dart';
 
 class BranchScreen extends StatelessWidget {
@@ -114,8 +114,8 @@ class BranchScreen extends StatelessWidget {
             children: [
               BranchBookingsScreen(),
               ServicesTab(branchId: branchDetails['id']),
-              PackageScreen(),
-              DealScreen(),
+              BranchPackagesScreen(branchDetails: branchDetails,),
+              BranchDealsScreen(branchDetails: branchDetails,),
               TeamMemberScreen(branchDetails: branchDetails,),
               ReviewsScreen(),
               AboutScreen(branchDetails: branchDetails),

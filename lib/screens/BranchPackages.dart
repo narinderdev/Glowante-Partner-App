@@ -1,20 +1,49 @@
 import 'package:flutter/material.dart';
+import '../screens/Adddeals.dart';  // Import the AddDealsScreen
 
-class BookingsScreen extends StatelessWidget {
-  const BookingsScreen({Key? key}) : super(key: key);
+class BranchPackagesScreen extends StatelessWidget {
+  final Map<String, dynamic> branchDetails;
+
+  const BranchPackagesScreen({Key? key, required this.branchDetails}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final branchName = branchDetails['name'] ?? 'Branch Name';
+    final String line1 = branchDetails['address']?['line1'] ?? 'No address';
+    final branchId = branchDetails['id'] ?? 'No ID';  // Fetch branch ID
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Bookings"),
-        backgroundColor: Colors.purple,
-      ),
-      body: const Center(
-        child: Text(
-          "Bookings Screen",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+      appBar: null,  // Remove the app bar
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Branch ID: $branchId',  // Display branch ID
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          // Navigate to AddDealsScreen with source: 'PACKAGE'
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddDealsScreen(
+                salonId: branchDetails['id'],
+                salonName: branchDetails['name'],
+                onPackageCreated: (id) {}, // You can define the callback here
+                source: 'PACKAGE',  // Pass 'PACKAGE' as the source
+              ),
+            ),
+          );
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Add Package'),
+        backgroundColor: Colors.purple,
       ),
     );
   }
