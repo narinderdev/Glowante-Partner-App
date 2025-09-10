@@ -972,7 +972,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     }
   }
    
-   Future<Map<String, dynamic>> deleteSalonOfferApi({
+Future<Map<String, dynamic>> deleteSalonOfferApi({
   required int salonId,
   required int offerId,
 }) async {
@@ -1058,9 +1058,7 @@ Future<Map<String, dynamic>> getSalonUsersApi(int salonId, {bool activeOnly = tr
     print("❌ GET error: $e");
     return {'success': false, 'message': e.toString(), 'data': []};
   }
-}
-
-  // ---------------------- CREATE OFFER ----------------------
+    // ---------------------- CREATE OFFER ----------------------
  // Method to add salon offer
 static Future<Map<String, dynamic>> createSalonOffer(int salonId, Map<String, dynamic> offerData) async {
     final url = Uri.parse("$baseUrl${addSalonOffer(salonId)}");
