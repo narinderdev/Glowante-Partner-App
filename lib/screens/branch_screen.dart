@@ -5,7 +5,7 @@ import 'reviews_screen.dart';
 import 'about_screen.dart';
 import 'Package.dart';
 import 'Deal.dart';
-import 'bookings.dart';
+import 'BranchBookingsScreen.dart';
 
 class BranchScreen extends StatelessWidget {
   final int salonId;
@@ -112,7 +112,7 @@ class BranchScreen extends StatelessWidget {
           ],
           body: TabBarView(
             children: [
-              BookingsScreen(),
+              BranchBookingsScreen(),
               ServicesTab(branchId: branchDetails['id']),
               PackageScreen(),
               DealScreen(),

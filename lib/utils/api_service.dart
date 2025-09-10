@@ -73,13 +73,19 @@ static const String getRolesSpecialization = "users/constants";
     return "salons/$salonId/users?activeOnly=true";
   }
 
+//This below four api is pending to implement on frontend
    static String addBranchOffer(int branchId) {
     return "branches/$branchId/offers";
   }
-
+ static String getBranchPackagesDeals(int branchId) {
+    return "branches/$branchId/offers";
+  }
     // get appointments
   static String getAppointmentByDate(int branchId, String date) {
     return "branches/$branchId/appointments/by-date?date=$date";
+  }
+   static String getSalon(int salonId, String status) {
+    return "bookings/salon-bookings/$salonId?status=$status";
   }
 }
 
