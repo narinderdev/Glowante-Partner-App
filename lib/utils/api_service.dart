@@ -14,7 +14,8 @@ import '../Viewmodels/AddSalonServiceRequest.dart';
 import 'dart:async'; 
 
 class ApiService {
-  static const String baseUrl = "https://dev4-api.glowante.com/";
+  // static const String baseUrl = "https://dev4-api.glowante.com/";
+  static const String baseUrl = "https://d3ed9f0a3a5f.ngrok-free.app/";
 
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
@@ -75,6 +76,13 @@ static const String getRolesSpecialization = "users/constants";
    static String addBranchOffer(int branchId) {
     return "branches/$branchId/offers";
   }
+
+    // get appointments
+  static String getAppointmentByDate(int branchId, String date) {
+    return "branches/$branchId/appointments/by-date?date=$date";
+  }
+}
+
 // / ---------------------- IMAGE UPLOAD ----------------------
 
   Future<String?> uploadImage(File file) async {
@@ -1047,21 +1055,45 @@ Future<Map<String, dynamic>> getSalonUsersApi(int salonId, {bool activeOnly = tr
 }
 
   // ---------------------- CREATE OFFER ----------------------
-static Future<Map<String, dynamic>> createOffer(int salonId, Map<String, dynamic> offerData) async {
-    final url = Uri.parse(baseUrl + addSalonOffer(salonId));
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode(offerData),
-    );
+ // Method to add salon offer
+static Future<Map<String, dynamic>> createSalonOffer(int salonId, Map<String, dynamic> offerData) async {
+    final url = Uri.parse("$baseUrl${addSalonOffer(salonId)}");
 
-    if (response.statusCode == 201) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to create offer. Status code: ${response.statusCode}');
+    // Log the full URL to check if it's correctly constructed
+    print("Request URL: $url");
+
+    // Log the request headers and the offer data being sent
+    print("Request Headers: {'Content-Type': 'application/json'}");
+    print("Request Body: ${json.encode(offerData)}");
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          // Add other headers if necessary, such as 'Authorization': 'Bearer token'
+        },
+        body: json.encode(offerData),
+      );
+
+      // Log the response status and body for debugging
+      print("Response Status: ${response.statusCode}");
+      print("Response Body: ${response.body}");
+
+      if (response.statusCode == 201) {
+        // Successfully created the offer
+        return json.decode(response.body); // Returning the response in JSON format
+      } else {
+        // Handle unsuccessful response (e.g., 400, 500)
+        return {
+          'success': false,
+          'message': 'Failed to create offer. Status Code: ${response.statusCode}. Response: ${response.body}',
+        };
+      }
+    } catch (e) {
+      // Catch network errors or any other issues
+      print("Error: $e");
+      return {'success': false, 'message': 'Error: $e'};
     }
   }
 }

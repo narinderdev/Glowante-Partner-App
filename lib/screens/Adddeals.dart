@@ -7,11 +7,15 @@ import 'dart:math' as math;
 class AddDealsScreen extends StatefulWidget {
   final int salonId;
   final String salonName;
+  final Function(int salonId) onPackageCreated;
+  final String source; // "DEAL" or "PACKAGE"
 
-  const AddDealsScreen({
+   const AddDealsScreen({
     Key? key,
     required this.salonId,
     required this.salonName,
+    required this.onPackageCreated,
+    required this.source,
   }) : super(key: key);
 
   @override
@@ -27,6 +31,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   final TextEditingController discountedPriceController = TextEditingController();
   final TextEditingController amountOffController = TextEditingController(); // Flat or Percent
   final TextEditingController maxDiscountController = TextEditingController(); // only for Percent
+// controllers
+final TextEditingController discountAmountController = TextEditingController(); // For amount off
+final TextEditingController discountPercentController = TextEditingController(); // For percent off
 
   // ui state
   String pricingMode = 'Fixed'; // Fixed | Discount
@@ -44,7 +51,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   // styles
   final _radius = BorderRadius.circular(12);
   final _accent = const Color(0xFFDD8B1F);
-
+Map<String, dynamic> offerData = {};
   @override
 void initState() {
   super.initState();
@@ -69,6 +76,8 @@ void initState() {
     discountedPriceController.dispose();
     amountOffController.dispose();
     maxDiscountController.dispose();
+    discountAmountController.dispose();  // Dispose of discountAmountController
+  discountPercentController.dispose(); 
     super.dispose();
   }
 
@@ -465,10 +474,14 @@ discounted = (original - applied).clamp(0, original);
       hint: 'e.g. 20',
       prefix: Icons.percent,
     ),
-    onChanged: (_) {
-      _autoSetMaxFromPercent = true; // reset auto-fill for max when user types percent
-      _recalcDiscounted();
-    },
+  onChanged: (value) {
+  setState(() {
+    final discountPercent = int.tryParse(discountPercentController.text.trim()) ?? 0;
+    offerData['discountPct'] = discountPercent;
+    _recalcDiscounted();
+  });
+},
+
   ),
 ),
 const SizedBox(width: 12),
@@ -531,18 +544,72 @@ Expanded(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: () {
-                    _recalcDiscounted(); // ensure latest calc before submit
-                    debugPrint(
-                      'mode=$pricingMode '
-                      'type=$discountType '
-                      'selected=${_selectedServices.length} '
-                      'originalTotal=${originalPriceController.text} '
-                      'discounted=${discountedPriceController.text} '
-                      'amountOff/percent=${amountOffController.text} '
-                      'maxDisc=${maxDiscountController.text}',
-                    );
-                  },
+                 
+onPressed: () async {
+  _recalcDiscounted(); // Ensure latest calculation before submit
+
+  // Prepare the offerData payload based on pricingMode and discountType
+  final offerData = {
+    'name': dealTitleController.text,  // e.g., "New Pack test"
+    'type': widget.source,   // fixed as "PACKAGE"
+    'status': 'ACTIVE',  // fixed as "ACTIVE"
+    'validFrom': validFromController.text.isNotEmpty ? validFromController.text : null,  // send null if not entered
+    'validTo': validTillController.text.isNotEmpty ? validTillController.text : null,  // send null if not entered
+    'pricingMode': pricingMode.toUpperCase(),  // "FIXED" or "DISCOUNT"
+    'price': double.tryParse(discountedPriceController.text.replaceAll('₹', '')) ?? 0,  // price after discount
+    'terms': "Valid on weekdays only.",  // terms can be static or dynamic
+    'items': _selectedServices.map((service) {
+      return {
+        'salonServiceId': service['id'],  // service ID from the selected services
+        'qty': service['qty'],  // quantity from the selected services
+      };
+    }).toList(),
+  };
+
+  // Handle logic for "Flat" and "Discount" pricing modes
+  if (pricingMode == 'Flat') {
+    // Send original price, discounted price, and amount off
+    offerData['amountType'] = 'FLAT';
+    offerData['amount'] = double.tryParse(discountAmountController.text.replaceAll('₹', '')) ?? 0;  // Amount off
+    offerData['discount'] = offerData['amount'];  // Set discount equal to amount for flat discount
+  } else if (pricingMode == 'Discount') {
+    offerData['discountType'] = discountType == 'Flat' ? 'AMOUNT' : 'PERCENT';  // Discount type (Flat or Percent)
+
+    if (discountType == 'Flat') {
+      // If Flat, send Amount off, Original price, and Discounted price
+      offerData['amountType'] = 'FLAT';
+      offerData['amount'] = double.tryParse(discountAmountController.text.replaceAll('₹', '')) ?? 0;  // Amount off
+      offerData['discount'] = offerData['amount'];  // Set discount equal to amount for flat discount
+    } else if (discountType == 'Percent') {
+      // If Percent, send Percent off, Max Discount, Original price, and Discounted price
+      offerData['discountPct'] = int.tryParse(discountPercentController.text) ?? 0;  // Percentage off
+      offerData['maxDiscount'] = double.tryParse(maxDiscountController.text.replaceAll('₹', '')) ?? 0;  // Max discount
+    }
+  }
+
+  // Log all values for debugging purposes
+  debugPrint("Offer Data: $offerData");
+
+  // Make the API call
+  final response = await ApiService.createSalonOffer(widget.salonId, offerData);
+
+  debugPrint("API Response: $response");
+
+  if (response['success'] == true) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Offer created successfully')));
+
+    // Trigger the callback to refresh the offers list in PackageScreen
+    widget.onPackageCreated(widget.salonId);  // Refresh the offer list
+
+    Navigator.pop(context);  // Go back to PackageScreen
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create offer: ${response['message']}')));
+  }
+
+  debugPrint('Response: $response');
+},
+
+
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _accent,
                     shape: RoundedRectangleBorder(borderRadius: _radius),

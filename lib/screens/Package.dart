@@ -223,15 +223,21 @@ Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
     }
 
     // 👇 Navigate to AddDealsScreen
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddDealsScreen(
-          salonId: selectedSalon!['salonId'],
-          salonName: selectedSalon!['salonName'],
-        ),
-      ),
-    );
+   Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (context) => AddDealsScreen(
+      salonId: selectedSalon!['salonId'],
+      salonName: selectedSalon!['salonName'],
+      onPackageCreated: (salonId) {
+        // After package is created, fetch updated offers
+        _fetchOffers(salonId);  // Call the method to refresh the offers
+      },
+      source: 'PACKAGE',
+    ),
+  ),
+);
+
   },
   label: const Text("Add Packages"),
   icon: const Icon(Icons.add),

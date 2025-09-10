@@ -226,6 +226,11 @@ Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
               builder: (context) => AddDealsScreen(
                 salonId: selectedSalon!['salonId'],
                 salonName: selectedSalon!['salonName'],
+                onPackageCreated: (salonId) {
+        // After package is created, fetch updated offers
+        _fetchOffers(salonId);  // Call the method to refresh the offers
+      },
+      source: 'DEAL',  
               ),
             ),
           );
