@@ -31,7 +31,7 @@ class ApiService {
  static String addServiceAPI(int salonId) =>
       "salons/$salonId/services";
 
-static String getServicesAPI(int salonId) =>
+  static String getServicesAPI(int salonId) =>
       "salons/$salonId/services";
 
   static String addCategoryAPI(int salonId) {
@@ -50,10 +50,10 @@ static String getServicesAPI(int salonId) =>
     return "salons/$salonId/branches/add";
   }
 
-static String addTeamMemberEndpoint(int id) {
+  static String addTeamMemberEndpoint(int id) {
     return "branches/$id/add-user";
   }
-static const String getRolesSpecialization = "users/constants";
+  static const String getRolesSpecialization = "users/constants";
 
   static String getTeamMember(int id) {
     return "branches/$id/team";
@@ -73,7 +73,7 @@ static const String getRolesSpecialization = "users/constants";
     return "salons/$salonId/users?activeOnly=true";
   }
 
-//This below four api is pending to implement on frontend
+  //This below four api is pending to implement on frontend
    static String addBranchOffer(int branchId) {
     return "branches/$branchId/offers";
   }
@@ -87,9 +87,9 @@ static const String getRolesSpecialization = "users/constants";
    static String getSalon(int salonId, String status) {
     return "bookings/salon-bookings/$salonId?status=$status";
   }
-}
+  
 
-// / ---------------------- IMAGE UPLOAD ----------------------
+  // / ---------------------- IMAGE UPLOAD ----------------------
 
   Future<String?> uploadImage(File file) async {
     // convert File -> XFile wrapper for AwsS3Uploader
@@ -324,12 +324,12 @@ static const String getRolesSpecialization = "users/constants";
     }
   }
 
-Future<Map<String, dynamic>> addCategory({
-  required int salonId,
-  required AddCategoryRequest request,
-}) async {
-  final token = await getAuthToken(); // 🔑 fetch saved token
-  final url = Uri.parse(baseUrl + "salons/$salonId/categories");
+  Future<Map<String, dynamic>> addCategory({
+    required int salonId,
+    required AddCategoryRequest request,
+  }) async {
+    final token = await getAuthToken(); // 🔑 fetch saved token
+    final url = Uri.parse(baseUrl + "salons/$salonId/categories");
 
   // 🔹 Debug print before API call
   print("➡️ Calling Add Category API");
@@ -354,9 +354,9 @@ Future<Map<String, dynamic>> addCategory({
   } else {
     throw Exception("Failed to add category: ${response.body}");
   }
-}
+  }
 
-// inside ApiService class
+  // inside ApiService class
  Future<Map<String, dynamic>> getCategories({
     required int salonId,
     bool withSubcats = true,
@@ -425,7 +425,7 @@ Future<Map<String, dynamic>> addCategory({
   Future<Map<String, dynamic>> deleteCategory({
   required int salonId,
   required int categoryId,
-}) async {
+  }) async {
   final token = await getAuthToken();
   final url = Uri.parse("${baseUrl}salons/$salonId/categories/$categoryId");
 
@@ -448,7 +448,7 @@ Future<Map<String, dynamic>> addCategory({
   } else {
     throw Exception("Failed to delete category: ${response.body}");
   }
-}
+  }
   // ---------------------- SERVICE CATALOG ----------------------
  Future<Map<String, dynamic>> getServiceCatalog() async {
     final token = await getAuthToken();
@@ -509,7 +509,7 @@ Future<Map<String, dynamic>> addCategory({
   Future<Map<String, dynamic>> addService({
   required int salonId,
   required AddSalonServiceRequest request,
-}) async {
+  }) async {
   final token = await getAuthToken();
   final url = Uri.parse(baseUrl + addServiceAPI(salonId));
 
@@ -534,11 +534,11 @@ Future<Map<String, dynamic>> addCategory({
   } else {
     throw Exception("Failed to add service: ${response.body}");
   }
-}
+  }
 
 
   // ---------------------- GET SERVICES ----------------------
-Future<Map<String, dynamic>> getService({required int salonId}) async {
+  Future<Map<String, dynamic>> getService({required int salonId}) async {
   final token = await getAuthToken();
   final url = Uri.parse(baseUrl + getServicesAPI(salonId)); // Direct string concatenation
 
@@ -561,7 +561,7 @@ Future<Map<String, dynamic>> getService({required int salonId}) async {
   } else {
     throw Exception("Failed to fetch service(s): ${response.body}");
   }
-}
+  }
 
 
   // ---------------------- ADD BRANCH ----------------------
@@ -593,10 +593,10 @@ Future<Map<String, dynamic>> getService({required int salonId}) async {
     print("Failed to add branch: ${response.body}");
     throw Exception("Failed to add branch: ${response.body}");
   }
-}
+  }
 
   // ---------------------- GET BRANCH DETAILS ----------------------
-Future<Map<String, dynamic>> getBranchDetail(int branchId) async {
+  Future<Map<String, dynamic>> getBranchDetail(int branchId) async {
   final token = await getAuthToken(); // Get token from shared preferences
   final url = Uri.parse('$baseUrl' + 'branches/$branchId'); // Fix: avoid double slashes
 
@@ -628,14 +628,14 @@ Future<Map<String, dynamic>> getBranchDetail(int branchId) async {
     print("Error fetching branch details: $e");
     rethrow;
   }
-}
+  }
 
   // ---------------------- ADD SUBCATEGORY ----------------------
-Future<Map<String, dynamic>> addSubCategoryApi({
+  Future<Map<String, dynamic>> addSubCategoryApi({
   required int salonId,
   required int categoryId,
   required String name,
-}) async {
+  }) async {
   // Fix the URL to avoid double slashes
   final url = Uri.parse('$baseUrl${addSubCategory.replaceFirst(RegExp(r'^/'), '')}'
       .replaceAll("{salonId}", salonId.toString())
@@ -682,16 +682,16 @@ Future<Map<String, dynamic>> addSubCategoryApi({
     print("Error adding subcategory: $e"); // Print the error for debugging
     throw Exception("Error adding subcategory: $e");
   }
-} 
+  } 
 
-// ---------------------- UPDATE SUBCATEGORY ----------------------
+  // ---------------------- UPDATE SUBCATEGORY ----------------------
 
-Future<Map<String, dynamic>> updateSubCategoryApi({
+  Future<Map<String, dynamic>> updateSubCategoryApi({
   required int salonId,
   required int subCategoryId,
   required String name,
-}) async {
-final url = Uri.parse(baseUrl + 'salons/$salonId/subcategories/$subCategoryId');
+  }) async {
+  final url = Uri.parse(baseUrl + 'salons/$salonId/subcategories/$subCategoryId');
   // Log the URL being hit
   print("Request URL: $url");
 
@@ -732,7 +732,7 @@ final url = Uri.parse(baseUrl + 'salons/$salonId/subcategories/$subCategoryId');
     print("Error updating subcategory: $e");
     throw Exception('Error updating subcategory: $e');
   }
-}
+  }
 
   // ---------------------- GET BRANCH SERVICE DETAILS ----------------------
    Future<Map<String, dynamic>> getBranchServiceDetail(int branchId) async {
@@ -814,10 +814,10 @@ final url = Uri.parse(baseUrl + 'salons/$salonId/subcategories/$subCategoryId');
     print('Error fetching roles and specializations: $e');
     throw Exception('Error fetching roles and specializations: $e');
   }
-}
+  }
 
-// Endpoint to check user existence and send OTP
-static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) async {
+  // Endpoint to check user existence and send OTP
+  static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) async {
   final url = Uri.parse('$baseUrl$checkSendOtpEndpoint');
   print('Sending request to: $url');
 
@@ -859,7 +859,7 @@ static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) asyn
     print('Error: $e');
     return {'success': false, 'message': 'Error: $e'};
   }
-}
+  }
 
   // ---------------------- ADD TEAM MEMBER ----------------------
   Future<Map<String, dynamic>> addTeamMember(int branchId, Map<String, dynamic> teamMemberData) async {
@@ -903,10 +903,10 @@ static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) asyn
     print('Error: $e');
     return {'success': false, 'message': 'Error: $e'};
   }
-}
+  }
 
   // ---------------------- GET TEAM MEMBERS ----------------------
-static Future<Map<String, dynamic>> getTeamMembers(int branchId) async {
+  static Future<Map<String, dynamic>> getTeamMembers(int branchId) async {
   try {
     // Create an instance of ApiService to call the non-static getAuthToken method
     ApiService apiService = ApiService();
@@ -949,9 +949,9 @@ static Future<Map<String, dynamic>> getTeamMembers(int branchId) async {
     print('Error: $e');
     return {'success': false, 'message': 'Error: $e'};
   }
-}
+  }
 
-Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
+  Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     final url = Uri.parse(baseUrl + getSalonPackagesDeals(salonId));
     try {
       final response = await http.get(url);
@@ -972,10 +972,10 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     }
   }
    
-Future<Map<String, dynamic>> deleteSalonOfferApi({
+  Future<Map<String, dynamic>> deleteSalonOfferApi({
   required int salonId,
   required int offerId,
-}) async {
+  }) async {
   final uri = Uri.parse("$baseUrl${ApiService.deleteSalonOffer(salonId, offerId)}");
 
   print("DELETE Request: $uri");
@@ -987,7 +987,7 @@ Future<Map<String, dynamic>> deleteSalonOfferApi({
     'Accept': 'application/json',
     // Don't send Content-Type since there is no body
   },
-).timeout(const Duration(seconds: 25));
+  ).timeout(const Duration(seconds: 25));
 
     print("Response [${resp.statusCode}]: ${resp.body}");
 
@@ -1015,8 +1015,7 @@ Future<Map<String, dynamic>> deleteSalonOfferApi({
     print("❌ DELETE error: $e");
     return {'success': false, 'message': e.toString()};
   }
-}
-
+  }
 Future<Map<String, dynamic>> getSalonUsersApi(int salonId, {bool activeOnly = true}) async {
   final uri = Uri.parse(baseUrl + getSalonUser(salonId, activeOnly));
 
@@ -1058,46 +1057,49 @@ Future<Map<String, dynamic>> getSalonUsersApi(int salonId, {bool activeOnly = tr
     print("❌ GET error: $e");
     return {'success': false, 'message': e.toString(), 'data': []};
   }
-    // ---------------------- CREATE OFFER ----------------------
- // Method to add salon offer
-static Future<Map<String, dynamic>> createSalonOffer(int salonId, Map<String, dynamic> offerData) async {
-    final url = Uri.parse("$baseUrl${addSalonOffer(salonId)}");
+}
+Future<Map<String, dynamic>> createSalonOffer(int salonId, Map<String, dynamic> offerData) async {
+  final url = Uri.parse("$baseUrl${addSalonOffer(salonId)}"); // Ensure this returns the correct endpoint
 
-    // Log the full URL to check if it's correctly constructed
-    print("Request URL: $url");
+  // Log the full URL to check if it's correctly constructed
+  print("Request URL: $url");
 
-    // Log the request headers and the offer data being sent
-    print("Request Headers: {'Content-Type': 'application/json'}");
-    print("Request Body: ${json.encode(offerData)}");
+  // Log the request headers and the offer data being sent
+  print("Request Headers: {'Content-Type': 'application/json'}");
+  print("Request Body: ${json.encode(offerData)}");
 
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          // Add other headers if necessary, such as 'Authorization': 'Bearer token'
-        },
-        body: json.encode(offerData),
-      );
+  try {
+    // Get the auth token if necessary
+    final token = await getAuthToken(); // Assuming you need an authentication token
 
-      // Log the response status and body for debugging
-      print("Response Status: ${response.statusCode}");
-      print("Response Body: ${response.body}");
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token', // Use token if authentication is required
+      },
+      body: json.encode(offerData), // Sending the offer data as JSON
+    );
 
-      if (response.statusCode == 201) {
-        // Successfully created the offer
-        return json.decode(response.body); // Returning the response in JSON format
-      } else {
-        // Handle unsuccessful response (e.g., 400, 500)
-        return {
-          'success': false,
-          'message': 'Failed to create offer. Status Code: ${response.statusCode}. Response: ${response.body}',
-        };
-      }
-    } catch (e) {
-      // Catch network errors or any other issues
-      print("Error: $e");
-      return {'success': false, 'message': 'Error: $e'};
+    // Log the response status and body for debugging
+    print("Response Status: ${response.statusCode}");
+    print("Response Body: ${response.body}");
+
+    if (response.statusCode == 201) {
+      // Successfully created the offer
+      return json.decode(response.body); // Returning the response in JSON format
+    } else {
+      // Handle unsuccessful response (e.g., 400, 500)
+      return {
+        'success': false,
+        'message': 'Failed to create offer. Status Code: ${response.statusCode}. Response: ${response.body}',
+      };
     }
+  } catch (e) {
+    // Catch network errors or any other issues
+    print("Error: $e");
+    return {'success': false, 'message': 'Error: $e'};
   }
+}
+
 }

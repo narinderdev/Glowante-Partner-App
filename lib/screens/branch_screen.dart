@@ -5,7 +5,7 @@ import 'reviews_screen.dart';
 import 'about_screen.dart';
 import 'Package.dart';
 import 'Deal.dart';
-import 'BranchBookingsScreen.dart';
+import '../screens/BranchBookings.dart';
 
 class BranchScreen extends StatelessWidget {
   final int salonId;
