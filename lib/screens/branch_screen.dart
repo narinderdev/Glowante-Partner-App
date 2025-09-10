@@ -5,7 +5,7 @@ import 'reviews_screen.dart';
 import 'about_screen.dart';
 import '../screens/BranchPackages.dart';
 import '../screens/BranchDeals.dart';
-import '../screens/BranchBookings.dart';
+// import '../screens/BranchBookings.dart';
 
 class BranchScreen extends StatelessWidget {
   final int salonId;
@@ -98,7 +98,7 @@ class BranchScreen extends StatelessWidget {
                   unselectedLabelColor: Colors.grey,
                   indicatorColor: Colors.purple,
                   tabs: [
-                    Tab(text: 'Bookings'),
+                    // Tab(text: 'Bookings'),
                     Tab(text: 'Services'),
                     Tab(text: 'Packages'),
                     Tab(text: 'Deals'),
@@ -112,7 +112,7 @@ class BranchScreen extends StatelessWidget {
           ],
           body: TabBarView(
             children: [
-              BranchBookingsScreen(),
+              // BranchBookingsScreen(branchDetails: branchDetails,),
               ServicesTab(branchId: branchDetails['id']),
               BranchPackagesScreen(branchDetails: branchDetails,),
               BranchDealsScreen(branchDetails: branchDetails,),

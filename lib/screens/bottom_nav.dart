@@ -3,6 +3,7 @@ import 'home_screen.dart';  // Ensure HomeScreen is imported
 import 'salons_screen.dart'; // Adjust the path as needed for Salons screen
 import 'category_screen.dart'; // Adjust the path as needed for Category screen
 import 'profile_screen.dart'; // Adjust the path as needed for Profile screen
+import 'Bookings.dart'; // Adjust the path as needed for Bookings screen
 
 class BottomNav extends StatefulWidget {
   final int tabIndex;
@@ -44,6 +45,7 @@ class _BottomNavState extends State<BottomNav> {
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.store), label: 'Salons'),  // Salons tab
           BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Category'),  // Category tab
+          BottomNavigationBarItem(icon: Icon(Icons.event), label: 'Bookings'),  // Category tab
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),  // Profile tab
         ],
       ),
@@ -60,6 +62,8 @@ class _BottomNavState extends State<BottomNav> {
       case 2:
         return CategoryScreen();  // Show CategoryScreen for tabIndex 2
       case 3:
+        return BookingsScreen();  // Show ProfileScreen for tabIndex 3
+      case 4:
         return ProfileScreen();  // Show ProfileScreen for tabIndex 3
       default:
         return HomeScreen();  // Default to HomeScreen if no valid index

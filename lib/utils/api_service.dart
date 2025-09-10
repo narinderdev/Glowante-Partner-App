@@ -72,22 +72,27 @@ class ApiService {
    static String getSalonUser(int salonId, bool isActiveOnly) {
     return "salons/$salonId/users?activeOnly=true";
   }
-
-  //This below four api is pending to implement on frontend
-   static String addBranchOffer(int branchId) {
-    return "branches/$branchId/offers";
-  }
- static String getBranchPackagesDeals(int branchId) {
-    return "branches/$branchId/offers";
+ static String getBranchPackagesDealsUrl(int branchId) {
+    return "${baseUrl}branches/$branchId/offers";
   }
     // get appointments
   static String getAppointmentByDate(int branchId, String date) {
     return "branches/$branchId/appointments/by-date?date=$date";
   }
+
+  //This below 3 api is pending to implement on frontend
+   static String addBranchOffer(int branchId) {
+    return "branches/$branchId/offers";
+  }
+
+    // Confirm Booking appointment
+static String confirmAppointmentAPI(int branchId, int appointmentId) {
+  return "branches/${branchId}/appointments/${appointmentId}/confirm";
+}
    static String getSalon(int salonId, String status) {
     return "bookings/salon-bookings/$salonId?status=$status";
   }
-  
+
 
   // / ---------------------- IMAGE UPLOAD ----------------------
 
@@ -118,6 +123,7 @@ class ApiService {
     final loginPayload = {
       "phoneNumber": phoneNumber,
       "source": "app",
+      "deviceToken": "xyz-device-token"
     };
 
     final response = await http.post(
@@ -1099,6 +1105,83 @@ Future<Map<String, dynamic>> createSalonOffer(int salonId, Map<String, dynamic> 
     // Catch network errors or any other issues
     print("Error: $e");
     return {'success': false, 'message': 'Error: $e'};
+  }
+}
+  // API call method with logging
+  static Future<Map<String, dynamic>> getBranchPackagesDeals(int branchId) async {
+    final url = Uri.parse(getBranchPackagesDealsUrl(branchId)); // Call the URL generator method
+    print('Request URL: $url');  // Log the request URL
+
+    try {
+      final response = await http.get(url);
+
+      print('Response Status Code: ${response.statusCode}'); // Log the status code
+      print('Response Body: ${response.body}'); // Log the response body
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        print('Parsed Data: $data'); // Log the parsed data
+
+        return {
+          'success': data['success'],
+          'message': data['message'],
+          'data': data['data'],
+        };
+      } else {
+        print('Failed to load offers: ${response.body}');  // Log error response
+        return {
+          'success': false,
+          'message': 'Failed to load offers',
+          'data': [],
+        };
+      }
+    } catch (e) {
+      print('Error: $e');  // Log error
+      return {
+        'success': false,
+        'message': 'Error: $e',
+        'data': [],
+      };
+    }
+  }
+Future<Map<String, dynamic>> fetchAppointments(int branchId, String date) async {
+  try {
+    // Fetch the token from SharedPreferences
+    final token = await getAuthToken(); // Use the same approach to get the token
+
+    if (token.isEmpty) {
+      throw Exception("No token found");
+    }
+
+    final url = baseUrl + getAppointmentByDate(branchId, date);
+
+    // Log the request details for debugging
+    print("Request URL: $url");
+    print("Authorization: Bearer $token");
+
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json', // Add content-type header
+        'Authorization': 'Bearer $token',   // Add token in Authorization header
+      },
+    );
+
+    // Log the response status code and body
+    print("Response Status Code: ${response.statusCode}");
+    print("Response Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      // Decode the JSON response and return it
+      final responseData = json.decode(response.body);
+      print("Decoded Response Data: $responseData");
+      return responseData;
+    } else {
+      throw Exception('Failed to load appointments');
+    }
+  } catch (e) {
+    print("Error: $e");
+    rethrow; // Rethrow to propagate the error
   }
 }
 

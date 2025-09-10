@@ -339,9 +339,9 @@ Widget build(BuildContext context) {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
- Text('Branch ID: ${widget.branchId}',
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w600)),
+//  Text('Branch ID: ${widget.branchId}',
+//                     style: const TextStyle(
+//                         fontSize: 16, fontWeight: FontWeight.w600)),
 
                  Center(
   child: GestureDetector(
