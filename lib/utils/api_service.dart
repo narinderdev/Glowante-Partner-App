@@ -15,7 +15,7 @@ import 'dart:async';
 
 class ApiService {
   // static const String baseUrl = "https://dev4-api.glowante.com/";
-  static const String baseUrl = "https://d3ed9f0a3a5f.ngrok-free.app/";
+  static const String baseUrl = "https://b6779b50f5d2.ngrok-free.app/";
 
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
@@ -26,9 +26,9 @@ class ApiService {
   static const String logoutUser = "auth/logout";
   static const String serviceCatalog = "service-catalog";
   static const String getBranchServices = "salon-service/catalog";
-   static const String addSubCategory = "/salons/{salonId}/categories/{categoryId}/subcategories";
+  static const String addSubCategory = "/salons/{salonId}/categories/{categoryId}/subcategories";
   static const String checkSendOtpEndpoint = "users/check-and-send-otp";
- static String addServiceAPI(int salonId) =>
+  static String addServiceAPI(int salonId) =>
       "salons/$salonId/services";
 
   static String getServicesAPI(int salonId) =>
@@ -1144,6 +1144,7 @@ Future<Map<String, dynamic>> createSalonOffer(int salonId, Map<String, dynamic> 
       };
     }
   }
+  // ---------------------- FETCH APPOINTMENTS BY DATE ----------------------
 Future<Map<String, dynamic>> fetchAppointments(int branchId, String date) async {
   try {
     // Fetch the token from SharedPreferences
