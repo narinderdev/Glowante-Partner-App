@@ -15,7 +15,7 @@ import 'dart:async';
 
 class ApiService {
   // static const String baseUrl = "https://dev4-api.glowante.com/";
-  static const String baseUrl = "https://841df1c8473a.ngrok-free.app/";
+  static const String baseUrl = "https://ea264d96cb65.ngrok-free.app/";
 
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
@@ -79,16 +79,16 @@ class ApiService {
   static String getAppointmentByDate(int branchId, String date) {
     return "branches/$branchId/appointments/by-date?date=$date";
   }
+  static String confirmAppointmentAPI(int branchId, int appointmentId) {
+    return "branches/${branchId}/appointments/${appointmentId}/confirm";
+  }
 
   //This below 3 api is pending to implement on frontend
    static String addBranchOffer(int branchId) {
     return "branches/$branchId/offers";
   }
 
-    // Confirm Booking appointment
-static String confirmAppointmentAPI(int branchId, int appointmentId) {
-  return "branches/${branchId}/appointments/${appointmentId}/confirm";
-}
+    // Confirm Booking appointment (see static helper above)
    static String getSalon(int salonId, String status) {
     return "bookings/salon-bookings/$salonId?status=$status";
   }
@@ -1185,5 +1185,54 @@ Future<Map<String, dynamic>> fetchAppointments(int branchId, String date) async 
     rethrow; // Rethrow to propagate the error
   }
 }
+
+  // ---------------------- CONFIRM APPOINTMENT ----------------------
+  Future<Map<String, dynamic>> confirmAppointment({
+    required int branchId,
+    required int appointmentId,
+  }) async {
+    try {
+      final token = await getAuthToken();
+      if (token.isEmpty) {
+        throw Exception('No token found');
+      }
+
+      final url = Uri.parse(baseUrl + confirmAppointmentAPI(branchId, appointmentId));
+      print("Confirm Appointment URL: $url");
+
+      final resp = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({}),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      print("[Confirm] Status: ${resp.statusCode}");
+      print("[Confirm] Body: ${resp.body}");
+
+      final body = resp.body.isEmpty ? <String, dynamic>{} : (jsonDecode(resp.body) as Map<String, dynamic>);
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        return {
+          'success': body['success'] ?? true,
+          'message': body['message'] ?? 'Appointment confirmed',
+          'data': body['data'],
+        };
+      } else {
+        return {
+          'success': body['success'] ?? false,
+          'message': body['message'] ?? 'Failed to confirm appointment',
+          'statusCode': resp.statusCode,
+          'data': body['data'],
+        };
+      }
+    } catch (e) {
+      print("Error confirming appointment: $e");
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 
 }

@@ -162,6 +162,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Client Name
+                Text('Salon & Branch Id: ${widget.salonId ?? '-'} / ${widget.branchId ?? '-'}'),
                 const _FieldLabel('Client Name *'),
                 TextFormField(
                   controller: _clientNameCtrl,

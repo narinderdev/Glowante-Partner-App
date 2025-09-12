@@ -350,31 +350,52 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
           top: top,
           width: width,
           height: height < 30 ? 30 : height,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              color: bg,
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    serviceName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
-                  ),
-                  if (priceText.isNotEmpty)
-                    Text('Price: $priceText', style: const TextStyle(color: Colors.black87)),
-                  Align(
-                    alignment: Alignment.bottomRight,
-                    child: Text(
-                      status,
-                      style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
-                    ),
-                  ),
-                ],
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _openAppointmentSheet(booking, item),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  color: bg,
+                  padding: const EdgeInsets.all(10),
+                  child: Builder(builder: (_) {
+                    final bool compact = height < 72;
+                    if (compact) {
+                      return Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          serviceName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Colors.black87),
+                        ),
+                      );
+                    }
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          serviceName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
+                        ),
+                        if (priceText.isNotEmpty)
+                          Text('Price: $priceText', style: const TextStyle(color: Colors.black87)),
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: Text(
+                            status,
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ),
               ),
             ),
           ),
@@ -383,6 +404,107 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
     }
 
     return blocks;
+  }
+
+  void _openAppointmentSheet(Map<String, dynamic> booking, Map<String, dynamic>? item) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        bool loading = false;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final List items = (booking['items'] as List?) ?? const [];
+            final Map? useItem = item ?? (items.isNotEmpty ? items.first as Map : null);
+            final String services = useItem != null
+                ? (useItem['branchService']?['displayName']?.toString() ?? '')
+                : items
+                    .map((e) => (e as Map)['branchService']?['displayName']?.toString() ?? '')
+                    .where((s) => s.isNotEmpty)
+                    .join(', ');
+            final start = _parseLocal(useItem?['startAt']?.toString()) ?? _parseLocal(booking['startAt']);
+            final end = _parseLocal(useItem?['endAt']?.toString()) ?? _parseLocal(booking['endAt']);
+            final timeStr = start != null && end != null
+                ? "${DateFormat('h:mm a').format(start)} - ${DateFormat('h:mm a').format(end)}"
+                : '';
+            final String statusUpper = (booking['status'] ?? '').toString().toUpperCase();
+            final bool isPending = statusUpper == 'PENDING';
+
+            Future<void> onConfirm() async {
+              if (selectedBranchId == null) return;
+              setModalState(() => loading = true);
+              final resp = await ApiService().confirmAppointment(
+                branchId: selectedBranchId!,
+                appointmentId: booking['id'] as int,
+              );
+              setModalState(() => loading = false);
+              if (resp['success'] == true) {
+                Navigator.of(context).pop();
+                getBookingsByDate(selectedBranchId!, selectedDate);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(resp['message']?.toString() ?? 'Confirmed')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(resp['message']?.toString() ?? 'Failed to confirm')),
+                );
+              }
+            }
+
+            return FractionallySizedBox(
+              heightFactor: 0.2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            services.isEmpty ? 'Appointment' : services,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(context),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    if (timeStr.isNotEmpty)
+                      Text(timeStr, style: const TextStyle(color: Colors.black54)),
+                    const SizedBox(height: 4),
+                    Text('Status: ' + (booking['status']?.toString() ?? ''),
+                        style: const TextStyle(color: Colors.black54)),
+                    const Spacer(),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (loading || !isPending) ? null : onConfirm,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: loading
+                            ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : Text(isPending ? 'Confirm' : 'Not Pending'),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   // Function to handle branch selection
@@ -798,4 +920,8 @@ Widget _statusBox(String title, int count, Color color) {
     ),
   );
 }}
+
+
+
+
 
