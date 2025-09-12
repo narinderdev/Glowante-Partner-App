@@ -175,13 +175,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         link: _searchFieldLink,
         showWhenUnlinked: false,
         offset: const Offset(0, 56 + 6), // field height + gap
-        child: Material(
-          elevation: 6,
-          borderRadius: BorderRadius.circular(12),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 300),
-            child: SizedBox(
-              width: overlayWidth,
+        child: SizedBox(
+          width: overlayWidth,
+          child: Material(
+            elevation: 6,
+            borderRadius: BorderRadius.circular(12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 300),
               child: predictions.isEmpty
                   ? const SizedBox.shrink()
                   : ListView(
