@@ -172,107 +172,195 @@ Future<void> _submitBranchDetails() async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Add Branch')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTextField(branchNameController, 'Branch Name *', 'Enter branch name'),
-            _buildTextField(phoneController, 'Phone Number *', 'Enter phone number'),
-
-            // Time picker fields
-            Row(
-              children: [
-                Expanded(
-                  child: _buildTimePickerField(
-                    controller: startTimeController,
-                    label: 'Start Time *',
-                    onTap: () => _selectTime(context, true),
+      appBar: AppBar(title: const Text('Add Branch'), centerTitle: true),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Card container for primary details
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      _buildTextField(branchNameController, 'Branch Name *', 'Enter branch name'),
+                      _buildTextField(
+                        phoneController,
+                        'Phone Number *',
+                        'Enter phone number',
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTimePickerField(
+                              controller: startTimeController,
+                              label: 'Start Time *',
+                              onTap: () => _selectTime(context, true),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildTimePickerField(
+                              controller: endTimeController,
+                              label: 'End Time *',
+                              onTap: () => _selectTime(context, false),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: _buildTimePickerField(
-                    controller: endTimeController,
-                    label: 'End Time *',
-                    onTap: () => _selectTime(context, false),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 20), 
-
-            // If location is provided, display it
-            if (buildingName.isNotEmpty && city.isNotEmpty && pincode.isNotEmpty && state.isNotEmpty) ...[
-              Row(
-                children: [
-                  Expanded(child: Text('$buildingName, $city, $pincode, $state')),
-                  IconButton(
-                    icon: Icon(Icons.edit, color: Colors.blue),
-                    onPressed: _navigateToAddLocation,
-                  ),
-                ],
               ),
-            ] else ...[
-              // If no address, show Add Location button
+
+              const SizedBox(height: 16),
+
+              // Location section
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Location', style: TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      if (buildingName.isNotEmpty && city.isNotEmpty && pincode.isNotEmpty && state.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: Text('$buildingName, $city, $pincode, $state')),
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: _navigateToAddLocation,
+                            ),
+                          ],
+                        )
+                      else
+                        ElevatedButton(
+                          onPressed: _navigateToAddLocation,
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: const Size(double.infinity, 48),
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('Add Location'),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Description
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: _buildTextField(
+                    descriptionController,
+                    'Description *',
+                    'Enter a description',
+                    maxLines: 4,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Images
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Branch Images', style: TextStyle(fontWeight: FontWeight.w600)),
+                          IconButton(onPressed: _pickImage, icon: const Icon(Icons.add_a_photo, color: Colors.orange)),
+                        ],
+                      ),
+                      if (_images != null && _images!.isNotEmpty)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _images!.map((image) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                File(image.path),
+                                width: 90,
+                                height: 90,
+                                fit: BoxFit.cover,
+                              ),
+                            );
+                          }).toList(),
+                        )
+                      else
+                        const Text('No images selected'),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Submit button
               ElevatedButton(
-                onPressed: _navigateToAddLocation,
-                child: Text('Add Location'),
+                onPressed: _submitBranchDetails,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Submit Branch'),
               ),
             ],
-
-            // Description field
-            SizedBox(height: 20),
-            _buildTextField(descriptionController, 'Description *', 'Enter a description'),
-
-            // Pick Image button
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _pickImage,
-              child: Text('Pick Images'),
-            ),
-
-            // Display selected images
-            if (_images != null && _images!.isNotEmpty)
-              Wrap(
-                children: _images!.map((image) {
-                  return Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Image.file(
-                      File(image.path),
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                    ),
-                  );
-                }).toList(),
-              ),
-
-            // Submit button
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _submitBranchDetails,
-              child: Text('Submit Branch'),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   // Method to build text fields
-  Widget _buildTextField(TextEditingController controller, String label, String hint) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    String hint, {
+    int maxLines = 1,
+    TextInputType? keyboardType,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextField(
         controller: controller,
+        maxLines: maxLines,
+        keyboardType: keyboardType,
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: BorderSide(color: Colors.orange),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.orange),
           ),
         ),
       ),
