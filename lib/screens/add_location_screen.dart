@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'dart:math' as math;
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({
@@ -29,6 +30,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   late FlutterGooglePlacesSdk _places;
   List<AutocompletePrediction> predictions = [];
   OverlayEntry? overlayEntry;
+  final LayerLink _searchFieldLink = LayerLink();
+  final FocusNode _searchFocus = FocusNode();
+  Duration _debounceDuration = const Duration(milliseconds: 350);
+  DateTime _lastType = DateTime.fromMillisecondsSinceEpoch(0);
+  double? _anchorWidth; // width of search field to size overlay
+  String _latestQuery = '';
 
   final TextEditingController buildingNameController = TextEditingController();
   final TextEditingController cityController = TextEditingController();
@@ -49,6 +56,25 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     stateController.text = widget.state;
 
     print('API Key: ${dotenv.env['GOOGLE_API_KEY']}');
+
+    _searchFocus.addListener(() {
+      if (!_searchFocus.hasFocus) {
+        _removeOverlay();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _removeOverlay();
+    _searchFocus.dispose();
+    buildingNameController.dispose();
+    cityController.dispose();
+    pincodeController.dispose();
+    stateController.dispose();
+    completeAddressController.dispose();
+    searchLocationController.dispose();
+    super.dispose();
   }
 
   // Function to get current location and fill in the address
@@ -101,69 +127,84 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
   // Fetch predictions from Google Places API
   Future<void> _getPredictions(String input) async {
-    if (input.isEmpty) {
-      setState(() => predictions = []);
+    final query = input.trim();
+    if (query.isEmpty) {
+      if (mounted) {
+        setState(() => predictions = []);
+      }
       _removeOverlay();
       return;
     }
 
     try {
-      print('Fetching predictions for: $input');
-      final result = await _places.findAutocompletePredictions(input, countries: ['IN']);
+      _latestQuery = query;
+      print('Fetching predictions for: $query');
+      final result = await _places.findAutocompletePredictions(query, countries: ['IN']);
       print('Predictions result: $result');
     
       // Check if predictions exist in the response
       if (result.predictions?.isEmpty ?? true) {
         print('No predictions found.');
+        if (mounted) setState(() => predictions = []);
+        _removeOverlay();
+        return;
       } else {
-        setState(() => predictions = result.predictions!);
+        // Ignore stale results if user has typed more meanwhile
+        if (_latestQuery != query || searchLocationController.text.trim().isEmpty) {
+          return;
+        }
+        if (mounted) setState(() => predictions = result.predictions!);
         print('Predictions: $predictions');
       }
-      _showOverlay();
+      if (predictions.isNotEmpty && searchLocationController.text.trim().isNotEmpty) {
+        _showOverlay();
+      }
     } catch (e) {
       print('Error fetching predictions: $e');
     }
   }
 
-  // Show overlay with the list of predictions
+  // Show overlay with the list of predictions anchored to the search field
   void _showOverlay() {
     _removeOverlay();
-    final renderBox = context.findRenderObject() as RenderBox?;
-    if (renderBox == null) {
-      print('RenderBox is null');
-      return;
-    }
-
-    final size = renderBox.size;
-    final offset = renderBox.localToGlobal(Offset.zero);
-
+    final double screenW = MediaQuery.of(context).size.width;
+    // Force the popup to be half the screen width
+    final double overlayWidth = (screenW * 0.5).clamp(160.0, screenW).toDouble();
     overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        left: offset.dx,
-        top: offset.dy + size.height + 8.0,
-        width: size.width,
+      builder: (context) => CompositedTransformFollower(
+        link: _searchFieldLink,
+        showWhenUnlinked: false,
+        offset: const Offset(0, 56 + 6), // field height + gap
         child: Material(
-          elevation: 4,
+          elevation: 6,
           borderRadius: BorderRadius.circular(12),
-          child: ListView(
-            shrinkWrap: true,
-            children: predictions.map((prediction) {
-              return ListTile(
-                title: Text(prediction.fullText ?? ''),
-                onTap: () async {
-                  searchLocationController.text = prediction.fullText ?? '';
-                  await _onPredictionSelected(prediction.placeId);
-                  _removeOverlay();
-                  setState(() => predictions = []);
-                },
-              );
-            }).toList(),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: SizedBox(
+              width: overlayWidth,
+              child: predictions.isEmpty
+                  ? const SizedBox.shrink()
+                  : ListView(
+                      padding: EdgeInsets.zero,
+                      shrinkWrap: true,
+                      children: predictions.map((prediction) {
+                        final text = prediction.fullText ?? '';
+                        return ListTile(
+                          title: Text(text),
+                          onTap: () async {
+                            searchLocationController.text = text;
+                            await _onPredictionSelected(prediction.placeId);
+                            _removeOverlay();
+                          },
+                        );
+                      }).toList(),
+                    ),
+            ),
           ),
         ),
       ),
     );
     Overlay.of(context)?.insert(overlayEntry!);
-    print('Overlay shown');
   }
 
   // Remove overlay when no results are found or a result is selected
@@ -191,21 +232,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     }
 
     setState(() {
-      buildingNameController.text = model.buildingOrFlat;
+      buildingNameController.text = (model.buildingOrFlat.isNotEmpty ? model.buildingOrFlat : placeDetails.place?.name ?? '');
       cityController.text = model.city;
       stateController.text = model.state;
       pincodeController.text = model.postalCode;
-      completeAddressController.text = model.fullAddress;
-    });
-
-    // Pass Latitude and Longitude back to AddSalonScreen
-    Navigator.pop(context, {
-      'buildingName': buildingNameController.text,
-      'city': cityController.text,
-      'pincode': pincodeController.text,
-      'state': stateController.text,
-      'latitude': latitude,  // Send latitude
-      'longitude': longitude, // Send longitude
+      latitude = model.latitude;
+      longitude = model.longitude;
+      completeAddressController.text = placeDetails.place?.address ?? searchLocationController.text;
     });
   }
 
@@ -213,16 +246,61 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Add Location')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTextField(searchLocationController, 'Search Location', 'Search for a location'),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _getCurrentLocation,
-              child: Text('Use Current Location'),
+      body: GestureDetector(
+        onTap: () {
+          FocusScope.of(context).unfocus();
+          _removeOverlay();
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CompositedTransformTarget(
+                link: _searchFieldLink,
+              child: LayoutBuilder(builder: (context, constraints) {
+                if (_anchorWidth != constraints.maxWidth) {
+                  // store field width to size overlay
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) setState(() => _anchorWidth = constraints.maxWidth);
+                  });
+                }
+                return SizedBox(
+                  height: 56,
+                  child: TextField(
+                    controller: searchLocationController,
+                    focusNode: _searchFocus,
+                    decoration: InputDecoration(
+                    labelText: 'Search Location',
+                    hintText: 'Search for a location',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: Colors.orange),
+                    ),
+                    ),
+                    onChanged: (val) {
+                      final now = DateTime.now();
+                      if (val.trim().isEmpty) {
+                        setState(() => predictions = []);
+                        _removeOverlay();
+                        return;
+                      }
+                      if (now.difference(_lastType) < _debounceDuration) return;
+                      _lastType = now;
+                      _getPredictions(val.trim());
+                    },
+                  ),
+                );
+              }),
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: _getCurrentLocation,
+                child: Text('Use Current Location'),
               style: ElevatedButton.styleFrom(
                 minimumSize: Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
@@ -268,8 +346,10 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             ),
           ],
         ),
+        ),
       ),
-    );
+    ),
+  );
   }
 
   // Custom method to build text fields with consistent styling
@@ -291,6 +371,15 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             borderSide: BorderSide(color: Colors.orange),
           ),
         ),
+        onChanged: (text) {
+          // If this field is the search field, trigger predictions
+          if (controller == searchLocationController) {
+            final now = DateTime.now();
+            if (now.difference(_lastType) < _debounceDuration) return;
+            _lastType = now;
+            _getPredictions(text.trim());
+          }
+        },
       ),
     );
   }
