@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';  // For date formatting
 import '../utils/api_service.dart';  // Import the correct api_service.dart file
+import 'AddBookings.dart';  // Add Booking screen
 
 class BookingsScreen extends StatefulWidget {
   @override
@@ -18,6 +19,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
   DateTime selectedDate = DateTime.now();  // Initial date is today
   List<Map<String, dynamic>> teamMembers = []; // Store team members for the selected branch
   List<String> timeSlots = []; // Declare the timeSlots list
+  // Branch working hours for rendering grid/blocks
+  String? _branchStartTimeStr; // e.g. "08:00:00"
+  String? _branchEndTimeStr;   // e.g. "20:00:00"
+
+  // Layout constants for the grid
+  static const double _rowHeight = 44.0;   // 15-min slot height
+  static const double _colWidth = 140.0;   // staff column width
 
   int pendingCount = 0;
   int cancelledCount = 0;
@@ -156,14 +164,23 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
     if (response != null && response['success'] == true && response['data'] != null) {
       List<dynamic> appointments = response['data'];
 
-      // Fetch start and end time from the response
-      String startTime = response['data'][0]['branch']['startTime']; // Example response structure
-      String endTime = response['data'][0]['branch']['endTime'];
+      // Try to fetch branch working hours from the payload (fallback-safe)
+      String startTime = '08:00:00';
+      String endTime = '20:00:00';
+      if (appointments.isNotEmpty) {
+        final b = appointments.first;
+        if (b['branch'] != null) {
+          startTime = (b['branch']['startTime'] ?? startTime).toString();
+          endTime = (b['branch']['endTime'] ?? endTime).toString();
+        }
+      }
 
       // Generate time slots and populate the timeSlots list
       setState(() {
         timeSlots = generateTimeSlots(startTime, endTime); // Populate timeSlots
         print("Generated Time Slots: $timeSlots"); // Debugging line to check the time slots
+        _branchStartTimeStr = startTime;
+        _branchEndTimeStr = endTime;
       });
 
       setState(() {
@@ -211,6 +228,163 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
     }
   }
 
+  // Combine selected date with a HH:mm[:ss] string to a local DateTime
+  DateTime _combineDateAndTime(DateTime date, String timeStr) {
+    int h = 0, m = 0, s = 0;
+    try {
+      final parts = timeStr.split(':');
+      if (parts.isNotEmpty) h = int.tryParse(parts[0]) ?? 0;
+      if (parts.length > 1) m = int.tryParse(parts[1]) ?? 0;
+      if (parts.length > 2) s = int.tryParse(parts[2]) ?? 0;
+    } catch (_) {}
+    return DateTime(date.year, date.month, date.day, h, m, s);
+  }
+
+  // Safely parse ISO string to local DateTime
+  DateTime? _parseLocal(String? iso) {
+    if (iso == null) return null;
+    try {
+      return DateTime.parse(iso).toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Find staff column index for a booking item by matching user id
+  int _findMemberColumnForItem(Map<String, dynamic> item) {
+    final dynamic userId = item['assignedUserBranch']?['user']?['id'] ??
+        item['assignedUserBranch']?['userId'] ??
+        item['user']?['id'] ??
+        item['userId'];
+    if (userId == null) return -1;
+    final idx = teamMembers.indexWhere((m) {
+      final mid = m['id'] ?? m['user']?['id'] ?? m['userId'];
+      return mid == userId;
+    });
+    return idx;
+  }
+
+  // Background grid rows + vertical separators for the timetable
+  List<Widget> _buildBackgroundGrid() {
+    final List<Widget> widgets = [];
+    // Row backgrounds
+    for (int r = 0; r < timeSlots.length; r++) {
+      widgets.add(Positioned(
+        top: r * _rowHeight,
+        left: 0,
+        right: 0,
+        height: _rowHeight,
+        child: Container(
+          decoration: BoxDecoration(
+            color: r % 2 == 0 ? Colors.white : const Color(0xFFF9F9F9),
+            border: Border(
+              bottom: BorderSide(color: Colors.grey.shade300),
+            ),
+          ),
+        ),
+      ));
+    }
+    // Vertical separators between staff columns
+    for (int c = 1; c < (teamMembers.isEmpty ? 1 : teamMembers.length); c++) {
+      widgets.add(Positioned(
+        top: 0,
+        bottom: 0,
+        left: c * _colWidth - 1,
+        width: 1,
+        child: Container(color: Colors.grey.shade300),
+      ));
+    }
+    return widgets;
+  }
+
+  // Build booking blocks overlayed on the grid
+  List<Widget> _buildBookingBlocks() {
+    if (bookings.isEmpty || timeSlots.isEmpty) return const <Widget>[];
+
+    final startStr = _branchStartTimeStr ?? '08:00:00';
+    final endStr = _branchEndTimeStr ?? '20:00:00';
+    final DateTime dayStart = _combineDateAndTime(selectedDate, startStr);
+    final DateTime dayEnd = _combineDateAndTime(selectedDate, endStr);
+
+    final List<Widget> blocks = [];
+
+    for (final booking in bookings) {
+      final status = (booking['status'] ?? '').toString().toUpperCase();
+      final items = (booking['items'] as List?) ?? const [];
+
+      for (final raw in items) {
+        final item = Map<String, dynamic>.from(raw as Map);
+        final col = _findMemberColumnForItem(item);
+        if (col < 0) continue;
+
+        final DateTime? rawStart = _parseLocal(item['startAt']) ?? _parseLocal(booking['startAt']);
+        final DateTime? rawEnd = _parseLocal(item['endAt']) ?? _parseLocal(booking['endAt']);
+        if (rawStart == null || rawEnd == null) continue;
+
+        // Clamp within branch working hours
+        DateTime start = rawStart.isBefore(dayStart) ? dayStart : rawStart;
+        DateTime end = rawEnd.isAfter(dayEnd) ? dayEnd : rawEnd;
+        if (!end.isAfter(start)) continue;
+
+        final int minutesFromStart = start.difference(dayStart).inMinutes;
+        final int durationMin = item['durationMin'] is int
+            ? item['durationMin'] as int
+            : end.difference(start).inMinutes;
+
+        final double top = (minutesFromStart / 15.0) * _rowHeight;
+        final double height = (durationMin / 15.0) * _rowHeight - 2;
+        final double left = col * _colWidth + 6;
+        final double width = _colWidth - 12;
+
+        Color bg = Colors.blue.shade300;
+        if (status == 'PENDING') bg = Colors.orange.shade300;
+        if (status == 'CANCELLED') bg = Colors.red.shade300;
+        if (status == 'COMPLETED') bg = Colors.green.shade300;
+
+        final serviceName = item['branchService']?['displayName']?.toString() ?? 'Service';
+        final priceMinor = item['branchService']?['priceMinor'];
+        final priceText = priceMinor != null ? '₹$priceMinor' : '';
+
+        blocks.add(Positioned(
+          left: left,
+          top: top,
+          width: width,
+          height: height < 30 ? 30 : height,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              color: bg,
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    serviceName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
+                  ),
+                  if (priceText.isNotEmpty)
+                    Text('Price: $priceText', style: const TextStyle(color: Colors.black87)),
+                  Align(
+                    alignment: Alignment.bottomRight,
+                    child: Text(
+                      status,
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ));
+      }
+    }
+
+    return blocks;
+  }
+
   // Function to handle branch selection
   void onBranchChanged(int branchId, int salonId) {
     setState(() {
@@ -251,13 +425,25 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: TextButton(
-              onPressed: () {
-                if (selectedBranchId == null) {
+              onPressed: () async {
+                if (selectedBranchId == null || selectedSalonId == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Please select a branch')),
+                    const SnackBar(content: Text('Please select a branch')),
                   );
-                } else {
-                  print('Booking for Salon ID: $selectedSalonId, Branch ID: $selectedBranchId');
+                  return;
+                }
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddBookingScreen(
+                      salonId: selectedSalonId,
+                      branchId: selectedBranchId,
+                    ),
+                  ),
+                );
+
+                if (result != null && selectedBranchId != null) {
+                  getBookingsByDate(selectedBranchId!, selectedDate);
                 }
               },
               style: TextButton.styleFrom(
@@ -527,7 +713,7 @@ Expanded(
                   primary: false,
                   physics: const ClampingScrollPhysics(),
                   child: SizedBox(
-                    width: (teamMembers.isEmpty ? 1 : teamMembers.length) * 140,
+                    width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
                     child: timeSlots.isEmpty
                         ? const Center(child: Text('No time slots available'))
                         : NotificationListener<ScrollNotification>(
@@ -544,30 +730,22 @@ Expanded(
                               }
                               return false;
                             },
-                            child: ListView.builder(
+                            child: SingleChildScrollView(
                               controller: _gridVController,
                               primary: false,
                               physics: const ClampingScrollPhysics(),
-                              dragStartBehavior: DragStartBehavior.start,
-                              itemExtent: 44,
-                              itemCount: timeSlots.length,
-                              itemBuilder: (context, row) {
-                                return Row(
-                                  children: List.generate(teamMembers.length, (col) {
-                                    return Container(
-                                      width: 140,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        color: row % 2 == 0 ? Colors.white : const Color(0xFFF9F9F9),
-                                        border: Border(
-                                          right: BorderSide(color: Colors.grey.shade300),
-                                          bottom: BorderSide(color: Colors.grey.shade300),
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                );
-                              },
+                              child: SizedBox(
+                                width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
+                                height: timeSlots.length * _rowHeight,
+                                child: Stack(
+                                  children: [
+                                    // Background grid
+                                    ..._buildBackgroundGrid(),
+                                    // Booking overlays
+                                    ..._buildBookingBlocks(),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                   ),
@@ -580,84 +758,6 @@ Expanded(
     ),
   ),
 ),
-
-const SizedBox(height: 16),
-
-          
-//           Expanded(
-//   child: bookings.isEmpty
-//       ? Center(child: Text('No bookings available'))
-//       : ListView.builder(
-//           itemCount: bookings.length,
-//           itemBuilder: (context, index) {
-//             final booking = bookings[index];
-
-//             // Get the status from the booking directly (top-level field)
-//             final status = booking['status'] ?? 'Unknown Status';  // Default to 'Unknown Status'
-
-//             // Display status with color styling
-//             final displayStatus = status == 'CONFIRMED' ? 'Confirmed' : (status == 'PENDING' ? 'Pending' : status);
-
-//             // Calculate the total price for the booking (sum of all service prices)
-//             double totalPrice = 0;
-//             booking['items']?.forEach((item) {
-//               totalPrice += item['branchService']['priceMinor'] ?? 0;
-//             });
-
-//             return Card(
-//               margin: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-//               shape: RoundedRectangleBorder(
-//                 borderRadius: BorderRadius.circular(12),
-//               ),
-//               elevation: 3,
-//               child: ListTile(
-//                 subtitle: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     // Display each service with its price
-//                     ...booking['items']?.map<Widget>((item) {
-//                       final serviceName = item['branchService']['displayName'] ?? 'No Service';
-//                       final servicePrice = item['branchService']['priceMinor'] ?? 0;
-//                       // Get assigned user for the service
-//                       final assignedUser = item['assignedUserBranch']?['user'];
-//                       final assignedTo = assignedUser != null
-//                           ? '${assignedUser['firstName']} ${assignedUser['lastName']}'
-//                           : 'Unknown';
-
-//                       return Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           Text('$serviceName - ₹$servicePrice'),
-//                           Text('Assigned to: $assignedTo'),
-//                         ],
-//                       );
-//                     }).toList() ?? [],
-//                     SizedBox(height: 8),
-//                     // Display total price for this booking
-//                     Text(
-//                       'Total Price: ₹$totalPrice',
-//                       style: TextStyle(fontWeight: FontWeight.bold),
-//                     ),
-//                     SizedBox(height: 8),
-//                     Text(
-//                       'Status: $displayStatus',  // Display the correct status
-//                       style: TextStyle(
-//                         fontWeight: FontWeight.bold,
-//                         color: displayStatus == 'Confirmed' ? Colors.green : Colors.red,  // Color based on status
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//                 trailing: Text(
-//                   // Format start and end time correctly
-//                   '${DateFormat('h:mm a').format(DateTime.parse(booking['startAt'] ?? '1970-01-01'))} - ${DateFormat('h:mm a').format(DateTime.parse(booking['endAt'] ?? '1970-01-01'))}',
-//                 ),
-//               ),
-//             );
-//           },
-//         ),
-// )
-
         ],
       ),
     );
@@ -698,3 +798,4 @@ Widget _statusBox(String title, int count, Color color) {
     ),
   );
 }}
+
