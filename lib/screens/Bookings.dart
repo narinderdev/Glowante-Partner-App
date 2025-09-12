@@ -185,12 +185,8 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
 
       setState(() {
         bookings = List<Map<String, dynamic>>.from(appointments);
-        // Compute status counts
-        pendingCount = bookings.where((b) => (b['status'] ?? '').toString().toUpperCase() == 'PENDING').length;
-        cancelledCount = bookings.where((b) => (b['status'] ?? '').toString().toUpperCase() == 'CANCELLED').length;
-        completedCount = bookings.where((b) => (b['status'] ?? '').toString().toUpperCase() == 'COMPLETED').length;
-        confirmedCount = bookings.where((b) => (b['status'] ?? '').toString().toUpperCase() == 'CONFIRMED').length;
       });
+      _recomputeStatusCounts();
     } else {
       setState(() {
         bookings = [];
@@ -205,6 +201,28 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
     print('Error fetching bookings: $e');
   }
 }
+
+  // Count status by items (so counts match blocks in grid)
+  void _recomputeStatusCounts() {
+    int sumStatus(String status) {
+      int t = 0;
+      for (final b in bookings) {
+        final s = (b['status'] ?? '').toString().toUpperCase();
+        if (s == status) {
+          final items = (b['items'] as List?) ?? const [];
+          t += items.isNotEmpty ? items.length : 1;
+        }
+      }
+      return t;
+    }
+
+    setState(() {
+      pendingCount = sumStatus('PENDING');
+      cancelledCount = sumStatus('CANCELLED');
+      completedCount = sumStatus('COMPLETED');
+      confirmedCount = sumStatus('CONFIRMED');
+    });
+  }
 
 
   // Fetch team members for the selected branch
