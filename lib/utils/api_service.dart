@@ -84,7 +84,7 @@ class ApiService {
   }
 
   //This below 2 api is pending to implement on frontend
-   static String addBranchOffer(int branchId) {
+   static String addSalonBranchOffer(int branchId) {
     return "branches/$branchId/offers";
   }
 
@@ -1264,4 +1264,49 @@ Future<Map<String, dynamic>> cancelAppointment({
       };
     }
   }
+
+Future<Map<String, dynamic>> createSalonBranchOffer(int salonId, Map<String, dynamic> offerData) async {
+  final url = Uri.parse("$baseUrl${addSalonBranchOffer(salonId)}"); // Ensure this returns the correct endpoint
+
+  // Log the full URL to check if it's correctly constructed
+  print("Request URL: $url");
+
+  // Log the request headers and the offer data being sent
+  print("Request Headers: {'Content-Type': 'application/json'}");
+  print("Request Body: ${json.encode(offerData)}");
+
+  try {
+    // Get the auth token if necessary
+    final token = await getAuthToken(); // Assuming you need an authentication token
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token', // Use token if authentication is required
+      },
+      body: json.encode(offerData), // Sending the offer data as JSON
+    );
+
+    // Log the response status and body for debugging
+    print("Response Status: ${response.statusCode}");
+    print("Response Body: ${response.body}");
+
+    if (response.statusCode == 201) {
+      // Successfully created the offer
+      return json.decode(response.body); // Returning the response in JSON format
+    } else {
+      // Handle unsuccessful response (e.g., 400, 500)
+      return {
+        'success': false,
+        'message': 'Failed to create offer. Status Code: ${response.statusCode}. Response: ${response.body}',
+      };
+    }
+  } catch (e) {
+    // Catch network errors or any other issues
+    print("Error: $e");
+    return {'success': false, 'message': 'Error: $e'};
+  }
+}
+
 }

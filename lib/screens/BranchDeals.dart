@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../screens/Adddeals.dart';  // Import the AddDealsScreen
+import '../screens/AddDealsBranch.dart';  // Import the AddDealsScreen
 import '../utils/api_service.dart'; // Import your API service to fetch offers
 
 class BranchDealsScreen extends StatefulWidget {
@@ -86,22 +86,22 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
               children: [
                 // Branch info at top
                 Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(0.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Branch: ${widget.branchDetails['name']}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        'Branch ID: ${widget.branchDetails['id']}',
-                        style: const TextStyle(fontSize: 14, color: Colors.black87),
-                      ),
-                      const SizedBox(height: 12),
+                      // Text(
+                      //   'Branch: ${widget.branchDetails['name']}',
+                      //   style: const TextStyle(
+                      //     fontSize: 18,
+                      //     fontWeight: FontWeight.bold,
+                      //   ),
+                      // ),
+                      // Text(
+                      //   'Branch ID: ${widget.branchDetails['id']}',
+                      //   style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      // ),
+                      // const SizedBox(height: 12),
                     ],
                   ),
                 ),
@@ -215,10 +215,14 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AddDealsScreen(
+              builder: (context) => AddDealsBranchScreen(
                 salonId: widget.branchDetails['id'],
                 salonName: widget.branchDetails['name'],
-                onPackageCreated: (id) {},
+                onPackageCreated: (id) {
+                  setState(() {
+              _offersData = ApiService.getBranchPackagesDeals(widget.branchDetails['id']);
+            });
+                },
                 source: 'DEAL',
               ),
             ),

@@ -4,13 +4,13 @@ import 'SelectServices.dart';
 import '../utils/api_service.dart';
 import 'dart:math' as math;
 
-class AddDealsScreen extends StatefulWidget {
+class AddDealsBranchScreen extends StatefulWidget {
   final int salonId;
   final String salonName;
   final Function(int salonId) onPackageCreated;
   final String source; // "DEAL" or "PACKAGE"
 
-   const AddDealsScreen({
+   const AddDealsBranchScreen({
     Key? key,
     required this.salonId,
     required this.salonName,
@@ -19,10 +19,10 @@ class AddDealsScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<AddDealsScreen> createState() => _AddDealsScreenState();
+  State<AddDealsBranchScreen> createState() => _AddDealsBranchScreenState();
 }
 
-class _AddDealsScreenState extends State<AddDealsScreen> {
+class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
   // controllers
   final TextEditingController dealTitleController = TextEditingController();
   final TextEditingController validFromController = TextEditingController();
@@ -546,72 +546,6 @@ Expanded(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-
-// onPressed: () async {
-//   _recalcDiscounted(); // Ensure latest calculation before submit
-
-//   // Prepare the offerData payload based on pricingMode and discountType
-//   final offerData = {
-//     'name': dealTitleController.text,  // e.g., "New Pack test"
-//     'type': widget.source,   // fixed as "PACKAGE"
-//     'status': 'ACTIVE',  // fixed as "ACTIVE"
-//     'validFrom': validFromController.text.isNotEmpty ? validFromController.text : null,  // send null if not entered
-//     'validTo': validTillController.text.isNotEmpty ? validTillController.text : null,  // send null if not entered
-//     'pricingMode': pricingMode.toUpperCase(),  // "FIXED" or "DISCOUNT"
-//     'price': double.tryParse(discountedPriceController.text.replaceAll('₹', '')) ?? 0,  // price after discount
-//     'terms': "Valid on weekdays only.",  // terms can be static or dynamic
-//     'items': _selectedServices.map((service) {
-//       return {
-//         'salonServiceId': service['id'],  // service ID from the selected services
-//         'qty': service['qty'],  // quantity from the selected services
-//       };
-//     }).toList(),
-//   };
-
-//   // Handle logic for "Flat" and "Discount" pricing modes
-//   if (pricingMode == 'Flat') {
-//     // Send original price, discounted price, and amount off
-//     offerData['amountType'] = 'FLAT';
-//     offerData['amount'] = double.tryParse(discountAmountController.text.replaceAll('₹', '')) ?? 0;  // Amount off
-//     offerData['discount'] = offerData['amount'];  // Set discount equal to amount for flat discount
-//   } else if (pricingMode == 'Discount') {
-//     offerData['discountType'] = discountType == 'Flat' ? 'AMOUNT' : 'PERCENT';  // Discount type (Flat or Percent)
-
-//     if (discountType == 'Flat') {
-//       // If Flat, send Amount off, Original price, and Discounted price
-//       offerData['amountType'] = 'FLAT';
-//       offerData['amount'] = double.tryParse(discountAmountController.text.replaceAll('₹', '')) ?? 0;  // Amount off
-//       offerData['discount'] = offerData['amount'];  // Set discount equal to amount for flat discount
-//     } else if (discountType == 'Percent') {
-//       // If Percent, send Percent off, Max Discount, Original price, and Discounted price
-//       offerData['discountPct'] = int.tryParse(discountPercentController.text) ?? 0;  // Percentage off
-//       offerData['maxDiscount'] = double.tryParse(maxDiscountController.text.replaceAll('₹', '')) ?? 0;  // Max discount
-//     }
-//   }
-
-//   // Log all values for debugging purposes
-//   debugPrint("Offer Data: $offerData");
-
-//   // Make the API call
-//   final apiService = ApiService();  
-//   final response = await ApiService.createSalonOffer(widget.salonId, offerData);
-
-//   debugPrint("API Response: $response");
-
-//   if (response['success'] == true) {
-//     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Offer created successfully')));
-
-//     // Trigger the callback to refresh the offers list in PackageScreen
-//     widget.onPackageCreated(widget.salonId);  // Refresh the offer list
-
-//     Navigator.pop(context);  // Go back to PackageScreen
-//   } else {
-//     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to create offer: ${response['message']}')));
-//   }
-
-//   debugPrint('Response: $response');
-// },
-// Inside your onPressed callback
 onPressed: () async {
   _recalcDiscounted(); // Ensure latest calculation before submit
 
@@ -627,7 +561,7 @@ onPressed: () async {
     'terms': "Valid on weekdays only.",  // terms can be static or dynamic
     'items': _selectedServices.map((service) {
       return {
-        'salonServiceId': service['id'],  // service ID from the selected services
+       'branchServiceId': service['id'], // service ID from the selected services
         'qty': service['qty'],  // quantity from the selected services
       };
     }).toList(),
@@ -659,7 +593,7 @@ onPressed: () async {
 
   // Get the instance of ApiService and call the method
   final apiService = ApiService();  // Create an instance of ApiService
-  final response = await apiService.createSalonOffer(widget.salonId, offerData);  // Call the method on the instance
+  final response = await apiService.createSalonBranchOffer(widget.salonId, offerData);  // Call the method on the instance
 
   debugPrint("API Response: $response");
 
