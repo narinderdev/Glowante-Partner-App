@@ -474,7 +474,7 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
             }
 
             return FractionallySizedBox(
-              heightFactor: 0.2,
+              heightFactor: 0.25,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
