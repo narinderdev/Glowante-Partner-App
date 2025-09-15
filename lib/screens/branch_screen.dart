@@ -24,7 +24,7 @@ class BranchScreen extends StatelessWidget {
     final String line1 = branchDetails['address']?['line1'] ?? 'No address';
 
     return DefaultTabController(
-      length: 7,
+      length: 6,
       child: Scaffold(
         body: NestedScrollView(
           headerSliverBuilder: (context, _) => [

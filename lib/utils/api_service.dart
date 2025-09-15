@@ -43,8 +43,8 @@ class ApiService {
   static String updateCategoryAPI(int salonId, int categoryId) =>
       "salons/$salonId/categories/$categoryId";
 
-  static String deleteCategoryAPI(int salonId, int categoryId) =>
-      "salons/$salonId/categories/$categoryId";
+  // static String deleteCategoryAPI(int salonId, int categoryId) =>
+  //     "salons/$salonId/categories/$categoryId";
 
   static String addSalonBranchAPI(int salonId) {
     return "salons/$salonId/branches/add";
@@ -83,12 +83,17 @@ class ApiService {
     return "branches/${branchId}/appointments/${appointmentId}/confirm";
   }
 
-  //This below 2 api is pending to implement on frontend
-   static String addSalonBranchOffer(int branchId) {
+  static String addSalonBranchOffer(int branchId) {
     return "branches/$branchId/offers";
   }
 
+
+  //This below 2 api is pending to implement on frontend
     // Confirm Booking appointment (see static helper above)
+    static String getSalonDetailAPI(int salonId) {
+    return "salons/$salonId";
+  }
+
    static String getSalon(int salonId, String status) {
     return "bookings/salon-bookings/$salonId?status=$status";
   }
@@ -361,7 +366,147 @@ class ApiService {
     throw Exception("Failed to add category: ${response.body}");
   }
   }
+// ---------------------- DELETE CATEGORY ----------------------
+Future<Map<String, dynamic>> deleteCategoryApi({
+  required int salonId,
+  required int categoryId,
+}) async {
+  final token = await getAuthToken();
 
+  if (token.isEmpty) {
+    return {"success": false, "message": "Auth token missing"};
+  }
+
+  final url = Uri.parse("${baseUrl}salons/$salonId/categories/$categoryId/delete");
+
+  print("➡️ Calling Delete Category API");
+  print("➡️ URL: $url");
+  print("➡️ Token: $token");
+
+  try {
+    final response = await http.delete(
+      url,
+      headers: {
+        "accept": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    print("⬅️ Status Code: ${response.statusCode}");
+    print("⬅️ Response Body: ${response.body}");
+
+    final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return {"success": true, "message": "Category deleted successfully"};
+    } else {
+      return {
+        "success": false,
+        "message": body['message'] ?? "Failed to delete category",
+        "statusCode": response.statusCode,
+      };
+    }
+  } catch (e) {
+    print("❌ Error deleting category: $e");
+    return {"success": false, "message": e.toString()};
+  }
+}
+
+// ---------------------- DELETE SUBCATEGORY ----------------------
+Future<Map<String, dynamic>> deleteSubCategoryApi({
+  required int salonId,
+  required int subCategoryId,
+}) async {
+  final token = await getAuthToken();
+
+  if (token.isEmpty) {
+    return {"success": false, "message": "Auth token missing"};
+  }
+
+  final url = Uri.parse("${baseUrl}salons/$salonId/subcategories/$subCategoryId/delete");
+
+  print("➡️ Calling Delete SubCategory API");
+  print("➡️ URL: $url");
+  print("➡️ Token: $token");
+
+  try {
+    final response = await http.delete(
+      url,
+      headers: {
+        "accept": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    print("⬅️ Status Code: ${response.statusCode}");
+    print("⬅️ Response Body: ${response.body}");
+
+    // ✅ decode body here
+    final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return {"success": true, "message": "Subcategory deleted successfully"};
+    } else {
+      // ✅ return the backend message
+      return {
+        "success": false,
+        "message": body['message'] ?? "Failed to delete subcategory",
+        "statusCode": response.statusCode,
+      };
+    }
+  } catch (e) {
+    print("❌ Error deleting subcategory: $e");
+    return {"success": false, "message": e.toString()};
+  }
+}
+
+// ---------------------- DELETE SERVICE ----------------------
+Future<Map<String, dynamic>> deleteServiceApi({
+  required int salonId,
+  required int serviceId,
+}) async {
+  final token = await getAuthToken();
+
+  if (token.isEmpty) {
+    return {"success": false, "message": "Auth token missing"};
+  }
+
+  final url = Uri.parse("${baseUrl}salons/$salonId/services/$serviceId");
+
+  print("➡️ Calling Delete Service API");
+  print("➡️ URL: $url");
+  print("➡️ Token: $token");
+
+  try {
+    final response = await http.delete(
+      url,
+      headers: {
+        "accept": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    print("⬅️ Status Code: ${response.statusCode}");
+    print("⬅️ Response Body: ${response.body}");
+
+    final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return {"success": true, "message": "Service deleted successfully"};
+    } else {
+      return {
+        "success": false,
+        "message": body['message'] ?? "Failed to delete service",
+        "statusCode": response.statusCode,
+      };
+    }
+  } catch (e) {
+    print("❌ Error deleting service: $e");
+    return {"success": false, "message": e.toString()};
+  }
+}
+
+  // ---------------------- GET CATEGORIES ----------------------
   // inside ApiService class
  Future<Map<String, dynamic>> getCategories({
     required int salonId,
@@ -482,36 +627,6 @@ class ApiService {
     }
   }
 
-  // ---------------------- ADD SERVICE ----------------------
-  // Future<Map<String, dynamic>> addService({
-  //   required int salonId,
-  //   required AddSalonServiceRequest request,
-  // }) async {
-  //   final token = await getAuthToken();
-  //   final url = Uri.parse(baseUrl + addServiceAPI(salonId));
-
-  //   print("➡️ Calling Add Service API");
-  //   print("➡️ URL: $url");
-  //   print("➡️ Payload: ${jsonEncode(request.toJson())}");
-
-  //   final response = await http.post(
-  //     url,
-  //     headers: {
-  //       "Content-Type": "application/json",
-  //       "Authorization": "Bearer $token",
-  //     },
-  //     body: jsonEncode(request.toJson()),
-  //   );
-
-  //   print("⬅️ Status Code: ${response.statusCode}");
-  //   print("⬅️ Response Body: ${response.body}");
-
-  //   if (response.statusCode == 200 || response.statusCode == 201) {
-  //     return jsonDecode(response.body);
-  //   } else {
-  //     throw Exception("Failed to add service: ${response.body}");
-  //   }
-  // }
   Future<Map<String, dynamic>> addService({
   required int salonId,
   required AddSalonServiceRequest request,

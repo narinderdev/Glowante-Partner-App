@@ -16,11 +16,23 @@ Map<int, bool> _expandedSubcategories = {};
   List<dynamic> categories = [];
   bool loadingCategories = false;
 
-  @override
-  void initState() {
-    super.initState();
-    salonsList = getSalonListApi();
+@override
+void initState() {
+  super.initState();
+  salonsList = getSalonListApi(); // only salons list here
+}
+
+@override
+void didChangeDependencies() {
+  super.didChangeDependencies();
+
+  // 👇 Refresh categories if branch already selected
+  if (selectedBranch != null) {
+    fetchCategories();
   }
+}
+
+
 
   Future<List<Map<String, dynamic>>> getSalonListApi() async {
     try {
@@ -66,12 +78,12 @@ Future<void> fetchCategories() async {
   }
 }
 
-  void _confirmDeleteService(int serviceId) {
-    // For now just show a message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Delete pressed for service $serviceId")),
-    );
-  }
+  // void _confirmDeleteService(int serviceId) {
+  //   // For now just show a message
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(content: Text("Delete pressed for service $serviceId")),
+  //   );
+  // }
 void _addSubcategoryDialog(Map<String, dynamic>? subCategory, int categoryId) {
   // Initialize the controller with the subcategory name if editing, or an empty string if adding
   final nameController = TextEditingController(text: subCategory != null ? subCategory['name'] : '');
@@ -326,6 +338,115 @@ void _addSubcategoryDialog(Map<String, dynamic>? subCategory, int categoryId) {
       },
     );
   }
+  Future<void> _confirmDeleteSubCategory(Map<String, dynamic> subCategory) async {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(
+            "Delete Subcategory",
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${subCategory['name']}"?\nThis action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // close dialog
+              },
+              child: Text("Cancel", style: TextStyle(color: Colors.grey[700])),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              onPressed: () async {
+                Navigator.pop(context); // close dialog first
+                await _deleteSubCategory(subCategory['id']);
+              },
+              child: Text("Delete"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+Future<void> _deleteSubCategory(int subCategoryId) async {
+  try {
+    final response = await ApiService().deleteSubCategoryApi(
+      salonId: selectedBranch!['salonId'],
+      subCategoryId: subCategoryId,
+    );
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? "Subcategory deleted")),
+      );
+      fetchCategories();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? "Failed to delete subcategory")),
+      );
+    }
+  } catch (e) {
+    print("❌ Error deleting subcategory: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Unexpected error: $e")),
+    );
+  }
+}
+
+void _confirmDeleteService(int serviceId) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text("Delete Service", style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text("Are you sure you want to delete this service?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("Cancel", style: TextStyle(color: Colors.grey[700])),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteService(serviceId);
+            },
+            child: Text("Delete"),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<void> _deleteService(int serviceId) async {
+  try {
+    final response = await ApiService().deleteServiceApi(
+      salonId: selectedBranch!['salonId'],
+      serviceId: serviceId,
+    );
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? "Service deleted successfully")),
+      );
+      fetchCategories(); // refresh UI
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response['message'] ?? "Failed to delete service")),
+      );
+    }
+  } catch (e) {
+    print("❌ Error deleting service: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Unexpected error: $e")),
+    );
+  }
+}
 
   Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
     showDialog(
@@ -361,24 +482,36 @@ void _addSubcategoryDialog(Map<String, dynamic>? subCategory, int categoryId) {
       },
     );
   }
+Future<void> _deleteCategory(int categoryId) async {
+  try {
+    final response = await ApiService().deleteCategoryApi(
+      salonId: selectedBranch!['salonId'],
+      categoryId: categoryId,
+    );
 
-  Future<void> _deleteCategory(int categoryId) async {
-    try {
-      await ApiService().deleteCategory(
-        salonId: selectedBranch!['salonId'],
-        categoryId: categoryId,
-      );
+    if (response['success'] == true) {
+      // Clear locally in case it's last category
+      setState(() {
+        categories.removeWhere((c) => c['id'] == categoryId);
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Category deleted successfully")),
+        SnackBar(content: Text(response['message'] ?? "Category deleted successfully")),
       );
-      fetchCategories();
-    } catch (e) {
-      print("❌ Error deleting category: $e");
+
+      fetchCategories(); // refresh from backend
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to delete category")),
+        SnackBar(content: Text(response['message'] ?? "Failed to delete category")),
       );
     }
+  } catch (e) {
+    print("❌ Error deleting category: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Unexpected error: $e")),
+    );
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -600,11 +733,12 @@ Row(
       },
     ),
     IconButton(
-      icon: Icon(Icons.delete, color: Colors.orange),
-      onPressed: () {
-        _confirmDeleteCategory(subCategory);
-      },
-    ),
+  icon: Icon(Icons.delete, color: Colors.orange),
+  onPressed: () {
+    _confirmDeleteSubCategory(subCategory);  // ✅ correct
+  },
+),
+
   ],
 ),
 
@@ -618,10 +752,11 @@ Row(
       contentPadding: EdgeInsets.zero,
       title: Text(service['displayName'] ?? "Unnamed Service"),
       subtitle: Text("Rs. ${service['priceMinor']} - ${service['durationMin']} min"),
-      trailing: IconButton(
-        icon: Icon(Icons.delete, color: Colors.orange),
-        onPressed: () => _confirmDeleteService(service['id']),
-      ),
+     trailing: IconButton(
+  icon: Icon(Icons.delete, color: Colors.orange),
+  onPressed: () => _confirmDeleteService(service['id']),
+),
+
     );
   }).toList(),
 

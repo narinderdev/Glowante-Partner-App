@@ -135,49 +135,49 @@ class _SalonsScreenState extends State<SalonsScreen> {
                                       fontSize: 18, fontWeight: FontWeight.bold),
                                 ),
                               ),
-TextButton(
-  onPressed: () async {
-    try {
-      if (salon['branches'] != null && salon['branches'].isNotEmpty) {
-        final branch = salon['branches'][0]; // take first branch
-        final branchDetails =
-            await ApiService().getBranchDetail(branch['id']);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SalonDetailsScreen(
-              salonId: salon['id'],                 // ✅ required
-              branchDetails: branchDetails['data'], // ✅ required
-            ),
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("No branches available for this salon")),
-        );
-      }
-    } catch (e) {
-      print("Error fetching branch details: $e");
-    }
-  },
-  style: TextButton.styleFrom(
-    backgroundColor: Colors.grey.shade200,   // light grey bg
-    foregroundColor: Colors.orange,            // blue text
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    minimumSize: Size(0, 0),                 // shrink button
-    tapTargetSize: MaterialTapTargetSize.shrinkWrap, // reduce splash area
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20), // 👈 rounded pill style
-    ),
-  ),
-  child: const Text(
-    'View',
-    style: TextStyle(
-      fontSize: 12,            // smaller text
-      fontWeight: FontWeight.w600,
-    ),
-  ),
-),
+// TextButton(
+//   onPressed: () async {
+//     try {
+//       if (salon['branches'] != null && salon['branches'].isNotEmpty) {
+//         final branch = salon['branches'][0]; // take first branch
+//         final branchDetails =
+//             await ApiService().getBranchDetail(branch['id']);
+//         Navigator.push(
+//           context,
+//           MaterialPageRoute(
+//             builder: (_) => SalonDetailsScreen(
+//               salonId: salon['id'],                 // ✅ required
+//               branchDetails: branchDetails['data'], // ✅ required
+//             ),
+//           ),
+//         );
+//       } else {
+//         ScaffoldMessenger.of(context).showSnackBar(
+//           const SnackBar(content: Text("No branches available for this salon")),
+//         );
+//       }
+//     } catch (e) {
+//       print("Error fetching branch details: $e");
+//     }
+//   },
+//   style: TextButton.styleFrom(
+//     backgroundColor: Colors.grey.shade200,   // light grey bg
+//     foregroundColor: Colors.orange,            // blue text
+//     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+//     minimumSize: Size(0, 0),                 // shrink button
+//     tapTargetSize: MaterialTapTargetSize.shrinkWrap, // reduce splash area
+//     shape: RoundedRectangleBorder(
+//       borderRadius: BorderRadius.circular(20), // 👈 rounded pill style
+//     ),
+//   ),
+//   child: const Text(
+//     'View',
+//     style: TextStyle(
+//       fontSize: 12,            // smaller text
+//       fontWeight: FontWeight.w600,
+//     ),
+//   ),
+// ),
                               // Expand/Collapse icon
                               Icon(
                                 isExpanded
