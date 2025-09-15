@@ -36,8 +36,6 @@ class _OtpScreenState extends State<OtpScreen> {
     _startCountdown();
   }
 
-  // Function to verify OTP
-// Function to verify OTP
 Future<void> _verifyOtp() async {
   String otp = otpControllers.map((controller) => controller.text).join();
   if (otp.length < 6) {
@@ -48,48 +46,48 @@ Future<void> _verifyOtp() async {
   }
 
   setState(() {
-    isLoading = true;  // Set loading state to true
+    isLoading = true; // Set loading state
   });
 
   try {
-    // Call API to verify OTP
     final response = await apiService.verifyOTP(widget.phoneNumber, otp);
 
     if (response['success'] == true) {
       print("OTP Verified successfully");
 
       String? token = response['data']?['token'];
-      String? firstName = response['data']?['first_name']; // 👈 Check for first name
+      Map<String, dynamic>? user = response['data']?['user'];
 
-     if (token != null) {
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-  prefs.setString('user_token', token);
-  prefs.setString('phone_number', widget.phoneNumber);
-  print("Token saved: $token, Phone saved: ${widget.phoneNumber}");
+      if (token != null && user != null) {
+        String? firstName = user['firstName'];
+        String? lastName = user['lastName'];
 
-  // Extract first name correctly from response
-  String? firstName = response['data']?['user']?['firstName'];
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user_token', token);
+        await prefs.setString('phone_number', widget.phoneNumber);
+        if (firstName != null) await prefs.setString('first_name', firstName);
+        if (lastName != null) await prefs.setString('last_name', lastName);
 
-  if (firstName != null && firstName.isNotEmpty) {
-    // User already has profile → Go to BottomNav
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BottomNav(tabIndex: 0),
-      ),
-    );
-  } else {
-    // No first name → Update profile screen
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => UpdateUserProfileScreen(token: token),
-      ),
-    );
-  }
-} else {
+        print("Token saved: $token");
+        print("Phone saved: ${widget.phoneNumber}");
+        print("First Name saved: $firstName");
+        print("Last Name saved: $lastName");
+
+        // Navigate
+        if (firstName != null && firstName.isNotEmpty) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 0)),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => UpdateUserProfileScreen(token: token)),
+          );
+        }
+      } else {
         setState(() {
-          errorMessage = 'Token is missing in the response';
+          errorMessage = 'User data or token is missing';
         });
       }
     } else {
@@ -107,7 +105,6 @@ Future<void> _verifyOtp() async {
     });
   }
 }
-
 
   // Function to handle OTP input focus and auto-switch to next field
   void _handleOtpInput(String value, int index) {
@@ -200,30 +197,31 @@ Future<void> _verifyOtp() async {
     _timer?.cancel();  // Cancel the timer when disposing
     super.dispose();
   }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0, // Remove the default app bar shadow
-        backgroundColor: Colors.transparent, // Make the app bar transparent
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back),
-          onPressed: _onBackPressed,  // Navigate to LoginScreen on back button press
-        ),
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      elevation: 0,
+      backgroundColor: Colors.transparent,
+      leading: IconButton(
+        icon: Icon(Icons.arrow_back),
+        onPressed: _onBackPressed,
       ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+    ),
+    body: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            SizedBox(height: 20),
             Text(
               "OTP Verification",
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 10),
-                       Text(
+            Text(
               "Enter the OTP sent to *****${widget.phoneNumber.substring(6)}",
               style: TextStyle(fontSize: 16),
             ),
@@ -241,7 +239,7 @@ Future<void> _verifyOtp() async {
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
                     maxLength: 1,
-                    focusNode: focusNodes[index],  // Use corresponding FocusNode
+                    focusNode: focusNodes[index],
                     decoration: InputDecoration(
                       counterText: "",
                       border: OutlineInputBorder(
@@ -249,7 +247,6 @@ Future<void> _verifyOtp() async {
                       ),
                     ),
                     onChanged: (value) {
-                      // Move focus on input
                       _handleOtpInput(value, index);
                     },
                   ),
@@ -264,35 +261,134 @@ Future<void> _verifyOtp() async {
               ),
             ],
             SizedBox(height: 20),
-            // Continue Button with loader logic
+            // Continue Button
             ElevatedButton(
-              onPressed: isContinueButtonEnabled && !isLoading ? _verifyOtp : null, // Enable only if all digits are filled and not loading
+              onPressed: isContinueButtonEnabled && !isLoading ? _verifyOtp : null,
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50), // Full width button
-                backgroundColor: isContinueButtonEnabled && !isLoading ? Colors.orange : Colors.grey[300], // Button color change
+                minimumSize: Size(double.infinity, 50),
+                backgroundColor: isContinueButtonEnabled && !isLoading ? Colors.orange : Colors.grey[300],
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8), // Rounded corners
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
               child: isLoading
-                  ? CircularProgressIndicator(color: Colors.white)  // Show loader if loading
+                  ? CircularProgressIndicator(color: Colors.white)
                   : Text("Continue", style: TextStyle(color: Colors.black)),
             ),
             SizedBox(height: 20),
-            // Resend OTP Text with countdown
+            // Resend OTP
             GestureDetector(
-              onTap: isResendingOtp || remainingTime > 0 ? null : _resendOtp,  // Disable if OTP is being resent or time is remaining
+              onTap: isResendingOtp || remainingTime > 0 ? null : _resendOtp,
               child: Text(
-                isResendingOtp ? "Resending..." : (remainingTime > 0 ? "Resend OTP in $remainingTime sec" : "Resend OTP"),  // Show countdown
+                isResendingOtp
+                    ? "Resending..."
+                    : (remainingTime > 0 ? "Resend OTP in $remainingTime sec" : "Resend OTP"),
                 style: TextStyle(
-                  color: remainingTime > 0 ? Colors.grey : Colors.orange,  // Make countdown grey
+                  color: remainingTime > 0 ? Colors.grey : Colors.orange,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
+            SizedBox(height: 20),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
+  // @override
+  // Widget build(BuildContext context) {
+  //   return Scaffold(
+  //     appBar: AppBar(
+  //       elevation: 0, // Remove the default app bar shadow
+  //       backgroundColor: Colors.transparent, // Make the app bar transparent
+  //       leading: IconButton(
+  //         icon: Icon(Icons.arrow_back),
+  //         onPressed: _onBackPressed,  // Navigate to LoginScreen on back button press
+  //       ),
+  //     ),
+  //     body: Padding(
+  //       padding: const EdgeInsets.symmetric(horizontal: 16.0),
+  //       child: Column(
+  //         mainAxisAlignment: MainAxisAlignment.center,
+  //         crossAxisAlignment: CrossAxisAlignment.center,
+  //         children: [
+  //           Text(
+  //             "OTP Verification",
+  //             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+  //           ),
+  //           SizedBox(height: 10),
+  //                      Text(
+  //             "Enter the OTP sent to *****${widget.phoneNumber.substring(6)}",
+  //             style: TextStyle(fontSize: 16),
+  //           ),
+  //           SizedBox(height: 30),
+  //           // OTP Input Fields (6 separate text fields)
+  //           Row(
+  //             mainAxisAlignment: MainAxisAlignment.center,
+  //             children: List.generate(6, (index) {
+  //               return Container(
+  //                 width: 40,
+  //                 height: 50,
+  //                 margin: EdgeInsets.symmetric(horizontal: 5),
+  //                 child: TextField(
+  //                   controller: otpControllers[index],
+  //                   keyboardType: TextInputType.number,
+  //                   textAlign: TextAlign.center,
+  //                   maxLength: 1,
+  //                   focusNode: focusNodes[index],  // Use corresponding FocusNode
+  //                   decoration: InputDecoration(
+  //                     counterText: "",
+  //                     border: OutlineInputBorder(
+  //                       borderRadius: BorderRadius.circular(8),
+  //                     ),
+  //                   ),
+  //                   onChanged: (value) {
+  //                     // Move focus on input
+  //                     _handleOtpInput(value, index);
+  //                   },
+  //                 ),
+  //               );
+  //             }),
+  //           ),
+  //           if (errorMessage.isNotEmpty) ...[
+  //             SizedBox(height: 10),
+  //             Text(
+  //               errorMessage,
+  //               style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+  //             ),
+  //           ],
+  //           SizedBox(height: 20),
+  //           // Continue Button with loader logic
+  //           ElevatedButton(
+  //             onPressed: isContinueButtonEnabled && !isLoading ? _verifyOtp : null, // Enable only if all digits are filled and not loading
+  //             style: ElevatedButton.styleFrom(
+  //               minimumSize: Size(double.infinity, 50), // Full width button
+  //               backgroundColor: isContinueButtonEnabled && !isLoading ? Colors.orange : Colors.grey[300], // Button color change
+  //               shape: RoundedRectangleBorder(
+  //                 borderRadius: BorderRadius.circular(8), // Rounded corners
+  //               ),
+  //             ),
+  //             child: isLoading
+  //                 ? CircularProgressIndicator(color: Colors.white)  // Show loader if loading
+  //                 : Text("Continue", style: TextStyle(color: Colors.black)),
+  //           ),
+  //           SizedBox(height: 20),
+  //           // Resend OTP Text with countdown
+  //           GestureDetector(
+  //             onTap: isResendingOtp || remainingTime > 0 ? null : _resendOtp,  // Disable if OTP is being resent or time is remaining
+  //             child: Text(
+  //               isResendingOtp ? "Resending..." : (remainingTime > 0 ? "Resend OTP in $remainingTime sec" : "Resend OTP"),  // Show countdown
+  //               style: TextStyle(
+  //                 color: remainingTime > 0 ? Colors.grey : Colors.orange,  // Make countdown grey
+  //                 fontWeight: FontWeight.bold,
+  //               ),
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
 }

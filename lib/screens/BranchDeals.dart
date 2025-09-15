@@ -43,12 +43,11 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
       ),
     );
 
-    // If confirmed, show the snackbar and do not call any API
     if (confirmed == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Deal deleted successfully')),
       );
-      // Optionally, refresh the offers here (e.g., by calling _fetchOffers again)
+      // Optionally refresh the offers here
     }
   }
 
@@ -57,7 +56,7 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: null,  // No header
+      appBar: null,
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: FutureBuilder<Map<String, dynamic>>(
@@ -75,9 +74,8 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
               return Center(child: Text('Error: ${snapshot.data!['message']}'));
             }
 
+            // Extract deals
             List<dynamic> deals = [];
-
-            // Separate Deals based on 'type'
             for (var offer in snapshot.data!['data']) {
               if (offer['type'] == 'DEAL') {
                 deals.add(offer);
@@ -86,103 +84,127 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
 
             return ListView(
               children: [
-                if (deals.isNotEmpty) ...[
-                  const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Text(
-                      'Deals',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  ...deals.map((deal) {
-                    final pricingMode = (deal['pricingMode'] ?? '').toString(); // FIXED | DISCOUNT
-                    final discountPct = deal['discountPct'] as num?;
-                    final price = (deal['price'] ?? 0) as num;
-
-                    return Card(
-                      elevation: 1.5,
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    (deal['name'] ?? '').toString(),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                _statusChip((deal['status'] ?? '').toString()),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-  // Extracting names from the 'items' list and joining them with commas
-  (deal['items'] as List?)
-      ?.map((item) => item['name'] ?? '')
-      .where((name) => name.isNotEmpty)
-      .join(', ') ?? '',
-  style: const TextStyle(fontSize: 14, color: Colors.black87),
-),
-
-                            const SizedBox(height: 6),
-                            Text(
-                              'Total Duration: ${deal['itemSummary']['totalDuration']} Min',
-                              style: const TextStyle(fontSize: 13, color: Colors.black87),
-                            ),
-                            const SizedBox(height: 6),
-                            _pricingRow(
-                              pricingMode: pricingMode,
-                              discountPct: discountPct ?? 0,  // Ensure it's non-null by providing a default value if null
-                              price: price,
-                              rs: _rs,
-                            ),
-                            const SizedBox(height: 6),
-                            // Row for "Details" and "Delete" buttons
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                               OutlinedButton(
-                  onPressed: () {
-                    // TODO: navigate to a details page
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    side: BorderSide(color: Colors.orange.shade300),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text(
-                    "Details",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange),
-                  ),
-                ),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: Icon(Icons.delete, color: Colors.orange[400], size: 22),
-                                  onPressed: () {
-                                    onDelete(
-                                      (deal['id'] as num).toInt(),
-                                      (deal['name'] ?? '').toString(),
-                                    );
-                                  },
-                                  tooltip: 'Delete',
-                                ),
-                              ],
-                            ),
-                          ],
+                // Branch info at top
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Branch: ${widget.branchDetails['name']}',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    );
-                  }).toList(),
-                ],
+                      Text(
+                        'Branch ID: ${widget.branchDetails['id']}',
+                        style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+
+                // No deals available
+                if (deals.isEmpty)
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.6,
+                    child: const Center(
+                      child: Text(
+                        'No deals available',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+
+                // Display deals
+                ...deals.map((deal) {
+                  final pricingMode = (deal['pricingMode'] ?? '').toString();
+                  final discountPct = deal['discountPct'] as num?;
+                  final price = (deal['price'] ?? 0) as num;
+
+                  return Card(
+                    elevation: 1.5,
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  (deal['name'] ?? '').toString(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _statusChip((deal['status'] ?? '').toString()),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            (deal['items'] as List?)
+                                    ?.map((item) => item['name'] ?? '')
+                                    .where((name) => name.isNotEmpty)
+                                    .join(', ') ??
+                                '',
+                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Total Duration: ${deal['itemSummary']['totalDuration']} Min',
+                            style: const TextStyle(fontSize: 13, color: Colors.black87),
+                          ),
+                          const SizedBox(height: 6),
+                          _pricingRow(
+                            pricingMode: pricingMode,
+                            discountPct: discountPct ?? 0,
+                            price: price,
+                            rs: _rs,
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              OutlinedButton(
+                                onPressed: () {
+                                  // TODO: navigate to details page
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                  side: BorderSide(color: Colors.orange.shade300),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: const Text(
+                                  "Details",
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: Icon(Icons.delete, color: Colors.orange[400], size: 22),
+                                onPressed: () {
+                                  onDelete(
+                                    (deal['id'] as num).toInt(),
+                                    (deal['name'] ?? '').toString(),
+                                  );
+                                },
+                                tooltip: 'Delete',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
               ],
             );
           },
@@ -190,15 +212,14 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // Navigate to AddDealsScreen with source: 'DEAL'
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => AddDealsScreen(
                 salonId: widget.branchDetails['id'],
                 salonName: widget.branchDetails['name'],
-                onPackageCreated: (id) {}, // Define your callback if needed
-                source: 'DEAL',  // Pass 'DEAL' as the source
+                onPackageCreated: (id) {},
+                source: 'DEAL',
               ),
             ),
           );
@@ -231,7 +252,7 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
 
   Widget _pricingRow({
     required String pricingMode,
-    required num discountPct, // Keep this as num
+    required num discountPct,
     required num price,
     required String Function(num? n) rs,
   }) {
@@ -260,20 +281,18 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
           ),
         ),
       );
-      children.add(const SizedBox(width: 8));
       children.add(Text(
         rs(price),
         style: const TextStyle(fontSize: 16, color: Colors.orange, fontWeight: FontWeight.w700),
       ));
-      if (discountPct != null && discountPct > 0) { // check if discountPct is not null and greater than 0
-        children.add(const SizedBox(width: 8));
+      if (discountPct > 0) {
         children.add(_offChip("${discountPct.toStringAsFixed(0)}% OFF"));
       }
     }
 
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 4,
+      spacing: 8,
       runSpacing: 4,
       children: children,
     );

@@ -2,9 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/api_service.dart';
 import 'login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class ProfileScreen extends StatelessWidget {
+
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService apiService = ApiService();
+  String? userName;
+  String? phoneNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userName = prefs.getString('first_name') ?? '';
+      phoneNumber = prefs.getString('phone_number') ?? '';
+    });
+  }
 
   Future<void> _openLink(String url) async {
     final Uri uri = Uri.parse(url);
@@ -144,8 +169,8 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                const Text("Madhavi", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Text("8219325453", style: TextStyle(color: Colors.grey[600])),
+                Text(userName ?? '', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(phoneNumber ?? '', style: TextStyle(color: Colors.grey[600])),
               ],
             ),
 

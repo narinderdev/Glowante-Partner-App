@@ -10,7 +10,7 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   late Future<List<Map<String, dynamic>>> salonsList;
-
+Map<int, bool> _expandedSubcategories = {};
   int? selectedBranchId;
   Map<String, dynamic>? selectedBranch;
   List<dynamic> categories = [];
@@ -507,64 +507,124 @@ Expanded(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Row for subcategory name and edit/delete icons
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//         Row(
+//           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//           children: [
+//             // Display the subcategory name
+//            Row(
+//   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//   children: [
+//     // Subcategory name + service count tappable area
+//     InkWell(
+//       onTap: () {
+//         setState(() {
+//           final id = subCategory['id'];
+//           _expandedSubcategories[id] = !(_expandedSubcategories[id] ?? false);
+//         });
+//       },
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           Text(
+//             subCategory['name'],
+//             style: TextStyle(
+//                 fontSize: 16,
+//                 fontWeight: FontWeight.w600,
+//                 color: Colors.purple),
+//           ),
+//           Text(
+//             "${subCategory['services'].length} Service${subCategory['services'].length == 1 ? '' : 's'}",
+//             style: TextStyle(fontSize: 14, color: Colors.grey),
+//           ),
+//         ],
+//       ),
+//     ),
+
+//     // Edit/Delete icons
+//     Row(
+//       children: [
+//         IconButton(
+//           icon: Icon(Icons.edit, color: Colors.brown),
+//           onPressed: () {
+//             _addSubcategoryDialog(subCategory, category['id']);
+//           },
+//         ),
+//         IconButton(
+//           icon: Icon(Icons.delete, color: Colors.orange),
+//           onPressed: () {
+//             _confirmDeleteCategory(subCategory);
+//           },
+//         ),
+//       ],
+//     ),
+//   ],
+// ),
+//         ],
+//         ),
+
+Row(
+  children: [
+    // Left: tappable subcategory info
+    Expanded(
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            final id = subCategory['id'];
+            _expandedSubcategories[id] = !(_expandedSubcategories[id] ?? false);
+          });
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Display the subcategory name
             Text(
               subCategory['name'],
               style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.w600,color: Colors.purple),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.purple),
             ),
-           Row(
-      children: [
-        // Edit icon button
-     IconButton(
-  icon: Icon(Icons.edit, color: Colors.brown),
-  onPressed: () {
-    _addSubcategoryDialog(subCategory, category['id']);  // Pass the subcategory and categoryId
-  },
-),
-
-
-                // Delete icon button
-                IconButton(
-                  icon: Icon(Icons.delete, color: Colors.orange),
-                  onPressed: () {
-                    // Handle the delete functionality
-                    _confirmDeleteCategory(subCategory);
-                  },
-                ),
-              ],
+            Text(
+              "${subCategory['services'].length} Service${subCategory['services'].length == 1 ? '' : 's'}",
+              style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ],
         ),
-        
-        // Display the number of services below the subcategory
-        Text(
-          "${subCategory['services'].length} Service${subCategory['services'].length == 1 ? '' : 's'}",
-          style: TextStyle(
-              fontSize: 14, color: Colors.grey),
-        ),
-        SizedBox(height: 4),
+      ),
+    ),
+
+    // Right: edit/delete icons
+    IconButton(
+      icon: Icon(Icons.edit, color: Colors.brown),
+      onPressed: () {
+        _addSubcategoryDialog(subCategory, category['id']);
+      },
+    ),
+    IconButton(
+      icon: Icon(Icons.delete, color: Colors.orange),
+      onPressed: () {
+        _confirmDeleteCategory(subCategory);
+      },
+    ),
+  ],
+),
 
         // Show services of subcategory
-        if (subCategory['services'] != null &&
-            subCategory['services'].isNotEmpty)
-          ...subCategory['services'].map<Widget>((service) {
-            return ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(service['displayName'] ?? "Unnamed Service"),
-              subtitle: Text(
-                  "Rs. ${service['priceMinor']} - ${service['durationMin']} min"),
-              trailing: IconButton(
-                icon: Icon(Icons.delete, color: Colors.orange),
-                onPressed: () =>
-                    _confirmDeleteService(service['id']),
-              ),
-            );
-          }).toList(),
+      if (_expandedSubcategories[subCategory['id']] == true &&
+    subCategory['services'] != null &&
+    subCategory['services'].isNotEmpty)
+  ...subCategory['services'].map<Widget>((service) {
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      title: Text(service['displayName'] ?? "Unnamed Service"),
+      subtitle: Text("Rs. ${service['priceMinor']} - ${service['durationMin']} min"),
+      trailing: IconButton(
+        icon: Icon(Icons.delete, color: Colors.orange),
+        onPressed: () => _confirmDeleteService(service['id']),
+      ),
+    );
+  }).toList(),
+
         SizedBox(height: 8),
         Divider(),
         SizedBox(height: 8),

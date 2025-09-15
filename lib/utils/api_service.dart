@@ -83,7 +83,7 @@ class ApiService {
     return "branches/${branchId}/appointments/${appointmentId}/confirm";
   }
 
-  //This below 3 api is pending to implement on frontend
+  //This below 2 api is pending to implement on frontend
    static String addBranchOffer(int branchId) {
     return "branches/$branchId/offers";
   }
@@ -1235,4 +1235,33 @@ Future<Map<String, dynamic>> fetchAppointments(int branchId, String date) async 
     }
   }
 
+  //It is a dummy api
+Future<Map<String, dynamic>> cancelAppointment({
+    required int branchId,
+    required int appointmentId,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/appointments/$appointmentId/cancel'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'branchId': branchId,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to cancel appointment',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
 }

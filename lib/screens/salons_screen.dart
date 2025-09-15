@@ -146,87 +146,86 @@ class _SalonsScreenState extends State<SalonsScreen> {
                             ],
                           ),
                         ),
-                        if (isExpanded) ...[
-                          // Display branches under each salon above the "Add Branch" section
-                          ...salon['branches'].map<Widget>((branch) {
-                            return Column(
-                              children: [
-                                // Branch details
-                                ListTile(
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 16.0),
-                                  title: Text(branch['name']),
-                                ),
+                    if (isExpanded) ...[
+  ...salon['branches'].map<Widget>((branch) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Branch name + address
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      branch['name'],
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      branch['address']['line1'] ?? '',
+                      style: TextStyle(fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
 
-                                // Row for Address and View Branch button
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                                  child: Row(
-                                    children: [
-                                      // Address in two lines
-                                      Expanded(
-                                        flex: 1, // Address takes half of the space
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            // Line 1 of the address
-                                            Text(
-                                              '${branch['address']['line1']}',
-                                              style: TextStyle(fontSize: 12), // Smaller font size
-                                              maxLines: 1, // Allow this text to be on one line
-                                            ),
-                                            // Line 2 of the address (city, state, postal code)
-                                            Text(
-                                              '${branch['address']['state']} ${branch['address']['postalCode']}',
-                                              style: TextStyle(fontSize: 12), // Smaller font size
-                                              maxLines: 1, // Allow this text to be on one line
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+              SizedBox(width: 8),
 
-                                      // View Branch button takes the other half
-                                      SizedBox(width: 10), // Space between address and button
-                                  ElevatedButton(
-  onPressed: () async {
-    try {
-      // Create an instance of ApiService and fetch branch details
-      final branchDetails = await ApiService().getBranchDetail(branch['id']);
+              // View Branch button
+              ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final branchDetails =
+                        await ApiService().getBranchDetail(branch['id']);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BranchScreen(
+                          salonId: salon['id'],
+                          branchDetails: branchDetails['data'],
+                        ),
+                      ),
+                    );
+                  } catch (e) {
+                    print("Error fetching branch details: $e");
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  textStyle: TextStyle(fontSize: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text("View Branch"),
+              ),
+            ],
+          ),
+        ),
 
-      print("Navigating to BranchScreen with branch details: $branchDetails, salonId: ${salon['id']}");
+        // Thin line after each branch
+        const Divider(
+          thickness: 0.5, // Thin line
+          color: Colors.grey, // Color of the line
+          height: 0, // Reduce extra space
+        ),
+      ],
+    );
+  }).toList(),
+SizedBox(height: 8),
 
-      // Navigate to BranchScreen and pass the branch details
-      Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => BranchScreen(
-      salonId: salon['id'], // Pass salon ID
-     branchDetails: branchDetails['data'], // Pass the branch details
-    ),
-  ),
-);
+ 
 
-    } catch (e) {
-      print("Error fetching branch details: $e");
-    }
-  },
-  style: ElevatedButton.styleFrom(
-    backgroundColor: Colors.orange, // Orange background color
-    foregroundColor: Colors.white, // White text color
-    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5), // Smaller button
-    textStyle: TextStyle(fontSize: 10), // Smaller text
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8), // Slightly curved corners
-    ),
-  ),
-  child: Text("View Branch"),
-),
-                                    ],
-                                  ),
-                                ),
-                                Divider(), // Divider between branches
-                              ],
-                            );
-                          }).toList(),
 
                           // Add Branch section
                           GestureDetector(

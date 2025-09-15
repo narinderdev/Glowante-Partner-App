@@ -424,106 +424,289 @@ Future<void> getBookingsByDate(int branchId, DateTime date) async {
     return blocks;
   }
 
-  void _openAppointmentSheet(Map<String, dynamic> booking, Map<String, dynamic>? item) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        bool loading = false;
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final List items = (booking['items'] as List?) ?? const [];
-            final Map? useItem = item ?? (items.isNotEmpty ? items.first as Map : null);
-            final String services = useItem != null
-                ? (useItem['branchService']?['displayName']?.toString() ?? '')
-                : items
-                    .map((e) => (e as Map)['branchService']?['displayName']?.toString() ?? '')
-                    .where((s) => s.isNotEmpty)
-                    .join(', ');
-            final start = _parseLocal(useItem?['startAt']?.toString()) ?? _parseLocal(booking['startAt']);
-            final end = _parseLocal(useItem?['endAt']?.toString()) ?? _parseLocal(booking['endAt']);
-            final timeStr = start != null && end != null
-                ? "${DateFormat('h:mm a').format(start)} - ${DateFormat('h:mm a').format(end)}"
-                : '';
-            final String statusUpper = (booking['status'] ?? '').toString().toUpperCase();
-            final bool isPending = statusUpper == 'PENDING';
+  // void _openAppointmentSheet(Map<String, dynamic> booking, Map<String, dynamic>? item) {
+  //   showModalBottomSheet(
+  //     context: context,
+  //     isScrollControlled: true,
+  //     backgroundColor: Colors.white,
+  //     shape: const RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+  //     ),
+  //     builder: (ctx) {
+  //       bool loading = false;
+  //       return StatefulBuilder(
+  //         builder: (context, setModalState) {
+  //           final List items = (booking['items'] as List?) ?? const [];
+  //           final Map? useItem = item ?? (items.isNotEmpty ? items.first as Map : null);
+  //           final String services = useItem != null
+  //               ? (useItem['branchService']?['displayName']?.toString() ?? '')
+  //               : items
+  //                   .map((e) => (e as Map)['branchService']?['displayName']?.toString() ?? '')
+  //                   .where((s) => s.isNotEmpty)
+  //                   .join(', ');
+  //           final start = _parseLocal(useItem?['startAt']?.toString()) ?? _parseLocal(booking['startAt']);
+  //           final end = _parseLocal(useItem?['endAt']?.toString()) ?? _parseLocal(booking['endAt']);
+  //           final timeStr = start != null && end != null
+  //               ? "${DateFormat('h:mm a').format(start)} - ${DateFormat('h:mm a').format(end)}"
+  //               : '';
+  //           final String statusUpper = (booking['status'] ?? '').toString().toUpperCase();
+  //           final bool isPending = statusUpper == 'PENDING';
 
-            Future<void> onConfirm() async {
-              if (selectedBranchId == null) return;
-              setModalState(() => loading = true);
-              final resp = await ApiService().confirmAppointment(
-                branchId: selectedBranchId!,
-                appointmentId: booking['id'] as int,
-              );
-              setModalState(() => loading = false);
-              if (resp['success'] == true) {
-                Navigator.of(context).pop();
-                getBookingsByDate(selectedBranchId!, selectedDate);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(resp['message']?.toString() ?? 'Confirmed')),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(resp['message']?.toString() ?? 'Failed to confirm')),
-                );
-              }
-            }
+  //           Future<void> onConfirm() async {
+  //             if (selectedBranchId == null) return;
+  //             setModalState(() => loading = true);
+  //             final resp = await ApiService().confirmAppointment(
+  //               branchId: selectedBranchId!,
+  //               appointmentId: booking['id'] as int,
+  //             );
+  //             setModalState(() => loading = false);
+  //             if (resp['success'] == true) {
+  //               Navigator.of(context).pop();
+  //               getBookingsByDate(selectedBranchId!, selectedDate);
+  //               ScaffoldMessenger.of(context).showSnackBar(
+  //                 SnackBar(content: Text(resp['message']?.toString() ?? 'Confirmed')),
+  //               );
+  //             } else {
+  //               ScaffoldMessenger.of(context).showSnackBar(
+  //                 SnackBar(content: Text(resp['message']?.toString() ?? 'Failed to confirm')),
+  //               );
+  //             }
+  //           }
 
-            return FractionallySizedBox(
-              heightFactor: 0.25,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            services.isEmpty ? 'Appointment' : services,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(context),
-                        )
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    if (timeStr.isNotEmpty)
-                      Text(timeStr, style: const TextStyle(color: Colors.black54)),
-                    const SizedBox(height: 4),
-                    Text('Status: ' + (booking['status']?.toString() ?? ''),
-                        style: const TextStyle(color: Colors.black54)),
-                    const Spacer(),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: (loading || !isPending) ? null : onConfirm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: loading
-                            ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : Text(isPending ? 'Confirm' : 'Not Pending'),
-                      ),
-                    )
-                  ],
-                ),
-              ),
+  //           return FractionallySizedBox(
+  //             heightFactor: 0.25,
+  //             child: Padding(
+  //               padding: const EdgeInsets.all(16.0),
+  //               child: Column(
+  //                 crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   Row(
+  //                     children: [
+  //                       Expanded(
+  //                         child: Text(
+  //                           services.isEmpty ? 'Appointment' : services,
+  //                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+  //                           overflow: TextOverflow.ellipsis,
+  //                         ),
+  //                       ),
+  //                       IconButton(
+  //                         icon: const Icon(Icons.close),
+  //                         onPressed: () => Navigator.pop(context),
+  //                       )
+  //                     ],
+  //                   ),
+  //                   const SizedBox(height: 4),
+  //                   if (timeStr.isNotEmpty)
+  //                     Text(timeStr, style: const TextStyle(color: Colors.black54)),
+  //                   const SizedBox(height: 4),
+  //                   Text('Status: ' + (booking['status']?.toString() ?? ''),
+  //                       style: const TextStyle(color: Colors.black54)),
+  //                   const Spacer(),
+  //                   SizedBox(
+  //                     width: double.infinity,
+  //                     child: ElevatedButton(
+  //                       onPressed: (loading || !isPending) ? null : onConfirm,
+  //                       style: ElevatedButton.styleFrom(
+  //                         backgroundColor: Colors.blue,
+  //                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  //                       ),
+  //                       child: loading
+  //                           ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+  //                           : Text(isPending ? 'Confirm' : 'Not Pending'),
+  //                     ),
+  //                   )
+  //                 ],
+  //               ),
+  //             ),
+  //           );
+  //         },
+  //       );
+  //     },
+  //   );
+  // }
+
+void _openAppointmentSheet(Map<String, dynamic> booking, Map<String, dynamic>? item) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (context, setModalState) {
+          final List items = (booking['items'] as List?) ?? const [];
+          final Map? useItem = item ?? (items.isNotEmpty ? items.first as Map : null);
+
+          final String services = useItem != null
+              ? (useItem['branchService']?['displayName']?.toString() ?? '')
+              : items
+                  .map((e) => (e as Map)['branchService']?['displayName']?.toString() ?? '')
+                  .where((s) => s.isNotEmpty)
+                  .join(', ');
+
+          final start = _parseLocal(useItem?['startAt']?.toString()) ?? _parseLocal(booking['startAt']);
+          final end = _parseLocal(useItem?['endAt']?.toString()) ?? _parseLocal(booking['endAt']);
+          final timeStr = start != null && end != null
+              ? "${DateFormat('h:mm a').format(start)} - ${DateFormat('h:mm a').format(end)}"
+              : '';
+
+          final String statusUpper = (booking['status'] ?? '').toString().toUpperCase();
+          final bool isPending = statusUpper == 'PENDING';
+
+          final stylist = useItem?['assignedUserBranch']?['user']?['firstName'] ?? 'N/A';
+          final duration = useItem?['durationMin'] != null ? '${useItem!['durationMin']} min' : '';
+          final priceMinor = useItem?['branchService']?['priceMinor'];
+          final price = priceMinor != null ? '₹$priceMinor' : '';
+
+          // Separate loading states
+          bool loadingConfirm = false;
+          bool loadingCancel = false;
+
+          Future<void> onConfirm() async {
+            if (selectedBranchId == null) return;
+            setModalState(() => loadingConfirm = true);
+            final resp = await ApiService().confirmAppointment(
+              branchId: selectedBranchId!,
+              appointmentId: booking['id'] as int,
             );
-          },
-        );
-      },
-    );
-  }
+            setModalState(() => loadingConfirm = false);
+
+            if (resp['success'] == true) {
+              Navigator.of(context).pop();
+              getBookingsByDate(selectedBranchId!, selectedDate);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(resp['message']?.toString() ?? 'Confirmed')),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(resp['message']?.toString() ?? 'Failed to confirm')),
+              );
+            }
+          }
+
+          Future<void> onCancel() async {
+            if (selectedBranchId == null) return;
+            setModalState(() => loadingCancel = true);
+            final resp = await ApiService().cancelAppointment(
+              branchId: selectedBranchId!,
+              appointmentId: booking['id'] as int,
+            );
+            setModalState(() => loadingCancel = false);
+
+            if (resp['success'] == true) {
+              Navigator.of(context).pop();
+              getBookingsByDate(selectedBranchId!, selectedDate);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(resp['message']?.toString() ?? 'Cancelled')),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(resp['message']?.toString() ?? 'Failed to cancel')),
+              );
+            }
+          }
+
+          return FractionallySizedBox(
+            heightFactor: 0.4,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          services.isEmpty ? 'Appointment' : services,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  if (timeStr.isNotEmpty)
+                    Text(timeStr, style: const TextStyle(color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  Text('Status: $statusUpper', style: const TextStyle(color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  Text('Stylist: $stylist', style: const TextStyle(color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  if (duration.isNotEmpty)
+                    Text('Duration: $duration', style: const TextStyle(color: Colors.black54)),
+                  const SizedBox(height: 4),
+                  if (price.isNotEmpty)
+                    Text('Price: $price', style: const TextStyle(color: Colors.black54)),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: (loadingConfirm || !isPending) ? null : onConfirm,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: loadingConfirm
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Confirm'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: (loadingCancel || !isPending) ? null : onCancel,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: loadingCancel
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Cancel'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      child: const Text('Close'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
   // Function to handle branch selection
   void onBranchChanged(int branchId, int salonId) {

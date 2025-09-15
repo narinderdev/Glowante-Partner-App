@@ -247,6 +247,7 @@ discounted = (original - applied).clamp(0, original);
             children: [
               // Deal Information
               _sectionTitle('Deal Information'),
+          Text('Salon: ${widget.salonName}, Salon ID: ${widget.salonId}'),
               TextField(
                 controller: dealTitleController,
                 decoration: _decor(
