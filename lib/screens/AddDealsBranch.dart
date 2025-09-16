@@ -137,168 +137,6 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
       _setTextSafe(discountedPriceController, '');
       return;
     }
-
-    Future<void> _showValidationDialog(List<String> errors) async {
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Please fix the following'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: errors
-                .map(
-                  (message) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text('• ' + message),
-                  ),
-                )
-                .toList(),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    double? _parseCurrency(String value) {
-      final sanitized = value.replaceAll(RegExp(r'[^0-9.]'), '');
-      if (sanitized.isEmpty) {
-        return null;
-      }
-      return double.tryParse(sanitized);
-    }
-
-    Future<bool> _validateForm() async {
-      final errors = <String>[];
-
-      if (dealTitleController.text.trim().isEmpty) {
-        errors.add('Deal title is required.');
-      }
-
-      if (_selectedServices.isEmpty) {
-        errors.add('Select at least one service.');
-      }
-
-      final discounted = _parseCurrency(discountedPriceController.text);
-      if (discounted == null || discounted <= 0) {
-        errors.add('Discounted price must be greater than 0.');
-      }
-
-      final amountText = amountOffController.text.trim();
-      if (pricingMode == 'Fixed') {
-        final amount = _parseCurrency(amountText);
-        if (amount == null || amount <= 0) {
-          errors.add('Enter a valid amount off.');
-        }
-      } else {
-        if (discountType == 'Flat') {
-          final amount = _parseCurrency(amountText);
-          if (amount == null || amount <= 0) {
-            errors.add('Enter a valid discount amount.');
-          }
-        } else {
-          final percent = double.tryParse(amountText);
-          if (percent == null || percent <= 0) {
-            errors.add('Enter a valid percentage off.');
-          } else if (percent > 100) {
-            errors.add('Percentage off cannot exceed 100.');
-          }
-          final maxDiscount = _parseCurrency(maxDiscountController.text);
-          if (maxDiscount == null || maxDiscount <= 0) {
-            errors.add('Enter the maximum discount amount.');
-          }
-        }
-      }
-
-      if (errors.isNotEmpty) {
-        await _showValidationDialog(errors);
-        return false;
-      }
-      return true;
-    }
-
-    Future<void> _submitOffer() async {
-      if (!await _validateForm()) {
-        return;
-      }
-
-      _recalcDiscounted();
-
-      if (pricingMode == 'Discount' && discountType == 'Percent') {
-        discountPercentController.text = amountOffController.text.trim();
-      }
-
-      final offerData = {
-        'name': dealTitleController.text,
-        'type': widget.source,
-        'status': 'ACTIVE',
-        'validFrom': validFromController.text.isNotEmpty
-            ? validFromController.text
-            : null,
-        'validTo': validTillController.text.isNotEmpty
-            ? validTillController.text
-            : null,
-        'pricingMode': pricingMode.toUpperCase(),
-        'price': _parseCurrency(discountedPriceController.text) ?? 0,
-        'terms': 'Valid on weekdays only.',
-        'items': _selectedServices
-            .map(
-              (service) => {
-                'branchServiceId': service['id'],
-                'qty': service['qty'],
-              },
-            )
-            .toList(),
-      };
-
-      if (pricingMode == 'Fixed') {
-        offerData['amountType'] = 'FLAT';
-        offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
-        offerData['discount'] = offerData['amount'];
-      } else {
-        offerData['discountType'] = discountType == 'Flat'
-            ? 'AMOUNT'
-            : 'PERCENT';
-        if (discountType == 'Flat') {
-          offerData['amountType'] = 'FLAT';
-          offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
-          offerData['discount'] = offerData['amount'];
-        } else {
-          offerData['discountPct'] =
-              int.tryParse(discountPercentController.text) ?? 0;
-          offerData['maxDiscount'] =
-              _parseCurrency(maxDiscountController.text) ?? 0;
-        }
-      }
-
-      final apiService = ApiService();
-      final response = await apiService.createSalonBranchOffer(
-        widget.salonId,
-        offerData,
-      );
-
-      if (response['success'] == true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Offer created successfully')),
-          );
-          widget.onPackageCreated(widget.salonId);
-          Navigator.pop(context);
-        }
-      } else {
-        if (mounted) {
-          await _showValidationDialog([
-            response['message']?.toString() ?? 'Failed to create offer.',
-          ]);
-        }
-      }
-    }
-
     double discounted = original;
 
     if (pricingMode == 'Fixed') {
@@ -334,6 +172,165 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     }
 
     _setTextSafe(discountedPriceController, _moneyStr(discounted));
+  }
+
+  Future<void> _showValidationDialog(List<String> errors) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Please fix the following'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: errors
+              .map(
+                (message) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text('• ' + message),
+                ),
+              )
+              .toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double? _parseCurrency(String value) {
+    final sanitized = value.replaceAll(RegExp(r'[^0-9.]'), '');
+    if (sanitized.isEmpty) {
+      return null;
+    }
+    return double.tryParse(sanitized);
+  }
+
+  Future<bool> _validateForm() async {
+    final errors = <String>[];
+
+    if (dealTitleController.text.trim().isEmpty) {
+      errors.add('Deal title is required.');
+    }
+
+    if (_selectedServices.isEmpty) {
+      errors.add('Select at least one service.');
+    }
+
+    final discounted = _parseCurrency(discountedPriceController.text);
+    if (discounted == null || discounted <= 0) {
+      errors.add('Discounted price must be greater than 0.');
+    }
+
+    final amountText = amountOffController.text.trim();
+    if (pricingMode == 'Fixed') {
+      final amount = _parseCurrency(amountText);
+      if (amount == null || amount <= 0) {
+        errors.add('Enter a valid amount off.');
+      }
+    } else {
+      if (discountType == 'Flat') {
+        final amount = _parseCurrency(amountText);
+        if (amount == null || amount <= 0) {
+          errors.add('Enter a valid discount amount.');
+        }
+      } else {
+        final percent = double.tryParse(amountText);
+        if (percent == null || percent <= 0) {
+          errors.add('Enter a valid percentage off.');
+        } else if (percent > 100) {
+          errors.add('Percentage off cannot exceed 100.');
+        }
+        final maxDiscount = _parseCurrency(maxDiscountController.text);
+        if (maxDiscount == null || maxDiscount <= 0) {
+          errors.add('Enter the maximum discount amount.');
+        }
+      }
+    }
+
+    if (errors.isNotEmpty) {
+      await _showValidationDialog(errors);
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _submitOffer() async {
+    if (!await _validateForm()) {
+      return;
+    }
+
+    _recalcDiscounted();
+
+    if (pricingMode == 'Discount' && discountType == 'Percent') {
+      discountPercentController.text = amountOffController.text.trim();
+    }
+
+    final offerData = {
+      'name': dealTitleController.text,
+      'type': widget.source,
+      'status': 'ACTIVE',
+      'validFrom': validFromController.text.isNotEmpty
+          ? validFromController.text
+          : null,
+      'validTo': validTillController.text.isNotEmpty
+          ? validTillController.text
+          : null,
+      'pricingMode': pricingMode.toUpperCase(),
+      'price': _parseCurrency(discountedPriceController.text) ?? 0,
+      'terms': 'Valid on weekdays only.',
+      'items': _selectedServices
+          .map(
+            (service) => {
+              'branchServiceId': service['id'],
+              'qty': service['qty'],
+            },
+          )
+          .toList(),
+    };
+
+    if (pricingMode == 'Fixed') {
+      offerData['amountType'] = 'FLAT';
+      offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
+      offerData['discount'] = offerData['amount'];
+    } else {
+      offerData['discountType'] = discountType == 'Flat' ? 'AMOUNT' : 'PERCENT';
+      if (discountType == 'Flat') {
+        offerData['amountType'] = 'FLAT';
+        offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
+        offerData['discount'] = offerData['amount'];
+      } else {
+        offerData['discountPct'] =
+            int.tryParse(discountPercentController.text) ?? 0;
+        offerData['maxDiscount'] =
+            _parseCurrency(maxDiscountController.text) ?? 0;
+      }
+    }
+
+    final apiService = ApiService();
+    final response = await apiService.createSalonBranchOffer(
+      widget.salonId,
+      offerData,
+    );
+
+    if (response['success'] == true) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offer created successfully')),
+        );
+        widget.onPackageCreated(widget.salonId);
+        Navigator.pop(context);
+      }
+    } else {
+      if (mounted) {
+        await _showValidationDialog([
+          response['message']?.toString() ?? 'Failed to create offer.',
+        ]);
+      }
+    }
   }
 
   // If modal returns {id: qty} instead of full objects, map them here
