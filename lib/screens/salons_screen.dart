@@ -24,32 +24,32 @@ class _SalonsScreenState extends State<SalonsScreen> {
     super.initState();
     salonsList = getSalonListApi();
   }
+Future<List<Map<String, dynamic>>> getSalonListApi() async {
+  try {
+    final response = await ApiService().getSalonListApi();
 
-  Future<List<Map<String, dynamic>>> getSalonListApi() async {
-    try {
-      final response = await ApiService().getSalonListApi();
-      if (response['success'] == true) {
-        List salons = response['data'];
-        return salons.map((salon) {
-          return {
-            'id': salon['id'],
-            'name': salon['name'],
-            'branches': salon['branches'],
-            'imageUrl': salon['branches'] != null &&
-                        salon['branches'].isNotEmpty &&
-                        salon['branches'][0]['imageUrl'] != null
-                ? salon['branches'][0]['imageUrl']
-                : null,
-          };
-        }).toList();
-      } else {
-        throw Exception("Failed to fetch salon list");
-      }
-    } catch (e) {
-      print("Error fetching salon list: $e");
-      return [];
+    if (response['success'] == true) {
+      List salons = response['data'];
+      return salons.map((salon) {
+        return {
+          'id': salon['id'],
+          'name': salon['name'],
+          'branches': salon['branches'],
+          'imageUrl': salon['branches'] != null &&
+                      salon['branches'].isNotEmpty &&
+                      salon['branches'][0]['imageUrl'] != null
+              ? salon['branches'][0]['imageUrl']
+              : null,
+        };
+      }).toList();
+    } else {
+      throw Exception("Failed to fetch salon list");
     }
+  } catch (e) {
+    print("Error fetching salon list: $e");
+    rethrow; // 👈 Important: let FutureBuilder see this as an error
   }
+}
 
   void _goToAddSalon() {
     Navigator.push(
@@ -81,16 +81,35 @@ class _SalonsScreenState extends State<SalonsScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return Center(
-              child: ElevatedButton.icon(
-                onPressed: _goToAddSalon,
-                icon: Icon(Icons.add),
-                label: Text("Add Salon"),
-              ),
-            );
-          } else {
+  return Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Failed to load salons.'),
+        SizedBox(height: 8),
+        ElevatedButton.icon(
+          onPressed: () {
+            setState(() {
+              salonsList = getSalonListApi(); // retry
+            });
+          },
+          icon: Icon(Icons.refresh),
+          label: Text("Retry"),
+        ),
+      ],
+    ),
+  );
+} else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+  // Only if API worked but no salons exist
+  return Center(
+    child: ElevatedButton.icon(
+      onPressed: _goToAddSalon,
+      icon: Icon(Icons.add),
+      label: Text("Add Salon"),
+    ),
+  );
+}
+ else {
             final salons = snapshot.data!;
             return ListView.builder(
               itemCount: salons.length,
@@ -222,35 +241,86 @@ class _SalonsScreenState extends State<SalonsScreen> {
               SizedBox(width: 8),
 
               // View Branch button
+              // ElevatedButton(
+              //   onPressed: () async {
+              //     try {
+              //       final branchDetails =
+              //           await ApiService().getBranchDetail(branch['id']);
+              //       Navigator.push(
+              //         context,
+              //         MaterialPageRoute(
+              //           builder: (_) => BranchScreen(
+              //             salonId: salon['id'],
+              //             branchDetails: branchDetails['data'],
+              //           ),
+              //         ),
+              //       );
+              //     } catch (e) {
+              //       print("Error fetching branch details: $e");
+              //     }
+              //   },
+              //   style: ElevatedButton.styleFrom(
+              //     backgroundColor: Colors.orange,
+              //     foregroundColor: Colors.white,
+              //     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              //     textStyle: TextStyle(fontSize: 10),
+              //     shape: RoundedRectangleBorder(
+              //       borderRadius: BorderRadius.circular(8),
+              //     ),
+              //   ),
+              //   child: Text("View Branch"),
+              // ),
               ElevatedButton(
-                onPressed: () async {
-                  try {
-                    final branchDetails =
-                        await ApiService().getBranchDetail(branch['id']);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => BranchScreen(
-                          salonId: salon['id'],
-                          branchDetails: branchDetails['data'],
-                        ),
-                      ),
-                    );
-                  } catch (e) {
-                    print("Error fetching branch details: $e");
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  textStyle: TextStyle(fontSize: 10),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text("View Branch"),
-              ),
+  onPressed: () async {
+    try {
+      final branchDetails =
+          await ApiService().getBranchDetail(branch['id']);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BranchScreen(
+            salonId: salon['id'],
+            branchDetails: branchDetails['data'],
+          ),
+        ),
+      );
+    } catch (e) {
+  String errorMsg = e.toString();
+
+  // If the error has a comma (like "... , uri=https://..."), take only before comma
+  if (errorMsg.contains(",")) {
+    errorMsg = errorMsg.split(",").first.trim();
+  }
+
+  if (mounted) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Alert", style: TextStyle(color: Colors.orange)),
+        content: Text(errorMsg),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+}
+  },
+  style: ElevatedButton.styleFrom(
+    backgroundColor: Colors.orange,
+    foregroundColor: Colors.white,
+    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    textStyle: TextStyle(fontSize: 10),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+    ),
+  ),
+  child: Text("View Branch"),
+),
+
             ],
           ),
         ),
