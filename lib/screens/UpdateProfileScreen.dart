@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
+import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import '../utils/api_service.dart';
 import '../screens/bottom_nav.dart'; // Import BottomNav for navigation
 import '../screens/add_salon_screen.dart'; // Ensure the correct path
@@ -10,7 +13,8 @@ class UpdateUserProfileScreen extends StatefulWidget {
   UpdateUserProfileScreen({required this.token});
 
   @override
-  _UpdateUserProfileScreenState createState() => _UpdateUserProfileScreenState();
+  _UpdateUserProfileScreenState createState() =>
+      _UpdateUserProfileScreenState();
 }
 
 class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
@@ -24,69 +28,77 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   final ApiService apiService = ApiService();
 
   // Function to update user profile
-Future<void> _updateProfile() async {
-  String firstName = firstNameController.text;
-  String lastName = lastNameController.text;
-  String email = emailController.text;
+  Future<void> _updateProfile() async {
+    String firstName = firstNameController.text;
+    String lastName = lastNameController.text;
+    String email = emailController.text;
 
-  if (firstName.isEmpty || lastName.isEmpty || email.isEmpty) {
-    setState(() {
-      errorMessage = 'All fields are required';
-    });
-    return;
-  }
-
-  setState(() {
-    isLoading = true;
-  });
-
-  try {
-    final response = await apiService.updateUserProfileDetails(firstName, lastName, email, widget.token);
-
-    if (response['success'] == true) {
-      var userData = response['data'];
-      int salonId = userData['salonId'] ?? 0;
-
-      // Retrieve latitude and longitude from user data or set defaults if they don't exist
-      double? latitude = userData['latitude'] ?? 0.0;
-      double? longitude = userData['longitude'] ?? 0.0;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AddSalonScreen(
-            id: userData['id'].toString(),
-            phoneNumber: userData['phoneNumber'],
-            fullPhoneNumber: userData['fullPhoneNumber'],
-            firstName: userData['firstName'] ?? '',
-            lastName: userData['lastName'] ?? '',
-            email: userData['email'] ?? '',
-            isProceedFrom: "onboarding",
-            buildingName: userData['buildingName'] ?? '',
-            city: userData['city'] ?? '',
-            pincode: userData['pincode'] ?? '',
-            state: userData['state'] ?? '',
-            latitude: latitude,  // Pass latitude
-            longitude: longitude,  // Pass longitude
-          ),
-        ),
-      );
-    } else {
+    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty) {
       setState(() {
-        errorMessage = response['message'] ?? 'Failed to update profile';
+        errorMessage = 'All fields are required';
+      });
+      return;
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      final response = await apiService.updateUserProfileDetails(
+        firstName,
+        lastName,
+        email,
+        widget.token,
+      );
+
+      if (response['success'] == true) {
+        var userData = response['data'];
+        int salonId = userData['salonId'] ?? 0;
+
+        // Retrieve latitude and longitude from user data or set defaults if they don't exist
+        double? latitude = userData['latitude'] ?? 0.0;
+        double? longitude = userData['longitude'] ?? 0.0;
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BlocProvider(
+              create: (context) =>
+                  AddSalonCubit(context.read<SalonRepository>()),
+              child: AddSalonScreen(
+                id: userData['id'].toString(),
+                phoneNumber: userData['phoneNumber'],
+                fullPhoneNumber: userData['fullPhoneNumber'],
+                firstName: userData['firstName'] ?? '',
+                lastName: userData['lastName'] ?? '',
+                email: userData['email'] ?? '',
+                isProceedFrom: "onboarding",
+                buildingName: userData['buildingName'] ?? '',
+                city: userData['city'] ?? '',
+                pincode: userData['pincode'] ?? '',
+                state: userData['state'] ?? '',
+                latitude: latitude,
+                longitude: longitude,
+              ),
+            ),
+          ),
+        );
+      } else {
+        setState(() {
+          errorMessage = response['message'] ?? 'Failed to update profile';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error updating profile: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
       });
     }
-  } catch (e) {
-    setState(() {
-      errorMessage = 'Error updating profile: $e';
-    });
-  } finally {
-    setState(() {
-      isLoading = false;
-    });
   }
-}
-
 
   // Helper function to capitalize the first letter of a string
   String _capitalizeFirstLetter(String text) {
@@ -107,29 +119,48 @@ Future<void> _updateProfile() async {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildTextField(firstNameController, 'First Name', 'Enter your first name'),
-            _buildTextField(lastNameController, 'Last Name', 'Enter your last name'),
+            _buildTextField(
+              firstNameController,
+              'First Name',
+              'Enter your first name',
+            ),
+            _buildTextField(
+              lastNameController,
+              'Last Name',
+              'Enter your last name',
+            ),
             _buildTextField(emailController, 'Email', 'Enter your email'),
             if (errorMessage.isNotEmpty) ...[
               SizedBox(height: 10),
               Text(
                 errorMessage,
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
             SizedBox(height: 30),
             ElevatedButton(
-              onPressed: isLoading ? null : _updateProfile, // Disable button while loading
+              onPressed: isLoading
+                  ? null
+                  : _updateProfile, // Disable button while loading
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange, // Use backgroundColor instead of primary
+                backgroundColor:
+                    Colors.orange, // Use backgroundColor instead of primary
                 minimumSize: Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
               child: isLoading
-                  ? CircularProgressIndicator(color: Colors.white) // Show loader when loading
-                  : Text('Update Profile', style: TextStyle(color: Colors.white)),
+                  ? CircularProgressIndicator(
+                      color: Colors.white,
+                    ) // Show loader when loading
+                  : Text(
+                      'Update Profile',
+                      style: TextStyle(color: Colors.white),
+                    ),
             ),
             //  SizedBox(height: 20),
             // // Display the token on the screen
@@ -141,7 +172,11 @@ Future<void> _updateProfile() async {
   }
 
   // Custom method to build text fields with consistent styling
-  Widget _buildTextField(TextEditingController controller, String label, String hint) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    String hint,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextField(

@@ -1,385 +1,172 @@
 import 'package:flutter/material.dart';
-import '../utils/api_service.dart';
-import 'package:intl/intl.dart';
-import '../screens/branch_screen.dart';
-import '../screens/add_branch_screen.dart';
-import '../screens/add_salon_screen.dart';
-import '../Viewmodels/BranchViewModel.dart';
-import '../screens/Package.dart';
-import '../screens/Deal.dart';
-import '../screens/Teams.dart';
-import '../screens/SalonDetailsScreen.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
+import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
+import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
+import 'package:bloc_onboarding/repositories/branch_repository.dart';
+import 'package:bloc_onboarding/repositories/salon_repository.dart';
+import 'add_branch_screen.dart';
+import 'add_salon_screen.dart';
+import 'branch_screen.dart';
+import 'Deal.dart';
+import 'Package.dart';
+import 'Teams.dart';
+
 class SalonsScreen extends StatefulWidget {
+  const SalonsScreen({super.key});
+
   @override
-  _SalonsScreenState createState() => _SalonsScreenState();
+  State<SalonsScreen> createState() => _SalonsScreenState();
 }
 
 class _SalonsScreenState extends State<SalonsScreen> {
-  late Future<List<Map<String, dynamic>>> salonsList;
-  int? expandedIndex; // 👈 Track expanded salon index
-  bool fabExpanded = false; // 👈 Track FAB state
+  bool fabExpanded = false;
 
   @override
   void initState() {
     super.initState();
-    salonsList = getSalonListApi();
-  }
-Future<List<Map<String, dynamic>>> getSalonListApi() async {
-  try {
-    final response = await ApiService().getSalonListApi();
-
-    if (response['success'] == true) {
-      List salons = response['data'];
-      return salons.map((salon) {
-        return {
-          'id': salon['id'],
-          'name': salon['name'],
-          'branches': salon['branches'],
-          'imageUrl': salon['branches'] != null &&
-                      salon['branches'].isNotEmpty &&
-                      salon['branches'][0]['imageUrl'] != null
-              ? salon['branches'][0]['imageUrl']
-              : null,
-        };
-      }).toList();
-    } else {
-      throw Exception("Failed to fetch salon list");
-    }
-  } catch (e) {
-    print("Error fetching salon list: $e");
-    rethrow; // 👈 Important: let FutureBuilder see this as an error
-  }
-}
-
-  void _goToAddSalon() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => AddSalonScreen()),
-    ).then((_) {
-      setState(() {
-        salonsList = getSalonListApi();
-      });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final cubit = context.read<SalonListCubit>();
+      if (cubit.state.salons.isEmpty) {
+        cubit.loadSalons();
+      }
     });
+  }
+
+  Future<void> _refreshSalons() async {
+    await context.read<SalonListCubit>().loadSalons();
+  }
+
+  Future<void> _goToAddSalon() async {
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (context) => AddSalonCubit(context.read<SalonRepository>()),
+          child: const AddSalonScreen(),
+        ),
+      ),
+    );
+
+    if (added == true && mounted) {
+      await _refreshSalons();
+    }
+  }
+
+  Future<void> _goToAddBranch(int salonId) async {
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (context) =>
+              AddBranchCubit(context.read<SalonRepository>(), salonId: salonId),
+          child: AddBranchScreen(salonId: salonId),
+        ),
+      ),
+    );
+
+    if (added == true && mounted) {
+      await _refreshSalons();
+    }
+  }
+
+  Future<void> _openBranchDetail({
+    required int salonId,
+    required int branchId,
+  }) async {
+    final repository = context.read<BranchRepository>();
+
+    try {
+      final response = await repository.fetchBranchDetail(branchId);
+      if (response['success'] == true && response['data'] != null) {
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BranchScreen(
+              salonId: salonId,
+              branchDetails: response['data'] as Map<String, dynamic>,
+            ),
+          ),
+        );
+      } else {
+        final message = response['message'] ?? 'Unable to open branch details';
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message.toString())));
+      }
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('My Salons'),
+        title: const Text('My Salons'),
         actions: [
-          // + icon at the top-right of the AppBar to add salon
-          IconButton(
-            icon: Icon(Icons.add),
-            onPressed: _goToAddSalon, // Navigate to AddSalonScreen
-          ),
+          IconButton(icon: const Icon(Icons.add), onPressed: _goToAddSalon),
         ],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>( 
-        future: salonsList,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-  return Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text('Failed to load salons.'),
-        SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: () {
-            setState(() {
-              salonsList = getSalonListApi(); // retry
-            });
-          },
-          icon: Icon(Icons.refresh),
-          label: Text("Retry"),
-        ),
-      ],
-    ),
-  );
-} else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-  // Only if API worked but no salons exist
-  return Center(
-    child: ElevatedButton.icon(
-      onPressed: _goToAddSalon,
-      icon: Icon(Icons.add),
-      label: Text("Add Salon"),
-    ),
-  );
-}
- else {
-            final salons = snapshot.data!;
-            return ListView.builder(
-              itemCount: salons.length,
-              itemBuilder: (context, index) {
-                final salon = salons[index];
-                final isExpanded = expandedIndex == index;
+      body: BlocBuilder<SalonListCubit, SalonListState>(
+        builder: (context, state) {
+          if (state.isLoading && state.salons.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-                return Card(
-                  margin: EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        InkWell(
-                          onTap: () {
-                            setState(() {
-                              expandedIndex = isExpanded ? null : index; // toggle
-                            });
-                          },
-                          child: Row(
-                            children: [
-                              // Salon image
-                              if (salon['imageUrl'] != null)
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(
-                                    salon['imageUrl'],
-                                    width: 40,
-                                    height: 40,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              else
-                                Icon(Icons.store, size: 40, color: Colors.grey),
-                              SizedBox(width: 12),
-
-                              // Salon name
-                              Expanded(
-                                child: Text(
-                                  salon['name'],
-                                  style: TextStyle(
-                                      fontSize: 18, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-// TextButton(
-//   onPressed: () async {
-//     try {
-//       if (salon['branches'] != null && salon['branches'].isNotEmpty) {
-//         final branch = salon['branches'][0]; // take first branch
-//         final branchDetails =
-//             await ApiService().getBranchDetail(branch['id']);
-//         Navigator.push(
-//           context,
-//           MaterialPageRoute(
-//             builder: (_) => SalonDetailsScreen(
-//               salonId: salon['id'],                 // ✅ required
-//               branchDetails: branchDetails['data'], // ✅ required
-//             ),
-//           ),
-//         );
-//       } else {
-//         ScaffoldMessenger.of(context).showSnackBar(
-//           const SnackBar(content: Text("No branches available for this salon")),
-//         );
-//       }
-//     } catch (e) {
-//       print("Error fetching branch details: $e");
-//     }
-//   },
-//   style: TextButton.styleFrom(
-//     backgroundColor: Colors.grey.shade200,   // light grey bg
-//     foregroundColor: Colors.orange,            // blue text
-//     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-//     minimumSize: Size(0, 0),                 // shrink button
-//     tapTargetSize: MaterialTapTargetSize.shrinkWrap, // reduce splash area
-//     shape: RoundedRectangleBorder(
-//       borderRadius: BorderRadius.circular(20), // 👈 rounded pill style
-//     ),
-//   ),
-//   child: const Text(
-//     'View',
-//     style: TextStyle(
-//       fontSize: 12,            // smaller text
-//       fontWeight: FontWeight.w600,
-//     ),
-//   ),
-// ),
-                              // Expand/Collapse icon
-                              Icon(
-                                isExpanded
-                                    ? Icons.keyboard_arrow_up
-                                    : Icons.keyboard_arrow_down,
-                                color: Colors.grey,
-                              ),
-                            ],
-                          ),
-                        ),
-                    if (isExpanded) ...[
-  ...salon['branches'].map<Widget>((branch) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Branch name + address
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      branch['name'],
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      branch['address']['line1'] ?? '',
-                      style: TextStyle(fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(width: 8),
-
-              // View Branch button
-              // ElevatedButton(
-              //   onPressed: () async {
-              //     try {
-              //       final branchDetails =
-              //           await ApiService().getBranchDetail(branch['id']);
-              //       Navigator.push(
-              //         context,
-              //         MaterialPageRoute(
-              //           builder: (_) => BranchScreen(
-              //             salonId: salon['id'],
-              //             branchDetails: branchDetails['data'],
-              //           ),
-              //         ),
-              //       );
-              //     } catch (e) {
-              //       print("Error fetching branch details: $e");
-              //     }
-              //   },
-              //   style: ElevatedButton.styleFrom(
-              //     backgroundColor: Colors.orange,
-              //     foregroundColor: Colors.white,
-              //     padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              //     textStyle: TextStyle(fontSize: 10),
-              //     shape: RoundedRectangleBorder(
-              //       borderRadius: BorderRadius.circular(8),
-              //     ),
-              //   ),
-              //   child: Text("View Branch"),
-              // ),
-              ElevatedButton(
-  onPressed: () async {
-    try {
-      final branchDetails =
-          await ApiService().getBranchDetail(branch['id']);
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BranchScreen(
-            salonId: salon['id'],
-            branchDetails: branchDetails['data'],
-          ),
-        ),
-      );
-    } catch (e) {
-  String errorMsg = e.toString();
-
-  // If the error has a comma (like "... , uri=https://..."), take only before comma
-  if (errorMsg.contains(",")) {
-    errorMsg = errorMsg.split(",").first.trim();
-  }
-
-  if (mounted) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Alert", style: TextStyle(color: Colors.orange)),
-        content: Text(errorMsg),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
-          ),
-        ],
-      ),
-    );
-  }
-}
-  },
-  style: ElevatedButton.styleFrom(
-    backgroundColor: Colors.orange,
-    foregroundColor: Colors.white,
-    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-    textStyle: TextStyle(fontSize: 10),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(8),
-    ),
-  ),
-  child: Text("View Branch"),
-),
-
-            ],
-          ),
-        ),
-
-        // Thin line after each branch
-        const Divider(
-          thickness: 0.5, // Thin line
-          color: Colors.grey, // Color of the line
-          height: 0, // Reduce extra space
-        ),
-      ],
-    );
-  }).toList(),
-SizedBox(height: 8),
-
- 
-
-
-                          // Add Branch section
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => AddBranchScreen(salonId: salon['id']),
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(
-                                "+ Add Branch",
-                                style: TextStyle(
-                                  color: Colors.orange,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ]
-                      ],
-                    ),
-                  ),
-                );
-              },
+          if (state.hasError && state.salons.isEmpty) {
+            return _ErrorView(
+              message: state.errorMessage ?? 'Failed to load salons',
+              onRetry: _refreshSalons,
             );
           }
+
+          if (state.salons.isEmpty) {
+            return Center(
+              child: ElevatedButton.icon(
+                onPressed: _goToAddSalon,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Salon'),
+              ),
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: _refreshSalons,
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: state.salons.length,
+              itemBuilder: (context, index) {
+                final salon = state.salons[index];
+                final salonId = salon['id'] as int;
+                final isExpanded = state.expandedSalonId == salonId;
+                return _SalonCard(
+                  salon: salon,
+                  isExpanded: isExpanded,
+                  onToggle: () =>
+                      context.read<SalonListCubit>().toggleExpanded(salonId),
+                  onAddBranch: () => _goToAddBranch(salonId),
+                  onOpenBranch: (branchId) =>
+                      _openBranchDetail(salonId: salonId, branchId: branchId),
+                );
+              },
+            ),
+          );
         },
       ),
-
-      // Floating Action Button with menu
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (fabExpanded)
-            // Wrap all FAB items in a white container with reduced width
             Container(
-              width: 70, // Decrease the width here (make it smaller)
-              padding: EdgeInsets.all(8),
+              width: 70,
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
@@ -393,16 +180,43 @@ SizedBox(height: 8),
               ),
               child: Column(
                 children: [
-                  _fabMenuItem(Icons.group, "Team"),
-                  SizedBox(height: 8),
-                  _fabMenuItem(Icons.local_offer, "Deals"),
-                  SizedBox(height: 8),
-                  _fabMenuItem(Icons.card_giftcard, "Packages"),
-                  SizedBox(height: 16),
+                  _FabMenuItem(
+                    icon: Icons.group,
+                    label: 'Team',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => TeamScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _FabMenuItem(
+                    icon: Icons.local_offer,
+                    label: 'Deals',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => DealScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  _FabMenuItem(
+                    icon: Icons.card_giftcard,
+                    label: 'Packages',
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => PackageScreen()),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
-          SizedBox(height: 16),  // Extra space before the + icon
+          const SizedBox(height: 16),
           FloatingActionButton(
             backgroundColor: Colors.orange,
             child: Icon(fabExpanded ? Icons.close : Icons.add),
@@ -416,52 +230,219 @@ SizedBox(height: 8),
       ),
     );
   }
-Widget _fabMenuItem(IconData icon, String label) {
-  return Container(
-    margin: EdgeInsets.only(bottom: 10),
-    child: Column(
+}
+
+class _SalonCard extends StatelessWidget {
+  const _SalonCard({
+    required this.salon,
+    required this.isExpanded,
+    required this.onToggle,
+    required this.onAddBranch,
+    required this.onOpenBranch,
+  });
+
+  final Map<String, dynamic> salon;
+  final bool isExpanded;
+  final VoidCallback onToggle;
+  final VoidCallback onAddBranch;
+  final void Function(int branchId) onOpenBranch;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = salon['imageUrl'] as String?;
+    final branches =
+        (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: onToggle,
+              child: Row(
+                children: [
+                  if (imageUrl != null && imageUrl.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        imageUrl,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  else
+                    const Icon(Icons.store, size: 40, color: Colors.grey),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      (salon['name'] ?? 'Salon') as String,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: Colors.grey,
+                  ),
+                ],
+              ),
+            ),
+            if (isExpanded) ...[
+              const SizedBox(height: 12),
+              if (branches.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Text('No branches yet. Start by adding one!'),
+                )
+              else
+                ...branches.map(
+                  (branch) => _BranchTile(
+                    branch: branch,
+                    onOpen: () => onOpenBranch(branch['id'] as int),
+                  ),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: onAddBranch,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text(
+                      '+ Add Branch',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BranchTile extends StatelessWidget {
+  const _BranchTile({required this.branch, required this.onOpen});
+
+  final Map<String, dynamic> branch;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final address = branch['address'] as Map<String, dynamic>?;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (branch['name'] ?? 'Branch') as String,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  (address?['line1'] ?? '') as String,
+                  style: const TextStyle(fontSize: 12),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: onOpen,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: const TextStyle(fontSize: 12),
+            ),
+            child: const Text('View Branch'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FabMenuItem extends StatelessWidget {
+  const _FabMenuItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         FloatingActionButton(
           heroTag: label,
           mini: true,
           backgroundColor: Colors.orange,
+          onPressed: onTap,
           child: Icon(icon, color: Colors.white),
-          onPressed: () {
-            print("$label clicked");
-
-            // Add navigation logic based on the label
-         if (label == "Packages") {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => PackageScreen()),
-  );
-} else if (label == "Deals") {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => DealScreen()),
-  );
-} else if (label == "Team") {
-  Navigator.push(
-    context,
-    MaterialPageRoute(builder: (_) => TeamScreen()),
-  );
-}
-
-          },
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.orange,
             fontWeight: FontWeight.w600,
-            fontSize: 10, // Decreased font size here
+            fontSize: 10,
           ),
         ),
       ],
-    ),
-  );
+    );
+  }
 }
 
+class _ErrorView extends StatelessWidget {
+  const _ErrorView({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(message),
+          const SizedBox(height: 8),
+          ElevatedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
 }

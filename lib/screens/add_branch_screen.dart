@@ -1,820 +1,320 @@
-// import 'dart:io';  // Ensure this import for File class
-// import 'package:flutter/material.dart';
-// import 'package:intl/intl.dart';  // To format time
-// import 'package:image_picker/image_picker.dart';  // For image selection
-// import 'add_location_screen.dart';  // Import AddLocationScreen
-// import 'package:shared_preferences/shared_preferences.dart'; // For SharedPreferences
-// import '../utils/api_service.dart';  // Import ApiService
-// import '../Viewmodels/AddSalonBranchRequest.dart'; // Import AddSalonBranchRequest
-// import '../utils/aws_s3_uploader.dart';
-
-// class AddBranchScreen extends StatefulWidget {
-//   final int salonId;
-
-//   const AddBranchScreen({Key? key, required this.salonId}) : super(key: key);
-
-//   @override
-//   _AddBranchScreenState createState() => _AddBranchScreenState();
-// }
-
-// class _AddBranchScreenState extends State<AddBranchScreen> {
-//   String buildingName = '';
-//   String city = '';
-//   String pincode = '';
-//   String state = '';
-//   double? latitude;
-//   double? longitude;
-
-//   // Controllers for user input fields
-//   final TextEditingController branchNameController = TextEditingController();
-//   final TextEditingController phoneController = TextEditingController();
-//   final TextEditingController startTimeController = TextEditingController();
-//   final TextEditingController endTimeController = TextEditingController();
-//   final TextEditingController descriptionController = TextEditingController();
-//   final ImagePicker _picker = ImagePicker();
-//   List<XFile>? _images = [];
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _loadPhoneNumber();
-//   }
-
-//   Future<void> _loadPhoneNumber() async {
-//     final prefs = await SharedPreferences.getInstance();
-//     final savedPhone = prefs.getString('phone_number') ?? '';
-//     setState(() {
-//       phoneController.text = savedPhone;
-//     });
-//   }
-
-//   Future<void> _pickImage() async {
-//     final List<XFile>? selectedImages = await _picker.pickMultiImage();
-//     setState(() {
-//       _images = selectedImages;
-//     });
-//   }
-
-//   // Function to navigate to AddLocationScreen and get the location data back
-//   Future<void> _navigateToAddLocation() async {
-//     final result = await Navigator.push(
-//       context,
-//       MaterialPageRoute(
-//         builder: (_) => AddLocationScreen(
-//           buildingName: buildingName,
-//           city: city,
-//           pincode: pincode,
-//           state: state,
-//         ),
-//       ),
-//     );
-
-//     // If data is returned, update the address components and store latitude/longitude
-//     if (result != null) {
-//       setState(() {
-//         buildingName = result['buildingName'];
-//         city = result['city'];
-//         pincode = result['pincode'];
-//         state = result['state'];
-//         latitude = result['latitude'];  // Store latitude
-//         longitude = result['longitude']; // Store longitude
-//       });
-//     }
-//   }
-//   Future<void> _selectTime(BuildContext context, bool isStartTime) async {
-//   final TimeOfDay? picked = await showTimePicker(
-//     context: context,
-//     initialTime: TimeOfDay.now(),
-//     builder: (BuildContext context, Widget? child) {
-//       return MediaQuery(
-//         data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: false),
-//         child: child!,
-//       );
-//     },
-//   );
-//   if (picked != null) {
-//     setState(() {
-//       // Convert TimeOfDay to 24-hour format time string
-//       final timeString = DateFormat.Hm().format(DateTime(0, 0, 0, picked.hour, picked.minute));
-      
-//       if (isStartTime) {
-//         startTimeController.text = timeString; // Set the start time
-//       } else {
-//         endTimeController.text = timeString; // Set the end time
-//       }
-//     });
-//   }
-// }
-
-//   // Submit branch details
-// Future<void> _submitBranchDetails() async {
-//   if (branchNameController.text.isNotEmpty && phoneController.text.isNotEmpty) {
-//     try {
-//       String? imageUrl;
-//       List<String> imageUrls = [];
-
-//       // Upload images if any selected
-//       if (_images != null && _images!.isNotEmpty) {
-//         final files = _images!.map((xfile) => File(xfile.path)).toList();
-//         imageUrls = await ApiService().uploadMultipleImages(files);
-
-//         // If backend supports only one image_url
-//         imageUrl = imageUrls.isNotEmpty ? imageUrls.first : null;
-//       }
-
-//       // Create branch request with formatted address and handle nullable imageUrl properly
-//       final branchRequest = AddSalonBranchRequest(
-//         name: branchNameController.text,
-//         phone: phoneController.text,
-//         startTime: startTimeController.text, // Already formatted in 24-hour format
-//         endTime: endTimeController.text,     // Already formatted in 24-hour format
-//         description: descriptionController.text,
-//         image_url: imageUrl ?? "", // Changed to image_url
-//         address: {
-//           "line1": "$buildingName, $city, $pincode, $state",
-//           "line2": "",
-//           "city": city,
-//           "state": state,
-//           "country": "India", // Add country
-//           "postalCode": pincode,
-//           "village": "", // Add village (if available)
-//           "district": "", // Add district (if available)
-//           "latitude": latitude ?? 0.0,
-//           "longitude": longitude ?? 0.0
-//         },
-//         latitude: latitude ?? 0.0,
-//         longitude: longitude ?? 0.0,
-//       );
-
-//       final branchRequestMap = branchRequest.toJson();  // Convert to Map<String, dynamic>
-
-//       // Log the payload
-//       print("Branch Request Map (Payload): $branchRequestMap");
-
-//       // Send the request to add the branch
-//       final response = await ApiService().addSalonBranch(widget.salonId, branchRequestMap);
-
-//       // Check for successful response
-//       if (response != null && response['success'] == true) {
-//         Navigator.pop(context); // Go back after adding branch
-//       } else {
-//         print("Failed to add branch: ${response['message']}");
-//       }
-//     } catch (e) {
-//       print("Error adding branch: $e");
-//     }
-//   }
-// }
-
-
-
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(title: const Text('Add Branch'), centerTitle: true),
-//       body: SafeArea(
-//         child: SingleChildScrollView(
-//           padding: const EdgeInsets.all(16.0),
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               // Card container for primary details
-//               Card(
-//                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-//                 elevation: 2,
-//                 child: Padding(
-//                   padding: const EdgeInsets.all(16.0),
-//                   child: Column(
-//                     children: [
-//                       _buildTextField(branchNameController, 'Branch Name *', 'Enter branch name'),
-//                       _buildTextField(
-//                         phoneController,
-//                         'Phone Number *',
-//                         'Enter phone number',
-//                         keyboardType: TextInputType.phone,
-//                       ),
-//                       const SizedBox(height: 8),
-//                       Row(
-//                         children: [
-//                           Expanded(
-//                             child: _buildTimePickerField(
-//                               controller: startTimeController,
-//                               label: 'Start Time *',
-//                               onTap: () => _selectTime(context, true),
-//                             ),
-//                           ),
-//                           const SizedBox(width: 12),
-//                           Expanded(
-//                             child: _buildTimePickerField(
-//                               controller: endTimeController,
-//                               label: 'End Time *',
-//                               onTap: () => _selectTime(context, false),
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ),
-
-//               const SizedBox(height: 16),
-
-//               // Location section
-//               Card(
-//                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-//                 elevation: 2,
-//                 child: Padding(
-//                   padding: const EdgeInsets.all(16.0),
-//                   child: Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       const Text('Location', style: TextStyle(fontWeight: FontWeight.w600)),
-//                       const SizedBox(height: 8),
-//                       if (buildingName.isNotEmpty && city.isNotEmpty && pincode.isNotEmpty && state.isNotEmpty)
-//                         Row(
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           children: [
-//                             Expanded(child: Text('$buildingName, $city, $pincode, $state')),
-//                             IconButton(
-//                               icon: const Icon(Icons.edit, color: Colors.blue),
-//                               onPressed: _navigateToAddLocation,
-//                             ),
-//                           ],
-//                         )
-//                       else
-//                         ElevatedButton(
-//                           onPressed: _navigateToAddLocation,
-//                           style: ElevatedButton.styleFrom(
-//                             minimumSize: const Size(double.infinity, 48),
-//                             backgroundColor: Colors.orange,
-//                             foregroundColor: Colors.white,
-//                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-//                           ),
-//                           child: const Text('Add Location'),
-//                         ),
-//                     ],
-//                   ),
-//                 ),
-//               ),
-
-//               const SizedBox(height: 16),
-
-//               // Description
-//               Card(
-//                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-//                 elevation: 2,
-//                 child: Padding(
-//                   padding: const EdgeInsets.all(16.0),
-//                   child: _buildTextField(
-//                     descriptionController,
-//                     'Description *',
-//                     'Enter a description',
-//                     maxLines: 4,
-//                   ),
-//                 ),
-//               ),
-
-//               const SizedBox(height: 16),
-
-//               // Images
-//               Card(
-//                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-//                 elevation: 2,
-//                 child: Padding(
-//                   padding: const EdgeInsets.all(16.0),
-//                   child: Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Row(
-//                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                         children: [
-//                           const Text('Branch Images', style: TextStyle(fontWeight: FontWeight.w600)),
-//                           IconButton(onPressed: _pickImage, icon: const Icon(Icons.add_a_photo, color: Colors.orange)),
-//                         ],
-//                       ),
-//                       if (_images != null && _images!.isNotEmpty)
-//                         Wrap(
-//                           spacing: 8,
-//                           runSpacing: 8,
-//                           children: _images!.map((image) {
-//                             return ClipRRect(
-//                               borderRadius: BorderRadius.circular(8),
-//                               child: Image.file(
-//                                 File(image.path),
-//                                 width: 90,
-//                                 height: 90,
-//                                 fit: BoxFit.cover,
-//                               ),
-//                             );
-//                           }).toList(),
-//                         )
-//                       else
-//                         const Text('No images selected'),
-//                     ],
-//                   ),
-//                 ),
-//               ),
-
-//               const SizedBox(height: 20),
-
-//               // Submit button
-//               ElevatedButton(
-//                 onPressed: _submitBranchDetails,
-//                 style: ElevatedButton.styleFrom(
-//                   minimumSize: const Size(double.infinity, 50),
-//                   backgroundColor: Colors.orange,
-//                   foregroundColor: Colors.white,
-//                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-//                 ),
-//                 child: const Text('Submit Branch'),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   // Method to build text fields
-//   Widget _buildTextField(
-//     TextEditingController controller,
-//     String label,
-//     String hint, {
-//     int maxLines = 1,
-//     TextInputType? keyboardType,
-//   }) {
-//     return Padding(
-//       padding: const EdgeInsets.symmetric(vertical: 10),
-//       child: TextField(
-//         controller: controller,
-//         maxLines: maxLines,
-//         keyboardType: keyboardType,
-//         decoration: InputDecoration(
-//           labelText: label,
-//           hintText: hint,
-//           border: OutlineInputBorder(
-//             borderRadius: BorderRadius.circular(8),
-//             borderSide: BorderSide(color: Colors.orange),
-//           ),
-//           focusedBorder: OutlineInputBorder(
-//             borderRadius: BorderRadius.circular(8),
-//             borderSide: const BorderSide(color: Colors.orange),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   // Time picker field builder
-//   Widget _buildTimePickerField({
-//     required TextEditingController controller,
-//     required String label,
-//     required VoidCallback onTap,
-//   }) {
-//     return GestureDetector(
-//       onTap: onTap,
-//       child: AbsorbPointer(
-//         child: _buildTextField(controller, label, 'Select time'),
-//       ),
-//     );
-//   }
-// }
 import 'dart:io';
-import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+
+import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'add_location_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/api_service.dart';
-import '../Viewmodels/AddSalonBranchRequest.dart';
-import '../utils/aws_s3_uploader.dart';
-import 'bottom_nav.dart';
+
 class AddBranchScreen extends StatefulWidget {
+  const AddBranchScreen({super.key, required this.salonId});
+
   final int salonId;
 
-  const AddBranchScreen({Key? key, required this.salonId}) : super(key: key);
-
   @override
-  _AddBranchScreenState createState() => _AddBranchScreenState();
+  State<AddBranchScreen> createState() => _AddBranchScreenState();
 }
 
 class _AddBranchScreenState extends State<AddBranchScreen> {
-  String buildingName = '';
-  String city = '';
-  String pincode = '';
-  String state = '';
-  double? latitude;
-  double? longitude;
-
   final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-
-  // Controllers
-  final TextEditingController branchNameController = TextEditingController();
-  final TextEditingController phoneController = TextEditingController();
-  final TextEditingController startTimeController = TextEditingController();
-  final TextEditingController endTimeController = TextEditingController();
-  final TextEditingController descriptionController = TextEditingController();
+  final _branchNameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _startTimeController = TextEditingController();
+  final _endTimeController = TextEditingController();
+  final _descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
-  List<XFile>? _images = [];
 
   @override
   void initState() {
     super.initState();
-    _loadPhoneNumber();
-  }
-
-  Future<void> _loadPhoneNumber() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedPhone = prefs.getString('phone_number') ?? '';
-    setState(() {
-      phoneController.text = savedPhone;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AddBranchCubit>().loadSavedPhone();
     });
   }
 
-  Future<void> _pickImage() async {
-    final List<XFile>? selectedImages = await _picker.pickMultiImage();
-    setState(() {
-      _images = selectedImages;
-    });
+  @override
+  void dispose() {
+    _branchNameController.dispose();
+    _phoneController.dispose();
+    _startTimeController.dispose();
+    _endTimeController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
-  Future<void> _navigateToAddLocation() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddLocationScreen(
-          buildingName: buildingName,
-          city: city,
-          pincode: pincode,
-          state: state,
-        ),
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        buildingName = result['buildingName'];
-        city = result['city'];
-        pincode = result['pincode'];
-        state = result['state'];
-        latitude = result['latitude'];
-        longitude = result['longitude'];
-      });
-    }
+  Future<void> _pickImages() async {
+    final files = await _picker.pickMultiImage();
+    if (!mounted || files == null) return;
+    final images = files.map((file) => File(file.path)).toList();
+    context.read<AddBranchCubit>().setImages(images);
   }
 
-  Future<void> _selectTime(BuildContext context, bool isStartTime) async {
-    final TimeOfDay? picked = await showTimePicker(
+  Future<void> _selectTime(TextEditingController controller) async {
+    final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
     );
     if (picked != null) {
-      final timeString = DateFormat.Hm()
-          .format(DateTime(0, 0, 0, picked.hour, picked.minute));
-      setState(() {
-        if (isStartTime) {
-          startTimeController.text = timeString;
-        } else {
-          endTimeController.text = timeString;
-        }
-      });
+      controller.text = picked.format(context);
     }
   }
 
-  void _showAlert(String title, String message, {bool isError = false}) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(
-          title,
-          style: TextStyle(color: isError ? Colors.red : Colors.green),
+  Future<void> _chooseLocation(AddBranchState state) async {
+    final result = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddLocationScreen(
+          buildingName: state.address?.buildingName ?? '',
+          city: state.address?.city ?? '',
+          pincode: state.address?.pincode ?? '',
+          state: state.address?.state ?? '',
         ),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("OK"),
-          ),
-        ],
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    context.read<AddBranchCubit>().updateAddress(
+      BranchAddress(
+        buildingName: result['buildingName'] as String? ?? '',
+        city: result['city'] as String? ?? '',
+        pincode: result['pincode'] as String? ?? '',
+        state: result['state'] as String? ?? '',
+        latitude: (result['latitude'] as num?)?.toDouble() ?? 0,
+        longitude: (result['longitude'] as num?)?.toDouble() ?? 0,
       ),
     );
   }
-Future<void> _submitBranchDetails() async {
-  if (_isLoading) return;
 
-  if (_formKey.currentState?.validate() ?? false) {
-    if (buildingName.isEmpty ||
-        city.isEmpty ||
-        pincode.isEmpty ||
-        state.isEmpty) {
-      _showAlert("Missing Location", "Please select branch location",
-          isError: true);
+  void _submit(AddBranchState state) {
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    try {
-      String? imageUrl;
-      List<String> imageUrls = [];
-
-      if (_images != null && _images!.isNotEmpty) {
-        final files = _images!.map((xfile) => File(xfile.path)).toList();
-        imageUrls = await ApiService().uploadMultipleImages(files);
-        imageUrl = imageUrls.isNotEmpty ? imageUrls.first : null;
-      }
-
-      final branchRequest = AddSalonBranchRequest(
-        name: branchNameController.text,
-        phone: phoneController.text,
-        startTime: startTimeController.text,
-        endTime: endTimeController.text,
-        description: descriptionController.text,
-        image_url: imageUrl ?? "",
-        address: {
-          "line1": "$buildingName, $city, $pincode, $state",
-          "line2": "",
-          "city": city,
-          "state": state,
-          "country": "India",
-          "postalCode": pincode,
-          "village": "",
-          "district": "",
-          "latitude": latitude ?? 0.0,
-          "longitude": longitude ?? 0.0,
-        },
-        latitude: latitude ?? 0.0,
-        longitude: longitude ?? 0.0,
+    if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select start and end time.')),
       );
-
-      final response = await ApiService()
-          .addSalonBranch(widget.salonId, branchRequest.toJson());
-
-      if (response != null && response['success'] == true) {
-  if (mounted) {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 1)),
-      (Route<dynamic> route) => false,
-    );
-  }
-}
- else {
-        String errorMsg = "Something went wrong";
-
-        if (response != null && response['message'] != null) {
-          if (response['message'] is List) {
-            errorMsg = response['message'].join(", ");
-          } else {
-            errorMsg = response['message'].toString();
-          }
-        }
-
-        _showAlert("Error", errorMsg, isError: true);
-      }
-    } catch (e) {
-      String errorMsg = "Something went wrong";
-
-      try {
-        final regex = RegExp(r'\{.*\}');
-        final match = regex.firstMatch(e.toString());
-        if (match != null) {
-          final Map<String, dynamic> errorJson = json.decode(match.group(0)!);
-
-          if (errorJson.containsKey('message')) {
-            if (errorJson['message'] is List) {
-              errorMsg = errorJson['message'].join(", ");
-            } else {
-              errorMsg = errorJson['message'].toString();
-            }
-          } else if (errorJson.containsKey('error')) {
-            errorMsg = errorJson['error'].toString();
-          }
-        }
-      } catch (_) {
-        errorMsg = e.toString();
-      }
-
-      if (mounted) {
-        _showAlert("Alert", errorMsg, isError: true);
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      return;
     }
-  }
-}
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Add Branch'), centerTitle: true),
-      body: Stack(
-        children: [
-          SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Details Card
-                    Card(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            _buildTextField(branchNameController,
-                                'Branch Name *', 'Enter branch name'),
-                            _buildTextField(phoneController, 'Phone Number *',
-                                'Enter phone number',
-                                keyboardType: TextInputType.phone),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildTimePickerField(
-                                    controller: startTimeController,
-                                    label: 'Start Time *',
-                                    onTap: () => _selectTime(context, true),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildTimePickerField(
-                                    controller: endTimeController,
-                                    label: 'End Time *',
-                                    onTap: () => _selectTime(context, false),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Location Card
-                    Card(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Location',
-                                style: TextStyle(fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 8),
-                            if (buildingName.isNotEmpty &&
-                                city.isNotEmpty &&
-                                pincode.isNotEmpty &&
-                                state.isNotEmpty)
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                        '$buildingName, $city, $pincode, $state'),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit,
-                                        color: Colors.blue),
-                                    onPressed: _navigateToAddLocation,
-                                  ),
-                                ],
-                              )
-                            else
-                             SizedBox(
-  width: double.infinity, // 👈 full width
-  child: ElevatedButton(
-    onPressed: _navigateToAddLocation,
-    style: ElevatedButton.styleFrom(
-      minimumSize: const Size(double.infinity, 48),
-      backgroundColor: Colors.orange,
-      foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ),
-    child: const Text('Add Location'),
-  ),
-),
-
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Description Card
-                    Card(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: _buildTextField(descriptionController,
-                            'Description *', 'Enter description',
-                            maxLines: 4),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Images
-                    Card(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Branch Images (optional)',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                IconButton(
-                                    onPressed: _pickImage,
-                                    icon: const Icon(Icons.add_a_photo,
-                                        color: Colors.orange)),
-                              ],
-                            ),
-                            if (_images != null && _images!.isNotEmpty)
-                              Wrap(
-                                spacing: 8,
-                                children: _images!
-                                    .map((img) => Image.file(File(img.path),
-                                        width: 80, height: 80))
-                                    .toList(),
-                              )
-                            else
-                              const Text("No images selected"),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    ElevatedButton(
-                      onPressed: _isLoading ? null : _submitBranchDetails,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                      ),
-                      child: _isLoading
-                          ? const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
-                          : const Text('Submit Branch'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          if (_isLoading)
-            Container(
-              color: Colors.black54,
-              child: const Center(
-                  child: CircularProgressIndicator(color: Colors.orange)),
-            ),
-        ],
+    context.read<AddBranchCubit>().submit(
+      AddBranchFormData(
+        name: _branchNameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        startTime: _startTimeController.text.trim(),
+        endTime: _endTimeController.text.trim(),
+        description: _descriptionController.text.trim(),
       ),
     );
   }
 
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    String hint, {
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<AddBranchCubit, AddBranchState>(
+      listenWhen: (previous, current) => previous.status != current.status,
+      listener: (context, state) {
+        if (state.savedPhone != null) {
+          _phoneController.text = state.savedPhone!;
+        }
+
+        if (state.status == BranchFormStatus.failure &&
+            state.errorMessage != null) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+        }
+
+        if (state.status == BranchFormStatus.success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Branch added successfully')),
+          );
+          Navigator.pop(context, true);
+        }
+      },
+      builder: (context, state) {
+        final images = state.images;
+        final address = state.address;
+
+        return Scaffold(
+          appBar: AppBar(title: const Text('Add Branch')),
+          body: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildTextField(
+                        controller: _branchNameController,
+                        label: 'Branch Name *',
+                        hint: 'Enter branch name',
+                      ),
+                      _buildTextField(
+                        controller: _phoneController,
+                        label: 'Phone Number *',
+                        hint: 'Enter phone number',
+                        enabled: false,
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTimePickerField(
+                              controller: _startTimeController,
+                              label: 'Start Time *',
+                              onTap: () => _selectTime(_startTimeController),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: _buildTimePickerField(
+                              controller: _endTimeController,
+                              label: 'End Time *',
+                              onTap: () => _selectTime(_endTimeController),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      _buildTextField(
+                        controller: _descriptionController,
+                        label: 'Description *',
+                        hint: 'Enter description',
+                        maxLines: 4,
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Branch Address',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () => _chooseLocation(state),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.orange),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: address == null
+                              ? const Text('Tap to select branch location')
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      address.buildingName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text('${address.city}, ${address.state}'),
+                                    Text('Pincode: ${address.pincode}'),
+                                  ],
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        'Branch Images',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final image in images)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                image,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          GestureDetector(
+                            onTap: _pickImages,
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.orange),
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.orange,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: state.isSubmitting
+                              ? null
+                              : () => _submit(state),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: state.isSubmitting
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Submit Branch'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (state.status == BranchFormStatus.loading)
+                const ColoredBox(
+                  color: Colors.black54,
+                  child: Center(
+                    child: CircularProgressIndicator(color: Colors.orange),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
     int maxLines = 1,
-    TextInputType? keyboardType,
-    bool isRequired = true,
+    bool enabled = true,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: TextFormField(
         controller: controller,
         maxLines: maxLines,
-        keyboardType: keyboardType,
+        enabled: enabled,
         validator: (value) {
-          if (isRequired && (value == null || value.trim().isEmpty)) {
+          if (value == null || value.trim().isEmpty) {
             return '$label is required';
           }
           return null;
@@ -822,9 +322,7 @@ Future<void> _submitBranchDetails() async {
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         ),
       ),
     );
@@ -838,7 +336,11 @@ Future<void> _submitBranchDetails() async {
     return GestureDetector(
       onTap: onTap,
       child: AbsorbPointer(
-        child: _buildTextField(controller, label, 'Select time'),
+        child: _buildTextField(
+          controller: controller,
+          label: label,
+          hint: 'Select time',
+        ),
       ),
     );
   }

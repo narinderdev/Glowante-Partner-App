@@ -1,217 +1,81 @@
 import 'package:flutter/material.dart';
-import '../utils/api_service.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
+import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import '../Viewmodels/AddCategory.dart';
-import '../screens/AddServices.dart'; // 👈 Import AddServices screen
+import 'AddServices.dart';
 
 class CategoryScreen extends StatefulWidget {
+  const CategoryScreen({super.key});
+
   @override
-  _CategoryScreenState createState() => _CategoryScreenState();
+  State<CategoryScreen> createState() => _CategoryScreenState();
 }
 
 class _CategoryScreenState extends State<CategoryScreen> {
-  late Future<List<Map<String, dynamic>>> salonsList;
-Map<int, bool> _expandedSubcategories = {};
-  int? selectedBranchId;
-  Map<String, dynamic>? selectedBranch;
-  List<dynamic> categories = [];
-  bool loadingCategories = false;
+  final Map<int, bool> _expandedSubcategories = {};
+  int? _selectedBranchId;
+  Map<String, dynamic>? _selectedBranch;
 
-@override
-void initState() {
-  super.initState();
-  salonsList = getSalonListApi(); // only salons list here
-}
-
-@override
-void didChangeDependencies() {
-  super.didChangeDependencies();
-
-  // 👇 Refresh categories if branch already selected
-  if (selectedBranch != null) {
-    fetchCategories();
-  }
-}
-
-
-
-  Future<List<Map<String, dynamic>>> getSalonListApi() async {
-    try {
-      final response = await ApiService().getSalonListApi();
-      if (response['success'] == true) {
-        List salons = response['data'];
-        return salons.map((salon) {
-          return {
-            'id': salon['id'],
-            'name': salon['name'],
-            'branches': salon['branches'],
-          };
-        }).toList();
-      } else {
-        throw Exception("Failed to fetch salon list");
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final salonCubit = context.read<SalonListCubit>();
+      if (salonCubit.state.salons.isEmpty) {
+        salonCubit.loadSalons();
       }
-    } catch (e) {
-      print("Error fetching salon list: $e");
-      return [];
-    }
+    });
   }
-  
-Future<void> fetchCategories() async {
-  if (selectedBranch == null) return;
-  setState(() => loadingCategories = true);
 
-  try {
-    final response =
-        await ApiService().getService(salonId: selectedBranch!['salonId']);
-    if (response['success'] == true) {
-      setState(() {
-        categories = response['data']['categories']; // 👈 categories with services
-      });
-      print("Categories fetched: $categories");  // Debugging line
-    }
-  } catch (e) {
-    print("❌ Error fetching categories/services: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Failed to fetch catalogue")),
-    );
-  } finally {
-    setState(() => loadingCategories = false);
-  }
-}
+  void _onBranchSelected(int? value, List<Map<String, dynamic>> salons) {
+    if (value == null) return;
 
-  // void _confirmDeleteService(int serviceId) {
-  //   // For now just show a message
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(content: Text("Delete pressed for service $serviceId")),
-  //   );
-  // }
-void _addSubcategoryDialog(Map<String, dynamic>? subCategory, int categoryId) {
-  // Initialize the controller with the subcategory name if editing, or an empty string if adding
-  final nameController = TextEditingController(text: subCategory != null ? subCategory['name'] : '');
-
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (context) {
-      return Padding(
-        padding: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: 16,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[400],
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
-            Text(
-              subCategory == null ? "Add Subcategory" : "Edit Subcategory", // Show appropriate title
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 16),
-            TextField(
-              controller: nameController, // Set the controller to pre-fill name if editing
-              decoration: InputDecoration(
-                labelText: "Subcategory Name",
-                prefixIcon: Icon(Icons.category),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Close the modal
-                    },
-                    child: Text("Cancel"),
-                  ),
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final subcategoryName = nameController.text.trim();
-                      if (subcategoryName.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Please enter a subcategory name")),
-                        );
-                        return;
-                      }
-
-                      try {
-                        final apiService = ApiService();  // Create an instance of ApiService
-                        if (subCategory == null) {
-                          // Adding a new subcategory
-                          final response = await apiService.addSubCategoryApi(
-                            salonId: selectedBranch!['salonId'],  // dynamic salonId
-                            categoryId: categoryId,  // Use categoryId passed as parameter
-                            name: subcategoryName,
-                          );
-                        } else {
-                          // Editing an existing subcategory
-                          final response = await apiService.updateSubCategoryApi(
-                            salonId: selectedBranch!['salonId'],  // dynamic salonId
-                            subCategoryId: subCategory['id'],  // dynamic subcategory ID
-                            name: subcategoryName,
-                          );
-                        }
-
-                        // If the API call is successful, update state and UI
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(subCategory == null ? "Subcategory added successfully" : "Subcategory updated successfully")),
-                        );
-
-                        // Close the modal
-                        Navigator.pop(context);
-
-                        // Refetch the categories to reflect the new/edited subcategory
-                        fetchCategories();
-                      } catch (e) {
-                        // If there's an error
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text("Error adding/editing subcategory: $e")),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.brown,
-                    ),
-                    child: Text("Save"),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    for (final salon in salons) {
+      final branches =
+          (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final Map<String, dynamic> match = branches.firstWhere(
+        (branch) => branch['id'] == value,
+        orElse: () => <String, dynamic>{},
       );
-    },
-  );
-}
+      if (match.isNotEmpty) {
+        setState(() {
+          _selectedBranchId = value;
+          _selectedBranch = {
+            'salonId': salon['id'],
+            'branchId': match['id'],
+            'branchName': match['name'],
+          };
+          _expandedSubcategories.clear();
+        });
+        context.read<CategoryCubit>().loadCategories(salon['id'] as int);
+        break;
+      }
+    }
+  }
 
   void _showAddCategorySheet({Map<String, dynamic>? category}) {
-    final nameController =
-        TextEditingController(text: category != null ? category['name'] : '');
-    final descController = TextEditingController();
+    if (_selectedBranch == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a salon branch first.')),
+      );
+      return;
+    }
+
+    final isEdit = category != null;
+    final nameController = TextEditingController(
+      text: category?['name'] as String? ?? '',
+    );
+    final descriptionController = TextEditingController(
+      text: category?['description'] as String? ?? '',
+    );
+    final enableToggle = ValueNotifier<bool>(category?['isDisabled'] == false);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
@@ -230,613 +94,608 @@ void _addSubcategoryDialog(Map<String, dynamic>? subCategory, int categoryId) {
                 child: Container(
                   width: 40,
                   height: 4,
-                  margin: EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
                     color: Colors.grey[400],
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
               Text(
-                category == null ? "Add Category" : "Edit Category",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                isEdit ? 'Edit Category' : 'Add Category',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               TextField(
                 controller: nameController,
-                decoration: InputDecoration(
-                  labelText: "Name",
-                  prefixIcon: Icon(Icons.category),
+                decoration: const InputDecoration(
+                  labelText: 'Category Name',
                   border: OutlineInputBorder(),
                 ),
               ),
-              SizedBox(height: 16),
-
-              // ✅ Description input (not sent to API yet)
+              const SizedBox(height: 16),
               TextField(
-                controller: descController,
-                decoration: InputDecoration(
-                  labelText: "Description",
-                  prefixIcon: Icon(Icons.description),
+                controller: descriptionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
                   border: OutlineInputBorder(),
                 ),
               ),
-              SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text("Cancel"),
-                    ),
+              const SizedBox(height: 16),
+              ValueListenableBuilder<bool>(
+                valueListenable: enableToggle,
+                builder: (context, value, _) {
+                  return SwitchListTile(
+                    value: value,
+                    onChanged: (newValue) => enableToggle.value = newValue,
+                    title: const Text('Enable Category'),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final name = nameController.text.trim();
+                    if (name.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Name is required.')),
+                      );
+                      return;
+                    }
+
+                    final request = AddCategoryRequest(
+                      name: name,
+                      description: descriptionController.text.trim(),
+                      isDisabled: !enableToggle.value,
+                    );
+                    final salonId = _selectedBranch!['salonId'] as int;
+                    if (isEdit) {
+                      context.read<CategoryCubit>().updateCategory(
+                        salonId,
+                        category!['id'] as int,
+                        request,
+                      );
+                    } else {
+                      context.read<CategoryCubit>().addCategory(
+                        salonId,
+                        request,
+                      );
+                    }
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
                   ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        if (selectedBranch == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                                content: Text("Please select a salon first")),
-                          );
-                          return;
-                        }
-
-                        try {
-                          if (category == null) {
-                            // Add Category
-                            final request = AddCategoryRequest(
-                              name: nameController.text.trim(),
-                              sortOrder: 1,
-                            );
-
-                            await ApiService().addCategory(
-                              salonId: selectedBranch!['salonId'],
-                              request: request,
-                            );
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content:
-                                      Text("Category created successfully")),
-                            );
-                          } else {
-                            // Update Category
-                            await ApiService().updateCategory(
-                              salonId: selectedBranch!['salonId'],
-                              categoryId: category['id'],
-                              name: nameController.text.trim(),
-                            );
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content:
-                                      Text("Category updated successfully")),
-                            );
-                          }
-
-                          Navigator.pop(context);
-                          fetchCategories();
-                        } catch (e) {
-                          print("❌ Error saving category: $e");
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text("Failed to save category")),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.brown,
-                      ),
-                      child: Text("Save"),
-                    ),
-                  ),
-                ],
-              )
+                  child: Text(isEdit ? 'Update Category' : 'Add Category'),
+                ),
+              ),
             ],
           ),
         );
       },
-    );
+    ).whenComplete(() {
+      nameController.dispose();
+      descriptionController.dispose();
+      enableToggle.dispose();
+    });
   }
-  Future<void> _confirmDeleteSubCategory(Map<String, dynamic> subCategory) async {
-    showDialog(
+
+  void _openSubcategorySheet({
+    Map<String, dynamic>? subCategory,
+    required int categoryId,
+  }) {
+    if (_selectedBranch == null) {
+      return;
+    }
+
+    final controller = TextEditingController(
+      text: subCategory?['name'] as String? ?? '',
+    );
+    final isEdit = subCategory != null;
+
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text(
-            "Delete Subcategory",
-            style: TextStyle(fontWeight: FontWeight.bold),
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
           ),
-          content: Text(
-            'Are you sure you want to delete "${subCategory['name']}"?\nThis action cannot be undone.',
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isEdit ? 'Edit Subcategory' : 'Add Subcategory',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Subcategory Name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    final name = controller.text.trim();
+                    if (name.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Name is required.')),
+                      );
+                      return;
+                    }
+
+                    final salonId = _selectedBranch!['salonId'] as int;
+                    if (isEdit) {
+                      context.read<CategoryCubit>().updateSubCategory(
+                        salonId,
+                        subCategory!['id'] as int,
+                        name,
+                      );
+                    } else {
+                      context.read<CategoryCubit>().addSubCategory(
+                        salonId,
+                        categoryId,
+                        name,
+                      );
+                    }
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: Text(
+                    isEdit ? 'Update Subcategory' : 'Add Subcategory',
+                  ),
+                ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // close dialog
-              },
-              child: Text("Cancel", style: TextStyle(color: Colors.grey[700])),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              onPressed: () async {
-                Navigator.pop(context); // close dialog first
-                await _deleteSubCategory(subCategory['id']);
-              },
-              child: Text("Delete"),
-            ),
-          ],
         );
       },
-    );
+    ).whenComplete(controller.dispose);
   }
-Future<void> _deleteSubCategory(int subCategoryId) async {
-  try {
-    final response = await ApiService().deleteSubCategoryApi(
-      salonId: selectedBranch!['salonId'],
-      subCategoryId: subCategoryId,
-    );
 
-    if (response['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? "Subcategory deleted")),
-      );
-      fetchCategories();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? "Failed to delete subcategory")),
-      );
-    }
-  } catch (e) {
-    print("❌ Error deleting subcategory: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Unexpected error: $e")),
-    );
-  }
-}
+  void _confirmDeleteCategory(Map<String, dynamic> category) {
+    if (_selectedBranch == null) return;
 
-void _confirmDeleteService(int serviceId) {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text("Delete Service", style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text("Are you sure you want to delete this service?"),
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Category'),
+        content: const Text('Are you sure you want to delete this category?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancel", style: TextStyle(color: Colors.grey[700])),
+            child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            onPressed: () async {
+          TextButton(
+            onPressed: () {
               Navigator.pop(context);
-              await _deleteService(serviceId);
+              final salonId = _selectedBranch!['salonId'] as int;
+              context.read<CategoryCubit>().deleteCategory(
+                salonId,
+                category['id'] as int,
+              );
             },
-            child: Text("Delete"),
+            child: const Text('Delete'),
           ),
         ],
-      );
-    },
-  );
-}
-
-Future<void> _deleteService(int serviceId) async {
-  try {
-    final response = await ApiService().deleteServiceApi(
-      salonId: selectedBranch!['salonId'],
-      serviceId: serviceId,
-    );
-
-    if (response['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? "Service deleted successfully")),
-      );
-      fetchCategories(); // refresh UI
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? "Failed to delete service")),
-      );
-    }
-  } catch (e) {
-    print("❌ Error deleting service: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Unexpected error: $e")),
+      ),
     );
   }
-}
 
-  Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
+  void _confirmDeleteSubCategory(Map<String, dynamic> subCategory) {
+    if (_selectedBranch == null) return;
+
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text(
-            "Delete Category",
-            style: TextStyle(fontWeight: FontWeight.bold),
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Subcategory'),
+        content: const Text(
+          'Are you sure you want to delete this subcategory?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
-          content: Text(
-            'Are you sure you want to delete "${category['name']}"?\nThis action cannot be undone.',
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              final salonId = _selectedBranch!['salonId'] as int;
+              context.read<CategoryCubit>().deleteSubCategory(
+                salonId,
+                subCategory['id'] as int,
+              );
+            },
+            child: const Text('Delete'),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context); // close dialog
-              },
-              child: Text("Cancel", style: TextStyle(color: Colors.grey[700])),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              onPressed: () async {
-                Navigator.pop(context); // close dialog first
-                await _deleteCategory(category['id']);
-              },
-              child: Text("Delete"),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
   }
-Future<void> _deleteCategory(int categoryId) async {
-  try {
-    final response = await ApiService().deleteCategoryApi(
-      salonId: selectedBranch!['salonId'],
-      categoryId: categoryId,
-    );
 
-    if (response['success'] == true) {
-      // Clear locally in case it's last category
-      setState(() {
-        categories.removeWhere((c) => c['id'] == categoryId);
-      });
+  void _confirmDeleteService(int serviceId) {
+    if (_selectedBranch == null) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? "Category deleted successfully")),
-      );
-
-      fetchCategories(); // refresh from backend
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response['message'] ?? "Failed to delete category")),
-      );
-    }
-  } catch (e) {
-    print("❌ Error deleting category: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Unexpected error: $e")),
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Service'),
+        content: const Text('Are you sure you want to delete this service?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              final salonId = _selectedBranch!['salonId'] as int;
+              context.read<CategoryCubit>().deleteService(salonId, serviceId);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
     );
   }
-}
+
+  void _openAddService(
+    Map<String, dynamic> category,
+    List<dynamic> categories,
+  ) {
+    if (_selectedBranch == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddServices(
+          salonId: _selectedBranch!['salonId'] as int,
+          selectedCategory: category,
+          categories: categories,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("My Catalogue")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: FutureBuilder<List<Map<String, dynamic>>>(
-          future: salonsList,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            } else if (snapshot.hasError) {
-              return Center(child: Text("Error: ${snapshot.error}"));
-            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Center(child: Text("No salons found"));
-            } else {
-              final salons = snapshot.data!;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButton<int>(
-                    isExpanded: true,
-                    value: selectedBranchId,
-                    hint: Text("Select Salon Branch"),
-                    items: salons.expand((salon) {
-                      final branches = salon['branches'] as List;
-                      return branches
-                          .map<DropdownMenuItem<int>>((branch) {
-                        return DropdownMenuItem(
-                          value: branch['id'],
-                          child: Text(branch['name'],
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                        );
-                      }).toList();
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        selectedBranchId = value;
-                        if (value != null) {
-                          final salon = salons.firstWhere((s) =>
-                              (s['branches'] as List)
-                                  .any((b) => b['id'] == value));
-                          final branch = (salon['branches'] as List)
-                              .firstWhere((b) => b['id'] == value);
-                          selectedBranch = {
-                            'salonId': salon['id'],
-                            'branchId': branch['id'],
-                            'branchName': branch['name'],
-                          };
-                          fetchCategories();
-                        }
-                      });
-                    },
-                  ),
-                  SizedBox(height: 30),
-Expanded(
-  child: loadingCategories
-      ? Center(child: CircularProgressIndicator())
-      : categories.isEmpty
-          ? Center(
-              child: Text(
-                "No categories found",
-                style: TextStyle(color: Colors.grey, fontSize: 16),
-              ),
-            )
-          : ListView.builder(
-              itemCount: categories.length,
-              itemBuilder: (context, index) {
-                final category = categories[index];
-                final subCategories = category['subCategories'] ?? [];
+      appBar: AppBar(title: const Text('My Catalogue')),
+      body: BlocListener<CategoryCubit, CategoryState>(
+        listenWhen: (previous, current) => previous.message != current.message,
+        listener: (context, state) {
+          if (state.message != null) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message!)));
+            context.read<CategoryCubit>().clearMessage();
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              BlocBuilder<SalonListCubit, SalonListState>(
+                builder: (context, salonState) {
+                  final salons = salonState.salons;
+                  if (salonState.isLoading && salons.isEmpty) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (salonState.hasError && salons.isEmpty) {
+                    return Text(
+                      salonState.errorMessage ?? 'Failed to load salons',
+                    );
+                  }
+                  if (salons.isEmpty) {
+                    return const Text('No salons found');
+                  }
 
-                return Card(
-                  margin: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 2,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Category Header
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              category['name'],
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.purple,
-                              ),
+                  return DropdownButton<int>(
+                    isExpanded: true,
+                    value: _selectedBranchId,
+                    hint: const Text('Select Salon Branch'),
+                    items: salons.expand((salon) {
+                      final branches =
+                          (salon['branches'] as List?)
+                              ?.cast<Map<String, dynamic>>() ??
+                          [];
+                      return branches
+                          .map<DropdownMenuItem<int>>(
+                            (branch) => DropdownMenuItem(
+                              value: branch['id'] as int,
+                              child: Text(branch['name'] as String),
                             ),
-                            Row(
+                          )
+                          .toList();
+                    }).toList(),
+                    onChanged: (value) => _onBranchSelected(value, salons),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+              Expanded(
+                child: BlocBuilder<CategoryCubit, CategoryState>(
+                  builder: (context, state) {
+                    if (_selectedBranch == null) {
+                      return const Center(
+                        child: Text('Select a branch to view categories'),
+                      );
+                    }
+
+                    if (state.isLoading) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (state.status == CategoryStatus.failure) {
+                      return Center(
+                        child: Text(
+                          state.message ?? 'Failed to load categories',
+                        ),
+                      );
+                    }
+
+                    final categories = state.categories;
+                    if (categories.isEmpty) {
+                      return const Center(child: Text('No categories found'));
+                    }
+
+                    return ListView.builder(
+                      itemCount: categories.length,
+                      itemBuilder: (context, index) {
+                        final category =
+                            categories[index] as Map<String, dynamic>;
+                        final subCategories =
+                            (category['subCategories'] as List?) ?? [];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 4,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                IconButton(
-                                  icon: Icon(Icons.edit, color: Colors.brown),
-                                  onPressed: () =>
-                                      _showAddCategorySheet(category: category),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      category['name'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.purple,
+                                      ),
+                                    ),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            color: Colors.brown,
+                                          ),
+                                          onPressed: () =>
+                                              _showAddCategorySheet(
+                                                category: category,
+                                              ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            color: Colors.orange,
+                                          ),
+                                          onPressed: () =>
+                                              _confirmDeleteCategory(category),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: Icon(Icons.delete, color: Colors.orange),
-                                  onPressed: () => _confirmDeleteCategory(category),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '${subCategories.length} Subcategory${subCategories.length == 1 ? '' : 'ies'}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                for (final subCategory in subCategories)
+                                  _buildSubcategoryTile(
+                                    category,
+                                    subCategory as Map<String, dynamic>,
+                                    categories,
+                                  ),
+                                Row(
+                                  children: [
+                                    TextButton.icon(
+                                      onPressed: () => _openSubcategorySheet(
+                                        categoryId: category['id'] as int,
+                                      ),
+                                      icon: const Icon(
+                                        Icons.add,
+                                        color: Colors.orange,
+                                      ),
+                                      label: const Text(
+                                        'Add Subcategory',
+                                        style: TextStyle(color: Colors.orange),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    TextButton.icon(
+                                      onPressed: () =>
+                                          _openAddService(category, categories),
+                                      icon: const Icon(
+                                        Icons.add,
+                                        color: Colors.orange,
+                                      ),
+                                      label: const Text(
+                                        'Add Services',
+                                        style: TextStyle(color: Colors.orange),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                        // Show subcategories with services count
-      Text(
-  "${subCategories.length} Subcategory",
-  style: TextStyle(
-       fontSize: 14, color: Colors.grey),
-),
-
-
-                        SizedBox(height: 8),
-                        
-                        // Show subcategories with services
-                        for (var subCategory in subCategories) ...[
-  Padding(
-    padding: const EdgeInsets.only(left: 16.0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Row for subcategory name and edit/delete icons
-//         Row(
-//           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//           children: [
-//             // Display the subcategory name
-//            Row(
-//   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//   children: [
-//     // Subcategory name + service count tappable area
-//     InkWell(
-//       onTap: () {
-//         setState(() {
-//           final id = subCategory['id'];
-//           _expandedSubcategories[id] = !(_expandedSubcategories[id] ?? false);
-//         });
-//       },
-//       child: Column(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Text(
-//             subCategory['name'],
-//             style: TextStyle(
-//                 fontSize: 16,
-//                 fontWeight: FontWeight.w600,
-//                 color: Colors.purple),
-//           ),
-//           Text(
-//             "${subCategory['services'].length} Service${subCategory['services'].length == 1 ? '' : 's'}",
-//             style: TextStyle(fontSize: 14, color: Colors.grey),
-//           ),
-//         ],
-//       ),
-//     ),
-
-//     // Edit/Delete icons
-//     Row(
-//       children: [
-//         IconButton(
-//           icon: Icon(Icons.edit, color: Colors.brown),
-//           onPressed: () {
-//             _addSubcategoryDialog(subCategory, category['id']);
-//           },
-//         ),
-//         IconButton(
-//           icon: Icon(Icons.delete, color: Colors.orange),
-//           onPressed: () {
-//             _confirmDeleteCategory(subCategory);
-//           },
-//         ),
-//       ],
-//     ),
-//   ],
-// ),
-//         ],
-//         ),
-
-Row(
-  children: [
-    // Left: tappable subcategory info
-    Expanded(
-      child: InkWell(
-        onTap: () {
-          setState(() {
-            final id = subCategory['id'];
-            _expandedSubcategories[id] = !(_expandedSubcategories[id] ?? false);
-          });
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              subCategory['name'],
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.purple),
-            ),
-            Text(
-              "${subCategory['services'].length} Service${subCategory['services'].length == 1 ? '' : 's'}",
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-          ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-
-    // Right: edit/delete icons
-    IconButton(
-      icon: Icon(Icons.edit, color: Colors.brown),
-      onPressed: () {
-        _addSubcategoryDialog(subCategory, category['id']);
-      },
-    ),
-    IconButton(
-  icon: Icon(Icons.delete, color: Colors.orange),
-  onPressed: () {
-    _confirmDeleteSubCategory(subCategory);  // ✅ correct
-  },
-),
-
-  ],
-),
-
-        // Show services of subcategory
-      if (_expandedSubcategories[subCategory['id']] == true &&
-    subCategory['services'] != null &&
-    subCategory['services'].isNotEmpty)
-  ...subCategory['services'].map<Widget>((service) {
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(service['displayName'] ?? "Unnamed Service"),
-      subtitle: Text("Rs. ${service['priceMinor']} - ${service['durationMin']} min"),
-     trailing: IconButton(
-  icon: Icon(Icons.delete, color: Colors.orange),
-  onPressed: () => _confirmDeleteService(service['id']),
-),
-
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddCategorySheet(),
+        label: const Text('Add Category'),
+        icon: const Icon(Icons.add),
+        backgroundColor: Colors.orange[300],
+      ),
     );
-  }).toList(),
+  }
 
-        SizedBox(height: 8),
-        Divider(),
-        SizedBox(height: 8),
-      ],
-    ),
-  ),
-],
+  Widget _buildSubcategoryTile(
+    Map<String, dynamic> category,
+    Map<String, dynamic> subCategory,
+    List<dynamic> categories,
+  ) {
+    final subCategoryId = subCategory['id'] as int;
+    final isExpanded = _expandedSubcategories[subCategoryId] ?? false;
 
-
-                        // Actions (subcategory + add service)
-                        Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _expandedSubcategories[subCategoryId] = !isExpanded;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-TextButton.icon(
-  onPressed: () {
-    _addSubcategoryDialog(null, category['id']);  // Pass null for adding a new subcategory
-  },
-  icon: Icon(Icons.add, color: Colors.orange),
-  label: Text(
-    "Add Subcategory",
-    style: TextStyle(color: Colors.orange),
-  ),
-),
-
-
-
-                            SizedBox(width: 20),
-                            TextButton.icon(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => AddServices(
-                                      salonId: selectedBranch!['salonId'],
-                                      selectedCategory: category,
-                                      categories: categories,
-                                    ),
-                                  ),
-                                );
-                              },
-                              icon: Icon(Icons.add, color: Colors.orange),
-                              label: Text(
-                                "Add Services",
-                                style: TextStyle(color: Colors.orange),
+                            Text(
+                              subCategory['name'] as String,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.purple,
+                              ),
+                            ),
+                            Text(
+                              '${(subCategory['services'] as List?)?.length ?? 0} Services',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.brown),
+                        onPressed: () => _openSubcategorySheet(
+                          subCategory: subCategory,
+                          categoryId: category['id'] as int,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.orange),
+                        onPressed: () => _confirmDeleteSubCategory(subCategory),
+                      ),
+                      Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
+                    ],
                   ),
-                );
-              },
+                ),
+              ),
             ),
-),
-
-],
-        );
-            };
-          },
+          ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          if (selectedBranch == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content: Text(
-                      "Please select a salon branch to add category")),
-            );
-            return;
-          }
-          _showAddCategorySheet();
-        },
-        label: Text("Add Category"),
-        icon: Icon(Icons.add),
-        backgroundColor: Colors.orange[300],
-      ),
+        if (isExpanded)
+          Column(
+            children: [
+              for (final service in (subCategory['services'] as List?) ?? [])
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    service['displayName'] as String? ?? 'Unnamed Service',
+                  ),
+                  subtitle: Text(
+                    'Rs. ${service['priceMinor']} - ${service['durationMin']} min',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.orange),
+                    onPressed: () =>
+                        _confirmDeleteService(service['id'] as int),
+                  ),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 }

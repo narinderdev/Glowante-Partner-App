@@ -1,43 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+
 import 'package:bloc_onboarding/bloc/auth/auth_bloc.dart';
 import 'package:bloc_onboarding/bloc/otp/otp_bloc.dart';
 import 'package:bloc_onboarding/bloc/home/home_bloc.dart';
+import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
+import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/screens/splash_screen.dart';
-import 'package:bloc_onboarding/utils/api_service.dart'; // To use ApiService in BLoC
-import 'package:provider/provider.dart'; // <-- Import provider package
-import './Viewmodels/BranchViewModel.dart'; // <-- Import BranchViewModel
+import 'package:bloc_onboarding/utils/api_service.dart';
+import 'package:bloc_onboarding/repositories/salon_repository.dart';
+import 'package:bloc_onboarding/repositories/branch_repository.dart';
+import './Viewmodels/BranchViewModel.dart';
 
 void main() async {
-  // Ensure dotenv is loaded before the app starts
   await dotenv.load();
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
+    return MultiProvider(
       providers: [
-        // Injecting the ApiService through a provider and passing it to the BLoCs
+        RepositoryProvider<ApiService>(create: (_) => ApiService()),
+        RepositoryProvider<SalonRepository>(create: (_) => SalonRepository()),
+        RepositoryProvider<BranchRepository>(create: (_) => BranchRepository()),
         BlocProvider<AuthBloc>(
-          create: (_) => AuthBloc(ApiService()),
+          create: (context) => AuthBloc(context.read<ApiService>()),
         ),
         BlocProvider<OtpBloc>(
-          create: (_) => OtpBloc(ApiService()),
+          create: (context) => OtpBloc(context.read<ApiService>()),
         ),
-        BlocProvider<HomeBloc>(
-          create: (_) => HomeBloc(),
+        BlocProvider<HomeBloc>(create: (_) => HomeBloc()),
+        BlocProvider<SalonListCubit>(
+          create: (context) => SalonListCubit(context.read<SalonRepository>()),
         ),
-        // Adding BranchViewModel to the providers
-        ChangeNotifierProvider(
-          create: (_) => BranchViewModel(),
+        BlocProvider<CategoryCubit>(
+          create: (context) => CategoryCubit(context.read<SalonRepository>()),
         ),
+        ChangeNotifierProvider(create: (_) => BranchViewModel()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: SplashScreen(), // Consider adding SplashScreen logic
+        home: SplashScreen(),
       ),
     );
   }
