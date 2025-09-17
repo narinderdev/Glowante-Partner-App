@@ -401,12 +401,12 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
 
     final firstName = _firstNameCtrl.text.trim();
     if (firstName.isEmpty) {
-      errors.add('First name is required & starts with capital letter.');
+      errors.add('First name is required & Must start with a capital letter.');
     }
 
     final lastName = _lastNameCtrl.text.trim();
     if (lastName.isEmpty) {
-      errors.add('Last name is required & starts with capital letter.');
+      errors.add('Last name is required & Must start with a capital letter.');
     }
 
     final email = _emailCtrl.text.trim();

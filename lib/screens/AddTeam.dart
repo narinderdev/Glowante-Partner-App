@@ -403,14 +403,14 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   if (firstName.isEmpty) {
     errors.add('First name is required.');
   } else if (!RegExp(r'^[A-Z]').hasMatch(firstName)) {
-    errors.add('First name in capital letter.');
+    errors.add('Must start with a capital letter.');
   }
 
   final lastName = _lastNameCtrl.text.trim();
   if (lastName.isEmpty) {
     errors.add('Last name is required.');
   } else if (!RegExp(r'^[A-Z]').hasMatch(lastName)) {
-    errors.add('Last name in capital letter.');
+    errors.add('Must start with a capital letter.');
   }
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) {
