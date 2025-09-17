@@ -400,15 +400,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     }
 
     final firstName = _firstNameCtrl.text.trim();
-    if (firstName.isEmpty) {
-      errors.add('First name is required.');
-    }
+  if (firstName.isEmpty) {
+    errors.add('First name is required.');
+  } else if (!RegExp(r'^[A-Z]').hasMatch(firstName)) {
+    errors.add('First name in capital letter.');
+  }
 
-    final lastName = _lastNameCtrl.text.trim();
-    if (lastName.isEmpty) {
-      errors.add('Last name is required.');
-    }
-
+  final lastName = _lastNameCtrl.text.trim();
+  if (lastName.isEmpty) {
+    errors.add('Last name is required.');
+  } else if (!RegExp(r'^[A-Z]').hasMatch(lastName)) {
+    errors.add('Last name in capital letter.');
+  }
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) {
       errors.add('Email is required.');
@@ -558,14 +561,29 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             children: [
                               _reqLabel('First Name'),
                               const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _firstNameCtrl,
-                                decoration: _decor(hint: 'Enter first name'),
-                                validator: (v) =>
-                                    (v == null || v.trim().isEmpty)
-                                    ? 'Required'
-                                    : null,
-                              ),
+                              // TextFormField(
+                              //   controller: _firstNameCtrl,
+
+                              //   decoration: _decor(hint: 'Enter first name'),
+                              //   validator: (v) =>
+                              //       (v == null || v.trim().isEmpty)
+                              //       ? 'Required'
+                              //       : null,
+                              // ),
+                                                 TextFormField(
+  controller: _firstNameCtrl,
+  textCapitalization: TextCapitalization.words, // helps user type caps
+  decoration: _decor(hint: 'Enter first name'),
+  autovalidateMode: AutovalidateMode.onUserInteraction,
+  validator: (v) {
+    final s = (v ?? '').trim();
+    if (s.isEmpty) return 'First name is required';
+    if (!RegExp(r'^[A-Z]').hasMatch(s)) {
+      return 'Must start with a capital letter';
+    }
+    return null;
+  },
+),
                             ],
                           ),
                         ),
@@ -576,14 +594,28 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             children: [
                               _reqLabel('Last Name'),
                               const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _lastNameCtrl,
-                                decoration: _decor(hint: 'Enter last name'),
-                                validator: (v) =>
-                                    (v == null || v.trim().isEmpty)
-                                    ? 'Required'
-                                    : null,
-                              ),
+                              // TextFormField(
+                              //   controller: _lastNameCtrl,
+                              //   decoration: _decor(hint: 'Enter last name'),
+                              //   validator: (v) =>
+                              //       (v == null || v.trim().isEmpty)
+                              //       ? 'Required'
+                              //       : null,
+                              // ),
+                                   TextFormField(
+  controller: _lastNameCtrl,
+  textCapitalization: TextCapitalization.words,
+  decoration: _decor(hint: 'Enter last name'),
+  autovalidateMode: AutovalidateMode.onUserInteraction,
+  validator: (v) {
+    final s = (v ?? '').trim();
+    if (s.isEmpty) return 'Last name is required';
+    if (!RegExp(r'^[A-Z]').hasMatch(s)) {
+      return 'Must start with a capital letter';
+    }
+    return null;
+  },
+),
                             ],
                           ),
                         ),
