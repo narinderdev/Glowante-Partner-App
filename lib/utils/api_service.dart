@@ -124,7 +124,6 @@ class ApiService {
     String? token = prefs.getString('user_token');
     return token ?? '';
   }
-
   // Login
   Future<Map<String, dynamic>> loginUser(String phoneNumber) async {
     final loginPayload = {
@@ -764,114 +763,192 @@ class ApiService {
   }
 
   // ---------------------- ADD SUBCATEGORY ----------------------
-  Future<Map<String, dynamic>> addSubCategoryApi({
-    required int salonId,
-    required int categoryId,
-    required String name,
-  }) async {
-    // Fix the URL to avoid double slashes
-    final url = Uri.parse(
-      '$baseUrl${addSubCategory.replaceFirst(RegExp(r'^/'), '')}'
-          .replaceAll("{salonId}", salonId.toString())
-          .replaceAll("{categoryId}", categoryId.toString()),
-    );
+  // Future<Map<String, dynamic>> addSubCategoryApi({
+  //   required int salonId,
+  //   required int categoryId,
+  //   required String name,
+  // }) async {
+  //   // Fix the URL to avoid double slashes
+  //   final url = Uri.parse(
+  //     '$baseUrl${addSubCategory.replaceFirst(RegExp(r'^/'), '')}'
+  //         .replaceAll("{salonId}", salonId.toString())
+  //         .replaceAll("{categoryId}", categoryId.toString()),
+  //   );
 
-    try {
-      final token = await getAuthToken(); // Fetch the token using your method
+  //   try {
+  //     final token = await getAuthToken(); // Fetch the token using your method
 
-      if (token.isEmpty) {
-        throw Exception("Token is missing");
-      }
+  //     if (token.isEmpty) {
+  //       throw Exception("Token is missing");
+  //     }
 
-      // Print request details for debugging
-      print("Sending request to URL: $url");
-      print(
-        "Request body: ${json.encode({
-          'name': name,
-          'sortOrder': 200, // Fixed sortOrder value
-        })}",
-      );
+  //     // Print request details for debugging
+  //     print("Sending request to URL: $url");
+  //     print(
+  //       "Request body: ${json.encode({
+  //         'name': name,
+  //         'sortOrder': 200, // Fixed sortOrder value
+  //       })}",
+  //     );
 
-      final response = await http.post(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization":
-              "Bearer $token", // Pass the token in the Authorization header
-        },
-        body: json.encode({
-          "name": name,
-          "sortOrder": 200, // Fixed sortOrder value
-        }),
-      );
+  //     final response = await http.post(
+  //       url,
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         "Authorization":
+  //             "Bearer $token", // Pass the token in the Authorization header
+  //       },
+  //       body: json.encode({
+  //         "name": name,
+  //         "sortOrder": 200, // Fixed sortOrder value
+  //       }),
+  //     );
 
-      // Print response details for debugging
-      print("Response status: ${response.statusCode}");
-      print("Response body: ${response.body}");
+  //     // Print response details for debugging
+  //     print("Response status: ${response.statusCode}");
+  //     print("Response body: ${response.body}");
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Return the response data if successful
-        return json.decode(response.body);
-      } else {
-        // If the status code is not 200 or 201, throw an exception
-        throw Exception("Failed to create subcategory");
-      }
-    } catch (e) {
-      print("Error adding subcategory: $e"); // Print the error for debugging
-      throw Exception("Error adding subcategory: $e");
-    }
+  //     if (response.statusCode == 200 || response.statusCode == 201) {
+  //       // Return the response data if successful
+  //       return json.decode(response.body);
+  //     } else {
+  //       // If the status code is not 200 or 201, throw an exception
+  //       throw Exception("Failed to create subcategory");
+  //     }
+  //   } catch (e) {
+  //     print("Error adding subcategory: $e"); // Print the error for debugging
+  //     throw Exception("Error adding subcategory: $e");
+  //   }
+  // }
+Future<Map<String, dynamic>> addSubCategoryApi({
+  required int salonId,
+  required int categoryId,
+  required String name,
+}) async {
+  final url = Uri.parse(
+    '$baseUrl${addSubCategory.replaceFirst(RegExp(r'^/'), '')}'
+      .replaceAll("{salonId}", salonId.toString())
+      .replaceAll("{categoryId}", categoryId.toString()),
+  );
+
+  final token = await getAuthToken();
+  if (token.isEmpty) {
+    // Throw JSON so your Cubit’s _extractErrorMessage can show a nice SnackBar
+    throw Exception('{"message":["Authentication required"]}');
   }
+
+  print("Sending request to URL: $url");
+  final bodyJson = json.encode({"name": name, "sortOrder": 200});
+  print("Request body: $bodyJson");
+
+  final response = await http.post(
+    url,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+    body: bodyJson,
+  );
+
+  print("Response status: ${response.statusCode}");
+  print("Response body: ${response.body}");
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
+  // Surface backend validation verbatim (e.g. {"message":["Name must start with an uppercase letter"], ...})
+  throw Exception(response.body.isNotEmpty ? response.body : 'Failed to create subcategory');
+}
 
   // ---------------------- UPDATE SUBCATEGORY ----------------------
 
-  Future<Map<String, dynamic>> updateSubCategoryApi({
-    required int salonId,
-    required int subCategoryId,
-    required String name,
-  }) async {
-    final url = Uri.parse(
-      baseUrl + 'salons/$salonId/subcategories/$subCategoryId',
-    );
-    // Log the URL being hit
-    print("Request URL: $url");
+  // Future<Map<String, dynamic>> updateSubCategoryApi({
+  //   required int salonId,
+  //   required int subCategoryId,
+  //   required String name,
+  // }) async {
+  //   final url = Uri.parse(
+  //     baseUrl + 'salons/$salonId/subcategories/$subCategoryId',
+  //   );
+  //   // Log the URL being hit
+  //   print("Request URL: $url");
 
-    try {
-      // Request body containing the new name
-      final requestBody = json.encode({
-        'name': name, // Update the name of the subcategory
-      });
+  //   try {
+  //     // Request body containing the new name
+  //     final requestBody = json.encode({
+  //       'name': name, // Update the name of the subcategory
+  //     });
 
-      // Log the request body
-      print("Request Body: $requestBody");
+  //     // Log the request body
+  //     print("Request Body: $requestBody");
 
-      // Send the PATCH request
-      final response = await http.patch(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: requestBody,
-      );
+  //     // Send the PATCH request
+  //     final response = await http.patch(
+  //       url,
+  //       headers: {'Content-Type': 'application/json'},
+  //       body: requestBody,
+  //     );
 
-      // Log the status code
-      print("Response Status Code: ${response.statusCode}");
+  //     // Log the status code
+  //     print("Response Status Code: ${response.statusCode}");
 
-      // Log the response body
-      print("Response Body: ${response.body}");
+  //     // Log the response body
+  //     print("Response Body: ${response.body}");
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // Return the response body if successful
-        return json.decode(response.body);
-      } else {
-        // Log the error response
-        print("Failed to update subcategory. Error: ${response.body}");
-        throw Exception('Failed to update subcategory');
-      }
-    } catch (e) {
-      // Log any errors
-      print("Error updating subcategory: $e");
-      throw Exception('Error updating subcategory: $e');
-    }
+  //     if (response.statusCode == 200 || response.statusCode == 201) {
+  //       // Return the response body if successful
+  //       return json.decode(response.body);
+  //     } else {
+  //       // Log the error response
+  //       print("Failed to update subcategory. Error: ${response.body}");
+  //       throw Exception('Failed to update subcategory');
+  //     }
+  //   } 
+  //   catch (e) {
+  //     // Log any errors
+  //     print("Error updating subcategory: $e");
+  //     throw Exception('Error updating subcategory: $e');
+  //   }
+  // }
+
+Future<Map<String, dynamic>> updateSubCategoryApi({
+  required int salonId,
+  required int subCategoryId,
+  required String name,
+}) async {
+  final url = Uri.parse(
+    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/salons/$salonId/subcategories/$subCategoryId',
+  );
+  print("Request URL: $url");
+
+  final token = await getAuthToken();
+  // optional: short-circuit if missing
+  if (token.isEmpty) throw Exception('{"message":["Authentication required"]}');
+
+  final requestBody = json.encode({'name': name});
+  print("Request Body: $requestBody");
+
+  final response = await http.patch(
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: requestBody,
+  );
+
+  print("Response Status Code: ${response.statusCode}");
+  print("Response Body: ${response.body}");
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return json.decode(response.body) as Map<String, dynamic>;
   }
 
+  // ❗ Surface server validation to Cubit (e.g., {"message":["Name must start with an uppercase letter"], ...})
+  final body = response.body;
+  throw Exception(body.isNotEmpty ? body : 'Failed to update subcategory');
+}
   // ---------------------- GET BRANCH SERVICE DETAILS ----------------------
   Future<Map<String, dynamic>> getBranchServiceDetail(int branchId) async {
     try {

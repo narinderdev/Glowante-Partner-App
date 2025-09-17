@@ -39,4 +39,13 @@ class SalonListCubit extends Cubit<SalonListState> {
       emit(state.copyWith(expandedSalonId: salonId));
     }
   }
+    void setSelectedBranch(Map<String, dynamic> branch) {
+    emit(state.copyWith(selectedBranch: branch));
+  }
+
+  /// 👇 Optional helper to reset selection
+  // void clearSelectedBranch() {
+  //   emit(state.copyWith(clearSelectedBranch: true));
+  // }
 }
+

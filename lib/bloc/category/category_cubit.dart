@@ -195,24 +195,50 @@ class CategoryCubit extends Cubit<CategoryState> {
     }
   }
 
-  String? _messageFromPayload(Map<String, dynamic> payload) {
-    final message = payload['message'];
-    final validation = payload['errors'];
+  // String? _messageFromPayload(Map<String, dynamic> payload) {
+  //   final message = payload['message'];
+  //   final validation = payload['errors'];
 
-    final details = validation is Map<String, dynamic>
-        ? _flattenErrors(validation)
-        : null;
+  //   final details = validation is Map<String, dynamic>
+  //       ? _flattenErrors(validation)
+  //       : null;
 
-    final parts = <String>[];
-    if (message is String && message.isNotEmpty) {
-      parts.add(message);
-    }
-    if (details != null && details.isNotEmpty) {
-      parts.add(details);
-    }
+  //   final parts = <String>[];
+  //   if (message is String && message.isNotEmpty) {
+  //     parts.add(message);
+  //   }
+  //   if (details != null && details.isNotEmpty) {
+  //     parts.add(details);
+  //   }
 
-    return parts.isEmpty ? null : parts.join('\n');
+  //   return parts.isEmpty ? null : parts.join('\n');
+  // }
+String? _messageFromPayload(Map<String, dynamic> payload) {
+  final parts = <String>[];
+
+  final message = payload['message'];
+  if (message is String && message.trim().isNotEmpty) {
+    parts.add(message.trim());
+  } else if (message is List) {
+    parts.addAll(message.whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty));
   }
+
+  // Fall back to 'error' if present and we still have nothing
+  final error = payload['error'];
+  if (parts.isEmpty && error is String && error.trim().isNotEmpty) {
+    parts.add(error.trim());
+  }
+
+  final validation = payload['errors'];
+  if (validation is Map<String, dynamic>) {
+    final details = _flattenErrors(validation);
+    if (details.isNotEmpty) parts.add(details);
+  } else if (validation is List) {
+    parts.addAll(validation.whereType<String>());
+  }
+
+  return parts.isEmpty ? null : parts.join('\n');
+}
 
   String _extractErrorMessage(Object error) {
     if (error is String) {

@@ -401,12 +401,12 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
 
     final firstName = _firstNameCtrl.text.trim();
     if (firstName.isEmpty) {
-      errors.add('First name is required.');
+      errors.add('First name is required & starts with capital letter.');
     }
 
     final lastName = _lastNameCtrl.text.trim();
     if (lastName.isEmpty) {
-      errors.add('Last name is required.');
+      errors.add('Last name is required & starts with capital letter.');
     }
 
     final email = _emailCtrl.text.trim();
@@ -558,13 +558,20 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                               _reqLabel('First Name'),
                               const SizedBox(height: 8),
                               TextFormField(
-                                controller: _firstNameCtrl,
-                                decoration: _decor(hint: 'Enter first name'),
-                                validator: (v) =>
-                                    (v == null || v.trim().isEmpty)
-                                    ? 'Required'
-                                    : null,
-                              ),
+  controller: _firstNameCtrl,
+  textCapitalization: TextCapitalization.words, // helps user type caps
+  decoration: _decor(hint: 'Enter first name'),
+  autovalidateMode: AutovalidateMode.onUserInteraction,
+  validator: (v) {
+    final s = (v ?? '').trim();
+    if (s.isEmpty) return 'First name is required';
+    if (!RegExp(r'^[A-Z]').hasMatch(s)) {
+      return 'Must start with a capital letter';
+    }
+    return null;
+  },
+),
+
                             ],
                           ),
                         ),
@@ -576,13 +583,20 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                               _reqLabel('Last Name'),
                               const SizedBox(height: 8),
                               TextFormField(
-                                controller: _lastNameCtrl,
-                                decoration: _decor(hint: 'Enter last name'),
-                                validator: (v) =>
-                                    (v == null || v.trim().isEmpty)
-                                    ? 'Required'
-                                    : null,
-                              ),
+  controller: _lastNameCtrl,
+  textCapitalization: TextCapitalization.words,
+  decoration: _decor(hint: 'Enter last name'),
+  autovalidateMode: AutovalidateMode.onUserInteraction,
+  validator: (v) {
+    final s = (v ?? '').trim();
+    if (s.isEmpty) return 'Last name is required';
+    if (!RegExp(r'^[A-Z]').hasMatch(s)) {
+      return 'Must start with a capital letter';
+    }
+    return null;
+  },
+),
+
                             ],
                           ),
                         ),

@@ -157,6 +157,7 @@ Future<void> _addService() async {
             SizedBox(height: 6),
             TextField(
               controller: nameController,
+                textCapitalization: TextCapitalization.words,
               decoration: InputDecoration(
                 hintText: "Add a service name",
                 prefixIcon: Icon(Icons.work_outline),

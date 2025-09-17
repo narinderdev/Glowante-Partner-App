@@ -20,16 +20,24 @@ class _CategoryScreenState extends State<CategoryScreen> {
   int? _selectedBranchId;
   Map<String, dynamic>? _selectedBranch;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final salonCubit = context.read<SalonListCubit>();
-      if (salonCubit.state.salons.isEmpty) {
-        salonCubit.loadSalons();
-      }
-    });
-  }
+@override
+void initState() {
+  super.initState();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final salonCubit = context.read<SalonListCubit>();
+
+    if (salonCubit.state.salons.isEmpty) {
+      salonCubit.loadSalons();
+    } else if (salonCubit.state.selectedBranch != null) {
+      setState(() {
+        _selectedBranch = salonCubit.state.selectedBranch;
+        _selectedBranchId = _selectedBranch!['branchId'];
+      });
+      // context.read<CategoryCubit>().loadCategories(_selectedBranch!['salonId']);
+    }
+  });
+}
+
 
   void _onBranchSelected(int? value, List<Map<String, dynamic>> salons) {
     if (value == null) return;
@@ -51,6 +59,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           };
           _expandedSubcategories.clear();
         });
+        context.read<SalonListCubit>().setSelectedBranch(_selectedBranch!);
         context.read<CategoryCubit>().loadCategories(salon['id'] as int);
         break;
       }
@@ -110,13 +119,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Category Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
+             TextField(
+  controller: nameController,
+  textCapitalization: TextCapitalization.words, // 👈
+  decoration: const InputDecoration(
+    labelText: 'Category Name',
+    border: OutlineInputBorder(),
+  ),
+),
+
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
@@ -223,6 +234,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
+                textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Subcategory Name',
                   border: OutlineInputBorder(),
@@ -240,7 +252,15 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       );
                       return;
                     }
-
+  if (!RegExp(r'^[A-Z]').hasMatch(name)) {
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                      const SnackBar(
+                        content:
+                            Text('Name must start with an uppercase letter'),
+                      ),
+                    );
+                    return;
+                  }
                     FocusScope.of(sheetContext).unfocus();
 
                     final subCategoryId = subCategory?['id'] as int?;
@@ -401,6 +421,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: nameController,
+                textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Service Name',
                   border: OutlineInputBorder(),
@@ -409,7 +430,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: descriptionController,
-                maxLines: 3,
+                maxLines: 1,
                 decoration: const InputDecoration(
                   labelText: 'Description',
                   border: OutlineInputBorder(),
@@ -456,6 +477,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       );
                       return;
                     }
+  if (!RegExp(r'^[A-Z]').hasMatch(name)) { // 👈 must start uppercase
+    ScaffoldMessenger.of(sheetContext).showSnackBar(
+      const SnackBar(content: Text('Name must start with an uppercase letter')),
+    );
+    return;
+  }
 
                     FocusScope.of(sheetContext).unfocus();
 
@@ -582,6 +609,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           if (salons.isEmpty) {
                             return const Text('No salons found');
                           }
+if (salonState.isLoading && salons.isEmpty) {
+  return const Center(child: CircularProgressIndicator());
+}
 
                           return DropdownButton<int>(
                             isExpanded: true,
