@@ -113,7 +113,7 @@ class SalonRepository {
     return _apiService.updateCategory(
       salonId: salonId,
       categoryId: categoryId,
-      name: request.name,
+      request: request,
     );
   }
 

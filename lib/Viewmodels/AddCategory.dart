@@ -16,16 +16,17 @@ class AddCategoryRequest {
       'name': name,
       if (description != null && description!.isNotEmpty)
         'description': description,
-      if (sortOrder != null) 'sortOrder': sortOrder,
-      'disabled': isDisabled,
+      'sortOrder': 100,
+      // 'isActive': !isDisabled,
     };
   }
 
   factory AddCategoryRequest.fromJson(Map<String, dynamic> json) {
+    final isActive = json['isActive'] as bool? ?? true;
     return AddCategoryRequest(
       name: json['name'] ?? '',
       description: json['description'] as String?,
-      isDisabled: json['disabled'] as bool? ?? false,
+      // isDisabled: !isActive,
       sortOrder: json['sortOrder'] as int?,
     );
   }

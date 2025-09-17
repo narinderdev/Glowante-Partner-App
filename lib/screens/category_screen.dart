@@ -80,8 +80,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
         final descriptionController = TextEditingController(
           text: category?['description'] as String? ?? '',
         );
-        final enableToggle = ValueNotifier<bool>(category?['isDisabled'] == false);
-
         return Padding(
           padding: EdgeInsets.only(
             left: 16,
@@ -106,7 +104,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: 12),
               Text(
                 isEdit ? 'Edit Category' : 'Add Category',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -115,26 +116,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   labelText: 'Category Name',
                   border: OutlineInputBorder(),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: descriptionController,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ValueListenableBuilder<bool>(
-                valueListenable: enableToggle,
-                builder: (context, value, _) {
-                  return SwitchListTile(
-                    value: value,
-                    onChanged: (newValue) => enableToggle.value = newValue,
-                    title: const Text('Enable Category'),
-                  );
-                },
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -154,7 +135,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                     final payload = AddCategoryRequest(
                       name: name,
                       description: descriptionController.text.trim(),
-                      isDisabled: !enableToggle.value,
+                      // isDisabled: !enableToggle.value,
                     );
                     final categoryId = category?['id'] as int?;
 
@@ -234,7 +215,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
               const SizedBox(height: 12),
               Text(
                 isEdit ? 'Edit Subcategory' : 'Add Subcategory',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -269,7 +253,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
                   ),
-                  child: Text(isEdit ? 'Update Subcategory' : 'Add Subcategory'),
+                  child: Text(
+                    isEdit ? 'Update Subcategory' : 'Add Subcategory',
+                  ),
                 ),
               ),
             ],
@@ -306,7 +292,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
-            TextButton(
+          TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Delete'),
           ),
@@ -323,14 +309,18 @@ class _CategoryScreenState extends State<CategoryScreen> {
     );
   }
 
-  Future<void> _confirmDeleteSubCategory(Map<String, dynamic> subCategory) async {
+  Future<void> _confirmDeleteSubCategory(
+    Map<String, dynamic> subCategory,
+  ) async {
     if (_selectedBranch == null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Subcategory'),
-        content: const Text('Are you sure you want to delete this subcategory?'),
+        content: const Text(
+          'Are you sure you want to delete this subcategory?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -369,10 +359,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
           text: service['description'] ?? '',
         );
         final durationController = TextEditingController(
-          text: (service['durationMin'] ?? service['defaultDurationMin'])?.toString() ?? '',
+          text:
+              (service['durationMin'] ?? service['defaultDurationMin'])
+                  ?.toString() ??
+              '',
         );
         final priceController = TextEditingController(
-          text: (service['priceMinor'] ?? service['defaultPriceMinor'])?.toString() ?? '',
+          text:
+              (service['priceMinor'] ?? service['defaultPriceMinor'])
+                  ?.toString() ??
+              '',
         );
         final isActive = ValueNotifier<bool>(service['isActive'] ?? true);
 
@@ -466,8 +462,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
                     final payload = {
                       'name': name,
                       'description': descriptionController.text.trim(),
-                      'defaultDurationMin': int.tryParse(durationController.text.trim()),
-                      'defaultPriceMinor': int.tryParse(priceController.text.trim()),
+                      'defaultDurationMin': int.tryParse(
+                        durationController.text.trim(),
+                      ),
+                      'defaultPriceMinor': int.tryParse(
+                        priceController.text.trim(),
+                      ),
                       'isActive': isActive.value,
                     }..removeWhere((key, value) => value == null);
 
@@ -550,8 +550,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
         listenWhen: (previous, current) => previous.message != current.message,
         listener: (context, state) {
           if (state.message != null) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(state.message!)));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(state.message!)));
             context.read<CategoryCubit>().clearMessage();
           }
         },
@@ -574,7 +575,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
                           }
                           if (salonState.hasError && salons.isEmpty) {
                             return Text(
-                              salonState.errorMessage ?? 'Failed to load salons',
+                              salonState.errorMessage ??
+                                  'Failed to load salons',
                             );
                           }
                           if (salons.isEmpty) {
@@ -599,7 +601,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
                                   )
                                   .toList();
                             }).toList(),
-                            onChanged: (value) => _onBranchSelected(value, salons),
+                            onChanged: (value) =>
+                                _onBranchSelected(value, salons),
                           );
                         },
                       ),
@@ -672,7 +675,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       children: [
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.brown),
-                          onPressed: () => _showAddCategorySheet(category: category),
+                          onPressed: () =>
+                              _showAddCategorySheet(category: category),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.orange),
@@ -830,7 +834,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.orange),
-                        onPressed: () => _confirmDeleteService(service['id'] as int),
+                        onPressed: () =>
+                            _confirmDeleteService(service['id'] as int),
                       ),
                     ],
                   ),
