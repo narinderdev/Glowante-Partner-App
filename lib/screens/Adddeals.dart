@@ -186,7 +186,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
               .map(
                 (message) => Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text('â€¢ ' + message),
+                  child: Text(message),
                 ),
               )
               .toList(),
