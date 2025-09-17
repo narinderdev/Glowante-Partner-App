@@ -181,9 +181,11 @@ return SingleChildScrollView(
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('\₹.${service['priceMinor']}',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
+                             Text('₹${service['priceMinor']}',
+    style: const TextStyle(
+        fontWeight: FontWeight.bold),
+),
+
                               Text('${service['durationMin']} min',
                                   style: const TextStyle(
                                       fontSize: 12, color: Colors.grey)),
