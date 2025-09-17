@@ -687,10 +687,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${subCategories.length} Subcategory${subCategories.length == 1 ? '' : 'ies'}',
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
-                ),
+ Text(
+  '${subCategories.length} Subcategory',
+  style: const TextStyle(fontSize: 14, color: Colors.grey),
+),
+
+
                 const SizedBox(height: 12),
                 for (final subCategory in subCategories)
                   _buildSubcategoryTile(

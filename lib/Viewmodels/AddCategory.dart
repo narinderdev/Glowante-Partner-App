@@ -17,7 +17,6 @@ class AddCategoryRequest {
       if (description != null && description!.isNotEmpty)
         'description': description,
       'sortOrder': 100,
-      // 'isActive': !isDisabled,
     };
   }
 
