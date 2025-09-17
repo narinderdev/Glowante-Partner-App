@@ -175,6 +175,18 @@ class SalonRepository {
     return _apiService.addService(salonId: salonId, request: request);
   }
 
+  Future<Map<String, dynamic>> updateService(
+    int salonId,
+    int serviceId,
+    Map<String, dynamic> body,
+  ) {
+    return _apiService.updateService(
+      salonId: salonId,
+      serviceId: serviceId,
+      body: body,
+    );
+  }
+
   Future<Map<String, dynamic>> createSalonOffer({
     required int salonId,
     required Map<String, dynamic> offerData,

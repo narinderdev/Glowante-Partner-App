@@ -243,45 +243,60 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
+                     Text(
+  'Salon Address',
+  style: Theme.of(context).textTheme.titleMedium,
+),
+const SizedBox(height: 8),
+InkWell(
+  onTap: () => _chooseLocation(state),
+  child: Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      border: Border.all(color: Colors.orange),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: address == null
+        ? const Text('Add location')
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Address details on the left
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      address.buildingName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('${address.city}, ${address.state}'),
+                    Text('Pincode: ${address.pincode}'),
+                  ],
+                ),
+              ),
+              // Edit icon on the right
+              Icon(
+                Icons.edit,
+                color: Colors.blue,
+              ),
+            ],
+          ),
+  ),
+),
+
+                      const SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
                         maxLines: 4,
                       ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Salon Address',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () => _chooseLocation(state),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.orange),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: address == null
-                              ? const Text('Tap to select salon location')
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      address.buildingName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text('${address.city}, ${address.state}'),
-                                    Text('Pincode: ${address.pincode}'),
-                                  ],
-                                ),
-                        ),
-                      ),
+                      
                       const SizedBox(height: 20),
                       Text(
                         'Salon Images',

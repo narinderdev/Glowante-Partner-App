@@ -179,45 +179,70 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
+                Text(
+  'Branch Address',
+  style: Theme.of(context).textTheme.titleMedium,
+),
+const SizedBox(height: 8),
+
+// ✅ Case 1: No address -> show button only
+if (address == null)
+  ElevatedButton.icon(
+    onPressed: () => _chooseLocation(state),
+    icon: const Icon(Icons.add_location, color: Colors.white),
+    label: const Text("Add Location"),
+    style: ElevatedButton.styleFrom(
+      backgroundColor: Colors.orange,        // blue background
+      foregroundColor: Colors.white,       // white text + icon
+      minimumSize: const Size(double.infinity, 48), // full width
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+    ),
+  )
+else
+  // ✅ Case 2: Address exists -> show bordered box with edit icon
+  InkWell(
+    onTap: () => _chooseLocation(state),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.orange),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Address details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  address.buildingName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text('${address.city}, ${address.state}'),
+                Text('Pincode: ${address.pincode}'),
+              ],
+            ),
+          ),
+          const Icon(Icons.edit, color: Colors.blue),
+        ],
+      ),
+    ),
+  ),
+
+                      const SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
                         label: 'Description *',
                         hint: 'Enter description',
                         maxLines: 4,
                       ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Branch Address',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () => _chooseLocation(state),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.orange),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: address == null
-                              ? const Text('Tap to select branch location')
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      address.buildingName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text('${address.city}, ${address.state}'),
-                                    Text('Pincode: ${address.pincode}'),
-                                  ],
-                                ),
-                        ),
-                      ),
+                      
                       const SizedBox(height: 20),
                       Text(
                         'Branch Images',

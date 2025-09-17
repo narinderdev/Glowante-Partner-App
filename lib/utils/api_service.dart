@@ -14,9 +14,7 @@ import '../Viewmodels/AddSalonServiceRequest.dart';
 import 'dart:async'; 
 
 class ApiService {
-  // static const String baseUrl = "https://dev4-api.glowante.com/";
-  static const String baseUrl = "https://5da796f8389e.ngrok-free.app/";
-
+  static const String baseUrl = "https://dev-api.glowante.com/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String resendOtpEndpoint = "auth/resend_otp"; 
@@ -1423,5 +1421,36 @@ Future<Map<String, dynamic>> createSalonBranchOffer(int salonId, Map<String, dyn
     return {'success': false, 'message': 'Error: $e'};
   }
 }
+
+  Future<Map<String, dynamic>> updateService({
+    required int salonId,
+    required int serviceId,
+    required Map<String, dynamic> body,
+  }) async {
+    final token = await getAuthToken();
+    if (token.isEmpty) {
+      throw Exception('Token is missing');
+    }
+
+    final url = Uri.parse(baseUrl + 'salons/$salonId/services/$serviceId');
+    final payload = Map<String, dynamic>.from(body)
+      ..removeWhere((key, value) => value == null);
+
+    final response = await http.patch(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: json.encode(payload),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final responseBody = response.body.isEmpty ? '{}' : response.body;
+      return json.decode(responseBody) as Map<String, dynamic>;
+    }
+
+    throw Exception('Failed to update service: ${response.body}');
+  }
 
 }
