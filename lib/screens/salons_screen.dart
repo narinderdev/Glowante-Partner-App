@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
@@ -231,9 +230,8 @@ class _SalonsScreenState extends State<SalonsScreen> {
     );
   }
 }
-
 class _SalonCard extends StatelessWidget {
-  const _SalonCard({
+  _SalonCard({  // remove 'const' here
     required this.salon,
     required this.isExpanded,
     required this.onToggle,
@@ -245,7 +243,7 @@ class _SalonCard extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggle;
   final VoidCallback onAddBranch;
-  final void Function(int branchId) onOpenBranch;
+  final Future<void> Function(int branchId) onOpenBranch; // fixed typo
 
   @override
   Widget build(BuildContext context) {
@@ -305,11 +303,11 @@ class _SalonCard extends StatelessWidget {
                 ...branches.map(
                   (branch) => _BranchTile(
                     branch: branch,
-                    onOpen: () => onOpenBranch(branch['id'] as int),
+                    onOpen: () async => await onOpenBranch(branch['id'] as int),
                   ),
                 ),
               Align(
-                alignment: Alignment.centerLeft,
+                alignment: Alignment.center,
                 child: GestureDetector(
                   onTap: onAddBranch,
                   child: const Padding(
@@ -332,55 +330,108 @@ class _SalonCard extends StatelessWidget {
   }
 }
 
-class _BranchTile extends StatelessWidget {
-  const _BranchTile({required this.branch, required this.onOpen});
+class _BranchTile extends StatefulWidget {
+  const _BranchTile({required this.branch, required this.onOpen, Key? key}) : super(key: key);
 
   final Map<String, dynamic> branch;
-  final VoidCallback onOpen;
+    final Future<void> Function() onOpen;
+
+  @override
+  State<_BranchTile> createState() => _BranchTileState();
+}
+
+class _BranchTileState extends State<_BranchTile> {
+  bool isLoading = false;
+
+  void _handleTap() async {
+    setState(() => isLoading = true);
+    try {
+      await widget.onOpen(); // This calls _openBranchDetail
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final address = branch['address'] as Map<String, dynamic>?;
+    final address = widget.branch['address'] as Map<String, dynamic>?;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  (branch['name'] ?? 'Branch') as String,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      (widget.branch['name'] ?? 'Branch') as String,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      (address?['line1'] ?? '') as String,
+                      style: const TextStyle(fontSize: 12),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              GestureDetector(
+                onTap: isLoading ? null : _handleTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFFFA500), Color(0xFFFF8C00)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withOpacity(0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'View Branch',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  (address?['line1'] ?? '') as String,
-                  style: const TextStyle(fontSize: 12),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: onOpen,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              textStyle: const TextStyle(fontSize: 12),
-            ),
-            child: const Text('View Branch'),
-          ),
-        ],
-      ),
+        ),
+        const Divider(
+          height: 1,
+          thickness: 0.5,
+          color: Colors.grey,
+        ),
+      ],
     );
   }
 }

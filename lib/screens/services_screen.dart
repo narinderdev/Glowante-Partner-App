@@ -43,63 +43,6 @@ class _ServicesTabState extends State<ServicesTab> {
       debugPrint('Error: $e');
     }
   }
-
-  // @override
-  // Widget build(BuildContext context) {
-  //   if (isLoading) {
-  //     return const Center(child: CircularProgressIndicator());
-  //   }
-  //   if (serviceData.isEmpty) {
-  //     return const Center(child: Text('No service category found'));
-  //   }
-
-  //   return SingleChildScrollView(
-  //     padding: const EdgeInsets.only(bottom: 80), // space for potential FAB on parent
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         // Categories
-  //         const Padding(
-  //           padding: EdgeInsets.all(16.0),
-  //           child: Text('Categories', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-  //         ),
-  //         SizedBox(
-  //           height: 60,
-  //           child: ListView.builder(
-  //             padding: const EdgeInsets.symmetric(horizontal: 16),
-  //             scrollDirection: Axis.horizontal,
-  //             itemCount: (serviceData['categories'] as List).length,
-  //             itemBuilder: (context, index) {
-  //               final category = serviceData['categories'][index];
-  //               final bool selected = selectedCategoryId == category['id'];
-  //               return Padding(
-  //                 padding: const EdgeInsets.only(right: 8.0),
-  //                 child: ElevatedButton(
-  //                   style: ElevatedButton.styleFrom(
-  //                     backgroundColor: selected ? Colors.purple : Colors.grey,
-  //                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-  //                     minimumSize: const Size(30, 20),
-  //                     elevation: 0,
-  //                   ),
-  //                   onPressed: () {
-  //                     setState(() {
-  //                       selectedCategoryId = category['id'];
-  //                       subCategories = category['subCategories'] ?? [];
-  //                       if (subCategories.isNotEmpty) {
-  //                         selectedSubCategoryId = subCategories[0]['id'];
-  //                         selectedSubCategoryServices = subCategories[0]['services'] ?? [];
-  //                       } else {
-  //                         selectedSubCategoryId = null;
-  //                         selectedSubCategoryServices = [];
-  //                       }
-  //                     });
-  //                   },
-  //                   child: Text('${category['displayName']}', style: const TextStyle(color: Colors.white, fontSize: 12)),
-  //                 ),
-  //               );
-  //             },
-  //           ),
-  //         ),
 @override
 Widget build(BuildContext context) {
   if (isLoading) {
@@ -111,161 +54,155 @@ Widget build(BuildContext context) {
   if (categories.isEmpty) {
     return const Center(child: Text('No service category found'));
   }
+  // Inside build method after data loaded
+return SingleChildScrollView(
+  padding: const EdgeInsets.only(bottom: 80),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // Categories
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+        child: Text('Categories',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ),
+      SizedBox(
+        height: 50,
+        child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          scrollDirection: Axis.horizontal,
+          itemCount: categories.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, index) {
+            final category = categories[index];
+            final bool selected = selectedCategoryId == category['id'];
+            return ChoiceChip(
+              label: Text('${category['displayName']}'),
+              selected: selected,
+              onSelected: (_) {
+                setState(() {
+                  selectedCategoryId = category['id'];
+                  subCategories = category['subCategories'] ?? [];
+                  if (subCategories.isNotEmpty) {
+                    selectedSubCategoryId = subCategories[0]['id'];
+                    selectedSubCategoryServices = subCategories[0]['services'] ?? [];
+                  } else {
+                    selectedSubCategoryId = null;
+                    selectedSubCategoryServices = [];
+                  }
+                });
+              },
+              selectedColor: Colors.purple,
+              backgroundColor: Colors.grey.shade200,
+              checkmarkColor: Colors.white,
+              labelStyle: TextStyle(
+                color: selected ? Colors.white : Colors.black87,
+                fontSize: 12,
+              ),
+            );
+          },
+        ),
+      ),
 
-  return SingleChildScrollView(
-    padding: const EdgeInsets.only(bottom: 80), // space for potential FAB on parent
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Categories
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'Categories',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
+      if (subCategories.isNotEmpty) ...[
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text('Subcategories',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
         SizedBox(
-          height: 60,
-          child: ListView.builder(
+          height: 50,
+          child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
-            itemCount: categories.length,
+            itemCount: subCategories.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
-              final category = categories[index];
-              final bool selected = selectedCategoryId == category['id'];
-              return Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: selected ? Colors.purple : Colors.grey,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                    minimumSize: const Size(30, 20),
-                    elevation: 0,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      selectedCategoryId = category['id'];
-                      subCategories = category['subCategories'] ?? [];
-                      if (subCategories.isNotEmpty) {
-                        selectedSubCategoryId = subCategories[0]['id'];
-                        selectedSubCategoryServices = subCategories[0]['services'] ?? [];
-                      } else {
-                        selectedSubCategoryId = null;
-                        selectedSubCategoryServices = [];
-                      }
-                    });
-                  },
-                  child: Text(
-                    '${category['displayName']}',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
+              final subCategory = subCategories[index];
+              final bool selected = selectedSubCategoryId == subCategory['id'];
+              return ChoiceChip(
+                label: Text('${subCategory['displayName']}'),
+                selected: selected,
+                onSelected: (_) {
+                  setState(() {
+                    selectedSubCategoryId = subCategory['id'];
+                    selectedSubCategoryServices = subCategory['services'] ?? [];
+                  });
+                },
+                selectedColor: Colors.purple,
+                checkmarkColor: Colors.white,
+                backgroundColor: Colors.grey.shade200,
+                labelStyle: TextStyle(
+                  color: selected ? Colors.white : Colors.black87,
+                  fontSize: 12,
                 ),
               );
             },
           ),
         ),
+      ],
 
-          if (selectedCategoryId != null && subCategories.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text('Sub Categories', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            ),
-            SizedBox(
-              height: 60,
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                scrollDirection: Axis.horizontal,
-                itemCount: subCategories.length,
-                itemBuilder: (context, index) {
-                  final subCategory = subCategories[index];
-                  final bool selected = selectedSubCategoryId == subCategory['id'];
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: selected ? Colors.purple : Colors.grey,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                        minimumSize: const Size(30, 20),
-                        elevation: 0,
+      const SizedBox(height: 16),
+
+      // Services list
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: selectedSubCategoryServices.isNotEmpty
+            ? Column(
+                children: selectedSubCategoryServices.map<Widget>((service) {
+                  return Card(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        children: [
+                          // Name + description
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${service['displayName']}',
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold)),
+                                if ((service['description'] ?? '').isNotEmpty)
+                                  Text('${service['description']}',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade600)),
+                              ],
+                            ),
+                          ),
+
+                          // Price & Duration
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text('\₹.${service['priceMinor']}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold)),
+                              Text('${service['durationMin']} min',
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
+                        ],
                       ),
-                      onPressed: () {
-                        setState(() {
-                          selectedSubCategoryId = subCategory['id'];
-                          selectedSubCategoryServices = subCategory['services'] ?? [];
-                        });
-                      },
-                      child: Text('${subCategory['displayName']}', style: const TextStyle(color: Colors.white, fontSize: 12)),
                     ),
                   );
-                },
-              ),
-            ),
-
-           if (selectedSubCategoryServices.isNotEmpty)
-  Padding(
-    padding: const EdgeInsets.all(16.0),
-    child: Column(
-      children: selectedSubCategoryServices.map<Widget>((service) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4.0),
-          child: Row(
-            children: [
-              // Service name + description
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${service['displayName']}',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      '${service['description'] ?? ''}',
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Price and duration
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('${service['priceMinor']}', style: const TextStyle(fontSize: 12)),
-                  Text('${service['durationMin']} min', style: const TextStyle(fontSize: 12)),
-                ],
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    ),
-  )
-else
-  const Padding(
-    padding: EdgeInsets.all(16.0),
-    child: Center(
-      child: Text(
-        'No services available',
-        style: TextStyle(fontSize: 14),
+                }).toList(),
+              )
+            : const Center(
+                child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Text('No services available'),
+              )),
       ),
-    ),
+    ],
   ),
-
-          ] else if (selectedCategoryId != null) ...[
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(
-              child: Text(
-                'No services available',
-                style: TextStyle(fontSize: 14),
-              ),
-            ),
-            ),
-          ],
-        ],
-      ),
-    );
+);
   }
 }

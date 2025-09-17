@@ -31,7 +31,7 @@ class BranchScreen extends StatelessWidget {
             // App bar with back button only
             SliverAppBar(
               pinned: true,
-              title: const Text('Branch Details'),
+              title: const Text('Branch Details',style: TextStyle(color: Colors.white),),
               automaticallyImplyLeading: true,
               iconTheme: const IconThemeData(color: Colors.white),
               backgroundColor: Colors.purple,
@@ -41,15 +41,17 @@ class BranchScreen extends StatelessWidget {
             SliverToBoxAdapter(
               child: Stack(
                 children: [
-                  SizedBox(
-                    height: MediaQuery.of(context).size.height * 0.40,
-                    width: double.infinity,
-                    child: imageUrl != null && imageUrl.isNotEmpty
-                        ? Image.network(imageUrl, fit: BoxFit.cover)
-                        : const Center(
-                            child: Icon(Icons.store, size: 70, color: Colors.grey),
-                          ),
-                  ),
+                SizedBox(
+  height: MediaQuery.of(context).size.height * 0.40,
+  width: double.infinity,
+  child: imageUrl != null && imageUrl.isNotEmpty
+      ? Image.network(imageUrl, fit: BoxFit.cover)
+      : Image.asset(
+          'assets/images/salonImage.png', // your asset path
+          fit: BoxFit.cover,
+        ),
+),
+
                   Positioned(
                     left: 16,
                     bottom: 16,
