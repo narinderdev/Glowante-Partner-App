@@ -49,6 +49,7 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
     );
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: null,
       body: SafeArea(
         child: Padding(
@@ -81,7 +82,7 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
 
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
+                      backgroundColor: Colors.orange,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
@@ -201,7 +202,7 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.purple,
+        backgroundColor: Colors.orange,
         onPressed: () {
           final int? idForNav = branchId;
           if (idForNav != null) {

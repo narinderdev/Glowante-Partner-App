@@ -217,7 +217,22 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Add Location')),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+    backgroundColor: Colors.orange, // main orange background
+    iconTheme: const IconThemeData(
+    color: Colors.white, // ✅ sets back button color to white
+  ),
+    centerTitle: true, // center the title
+    title: const Text(
+      'Add Location',
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 20,
+        color: Colors.white,
+      ),
+    ),
+  ),
       body: GestureDetector(
         onTap: () {
           FocusScope.of(context).unfocus();
@@ -319,41 +334,53 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     );
   }
 
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    String hint, {
-    bool enabled = true,
-    bool isRequired = true,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextFormField(
-        controller: controller,
-        enabled: enabled,
-        validator: (value) {
-          if (isRequired && (value == null || value.trim().isEmpty)) {
-            return '$label is required';
-          }
-          return null;
-        },
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.orange),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.orange),
-          ),
+Widget _buildTextField(
+  TextEditingController controller,
+  String label,
+  String hint, {
+  bool enabled = true,
+  bool isRequired = true,
+}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: TextFormField(
+      controller: controller,
+      enabled: enabled,
+      autovalidateMode: AutovalidateMode.onUserInteraction, // ✅ live validation
+      cursorColor: Colors.orange, // ✅ orange cursor for consistency
+      validator: (value) {
+        if (isRequired && (value == null || value.trim().isEmpty)) {
+          return '$label is required';
+        }
+        return null;
+      },
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: const TextStyle(color: Colors.orange), // ✅ orange label
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.orange, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.orange, width: 2), // ✅ orange error border
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.orange, width: 2), // ✅ orange error border when focused
+        ),
+        errorStyle: const TextStyle(
+          color: Colors.orange, // ✅ orange error text
+          fontWeight: FontWeight.bold,
         ),
       ),
-    );
-  }
-}
-
+    ),
+  );
+}}
 class AddressComponentsModel {
   String fullAddress;
   String city;

@@ -107,12 +107,40 @@ class _SalonsScreenState extends State<SalonsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Salons'),
-        actions: [
-          IconButton(icon: const Icon(Icons.add), onPressed: _goToAddSalon),
-        ],
+      backgroundColor: Colors.white,
+     appBar: AppBar(
+      backgroundColor: Colors.orange, // main orange background
+      centerTitle: true, // center the title
+      title: const Text(
+        'My Salons',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 20,
+          color: Colors.white,
+        ),
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: InkWell(
+            onTap: _goToAddSalon,
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white, // dark orange circle
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.add,
+                color: Colors.deepOrange,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
       body: BlocBuilder<SalonListCubit, SalonListState>(
         builder: (context, state) {
           if (state.isLoading && state.salons.isEmpty) {
@@ -218,6 +246,7 @@ class _SalonsScreenState extends State<SalonsScreen> {
           const SizedBox(height: 16),
           FloatingActionButton(
             backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
             child: Icon(fabExpanded ? Icons.close : Icons.add),
             onPressed: () {
               setState(() {
@@ -271,27 +300,35 @@ class _SalonCard extends StatelessWidget {
                         fit: BoxFit.cover,
                       ),
                     )
-                  else
-                    const Icon(Icons.store, size: 40, color: Colors.grey),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      (salon['name'] ?? 'Salon') as String,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    isExpanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: Colors.grey,
-                  ),
-                ],
-              ),
-            ),
+                 else
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.asset(
+            "assets/images/salonImage.png",
+            width: 40,
+            height: 40,
+            fit: BoxFit.cover,
+          ),
+        ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Text(
+          (salon['name'] ?? 'Salon') as String,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+      Icon(
+        isExpanded
+            ? Icons.keyboard_arrow_up
+            : Icons.keyboard_arrow_down,
+        color: Colors.grey,
+      ),
+    ],
+  ),
+),
             if (isExpanded) ...[
               const SizedBox(height: 12),
               if (branches.isEmpty)

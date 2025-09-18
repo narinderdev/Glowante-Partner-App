@@ -202,7 +202,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         final address = state.address;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Add Salon')),
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+    backgroundColor: Colors.orange, // main orange background
+    centerTitle: true, // center the title
+    iconTheme: const IconThemeData(
+    color: Colors.white, // ✅ sets back button color to white
+  ),
+    title: const Text(
+      'Add Salon',
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 20,
+        color: Colors.white,
+      ),
+    ),
+  ),
           body: Stack(
             children: [
               SingleChildScrollView(
@@ -243,7 +258,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                     Text(
+       Text(
   'Salon Address',
   style: Theme.of(context).textTheme.titleMedium,
 ),
@@ -252,38 +267,58 @@ InkWell(
   onTap: () => _chooseLocation(state),
   child: Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(16),
+    // height only for empty state, dynamic otherwise
+    height: address == null ? 48 : null, 
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     decoration: BoxDecoration(
-      border: Border.all(color: Colors.orange),
+      color: address == null ? Colors.orange : Colors.white,
       borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.orange),
     ),
     child: address == null
-        ? const Text('Add location')
+        ? Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.add_location, color: Colors.white),
+              SizedBox(width: 8),
+              Text(
+                'Add Location',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          )
         : Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start, // allow multi-line
             children: [
-              // Address details on the left
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       address.buildingName,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
+                        color: Colors.grey,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text('${address.city}, ${address.state}'),
-                    Text('Pincode: ${address.pincode}'),
+                    Text(
+                      '${address.city}, ${address.state}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    Text(
+                      'Pincode: ${address.pincode}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
-              // Edit icon on the right
-              Icon(
-                Icons.edit,
-                color: Colors.blue,
-              ),
+              const Icon(Icons.edit, color: Colors.orange),
             ],
           ),
   ),
@@ -294,7 +329,7 @@ InkWell(
                         controller: _descriptionController,
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
-                        maxLines: 4,
+                        maxLines: 1,
                       ),
                       
                       const SizedBox(height: 20),
@@ -379,33 +414,57 @@ InkWell(
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    int maxLines = 1,
-    bool enabled = true,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextFormField(
-        controller: controller,
-        enabled: enabled,
-        maxLines: maxLines,
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return '$label is required';
-          }
-          return null;
-        },
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+ Widget _buildTextField({
+  required TextEditingController controller,
+  required String label,
+  required String hint,
+  int maxLines = 1,
+  bool enabled = true,
+}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      enabled: enabled,
+      autovalidateMode: AutovalidateMode.onUserInteraction, // ✅ validates live
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return '$label is required';
+        }
+        return null;
+      },
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: const TextStyle(color: Colors.orange), // label always orange
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.grey, width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        errorStyle: const TextStyle(
+          color: Colors.orange, // error text color
+          fontWeight: FontWeight.bold,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTimePickerField({
     required TextEditingController controller,

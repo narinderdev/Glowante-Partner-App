@@ -56,9 +56,10 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: null,
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(0.0),
         child: FutureBuilder<Map<String, dynamic>>(
           future: _offersData,
           builder: (context, snapshot) {
@@ -228,9 +229,10 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
             ),
           );
         },
-        icon: const Icon(Icons.add),
+        icon: const Icon(Icons.add,color: Colors.white),
         label: const Text('Add Deal'),
-        backgroundColor: Colors.purple,
+        foregroundColor: Colors.white,
+        backgroundColor: Colors.orange,
       ),
     );
   }

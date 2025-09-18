@@ -10,6 +10,7 @@ class AboutScreen extends StatelessWidget {
     final description = branchDetails['description'] ?? 'No description available';
     
     return Scaffold(
+      backgroundColor: Colors.white,
       // Remove the app bar completely
       appBar: null,
       body: Padding(

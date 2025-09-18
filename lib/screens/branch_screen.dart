@@ -25,17 +25,28 @@ class BranchScreen extends StatelessWidget {
 
     return DefaultTabController(
       length: 6,
+      
       child: Scaffold(
+        backgroundColor: Colors.white,
         body: NestedScrollView(
           headerSliverBuilder: (context, _) => [
             // App bar with back button only
-            SliverAppBar(
-              pinned: true,
-              title: const Text('Branch Details',style: TextStyle(color: Colors.white),),
-              automaticallyImplyLeading: true,
-              iconTheme: const IconThemeData(color: Colors.white),
-              backgroundColor: Colors.purple,
-            ),
+          SliverAppBar(
+  pinned: true,
+  automaticallyImplyLeading: true,
+  iconTheme: const IconThemeData(color: Colors.white),
+  backgroundColor: Colors.orange,
+  title: const Center(
+    child: Text(
+      'Branch Details',
+      style: TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.bold, // Bold text
+      ),
+    ),
+  ),
+),
+
 
             // Image with overlay details
             SliverToBoxAdapter(
@@ -96,9 +107,9 @@ class BranchScreen extends StatelessWidget {
               delegate: _TabBarDelegate(
                 const TabBar(
                   isScrollable: true,
-                  labelColor: Colors.purple,
+                  labelColor: Colors.orange,
                   unselectedLabelColor: Colors.grey,
-                  indicatorColor: Colors.purple,
+                  indicatorColor: Colors.orange,
                   tabs: [
                     // Tab(text: 'Bookings'),
                     Tab(text: 'Services'),

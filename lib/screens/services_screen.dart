@@ -92,7 +92,7 @@ return SingleChildScrollView(
                   }
                 });
               },
-              selectedColor: Colors.purple,
+              selectedColor: Colors.orange,
               backgroundColor: Colors.grey.shade200,
               checkmarkColor: Colors.white,
               labelStyle: TextStyle(
@@ -129,7 +129,7 @@ return SingleChildScrollView(
                     selectedSubCategoryServices = subCategory['services'] ?? [];
                   });
                 },
-                selectedColor: Colors.purple,
+                selectedColor: Colors.orange,
                 checkmarkColor: Colors.white,
                 backgroundColor: Colors.grey.shade200,
                 labelStyle: TextStyle(

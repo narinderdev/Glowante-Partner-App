@@ -138,7 +138,22 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         final address = state.address;
 
         return Scaffold(
-          appBar: AppBar(title: const Text('Add Branch')),
+          backgroundColor: Colors.white,
+         appBar: AppBar(
+    backgroundColor: Colors.orange, // AppBar background
+    centerTitle: true, // center the title
+    iconTheme: const IconThemeData(
+      color: Colors.white, // back button color
+    ),
+    title: const Text(
+      'Add Branch',
+      style: TextStyle(
+        fontWeight: FontWeight.bold,
+        fontSize: 20,
+        color: Colors.white, // title text color
+      ),
+    ),
+  ),
           body: Stack(
             children: [
               SingleChildScrollView(
@@ -229,7 +244,7 @@ else
               ],
             ),
           ),
-          const Icon(Icons.edit, color: Colors.blue),
+          const Icon(Icons.edit, color: Colors.orange),
         ],
       ),
     ),
@@ -240,7 +255,7 @@ else
                         controller: _descriptionController,
                         label: 'Description *',
                         hint: 'Enter description',
-                        maxLines: 4,
+                        maxLines: 1,
                       ),
                       
                       const SizedBox(height: 20),
@@ -325,33 +340,57 @@ else
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    int maxLines = 1,
-    bool enabled = true,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines,
-        enabled: enabled,
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return '$label is required';
-          }
-          return null;
-        },
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+Widget _buildTextField({
+  required TextEditingController controller,
+  required String label,
+  required String hint,
+  int maxLines = 1,
+  bool enabled = true,
+}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      enabled: enabled,
+      autovalidateMode: AutovalidateMode.onUserInteraction, // ✅ validates live
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return '$label is required';
+        }
+        return null;
+      },
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: const TextStyle(color: Colors.orange), // label always orange
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.grey, width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        errorStyle: const TextStyle(
+          color: Colors.orange, // error text color
+          fontWeight: FontWeight.bold,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildTimePickerField({
     required TextEditingController controller,
