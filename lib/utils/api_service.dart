@@ -1698,7 +1698,7 @@ Future<Map<String, dynamic>> completeAppointment({
       "rating": rating,
       if (comment != null) "comment": comment,
     })}");
-
+  print("  Token: $token");
     final resp = await http.post(
       url,
       headers: {

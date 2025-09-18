@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "868697452908",
+    "project_id": "glowante-8eb45",
+    "storage_bucket": "glowante-8eb45.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:868697452908:android:cab08b72aae27cb0930349",
+        "android_client_info": {
+          "package_name": "com.apnitor.glowanteclientapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmcG-xkIES7q-MYLRzdrQtzK8jByx4II4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:868697452908:android:285fcf9d2f8fb0f8930349",
+        "android_client_info": {
+          "package_name": "com.glowante.client"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmcG-xkIES7q-MYLRzdrQtzK8jByx4II4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:868697452908:android:5529ffc1ebb2eb0f930349",
+        "android_client_info": {
+          "package_name": "com.glowante.salon"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmcG-xkIES7q-MYLRzdrQtzK8jByx4II4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
