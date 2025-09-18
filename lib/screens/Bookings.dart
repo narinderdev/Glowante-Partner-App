@@ -1065,7 +1065,7 @@ void _openMergedSegmentSheet(Map<String, dynamic> seg) {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  // IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -1124,16 +1124,16 @@ void _openMergedSegmentSheet(Map<String, dynamic> seg) {
                 ),
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  child: const Text('Close'),
-                ),
-              ),
+              // SizedBox(
+              //   width: double.infinity,
+              //   child: OutlinedButton(
+              //     onPressed: () => Navigator.pop(context),
+              //     style: OutlinedButton.styleFrom(
+              //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              //     ),
+              //     child: const Text('Close'),
+              //   ),
+              // ),
             ],
           ),
         ),
