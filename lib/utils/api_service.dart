@@ -90,7 +90,12 @@ class ApiService {
   static String addSalonBranchOffer(int branchId) {
     return "branches/$branchId/offers";
   }
-
+  static String startAppointmentAPI(int branchId, int appointmentId) {
+    return "branches/$branchId/appointments/$appointmentId/start";
+  }
+static String completeAppointmentAPI(int branchId, int appointmentId) {
+    return "branches/$branchId/appointments/$appointmentId/complete";
+  }
   //This below 2 api is pending to implement on frontend
   // Confirm Booking appointment (see static helper above)
   static String getSalonDetailAPI(int salonId) {
@@ -1595,4 +1600,144 @@ Future<Map<String, dynamic>> updateSubCategoryApi({
 
     throw Exception('Failed to update service: ${response.body}');
   }
+
+// ---------------------- START APPOINTMENT ----------------------
+static Future<Map<String, dynamic>> startAppointment({
+  required int branchId,
+  required int appointmentId,
+  required String otp,
+}) async {
+  // get token
+  final token = await ApiService().getAuthToken();
+  if (token.isEmpty) {
+    throw Exception('Token is missing');
+  }
+
+  final url = Uri.parse("$baseUrl${startAppointmentAPI(branchId, appointmentId)}");
+
+  print("➡️ [START_APPOINTMENT] Request:");
+  print("  URL: $url");
+  print("  Method: POST");
+  print("  Headers: { Content-Type: application/json, Authorization: Bearer $token }");
+  print("  Body: ${jsonEncode({
+    "branchId": branchId,
+    "appointmentId": appointmentId,
+    "otp": otp,
+  })}");
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({
+        "branchId": branchId,
+        "appointmentId": appointmentId,
+        "otp": otp,
+      }),
+    );
+
+    print("⬅️ [START_APPOINTMENT] Response:");
+    print("  Status Code: ${response.statusCode}");
+    print("  Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      try {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        print("✅ Parsed JSON: $decoded");
+        return decoded;
+      } catch (err) {
+        print("❌ JSON Decode Error: $err");
+        return {
+          "success": false,
+          "error": "Invalid JSON",
+          "rawBody": response.body,
+        };
+      }
+    } else {
+      return {
+        "success": false,
+        "statusCode": response.statusCode,
+        "body": response.body,
+      };
+    }
+  } catch (e, stack) {
+    print("❌ [START_APPOINTMENT] Exception: $e");
+    print("Stacktrace: $stack");
+    return {
+      "success": false,
+      "error": e.toString(),
+    };
+  }
+}
+
+// ---------------------- COMPLETE APPOINTMENT ----------------------
+Future<Map<String, dynamic>> completeAppointment({
+  required int branchId,
+  required int appointmentId,
+  required int rating,
+  String? comment,
+}) async {
+  try {
+     final token = await ApiService().getAuthToken();
+    if (token.isEmpty) {
+      throw Exception('No token found');
+    }
+
+    final url = Uri.parse(
+      "$baseUrl${completeAppointmentAPI(branchId, appointmentId)}",
+    );
+
+    print("➡️ [COMPLETE_APPOINTMENT] Request:");
+    print("  URL: $url");
+    print("  Method: POST");
+    print("  Headers: { Content-Type: application/json, Authorization: Bearer $token }");
+    print("  Body: ${jsonEncode({
+      "rating": rating,
+      if (comment != null) "comment": comment,
+    })}");
+
+    final resp = await http.post(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        "rating": rating,
+        if (comment != null) "comment": comment,
+      }),
+    );
+
+    print("⬅️ [COMPLETE_APPOINTMENT] Response:");
+    print("  Status Code: ${resp.statusCode}");
+    print("  Body: ${resp.body}");
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      final body = resp.body.isNotEmpty
+          ? (jsonDecode(resp.body) as Map<String, dynamic>)
+          : {};
+      return {
+        'success': body['success'] ?? true,
+        'message': body['message'] ?? 'Appointment completed',
+        'data': body['data'],
+      };
+    } else {
+      return {
+        'success': false,
+        'message': 'Failed to complete appointment',
+        'statusCode': resp.statusCode,
+        'body': resp.body,
+      };
+    }
+  } catch (e, stack) {
+    print("❌ [COMPLETE_APPOINTMENT] Exception: $e");
+    print("Stacktrace: $stack");
+    return {'success': false, 'message': e.toString()};
+  }
+}
+
+
 }
