@@ -11,7 +11,7 @@ import 'branch_screen.dart';
 import 'Deal.dart';
 import 'Package.dart';
 import 'Teams.dart';
-
+import '../utils/colors.dart';
 class SalonsScreen extends StatefulWidget {
   const SalonsScreen({super.key});
 
@@ -181,7 +181,7 @@ class _SalonsScreenState extends State<SalonsScreen> {
 
           return RefreshIndicator(
             onRefresh: _refreshSalons,
-            color: const Color(0xFFFF7A45),
+          color: (AppColors.starColor),
             displacement: 32,
             child: CustomScrollView(
               physics: const BouncingScrollPhysics(
@@ -312,8 +312,8 @@ class _SalonsScreenState extends State<SalonsScreen> {
             ),
             const SizedBox(height: 10),
             FloatingActionButton.extended(
-              backgroundColor: const Color(0xFFFF7043),
-              foregroundColor: Colors.white,
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.starColor,
               icon: Icon(fabExpanded ? Icons.close : Icons.menu_rounded),
               label: Text(fabExpanded ? 'Close' : 'Quick actions'),
               onPressed: () {
@@ -348,7 +348,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [Color(0xFFFF8A65), Color(0xFFFF7043)],
+         colors: [AppColors.starColor, AppColors.getStartedButton],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -410,7 +410,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                     style: ElevatedButton.styleFrom(
                       elevation: 0,
                       backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFFFF7043),
+                      foregroundColor: AppColors.starColor,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
@@ -472,7 +472,11 @@ class _AppBarSearchField extends StatelessWidget {
             decoration: InputDecoration(
               hintText: 'Search salons or branches',
               hintStyle: const TextStyle(color: Color(0xFFB0BEC5)),
-              prefixIcon: const Icon(Icons.search, color: Color(0xFFFF7043)),
+              prefixIcon: Icon(
+  Icons.search,
+  color: AppColors.starColor,
+),
+
               suffixIcon: hasQuery
                   ? IconButton(
                       onPressed: () {
@@ -481,7 +485,7 @@ class _AppBarSearchField extends StatelessWidget {
                       },
                       icon: const Icon(Icons.close, color: Color(0xFF90A4AE)),
                     )
-                  : const Icon(Icons.tune, color: Color(0xFFFF8A65)),
+                  : const Icon(Icons.tune, color: AppColors.starColor,),
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 18,
@@ -520,7 +524,7 @@ class _SalonsOverview extends StatelessWidget {
                 icon: Icons.store_mall_directory_outlined,
                 label: 'Total salons',
                 value: totalSalons.toString(),
-                highlight: true,
+                  highlightAccent: true,
               ),
             ),
             const SizedBox(width: 12),
@@ -546,7 +550,7 @@ class _SalonsOverview extends StatelessWidget {
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Color(0xFFFF7043),
+                        color: AppColors.starColor,
                       ),
                     ),
                     SizedBox(width: 10),
@@ -577,33 +581,36 @@ class _SalonsOverview extends StatelessWidget {
     );
   }
 }
-
 class _OverviewCard extends StatelessWidget {
   const _OverviewCard({
     required this.icon,
     required this.label,
     required this.value,
     this.highlight = false,
+    this.highlightAccent = false, // 👈 new
   });
 
   final IconData icon;
   final String label;
   final String value;
   final bool highlight;
+  final bool highlightAccent;
 
   @override
   Widget build(BuildContext context) {
+    final bool useGradient = highlight && !highlightAccent;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
       decoration: BoxDecoration(
-        gradient: highlight
+        gradient: useGradient
             ? const LinearGradient(
-                colors: [Color(0xFFFFA573), Color(0xFFFF7043)],
+                colors: [AppColors.getStartedButton, AppColors.starColor],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               )
             : null,
-        color: highlight ? null : Colors.white,
+        color: useGradient ? null : Colors.white,
         borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
@@ -619,14 +626,18 @@ class _OverviewCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: highlight
+              color: useGradient
                   ? const Color(0x33FFFFFF)
-                  : const Color(0x1AFF7043),
+                  : AppColors.starColor.withOpacity(0.12), // ✅ lighter star bg
               borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               icon,
-              color: highlight ? Colors.white : const Color(0xFFFF7043),
+              color: useGradient
+                  ? Colors.white
+                  : highlightAccent
+                      ? AppColors.starColor // ✅ star color icon
+                      : AppColors.starColor,
             ),
           ),
           const SizedBox(width: 14),
@@ -642,7 +653,9 @@ class _OverviewCard extends StatelessWidget {
                     fontSize: 11,
                     letterSpacing: 0.6,
                     fontWeight: FontWeight.w600,
-                    color: highlight ? Colors.white70 : const Color(0xFF90A4AE),
+                    color: useGradient
+                        ? Colors.white70
+                        : const Color(0xFF90A4AE), // ✅ grey label
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -653,7 +666,11 @@ class _OverviewCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: highlight ? Colors.white : const Color(0xFF37474F),
+                    color: highlightAccent
+                        ? AppColors.starColor // ✅ star color number
+                        : useGradient
+                            ? Colors.white
+                            : const Color(0xFF37474F),
                   ),
                 ),
               ],
@@ -664,6 +681,7 @@ class _OverviewCard extends StatelessWidget {
     );
   }
 }
+
 
 class _InlineLoadingBanner extends StatelessWidget {
   const _InlineLoadingBanner();
@@ -692,7 +710,7 @@ class _InlineLoadingBanner extends StatelessWidget {
               height: 18,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFFFF7043),
+                color: AppColors.starColor,
               ),
             ),
             SizedBox(width: 12),
@@ -752,7 +770,7 @@ class _EmptySalonsView extends StatelessWidget {
             ),
             child: Icon(
               hasSearchQuery ? Icons.search_off_rounded : Icons.spa,
-              color: const Color(0xFFFF7043),
+              color: AppColors.starColor,
               size: 40,
             ),
           ),
@@ -788,8 +806,8 @@ class _EmptySalonsView extends StatelessWidget {
               icon: const Icon(Icons.refresh, size: 18),
               label: const Text('Reset search'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFF7043),
-                side: const BorderSide(color: Color(0xFFFF7043)),
+                foregroundColor: AppColors.starColor,
+                side: const BorderSide(color: AppColors.starColor),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 18,
                   vertical: 12,
@@ -804,7 +822,7 @@ class _EmptySalonsView extends StatelessWidget {
             ElevatedButton(
               onPressed: onAddSalon,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF7043),
+                backgroundColor: AppColors.starColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 28,
@@ -825,29 +843,43 @@ class _EmptySalonsView extends StatelessWidget {
     );
   }
 }
-
 class _MetricChip extends StatelessWidget {
   const _MetricChip({
     required this.icon,
     required this.label,
     required this.accentColor,
     this.filled = false,
+    this.useAccent = false,
   });
 
   final IconData icon;
   final String label;
   final Color accentColor;
   final bool filled;
+  final bool useAccent;
 
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = filled
-        ? accentColor.withOpacity(0.12)
-        : Colors.white;
-    final Color borderColor = filled
-        ? accentColor.withOpacity(0.25)
-        : const Color(0xFFE0E0E0);
-    final Color contentColor = filled ? accentColor : const Color(0xFF607D8B);
+    late final Color backgroundColor;
+    late final Color borderColor;
+    late final Color contentColor;
+
+    if (useAccent) {
+      // 👈 White background, starColor text + icon
+      backgroundColor = Colors.white;
+      borderColor = accentColor;
+      contentColor = accentColor;
+    } else if (filled) {
+      // 👈 Original "filled" look (tinted background)
+      backgroundColor = accentColor.withOpacity(0.12);
+      borderColor = accentColor.withOpacity(0.25);
+      contentColor = accentColor;
+    } else {
+      // 👈 Default grey look
+      backgroundColor = Colors.white;
+      borderColor = const Color(0xFFE0E0E0);
+      contentColor = const Color(0xFF607D8B);
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -930,7 +962,7 @@ class _SalonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accentColor = const Color(0xFFFF7043);
+    final accentColor = AppColors.starColor;
     final branches =
         (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
     final branchCount = branches.length;
@@ -991,25 +1023,25 @@ class _SalonCard extends StatelessWidget {
                               ),
                         ),
                         const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            _MetricChip(
-                              icon: Icons.storefront_rounded,
-                              label:
-                                  "$branchCount ${branchCount == 1 ? 'branch' : 'branches'}",
-                              accentColor: accentColor,
-                              filled: true,
-                            ),
-                            if (effectiveSalonId != 0)
-                              _MetricChip(
-                                icon: Icons.confirmation_number_outlined,
-                                label: 'Salon ID #$effectiveSalonId',
-                                accentColor: accentColor,
-                              ),
-                          ],
-                        ),
+                       Wrap(
+  spacing: 8,
+  runSpacing: 6,
+  children: [
+    _MetricChip(
+      icon: Icons.storefront_rounded,
+      label: "$branchCount ${branchCount == 1 ? 'branch' : 'branches'}",
+      accentColor: AppColors.starColor,
+      useAccent: true, // 👈 white background, starColor text+icon
+    ),
+    if (effectiveSalonId != 0)
+      _MetricChip(
+        icon: Icons.confirmation_number_outlined,
+        label: 'Salon ID #$effectiveSalonId',
+        accentColor: AppColors.starColor,
+        // 👈 no useAccent → stays grey
+      ),
+  ],
+),
                         if (tagline.isNotEmpty) ...[
                           const SizedBox(height: 10),
                           Text(
@@ -1244,12 +1276,13 @@ class _BranchTileState extends State<_BranchTile> {
               Container(
                 width: 38,
                 height: 38,
-                decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.storefront_rounded, color: accentColor),
-              ),
+               decoration: BoxDecoration(
+  color: Colors.white, // ✅ white background
+  borderRadius: BorderRadius.circular(12),
+  border: Border.all(color: accentColor.withOpacity(0.6)), // optional border
+),
+child: Icon(Icons.storefront_rounded, color: accentColor), // ✅ star color icon
+),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1297,24 +1330,25 @@ class _BranchTileState extends State<_BranchTile> {
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
-              onPressed: isLoading ? null : _handleTap,
-              style: TextButton.styleFrom(
-                backgroundColor: accentColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 18,
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-              ),
-              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-              label: const Text(
-                'View Branch',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
+  onPressed: isLoading ? null : _handleTap,
+  style: TextButton.styleFrom(
+    backgroundColor: Colors.white, // ✅ white background
+    foregroundColor: AppColors.starColor, // ✅ text & icon color
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: BorderSide(color: AppColors.starColor.withOpacity(0.6)),
+    ),
+  ),
+  icon: const Icon(Icons.arrow_forward_rounded, size: 18, color: AppColors.starColor), // ✅ arrow at start
+  label: const Text(
+    'View Branch',
+    style: TextStyle(
+      fontWeight: FontWeight.w600,
+      color: AppColors.starColor, // ✅ ensure text color
+    ),
+  ),
+),
           ),
         ],
       ),
