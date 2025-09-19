@@ -527,14 +527,15 @@ class _SalonsOverview extends StatelessWidget {
                   highlightAccent: true,
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _OverviewCard(
-                icon: Icons.visibility_outlined,
-                label: 'Showing now',
-                value: visibleSalons.toString(),
-              ),
-            ),
+            // const SizedBox(width: 12),
+            // Expanded(
+            //   child: _OverviewCard(
+            //     icon: Icons.visibility_outlined,
+            //     label: 'Showing now',
+            //     value: visibleSalons.toString(),
+            //     highlightAccent: true,
+            //   ),
+            // ),
           ],
         ),
         const SizedBox(height: 10),
