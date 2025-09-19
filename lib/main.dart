@@ -18,9 +18,19 @@ import 'services/push_notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  print('[Firebase] Widgets binding initialised');
+
   await dotenv.load();
+  print('[Firebase] .env loaded');
+
+  print('[Firebase] Initialising core...');
   await Firebase.initializeApp();
+  print('[Firebase] Core initialised');
+
+  print('[Firebase] Initialising push notification service...');
   await PushNotificationService.instance.initialize();
+  print('[Firebase] Push notification service ready');
+
   runApp(const MyApp());
 }
 

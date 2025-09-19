@@ -1,4 +1,4 @@
 <resources>
-    <string name="default_notification_channel_id">high_importance_channel</string>
-    <string name="default_notification_channel_name">High Importance</string>
+    <string name="default_notification_channel_id">glowante_default_channel</string>
+    <string name="default_notification_channel_name">General Notifications</string>
 </resources>

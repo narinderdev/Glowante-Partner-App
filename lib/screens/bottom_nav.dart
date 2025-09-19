@@ -314,18 +314,16 @@ class _NavButton extends StatelessWidget {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 200),
                 child: isActive
-                    ? Flexible( // ensures text shrinks if needed
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            destination.label,
-                            key: ValueKey(destination.label),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
+                    ? FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          destination.label,
+                          key: ValueKey(destination.label),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
                           ),
                         ),
                       )
