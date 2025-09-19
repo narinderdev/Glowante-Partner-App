@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import 'package:bloc_onboarding/bloc/auth/auth_bloc.dart';
@@ -13,10 +14,13 @@ import 'package:bloc_onboarding/utils/api_service.dart';
 import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import 'package:bloc_onboarding/repositories/branch_repository.dart';
 import './Viewmodels/BranchViewModel.dart';
+import 'services/push_notification_service.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
+  await Firebase.initializeApp();
+  await PushNotificationService.instance.initialize();
   runApp(const MyApp());
 }
 
@@ -45,7 +49,7 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => BranchViewModel()),
       ],
-      child: MaterialApp(
+      child: const MaterialApp(
         debugShowCheckedModeBanner: false,
         home: SplashScreen(),
       ),

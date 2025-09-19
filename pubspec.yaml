@@ -17,6 +17,10 @@ dependencies:
   flutter_dotenv: ^5.1.0
   image_picker: ^1.1.2
   http: ^1.5.0
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.0.4
+  flutter_local_notifications: ^17.2.1
+  permission_handler: ^11.3.1
   bloc: ^8.1.4
   intl: ^0.19.0
   aws_s3_api: ^2.0.0

@@ -12,7 +12,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
       try {
         // Make the API call to log in
-        final response = await apiService.loginUser(event.phoneNumber);
+        final response = await apiService.loginUser(event.phoneNumber, deviceToken: event.deviceToken);
         print("Response: $response"); // Log the response
 
         // Ensure the response is structured correctly

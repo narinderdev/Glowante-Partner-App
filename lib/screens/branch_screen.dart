@@ -130,7 +130,7 @@ class BranchScreen extends StatelessWidget {
               BranchPackagesScreen(branchDetails: branchDetails,),
               BranchDealsScreen(branchDetails: branchDetails,),
               TeamMemberScreen(branchDetails: branchDetails,),
-              ReviewsScreen(),
+              ReviewsScreen(branchId: branchDetails['id']),
               AboutScreen(branchDetails: branchDetails),
             ],
           ),

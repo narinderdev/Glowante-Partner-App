@@ -96,6 +96,12 @@ class ApiService {
 static String completeAppointmentAPI(int branchId, int appointmentId) {
     return "branches/$branchId/appointments/$appointmentId/complete";
   }
+
+  // get appointments
+  static String getBranchRatings(int branchId) {
+    return "branches/$branchId/appointments/ratings";
+  }
+
   //This below 2 api is pending to implement on frontend
   // Confirm Booking appointment (see static helper above)
   static String getSalonDetailAPI(int salonId) {
@@ -130,12 +136,20 @@ static String completeAppointmentAPI(int branchId, int appointmentId) {
     return token ?? '';
   }
   // Login
-  Future<Map<String, dynamic>> loginUser(String phoneNumber) async {
+  Future<Map<String, dynamic>> loginUser(String phoneNumber, {String? deviceToken}) async {
     final loginPayload = {
       "phoneNumber": phoneNumber,
       "source": "app",
-      "deviceToken": "xyz-device-token",
     };
+
+    String? resolvedToken = deviceToken;
+    if (resolvedToken == null || resolvedToken.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      resolvedToken = prefs.getString('fcm_device_token');
+    }
+    if (resolvedToken != null && resolvedToken.isNotEmpty) {
+      loginPayload['deviceToken'] = resolvedToken;
+    }
 
     final response = await http.post(
       Uri.parse(baseUrl + userLogin),
@@ -1738,6 +1752,41 @@ Future<Map<String, dynamic>> completeAppointment({
     return {'success': false, 'message': e.toString()};
   }
 }
+//Get Branch Ratings
+static Future<Map<String, dynamic>> fetchBranchRatings(int branchId) async {
+  final token = await ApiService().getAuthToken();
+  final url = Uri.parse(baseUrl + getBranchRatings(branchId));
 
+  // Log request details
+  print("➡️ [GET] $url");
+  print("🔑 Token: $token");
+  print("📩 Headers: {"
+      '"Content-Type": "application/json", '
+      '"Accept": "application/json", '
+      '"Authorization": "Bearer $token"'
+      "}");
+
+  final response = await http.get(
+    url,
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "Authorization": "Bearer $token", // 👈 token added here
+    },
+  );
+
+  // Log response details
+  print("⬅️ Response Status: ${response.statusCode}");
+  print("⬅️ Response Body: ${response.body}");
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception(
+      "Failed to load branch ratings: ${response.statusCode} - ${response.body}",
+    );
+  }
+}
 
 }
+
