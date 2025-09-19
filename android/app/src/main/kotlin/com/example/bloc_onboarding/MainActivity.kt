@@ -1,4 +1,4 @@
-package com.example.bloc_onboarding
+package com.glowante.salon
 
 import io.flutter.embedding.android.FlutterActivity
 

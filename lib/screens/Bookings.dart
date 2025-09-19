@@ -2971,7 +2971,7 @@ import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';  // For date formatting
 import '../utils/api_service.dart';  // Import the correct api_service.dart file
 import 'AddBookings.dart';  // Add Booking screen
-
+import 'package:shared_preferences/shared_preferences.dart';
 class BookingsScreen extends StatefulWidget {
   @override
   _BookingsScreenState createState() => _BookingsScreenState();
@@ -2982,6 +2982,8 @@ class _BookingsScreenState extends State<BookingsScreen> {
   bool isLoading = true;
   int? selectedSalonId;
   int? selectedBranchId;  // Store branchId of the selected branch
+   String? salonName;
+  String? salonAddress;
   Map<String, dynamic>? selectedBranch;  // Store branch details
   List<Map<String, dynamic>> bookings = [];
   DateTime selectedDate = DateTime.now();  // Initial date is today
@@ -3012,6 +3014,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   void initState() {
     super.initState();
     getSalonListApi();
+    _loadCachedSelection();
     // Sync vertical scroll between time column and grid body
     _timeColumnVController.addListener(() {
       if (_syncingV) return;
@@ -3075,6 +3078,15 @@ class _BookingsScreenState extends State<BookingsScreen> {
         date1.month == date2.month &&
         date1.day == date2.day;
   }
+Future<void> _loadCachedSelection() async {
+  final prefs = await SharedPreferences.getInstance();
+  setState(() {
+    selectedSalonId  = prefs.getInt('selected_salon_id');
+    selectedBranchId = prefs.getInt('selected_branch_id');
+    salonName        = prefs.getString('salon_name');
+    salonAddress     = prefs.getString('salon_address');
+  });
+}
 
   Future<void> getSalonListApi() async {
     try {
@@ -4346,9 +4358,11 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Bookings'),
-        centerTitle: true,
+        backgroundColor: Colors.orange,
+        title: Text('Bookings',style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),),
+        centerTitle: false,
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
@@ -4394,55 +4408,64 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: salons.isEmpty
-                ? isLoading
-                    ? Center(child: CircularProgressIndicator()) // Show loader while fetching data
-                    : Text("Please select a branch") // Show message when no data
-                : Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          spreadRadius: 1,
-                          blurRadius: 5,
-                          offset: Offset(0, 3), // changes position of shadow
-                        ),
-                      ],
-                    ),
-                    child: DropdownButtonFormField<int>(
-                      hint: Text("Select Salon Branch", style: TextStyle(fontWeight: FontWeight.w600)),
-                      value: selectedBranchId,
-                      onChanged: (newValue) {
-                        if (newValue != null) {
-                          final salon = salons.firstWhere((s) =>
-                              (s['branches'] as List).any((b) => b['id'] == newValue));
-                          final branch = (salon['branches'] as List)
-                              .firstWhere((b) => b['id'] == newValue);
-                          selectedBranch = {
-                            'salonId': salon['id'],
-                            'branchId': branch['id'],
-                            'branchName': branch['name'],
-                          };
-
-                          onBranchChanged(branch['id'], salon['id']);  // Fetch team members and bookings
-                        }
-                      },
-                      items: salons.expand((salon) {
-                        final branches = salon['branches'] as List;
-                        return branches.map<DropdownMenuItem<int>>((branch) {
-                          return DropdownMenuItem(
-                            value: branch['id'],
-                            child: Text(branch['name']),
-                          );
-                        }).toList();
-                      }).toList(),
-                    ),
-                  ),
+         Container(
+  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+  decoration: BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: Colors.grey.shade300),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(0.05),
+        blurRadius: 6,
+        offset: const Offset(0, 3),
+      ),
+    ],
+  ),
+  child: DropdownButtonFormField<int>(
+    decoration: const InputDecoration(
+      border: InputBorder.none, // removes the ugly underline
+    ),
+    icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
+    dropdownColor: Colors.white,
+    style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
+    hint: const Text(
+      "Select Salon Branch",
+      style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
+    ),
+    value: selectedBranchId,
+    onChanged: (newValue) {
+      if (newValue != null) {
+        final salon = salons.firstWhere((s) =>
+            (s['branches'] as List).any((b) => b['id'] == newValue));
+        final branch = (salon['branches'] as List)
+            .firstWhere((b) => b['id'] == newValue);
+        selectedBranch = {
+          'salonId': salon['id'],
+          'branchId': branch['id'],
+          'branchName': branch['name'],
+        };
+        onBranchChanged(branch['id'], salon['id']);
+      }
+    },
+    items: salons.expand((salon) {
+      final branches = salon['branches'] as List;
+      return branches.map<DropdownMenuItem<int>>((branch) {
+        return DropdownMenuItem(
+          value: branch['id'],
+          child: Row(
+            children: [
+              const Icon(Icons.store, color: Colors.blueGrey, size: 20),
+              const SizedBox(width: 8),
+              Text(branch['name']),
+            ],
           ),
+        );
+      }).toList();
+    }).toList(),
+  ),
+),
+
           const SizedBox(height: 16),
 
           // Status counts display in 4 boxes with horizontal scroll

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'Bookings.dart';
 import 'category_screen.dart';
-import 'home_screen.dart';
+// import 'home_screen.dart';
 import 'profile_screen.dart';
 import 'salons_screen.dart';
 
@@ -26,9 +26,9 @@ class _BottomNavState extends State<BottomNav> {
     _currentIndex = widget.tabIndex.clamp(0, 4);
     _destinations = const [
       _Destination(
-        icon: Icons.home_outlined,
-        selectedIcon: Icons.home_rounded,
-        label: 'Home',
+        icon: Icons.event_outlined,
+        selectedIcon: Icons.event_note_rounded,
+        label: 'Bookings',
       ),
       _Destination(
         icon: Icons.store_outlined,
@@ -40,11 +40,11 @@ class _BottomNavState extends State<BottomNav> {
         selectedIcon: Icons.grid_view_rounded,
         label: 'Categories',
       ),
-      _Destination(
-        icon: Icons.event_outlined,
-        selectedIcon: Icons.event_note_rounded,
-        label: 'Bookings',
-      ),
+      // _Destination(
+      //   icon: Icons.home_outlined,
+      //   selectedIcon: Icons.home_rounded,
+      //   label: 'Home',
+      // ),
       _Destination(
         icon: Icons.person_outline,
         selectedIcon: Icons.person_rounded,
@@ -52,10 +52,11 @@ class _BottomNavState extends State<BottomNav> {
       ),
     ];
     _screens = [
-      HomeScreen(),
+      BookingsScreen(),
+      // HomeScreen(),
       SalonsScreen(),
       CategoryScreen(),
-      BookingsScreen(),
+      // BookingsScreen(),
       ProfileScreen(),
     ];
   }
