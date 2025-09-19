@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'SelectServices.dart';
+import '../utils/api_service.dart';
 
 class AddBookingScreen extends StatefulWidget {
   final int? salonId; // needed for SelectServicesModal
@@ -20,20 +21,350 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   final TextEditingController _clientNameCtrl = TextEditingController();
   final TextEditingController _mobileCtrl = TextEditingController();
 
-  String? _staffRole; // Salon Owner | Manager
-  String? _professional; // Hair | Hair Stylist
+  // Keep existing names so your payload stays the same.
+  String? _staffRole; // we'll sync this to the selected service name
+  String? _professional; // selected professional name (or "Any")
 
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
 
-  // Selected services from modal: each {id, name, price, qty}
+  // Selected services from modal: each {id, name, price, qty, durationMin}
   List<Map<String, dynamic>> _selectedServices = [];
+
+  // Services tree for the modal and flat list for lookup.
+  List<Map<String, dynamic>> _svcTree = []; // nodes: {name, services[], subs[]}
+  List<Map<String, dynamic>> _branchServices = []; // flat items: {id, name, priceMinor, durationMin, path}
+  bool _loadingServices = true;
+
+  // Focused/active service (drives Professional filtering)
+  int? _selectedServiceId;
+  String? _selectedServiceName;
+
+  // Team members
+  List<Map<String, dynamic>> _teamMembers = [];
+  bool _loadingMembers = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+    _loadTeamMembers();
+  }
 
   @override
   void dispose() {
     _clientNameCtrl.dispose();
     _mobileCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadServices() async {
+    if (widget.branchId == null) return;
+    try {
+      final data = await ApiService().getBranchServiceDetail(widget.branchId!);
+
+      final List<Map<String, dynamic>> flat = [];
+      final List<Map<String, dynamic>> tree = [];
+      final categories = data['categories'] as List? ?? [];
+
+      for (final cat in categories) {
+        final catName = (cat['displayName'] ?? '').toString().trim();
+        final List catServices = cat['services'] as List? ?? [];
+        final List subCats = cat['subCategories'] as List? ?? [];
+
+        final catNode = {
+          'name': catName,
+          'services': <Map<String, dynamic>>[],
+          'subs': <Map<String, dynamic>>[],
+        };
+
+        // services directly under category
+        for (final svc in catServices) {
+          final svcMap = {
+            'id': svc['id'],
+            'name': (svc['displayName'] ?? '').toString(),
+            'priceMinor': svc['priceMinor'],
+            'durationMin': svc['durationMin'],
+            'path': [catName, (svc['displayName'] ?? '').toString()]
+                .where((e) => (e as String).isNotEmpty)
+                .join(' • '),
+          };
+          flat.add(svcMap);
+          (catNode['services'] as List).add(svcMap);
+        }
+
+        // subcategories
+        for (final sub in subCats) {
+          final subName = (sub['displayName'] ?? '').toString().trim();
+          final List subServices = sub['services'] as List? ?? [];
+          final subNode = {
+            'name': subName,
+            'services': <Map<String, dynamic>>[],
+          };
+          for (final svc in subServices) {
+            final svcMap = {
+              'id': svc['id'],
+              'name': (svc['displayName'] ?? '').toString(),
+              'priceMinor': svc['priceMinor'],
+              'durationMin': svc['durationMin'],
+              'path':
+                  [catName, subName, (svc['displayName'] ?? '').toString()]
+                      .where((e) => (e as String).isNotEmpty)
+                      .join(' • '),
+            };
+            flat.add(svcMap);
+            (subNode['services'] as List).add(svcMap);
+          }
+          (catNode['subs'] as List).add(subNode);
+        }
+
+        tree.add(catNode);
+      }
+
+      setState(() {
+        _branchServices = flat; // quick lookup/totals
+        _svcTree = tree; // for the modal UI
+        _loadingServices = false;
+      });
+    } catch (e) {
+      print("Error fetching services: $e");
+      setState(() {
+        _branchServices = [];
+        _svcTree = [];
+        _loadingServices = false;
+      });
+    }
+  }
+
+  void _showServicePicker() async {
+    final picked = await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final bool locked = false; // multi-select allowed at all times
+
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.8,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, controller) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.design_services),
+                      const SizedBox(width: 8),
+                      const Text('Select Service',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700, fontSize: 16)),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      controller: controller,
+                      itemCount: _svcTree.length,
+                      itemBuilder: (_, i) {
+                        final cat = _svcTree[i];
+                        final catName = (cat['name'] ?? '').toString();
+                        final List catSvcs =
+                            (cat['services'] as List?) ?? const [];
+                        final List subs = (cat['subs'] as List?) ?? const [];
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 6),
+                              child: Text(
+                                catName,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                            ),
+                            for (final s in catSvcs)
+                              _serviceTile(ctx, s, leftPad: 12, locked: locked),
+                            for (final sub in subs) ...[
+                              Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(8, 8, 0, 4),
+                                child: Text(
+                                  (sub['name'] ?? '').toString(),
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              for (final s in (sub['services'] as List))
+                                _serviceTile(ctx, s,
+                                    leftPad: 24, locked: locked),
+                            ],
+                            const Divider(height: 20),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (picked != null) {
+      final v = picked['id'] as int;
+      final name = (picked['name'] ?? '').toString();
+
+      setState(() {
+        final already = _selectedServices.any((s) => s['id'] == v);
+
+        if (already) {
+          // Deselect (remove chip)
+          _selectedServices.removeWhere((s) => s['id'] == v);
+
+          // If it was the active service, move focus to another selected one (or none)
+          if (_selectedServiceId == v) {
+            _selectedServiceId = _selectedServices.isNotEmpty
+                ? _selectedServices.last['id'] as int
+                : null;
+            _selectedServiceName = _selectedServices.isNotEmpty
+                ? _selectedServices.last['name'] as String
+                : null;
+            _staffRole = _selectedServiceName;
+            // Keep current _professional as is; chips will render only
+            // after pro selection anyway.
+          }
+        } else {
+          // Add (select) this service
+          _selectedServices.add({
+            'id': v,
+            'name': name,
+            'price': picked['priceMinor'],
+            'qty': 1,
+            'durationMin': picked['durationMin'],
+          });
+
+          // Make the newly tapped service the ACTIVE one for pro filtering
+          _selectedServiceId = v;
+          _selectedServiceName = name;
+          _staffRole = name;
+
+          // Reset professional so the user must confirm/choose (incl. Any)
+          _professional = null;
+        }
+      });
+    }
+  }
+
+  // Service row in the bottom sheet.
+  Widget _serviceTile(
+    BuildContext ctx,
+    Map<String, dynamic> svc, {
+    double leftPad = 0,
+    bool locked = false,
+  }) {
+    final int svcId = svc['id'] as int;
+    final String name = (svc['name'] ?? '').toString();
+    final int? duration = svc['durationMin'] as int?;
+    final num? priceMinor = svc['priceMinor'] as num?;
+    final String priceText =
+        priceMinor == null ? '' : '₹${priceMinor.toString()}';
+    final String meta = [
+      if (duration != null && duration > 0) '${duration} min',
+      if (priceText.isNotEmpty) priceText,
+    ].join(' • ');
+
+    final bool isActive = _selectedServiceId == svcId;
+    final bool isSelected =
+        _selectedServices.any((e) => (e['id'] as int) == svcId);
+
+    // Icon logic: active > selected > none
+    final Widget trailing = isActive
+        ? const Icon(Icons.radio_button_checked, color: Colors.orange)
+        : (isSelected
+            ? const Icon(Icons.check_box, color: Colors.grey)
+            : const Icon(Icons.check_box_outline_blank, color: Colors.grey));
+
+    return Padding(
+      padding: EdgeInsets.only(left: leftPad),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.only(left: 8, right: 8),
+        leading: const Icon(Icons.cut),
+        title:
+            Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: meta.isNotEmpty ? Text(meta) : null,
+        trailing: trailing,
+        onTap: () => Navigator.pop<Map<String, dynamic>>(ctx, svc),
+      ),
+    );
+    // ^ Tapping toggles selection and makes this the active service.
+  }
+
+  Future<void> _loadTeamMembers() async {
+    if (widget.branchId == null) return;
+    setState(() => _loadingMembers = true);
+
+    try {
+      final response = await ApiService.getTeamMembers(widget.branchId!);
+      if (response['success'] == true) {
+        final List members = response['data'] ?? [];
+        setState(() {
+          _teamMembers = members.cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (e) {
+      print("Error loading team members: $e");
+    } finally {
+      setState(() => _loadingMembers = false);
+    }
+  }
+
+  List<Map<String, dynamic>> _filterMembersByServices() {
+    final int? currentBranchId = widget.branchId;
+    final int? selectedId = _selectedServiceId; // strict match by ID
+
+    if (selectedId == null) return [];
+
+    final matches = _teamMembers.where((member) {
+      final branches = member['userBranches'] as List? ?? [];
+      for (final ub in branches) {
+        final b = ub['branch'] as Map<String, dynamic>?;
+        final int? bId = b?['id'] as int?;
+        if (currentBranchId != null && bId != currentBranchId) continue;
+
+        final services = ub['userBranchServices'] as List? ?? [];
+        for (final s in services) {
+          final bs = s['branchService'] as Map<String, dynamic>?;
+          final int? serviceId = bs?['id'] as int?;
+          if (serviceId == selectedId) return true;
+        }
+      }
+      return false;
+    }).toList();
+
+    final names = matches
+        .map((m) => "${m['firstName']} ${m['lastName'] ?? ''}".trim())
+        .toList();
+    print('Selected service id: $selectedId @ branch $currentBranchId -> $names');
+
+    return matches;
   }
 
   Map<int, int> _selectedQtyMap() {
@@ -61,11 +392,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final now = DateTime.now();
     final dt = DateTime(now.year, now.month, now.day, t.hour, t.minute);
     return DateFormat('h:mm a').format(dt);
-    }
+  }
 
   Future<void> _pickTime({required bool isStart}) async {
-    final initialTime = (isStart ? _startTime : _endTime) ?? const TimeOfDay(hour: 9, minute: 0);
-    final picked = await showTimePicker(context: context, initialTime: initialTime);
+    final initialTime =
+        (isStart ? _startTime : _endTime) ??
+            const TimeOfDay(hour: 9, minute: 0);
+    final picked =
+        await showTimePicker(context: context, initialTime: initialTime);
     if (picked != null) {
       setState(() {
         if (isStart) {
@@ -75,7 +409,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             final s = _toMinutes(_startTime!);
             final e = _toMinutes(_endTime!);
             if (e <= s) {
-              _endTime = TimeOfDay(hour: picked.hour, minute: picked.minute + 30);
+              _endTime = TimeOfDay(
+                  hour: picked.hour, minute: (picked.minute + 30) % 60);
             }
           }
         } else {
@@ -87,38 +422,15 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   int _toMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
 
-  Future<void> _openSelectServices() async {
-    if (widget.salonId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a salon first')),
-      );
-      return;
-    }
-    final result = await showModalBottomSheet<List<Map<String, dynamic>>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => FractionallySizedBox(
-        heightFactor: 0.95,
-        child: SelectServicesModal(
-          salonId: widget.salonId!,
-          initialSelectedQty: _selectedQtyMap(),
-        ),
-      ),
-    );
-
-    if (result != null) {
-      setState(() => _selectedServices = result);
-    }
-  }
-
   void _save() {
     if (!_formKey.currentState!.validate()) return;
-    if (_staffRole == null) {
-      _showError('Please select Staff Member');
+
+    if (_selectedServiceId == null) {
+      _showError('Please select Service');
       return;
     }
     if (_professional == null) {
-      _showError('Please select Professional');
+      _showError('Please select Professional (or Any)');
       return;
     }
     if (_startTime == null || _endTime == null) {
@@ -126,11 +438,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       return;
     }
 
-    // Package the payload (no API call here per request)
     final payload = {
       'clientName': _clientNameCtrl.text.trim(),
       'phone': _mobileCtrl.text.trim(),
-      'staffRole': _staffRole,
+      'staffRole': _staffRole, // for backward compatibility
       'professional': _professional,
       'startTime': _formatTimeOfDay(_startTime),
       'endTime': _formatTimeOfDay(_endTime),
@@ -139,7 +450,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       'branchId': widget.branchId,
     };
 
-    // For now, just pop with payload so caller can handle
     Navigator.pop(context, payload);
   }
 
@@ -149,6 +459,32 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final matched = _filterMembersByServices();
+
+    // Build the Professional dropdown items with the “Any” rule:
+    // - 0 matches: ['Any']
+    // - 1 match: [singleName]
+    // - >1 matches: ['Any', ...names]
+    final List<String> proItems = _loadingMembers
+        ? <String>[]
+        : (() {
+            final names = matched
+                .map((m) =>
+                    "${m['firstName']} ${m['lastName'] ?? ''}".trim())
+                .toList();
+            if (names.isEmpty) return <String>['Any'];
+            if (names.length == 1) return names;
+            return <String>['Any', ...names];
+          })();
+
+    final proHint = _loadingMembers
+        ? 'Loading...'
+        : (_selectedServiceId == null
+            ? 'Choose service first'
+            : (proItems.length == 1 && proItems.first != 'Any'
+                ? 'Choose'
+                : 'Choose / Any'));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Booking'),
@@ -162,12 +498,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Client Name
-                Text('Salon & Branch Id: ${widget.salonId ?? '-'} / ${widget.branchId ?? '-'}'),
+                Text(
+                    'Salon & Branch Id: ${widget.salonId ?? '-'} / ${widget.branchId ?? '-'}'),
                 const _FieldLabel('Client Name *'),
                 TextFormField(
                   controller: _clientNameCtrl,
                   decoration: _inputDecoration('Client name'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -177,28 +515,60 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                   controller: _mobileCtrl,
                   keyboardType: TextInputType.phone,
                   decoration: _inputDecoration('Enter mobile number'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 16),
 
-                // Staff + Professional
+                // Service (hierarchical) + Professional
                 Row(
                   children: [
+                    // Left: Services *
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const _FieldLabel('Staff Member *'),
-                          _Dropdown<String>(
-                            value: _staffRole,
-                            hint: 'Salon Owner',
-                            items: const ['Salon Owner', 'Manager'],
-                            onChanged: (v) => setState(() => _staffRole = v),
+                          const _FieldLabel('Services *'),
+                          InkWell(
+                            onTap: _loadingServices || _svcTree.isEmpty
+                                ? null
+                                : _showServicePicker,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: Colors.grey.shade300),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.design_services, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _selectedServiceId == null
+                                          ? 'Choose'
+                                          : (_branchServices.firstWhere(
+                                                  (e) =>
+                                                      e['id'] ==
+                                                      _selectedServiceId)['path']
+                                              as String),
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                  const Icon(Icons.keyboard_arrow_down),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 12),
+
+                    // Right: Professional *
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,58 +576,72 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           const _FieldLabel('Professional *'),
                           _Dropdown<String>(
                             value: _professional,
-                            hint: 'Hair',
-                            items: const ['Hair', 'Hair Stylist'],
-                            onChanged: (v) => setState(() => _professional = v),
+                            hint: proHint,
+                            items: proItems,
+                            // Always pass a callback (no-op when disabled) to satisfy non-nullable type
+                            onChanged:
+                                (_selectedServiceId == null || _loadingMembers)
+                                    ? (_) {}
+                                    : (v) => setState(() => _professional = v),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
 
-                const _FieldLabel('Services'),
-                InkWell(
-                  onTap: _openSelectServices,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.add, color: Colors.brown),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _selectedServices.isEmpty
-                                ? 'Select Services'
-                                : '${_selectedServices.length} selected  •  ₹${_servicesTotal.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                        // const Icon(Icons.chevron_right),
-                      ],
-                    ),
-                  ),
-                ),
-
-                if (_selectedServices.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                // ⬇️ ⬇️ ⬇️  SHOW SELECTED SERVICES **ONLY AFTER** PROFESSIONAL IS CHOSEN (including "Any")
+                if (_selectedServices.isNotEmpty && _professional != null) ...[
+                  const SizedBox(height: 16),
                   Wrap(
                     spacing: 8,
                     runSpacing: -8,
-                    children: _selectedServices
-                        .map((s) => Chip(
-                              label: Text('${s['name']} x${s['qty']}'),
-                              onDeleted: () {
-                                setState(() => _selectedServices.remove(s));
-                              },
-                            ))
-                        .toList(),
+                    children: _selectedServices.map((s) {
+                      final name = (s['name'] ?? '').toString();
+                      final qty = (s['qty'] ?? 1) as int;
+                      final dur = s['durationMin'] != null
+                          ? '${s['durationMin']}m'
+                          : '';
+                      final price =
+                          s['price'] != null ? '₹${s['price']}' : '';
+                      // Also show chosen professional label on the chip
+                      final pro = _professional ?? '';
+                      final meta = [
+                        if (dur.isNotEmpty) dur,
+                        if (price.isNotEmpty) price,
+                        if (pro.isNotEmpty) pro, // show pro/Any to the right
+                      ].join(' • ');
+
+                      return Chip(
+                        label: Text(meta.isEmpty
+                            ? '$name x$qty'
+                            : '$name x$qty  —  $meta'),
+                        onDeleted: () {
+                          setState(() {
+                            final removedId = s['id'] as int;
+                            _selectedServices
+                                .removeWhere((e) => e['id'] == removedId);
+
+                            if (_selectedServiceId == removedId) {
+                              _selectedServiceId =
+                                  _selectedServices.isNotEmpty
+                                      ? _selectedServices.last['id'] as int
+                                      : null;
+                              _selectedServiceName =
+                                  _selectedServices.isNotEmpty
+                                      ? _selectedServices.last['name'] as String
+                                      : null;
+                              _staffRole = _selectedServiceName;
+                              // Keep _professional as is; chips will re-evaluate condition
+                              if (_selectedServiceId == null) {
+                                // If no services left, also clear pro
+                                _professional = null;
+                              }
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
                   ),
                 ],
 
@@ -273,7 +657,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           const _FieldLabel('Start Time *'),
                           InkWell(
                             onTap: () => _pickTime(isStart: true),
-                            child: _TimeBox(text: _startTime == null ? 'Start Time' : _formatTimeOfDay(_startTime)),
+                            child: _TimeBox(
+                                text: _startTime == null
+                                    ? 'Start Time'
+                                    : _formatTimeOfDay(_startTime)),
                           ),
                         ],
                       ),
@@ -286,7 +673,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           const _FieldLabel('End Time *'),
                           InkWell(
                             onTap: () => _pickTime(isStart: false),
-                            child: _TimeBox(text: _endTime == null ? 'End Time' : _formatTimeOfDay(_endTime)),
+                            child: _TimeBox(
+                                text: _endTime == null
+                                    ? 'End Time'
+                                    : _formatTimeOfDay(_endTime)),
                           ),
                         ],
                       ),
@@ -304,9 +694,11 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: const Text('Save',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
@@ -337,8 +729,10 @@ InputDecoration _inputDecoration(String hint) => InputDecoration(
       hintText: hint,
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border:
+          OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -352,7 +746,7 @@ InputDecoration _inputDecoration(String hint) => InputDecoration(
 class _Dropdown<T> extends StatelessWidget {
   final T? value;
   final List<T> items;
-  final ValueChanged<T?> onChanged;
+  final ValueChanged<T?> onChanged; // keep non-nullable
   final String hint;
 
   const _Dropdown({
@@ -365,10 +759,11 @@ class _Dropdown<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDisabled = items.isEmpty;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDisabled ? Colors.grey.shade100 : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
       ),
@@ -378,7 +773,6 @@ class _Dropdown<T> extends StatelessWidget {
           isExpanded: true,
           hint: Row(
             children: [
-              const Icon(Icons.sell_outlined, color: Colors.brown),
               const SizedBox(width: 6),
               Text(hint),
             ],
@@ -389,7 +783,7 @@ class _Dropdown<T> extends StatelessWidget {
                     child: Text(e.toString()),
                   ))
               .toList(),
-          onChanged: onChanged,
+          onChanged: isDisabled ? (_) {} : onChanged, // use no-op when disabled
         ),
       ),
     );

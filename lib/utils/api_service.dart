@@ -104,6 +104,18 @@ static String completeAppointmentAPI(int branchId, int appointmentId) {
 
   //This below 2 api is pending to implement on frontend
   // Confirm Booking appointment (see static helper above)
+  static String updateBranchCategory(int branchId, int branchCategoryId) {
+  return "branches/$branchId/categories/$branchCategoryId";
+}
+
+static String updateBranchSubCategory(int branchId, int branchSubCategoryId) {
+  return "branches/$branchId/subcategories/$branchSubCategoryId";
+}
+
+static String updateBranchService(int branchId, int branchServiceId) {
+  return "branches/$branchId/services/$branchServiceId";
+}
+
   static String getSalonDetailAPI(int salonId) {
     return "salons/$salonId";
   }

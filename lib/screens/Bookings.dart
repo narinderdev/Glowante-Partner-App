@@ -2971,6 +2971,7 @@ import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart';  // For date formatting
 import '../utils/api_service.dart';  // Import the correct api_service.dart file
 import 'AddBookings.dart';  // Add Booking screen
+import '../utils/colors.dart'; // Custom colors
 import 'package:shared_preferences/shared_preferences.dart';
 class BookingsScreen extends StatefulWidget {
   @override
@@ -4360,7 +4361,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.orange,
+        backgroundColor: AppColors.starColor,
         title: Text('Bookings',style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),),
         centerTitle: false,
         actions: [
@@ -4389,8 +4390,8 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                 }
               },
               style: TextButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.getStartedButton,
+                foregroundColor: AppColors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
@@ -4399,7 +4400,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                 children: const [
                   Icon(Icons.add, size: 18),
                   SizedBox(width: 6),
-                  Text('Add Booking'),
+                  Text('Add Booking', style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
