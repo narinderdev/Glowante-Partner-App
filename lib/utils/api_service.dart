@@ -14,8 +14,8 @@ import '../Viewmodels/AddSalonServiceRequest.dart';
 import 'dart:async';
 
 class ApiService {
-  static const String baseUrl = "https://dev-api.glowante.com/";
-  // static const String baseUrl = "https://963f547861b8.ngrok-free.app/";
+  // static const String baseUrl = "https://dev-api.glowante.com/";
+  static const String baseUrl = "https://963f547861b8.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String resendOtpEndpoint = "auth/resend_otp";

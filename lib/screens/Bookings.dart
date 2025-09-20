@@ -1,4 +1,4 @@
-//Md
+// Md
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:intl/intl.dart'; // For date formatting
@@ -6,11 +6,15 @@ import '../utils/api_service.dart'; // Import the correct api_service.dart file
 import 'AddBookings.dart'; // Add Booking screen
 import '../utils/colors.dart'; // Custom colors
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert'; // NEW
 
 class BookingsScreen extends StatefulWidget {
   @override
   _BookingsScreenState createState() => _BookingsScreenState();
 }
+// top-level constants (outside any class)
+const String _kSalonsCacheKey = 'salons_cache_v1';
+String _branchCacheKey(int id) => 'branch_cache_v1_$id';
 
 class _BookingsScreenState extends State<BookingsScreen> {
   List<Map<String, dynamic>> salons = [];
@@ -22,8 +26,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   Map<String, dynamic>? selectedBranch; // Store branch details
   List<Map<String, dynamic>> bookings = [];
   DateTime selectedDate = DateTime.now(); // Initial date is today
-  List<Map<String, dynamic>> teamMembers =
-      []; // Store team members for the selected branch
+  List<Map<String, dynamic>> teamMembers = []; // Store team members for the selected branch
   List<String> timeSlots = []; // Declare the timeSlots list
   // Branch working hours for rendering grid/blocks
   String? _branchStartTimeStr; // e.g. "08:00:00"
@@ -36,6 +39,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   // Layout constants for the grid
   static const double _rowHeight = 44.0; // 15-min slot height
   static const double _colWidth = 140.0; // staff column width
+
 
   int pendingCount = 0;
   int cancelledCount = 0;
@@ -50,9 +54,14 @@ class _BookingsScreenState extends State<BookingsScreen> {
   bool _syncingV = false;
   bool _syncingH = false;
 
+  // ---- Helper: normalize status everywhere ----
+  String _normalizeStatus(dynamic value) =>
+      (value ?? '').toString().trim().toUpperCase();
+
   @override
   void initState() {
     super.initState();
+     _bootstrap();
     getSalonListApi();
     _loadCachedSelection();
     // Sync vertical scroll between time column and grid body
@@ -112,6 +121,85 @@ class _BookingsScreenState extends State<BookingsScreen> {
       }
     });
   }
+  
+  Future<void> _bootstrap() async {
+  // 1) Load saved selection (branch/salon ids)
+  await _loadCachedSelection();
+
+  // 2) Salons: show cached list immediately; only fetch if missing
+  final hadSalons = await _loadSalonsFromCache();
+  if (!hadSalons) {
+    await getSalonListApi(); // This will also cache salons (step 4)
+  }
+
+  // 3) Branch data (slots + team): restore if present, no network
+  await _restoreBranchFromCacheIfAny();
+
+  // 4) Done booting
+  if (mounted) {
+    setState(() {}); // ensure UI reflects restored cache
+  }
+}
+Future<bool> _loadSalonsFromCache() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString(_kSalonsCacheKey);
+  if (raw == null) return false;
+  try {
+    final data = jsonDecode(raw);
+    if (data is List) {
+      setState(() {
+        salons = List<Map<String, dynamic>>.from(
+          data.map((e) => Map<String, dynamic>.from(e)),
+        );
+      });
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
+Future<void> _saveSalonsToCache() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_kSalonsCacheKey, jsonEncode(salons));
+}
+
+/// Save per-branch cache: start/end → slots (derived) + teamMembers
+Future<void> _saveBranchCache(int branchId) async {
+  final prefs = await SharedPreferences.getInstance();
+  final payload = {
+    'startTime': _branchStartTimeStr ?? '08:00:00',
+    'endTime': _branchEndTimeStr ?? '20:00:00',
+    'teamMembers': teamMembers,
+  };
+  await prefs.setString(_branchCacheKey(branchId), jsonEncode(payload));
+}
+
+/// Restore per-branch cache if available (NO network)
+Future<bool> _restoreBranchFromCacheIfAny() async {
+  if (selectedBranchId == null) return false;
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString(_branchCacheKey(selectedBranchId!));
+  if (raw == null) return false;
+
+  try {
+    final obj = jsonDecode(raw) as Map<String, dynamic>;
+    final start = (obj['startTime'] ?? '08:00:00').toString();
+    final end = (obj['endTime'] ?? '20:00:00').toString();
+    final members = (obj['teamMembers'] as List?) ?? const [];
+
+    setState(() {
+      _branchStartTimeStr = start;
+      _branchEndTimeStr = end;
+      timeSlots = generateTimeSlots(start, end);
+      teamMembers = List<Map<String, dynamic>>.from(
+        members.map((e) => Map<String, dynamic>.from(e)),
+      );
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
 
   bool isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
@@ -129,36 +217,57 @@ class _BookingsScreenState extends State<BookingsScreen> {
     });
   }
 
-  Future<void> getSalonListApi() async {
-    try {
-      final response = await ApiService()
-          .getSalonListApi(); // Call the method from ApiService
+  // Future<void> getSalonListApi() async {
+  //   try {
+  //     final response = await ApiService().getSalonListApi(); // Call the method from ApiService
 
-      if (response['success'] == true) {
-        List salonsList = response['data'];
-        setState(() {
-          salons = salonsList.map<Map<String, dynamic>>(
-            (salon) {
-              return {
-                'id': salon['id'],
-                'name': salon['name'],
-                'branches': salon['branches'],
-              };
-            },
-          ).toList(); // Ensure this returns the expected List<Map<String, dynamic>>
-          isLoading = false; // Stop loading after data is fetched
-        });
-      } else {
-        throw Exception("Failed to fetch salon list");
-      }
-    } catch (e) {
-      print("Error fetching salon list: $e");
+  //     if (response['success'] == true) {
+  //       List salonsList = response['data'];
+  //       setState(() {
+  //         salons = salonsList.map<Map<String, dynamic>>((salon) {
+  //           return {
+  //             'id': salon['id'],
+  //             'name': salon['name'],
+  //             'branches': salon['branches'],
+  //           };
+  //         }).toList();
+  //         isLoading = false; // Stop loading after data is fetched
+  //       });
+  //     } else {
+  //       throw Exception("Failed to fetch salon list");
+  //     }
+  //   } catch (e) {
+  //     print("Error fetching salon list: $e");
+  //     setState(() {
+  //       isLoading = false; // Stop loading in case of an error
+  //     });
+  //   }
+  // }
+
+Future<void> getSalonListApi() async {
+  try {
+    final response = await ApiService().getSalonListApi();
+    if (response['success'] == true) {
+      List salonsList = response['data'];
       setState(() {
-        isLoading = false; // Stop loading in case of an error
+        salons = salonsList.map<Map<String, dynamic>>((salon) {
+          return {
+            'id': salon['id'],
+            'name': salon['name'],
+            'branches': salon['branches'],
+          };
+        }).toList();
+        isLoading = false;
       });
+      await _saveSalonsToCache(); // NEW: cache salons
+    } else {
+      throw Exception("Failed to fetch salon list");
     }
+  } catch (e) {
+    print("Error fetching salon list: $e");
+    setState(() { isLoading = false; });
   }
-
+}
   List<String> generateTimeSlots(String startTime, String endTime) {
     List<String> timeSlots = [];
 
@@ -170,8 +279,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
     DateTime effectiveEnd = end.subtract(const Duration(minutes: 15));
 
     // Add time slots up to and including effectiveEnd
-    while (start.isBefore(effectiveEnd) ||
-        start.isAtSameMomentAs(effectiveEnd)) {
+    while (start.isBefore(effectiveEnd) || start.isAtSameMomentAs(effectiveEnd)) {
       timeSlots.add(DateFormat("h:mm a").format(start));
       start = start.add(const Duration(minutes: 15));
     }
@@ -181,19 +289,12 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
   Future<void> getBookingsByDate(int branchId, DateTime date) async {
     try {
-      String formattedDate = DateFormat(
-        'yyyy-MM-dd',
-      ).format(date); // Format date
+      String formattedDate = DateFormat('yyyy-MM-dd').format(date); // Format date
       ApiService apiService = ApiService();
 
-      final response = await apiService.fetchAppointments(
-        branchId,
-        formattedDate,
-      );
+      final response = await apiService.fetchAppointments(branchId, formattedDate);
 
-      if (response != null &&
-          response['success'] == true &&
-          response['data'] != null) {
+      if (response != null && response['success'] == true && response['data'] != null) {
         List<dynamic> appointments = response['data'];
 
         // Try to fetch branch working hours from the payload (fallback-safe)
@@ -209,10 +310,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
         // Generate time slots and populate the timeSlots list
         setState(() {
-          timeSlots = generateTimeSlots(
-            startTime,
-            endTime,
-          ); // Populate timeSlots
+          timeSlots = generateTimeSlots(startTime, endTime); // Populate timeSlots
           _branchStartTimeStr = startTime;
           _branchEndTimeStr = endTime;
         });
@@ -238,11 +336,11 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
   // Count status by items (so counts match blocks in grid)
   void _recomputeStatusCounts() {
-    int sumStatus(String status) {
+    int sumStatus(String statusMatch) {
       int t = 0;
       for (final b in bookings) {
-        final s = (b['status'] ?? '').toString().toUpperCase();
-        if (s == status) {
+        final s = _normalizeStatus(b['status']);
+        if (s == statusMatch) {
           final items = (b['items'] as List?) ?? const [];
           t += items.isNotEmpty ? items.length : 1;
         }
@@ -259,29 +357,49 @@ class _BookingsScreenState extends State<BookingsScreen> {
   }
 
   // Fetch team members for the selected branch
-  Future<void> getTeamMembers(int branchId) async {
-    try {
-      final response = await ApiService.getTeamMembers(branchId);
+  // Future<void> getTeamMembers(int branchId) async {
+  //   try {
+  //     final response = await ApiService.getTeamMembers(branchId);
 
-      // Check if the response is valid and contains team members data
-      if (response != null &&
-          response['success'] == true &&
-          response['data'] != null &&
-          response['data'].isNotEmpty) {
-        setState(() {
-          teamMembers = List<Map<String, dynamic>>.from(response['data']);
-        });
-      } else {
-        setState(() {
-          teamMembers = []; // Clear the list if no data
-        });
-        print('No team members available for this branch.');
-      }
-    } catch (e) {
-      print('Error fetching team members: $e');
+  //     if (response != null &&
+  //         response['success'] == true &&
+  //         response['data'] != null &&
+  //         response['data'].isNotEmpty) {
+  //       setState(() {
+  //         teamMembers = List<Map<String, dynamic>>.from(response['data']);
+  //       });
+  //     } else {
+  //       setState(() {
+  //         teamMembers = []; // Clear the list if no data
+  //       });
+  //       print('No team members available for this branch.');
+  //     }
+  //   } catch (e) {
+  //     print('Error fetching team members: $e');
+  //   }
+  // }
+
+Future<void> getTeamMembers(int branchId) async {
+  try {
+    final response = await ApiService.getTeamMembers(branchId);
+    if (response != null &&
+        response['success'] == true &&
+        response['data'] != null &&
+        response['data'].isNotEmpty) {
+      setState(() {
+        teamMembers = List<Map<String, dynamic>>.from(response['data']);
+      });
+      // Cache the branch bundle (uses current _branchStartTimeStr/_branchEndTimeStr)
+      await _saveBranchCache(branchId); // NEW
+    } else {
+      setState(() { teamMembers = []; });
+      print('No team members available for this branch.');
+      await _saveBranchCache(branchId); // save empty list too for consistency
     }
+  } catch (e) {
+    print('Error fetching team members: $e');
   }
-
+}
   // Combine selected date with a HH:mm[:ss] string to a local DateTime
   DateTime _combineDateAndTime(DateTime date, String timeStr) {
     int h = 0, m = 0, s = 0;
@@ -360,9 +478,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   }
 
   List<Map<String, dynamic>> _collectMergedSegments() {
-    if (bookings.isEmpty ||
-        _branchStartTimeStr == null ||
-        _branchEndTimeStr == null) {
+    if (bookings.isEmpty || _branchStartTimeStr == null || _branchEndTimeStr == null) {
       return const [];
     }
 
@@ -373,19 +489,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
       return null;
     }
 
-    final DateTime dayStart = _combineDateAndTime(
-      selectedDate,
-      _branchStartTimeStr!,
-    );
-    final DateTime dayEnd = _combineDateAndTime(
-      selectedDate,
-      _branchEndTimeStr!,
-    );
+    final DateTime dayStart = _combineDateAndTime(selectedDate, _branchStartTimeStr!);
+    final DateTime dayEnd = _combineDateAndTime(selectedDate, _branchEndTimeStr!);
 
     // Step 1: flatten items
     final List<Map<String, dynamic>> flat = [];
     for (final booking in bookings) {
-      final status = (booking['status'] ?? '').toString().toUpperCase();
+      final status = _normalizeStatus(booking['status']);
       final customer = booking['user'] as Map<String, dynamic>?;
       final customerName = [
         customer?['firstName']?.toString() ?? '',
@@ -405,10 +515,8 @@ class _BookingsScreenState extends State<BookingsScreen> {
             item['user']?['id'] ??
             item['userId'];
 
-        DateTime? s =
-            _parseLocal(item['startAt']) ?? _parseLocal(booking['startAt']);
-        DateTime? e =
-            _parseLocal(item['endAt']) ?? _parseLocal(booking['endAt']);
+        DateTime? s = _parseLocal(item['startAt']) ?? _parseLocal(booking['startAt']);
+        DateTime? e = _parseLocal(item['endAt']) ?? _parseLocal(booking['endAt']);
         if (s == null || e == null) continue;
 
         // clamp
@@ -427,8 +535,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
           'status': status,
           'start': s,
           'end': e,
-          'service':
-              item['branchService']?['displayName']?.toString() ?? 'Service',
+          'service': item['branchService']?['displayName']?.toString() ?? 'Service',
           'priceMinor': _toInt(item['branchService']?['priceMinor']),
         });
       }
@@ -439,17 +546,14 @@ class _BookingsScreenState extends State<BookingsScreen> {
     // Step 2: group by col + customer + staff + status
     final Map<String, List<Map<String, dynamic>>> groups = {};
     for (final it in flat) {
-      final key =
-          '${it['col']}|${it['customerId']}|${it['staffUserId']}|${it['status']}';
+      final key = '${it['col']}|${it['customerId']}|${it['staffUserId']}|${it['status']}';
       (groups[key] ??= <Map<String, dynamic>>[]).add(it);
     }
 
     // Step 3: within each group, sort by start and coalesce consecutive items
     final List<Map<String, dynamic>> segments = [];
     for (final g in groups.values) {
-      g.sort(
-        (a, b) => (a['start'] as DateTime).compareTo(b['start'] as DateTime),
-      );
+      g.sort((a, b) => (a['start'] as DateTime).compareTo(b['start'] as DateTime));
       if (g.isEmpty) continue;
 
       // seed
@@ -546,355 +650,873 @@ class _BookingsScreenState extends State<BookingsScreen> {
     return segments;
   }
 
-  void _openMergedSegmentSheet(Map<String, dynamic> seg) {
-    final DateTime s = seg['start'] as DateTime;
-    final DateTime e = seg['end'] as DateTime;
-    final String status = (seg['status'] as String).toUpperCase();
-    final String customerName = seg['customerName'] as String? ?? 'Customer';
-    final int? priceTotal = seg['priceTotal'] as int?;
-    final List<Map<String, dynamic>> items = List<Map<String, dynamic>>.from(
-      seg['items'] as List,
-    );
+  // void _openMergedSegmentSheet(Map<String, dynamic> seg) {
+  //   final DateTime s = seg['start'] as DateTime;
+  //   final DateTime e = seg['end'] as DateTime;
+  //   final String status = _normalizeStatus(seg['status']);
+  //   final String customerName = seg['customerName'] as String? ?? 'Customer';
+  //   final int? priceTotal = seg['priceTotal'] as int?;
+  //   final List<Map<String, dynamic>> items = List<Map<String, dynamic>>.from(seg['items'] as List);
 
-    // Unique appointment IDs inside the block
-    final List<int> apptIds =
-        items
-            .map((it) => (it['appointmentId'] as int?))
-            .where((id) => id != null)
-            .cast<int>()
-            .toSet()
-            .toList()
-          ..sort();
+  //   // Unique appointment IDs inside the block
+  //   final List<int> apptIds = items
+  //       .map((it) => (it['appointmentId'] as int?))
+  //       .where((id) => id != null)
+  //       .cast<int>()
+  //       .toSet()
+  //       .toList()
+  //     ..sort();
 
-    final String timeRange = _fmtTimeRange(s, e);
+  //   final String timeRange = _fmtTimeRange(s, e);
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        bool loadingConfirm = false;
-        bool loadingStartAll = false;
+  //   showModalBottomSheet(
+  //     context: context,
+  //     isScrollControlled: true,
+  //     backgroundColor: Colors.transparent,
+  //     shape: const RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+  //     ),
+  //     builder: (ctx) {
+  //       bool loadingConfirm = false;
+  //       bool loadingStartAll = false;
+  //       bool loadingCompleteAll = false;
 
-        Future<void> onConfirmAll() async {
-          if (selectedBranchId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please select a branch first.')),
-            );
-            return;
-          }
-          if (status != 'PENDING' || apptIds.isEmpty) return;
+  //       return StatefulBuilder(
+  //         builder: (_, setSheetState) {
+  //           Future<void> onConfirmAll() async {
+  //             if (loadingConfirm) return;
+  //             if (selectedBranchId == null) {
+  //               ScaffoldMessenger.of(context).showSnackBar(
+  //                 const SnackBar(content: Text('Please select a branch first.')),
+  //               );
+  //               return;
+  //             }
+  //             if (status != 'PENDING' || apptIds.isEmpty) return;
 
-          loadingConfirm = true;
-          (ctx as Element).markNeedsBuild();
+  //             setSheetState(() => loadingConfirm = true);
 
-          int ok = 0, fail = 0;
-          for (final id in apptIds) {
-            try {
-              final resp = await ApiService().confirmAppointment(
-                branchId: selectedBranchId!,
-                appointmentId: id,
+  //             int ok = 0, fail = 0;
+  //             final List<String> messages = [];
+  //             try {
+  //               for (final id in apptIds) {
+  //                 try {
+  //                   final resp = await ApiService().confirmAppointment(
+  //                     branchId: selectedBranchId!,
+  //                     appointmentId: id,
+  //                   );
+  //                   final msg = resp['message']?.toString();
+  //                   if (msg != null && msg.isNotEmpty) {
+  //                     messages.add(msg);
+  //                   }
+  //                   if (resp['success'] == true) {
+  //                     ok++;
+  //                   } else {
+  //                     fail++;
+  //                   }
+  //                 } catch (_) {
+  //                   fail++;
+  //                   messages.add('Failed to confirm appointment #$id');
+  //                 }
+  //               }
+  //             } finally {
+  //               setSheetState(() => loadingConfirm = false);
+  //             }
+
+  //             Navigator.pop(context);
+  //             if (selectedBranchId != null) {
+  //               await getBookingsByDate(selectedBranchId!, selectedDate);
+  //             }
+
+  //             final fallbackMsg =
+  //                 fail == 0 ? 'Confirmed $ok appointment(s).' : 'Confirmed $ok, failed $fail.';
+  //             final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
+  //             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
+  //           }
+
+  //           Future<String?> _askOtp() async {
+  //             final controller = TextEditingController();
+  //             String? result;
+  //             await showDialog(
+  //               context: context,
+  //               barrierDismissible: false,
+  //               builder: (dCtx) {
+  //                 return AlertDialog(
+  //                   title: const Text("Enter OTP"),
+  //                   content: TextField(
+  //                     controller: controller,
+  //                     maxLength: 6,
+  //                     keyboardType: TextInputType.number,
+  //                     decoration: const InputDecoration(
+  //                       border: OutlineInputBorder(),
+  //                       hintText: "6-digit OTP",
+  //                     ),
+  //                   ),
+  //                   actions: [
+  //                     TextButton(
+  //                       onPressed: () {
+  //                         Navigator.pop(dCtx);
+  //                       },
+  //                       child: const Text("Cancel"),
+  //                     ),
+  //                     ElevatedButton(
+  //                       onPressed: () {
+  //                         final otp = controller.text.trim();
+  //                         if (otp.length != 6) {
+  //                           ScaffoldMessenger.of(context).showSnackBar(
+  //                             const SnackBar(content: Text("Enter valid 6-digit OTP")),
+  //                           );
+  //                           return;
+  //                         }
+  //                         result = otp;
+  //                         Navigator.pop(dCtx);
+  //                       },
+  //                       child: const Text("Submit"),
+  //                     ),
+  //                   ],
+  //                 );
+  //               },
+  //             );
+  //             return result;
+  //           }
+
+  //           Future<void> _startForIds(List<int> ids) async {
+  //             if (loadingStartAll) return;
+  //             if (selectedBranchId == null || ids.isEmpty) return;
+  //             final otp = await _askOtp();
+  //             if (otp == null) return;
+
+  //             setSheetState(() => loadingStartAll = true);
+
+  //             int ok = 0, fail = 0;
+  //             final List<String> messages = [];
+  //             try {
+  //               for (final id in ids) {
+  //                 try {
+  //                   final resp = await ApiService.startAppointment(
+  //                     branchId: selectedBranchId!,
+  //                     appointmentId: id,
+  //                     otp: otp,
+  //                   );
+  //                   final msg = resp['message']?.toString();
+  //                   if (msg != null && msg.isNotEmpty) {
+  //                     messages.add(msg);
+  //                   }
+  //                   if (resp['success'] == true) {
+  //                     ok++;
+  //                   } else {
+  //                     fail++;
+  //                   }
+  //                 } catch (_) {
+  //                   fail++;
+  //                   messages.add('Failed to start job for appointment #$id');
+  //                 }
+  //               }
+  //             } finally {
+  //               setSheetState(() => loadingStartAll = false);
+  //             }
+
+  //             Navigator.pop(context);
+  //             if (selectedBranchId != null) {
+  //               await getBookingsByDate(selectedBranchId!, selectedDate);
+  //             }
+
+  //             final fallbackMsg =
+  //                 fail == 0 ? 'Job started for $ok appointment(s).' : 'Started $ok, failed $fail.';
+  //             final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
+  //             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
+  //           }
+
+  //           Future<void> onCompleteAll() async {
+  //             if (loadingCompleteAll) return;
+  //             if (selectedBranchId == null) {
+  //               ScaffoldMessenger.of(context).showSnackBar(
+  //                 const SnackBar(content: Text('Please select a branch first.')),
+  //               );
+  //               return;
+  //             }
+  //             if (status != 'IN_PROGRESS' || apptIds.isEmpty) return;
+
+  //             final feedback = await _getFeedbackFromUser(context);
+  //             if (feedback == null) return;
+  //             final int rating = feedback['rating'] as int;
+  //             final String comment = feedback['comment'] as String;
+
+  //             setSheetState(() => loadingCompleteAll = true);
+
+  //             int ok = 0, fail = 0;
+  //             final List<String> messages = [];
+  //             try {
+  //               for (final id in apptIds) {
+  //                 try {
+  //                   final resp = await ApiService().completeAppointment(
+  //                     branchId: selectedBranchId!,
+  //                     appointmentId: id,
+  //                     rating: rating,
+  //                     comment: comment,
+  //                   );
+  //                   final msg = resp['message']?.toString();
+  //                   if (msg != null && msg.isNotEmpty) {
+  //                     messages.add(msg);
+  //                   }
+  //                   if (resp['success'] == true) {
+  //                     ok++;
+  //                   } else {
+  //                     fail++;
+  //                   }
+  //                 } catch (_) {
+  //                   fail++;
+  //                   messages.add('Failed to complete appointment #$id');
+  //                 }
+  //               }
+  //             } finally {
+  //               setSheetState(() => loadingCompleteAll = false);
+  //             }
+
+  //             Navigator.pop(context);
+  //             if (selectedBranchId != null) {
+  //               await getBookingsByDate(selectedBranchId!, selectedDate);
+  //             }
+
+  //             final fallbackMsg =
+  //                 fail == 0 ? 'Completed $ok appointment(s).' : 'Completed $ok, failed $fail.';
+  //             final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
+  //             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
+  //           }
+
+  //           return FractionallySizedBox(
+  //             heightFactor: 0.60,
+  //             child: Container(
+  //             decoration: const BoxDecoration(
+  //               color: Colors.white,
+  //               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+  //             ),
+  //            child: Stack(
+  //     clipBehavior: Clip.none, // allows floating button outside bounds
+  //     children: [
+  //       // Main content
+  //       Padding(
+  //         padding: const EdgeInsets.all(16),
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //                 children: [
+  //                   // Header
+  //                   Row(
+  //                     children: [
+  //                       Expanded(
+  //                         child: Text(
+  //                           customerName,
+  //                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+  //                           overflow: TextOverflow.ellipsis,
+  //                         ),
+  //                       ),
+  //                       IconButton(
+  //                         icon: const Icon(Icons.close),
+  //                         onPressed: () => Navigator.pop(context),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                   const SizedBox(height: 4),
+  //                   Text(timeRange, style: const TextStyle(color: Colors.black54)),
+  //                   const SizedBox(height: 4),
+  //                   Text('Status: $status', style: const TextStyle(color: Colors.black54)),
+  //                   if (priceTotal != null) ...[
+  //                     const SizedBox(height: 4),
+  //                     Text('Total Price: ₹$priceTotal', style: const TextStyle(color: Colors.black87)),
+  //                   ],
+  //                   const SizedBox(height: 12),
+
+  //                   // Services list
+  //                   const Text('Services', style: TextStyle(fontWeight: FontWeight.w700)),
+  //                   const SizedBox(height: 6),
+  //                   Expanded(
+  //                     child: ListView.separated(
+  //                       itemCount: items.length,
+  //                       separatorBuilder: (_, __) => const Divider(height: 1),
+  //                       itemBuilder: (context, i) {
+  //                         final it = items[i];
+  //                         final String name = (it['service']?.toString() ?? 'Service');
+  //                         final int? priceMinor = it['priceMinor'] as int?;
+  //                         final String priceText = priceMinor != null ? '₹$priceMinor' : '';
+  //                         final String range = _fmtTimeRange(
+  //                           it['start'] as DateTime,
+  //                           it['end'] as DateTime,
+  //                         );
+
+  //                         return ListTile(
+  //                           dense: true,
+  //                           title: Text(
+  //                             name,
+  //                             maxLines: 1,
+  //                             overflow: TextOverflow.ellipsis,
+  //                           ),
+  //                           subtitle: Text(range),
+  //                           trailing: Row(
+  //                             mainAxisSize: MainAxisSize.min,
+  //                             children: [
+  //                               if (priceText.isNotEmpty)
+  //                                 Padding(
+  //                                   padding: const EdgeInsets.only(right: 8),
+  //                                   child: Text(
+  //                                     priceText,
+  //                                     style: const TextStyle(fontWeight: FontWeight.w600),
+  //                                   ),
+  //                                 ),
+  //                             ],
+  //                           ),
+  //                         );
+  //                       },
+  //                     ),
+  //                   ),
+
+  //                   // ---- Actions (bottom) with IN_PROGRESS support ----
+  //                   if (status == 'PENDING') ...[
+  //                     SizedBox(
+  //                       width: double.infinity,
+  //                       child: ElevatedButton(
+  //                         onPressed: loadingConfirm ? null : onConfirmAll,
+  //                         style: ElevatedButton.styleFrom(
+  //                           backgroundColor: Colors.blue,
+  //                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  //                         ),
+  //                         child: loadingConfirm
+  //                             ? const SizedBox(
+  //                                 height: 18,
+  //                                 width: 18,
+  //                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+  //                               )
+  //                             : Text(apptIds.length <= 1 ? 'Confirm' : 'Confirm All (${apptIds.length})'),
+  //                       ),
+  //                     ),
+  //                   ] else if (status == 'CONFIRMED') ...[
+  //                     SizedBox(
+  //                       width: double.infinity,
+  //                       child: ElevatedButton(
+  //                         onPressed: loadingStartAll ? null : () => _startForIds(apptIds),
+  //                         style: ElevatedButton.styleFrom(
+  //                           backgroundColor: Colors.green,
+  //                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  //                         ),
+  //                         child: loadingStartAll
+  //                             ? const SizedBox(
+  //                                 height: 18,
+  //                                 width: 18,
+  //                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+  //                               )
+  //                             : Text(apptIds.length <= 1 ? 'Start Job' : 'Start All (${apptIds.length})'),
+  //                       ),
+  //                     ),
+  //                   ] else if (status == 'IN_PROGRESS') ...[
+  //                     SizedBox(
+  //                       width: double.infinity,
+  //                       child: ElevatedButton(
+  //                         onPressed: loadingCompleteAll ? null : onCompleteAll,
+  //                         style: ElevatedButton.styleFrom(
+  //                           backgroundColor: Colors.green,
+  //                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  //                         ),
+  //                         child: loadingCompleteAll
+  //                             ? const SizedBox(
+  //                                 height: 18,
+  //                                 width: 18,
+  //                                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+  //                               )
+  //                             : Text(apptIds.length <= 1 ? 'Complete Job' : 'Complete All (${apptIds.length})'),
+  //                       ),
+  //                     ),
+  //                   ] else ...[
+  //                     SizedBox(
+  //                       width: double.infinity,
+  //                       child: ElevatedButton(
+  //                         onPressed: null,
+  //                         style: ElevatedButton.styleFrom(
+  //                           backgroundColor: Colors.grey,
+  //                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  //                         ),
+  //                         child: Text(status),
+  //                       ),
+  //                     ),
+  //                   ],
+                 
+  //                 ],
+  //     ],
+  //               ),
+  //             ),
+  //                 Positioned(
+  //           top: -30,
+  //           left: 0,
+  //           right: 0,
+  //           child: Center(
+  //             child: GestureDetector(
+  //               onTap: () => Navigator.pop(context),
+  //               child: Container(
+  //                 padding: const EdgeInsets.all(8),
+  //                 decoration: const BoxDecoration(
+  //                   color: Colors.black,
+  //                   shape: BoxShape.circle,
+  //                 ),
+  //                 child: const Icon(Icons.close, color: Colors.white),
+  //               ),
+  //             ),
+  //           ),),
+  //             ),
+             
+  //           );
+            
+  //         },
+          
+  //       );
+        
+  //     },
+      
+  //   );
+  // }
+void _openMergedSegmentSheet(Map<String, dynamic> seg) {
+  final DateTime s = seg['start'] as DateTime;
+  final DateTime e = seg['end'] as DateTime;
+  final String status = _normalizeStatus(seg['status']);
+  final String customerName = seg['customerName'] as String? ?? 'Customer';
+  final int? priceTotal = seg['priceTotal'] as int?;
+  final List<Map<String, dynamic>> items =
+      List<Map<String, dynamic>>.from(seg['items'] as List);
+
+  // Unique appointment IDs inside the block
+  final List<int> apptIds = items
+      .map((it) => it['appointmentId'] as int?)
+      .whereType<int>()
+      .toSet()
+      .toList()
+    ..sort();
+
+  final String timeRange = _fmtTimeRange(s, e);
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) {
+      bool loadingConfirm = false;
+      bool loadingStartAll = false;
+      bool loadingCompleteAll = false;
+
+      return StatefulBuilder(
+        builder: (_, setSheetState) {
+          Future<void> onConfirmAll() async {
+            if (loadingConfirm) return;
+            if (selectedBranchId == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please select a branch first.')),
               );
-              if (resp['success'] == true) {
-                ok++;
-              } else {
-                fail++;
-              }
-            } catch (_) {
-              fail++;
+              return;
             }
-          }
+            if (status != 'PENDING' || apptIds.isEmpty) return;
 
-          loadingConfirm = false;
-          (ctx as Element).markNeedsBuild();
+            setSheetState(() => loadingConfirm = true);
 
-          Navigator.pop(context);
-          if (selectedBranchId != null) {
-            await getBookingsByDate(selectedBranchId!, selectedDate);
-          }
-
-          final msg = fail == 0
-              ? 'Confirmed $ok appointment(s).'
-              : 'Confirmed $ok, failed $fail.';
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(msg)));
-        }
-
-        Future<String?> _askOtp() async {
-          final controller = TextEditingController();
-          String? result;
-          await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (dCtx) {
-              return AlertDialog(
-                title: const Text("Enter OTP"),
-                content: TextField(
-                  controller: controller,
-                  maxLength: 6,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: "6-digit OTP",
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(dCtx);
-                    },
-                    child: const Text("Cancel"),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                      final otp = controller.text.trim();
-                      if (otp.length != 6) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Enter valid 6-digit OTP"),
-                          ),
-                        );
-                        return;
-                      }
-                      result = otp;
-                      Navigator.pop(dCtx);
-                    },
-                    child: const Text("Submit"),
-                  ),
-                ],
-              );
-            },
-          );
-          return result;
-        }
-
-        Future<void> _startForIds(List<int> ids) async {
-          if (selectedBranchId == null || ids.isEmpty) return;
-          final otp = await _askOtp();
-          if (otp == null) return;
-
-          loadingStartAll = true;
-          (ctx as Element).markNeedsBuild();
-
-          int ok = 0, fail = 0;
-          for (final id in ids) {
+            int ok = 0, fail = 0;
+            final List<String> messages = [];
             try {
-              final resp = await ApiService.startAppointment(
-                branchId: selectedBranchId!,
-                appointmentId: id,
-                otp: otp,
-              );
-              if (resp['success'] == true) {
-                ok++;
-              } else {
-                fail++;
+              for (final id in apptIds) {
+                try {
+                  final resp = await ApiService().confirmAppointment(
+                    branchId: selectedBranchId!,
+                    appointmentId: id,
+                  );
+                  final msg = resp['message']?.toString();
+                  if (msg != null && msg.isNotEmpty) messages.add(msg);
+                  if (resp['success'] == true) {
+                    ok++;
+                  } else {
+                    fail++;
+                  }
+                } catch (_) {
+                  fail++;
+                  messages.add('Failed to confirm appointment #$id');
+                }
               }
-            } catch (_) {
-              fail++;
+            } finally {
+              setSheetState(() => loadingConfirm = false);
             }
+
+            Navigator.of(ctx).pop(); // close only the sheet
+            if (selectedBranchId != null) {
+              await getBookingsByDate(selectedBranchId!, selectedDate);
+            }
+
+            final fallbackMsg =
+                fail == 0 ? 'Confirmed $ok appointment(s).' : 'Confirmed $ok, failed $fail.';
+            final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
           }
 
-          loadingStartAll = false;
-          (ctx as Element).markNeedsBuild();
-
-          Navigator.pop(context);
-          await getBookingsByDate(selectedBranchId!, selectedDate);
-
-          final msg = fail == 0
-              ? 'Job started for $ok appointment(s).'
-              : 'Started $ok, failed $fail.';
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(msg)));
-        }
-
-        return FractionallySizedBox(
-          heightFactor: 0.60,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        customerName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+          Future<String?> _askOtp() async {
+            final controller = TextEditingController();
+            String? result;
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (dCtx) {
+                return AlertDialog(
+                  title: const Text("Enter OTP"),
+                  content: TextField(
+                    controller: controller,
+                    maxLength: 6,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: "6-digit OTP",
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dCtx),
+                      child: const Text("Cancel"),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        final otp = controller.text.trim();
+                        if (otp.length != 6) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Enter valid 6-digit OTP")),
+                          );
+                          return;
+                        }
+                        result = otp;
+                        Navigator.pop(dCtx);
+                      },
+                      child: const Text("Submit"),
                     ),
                   ],
-                ),
-                const SizedBox(height: 4),
-                Text(timeRange, style: const TextStyle(color: Colors.black54)),
-                const SizedBox(height: 4),
-                Text(
-                  'Status: $status',
-                  style: const TextStyle(color: Colors.black54),
-                ),
-                if (priceTotal != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Total Price: ₹$priceTotal',
-                    style: const TextStyle(color: Colors.black87),
-                  ),
-                ],
-                const SizedBox(height: 12),
+                );
+              },
+            );
+            return result;
+          }
 
-                // Services list
-                const Text(
-                  'Services',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 6),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: items.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, i) {
-                      final it = items[i];
-                      final String name =
-                          (it['service']?.toString() ?? 'Service');
-                      final int? priceMinor = it['priceMinor'] as int?;
-                      final String priceText = priceMinor != null
-                          ? '₹$priceMinor'
-                          : '';
-                      final String range = _fmtTimeRange(
-                        it['start'] as DateTime,
-                        it['end'] as DateTime,
-                      );
+          Future<void> _startForIds(List<int> ids) async {
+            if (loadingStartAll) return;
+            if (selectedBranchId == null || ids.isEmpty) return;
+            final otp = await _askOtp();
+            if (otp == null) return;
 
-                      return ListTile(
-                        dense: true,
-                        title: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(range),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+            setSheetState(() => loadingStartAll = true);
+
+            int ok = 0, fail = 0;
+            final List<String> messages = [];
+            try {
+              for (final id in ids) {
+                try {
+                  final resp = await ApiService.startAppointment(
+                    branchId: selectedBranchId!,
+                    appointmentId: id,
+                    otp: otp,
+                  );
+                  final msg = resp['message']?.toString();
+                  if (msg != null && msg.isNotEmpty) messages.add(msg);
+                  if (resp['success'] == true) {
+                    ok++;
+                  } else {
+                    fail++;
+                  }
+                } catch (_) {
+                  fail++;
+                  messages.add('Failed to start job for appointment #$id');
+                }
+              }
+            } finally {
+              setSheetState(() => loadingStartAll = false);
+            }
+
+            Navigator.of(ctx).pop();
+            if (selectedBranchId != null) {
+              await getBookingsByDate(selectedBranchId!, selectedDate);
+            }
+
+            final fallbackMsg =
+                fail == 0 ? 'Job started for $ok appointment(s).' : 'Started $ok, failed $fail.';
+            final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
+          }
+
+          Future<void> onCompleteAll() async {
+            if (loadingCompleteAll) return;
+            if (selectedBranchId == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please select a branch first.')),
+              );
+              return;
+            }
+            if (status != 'IN_PROGRESS' || apptIds.isEmpty) return;
+
+            final feedback = await _getFeedbackFromUser(context);
+            if (feedback == null) return;
+            final int rating = feedback['rating'] as int;
+            final String comment = feedback['comment'] as String;
+
+            setSheetState(() => loadingCompleteAll = true);
+
+            int ok = 0, fail = 0;
+            final List<String> messages = [];
+            try {
+              for (final id in apptIds) {
+                try {
+                  final resp = await ApiService().completeAppointment(
+                    branchId: selectedBranchId!,
+                    appointmentId: id,
+                    rating: rating,
+                    comment: comment,
+                  );
+                  final msg = resp['message']?.toString();
+                  if (msg != null && msg.isNotEmpty) messages.add(msg);
+                  if (resp['success'] == true) {
+                    ok++;
+                  } else {
+                    fail++;
+                  }
+                } catch (_) {
+                  fail++;
+                  messages.add('Failed to complete appointment #$id');
+                }
+              }
+            } finally {
+              setSheetState(() => loadingCompleteAll = false);
+            }
+
+            Navigator.of(ctx).pop();
+            if (selectedBranchId != null) {
+              await getBookingsByDate(selectedBranchId!, selectedDate);
+            }
+
+            final fallbackMsg =
+                fail == 0 ? 'Completed $ok appointment(s).' : 'Completed $ok, failed $fail.';
+            final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
+          }
+
+          return FractionallySizedBox(
+            heightFactor: 0.60,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  // Main content
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header
+                        Row(
                           children: [
-                            if (priceText.isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: Text(
-                                  priceText,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                            Expanded(
+                              child: Text(
+                                customerName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            // Quick “View”
-                            // TextButton(
-                            //   onPressed: () {
-                            //     Navigator.pop(context);
-                            //     _openAppointmentSheet(
-                            //       it['booking'] as Map<String, dynamic>,
-                            //       it['item'] as Map<String, dynamic>,
-                            //     );
-                            //   },
-                            //   child: const Text('View'),
+                            ),
+                            // IconButton(
+                            //   icon: const Icon(Icons.close),
+                            //   onPressed: () => Navigator.of(ctx).pop(),
                             // ),
                           ],
                         ),
-                      );
-                    },
-                  ),
-                ),
+                        const SizedBox(height: 4),
+                        Text(timeRange, style: const TextStyle(color: Colors.black54)),
+                        const SizedBox(height: 4),
+                        Text('Status: $status', style: const TextStyle(color: Colors.black54)),
+                        if (priceTotal != null) ...[
+                          const SizedBox(height: 4),
+                          Text('Total Price: ₹$priceTotal',
+                              style: const TextStyle(color: Colors.black87)),
+                        ],
+                        const SizedBox(height: 12),
 
-                // Actions (bottom)
-                if (status == 'PENDING') ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: loadingConfirm ? null : onConfirmAll,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        // Services list
+                        const Text('Services',
+                            style: TextStyle(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 6),
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            itemBuilder: (context, i) {
+                              final it = items[i];
+                              final String name =
+                                  (it['service']?.toString() ?? 'Service');
+                              final int? priceMinor = it['priceMinor'] as int?;
+                              final String priceText =
+                                  priceMinor != null ? '₹$priceMinor' : '';
+                              final String range = _fmtTimeRange(
+                                it['start'] as DateTime,
+                                it['end'] as DateTime,
+                              );
+
+                              return ListTile(
+                                dense: true,
+                                title: Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(range),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (priceText.isNotEmpty)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(right: 8),
+                                        child: Text(
+                                          priceText,
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                      child: loadingConfirm
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+
+                        // ---- Actions (bottom) with IN_PROGRESS support ----
+                        if (status == 'PENDING') ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed:
+                                  loadingConfirm ? null : onConfirmAll,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                            )
-                          : Text(
-                              apptIds.length <= 1
-                                  ? 'Confirm'
-                                  : 'Confirm All (${apptIds.length})',
+                              child: loadingConfirm
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(apptIds.length <= 1
+                                      ? 'Confirm'
+                                      : 'Confirm All (${apptIds.length})'),
                             ),
+                          ),
+                        ] else if (status == 'CONFIRMED') ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: loadingStartAll
+                                  ? null
+                                  : () => _startForIds(apptIds),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: loadingStartAll
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(apptIds.length <= 1
+                                      ? 'Start Job'
+                                      : 'Start All (${apptIds.length})'),
+                            ),
+                          ),
+                        ] else if (status == 'IN_PROGRESS') ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: loadingCompleteAll
+                                  ? null
+                                  : onCompleteAll,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: loadingCompleteAll
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(apptIds.length <= 1
+                                      ? 'Complete Job'
+                                      : 'Complete All (${apptIds.length})'),
+                            ),
+                          ),
+                        ] else ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: Text(status),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ] else if (status == 'CONFIRMED') ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: loadingStartAll
-                          ? null
-                          : () => _startForIds(apptIds),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+
+                  // Floating close button
+                  Positioned(
+                    top: -50,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(ctx).pop(),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Colors.black,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, color: Colors.white),
                         ),
                       ),
-                      child: loadingStartAll
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              apptIds.length <= 1
-                                  ? 'Start Job'
-                                  : 'Start All (${apptIds.length})',
-                            ),
-                    ),
-                  ),
-                ] else ...[
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(status),
                     ),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
-        );
-      },
-    );
-  }
+          );
+        },
+      );
+    },
+  );
+}
 
   List<Widget> _buildBookingBlocks() {
     if (bookings.isEmpty || timeSlots.isEmpty) return const <Widget>[];
@@ -907,7 +1529,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
     for (final seg in merged) {
       final int col = seg['col'] as int;
-      final String status = (seg['status'] as String).toUpperCase();
+      final String status = _normalizeStatus(seg['status']);
       final DateTime s = seg['start'] as DateTime;
       final DateTime e = seg['end'] as DateTime;
       final int minutesFromStart = s.difference(dayStart).inMinutes;
@@ -922,23 +1544,19 @@ class _BookingsScreenState extends State<BookingsScreen> {
       Color bg = Colors.blue.shade300; // default (CONFIRMED)
       if (status == 'PENDING') bg = Colors.orange.shade300;
       if (status == 'CONFIRMED') bg = Colors.blue.shade300;
-      if (status == 'IN_PROGRESS')
-        bg = Colors.green.shade400; // << green after Start Job
+      if (status == 'IN_PROGRESS') bg = Colors.green.shade400; // green after Start Job
       if (status == 'COMPLETED') bg = Colors.green.shade700;
       if (status == 'CANCELLED') bg = Colors.red.shade300;
 
       final String customerName = seg['customerName'] as String? ?? 'Customer';
       final List<String> services = List<String>.from(seg['services'] as List);
       final int moreCount = (services.length > 1) ? services.length - 1 : 0;
-      final String headService = services.isNotEmpty
-          ? services.first
-          : 'Service';
+      final String headService = services.isNotEmpty ? services.first : 'Service';
       final int? priceTotal = seg['priceTotal'] as int?;
       final String priceText = priceTotal != null ? '₹$priceTotal' : '';
       final String timeRange = _fmtTimeRange(s, e);
 
-      final List<Map<String, dynamic>> segItems =
-          List<Map<String, dynamic>>.from(seg['items'] as List);
+      final List<Map<String, dynamic>> segItems = List<Map<String, dynamic>>.from(seg['items'] as List);
 
       blocks.add(
         Positioned(
@@ -982,9 +1600,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                             ),
                           ),
                           Text(
-                            moreCount > 0
-                                ? '$headService + $moreCount more'
-                                : headService,
+                            moreCount > 0 ? '$headService + $moreCount more' : headService,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1033,102 +1649,144 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
     return blocks;
   }
+Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
+  int rating = 0;
+  final commentCtrl = TextEditingController();
 
-  Future<Map<String, dynamic>?> _getFeedbackFromUser(
-    BuildContext context,
-  ) async {
-    int rating = 0;
-    final commentCtrl = TextEditingController();
+  return await showModalBottomSheet<Map<String, dynamic>>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (c) {
+      return StatefulBuilder(
+        builder: (c, setFBState) {
+          final bottomInset = MediaQuery.of(c).viewInsets.bottom;
+          final canSubmit = rating > 0 && commentCtrl.text.trim().isNotEmpty;
 
-    return await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (c) {
-        return StatefulBuilder(
-          builder: (c, setFBState) {
-            final bottomInset = MediaQuery.of(c).viewInsets.bottom;
-            final canSubmit = rating > 0 && commentCtrl.text.trim().isNotEmpty;
+          Widget _star(int i) => IconButton(
+                icon: Icon(
+                  i <= rating ? Icons.star : Icons.star_border,
+                  color: Colors.amber,
+                ),
+                onPressed: () => setFBState(() => rating = i),
+              );
 
-            Widget _star(int i) => IconButton(
-              icon: Icon(i <= rating ? Icons.star : Icons.star_border),
-              onPressed: () => setFBState(() => rating = i),
-            );
-
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                top: 16,
-                bottom: 16 + bottomInset,
+          return FractionallySizedBox(
+            heightFactor: 0.55,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  const Text(
-                    'Feedback',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Rating (required)'),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: List.generate(5, (i) => _star(i + 1)),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('Comment (required)'),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: commentCtrl,
-                    maxLines: 4,
-                    onChanged: (_) => setFBState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'Write your feedback...',
-                      border: OutlineInputBorder(),
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: 16,
+                      right: 16,
+                      top: 24,
+                      bottom: 16 + bottomInset,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Feedback',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text('Rating (required)'),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: List.generate(5, (i) => _star(i + 1)),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text('Comment (required)'),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: commentCtrl,
+                          maxLines: 4,
+                          onChanged: (_) => setFBState(() {}),
+                          decoration: const InputDecoration(
+                            hintText: 'Write your feedback...',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: canSubmit
+                                ? () {
+                                    Navigator.pop<Map<String, dynamic>>(c, {
+                                      'rating': rating,
+                                      'comment': commentCtrl.text.trim(),
+                                    });
+                                  }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: const Text('Submit & Complete'),
+                          ),
+                        ),
+                        // TextButton(
+                        //   onPressed: () => Navigator.pop(c, null),
+                        //   child: const Text('Cancel'),
+                        // ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: canSubmit
-                          ? () {
-                              Navigator.pop<Map<String, dynamic>>(c, {
-                                'rating': rating,
-                                'comment': commentCtrl.text.trim(),
-                              });
-                            }
-                          : null,
-                      child: const Text('Submit & Complete'),
+
+                  // Floating close button
+                  Positioned(
+                    top: -50,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(c).pop(),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Colors.black,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, color: Colors.white),
+                        ),
+                      ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(c, null),
-                    child: const Text('Cancel'),
                   ),
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
+            ),
+          );
+        },
+      );
+    },
+  );
+}
+
 
   /// Per-appointment sheet:
   /// - If PENDING: Confirm
   /// - After Confirm success: shows "Start Job" (green)
   /// - Start Job -> OTP -> IN_PROGRESS -> shows "Complete Job" (green)
-  /// - Complete Job -> opens feedback modal (no API call for now)
-  void _openAppointmentSheet(
-    Map<String, dynamic> booking,
-    Map<String, dynamic>? item,
-  ) {
+  /// - Complete Job -> opens feedback modal -> Complete
+  void _openAppointmentSheet(Map<String, dynamic> booking, Map<String, dynamic>? item) {
     // Mutable state captured by StatefulBuilder
-    String statusUpper = (booking['status'] ?? '').toString().toUpperCase();
+    String statusUpper = _normalizeStatus(booking['status']);
     bool loadingConfirm = false;
     bool loadingCancel = false;
     bool loadingStart = false;
@@ -1145,27 +1803,17 @@ class _BookingsScreenState extends State<BookingsScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             final List items = (booking['items'] as List?) ?? const [];
-            final Map? useItem =
-                item ?? (items.isNotEmpty ? items.first as Map : null);
+            final Map? useItem = item ?? (items.isNotEmpty ? items.first as Map : null);
 
             final String services = useItem != null
                 ? (useItem['branchService']?['displayName']?.toString() ?? '')
                 : items
-                      .map(
-                        (e) =>
-                            (e as Map)['branchService']?['displayName']
-                                ?.toString() ??
-                            '',
-                      )
-                      .where((s) => s.isNotEmpty)
-                      .join(', ');
+                    .map((e) => (e as Map)['branchService']?['displayName']?.toString() ?? '')
+                    .where((s) => s.isNotEmpty)
+                    .join(', ');
 
-            final start =
-                _parseLocal(useItem?['startAt']?.toString()) ??
-                _parseLocal(booking['startAt']);
-            final end =
-                _parseLocal(useItem?['endAt']?.toString()) ??
-                _parseLocal(booking['endAt']);
+            final start = _parseLocal(useItem?['startAt']?.toString()) ?? _parseLocal(booking['startAt']);
+            final end = _parseLocal(useItem?['endAt']?.toString()) ?? _parseLocal(booking['endAt']);
             final timeStr = start != null && end != null
                 ? "${DateFormat('h:mm a').format(start)} - ${DateFormat('h:mm a').format(end)}"
                 : '';
@@ -1173,11 +1821,8 @@ class _BookingsScreenState extends State<BookingsScreen> {
             final bool isPending = statusUpper == 'PENDING';
             final bool isConfirmed = statusUpper == 'CONFIRMED';
 
-            final stylist =
-                useItem?['assignedUserBranch']?['user']?['firstName'] ?? 'N/A';
-            final duration = useItem?['durationMin'] != null
-                ? '${useItem!['durationMin']} min'
-                : '';
+            final stylist = useItem?['assignedUserBranch']?['user']?['firstName'] ?? 'N/A';
+            final duration = useItem?['durationMin'] != null ? '${useItem!['durationMin']} min' : '';
             final priceMinor = useItem?['branchService']?['priceMinor'];
             final price = priceMinor != null ? '₹$priceMinor' : '';
 
@@ -1191,33 +1836,26 @@ class _BookingsScreenState extends State<BookingsScreen> {
               setModalState(() => loadingConfirm = false);
 
               if (resp['success'] == true) {
-                final newStatus = (resp['data']?['status'] ?? 'CONFIRMED')
-                    .toString()
-                    .toUpperCase();
+                final newStatus = _normalizeStatus(resp['data']?['status'] ?? 'CONFIRMED');
                 setModalState(() {
                   statusUpper = newStatus;
                 });
                 if (selectedBranchId != null) {
                   await getBookingsByDate(selectedBranchId!, selectedDate);
                 }
+                // Exact text as requested
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(resp['message']?.toString() ?? 'Confirmed'),
-                  ),
+                  const SnackBar(content: Text('Booking Confirmed')),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      resp['message']?.toString() ?? 'Failed to confirm',
-                    ),
-                  ),
+                  SnackBar(content: Text(resp['message']?.toString() ?? 'Failed to confirm')),
                 );
               }
             }
 
             Future<void> onStartJob() async {
-              if (selectedBranchId == null) return;
+              if (selectedBranchId == null || loadingStart) return;
 
               final otpController = TextEditingController();
 
@@ -1248,54 +1886,55 @@ class _BookingsScreenState extends State<BookingsScreen> {
                               final otp = otpController.text.trim();
                               if (otp.length != 6) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text("Enter valid 6-digit OTP"),
-                                  ),
+                                  const SnackBar(content: Text("Enter valid 6-digit OTP")),
                                 );
                                 return;
                               }
+
                               setModalState(() => loadingStart = true);
                               Navigator.pop(dialogCtx); // close OTP dialog
 
-                              final resp = await ApiService.startAppointment(
-                                branchId: selectedBranchId!,
-                                appointmentId: booking['id'] as int,
-                                otp: otp,
-                              );
+                              Map<String, dynamic>? resp;
+                              try {
+                                resp = await ApiService.startAppointment(
+                                  branchId: selectedBranchId!,
+                                  appointmentId: booking['id'] as int,
+                                  otp: otp,
+                                );
+                              } catch (e) {
+                                setModalState(() => loadingStart = false);
+                                if (!mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Failed to start job')),
+                                );
+                                return;
+                              }
+
+                              if (!mounted) {
+                                setModalState(() => loadingStart = false);
+                                return;
+                              }
+
+                              final success = resp['success'] == true;
+                              final message = resp['message']?.toString() ??
+                                  (success ? 'Job started' : 'Failed to start job');
 
                               setModalState(() => loadingStart = false);
 
-                              if (resp['success'] == true) {
+                              if (success) {
                                 final newStatus =
-                                    (resp['data']?['status'] ?? 'IN_PROGRESS')
-                                        .toString()
-                                        .toUpperCase();
+                                    _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
                                 setModalState(() {
-                                  statusUpper =
-                                      newStatus; // will show "Complete Job"
+                                  statusUpper = newStatus;
+                                  booking['status'] = newStatus;
                                 });
 
-                                await getBookingsByDate(
-                                  selectedBranchId!,
-                                  selectedDate,
-                                );
-                                Navigator.of(context).pop(); // close sheet
+                                await getBookingsByDate(selectedBranchId!, selectedDate);
+                              }
+
+                              if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      resp['message']?.toString() ??
-                                          'Job started',
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      resp['message']?.toString() ??
-                                          'Failed to start job',
-                                    ),
-                                  ),
+                                  SnackBar(content: Text(message)),
                                 );
                               }
                             },
@@ -1309,18 +1948,17 @@ class _BookingsScreenState extends State<BookingsScreen> {
               );
             }
 
-            // 👉 For now, just open feedback modal (no API call)
             Future<void> onCompleteJob() async {
               if (selectedBranchId == null) return;
 
-              // 1) Ask user for rating + comment (both required)
+              // Ask user for rating + comment (both required)
               final feedback = await _getFeedbackFromUser(context);
               if (feedback == null) return; // user cancelled
 
               final int rating = feedback['rating'] as int;
               final String comment = feedback['comment'] as String;
 
-              // 2) Call COMPLETE API
+              // COMPLETE API
               setModalState(() => loadingComplete = true);
               final resp = await ApiService().completeAppointment(
                 branchId: selectedBranchId!,
@@ -1330,33 +1968,24 @@ class _BookingsScreenState extends State<BookingsScreen> {
               );
               setModalState(() => loadingComplete = false);
 
-              // 3) Handle result
+              // Handle result
               if (resp['success'] == true) {
-                final newStatus = (resp['data']?['status'] ?? 'COMPLETED')
-                    .toString()
-                    .toUpperCase();
+                final newStatus = _normalizeStatus(resp['data']?['status'] ?? 'COMPLETED');
                 setModalState(() {
-                  statusUpper =
-                      newStatus; // Sheet will now show “Feedback” button if you keep that branch
+                  statusUpper = newStatus; // sheet will now show disabled grey button
                 });
 
                 // Refresh grid so block color updates
                 await getBookingsByDate(selectedBranchId!, selectedDate);
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      resp['message']?.toString() ?? 'Appointment completed',
-                    ),
-                  ),
+                  SnackBar(content: Text(resp['message']?.toString() ?? 'Appointment completed')),
                 );
               } else {
                 final msg = (resp['message']?.toString().isNotEmpty ?? false)
                     ? resp['message'].toString()
                     : 'Failed to complete appointment';
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(msg)));
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
               }
             }
 
@@ -1372,10 +2001,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                         Expanded(
                           child: Text(
                             services.isEmpty ? 'Appointment' : services,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1387,32 +2013,17 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     ),
                     const SizedBox(height: 4),
                     if (timeStr.isNotEmpty)
-                      Text(
-                        timeStr,
-                        style: const TextStyle(color: Colors.black54),
-                      ),
+                      Text(timeStr, style: const TextStyle(color: Colors.black54)),
                     const SizedBox(height: 4),
-                    Text(
-                      'Status: $statusUpper',
-                      style: const TextStyle(color: Colors.black54),
-                    ),
+                    Text('Status: $statusUpper', style: const TextStyle(color: Colors.black54)),
                     const SizedBox(height: 4),
-                    Text(
-                      'Stylist: $stylist',
-                      style: const TextStyle(color: Colors.black54),
-                    ),
+                    Text('Stylist: $stylist', style: const TextStyle(color: Colors.black54)),
                     const SizedBox(height: 4),
                     if (duration.isNotEmpty)
-                      Text(
-                        'Duration: $duration',
-                        style: const TextStyle(color: Colors.black54),
-                      ),
+                      Text('Duration: $duration', style: const TextStyle(color: Colors.black54)),
                     const SizedBox(height: 4),
                     if (price.isNotEmpty)
-                      Text(
-                        'Price: $price',
-                        style: const TextStyle(color: Colors.black54),
-                      ),
+                      Text('Price: $price', style: const TextStyle(color: Colors.black54)),
                     const Spacer(),
 
                     // ACTIONS:
@@ -1424,18 +2035,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
                           onPressed: loadingConfirm ? null : onConfirm,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blue,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: loadingConfirm
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
                               : const Text('Confirm'),
                         ),
@@ -1448,18 +2054,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
                           onPressed: loadingStart ? null : onStartJob,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: loadingStart
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
                               : const Text('Start Job'),
                         ),
@@ -1472,18 +2073,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
                           onPressed: loadingComplete ? null : onCompleteJob,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: loadingComplete
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
                               : const Text('Complete Job'),
                         ),
@@ -1496,9 +2092,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                           onPressed: null,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: Text(statusUpper),
                         ),
@@ -1511,9 +2105,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         child: const Text('Close'),
                       ),
@@ -1528,7 +2120,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
     );
   }
 
-  // Simple feedback modal (no API call yet)
+  // Simple feedback modal (no API call yet) – kept in case you still want it elsewhere
   Future<void> _openFeedbackModal(BuildContext context) async {
     int rating = 5;
     final commentCtrl = TextEditingController();
@@ -1551,19 +2143,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Feedback',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
+                  const Text('Feedback', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(5, (i) {
                       return IconButton(
-                        icon: Icon(
-                          i < rating ? Icons.star : Icons.star_border,
-                          color: Colors.amber,
-                        ),
+                        icon: Icon(i < rating ? Icons.star : Icons.star_border, color: Colors.amber),
                         onPressed: () => setSheet(() => rating = i + 1),
                       );
                     }),
@@ -1582,9 +2168,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -1605,45 +2189,81 @@ class _BookingsScreenState extends State<BookingsScreen> {
   }
 
   // Function to handle branch selection
-  Future<void> onBranchChanged(
-    int branchId,
-    int salonId,
-    Map<String, dynamic> branchData,
-  ) async {
-    final String startTime =
-        (branchData['startTime'] ?? _branchStartTimeStr ?? '08:00:00')
-            .toString();
-    final String endTime =
-        (branchData['endTime'] ?? _branchEndTimeStr ?? '20:00:00').toString();
+  // Future<void> onBranchChanged(int branchId, int salonId, Map<String, dynamic> branchData) async {
+  //   final String startTime =
+  //       (branchData['startTime'] ?? _branchStartTimeStr ?? '08:00:00').toString();
+  //   final String endTime =
+  //       (branchData['endTime'] ?? _branchEndTimeStr ?? '20:00:00').toString();
 
-    List<String> updatedSlots;
-    try {
-      updatedSlots = generateTimeSlots(startTime, endTime);
-    } catch (_) {
-      updatedSlots = timeSlots;
-    }
+  //   List<String> updatedSlots;
+  //   try {
+  //     updatedSlots = generateTimeSlots(startTime, endTime);
+  //   } catch (_) {
+  //     updatedSlots = timeSlots;
+  //   }
 
-    setState(() {
-      _loadingBranch = true;
-      selectedBranchId = branchId;
-      selectedSalonId = salonId;
-      selectedBranch = Map<String, dynamic>.from(branchData);
-      _branchStartTimeStr = startTime;
-      _branchEndTimeStr = endTime;
-      timeSlots = updatedSlots;
-    });
+  //   setState(() {
+  //     _loadingBranch = true;
+  //     selectedBranchId = branchId;
+  //     selectedSalonId = salonId;
+  //     selectedBranch = Map<String, dynamic>.from(branchData);
+  //     _branchStartTimeStr = startTime;
+  //     _branchEndTimeStr = endTime;
+  //     timeSlots = updatedSlots;
+  //   });
 
-    try {
-      await getTeamMembers(branchId);
-      await getBookingsByDate(branchId, selectedDate);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loadingBranch = false;
-        });
-      }
+  //   try {
+  //     await getTeamMembers(branchId);
+  //     await getBookingsByDate(branchId, selectedDate);
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() {
+  //         _loadingBranch = false;
+  //       });
+  //     }
+  //   }
+  // }
+Future<void> onBranchChanged(
+  int branchId,
+  int salonId,
+  Map<String, dynamic> branchData,
+) async {
+  final prefs = await SharedPreferences.getInstance(); // NEW
+  await prefs.setInt('selected_branch_id', branchId); // NEW
+  await prefs.setInt('selected_salon_id', salonId);   // NEW
+
+  final String startTime =
+      (branchData['startTime'] ?? _branchStartTimeStr ?? '08:00:00').toString();
+  final String endTime =
+      (branchData['endTime'] ?? _branchEndTimeStr ?? '20:00:00').toString();
+
+  List<String> updatedSlots;
+  try {
+    updatedSlots = generateTimeSlots(startTime, endTime);
+  } catch (_) {
+    updatedSlots = timeSlots;
+  }
+
+  setState(() {
+    _loadingBranch = true;
+    selectedBranchId = branchId;
+    selectedSalonId = salonId;
+    selectedBranch = Map<String, dynamic>.from(branchData);
+    _branchStartTimeStr = startTime;
+    _branchEndTimeStr = endTime;
+    timeSlots = updatedSlots;
+  });
+
+  try {
+    await getTeamMembers(branchId);                 // fetch + cache team
+    await _saveBranchCache(branchId);               // ensure cache updated with new start/end + team
+    await getBookingsByDate(branchId, selectedDate); // (optional) always refresh bookings on branch change
+  } finally {
+    if (mounted) {
+      setState(() { _loadingBranch = false; });
     }
   }
+}
 
   // Function to handle date change (previous and next)
   Future<void> _setSelectedDate(DateTime date) async {
@@ -1671,9 +2291,8 @@ class _BookingsScreenState extends State<BookingsScreen> {
   }
 
   Future<void> changeDate(bool isNext) async {
-    final DateTime newDate = isNext
-        ? selectedDate.add(const Duration(days: 1))
-        : selectedDate.subtract(const Duration(days: 1));
+    final DateTime newDate =
+        isNext ? selectedDate.add(const Duration(days: 1)) : selectedDate.subtract(const Duration(days: 1));
 
     await _setSelectedDate(newDate);
   }
@@ -1684,7 +2303,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: AppColors.starColor,
-        title: Text(
+        title: const Text(
           'Bookings',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
@@ -1720,11 +2339,11 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
+                children: [
                   Icon(Icons.add, size: 18),
                   SizedBox(width: 6),
                   Text(
@@ -1742,10 +2361,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
           Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -1762,45 +2378,25 @@ class _BookingsScreenState extends State<BookingsScreen> {
                   decoration: const InputDecoration(
                     border: InputBorder.none, // removes the ugly underline
                   ),
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Colors.black54,
-                  ),
+                  icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
                   dropdownColor: Colors.white,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
                   hint: const Text(
                     "Select Salon Branch",
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
                   ),
                   value: selectedBranchId,
                   onChanged: (newValue) {
                     if (newValue != null) {
-                      final Map<String, dynamic> salon =
-                          Map<String, dynamic>.from(
-                            salons.firstWhere(
-                              (s) => (s['branches'] as List).any(
-                                (b) => b['id'] == newValue,
-                              ),
-                            ),
-                          );
-                      final Map<String, dynamic> branch =
-                          Map<String, dynamic>.from(
-                            (salon['branches'] as List).firstWhere(
-                                  (b) => b['id'] == newValue,
-                                )
-                                as Map,
-                          );
-                      onBranchChanged(
-                        branch['id'] as int,
-                        salon['id'] as int,
-                        branch,
+                      final Map<String, dynamic> salon = Map<String, dynamic>.from(
+                        salons.firstWhere(
+                          (s) => (s['branches'] as List).any((b) => b['id'] == newValue),
+                        ),
                       );
+                      final Map<String, dynamic> branch = Map<String, dynamic>.from(
+                        (salon['branches'] as List).firstWhere((b) => b['id'] == newValue) as Map,
+                      );
+                      onBranchChanged(branch['id'] as int, salon['id'] as int, branch);
                     }
                   },
                   items: salons.expand((salon) {
@@ -1810,11 +2406,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                         value: branch['id'],
                         child: Row(
                           children: [
-                            const Icon(
-                              Icons.store,
-                              color: Colors.blueGrey,
-                              size: 20,
-                            ),
+                            const Icon(Icons.store, color: Colors.blueGrey, size: 20),
                             const SizedBox(width: 8),
                             Text(branch['name']),
                           ],
@@ -1845,7 +2437,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
               Row(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.chevron_left),
+                    icon: const Icon(Icons.chevron_left),
                     onPressed: () => changeDate(false), // Previous date
                   ),
                   Flexible(
@@ -1853,28 +2445,19 @@ class _BookingsScreenState extends State<BookingsScreen> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: List.generate(7, (index) {
-                          DateTime date = selectedDate.add(
-                            Duration(days: index - 3),
-                          );
+                          DateTime date = selectedDate.add(Duration(days: index - 3));
                           bool isSelected = isSameDay(date, selectedDate);
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8.0,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
                             child: GestureDetector(
                               onTap: () {
                                 _setSelectedDate(date);
                               },
                               child: Container(
-                                padding: EdgeInsets.symmetric(
-                                  vertical: 8.0,
-                                  horizontal: 16.0,
-                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                                 decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? Colors.blue
-                                      : Colors.grey[200],
+                                  color: isSelected ? Colors.blue : Colors.grey[200],
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Column(
@@ -1884,17 +2467,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                       DateFormat('EEE').format(date),
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: isSelected
-                                            ? Colors.white
-                                            : Colors.black,
+                                        color: isSelected ? Colors.white : Colors.black,
                                       ),
                                     ),
                                     Text(
                                       DateFormat('d').format(date),
                                       style: TextStyle(
-                                        color: isSelected
-                                            ? Colors.white
-                                            : Colors.black,
+                                        color: isSelected ? Colors.white : Colors.black,
                                       ),
                                     ),
                                   ],
@@ -1907,7 +2486,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.chevron_right),
+                    icon: const Icon(Icons.chevron_right),
                     onPressed: () => changeDate(true), // Next date
                   ),
                 ],
@@ -1916,7 +2495,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
               const SizedBox(height: 16),
 
               // Timetable grid
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Expanded(
                 child: Container(
                   color: const Color(0xFFF7F4F1),
@@ -1935,10 +2514,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
                             ),
                             child: const Text(
                               'Time',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                             ),
                           ),
                           Expanded(
@@ -1948,36 +2524,26 @@ class _BookingsScreenState extends State<BookingsScreen> {
                               primary: false,
                               physics: const ClampingScrollPhysics(),
                               child: Row(
-                                children: List.generate(teamMembers.length, (
-                                  index,
-                                ) {
+                                children: List.generate(teamMembers.length, (index) {
                                   final m = teamMembers[index];
+                                  final fn = (m['firstName'] ?? '').toString();
+                                  final ln = (m['lastName'] ?? '').toString();
                                   return Container(
                                     width: 140,
                                     height: 44,
                                     alignment: Alignment.centerLeft,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12),
                                     decoration: BoxDecoration(
                                       color: Colors.grey.shade300,
                                       border: Border(
-                                        top: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                        right: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                        bottom: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
+                                        top: BorderSide(color: Colors.grey.shade300),
+                                        right: BorderSide(color: Colors.grey.shade300),
+                                        bottom: BorderSide(color: Colors.grey.shade300),
                                       ),
                                     ),
                                     child: Text(
-                                      '${m['firstName']} ${m['lastName']}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      '$fn $ln'.trim().isEmpty ? 'Staff' : '$fn $ln',
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   );
@@ -2000,16 +2566,11 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                   ? const SizedBox()
                                   : NotificationListener<ScrollNotification>(
                                       onNotification: (notif) {
-                                        if (notif.metrics.axis ==
-                                            Axis.vertical) {
-                                          if (!_syncingV &&
-                                              _gridVController.hasClients) {
+                                        if (notif.metrics.axis == Axis.vertical) {
+                                          if (!_syncingV && _gridVController.hasClients) {
                                             _syncingV = true;
-                                            final off =
-                                                _timeColumnVController.offset;
-                                            if ((_gridVController.offset - off)
-                                                    .abs() >
-                                                0.5) {
+                                            final off = _timeColumnVController.offset;
+                                            if ((_gridVController.offset - off).abs() > 0.5) {
                                               _gridVController.jumpTo(off);
                                             }
                                             _syncingV = false;
@@ -2021,35 +2582,23 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                         controller: _timeColumnVController,
                                         primary: false,
                                         physics: const ClampingScrollPhysics(),
-                                        dragStartBehavior:
-                                            DragStartBehavior.start,
+                                        dragStartBehavior: DragStartBehavior.start,
                                         itemExtent: 44,
                                         itemCount: timeSlots.length,
                                         itemBuilder: (context, i) {
                                           return Container(
                                             alignment: Alignment.centerLeft,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                            ),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8),
                                             decoration: BoxDecoration(
-                                              color: i % 2 == 0
-                                                  ? Colors.white
-                                                  : const Color(0xFFF0F0F0),
+                                              color: i % 2 == 0 ? Colors.white : const Color(0xFFF0F0F0),
                                               border: Border(
-                                                right: BorderSide(
-                                                  color: Colors.grey.shade300,
-                                                ),
-                                                bottom: BorderSide(
-                                                  color: Colors.grey.shade300,
-                                                ),
+                                                right: BorderSide(color: Colors.grey.shade300),
+                                                bottom: BorderSide(color: Colors.grey.shade300),
                                               ),
                                             ),
                                             child: Text(
                                               timeSlots[i],
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
+                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
                                             ),
                                           );
                                         },
@@ -2065,37 +2614,17 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                 primary: false,
                                 physics: const ClampingScrollPhysics(),
                                 child: SizedBox(
-                                  width:
-                                      (teamMembers.isEmpty
-                                          ? 1
-                                          : teamMembers.length) *
-                                      _colWidth,
+                                  width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
                                   child: timeSlots.isEmpty
-                                      ? const Center(
-                                          child: Text(
-                                            'No time slots available',
-                                          ),
-                                        )
-                                      : NotificationListener<
-                                          ScrollNotification
-                                        >(
+                                      ? const Center(child: Text('No time slots available'))
+                                      : NotificationListener<ScrollNotification>(
                                           onNotification: (notif) {
-                                            if (notif.metrics.axis ==
-                                                Axis.vertical) {
-                                              if (!_syncingV &&
-                                                  _timeColumnVController
-                                                      .hasClients) {
+                                            if (notif.metrics.axis == Axis.vertical) {
+                                              if (!_syncingV && _timeColumnVController.hasClients) {
                                                 _syncingV = true;
-                                                final off =
-                                                    _gridVController.offset;
-                                                if ((_timeColumnVController
-                                                                .offset -
-                                                            off)
-                                                        .abs() >
-                                                    0.5) {
-                                                  _timeColumnVController.jumpTo(
-                                                    off,
-                                                  );
+                                                final off = _gridVController.offset;
+                                                if ((_timeColumnVController.offset - off).abs() > 0.5) {
+                                                  _timeColumnVController.jumpTo(off);
                                                 }
                                                 _syncingV = false;
                                               }
@@ -2105,16 +2634,10 @@ class _BookingsScreenState extends State<BookingsScreen> {
                                           child: SingleChildScrollView(
                                             controller: _gridVController,
                                             primary: false,
-                                            physics:
-                                                const ClampingScrollPhysics(),
+                                            physics: const ClampingScrollPhysics(),
                                             child: SizedBox(
-                                              width:
-                                                  (teamMembers.isEmpty
-                                                      ? 1
-                                                      : teamMembers.length) *
-                                                  _colWidth,
-                                              height:
-                                                  timeSlots.length * _rowHeight,
+                                              width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
+                                              height: timeSlots.length * _rowHeight,
                                               child: Stack(
                                                 children: [
                                                   // Background grid
@@ -2172,15 +2695,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            title,
-            style: TextStyle(color: color, fontWeight: FontWeight.w600),
-          ),
+          Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(
-            '$count',
-            style: TextStyle(color: color, fontWeight: FontWeight.bold),
-          ),
+          Text('$count', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ],
       ),
     );

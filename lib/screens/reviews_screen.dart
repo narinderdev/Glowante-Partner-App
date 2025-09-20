@@ -127,7 +127,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[100],
       appBar: null,
       body: loading
           ? const Center(child: CircularProgressIndicator())
@@ -166,6 +166,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                       : Column(
                           children: appointmentReviews.map((appt) {
                             return Card(
+                              color: Colors.white,
                               margin: const EdgeInsets.only(bottom: 15),
                               child: Padding(
                                 padding: const EdgeInsets.all(12),
@@ -173,11 +174,11 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     // 📅 Appointment details
-                                    Text("📅 Appointment Details",
+                                    Text("Appointment Details",
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16)),
-                                    Text("Appointment ID: ${appt["appointmentId"]}"),
+                                    // Text("Appointment ID: ${appt["appointmentId"]}"),
                                     Text("Client: ${appt["client"]}"),
                                     Text("Start: ${dateFormat.format(appt["startAt"])}"),
                                     Text("End: ${dateFormat.format(appt["endAt"])}"),
@@ -206,7 +207,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
                                     // 🙍 Client review (branch → client)
                                     if (appt["clientReview"] != null) ...[
-                                      const Text("🙍 Review given by you",
+                                      const Text("Review given by you",
                                           style: TextStyle(
                                               fontWeight: FontWeight.w600)),
                                       Row(
@@ -229,7 +230,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
                                     // 👩‍🎨 Professional reviews
                                     if ((appt["professionalReviews"] as List).isNotEmpty) ...[
-                                      const Text("👩‍🎨 Your professional",
+                                      const Text("Your professional",
                                           style: TextStyle(
                                               fontWeight: FontWeight.w600)),
                                       ...(appt["professionalReviews"]
