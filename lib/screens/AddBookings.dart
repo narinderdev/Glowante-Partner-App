@@ -24,7 +24,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   // Keep existing names so your payload stays the same.
   String? _staffRole; // we'll sync this to the selected service name
   String? _professional; // selected professional name (or "Any")
-
+DateTime? _selectedDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
 
@@ -393,7 +393,23 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final dt = DateTime(now.year, now.month, now.day, t.hour, t.minute);
     return DateFormat('h:mm a').format(dt);
   }
-
+ String _formatDate(DateTime? d) {
+    if (d == null) return '';
+    return DateFormat('EEE, MMM d, yyyy').format(d);
+  }
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final initial = _selectedDate ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year, now.month, now.day), // today onwards
+      lastDate: DateTime(now.year + 3),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = picked);
+    }
+  }
   Future<void> _pickTime({required bool isStart}) async {
     final initialTime =
         (isStart ? _startTime : _endTime) ??
@@ -433,6 +449,11 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _showError('Please select Professional (or Any)');
       return;
     }
+      // NEW: validate date
+    if (_selectedDate == null) {
+      _showError('Please select a date');
+      return;
+    }
     if (_startTime == null || _endTime == null) {
       _showError('Please select start and end time');
       return;
@@ -443,6 +464,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       'phone': _mobileCtrl.text.trim(),
       'staffRole': _staffRole, // for backward compatibility
       'professional': _professional,
+       'date': _formatDate(_selectedDate),
+      'dateISO': _selectedDate!.toIso8601String(), // helpful for backend
       'startTime': _formatTimeOfDay(_startTime),
       'endTime': _formatTimeOfDay(_endTime),
       'services': _selectedServices,
@@ -465,17 +488,29 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     // - 0 matches: ['Any']
     // - 1 match: [singleName]
     // - >1 matches: ['Any', ...names]
-    final List<String> proItems = _loadingMembers
-        ? <String>[]
-        : (() {
-            final names = matched
-                .map((m) =>
-                    "${m['firstName']} ${m['lastName'] ?? ''}".trim())
-                .toList();
-            if (names.isEmpty) return <String>['Any'];
-            if (names.length == 1) return names;
-            return <String>['Any', ...names];
-          })();
+    // final List<String> proItems = _loadingMembers
+    //     ? <String>[]
+    //     : (() {
+    //         final names = matched
+    //             .map((m) =>
+    //                 "${m['firstName']} ${m['lastName'] ?? ''}".trim())
+    //             .toList();
+    //         if (names.isEmpty) return <String>['Any'];
+    //         if (names.length == 1) return names;
+    //         return <String>['Any', ...names];
+    //       })();
+
+final List<String> proItems = _loadingMembers
+    ? <String>[]
+    : (() {
+        final names = matched
+            .map((m) =>
+                "${m['firstName']} ${m['lastName'] ?? ''}".trim())
+            .toList();
+
+        // Always include "Any" at the top
+        return <String>['Any', ...names];
+      })();
 
     final proHint = _loadingMembers
         ? 'Loading...'
@@ -646,7 +681,17 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 ],
 
                 const SizedBox(height: 20),
-
+// NEW: Date picker (placed above Start/End Time)
+                const _FieldLabel('Date *'),
+                InkWell(
+                  onTap: _pickDate,
+                  child: _TimeBox(
+                    text: _selectedDate == null
+                        ? 'Select date'
+                        : _formatDate(_selectedDate),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 // Start / End time
                 Row(
                   children: [
