@@ -42,6 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // ---------------------- LOGOUT (with loader inside button) ----------------------
   void _showLogoutModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -49,80 +50,187 @@ class _ProfileScreenState extends State<ProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (BuildContext context) {
-        return Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Logout',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Are you sure you want to log out?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.black87),
-              ),
-              const SizedBox(height: 20),
-              Row(
+        bool isLoggingOut = false;
+
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            Future<void> _handleLogout() async {
+              if (isLoggingOut) return;
+              setSheetState(() => isLoggingOut = true);
+
+              final success = await apiService.logoutUserAPI();
+
+              if (!mounted) return;
+              setSheetState(() => isLoggingOut = false);
+
+              Navigator.pop(ctx); // close bottom sheet
+
+              if (success) {
+                if (!mounted) return;
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => LoginScreen()),
+                  (route) => false,
+                );
+              } else {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Logout failed. Please try again.')),
+                );
+              }
+            }
+
+            return Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text('Cancel'),
+                  const Text(
+                    'Logout',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        final success = await apiService.logoutUserAPI();
-                        Navigator.pop(context);
-                        if (success) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (_) => LoginScreen()),
-                            (route) => false,
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Logout failed. Please try again.'),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Are you sure you want to log out?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: isLoggingOut ? null : () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text('Cancel'),
                         ),
                       ),
-                      child: const Text('Yes, Log out'),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isLoggingOut ? null : _handleLogout,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: isLoggingOut
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : const Text('Yes, Log out'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
+  // ---------------------- DELETE ACCOUNT (with loader inside button) ----------------------
+  void _showDeleteAccountDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        bool isDeleting = false;
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            Future<void> _handleDelete() async {
+              if (isDeleting) return;
+              setDialogState(() => isDeleting = true);
+
+              final success = await apiService.deleteUserAPI();
+
+              if (!mounted) return;
+              setDialogState(() => isDeleting = false);
+
+              if (success) {
+                // Close dialog before navigation
+                Navigator.pop(ctx);
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => LoginScreen()),
+                  (route) => false,
+                );
+              } else {
+                // Keep dialog open to let the user retry or cancel
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Failed to delete account. Please try again.")),
+                );
+              }
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text(
+                "Delete Account",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+              content: const Text(
+                "Are you sure you want to permanently delete your account? This action cannot be undone.",
+                style: TextStyle(fontSize: 15),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                  child: const Text("Cancel"),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: isDeleting ? null : _handleDelete,
+                  child: isDeleting
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Text("Yes, Delete"),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ---------------------- UI ----------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -204,19 +312,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black87),
                   title: const Text("Privacy Policy"),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () => _openLink(
-                    "https://5da796f8389e.ngrok-free.app/privacy-policy",
-                  ),
+                  onTap: () => _openLink("https://dev.glowante.com/privacy-policy"),
                 ),
                 const Divider(indent: 16, endIndent: 16),
-
                 ListTile(
                   leading: const Icon(Icons.policy_outlined, color: Colors.black87),
                   title: const Text("Terms & Conditions"),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () => _openLink(
-                    "https://5da796f8389e.ngrok-free.app/terms-of-services",
-                  ),
+                  onTap: () => _openLink("https://dev.glowante.com/terms-of-services"),
                 ),
                 const Divider(indent: 16, endIndent: 16),
               ],
@@ -234,6 +337,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label: const Text("Logout", style: TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Delete account button (red)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showDeleteAccountDialog(context),
+                icon: const Icon(Icons.delete_forever),
+                label: const Text("Delete Account", style: TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(

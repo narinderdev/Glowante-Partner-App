@@ -883,7 +883,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'package:bloc_onboarding/utils/colors.dart';
 import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import '../Viewmodels/AddCategory.dart';
@@ -1120,13 +1120,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
     final onBg = theme.colorScheme.onSurface;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       appBar: AppBar(
-        backgroundColor: Colors.orange,
+        backgroundColor: AppColors.white,
        title: const Text(
       'My Catalogue',
       style: TextStyle(
-        color: Colors.white,        // white text
+        color: Colors.black,        // white text
         fontWeight: FontWeight.w800 // bold
       ),
     ),
@@ -1166,13 +1166,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
                       const SizedBox(height: 20),
                       _SectionHeader(
                         title: 'Categories',
-                        trailing: _selectedBranch != null
-                            ? _SecondaryAction(
-                                icon: Icons.add_rounded,
-                                label: 'Add Category',
-                                onTap: () => _showAddCategorySheet(),
-                              )
-                            : null,
+                        // trailing: _selectedBranch != null
+                        //     ? _SecondaryAction(
+                        //         icon: Icons.add_rounded,
+                        //         label: 'Add Category',
+                        //         onTap: () => _showAddCategorySheet(),
+                        //       )
+                        //     : null,
                       ),
                       const SizedBox(height: 8),
                       if (_selectedBranch == null)

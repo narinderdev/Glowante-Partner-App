@@ -7,6 +7,7 @@ import 'AddBookings.dart'; // Add Booking screen
 import '../utils/colors.dart'; // Custom colors
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert'; // NEW
+import 'package:dotted_border/dotted_border.dart';
 
 class BookingsScreen extends StatefulWidget {
   @override
@@ -33,7 +34,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   String? _branchEndTimeStr; // e.g. "20:00:00"
   bool _loadingBranch = false;
   bool _loadingDate = false;
-
+ DateTime _weekAnchor = DateTime.now();
   bool get _isFetchingData => isLoading || _loadingBranch || _loadingDate;
 
   // Layout constants for the grid
@@ -61,6 +62,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   @override
   void initState() {
     super.initState();
+  _weekAnchor = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
      _bootstrap();
     getSalonListApi();
     _loadCachedSelection();
@@ -121,7 +123,23 @@ class _BookingsScreenState extends State<BookingsScreen> {
       }
     });
   }
-  
+DateTime _startOfWeek(DateTime d, {bool mondayStart = true}) {
+  final wd = d.weekday; // 1=Mon ... 7=Sun
+  final diff = mondayStart ? (wd - 1) : (wd % 7);
+  final onlyDate = DateTime(d.year, d.month, d.day);
+  return onlyDate.subtract(Duration(days: diff));
+}
+
+void changeWeek(bool isNext) {
+  setState(() {
+    _weekAnchor = isNext
+        ? _weekAnchor.add(const Duration(days: 7))
+        : _weekAnchor.subtract(const Duration(days: 7));
+  });
+}
+
+
+
   Future<void> _bootstrap() async {
   // 1) Load saved selection (branch/salon ids)
   await _loadCachedSelection();
@@ -1795,7 +1813,8 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+      // backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -1991,9 +2010,18 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
 
             return FractionallySizedBox(
               heightFactor: 0.42,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
+            child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Main content
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -2005,10 +2033,10 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          onPressed: () => Navigator.pop(context),
-                        ),
+                        // IconButton(
+                        //   icon: const Icon(Icons.close),
+                        //   onPressed: () => Navigator.pop(context),
+                        // ),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -2100,20 +2128,40 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                     ],
 
                     const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: const Text('Close'),
-                      ),
-                    ),
+                    // SizedBox(
+                    //   width: double.infinity,
+                    //   child: OutlinedButton(
+                    //     onPressed: () => Navigator.pop(context),
+                    //     style: OutlinedButton.styleFrom(
+                    //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    //     ),
+                    //     child: const Text('Close'),
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
-            );
+              Positioned(
+                  top: -50,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(ctx).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: const BoxDecoration(
+                          color: Colors.black,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+            ),
+            ));
           },
         );
       },
@@ -2302,59 +2350,79 @@ Future<void> onBranchChanged(
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.starColor,
+        backgroundColor: AppColors.white,
         title: const Text(
           'Bookings',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
         ),
         centerTitle: false,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: TextButton(
-              onPressed: () async {
-                if (selectedBranchId == null || selectedSalonId == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please select a branch')),
-                  );
-                  return;
-                }
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => AddBookingScreen(
-                      salonId: selectedSalonId,
-                      branchId: selectedBranchId,
-                    ),
-                  ),
-                );
+       actions: [
+  Padding(
+    padding: const EdgeInsets.only(right: 16.0),
+    child: OutlinedButton(
+      onPressed: () async {
+        if (selectedBranchId == null || selectedSalonId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a branch')),
+          );
+          return;
+        }
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddBookingScreen(
+              salonId: selectedSalonId,
+              branchId: selectedBranchId,
+            ),
+          ),
+        );
 
-                if (result != null && selectedBranchId != null) {
-                  getBookingsByDate(selectedBranchId!, selectedDate);
-                }
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.getStartedButton,
-                foregroundColor: AppColors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.add, size: 18),
-                  SizedBox(width: 6),
-                  Text(
-                    'Add Booking',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+        if (result != null && selectedBranchId != null) {
+          getBookingsByDate(selectedBranchId!, selectedDate);
+        }
+      },
+      style: OutlinedButton.styleFrom(
+        backgroundColor: AppColors.white,
+        side: const BorderSide(
+          color: Colors.grey,   // ✅ Border color
+          width: 1.5,
+          style: BorderStyle.solid, // Needed for compatibility
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24), // ✅ more circular
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      ).copyWith(
+        side: MaterialStateProperty.all(
+          const BorderSide(
+            color: AppColors.grey, // ✅ Border color
+            width: 0.5,
+            style: BorderStyle.solid,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            "assets/images/plusIcn.png",
+            width: 18,
+            height: 18,
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'Add Booking',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.grey,
             ),
           ),
         ],
+      ),
+    ),
+  ),
+],
+
       ),
       body: Stack(
         children: [
@@ -2438,56 +2506,71 @@ Future<void> onBranchChanged(
                 children: [
                   IconButton(
                     icon: const Icon(Icons.chevron_left),
-                    onPressed: () => changeDate(false), // Previous date
+                    onPressed: () => changeWeek(false), // Previous date
                   ),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: List.generate(7, (index) {
-                          DateTime date = selectedDate.add(Duration(days: index - 3));
-                          bool isSelected = isSameDay(date, selectedDate);
+              Flexible(
+  child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: Row(
+      children: List.generate(7, (index) {
+        // OLD: final DateTime weekStart = _startOfWeek(_weekAnchor, mondayStart: true);
+        // NEW:
+        final DateTime weekStart = DateTime(_weekAnchor.year, _weekAnchor.month, _weekAnchor.day);
+        final DateTime date = weekStart.add(Duration(days: index));
+        final bool isSelected = isSameDay(date, selectedDate);
+final now = DateTime.now();
+final bool isToday = isSameDay(date, DateTime(now.year, now.month, now.day));
 
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                            child: GestureDetector(
-                              onTap: () {
-                                _setSelectedDate(date);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-                                decoration: BoxDecoration(
-                                  color: isSelected ? Colors.blue : Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      DateFormat('EEE').format(date),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: isSelected ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                    Text(
-                                      DateFormat('d').format(date),
-                                      style: TextStyle(
-                                        color: isSelected ? Colors.white : Colors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
+final Color bgColor = isSelected
+    ? Colors.blue
+    : (isToday ? Colors.blue.withOpacity(0.10) : Colors.grey[200]!);
+
+final Color textColor = isSelected
+    ? Colors.white
+    : (isToday ? Colors.blue : Colors.black);
+
+final Border border = isToday
+    ? Border.all(color: Colors.blue, width: 1.5)
+    : Border.all(color: Colors.transparent);
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          child: GestureDetector(
+            onTap: () => _setSelectedDate(date),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+              decoration: BoxDecoration(
+               color: bgColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    DateFormat('EEE').format(date),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : Colors.black,
                     ),
                   ),
+                  Text(
+                    DateFormat('d').format(date),
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
+    ),
+  ),
+),
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
-                    onPressed: () => changeDate(true), // Next date
+                    onPressed: () => changeWeek(true), // Next date
                   ),
                 ],
               ),

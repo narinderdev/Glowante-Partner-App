@@ -1,5 +1,216 @@
+// import 'package:flutter/material.dart';
+// import '../utils/api_service.dart';  // Make sure you have the ApiService class in a separate file
+
+// class ServicesTab extends StatefulWidget {
+//   final int branchId;
+//   const ServicesTab({Key? key, required this.branchId}) : super(key: key);
+
+//   @override
+//   State<ServicesTab> createState() => _ServicesTabState();
+// }
+
+// class _ServicesTabState extends State<ServicesTab> {
+//   bool isLoading = true;
+//   Map<String, dynamic> serviceData = {};
+//   int? selectedCategoryId;
+//   int? selectedSubCategoryId;
+//   List<dynamic> subCategories = [];
+//   List<dynamic> selectedSubCategoryServices = [];
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     fetchServices();
+//   }
+
+//   Future<void> fetchServices() async {
+//     try {
+//       final data = await ApiService().getBranchServiceDetail(widget.branchId);
+//       setState(() {
+//         serviceData = data;
+//         isLoading = false;
+//         if ((data['categories'] as List?)?.isNotEmpty ?? false) {
+//           selectedCategoryId = data['categories'][0]['id'];
+//           subCategories = data['categories'][0]['subCategories'] ?? [];
+//           if (subCategories.isNotEmpty) {
+//             selectedSubCategoryId = subCategories[0]['id'];
+//             selectedSubCategoryServices = subCategories[0]['services'] ?? [];
+//           }
+//         }
+//       });
+//     } catch (e) {
+//       setState(() => isLoading = false);
+//       debugPrint('Error: $e');
+//     }
+//   }
+// @override
+// Widget build(BuildContext context) {
+//   if (isLoading) {
+//     return const Center(child: CircularProgressIndicator());
+//   }
+
+//   // Check if there are any categories
+//   final categories = (serviceData['categories'] as List?) ?? [];
+//   if (categories.isEmpty) {
+//     return const Center(child: Text('No service category found'));
+//   }
+//   // Inside build method after data loaded
+// return SingleChildScrollView(
+//   padding: const EdgeInsets.only(bottom: 80),
+//   child: Column(
+//     crossAxisAlignment: CrossAxisAlignment.start,
+//     children: [
+//       // Categories
+//       Padding(
+//         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+//         child: Text('Categories',
+//             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+//       ),
+//       SizedBox(
+//         height: 50,
+//         child: ListView.separated(
+//           padding: const EdgeInsets.symmetric(horizontal: 16),
+//           scrollDirection: Axis.horizontal,
+//           itemCount: categories.length,
+//           separatorBuilder: (_, __) => const SizedBox(width: 8),
+//           itemBuilder: (context, index) {
+//             final category = categories[index];
+//             final bool selected = selectedCategoryId == category['id'];
+//             return ChoiceChip(
+//               label: Text('${category['displayName']}'),
+//               selected: selected,
+//               onSelected: (_) {
+//                 setState(() {
+//                   selectedCategoryId = category['id'];
+//                   subCategories = category['subCategories'] ?? [];
+//                   if (subCategories.isNotEmpty) {
+//                     selectedSubCategoryId = subCategories[0]['id'];
+//                     selectedSubCategoryServices = subCategories[0]['services'] ?? [];
+//                   } else {
+//                     selectedSubCategoryId = null;
+//                     selectedSubCategoryServices = [];
+//                   }
+//                 });
+//               },
+//               selectedColor: Colors.orange,
+//               backgroundColor: Colors.grey.shade200,
+//               checkmarkColor: Colors.white,
+//               labelStyle: TextStyle(
+//                 color: selected ? Colors.white : Colors.black87,
+//                 fontSize: 12,
+//               ),
+//             );
+//           },
+//         ),
+//       ),
+
+//       if (subCategories.isNotEmpty) ...[
+//         Padding(
+//           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+//           child: Text('Subcategories',
+//               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+//         ),
+//         SizedBox(
+//           height: 50,
+//           child: ListView.separated(
+//             padding: const EdgeInsets.symmetric(horizontal: 16),
+//             scrollDirection: Axis.horizontal,
+//             itemCount: subCategories.length,
+//             separatorBuilder: (_, __) => const SizedBox(width: 8),
+//             itemBuilder: (context, index) {
+//               final subCategory = subCategories[index];
+//               final bool selected = selectedSubCategoryId == subCategory['id'];
+//               return ChoiceChip(
+//                 label: Text('${subCategory['displayName']}'),
+//                 selected: selected,
+//                 onSelected: (_) {
+//                   setState(() {
+//                     selectedSubCategoryId = subCategory['id'];
+//                     selectedSubCategoryServices = subCategory['services'] ?? [];
+//                   });
+//                 },
+//                 selectedColor: Colors.orange,
+//                 checkmarkColor: Colors.white,
+//                 backgroundColor: Colors.grey.shade200,
+//                 labelStyle: TextStyle(
+//                   color: selected ? Colors.white : Colors.black87,
+//                   fontSize: 12,
+//                 ),
+//               );
+//             },
+//           ),
+//         ),
+//       ],
+
+//       const SizedBox(height: 16),
+
+//       // Services list
+//       Padding(
+//         padding: const EdgeInsets.symmetric(horizontal: 16),
+//         child: selectedSubCategoryServices.isNotEmpty
+//             ? Column(
+//                 children: selectedSubCategoryServices.map<Widget>((service) {
+//                   return Card(
+//                     margin: const EdgeInsets.symmetric(vertical: 6),
+//                     shape: RoundedRectangleBorder(
+//                         borderRadius: BorderRadius.circular(12)),
+//                     elevation: 1,
+//                     child: Padding(
+//                       padding: const EdgeInsets.all(12.0),
+//                       child: Row(
+//                         children: [
+//                           // Name + description
+//                           Expanded(
+//                             child: Column(
+//                               crossAxisAlignment: CrossAxisAlignment.start,
+//                               children: [
+//                                 Text('${service['displayName']}',
+//                                     style: const TextStyle(
+//                                         fontSize: 14,
+//                                         fontWeight: FontWeight.bold)),
+//                                 if ((service['description'] ?? '').isNotEmpty)
+//                                   Text('${service['description']}',
+//                                       style: TextStyle(
+//                                           fontSize: 12,
+//                                           color: Colors.grey.shade600)),
+//                               ],
+//                             ),
+//                           ),
+
+//                           // Price & Duration
+//                           Column(
+//                             crossAxisAlignment: CrossAxisAlignment.end,
+//                             children: [
+//                              Text('₹${service['priceMinor']}',
+//     style: const TextStyle(
+//         fontWeight: FontWeight.bold),
+// ),
+
+//                               Text('${service['durationMin']} min',
+//                                   style: const TextStyle(
+//                                       fontSize: 12, color: Colors.grey)),
+//                             ],
+//                           ),
+//                         ],
+//                       ),
+//                     ),
+//                   );
+//                 }).toList(),
+//               )
+//             : const Center(
+//                 child: Padding(
+//                 padding: EdgeInsets.symmetric(vertical: 40),
+//                 child: Text('No services available'),
+//               )),
+//       ),
+//     ],
+//   ),
+// );
+//   }
+// }
+
 import 'package:flutter/material.dart';
-import '../utils/api_service.dart';  // Make sure you have the ApiService class in a separate file
+import '../utils/api_service.dart'; // your ApiService (with updateBCategory, deleteBCategory, updateBSubCategory, deleteBSubCategory, updateBService, deleteBService)
 
 class ServicesTab extends StatefulWidget {
   final int branchId;
@@ -11,6 +222,8 @@ class ServicesTab extends StatefulWidget {
 
 class _ServicesTabState extends State<ServicesTab> {
   bool isLoading = true;
+  bool _busy = false; // <-- overlay loader flag
+
   Map<String, dynamic> serviceData = {};
   int? selectedCategoryId;
   int? selectedSubCategoryId;
@@ -23,15 +236,32 @@ class _ServicesTabState extends State<ServicesTab> {
     fetchServices();
   }
 
+  // ---------- Loader helpers ----------
+  void _setBusy(bool v) {
+    if (!mounted) return;
+    setState(() => _busy = v);
+  }
+
+  Future<T> _withLoader<T>(Future<T> Function() fn) async {
+    _setBusy(true);
+    try {
+      return await fn();
+    } finally {
+      _setBusy(false);
+    }
+  }
+  // ------------------------------------
+
   Future<void> fetchServices() async {
     try {
       final data = await ApiService().getBranchServiceDetail(widget.branchId);
       setState(() {
         serviceData = data;
         isLoading = false;
-        if ((data['categories'] as List?)?.isNotEmpty ?? false) {
-          selectedCategoryId = data['categories'][0]['id'];
-          subCategories = data['categories'][0]['subCategories'] ?? [];
+        final categories = _categories;
+        if (categories.isNotEmpty) {
+          selectedCategoryId = categories[0]['id'];
+          subCategories = categories[0]['subCategories'] ?? [];
           if (subCategories.isNotEmpty) {
             selectedSubCategoryId = subCategories[0]['id'];
             selectedSubCategoryServices = subCategories[0]['services'] ?? [];
@@ -41,170 +271,900 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       setState(() => isLoading = false);
       debugPrint('Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load services: $e')),
+        );
+      }
     }
   }
-@override
-Widget build(BuildContext context) {
-  if (isLoading) {
-    return const Center(child: CircularProgressIndicator());
-  }
 
-  // Check if there are any categories
-  final categories = (serviceData['categories'] as List?) ?? [];
-  if (categories.isEmpty) {
-    return const Center(child: Text('No service category found'));
-  }
-  // Inside build method after data loaded
-return SingleChildScrollView(
-  padding: const EdgeInsets.only(bottom: 80),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      // Categories
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
-        child: Text('Categories',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-      ),
-      SizedBox(
-        height: 50,
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          scrollDirection: Axis.horizontal,
-          itemCount: categories.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            final bool selected = selectedCategoryId == category['id'];
-            return ChoiceChip(
-              label: Text('${category['displayName']}'),
-              selected: selected,
-              onSelected: (_) {
-                setState(() {
-                  selectedCategoryId = category['id'];
-                  subCategories = category['subCategories'] ?? [];
-                  if (subCategories.isNotEmpty) {
-                    selectedSubCategoryId = subCategories[0]['id'];
-                    selectedSubCategoryServices = subCategories[0]['services'] ?? [];
-                  } else {
-                    selectedSubCategoryId = null;
-                    selectedSubCategoryServices = [];
-                  }
-                });
-              },
-              selectedColor: Colors.orange,
-              backgroundColor: Colors.grey.shade200,
-              checkmarkColor: Colors.white,
-              labelStyle: TextStyle(
-                color: selected ? Colors.white : Colors.black87,
-                fontSize: 12,
-              ),
-            );
-          },
-        ),
-      ),
+  List<dynamic> get _categories =>
+      (serviceData['categories'] as List?)?.toList() ?? [];
 
-      if (subCategories.isNotEmpty) ...[
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Text('Subcategories',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        ),
-        SizedBox(
-          height: 50,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: subCategories.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final subCategory = subCategories[index];
-              final bool selected = selectedSubCategoryId == subCategory['id'];
-              return ChoiceChip(
-                label: Text('${subCategory['displayName']}'),
-                selected: selected,
-                onSelected: (_) {
-                  setState(() {
-                    selectedSubCategoryId = subCategory['id'];
-                    selectedSubCategoryServices = subCategory['services'] ?? [];
-                  });
-                },
-                selectedColor: Colors.orange,
-                checkmarkColor: Colors.white,
-                backgroundColor: Colors.grey.shade200,
-                labelStyle: TextStyle(
-                  color: selected ? Colors.white : Colors.black87,
-                  fontSize: 12,
+  int _selectedCategoryIndex() =>
+      _categories.indexWhere((c) => c['id'] == selectedCategoryId);
+
+  int _selectedSubCategoryIndex() =>
+      subCategories.indexWhere((sc) => sc['id'] == selectedSubCategoryId);
+
+  // -------------------- CATEGORY: EDIT / DELETE --------------------
+  Future<void> _onEditCategory() async {
+    if (selectedCategoryId == null) return;
+    final idx = _selectedCategoryIndex();
+    if (idx == -1) return;
+
+    final current = _categories[idx];
+    final nameCtrl =
+        TextEditingController(text: current['displayName']?.toString() ?? '');
+
+    final updatedName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                const Text('Edit category',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close))
+              ]),
+              const SizedBox(height: 8),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                  isDense: true,
                 ),
-              );
-            },
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Spacer(),
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel')),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () =>
+                        Navigator.pop(ctx, nameCtrl.text.trim()),
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
-      ],
-
-      const SizedBox(height: 16),
-
-      // Services list
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: selectedSubCategoryServices.isNotEmpty
-            ? Column(
-                children: selectedSubCategoryServices.map<Widget>((service) {
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    elevation: 1,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        children: [
-                          // Name + description
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('${service['displayName']}',
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold)),
-                                if ((service['description'] ?? '').isNotEmpty)
-                                  Text('${service['description']}',
-                                      style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600)),
-                              ],
-                            ),
-                          ),
-
-                          // Price & Duration
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                             Text('₹${service['priceMinor']}',
-    style: const TextStyle(
-        fontWeight: FontWeight.bold),
-),
-
-                              Text('${service['durationMin']} min',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.grey)),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
-              )
-            : const Center(
-                child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: Text('No services available'),
-              )),
       ),
-    ],
-  ),
-);
+    );
+
+    if (updatedName == null || updatedName.isEmpty) return;
+
+    try {
+      final res = await _withLoader(() => ApiService.updateBCategoryPatch(
+            widget.branchId,
+            selectedCategoryId!,
+            {"displayName": updatedName}, // isActive/sortOrder handled server-side
+          ));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        setState(() {
+          final categories = _categories;
+          categories[idx] = {
+            ...categories[idx],
+            "displayName": updatedName,
+            "isActive": true,
+            "sortOrder": 200,
+          };
+          serviceData['categories'] = categories;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Updated category "$updatedName"')),
+          );
+        }
+      } else {
+        throw Exception('Server responded ${res.statusCode}: ${res.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Update failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _onDeleteCategory() async {
+    if (selectedCategoryId == null) return;
+    final idx = _selectedCategoryIndex();
+    if (idx == -1) return;
+
+    final current = _categories[idx];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete category?'),
+        content: Text(
+            'Are you sure you want to delete "${current['displayName']}" and its subcategories/services from this branch?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton.tonal(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final res = await _withLoader(() =>
+          ApiService.deleteBCategory(widget.branchId, selectedCategoryId!));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        setState(() {
+          final categories = _categories;
+          categories.removeAt(idx);
+          serviceData['categories'] = categories;
+
+          if (categories.isEmpty) {
+            selectedCategoryId = null;
+            subCategories = [];
+            selectedSubCategoryId = null;
+            selectedSubCategoryServices = [];
+          } else {
+            selectedCategoryId = categories.first['id'];
+            subCategories = categories.first['subCategories'] ?? [];
+            if (subCategories.isNotEmpty) {
+              selectedSubCategoryId = subCategories.first['id'];
+              selectedSubCategoryServices =
+                  subCategories.first['services'] ?? [];
+            } else {
+              selectedSubCategoryId = null;
+              selectedSubCategoryServices = [];
+            }
+          }
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Deleted "${current['displayName']}"')),
+          );
+        }
+      } else {
+        throw Exception('Server responded ${res.statusCode}: ${res.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      }
+    }
+  }
+
+  // -------------------- SUBCATEGORY: EDIT / DELETE --------------------
+  Future<void> _onDeleteSubCategory() async {
+    if (selectedSubCategoryId == null) return;
+    final scIdx = _selectedSubCategoryIndex();
+    if (scIdx == -1) return;
+
+    final current = subCategories[scIdx];
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete subcategory?'),
+        content: Text(
+            'Are you sure you want to delete "${current['displayName']}" and its services from this branch?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton.tonal(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final res = await _withLoader(() =>
+          ApiService.deleteBSubCategory(widget.branchId, selectedSubCategoryId!));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        setState(() {
+          subCategories.removeAt(scIdx);
+          // reflect in categories tree
+          final cIdx = _selectedCategoryIndex();
+          if (cIdx != -1) {
+            final cats = _categories;
+            cats[cIdx]['subCategories'] = subCategories;
+            serviceData['categories'] = cats;
+          }
+
+          if (subCategories.isEmpty) {
+            selectedSubCategoryId = null;
+            selectedSubCategoryServices = [];
+          } else {
+            selectedSubCategoryId = subCategories.first['id'];
+            selectedSubCategoryServices =
+                subCategories.first['services'] ?? [];
+          }
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Deleted "${current['displayName']}"')),
+          );
+        }
+      } else {
+        throw Exception('Server responded ${res.statusCode}: ${res.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      }
+    }
+  }
+
+  Future<void> _onEditSubCategory() async {
+    if (selectedSubCategoryId == null) return;
+    final scIdx = _selectedSubCategoryIndex();
+    if (scIdx == -1) return;
+
+    final current = subCategories[scIdx];
+    final nameCtrl = TextEditingController(
+      text: current['displayName']?.toString() ?? '',
+    );
+
+    final updatedName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                const Text('Edit subcategory',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close)),
+              ]),
+              const SizedBox(height: 8),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  const Spacer(),
+                  TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Cancel')),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: () =>
+                        Navigator.pop(ctx, nameCtrl.text.trim()),
+                    child: const Text('Save'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (updatedName == null || updatedName.isEmpty) return;
+
+    try {
+      final res = await _withLoader(() => ApiService.updateBSubCategoryPatch(
+            widget.branchId,
+            selectedSubCategoryId!,
+            {
+              "displayName": updatedName,
+              "isActive": true,
+              "sortOrder": 200,
+            },
+          ));
+
+      if ((res.statusCode >= 200 && res.statusCode < 300)) {
+        setState(() {
+          subCategories[scIdx] = {
+            ...subCategories[scIdx],
+            "displayName": updatedName,
+            "isActive": true,
+            "sortOrder": 200,
+          };
+          final cIdx = _selectedCategoryIndex();
+          if (cIdx != -1) {
+            final cats = _categories;
+            cats[cIdx]['subCategories'] = subCategories;
+            serviceData['categories'] = cats;
+          }
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Updated subcategory "$updatedName"')),
+          );
+        }
+      } else {
+        throw Exception('Server responded ${res.statusCode}: ${res.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e')),
+        );
+      }
+    }
+  }
+
+  // -------------------- SERVICE: EDIT / DELETE --------------------
+  Future<void> _onDeleteService(Map<String, dynamic> service) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete service?'),
+        content: Text(
+          'Are you sure you want to delete "${service['displayName']}"?',
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final res = await _withLoader(
+          () => ApiService.deleteBService(widget.branchId, service['id']));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        setState(() {
+          selectedSubCategoryServices
+              .removeWhere((s) => s['id'] == service['id']);
+          final scIndex = _selectedSubCategoryIndex();
+          if (scIndex != -1) {
+            final list =
+                (subCategories[scIndex]['services'] as List?) ?? [];
+            list.removeWhere((s) => s['id'] == service['id']);
+            subCategories[scIndex]['services'] = list;
+
+            final cIdx = _selectedCategoryIndex();
+            if (cIdx != -1) {
+              final cats = _categories;
+              cats[cIdx]['subCategories'] = subCategories;
+              serviceData['categories'] = cats;
+            }
+          }
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Deleted "${service['displayName']}"')),
+          );
+        }
+      } else {
+        throw Exception('Server responded ${res.statusCode}: ${res.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Delete failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _onEditService(Map<String, dynamic> service) async {
+    final nameCtrl =
+        TextEditingController(text: service['displayName']?.toString() ?? '');
+    final priceCtrl =
+        TextEditingController(text: service['priceMinor']?.toString() ?? '');
+    final durationCtrl =
+        TextEditingController(text: service['durationMin']?.toString() ?? '');
+    final descCtrl =
+        TextEditingController(text: service['description']?.toString() ?? '');
+
+    final updated = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => Dialog(
+        insetPadding:
+            const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                const Text('Edit service',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close)),
+              ]),
+              const SizedBox(height: 8),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(children: [
+                Expanded(
+                  child: TextField(
+                    controller: priceCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Price (₹, minor)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      prefixText: '₹',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: durationCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Duration (min)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Description',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(children: [
+                const Spacer(),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel')),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () {
+                    final price = int.tryParse(priceCtrl.text.trim());
+                    final dur = int.tryParse(durationCtrl.text.trim());
+                    if (price == null || dur == null) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(
+                            content: Text('Enter valid price & duration')),
+                      );
+                      return;
+                    }
+                    Navigator.pop(ctx, {
+                      "displayName": nameCtrl.text.trim(),
+                      "description": descCtrl.text.trim(),
+                      "durationMin": dur,
+                      "priceMinor": price,
+                      "priceType": "fixed",
+                      "isActive": true,
+                    });
+                  },
+                  child: const Text('Save'),
+                )
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (updated == null) return;
+
+    try {
+      final res = await _withLoader(() => ApiService.updateBServicePatch(
+            widget.branchId,
+            service['id'],
+            updated,
+          ));
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        setState(() {
+          // update in current list
+          final idx = selectedSubCategoryServices
+              .indexWhere((s) => s['id'] == service['id']);
+          if (idx != -1) {
+            selectedSubCategoryServices[idx] = {
+              ...selectedSubCategoryServices[idx],
+              ...updated,
+            };
+          }
+          // reflect in subcategory tree
+          final scIndex = _selectedSubCategoryIndex();
+          if (scIndex != -1) {
+            final list =
+                (subCategories[scIndex]['services'] as List?) ?? [];
+            final li = list.indexWhere((s) => s['id'] == service['id']);
+            if (li != -1) list[li] = {...list[li], ...updated};
+            subCategories[scIndex]['services'] = list;
+
+            final cIdx = _selectedCategoryIndex();
+            if (cIdx != -1) {
+              final cats = _categories;
+              cats[cIdx]['subCategories'] = subCategories;
+              serviceData['categories'] = cats;
+            }
+          }
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Updated "${updated['displayName']}"')),
+          );
+        }
+      } else {
+        throw Exception('Server responded ${res.statusCode}: ${res.body}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e')),
+        );
+      }
+    }
+  }
+
+  // -------------------- BUILD --------------------
+  @override
+  Widget build(BuildContext context) {
+    Widget body;
+
+    if (isLoading) {
+      body = const Center(child: CircularProgressIndicator());
+    } else {
+      final categories = _categories;
+      if (categories.isEmpty) {
+        body = const Center(child: Text('No service category found'));
+      } else {
+        body = SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 80),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row: Categories + actions for selected category
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
+                child: Row(
+                  children: [
+                    const Text('Categories',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    if (selectedCategoryId != null) ...[
+                      Tooltip(
+                        message: 'Edit selected category',
+                        child: IconButton(
+                          onPressed: _onEditCategory,
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          visualDensity:
+                              const VisualDensity(horizontal: -4, vertical: -4),
+                          splashRadius: 18,
+                        ),
+                      ),
+                      Tooltip(
+                        message: 'Delete selected category',
+                        child: IconButton(
+                          onPressed: _onDeleteCategory,
+                          icon: const Icon(Icons.delete_outline, size: 20),
+                          color: Colors.redAccent,
+                          visualDensity:
+                              const VisualDensity(horizontal: -4, vertical: -4),
+                          splashRadius: 18,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // Category chips
+              SizedBox(
+                height: 50,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: categories.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) {
+                    final category = categories[index];
+                    final bool selected =
+                        selectedCategoryId == category['id'];
+                    return ChoiceChip(
+                      label: Text('${category['displayName']}'),
+                      selected: selected,
+                      onSelected: (_) {
+                        setState(() {
+                          selectedCategoryId = category['id'];
+                          subCategories = category['subCategories'] ?? [];
+                          if (subCategories.isNotEmpty) {
+                            selectedSubCategoryId = subCategories[0]['id'];
+                            selectedSubCategoryServices =
+                                subCategories[0]['services'] ?? [];
+                          } else {
+                            selectedSubCategoryId = null;
+                            selectedSubCategoryServices = [];
+                          }
+                        });
+                      },
+                      selectedColor: Colors.orange,
+                      backgroundColor: Colors.grey.shade200,
+                      checkmarkColor: Colors.white,
+                      labelStyle: TextStyle(
+                        color: selected ? Colors.white : Colors.black87,
+                        fontSize: 12,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    );
+                  },
+                ),
+              ),
+
+              if (subCategories.isNotEmpty) ...[
+                // Header row: Subcategories + actions for selected subcategory
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
+                    children: [
+                      const Text('Subcategories',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Spacer(),
+                      if (selectedSubCategoryId != null) ...[
+                        Tooltip(
+                          message: 'Edit selected subcategory',
+                          child: IconButton(
+                            onPressed: _onEditSubCategory,
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            visualDensity: const VisualDensity(
+                                horizontal: -4, vertical: -4),
+                            splashRadius: 18,
+                          ),
+                        ),
+                        Tooltip(
+                          message: 'Delete selected subcategory',
+                          child: IconButton(
+                            onPressed: _onDeleteSubCategory,
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            color: Colors.redAccent,
+                            visualDensity: const VisualDensity(
+                                horizontal: -4, vertical: -4),
+                            splashRadius: 18,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                // Subcategory chips
+                SizedBox(
+                  height: 50,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: subCategories.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final subCategory = subCategories[index];
+                      final bool selected =
+                          selectedSubCategoryId == subCategory['id'];
+                      return ChoiceChip(
+                        label: Text('${subCategory['displayName']}'),
+                        selected: selected,
+                        onSelected: (_) {
+                          setState(() {
+                            selectedSubCategoryId = subCategory['id'];
+                            selectedSubCategoryServices =
+                                subCategory['services'] ?? [];
+                          });
+                        },
+                        selectedColor: Colors.orange,
+                        checkmarkColor: Colors.white,
+                        backgroundColor: Colors.grey.shade200,
+                        labelStyle: TextStyle(
+                          color: selected ? Colors.white : Colors.black87,
+                          fontSize: 12,
+                        ),
+                        visualDensity: VisualDensity.compact,
+                      );
+                    },
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 16),
+
+              // Services list (with per-card edit/delete)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: selectedSubCategoryServices.isNotEmpty
+                    ? Column(
+                        children:
+                            selectedSubCategoryServices.map<Widget>((service) {
+                          return Card(
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                            elevation: 1,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Name + description
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('${service['displayName']}',
+                                            style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold)),
+                                        if ((service['description'] ?? '')
+                                            .toString()
+                                            .isNotEmpty)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                top: 2.0),
+                                            child: Text(
+                                              '${service['description']}',
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color:
+                                                      Colors.grey.shade600),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Price & Duration
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '₹${service['priceMinor']}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        '${service['durationMin']} min',
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey),
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(width: 8),
+
+                                  // Edit/Delete icons
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Tooltip(
+                                        message: 'Edit',
+                                        child: IconButton(
+                                          onPressed: () =>
+                                              _onEditService(service),
+                                          icon: const Icon(
+                                              Icons.edit_outlined),
+                                          visualDensity:
+                                              const VisualDensity(
+                                                  horizontal: -4,
+                                                  vertical: -4),
+                                          constraints:
+                                              const BoxConstraints(
+                                                  minWidth: 32,
+                                                  minHeight: 32),
+                                          padding: EdgeInsets.zero,
+                                          splashRadius: 18,
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: 'Delete',
+                                        child: IconButton(
+                                          onPressed: () =>
+                                              _onDeleteService(service),
+                                          icon: const Icon(
+                                              Icons.delete_outline),
+                                          visualDensity:
+                                              const VisualDensity(
+                                                  horizontal: -4,
+                                                  vertical: -4),
+                                          constraints:
+                                              const BoxConstraints(
+                                                  minWidth: 32,
+                                                  minHeight: 32),
+                                          padding: EdgeInsets.zero,
+                                          splashRadius: 18,
+                                          color: Colors.redAccent,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      )
+                    : const Center(
+                        child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40),
+                        child: Text('No services available'),
+                      )),
+              ),
+            ],
+          ),
+        );
+      }
+    }
+
+    return Stack(
+      children: [
+        body,
+        if (_busy)
+          Positioned.fill(
+            child: AbsorbPointer(
+              absorbing: true,
+              child: Container(
+                color: Colors.black.withOpacity(0.08),
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

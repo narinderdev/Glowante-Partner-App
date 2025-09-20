@@ -14,8 +14,8 @@ import '../Viewmodels/AddSalonServiceRequest.dart';
 import 'dart:async';
 
 class ApiService {
-  // static const String baseUrl = "https://dev-api.glowante.com/";
-  static const String baseUrl = "https://963f547861b8.ngrok-free.app/";
+  static const String baseUrl = "https://dev-api.glowante.com/";
+  // static const String baseUrl = "https://963f547861b8.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String resendOtpEndpoint = "auth/resend_otp";
@@ -23,6 +23,7 @@ class ApiService {
   static const String createSalonEndpoint = "salons/create";
   static const String getSalonList = "salons/my";
   static const String logoutUser = "auth/logout";
+  static const String deleteUser = "users/delete";
   static const String serviceCatalog = "service-catalog";
   static const String getBranchServices = "salon-service/catalog";
   static const String addSubCategory =
@@ -102,9 +103,6 @@ static String completeAppointmentAPI(int branchId, int appointmentId) {
   static String getBranchRatings(int branchId) {
     return "branches/$branchId/appointments/ratings";
   }
-
-  //This below 2 api is pending to implement on frontend
-  // Confirm Booking appointment (see static helper above)
   static String updateBranchCategory(int branchId, int branchCategoryId) {
   return "branches/$branchId/categories/$branchCategoryId";
 }
@@ -115,6 +113,23 @@ static String updateBranchSubCategory(int branchId, int branchSubCategoryId) {
 
 static String updateBranchService(int branchId, int branchServiceId) {
   return "branches/$branchId/services/$branchServiceId";
+}
+  static String deleteBranchCategory(int branchId, int branchCategoryId) {
+  return "branches/$branchId/services/category/$branchCategoryId";
+}
+
+static String deleteBranchSubCategory(int branchId, int branchSubCategoryId) {
+  return "branches/$branchId/services/subCategory/$branchSubCategoryId";
+}
+
+static String deleteBranchService(int branchId, int branchServiceId) {
+  return "branches/$branchId/services/$branchServiceId";
+}
+
+  //This below 3 api is pending to implement on frontend
+  // Confirm Booking appointment (see static helper above)
+static String updateSalonOffer(int salonId, int offerId) {
+  return "salons/$salonId/offers/$offerId";
 }
 
   static String getSalonDetailAPI(int salonId) {
@@ -361,6 +376,41 @@ print('url: ${baseUrl + getSalonList}');
       return false;
     }
   }
+  // ---------------------- DELETE USER ----------------------
+
+Future<bool> deleteUserAPI() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('user_token');
+
+  if (token == null) return false;
+
+  final url = Uri.parse(baseUrl + deleteUser); // e.g. https://dev-api.glowante.com/users/delete
+  try {
+    final response = await http.delete(
+      url,
+      headers: {
+        "Authorization": "Bearer $token",
+        "accept": "*/*",
+      },
+    );
+
+    print("Delete User Response: ${response.statusCode} ${response.body}");
+
+    // succeed on 200/204; adjust if your API returns something else
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      await prefs.clear(); // user is deleted; clear local session
+      return true;
+    } else {
+      // If API returns a JSON { success: false }, you can optionally check it here
+      await prefs.clear(); // usually still clear since the user intended account removal
+      return false;
+    }
+  } catch (e) {
+    print("Error during delete user: $e");
+    await prefs.clear();
+    return false;
+  }
+}
 
   // ---------------------- HELPERS ----------------------
 
@@ -1800,6 +1850,258 @@ static Future<Map<String, dynamic>> fetchBranchRatings(int branchId) async {
     );
   }
 }
+  // ------------------ UPDATE METHODS ------------------
+// ------------------ UPDATE METHODS ------------------
+// PATCH /branches/{branchId}/categories/{branchCategoryId}
+static Future<http.Response> updateBCategoryPatch(
+  int branchId,
+  int categoryId,
+  Map<String, dynamic> body,
+) async {
+  try {
+    final token = await ApiService().getAuthToken();
+    final url = Uri.parse(baseUrl + updateBranchCategory(branchId, categoryId));
 
+    final merged = {
+      ...body,
+      "isActive": true,
+      "sortOrder": 200,
+    }..removeWhere((k, v) => v == null);
+
+    final safeToken = token.isNotEmpty ? '${token.substring(0, 8)}…redacted' : '';
+    print("🔹 [PATCH] Update Category → $url");
+    print("Headers: {Authorization: Bearer $safeToken, Content-Type: application/json}");
+    print("Body: ${jsonEncode(merged)}");
+
+    final res = await http.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(merged),
+    );
+    print("✅ Status: ${res.statusCode}");
+    print("Response: ${res.body}");
+    return res;
+  } catch (e, st) {
+    print("❌ Error in updateBCategoryPatch: $e");
+    print("StackTrace: $st");
+    rethrow;
+  }
+}
+
+// PATCH /branches/{branchId}/subcategories/{branchSubCategoryId}
+static Future<http.Response> updateBSubCategoryPatch(
+  int branchId,
+  int subCategoryId,
+  Map<String, dynamic> body,
+) async {
+  try {
+    final token = await ApiService().getAuthToken();
+    final url = Uri.parse(baseUrl + updateBranchSubCategory(branchId, subCategoryId));
+
+    final merged = {
+      ...body,
+      "isActive": true,
+      "sortOrder": 200,
+    }..removeWhere((k, v) => v == null);
+
+    final safeToken = token.isNotEmpty ? '${token.substring(0, 8)}…redacted' : '';
+    print("🔹 [PATCH] Update SubCategory → $url");
+    print("Headers: {Authorization: Bearer $safeToken, Content-Type: application/json}");
+    print("Body: ${jsonEncode(merged)}");
+
+    final res = await http.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(merged),
+    );
+    print("✅ Status: ${res.statusCode}");
+    print("Response: ${res.body}");
+    return res;
+  } catch (e, st) {
+    print("❌ Error in updateBSubCategoryPatch: $e");
+    print("StackTrace: $st");
+    rethrow;
+  }
+}
+
+// PATCH /branches/{branchId}/services/{branchServiceId}
+static Future<http.Response> updateBServicePatch(
+  int branchId,
+  int serviceId,
+  Map<String, dynamic> body,
+) async {
+  try {
+    final token = await ApiService().getAuthToken();
+    final url = Uri.parse(baseUrl + updateBranchService(branchId, serviceId));
+
+    // Enforce schema-required/allowed fields for service update
+    final merged = {
+      ...body,
+      "isActive": true,       // static per your requirement
+      "priceType": "fixed",   // swagger example shows "fixed"
+    }..removeWhere((k, v) => v == null);
+
+    final safeToken =
+        token.isNotEmpty ? '${token.substring(0, token.length.clamp(0, 8))}…redacted' : '';
+
+    print("🔹 [PATCH] Update Service → $url");
+    print("Headers: {Authorization: Bearer $safeToken, Content-Type: application/json}");
+    print("Body: ${jsonEncode(merged)}");
+
+    final response = await http.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(merged),
+    );
+
+    print("✅ Status: ${response.statusCode}");
+    print("Response: ${response.body}");
+    return response;
+  } catch (e, st) {
+    print("❌ Error in updateBServicePatch: $e");
+    print("StackTrace: $st");
+    rethrow;
+  }
+}
+
+  // ------------------ DELETE METHODS ------------------
+  static Future<http.Response> deleteBCategory(
+      int branchId, int categoryId) async {
+    try {
+      final token = await ApiService().getAuthToken();
+      final url = Uri.parse(baseUrl + deleteBranchCategory(branchId, categoryId));
+
+      print("🗑 [DELETE] Category → $url");
+      print("Headers: {Authorization: Bearer $token}");
+
+      final response = await http.delete(
+        url,
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      print("✅ Status: ${response.statusCode}");
+      print("Response: ${response.body}");
+
+      return response;
+    } catch (e, st) {
+      print("❌ Error in deleteBCategory: $e");
+      print("StackTrace: $st");
+      rethrow;
+    }
+  }
+
+  static Future<http.Response> deleteBSubCategory(
+      int branchId, int subCategoryId) async {
+    try {
+      final token = await ApiService().getAuthToken();
+      final url =
+          Uri.parse(baseUrl + deleteBranchSubCategory(branchId, subCategoryId));
+
+      print("🗑 [DELETE] SubCategory → $url");
+      print("Headers: {Authorization: Bearer $token}");
+
+      final response = await http.delete(
+        url,
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      print("✅ Status: ${response.statusCode}");
+      print("Response: ${response.body}");
+
+      return response;
+    } catch (e, st) {
+      print("❌ Error in deleteBSubCategory: $e");
+      print("StackTrace: $st");
+      rethrow;
+    }
+  }
+
+  static Future<http.Response> deleteBService(
+      int branchId, int serviceId) async {
+    try {
+      final token = await ApiService().getAuthToken();
+      final url = Uri.parse(baseUrl + deleteBranchService(branchId, serviceId));
+
+      print("🗑 [DELETE] Service → $url");
+      print("Headers: {Authorization: Bearer $token}");
+
+      final response = await http.delete(
+        url,
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      print("✅ Status: ${response.statusCode}");
+      print("Response: ${response.body}");
+
+      return response;
+    } catch (e, st) {
+      print("❌ Error in deleteBService: $e");
+      print("StackTrace: $st");
+      rethrow;
+    }
+  }
+Future<Map<String, dynamic>> updateSalonOfferPatch(
+  int salonId,
+  int offerId,
+  Map<String, dynamic> body,
+) async {
+  final url = Uri.parse("$baseUrl${updateSalonOffer(salonId, offerId)}");
+
+  // Keep only non-null keys (PATCH semantics)
+  final payload = Map<String, dynamic>.from(body)
+    ..removeWhere((k, v) => v == null);
+
+  print("🔹 [PATCH] Update Salon Offer → $url");
+  print("Headers: {Content-Type: application/json, Authorization: Bearer ***}");
+  print("Body: ${jsonEncode(payload)}");
+
+  try {
+    final token = await getAuthToken();
+
+    final resp = await http.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
+
+    print("✅ Status: ${resp.statusCode}");
+    print("Response: ${resp.body}");
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      try {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {"success": true, "message": "Offer updated", "raw": resp.body};
+      }
+    }
+
+    try {
+      final m = jsonDecode(resp.body);
+      if (m is Map<String, dynamic>) return m;
+    } catch (_) {}
+
+    return {
+      "success": false,
+      "message":
+          "Failed to update offer. Status: ${resp.statusCode}. Body: ${resp.body}",
+    };
+  } catch (e, st) {
+    print("❌ Error updateSalonOfferPatch: $e");
+    print("StackTrace: $st");
+    return {"success": false, "message": e.toString()};
+  }
+}
 }
 

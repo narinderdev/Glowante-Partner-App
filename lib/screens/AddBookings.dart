@@ -515,7 +515,7 @@ final List<String> proItems = _loadingMembers
     final proHint = _loadingMembers
         ? 'Loading...'
         : (_selectedServiceId == null
-            ? 'Choose service first'
+            ? 'Choose'
             : (proItems.length == 1 && proItems.first != 'Any'
                 ? 'Choose'
                 : 'Choose / Any'));

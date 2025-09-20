@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
-
+import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'add_location_screen.dart';
 
@@ -229,14 +229,18 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                     children: [
                       _buildTextField(
                         controller: _salonNameController,
+                        textCapitalization: TextCapitalization.words,
                         label: 'Salon Name *',
                         hint: 'Enter your salon name',
                       ),
                       _buildTextField(
                         controller: _phoneController,
                         label: 'Phone Number *',
+                        maxLength: 10,
                         hint: 'Enter phone number',
-                        enabled: false,
+                        enabled: true,
+                          keyboardType: TextInputType.phone, // ✅ phone-optimized keyboard
+  inputFormatters: [FilteringTextInputFormatter.digitsOnly], // ✅ digits only
                       ),
                       Row(
                         children: [
@@ -327,6 +331,7 @@ InkWell(
                       const SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
+                        textCapitalization: TextCapitalization.words,
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
                         maxLines: 1,
@@ -414,20 +419,28 @@ InkWell(
     );
   }
 
- Widget _buildTextField({
+Widget _buildTextField({
   required TextEditingController controller,
   required String label,
   required String hint,
   int maxLines = 1,
+   int? maxLength, // ✅ added
   bool enabled = true,
+  TextCapitalization textCapitalization = TextCapitalization.none,
+  TextInputType keyboardType = TextInputType.text,
+  List<TextInputFormatter>? inputFormatters,
 }) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: TextFormField(
       controller: controller,
       maxLines: maxLines,
+      maxLength: maxLength, // ✅ added
       enabled: enabled,
-      autovalidateMode: AutovalidateMode.onUserInteraction, // ✅ validates live
+      textCapitalization: textCapitalization,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return '$label is required';
@@ -435,9 +448,10 @@ InkWell(
         return null;
       },
       decoration: InputDecoration(
+         counterText: '',
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(color: Colors.orange), // label always orange
+        labelStyle: const TextStyle(color: Colors.orange),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
         ),
@@ -458,13 +472,14 @@ InkWell(
           borderRadius: BorderRadius.circular(8),
         ),
         errorStyle: const TextStyle(
-          color: Colors.orange, // error text color
+          color: Colors.orange,
           fontWeight: FontWeight.bold,
         ),
       ),
     ),
   );
 }
+
 
   Widget _buildTimePickerField({
     required TextEditingController controller,
