@@ -24,6 +24,7 @@ class ApiService {
   static const String getSalonList = "salons/my";
   static const String logoutUser = "auth/logout";
   static const String deleteUser = "users/delete";
+  static const String deleteAccount = "users/delete-account";
   static const String serviceCatalog = "service-catalog";
   static const String getBranchServices = "salon-service/catalog";
   static const String addSubCategory =
@@ -126,11 +127,19 @@ static String deleteBranchService(int branchId, int branchServiceId) {
   return "branches/$branchId/services/$branchServiceId";
 }
 
-  //This below 3 api is pending to implement on frontend
-  // Confirm Booking appointment (see static helper above)
+static String resolveWalkinNumberAPI(int branchId) {
+  return "branches/$branchId/walkins/resolve-number";
+}
+
 static String updateSalonOffer(int salonId, int offerId) {
   return "salons/$salonId/offers/$offerId";
 }
+
+static String createAppointmentAPI(int branchId) {
+  return "branches/$branchId/appointments/branch";
+}
+  //This below 3 api is pending to implement on frontend
+  // Confirm Booking appointment (see static helper above)
 
   static String getSalonDetailAPI(int salonId) {
     return "salons/$salonId";
@@ -412,6 +421,39 @@ Future<bool> deleteUserAPI() async {
   }
 }
 
+//----------------DELETE ACCOUNT PERMANENT---------------
+Future<bool> deleteAccountAPI() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('user_token');
+
+  if (token == null) return false;
+
+  final url = Uri.parse(baseUrl + deleteAccount); 
+  try {
+    final response = await http.delete(
+      url,
+      headers: {
+        "Authorization": "Bearer $token",
+        "accept": "*/*",
+      },
+    );
+
+    print("Delete Account Response: ${response.statusCode} ${response.body}");
+
+    // succeed on 200/204 just like soft delete
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      await prefs.clear(); // clear local session since account is gone
+      return true;
+    } else {
+      await prefs.clear(); // still clear since user wanted permanent removal
+      return false;
+    }
+  } catch (e) {
+    print("Error during delete account: $e");
+    await prefs.clear();
+    return false;
+  }
+}
   // ---------------------- HELPERS ----------------------
 
   String _formatTime(String time) {
@@ -2104,5 +2146,75 @@ Future<Map<String, dynamic>> updateSalonOfferPatch(
     return {"success": false, "message": e.toString()};
   }
 }
+
+
+  /// ---------------------- RESOLVE WALKIN NUMBER ----------------------
+  Future<Map<String, dynamic>> resolveWalkinNumber(
+    int branchId, String countryCode, String phoneNumber) async {
+  final token = await getAuthToken();
+  final url = Uri.parse('$baseUrl${resolveWalkinNumberAPI(branchId)}');
+
+  print("➡️ Calling Resolve Walkin Number API");
+  print("➡️ URL: $url");
+  print("➡️ Token: $token");
+  print("➡️ Body: { countryCode: $countryCode, phoneNumber: $phoneNumber }");
+
+  final response = await http.post(
+    url,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+    body: jsonEncode({
+      "countryCode": countryCode,
+      "phoneNumber": phoneNumber,
+    }),
+  );
+
+  print("⬅️ Status Code: ${response.statusCode}");
+  print("⬅️ Response Body: ${response.body}");
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return json.decode(response.body) as Map<String, dynamic>;
+  } else {
+    throw Exception("Failed to resolve walkin number: ${response.body}");
+  }
+}
+
+// ---------------------- CREATE APPOINTMENT ----------------------
+Future<Map<String, dynamic>> createAppointment(
+    int branchId, Map<String, dynamic> payload) async {
+  final token = await getAuthToken();
+  final url = Uri.parse('$baseUrl${createAppointmentAPI(branchId)}');
+
+  print("➡️ Calling Create Appointment API");
+  print("➡️ URL: $url");
+  print("➡️ Token: $token");
+  print("➡️ Payload: ${jsonEncode(payload)}");
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
+
+    print("⬅️ Status Code: ${response.statusCode}");
+    print("⬅️ Response Body: ${response.body}");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception("Failed to create appointment: ${response.body}");
+    }
+  } catch (e) {
+    print("❌ Error creating appointment: $e");
+    rethrow;
+  }
+}
+
 }
 

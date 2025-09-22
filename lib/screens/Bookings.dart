@@ -1598,7 +1598,17 @@ void _openMergedSegmentSheet(Map<String, dynamic> seg) {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
-                  color: bg,
+                  // color: bg,
+                    decoration: BoxDecoration(
+    color: Colors.white, // keep a neutral background
+    border: Border(
+      left: BorderSide(
+        color: bg,       // use your status color here
+        width: 6,        // thin vertical line thickness
+      ),
+    ),
+    borderRadius: BorderRadius.circular(12),
+  ),
                   padding: const EdgeInsets.all(10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
