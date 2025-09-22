@@ -1635,14 +1635,14 @@ ElevatedButton(
 ),  
                 const SizedBox(height: 16),
                 //ID
-                const _FieldLabel('Customer ID'),
-                TextFormField(
-                  controller: _clientIdCtrl,
-                  decoration: _inputDecoration('Customer ID'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
+                // const _FieldLabel('Customer ID'),
+                // TextFormField(
+                //   controller: _clientIdCtrl,
+                //   decoration: _inputDecoration('Customer ID'),
+                //   validator: (v) =>
+                //       (v == null || v.trim().isEmpty) ? 'Required' : null,
+                // ),
+                // const SizedBox(height: 16),
                 // Client Name (First + Last side by side)
 Row(
   children: [
