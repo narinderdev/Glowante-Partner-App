@@ -2049,6 +2049,7 @@ static Future<http.Response> updateBServicePatch(
       rethrow;
     }
   }
+  
 Future<Map<String, dynamic>> updateSalonOfferPatch(
   int salonId,
   int offerId,

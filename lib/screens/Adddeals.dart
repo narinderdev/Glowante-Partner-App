@@ -9,12 +9,16 @@ class AddDealsScreen extends StatefulWidget {
   final String salonName;
   final Function(int salonId) onPackageCreated;
   final String source; // "DEAL" or "PACKAGE"
-
+  // NEW:
+  final bool isEdit;
+  final Map<String, dynamic>? existingOffer;
   const AddDealsScreen({
     Key? key,
     required this.salonId,
     required this.salonName,
     required this.onPackageCreated,
+     this.isEdit = false,   
+      this.existingOffer,   
     required this.source,
   }) : super(key: key);
 
@@ -58,22 +62,118 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   final _radius = BorderRadius.circular(12);
   final _accent = const Color(0xFFDD8B1F);
   Map<String, dynamic> offerData = {};
-  @override
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   amountOffController.addListener(() {
+  //     if (_settingFields) return;
+  //     _autoSetMaxFromPercent =
+  //         true; // allow auto-fill again when typing percent
+  //     _recalcDiscounted();
+  //   });
+  //   maxDiscountController.addListener(() {
+  //     if (_settingFields) return;
+  //     _autoSetMaxFromPercent = false; // user edited max discount manually
+  //     _recalcDiscounted();
+  //   });
+  // }
+
+ @override
   void initState() {
     super.initState();
+
+    // Live recompute discounted on amount/max changes
     amountOffController.addListener(() {
       if (_settingFields) return;
-      _autoSetMaxFromPercent =
-          true; // allow auto-fill again when typing percent
+      _autoSetMaxFromPercent = true;
       _recalcDiscounted();
     });
     maxDiscountController.addListener(() {
       if (_settingFields) return;
-      _autoSetMaxFromPercent = false; // user edited max discount manually
+      _autoSetMaxFromPercent = false;
       _recalcDiscounted();
     });
-  }
 
+    // ---- Prefill when editing ----
+    if (widget.isEdit && widget.existingOffer != null) {
+      final o = widget.existingOffer!;
+      // Title
+      dealTitleController.text = (o['name'] ?? '').toString();
+
+      // Dates (expecting yyyy-MM-dd / ISO; show dd-MM-yyyy)
+      String? _fmtIn(dynamic v) {
+        if (v == null) return null;
+        try {
+          return DateFormat('dd-MM-yyyy').format(DateTime.parse(v.toString()));
+        } catch (_) {
+          return null;
+        }
+      }
+      final vf = _fmtIn(o['validFrom']);
+      final vt = _fmtIn(o['validTo']);
+      if (vf != null) validFromController.text = vf;
+      if (vt != null) validTillController.text = vt;
+
+      // Pricing Mode
+      final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
+      pricingMode = (pmRaw == 'DISCOUNT') ? 'Discount' : 'Fixed';
+
+      // Discount type + values
+      final dtRaw = (o['discountType'] ?? '').toString().toUpperCase(); // AMOUNT | PERCENT | NONE
+      if (pricingMode == 'Discount') {
+        if (dtRaw == 'PERCENT') {
+          discountType = 'Percent';
+          final pct = (o['discountPct'] as num?)?.toDouble() ?? 0.0;
+          amountOffController.text = pct > 0 ? pct.toStringAsFixed(0) : '';
+          discountPercentController.text = amountOffController.text;
+          final maxD = (o['maxDiscount'] as num?)?.toDouble();
+          if (maxD != null && maxD > 0) {
+            maxDiscountController.text = maxD.toStringAsFixed(2);
+          }
+        } else {
+          // AMOUNT (flat)
+          discountType = 'Flat';
+          final amt = (o['discount'] as num?)?.toDouble() ??
+              (o['amount'] as num?)?.toDouble() ?? 0.0;
+          amountOffController.text = amt > 0 ? amt.toStringAsFixed(2) : '';
+        }
+      } else {
+        // Fixed — often you stored amount/discount as amount off
+        final amt = (o['discount'] as num?)?.toDouble() ??
+            (o['amount'] as num?)?.toDouble() ?? 0.0;
+        if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
+      }
+
+      // Items → Selected services list (needs name, price, qty)
+      final items = (o['items'] as List?) ?? const [];
+      // If backend returns only ids/qty, you could hydrate with _hydrateFromIds. Here we try to use provided fields.
+      _selectedServices = items.map<Map<String, dynamic>>((e) {
+        final m = Map<String, dynamic>.from(e as Map);
+        final id = (m['salonServiceId'] ?? m['id']) as int?;
+        final qty = (m['qty'] ?? 1) as int;
+        // try to find readable fields if present
+        final name = m['name'] ?? m['displayName'] ?? 'Service';
+        final price = m['price'] ?? m['priceMinor'] ?? 0;
+        return {
+          'id': id ?? 0,
+          'name': name,
+          'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
+          'qty': qty,
+        };
+      }).toList();
+
+      // Original = sum(price*qty)
+      originalPriceController.text = _originalTotalInt().toDouble().toStringAsFixed(2);
+
+      // Discounted / price
+      final price = (o['price'] as num?)?.toDouble();
+      if (price != null) discountedPriceController.text = price.toStringAsFixed(2);
+
+      // Recompute to ensure everything is coherent
+      _recalcDiscounted();
+      setState(() {});
+    }
+  }
   @override
   void dispose() {
     dealTitleController.dispose();
@@ -111,9 +211,20 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     }
     return sum;
   }
+String _rsInt(int v) => '₹$v';            // or '\u20B9$v'
+String _rs2(num v)   => '₹${v.toStringAsFixed(2)}'; // or '\u20B9'
 
-  String _rsInt(int v) => 'â‚¹$v';
-  String _rs2(num v) => 'â‚¹${v.toStringAsFixed(2)}';
+String? _toIsoDate(String input) {
+  final s = input.trim();
+  if (s.isEmpty) return null;
+  try {
+    // parse UI format dd-MM-yyyy -> output yyyy-MM-dd
+    final d = DateFormat('dd-MM-yyyy').parseStrict(s);
+    return DateFormat('yyyy-MM-dd').format(d);
+  } catch (_) {
+    return null; // let backend ignore invalid / you can validate earlier
+  }
+}
 
   double _parseNum(String s) {
     if (s.trim().isEmpty) return 0;
@@ -258,80 +369,159 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     return true;
   }
 
-  Future<void> _submitOffer() async {
-    if (!await _validateForm()) {
-      return;
-    }
+  // Future<void> _submitOffer() async {
+  //   if (!await _validateForm()) {
+  //     return;
+  //   }
 
-    _recalcDiscounted();
+  //   _recalcDiscounted();
 
-    if (pricingMode == 'Discount' && discountType == 'Percent') {
-      discountPercentController.text = amountOffController.text.trim();
-    }
+  //   if (pricingMode == 'Discount' && discountType == 'Percent') {
+  //     discountPercentController.text = amountOffController.text.trim();
+  //   }
 
-    final offerData = {
-      'name': dealTitleController.text,
-      'type': widget.source,
-      'status': 'ACTIVE',
-      'validFrom': validFromController.text.isNotEmpty
-          ? validFromController.text
-          : null,
-      'validTo': validTillController.text.isNotEmpty
-          ? validTillController.text
-          : null,
-      'pricingMode': pricingMode.toUpperCase(),
-      'price': _parseCurrency(discountedPriceController.text) ?? 0,
-      'terms': 'Valid on weekdays only.',
-      'items': _selectedServices
-          .map(
-            (service) => {
-              'salonServiceId': service['id'],
-              'qty': service['qty'],
-            },
-          )
-          .toList(),
-    };
+  //   final offerData = {
+  //     'name': dealTitleController.text,
+  //     'type': widget.source,
+  //     'status': 'ACTIVE',
+  //      'validFrom': _toIsoDate(validFromController.text),  // <-- FIX
+  // 'validTo'  : _toIsoDate(validTillController.text),  // <-- FIX
+  //     'pricingMode': pricingMode.toUpperCase(),
+  //     'price': _parseCurrency(discountedPriceController.text) ?? 0,
+  //     'terms': 'Valid on weekdays only.',
+  //     'items': _selectedServices
+  //         .map(
+  //           (service) => {
+  //             'salonServiceId': service['id'],
+  //             'qty': service['qty'],
+  //           },
+  //         )
+  //         .toList(),
+  //   };
 
-    if (pricingMode == 'Fixed') {
-      offerData['amountType'] = 'FLAT';
-      offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
-      offerData['discount'] = offerData['amount'];
+  //   if (pricingMode == 'Fixed') {
+  //     offerData['amountType'] = 'FLAT';
+  //     offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
+  //     offerData['discount'] = offerData['amount'];
+  //   } else {
+  //     offerData['discountType'] = discountType == 'Flat' ? 'AMOUNT' : 'PERCENT';
+  //     if (discountType == 'Flat') {
+  //       offerData['amountType'] = 'FLAT';
+  //       offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
+  //       offerData['discount'] = offerData['amount'];
+  //     } else {
+  //       offerData['discountPct'] =
+  //           int.tryParse(discountPercentController.text) ?? 0;
+  //       offerData['maxDiscount'] =
+  //           _parseCurrency(maxDiscountController.text) ?? 0;
+  //     }
+  //   }
+
+  //   final apiService = ApiService();
+  //   final response = await apiService.createSalonOffer(
+  //     widget.salonId,
+  //     offerData,
+  //   );
+
+  //   if (response['success'] == true) {
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         const SnackBar(content: Text('Offer created successfully')),
+  //       );
+  //       widget.onPackageCreated(widget.salonId);
+  //       Navigator.pop(context);
+  //     }
+  //   } else {
+  //     if (mounted) {
+  //       await _showValidationDialog([
+  //         response['message']?.toString() ?? 'Failed to create offer.',
+  //       ]);
+  //     }
+  //   }
+  // }
+Future<void> _submitOffer() async {
+  if (!await _validateForm()) return;
+
+  _recalcDiscounted();
+  if (pricingMode == 'Discount' && discountType == 'Percent') {
+    discountPercentController.text = amountOffController.text.trim();
+  }
+
+  // Build base body
+  final body = <String, dynamic>{
+    'name': dealTitleController.text,
+    'type': widget.source,                 // "DEAL"
+    'status': 'ACTIVE',
+    'validFrom': _toIsoDate(validFromController.text),
+    'validTo'  : _toIsoDate(validTillController.text),
+    'pricingMode': pricingMode.toUpperCase(), // FIXED | DISCOUNT
+    'price': _parseCurrency(discountedPriceController.text) ?? 0,
+    'terms': 'Valid on weekdays only.',
+    'items': _selectedServices.map((s) => {
+      'salonServiceId': s['id'],
+      'qty': s['qty'],
+    }).toList(),
+  };
+
+  if (pricingMode == 'Fixed') {
+    body['amountType'] = 'FLAT';
+    body['amount'] = _parseCurrency(amountOffController.text) ?? 0;
+    body['discount'] = body['amount'];
+  } else {
+    final isFlat = discountType == 'Flat';
+    body['discountType'] = isFlat ? 'AMOUNT' : 'PERCENT';
+    if (isFlat) {
+      body['amountType'] = 'FLAT';
+      body['amount'] = _parseCurrency(amountOffController.text) ?? 0;
+      body['discount'] = body['amount'];
     } else {
-      offerData['discountType'] = discountType == 'Flat' ? 'AMOUNT' : 'PERCENT';
-      if (discountType == 'Flat') {
-        offerData['amountType'] = 'FLAT';
-        offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
-        offerData['discount'] = offerData['amount'];
-      } else {
-        offerData['discountPct'] =
-            int.tryParse(discountPercentController.text) ?? 0;
-        offerData['maxDiscount'] =
-            _parseCurrency(maxDiscountController.text) ?? 0;
-      }
-    }
-
-    final apiService = ApiService();
-    final response = await apiService.createSalonOffer(
-      widget.salonId,
-      offerData,
-    );
-
-    if (response['success'] == true) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offer created successfully')),
-        );
-        widget.onPackageCreated(widget.salonId);
-        Navigator.pop(context);
-      }
-    } else {
-      if (mounted) {
-        await _showValidationDialog([
-          response['message']?.toString() ?? 'Failed to create offer.',
-        ]);
-      }
+      body['discountPct'] = int.tryParse(amountOffController.text.trim()) ?? 0;
+      body['maxDiscount'] = _parseCurrency(maxDiscountController.text) ?? 0;
     }
   }
+
+  final api = ApiService();
+
+  // ----- EDIT → PATCH -----
+  if (widget.isEdit && (widget.existingOffer?['id'] != null)) {
+    final offerId = (widget.existingOffer!['id'] as num).toInt();
+    // Remove nulls for PATCH semantics
+    final patchBody = Map<String, dynamic>.from(body)
+      ..removeWhere((k, v) => v == null);
+
+    final res = await api.updateSalonOfferPatch(widget.salonId, offerId, patchBody);
+
+    if (!mounted) return;
+    if (res['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Offer updated successfully')),
+      );
+      widget.onPackageCreated(widget.salonId);
+      Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(res['message']?.toString() ?? 'Failed to update offer')),
+      );
+    }
+    return;
+  }
+
+  // ----- CREATE → POST -----
+  final res = await api.createSalonOffer(widget.salonId, body);
+
+  if (!mounted) return;
+  if (res['success'] == true) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Offer created successfully')),
+    );
+    widget.onPackageCreated(widget.salonId);
+    Navigator.pop(context);
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(res['message']?.toString() ?? 'Failed to create offer')),
+    );
+  }
+}
 
   // If modal returns {id: qty} instead of full objects, map them here
   Future<List<Map<String, dynamic>>> _hydrateFromIds(
@@ -658,13 +848,11 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Qty: $qty Ã— ${_rsInt(price)}',
-                          style: const TextStyle(
-                            color: Colors.black54,
-                            fontSize: 13,
-                          ),
-                        ),
+                       Text(
+  'Qty: $qty \u00D7 ${_rsInt(price)}', // \u00D7 = ×
+  style: const TextStyle(color: Colors.black54, fontSize: 13),
+)
+
                       ],
                     ),
                   );

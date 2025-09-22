@@ -124,6 +124,39 @@ Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
     }
   }
 
+  // 👉 Navigate to edit
+  Future<void> _editOffer(Map<String, dynamic> offer) async {
+    if (selectedSalon == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a salon")),
+      );
+      return;
+    }
+
+    // Adjust to your AddDealsScreen constructor for edit mode:
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddDealsScreen(
+          salonId: selectedSalon!['salonId'],
+          salonName: selectedSalon!['salonName'],
+          source: 'DEAL',
+          // These params are assumptions—adapt to your screen:
+          isEdit: true,
+          existingOffer: offer,
+          onPackageCreated: (salonId) {
+            _fetchOffers(salonId);
+          },
+        ),
+      ),
+    );
+
+    // Also refresh after returning, just in case:
+    if (selectedSalonId != null) {
+      _fetchOffers(selectedSalonId!);
+    }
+  }
+
   String _rs(num? n) => "₹${(n ?? 0).toStringAsFixed(0)}";
 
   @override
@@ -190,10 +223,11 @@ Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
                         if (offers.isEmpty) {
                           return const Center(child: Text("No packages available"));
                         }
-                                         return ListView.builder(
+                     return ListView.builder(
   itemCount: offers.length,
   itemBuilder: (context, i) {
-    final offer = offers[i];
+    final offer = offers[i]; // <-- now 'offer' is defined here
+
     return _OfferCard(
       offer: offer,
       rs: _rs,
@@ -201,9 +235,25 @@ Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
         (offer['id'] as num).toInt(),
         (offer['name'] ?? '').toString(),
       ),
+      onEdit: () { // <-- add this callback if you want edit from the card
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddDealsScreen(
+              salonId: selectedSalon!['salonId'],
+              salonName: selectedSalon!['salonName'],
+              source: 'PACKAGE',
+              isEdit: true,
+              existingOffer: offer, // <-- now valid
+              onPackageCreated: (sid) => _fetchOffers(sid),
+            ),
+          ),
+        );
+      },
     );
   },
 );
+
                       },
                     ),
                   ),
@@ -213,7 +263,7 @@ Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
           },
         ),
       ),
-    floatingActionButton: FloatingActionButton.extended(
+     floatingActionButton: FloatingActionButton.extended(
   onPressed: () {
     if (selectedSalon == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -221,25 +271,23 @@ Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
       );
       return;
     }
-
-    // 👇 Navigate to AddDealsScreen
-   Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (context) => AddDealsScreen(
-      salonId: selectedSalon!['salonId'],
-      salonName: selectedSalon!['salonName'],
-      onPackageCreated: (salonId) {
-        // After package is created, fetch updated offers
-        _fetchOffers(salonId);  // Call the method to refresh the offers
-      },
-      source: 'PACKAGE',
-    ),
-  ),
-);
-
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddDealsScreen(
+          salonId: selectedSalon!['salonId'],
+          salonName: selectedSalon!['salonName'],
+          source: 'DEAL',
+          isEdit: false,            // creating a new deal
+          existingOffer: null,      // nothing to pass here
+          onPackageCreated: (salonId) {
+            _fetchOffers(salonId);
+          },
+        ),
+      ),
+    );
   },
-  label: const Text("Add Packages"),
+  label: const Text("Add Package"),
   icon: const Icon(Icons.add),
   backgroundColor: Colors.orange[300],
 ),
@@ -253,11 +301,13 @@ class _OfferCard extends StatelessWidget {
     required this.offer,
     required this.rs,
     required this.onDelete, 
+    required this.onEdit, // <-- add this if you want edit functionality
   });
 
   final Map<String, dynamic> offer;
   final String Function(num? n) rs;
   final VoidCallback onDelete; 
+  final VoidCallback onEdit; // <-- add this if you want edit functionality
 
   @override
   Widget build(BuildContext context) {
@@ -333,13 +383,37 @@ class _OfferCard extends StatelessWidget {
                 ),
 
             const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                  icon: Icon(Icons.delete, color: Colors.orange[400], size: 22),
-                  onPressed: onDelete, // 👈 calls back into DealScreen
-                  tooltip: 'Delete',
-                ),
+            // Align(
+            //   alignment: Alignment.centerRight,
+            //   child: IconButton(
+            //       icon: Icon(Icons.delete, color: Colors.orange[400], size: 22),
+            //       onPressed: onDelete, // 👈 calls back into DealScreen
+            //       tooltip: 'Delete',
+            //     ),
+            // ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+             children: [
+        if (onEdit != null)
+          OutlinedButton(
+            onPressed: onEdit,
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              side: BorderSide(color: Colors.orange.shade300),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              "Edit",
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange),
+            ),
+          ),
+        const SizedBox(width: 10),
+        IconButton(
+          icon: Icon(Icons.delete, color: Colors.orange[400], size: 22),
+          onPressed: onDelete,
+          tooltip: 'Delete',
+        ),
+      ],
             ),
           ],
         ),
