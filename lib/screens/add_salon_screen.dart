@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import '../utils/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -204,17 +204,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-    backgroundColor: Colors.orange, // main orange background
+    backgroundColor: AppColors.grey, // main orange background
     centerTitle: true, // center the title
     iconTheme: const IconThemeData(
-    color: Colors.white, // ✅ sets back button color to white
+    color: AppColors.black, // ✅ sets back button color to white
   ),
     title: const Text(
       'Add Salon',
       style: TextStyle(
         fontWeight: FontWeight.bold,
         fontSize: 20,
-        color: Colors.white,
+        color: AppColors.black,
       ),
     ),
   ),
@@ -275,20 +275,17 @@ InkWell(
     height: address == null ? 48 : null, 
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     decoration: BoxDecoration(
-      color: address == null ? Colors.orange : Colors.white,
       borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.orange),
+      border: Border.all(color: AppColors.darkGrey, width: 1),
     ),
     child: address == null
         ? Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
-              Icon(Icons.add_location, color: Colors.white),
-              SizedBox(width: 8),
               Text(
                 'Add Location',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.darkGrey,
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
                 ),
@@ -307,22 +304,22 @@ InkWell(
                       address.buildingName,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.grey,
+                        color: AppColors.darkGrey,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${address.city}, ${address.state}',
-                      style: const TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: AppColors.darkGrey),
                     ),
                     Text(
                       'Pincode: ${address.pincode}',
-                      style: const TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: AppColors.darkGrey),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.edit, color: Colors.orange),
+              const Icon(Icons.edit, color: AppColors.darkGrey),
             ],
           ),
   ),
@@ -364,11 +361,11 @@ InkWell(
                               height: 80,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange),
+                                border: Border.all(color: AppColors.darkGrey),
                               ),
                               child: const Icon(
                                 Icons.add,
-                                color: Colors.orange,
+                                color: AppColors.darkGrey,
                               ),
                             ),
                           ),
@@ -383,8 +380,8 @@ InkWell(
                               ? null
                               : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
+                              backgroundColor: AppColors.grey,
+                            foregroundColor: AppColors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -398,7 +395,7 @@ InkWell(
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('+ Add Salon'),
+                              : const Text('Add Salon'),
                         ),
                       ),
                     ],
@@ -451,12 +448,12 @@ Widget _buildTextField({
          counterText: '',
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(color: Colors.orange),
+        labelStyle: const TextStyle(color: AppColors.darkGrey),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
           borderRadius: BorderRadius.circular(8),
         ),
         enabledBorder: OutlineInputBorder(
@@ -464,16 +461,16 @@ Widget _buildTextField({
           borderRadius: BorderRadius.circular(8),
         ),
         errorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
           borderRadius: BorderRadius.circular(8),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
           borderRadius: BorderRadius.circular(8),
         ),
         errorStyle: const TextStyle(
-          color: Colors.orange,
-          fontWeight: FontWeight.bold,
+          color: AppColors.red,
+          // fontWeight: FontWeight.bold,
         ),
       ),
     ),

@@ -53,44 +53,44 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
       appBar: null,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: Column(
             children: [
               // const SizedBox(height: 40),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Become a stylist?',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange),
-                  ),
-                  ElevatedButton(
-                    onPressed: () {
-                if (branchId != null) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AddStylistScreen(branchId: branchId!),
-    ),
-  );
-} else {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Branch ID missing. Cannot add stylist.')),
-  );
-}
+//               Row(
+//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//                 children: [
+//                   const Text(
+//                     'Become a stylist?',
+//                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange),
+//                   ),
+//                   ElevatedButton(
+//                     onPressed: () {
+//                 if (branchId != null) {
+//   Navigator.push(
+//     context,
+//     MaterialPageRoute(
+//       builder: (_) => AddStylistScreen(branchId: branchId!),
+//     ),
+//   );
+// } else {
+//   ScaffoldMessenger.of(context).showSnackBar(
+//     const SnackBar(content: Text('Branch ID missing. Cannot add stylist.')),
+//   );
+// }
 
 
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                    child: const Text('Become Stylist',
-                        style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold)),
-                  ),
-                ],
-              ),
+//                     },
+//                     style: ElevatedButton.styleFrom(
+//                       backgroundColor: Colors.orange,
+//                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+//                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+//                     ),
+//                     child: const Text('Become Stylist',
+//                         style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold)),
+//                   ),
+//                 ],
+//               ),
               // const SizedBox(height: 40),
 
               // Text("Branch Id: ${branchId ?? '—'}"),
@@ -201,20 +201,20 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.orange,
-        onPressed: () {
-          final int? idForNav = branchId;
-          if (idForNav != null) {
-            Navigator.push(context, MaterialPageRoute(builder: (_) => AddTeamScreen(branchId: idForNav)));
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please select a branch first.')),
-            );
-          }
-        },
-        child: const Icon(Icons.add,color: Colors.white,),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   backgroundColor: Colors.orange,
+      //   onPressed: () {
+      //     final int? idForNav = branchId;
+      //     if (idForNav != null) {
+      //       Navigator.push(context, MaterialPageRoute(builder: (_) => AddTeamScreen(branchId: idForNav)));
+      //     } else {
+      //       ScaffoldMessenger.of(context).showSnackBar(
+      //         const SnackBar(content: Text('Please select a branch first.')),
+      //       );
+      //     }
+      //   },
+      //   child: const Icon(Icons.add,color: Colors.white,),
+      // ),
     );
   }
 }

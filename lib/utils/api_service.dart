@@ -54,7 +54,10 @@ class ApiService {
   static String addTeamMemberEndpoint(int id) {
     return "branches/$id/add-user";
   }
-
+ static String addSalonTeamMemberEndpoint(int salonId) {
+  return "salons/$salonId/users";
+}
+static String getBranchServicesAPI(int branchId) => "branches/$branchId/services";
   static const String getRolesSpecialization = "users/constants";
 
   static String getTeamMember(int id) {
@@ -134,13 +137,14 @@ static String resolveWalkinNumberAPI(int branchId) {
 static String updateSalonOffer(int salonId, int offerId) {
   return "salons/$salonId/offers/$offerId";
 }
-
+  //This below 3 api is pending to implement on frontend
+  // Confirm Booking appointment (see static helper above)
 static String createAppointmentAPI(int branchId) {
   return "branches/$branchId/appointments/branch";
 }
-  //This below 3 api is pending to implement on frontend
-  // Confirm Booking appointment (see static helper above)
-
+  static String assignUserToBranchAPI(int branchId) {
+    return "branches/$branchId/assign-user";
+  }
   static String getSalonDetailAPI(int salonId) {
     return "salons/$salonId";
   }
@@ -796,6 +800,7 @@ Future<bool> deleteAccountAPI() async {
 
     print("➡️ Calling Get Service API");
     print("➡️ URL: $url");
+     print("➡️ Token: $token");
 
     final response = await http.get(
       url,
@@ -814,6 +819,36 @@ Future<bool> deleteAccountAPI() async {
       throw Exception("Failed to fetch service(s): ${response.body}");
     }
   }
+
+  
+// -------------------- GET BRANCH SERVICES ------------
+Future<Map<String, dynamic>> getBranchService({required int branchId}) async {
+  final token = await getAuthToken();
+  final url = Uri.parse(
+    baseUrl + getBranchServicesAPI(branchId),
+  ); // Direct string concatenation
+
+  print("➡️ Calling Get Branch Service API");
+  print("➡️ URL: $url");
+  print("➡️ Token: $token");
+
+  final response = await http.get(
+    url,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+  );
+
+  print("⬅️ Status Code: ${response.statusCode}");
+  print("⬅️ Response Body: ${response.body}");
+
+  if (response.statusCode == 200) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception("Failed to fetch branch service(s): ${response.body}");
+  }
+}
 
   // ---------------------- ADD BRANCH ----------------------
   Future<Map<String, dynamic>> addSalonBranch(
@@ -1248,6 +1283,52 @@ Future<Map<String, dynamic>> updateSubCategoryApi({
       return {'success': false, 'message': 'Error: $e'};
     }
   }
+// ---------------------- ADD SALON TEAM MEMBER ----------------------
+Future<Map<String, dynamic>> addSalonTeamMember(
+  int salonId,
+  Map<String, dynamic> teamMemberData,
+) async {
+  // Generate the full URL using static method
+  final url = Uri.parse('$baseUrl${addSalonTeamMemberEndpoint(salonId)}');
+
+  // Get the auth token first
+  String token = await getAuthToken();
+
+  // Log the URL and the body being sent
+  print('API URL: $url');
+  print('Request Body: $teamMemberData');
+
+  // Prepare headers, including the Authorization token
+  final headers = {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer $token', // Use the actual token here
+  };
+
+  final body = json.encode(teamMemberData); // Encode the data as JSON
+
+  try {
+    // Log the HTTP request being made
+    print('Making POST request to: $url');
+
+    final response = await http.post(url, headers: headers, body: body);
+
+    // Log the status code of the response
+    print('Response Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 201) {
+      // If successful, parse the response JSON
+      return json.decode(response.body);
+    } else {
+      // If request fails, throw an error
+      throw Exception('Failed to add salon user');
+    }
+  } catch (e) {
+    // Handle errors (e.g., network issues)
+    print('Error: $e');
+    return {'success': false, 'message': 'Error: $e'};
+  }
+}
 
   // ---------------------- GET TEAM MEMBERS ----------------------
   static Future<Map<String, dynamic>> getTeamMembers(int branchId) async {
@@ -2216,5 +2297,50 @@ Future<Map<String, dynamic>> createAppointment(
   }
 }
 
-}
+Future<Map<String, dynamic>> assignUserToBranch(
+    int branchId,
+    int userId,
+    String joiningDate,
+    List<Map<String, dynamic>> schedules,
+    List<int> branchServiceIds) async {
+  final token = await getAuthToken();
+  final url = Uri.parse('$baseUrl${assignUserToBranchAPI(branchId)}');
 
+  final payload = {
+    "userId": userId,
+    "joiningDate": joiningDate, // e.g. "2025-08-21"
+    "schedules": schedules,     // multiple schedules, multiple days allowed
+    "branchServiceIds": branchServiceIds,
+  };
+
+  print("➡️ Calling Assign User To Branch API");
+  print("➡️ URL: $url");
+  print("➡️ Token: $token");
+  print("➡️ Payload: ${jsonEncode(payload)}");
+
+  try {
+    final response = await http.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
+
+    print("⬅️ Status Code: ${response.statusCode}");
+    print("⬅️ Response Body: ${response.body}");
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } else {
+      throw Exception("Failed to assign user: ${response.body}");
+    }
+  } catch (e) {
+    print("❌ Error assigning user: $e");
+    rethrow;
+  }
+}
+ 
+
+}

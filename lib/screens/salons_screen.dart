@@ -10,7 +10,7 @@ import 'add_salon_screen.dart';
 import 'branch_screen.dart';
 import 'Deal.dart';
 import 'Package.dart';
-import 'Teams.dart';
+import 'SalonTeams.dart';
 import '../utils/colors.dart';
 class SalonsScreen extends StatefulWidget {
   const SalonsScreen({super.key});
@@ -403,25 +403,43 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                       ],
                     ),
                   ),
-                  ElevatedButton.icon(
-                    onPressed: onAddSalon,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Salon'),
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.starColor,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      minimumSize: const Size(0, 36),
-                      textStyle: const TextStyle(fontWeight: FontWeight.bold),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                  ),
+                ElevatedButton(
+  onPressed: onAddSalon,
+  style: ElevatedButton.styleFrom(
+    elevation: 0,
+    backgroundColor: AppColors.lightGrey,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(24), // ✅ rounded corners
+    ),
+  ).copyWith(
+    side: MaterialStateProperty.all(
+      const BorderSide(
+        color: AppColors.grey, // ✅ border color
+        width: 1,
+        style: BorderStyle.solid,
+      ),
+    ),
+  ),
+  child: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Image.asset(
+        "assets/images/plusIcn.png", // ✅ your custom plus icon
+        width: 18,
+        height: 18,
+      ),
+      const SizedBox(width: 6),
+      const Text(
+        'Add Salon',
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          color: AppColors.grey, // ✅ matches other buttons
+        ),
+      ),
+    ],
+  ),
+),
                 ],
               ),
               const SizedBox(height: 10),
@@ -976,8 +994,28 @@ class _SalonCard extends StatelessWidget {
     final rawImage = _cleanText(salon['imageUrl']);
     final String? imageUrl = rawImage.isEmpty ? null : rawImage;
     final borderColor = accentColor.withOpacity(0.18);
+String _norm(String s) => s.trim().toLowerCase();
 
-    return AnimatedContainer(
+final bool hasMainBranch = branches.any(
+  (b) => _norm((b['name'] ?? '').toString()) == _norm(salonName),
+);
+
+// branches to show in the expanded list (exclude the “main”)
+final List<Map<String, dynamic>> visibleBranches = branches.where((b) {
+  final bName = _norm((b['name'] ?? '').toString());
+  return bName != _norm(salonName);
+}).toList();
+
+// single main branch only?
+final bool onlyMainBranch =
+    branches.length == 1 &&
+    _norm((branches.first['name'] ?? '').toString()) == _norm(salonName);
+
+// number chip should show extra locations only (not the main)
+final int additionalBranches =
+    hasMainBranch ? (branches.length - 1) : branches.length;
+
+return AnimatedContainer(
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOut,
       margin: const EdgeInsets.only(bottom: 16),
@@ -1024,25 +1062,27 @@ class _SalonCard extends StatelessWidget {
                               ),
                         ),
                         const SizedBox(height: 8),
-                       Wrap(
+            Wrap(
   spacing: 8,
   runSpacing: 6,
   children: [
-    _MetricChip(
-      icon: Icons.storefront_rounded,
-      label: "$branchCount ${branchCount == 1 ? 'branch' : 'branches'}",
-      accentColor: AppColors.starColor,
-      useAccent: true, // 👈 white background, starColor text+icon
-    ),
+    if (additionalBranches > 0)
+      _MetricChip(
+        icon: Icons.storefront_rounded,
+        label: "$additionalBranches ${additionalBranches == 1 ? 'branch' : 'branches'}",
+        accentColor: AppColors.starColor,
+        useAccent: true,
+      ),
+
     if (effectiveSalonId != 0)
       _MetricChip(
         icon: Icons.confirmation_number_outlined,
         label: 'Salon ID #$effectiveSalonId',
         accentColor: AppColors.starColor,
-        // 👈 no useAccent → stays grey
       ),
   ],
 ),
+
                         if (tagline.isNotEmpty) ...[
                           const SizedBox(height: 10),
                           Text(
@@ -1076,105 +1116,227 @@ class _SalonCard extends StatelessWidget {
               ),
             ),
           ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 260),
-            curve: Curves.easeOut,
-            alignment: Alignment.topCenter,
-            child: isExpanded
-                ? Column(
-                    children: [
-                      const Divider(height: 1, color: Color(0xFFECEFF1)),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Branches',
-                              style:
-                                  theme.textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF37474F),
-                                  ) ??
-                                  const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF37474F),
-                                  ),
-                            ),
-                            const SizedBox(height: 10),
-                            if (branches.isEmpty)
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 18,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F8FA),
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                                child: Row(
-                                  children: const [
-                                    Icon(
-                                      Icons.info_outline,
-                                      color: Color(0xFF90A4AE),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        'No branches yet. Start by adding one to unlock bookings.',
-                                        style: TextStyle(
-                                          color: Color(0xFF607D8B),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            else
-                              ...branches.map((branch) {
-                                final branchId = _parseId(branch['id']);
-                                if (branchId == 0) {
-                                  return const SizedBox.shrink();
-                                }
-                                return _BranchTile(
-                                  branch: branch,
-                                  accentColor: accentColor,
-                                  onOpen: () async => onOpenBranch(branchId),
-                                );
-                              }),
-                            const SizedBox(height: 18),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: OutlinedButton.icon(
-                                onPressed: onAddBranch,
-                                icon: const Icon(Icons.add, size: 18),
-                                label: const Text('Add Branch'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: accentColor,
-                                  side: BorderSide(
-                                    color: accentColor.withOpacity(0.6),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 12,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(18),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : const SizedBox.shrink(),
+  //         AnimatedSize(
+  // duration: const Duration(milliseconds: 260),
+  // curve: Curves.easeOut,
+  // alignment: Alignment.topCenter,
+  // child: !isExpanded
+  //     ? const SizedBox.shrink()
+  //     : Column(
+  //         children: [
+  //           const Divider(height: 1, color: Color(0xFFECEFF1)),
+  //           Padding(
+  //             padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+  //             child: Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 // 1) If there are NO branches at all → show NOTHING except the CTA
+  //                 if (branches.isEmpty) ...[
+  //                   Align(
+  //                     alignment: Alignment.centerRight,
+  //                     child: OutlinedButton.icon(
+  //                       onPressed: onAddBranch,
+  //                       icon: const Icon(Icons.add, size: 18),
+  //                       label: const Text('Add Branch'),
+  //                       style: OutlinedButton.styleFrom(
+  //                         foregroundColor: AppColors.starColor,
+  //                         side: BorderSide(
+  //                           color: AppColors.starColor.withOpacity(0.6),
+  //                         ),
+  //                         padding: const EdgeInsets.symmetric(
+  //                           horizontal: 20,
+  //                           vertical: 12,
+  //                         ),
+  //                         shape: RoundedRectangleBorder(
+  //                           borderRadius: BorderRadius.circular(18),
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ]
+  //                 // 2) If there ARE branches
+  //                 else ...[
+  //                   if (!hasSingleMainBranch) ...[
+  //                     Text(
+  //                       hasMainBranch
+  //                           ? 'Additional Locations'
+  //                           : 'Branch Locations',
+  //                       style: theme.textTheme.titleSmall?.copyWith(
+  //                             fontWeight: FontWeight.w700,
+  //                             color: const Color(0xFF37474F),
+  //                           ) ??
+  //                           const TextStyle(
+  //                             fontSize: 14,
+  //                             fontWeight: FontWeight.w700,
+  //                             color: Color(0xFF37474F),
+  //                           ),
+  //                     ),
+  //                     const SizedBox(height: 10),
+  //                   ],
+
+  //                   // List the branches (with your main-branch tweaks)
+  //                   ...branches.map((branch) {
+  //                     final branchId = _parseId(branch['id']);
+  //                     if (branchId == 0) return const SizedBox.shrink();
+
+  //                     final branchName = (branch['name'] ?? '')
+  //                         .toString()
+  //                         .trim()
+  //                         .toLowerCase();
+  //                     final salonDisplayName = salonName.toLowerCase();
+  //                     final bool isMainBranch =
+  //                         branches.length == 1 || branchName == salonDisplayName;
+
+  //                     return _BranchTile(
+  //                       branch: branch,
+  //                       accentColor: AppColors.starColor,
+  //                       onOpen: () async => onOpenBranch(branchId),
+  //                       hideViewButton: isMainBranch,
+  //                       hideTitle: isMainBranch,
+  //                     );
+  //                   }).toList(),
+
+  //                   const SizedBox(height: 18),
+  //                   Align(
+  //                     alignment: Alignment.centerRight,
+  //                     child: OutlinedButton.icon(
+  //                       onPressed: onAddBranch,
+  //                       icon: const Icon(Icons.add, size: 18),
+  //                       label: const Text('Add Branch'),
+  //                       style: OutlinedButton.styleFrom(
+  //                         foregroundColor: AppColors.starColor,
+  //                         side: BorderSide(
+  //                           color: AppColors.starColor.withOpacity(0.6),
+  //                         ),
+  //                         padding: const EdgeInsets.symmetric(
+  //                           horizontal: 20,
+  //                           vertical: 12,
+  //                         ),
+  //                         shape: RoundedRectangleBorder(
+  //                           borderRadius: BorderRadius.circular(18),
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ],
+  //               ],
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //         ),
+  
+  AnimatedSize(
+  duration: const Duration(milliseconds: 260),
+  curve: Curves.easeOut,
+  alignment: Alignment.topCenter,
+  child: !isExpanded
+      ? const SizedBox.shrink()
+      : Column(
+         children: [
+  // 0 branches OR single (main) → only CTA
+  if (branches.isEmpty || onlyMainBranch) ...[
+Align(
+  alignment: Alignment.centerRight,
+  child: Container(
+    margin: const EdgeInsets.only(right: 16, bottom: 16),
+    child: OutlinedButton(
+      onPressed: onAddBranch,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: AppColors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24), // ✅ rounded corners
+        ),
+        side: const BorderSide(
+          color: AppColors.grey, // ✅ consistent border color
+          width: 0.5,
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            "assets/images/plusIcn.png", // ✅ custom plus icon
+            width: 18,
+            height: 18,
           ),
+          const SizedBox(width: 6),
+          const Text(
+            'Add Branch',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.grey, // ✅ match "Add Booking" text color
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+),
+
+  ] else ...[
+    // 2+ branches → show only non-main branches
+    ...visibleBranches.map((branch) {
+      final branchId = _parseId(branch['id']);
+      if (branchId == 0) return const SizedBox.shrink();
+      return _BranchTile(
+        branch: branch,
+        accentColor: AppColors.starColor,
+        onOpen: () async => onOpenBranch(branchId),
+        hideViewButton: false,
+        hideTitle: false,
+      );
+    }).toList(),
+
+    const SizedBox(height: 18),
+  Align(
+  alignment: Alignment.centerRight,
+  child: Container(
+    margin: const EdgeInsets.only(right: 16, bottom: 16), // ✅ space
+    child: OutlinedButton(
+      onPressed: onAddBranch,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: AppColors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24), // ✅ rounded corners
+        ),
+        side: const BorderSide(
+          color: AppColors.grey, // ✅ consistent border color
+          width: 0.5,
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(
+            "assets/images/plusIcn.png", // ✅ custom plus icon
+            width: 18,
+            height: 18,
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'Add Branch',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.grey, // ✅ same as Add Booking
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
+),
+
+  ],
+],
+
+        ),
+),
+
         ],
       ),
     );
@@ -1186,12 +1348,16 @@ class _BranchTile extends StatefulWidget {
     required this.branch,
     required this.onOpen,
     required this.accentColor,
+        this.hideViewButton = false, 
+          this.hideTitle = false,    
     Key? key,
   }) : super(key: key);
 
   final Map<String, dynamic> branch;
   final Future<void> Function() onOpen;
   final Color accentColor;
+   final bool hideViewButton;    
+     final bool hideTitle;  
 
   @override
   State<_BranchTile> createState() => _BranchTileState();
@@ -1232,7 +1398,11 @@ class _BranchTileState extends State<_BranchTile> {
             .trim();
     final borderTint = accentColor.withOpacity(isLoading ? 0.35 : 0.18);
     final shadowTint = accentColor.withOpacity(0.08);
+// ✅ decide the left title for this tile
 
+// ADD this instead:
+final String title = (branch['name'] ?? '').toString().trim();
+final bool showTitle = !widget.hideTitle && title.isNotEmpty;
     final chips = <Widget>[];
     if (city.isNotEmpty) {
       chips.add(
@@ -1285,33 +1455,62 @@ class _BranchTileState extends State<_BranchTile> {
 child: Icon(Icons.storefront_rounded, color: accentColor), // ✅ star color icon
 ),
               const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      (branch['name'] ?? 'Branch').toString(),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF37474F),
-                      ),
-                    ),
-                    if (line1.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        line1,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF607D8B),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+              // Expanded(
+              //   child: Column(
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     children: [
+              //       Text(
+              //         (branch['name'] ?? 'Branch').toString(),
+              //         style: const TextStyle(
+              //           fontSize: 14,
+              //           fontWeight: FontWeight.w700,
+              //           color: Color(0xFF37474F),
+              //         ),
+              //       ),
+              //       if (line1.isNotEmpty) ...[
+              //         const SizedBox(height: 4),
+              //         Text(
+              //           line1,
+              //           maxLines: 2,
+              //           overflow: TextOverflow.ellipsis,
+              //           style: const TextStyle(
+              //             fontSize: 12,
+              //             color: Color(0xFF607D8B),
+              //           ),
+              //         ),
+              //       ],
+              //     ],
+              //   ),
+              // ),
+        Expanded(
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      if (showTitle)
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF37474F),
+          ),
+        ),
+      if (line1.isNotEmpty) ...[
+        if (showTitle) const SizedBox(height: 4),
+        Text(
+          line1,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF607D8B),
+          ),
+        ),
+      ],
+    ],
+  ),
+),
+
               if (isLoading)
                 SizedBox(
                   width: 20,
@@ -1328,29 +1527,37 @@ child: Icon(Icons.storefront_rounded, color: accentColor), // ✅ star color ico
             Wrap(spacing: 8, runSpacing: 6, children: chips),
           ],
           const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-  onPressed: isLoading ? null : _handleTap,
-  style: TextButton.styleFrom(
-    backgroundColor: Colors.white, // ✅ white background
-    foregroundColor: AppColors.starColor, // ✅ text & icon color
-    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: BorderSide(color: AppColors.starColor.withOpacity(0.6)),
+      if (!widget.hideViewButton)                // 👈 only show for non-main branches
+ Align(
+  alignment: Alignment.centerRight,
+  child: TextButton(
+    onPressed: isLoading ? null : _handleTap,
+    style: TextButton.styleFrom(
+      backgroundColor: Colors.white,
+      foregroundColor: AppColors.starColor,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppColors.starColor.withOpacity(0.6)),
+      ),
     ),
-  ),
-  icon: const Icon(Icons.arrow_forward_rounded, size: 18, color: AppColors.starColor), // ✅ arrow at start
-  label: const Text(
-    'View Branch',
-    style: TextStyle(
-      fontWeight: FontWeight.w600,
-      color: AppColors.starColor, // ✅ ensure text color
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: const [
+        Text(
+          'View Branch',
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: AppColors.starColor,
+          ),
+        ),
+        SizedBox(width: 6),
+        Icon(Icons.arrow_forward_rounded,
+            size: 18, color: AppColors.starColor),
+      ],
     ),
   ),
 ),
-          ),
         ],
       ),
     );

@@ -3,6 +3,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import '../utils/colors.dart';
+import 'package:flutter/services.dart'; 
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({
@@ -219,11 +221,11 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-    backgroundColor: Colors.orange, // main orange background
+    backgroundColor: AppColors.grey, 
     iconTheme: const IconThemeData(
     color: Colors.white, // ✅ sets back button color to white
   ),
-    centerTitle: true, // center the title
+    // centerTitle: true, // center the title
     title: const Text(
       'Add Location',
       style: TextStyle(
@@ -259,7 +261,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: const BorderSide(color: Colors.orange),
+                          borderSide: const BorderSide(color: AppColors.darkGrey),
                         ),
                       ),
                       onChanged: (val) {
@@ -284,16 +286,19 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.grey,
+                      foregroundColor: AppColors.white,
                     ),
                   ),
                   SizedBox(height: 20),
                   _buildTextField(buildingNameController, 'Building Name and Flat No',
-                      'Enter building name and flat number'),
-                  _buildTextField(cityController, 'City', 'Enter city'),
-                  _buildTextField(pincodeController, 'Pincode', 'Enter pincode'),
-                  _buildTextField(stateController, 'State', 'Enter state'),
+                      'Enter building name and flat number', textCapitalization: TextCapitalization.words),
+                  _buildTextField(cityController, 'City', 'Enter city', textCapitalization: TextCapitalization.words),
+                  _buildTextField(pincodeController, 'Pincode', 'Enter pincode', maxLength: 6,
+  keyboardType: TextInputType.number,
+  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+  textCapitalization: TextCapitalization.none,),
+                  _buildTextField(stateController, 'State', 'Enter state', textCapitalization: TextCapitalization.words),
                   _buildTextField(completeAddressController, 'Complete Address',
                       'Full address will appear here',
                       enabled: false, isRequired: false),
@@ -321,7 +326,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      backgroundColor: Colors.orange,
+                      backgroundColor: Colors.grey,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -333,21 +338,28 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       ),
     );
   }
-
 Widget _buildTextField(
   TextEditingController controller,
   String label,
   String hint, {
   bool enabled = true,
   bool isRequired = true,
+  int? maxLength,
+  TextInputType keyboardType = TextInputType.text,
+  List<TextInputFormatter>? inputFormatters,
+  TextCapitalization textCapitalization = TextCapitalization.sentences, // default
 }) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: TextFormField(
       controller: controller,
       enabled: enabled,
-      autovalidateMode: AutovalidateMode.onUserInteraction, // ✅ live validation
-      cursorColor: Colors.orange, // ✅ orange cursor for consistency
+      maxLength: maxLength,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      cursorColor: Colors.orange,
       validator: (value) {
         if (isRequired && (value == null || value.trim().isEmpty)) {
           return '$label is required';
@@ -357,25 +369,25 @@ Widget _buildTextField(
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(color: Colors.orange), // ✅ orange label
+        counterText: "", // hides default counter
+        labelStyle: const TextStyle(color: AppColors.darkGrey),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.orange, width: 2), // ✅ orange error border
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.orange, width: 2), // ✅ orange error border when focused
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
         ),
         errorStyle: const TextStyle(
-          color: Colors.orange, // ✅ orange error text
-          fontWeight: FontWeight.bold,
+          color: AppColors.red,
         ),
       ),
     ),

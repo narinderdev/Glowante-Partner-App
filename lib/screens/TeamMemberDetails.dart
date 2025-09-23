@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'AssignUser.dart';
+import '../screens/AssignUser.dart';
 
 class TeamMemberDetails extends StatelessWidget {
   final Map<String, dynamic> member;
-
-  const TeamMemberDetails({Key? key, required this.member}) : super(key: key);
+ final List<Map<String, dynamic>> salons; // 👈 new
+  const TeamMemberDetails({Key? key, required this.member,  required this.salons,}) : super(key: key);
 
   String _initials(String first, String last) {
     final f = first.isNotEmpty ? first[0] : '';
@@ -15,6 +17,7 @@ class TeamMemberDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final String firstName = (member['firstName'] ?? '').toString();
     final String lastName  = (member['lastName'] ?? '').toString();
+      final userId = member['id'];
     final String name = (firstName + ' ' + lastName).trim();
     final String role = (member['roles'] != null && member['roles'].isNotEmpty)
         ? member['roles'][0]['label']?.toString() ?? 'Staff'
@@ -26,7 +29,10 @@ class TeamMemberDetails extends StatelessWidget {
     final String rating = '4.5';
     final String experience = member['experience']?.toString() ?? '3 years';
     final List branches = (member['userBranches'] ?? []) as List;
-
+final List userSalons = (member['userSalons'] ?? []) as List;
+final String joinedAt = userSalons.isNotEmpty
+    ? (userSalons[0]['joinedAt'] ?? '').toString()
+    : 'N/A';
     final borderColor = Colors.black.withOpacity(0.08);
     final cardRadius  = BorderRadius.circular(14);
 
@@ -130,7 +136,7 @@ class TeamMemberDetails extends StatelessWidget {
               ),
 
               const SizedBox(height: 16),
-
+// Text("Assign User ($userId)"),
               // Specializations
               _SectionCard(
                 title: 'Specializations',
@@ -175,7 +181,22 @@ class TeamMemberDetails extends StatelessWidget {
               ),
 
               const SizedBox(height: 12),
+// ✅ Joined At
+_SectionCard(
+  title: 'Joined At',
+  icon: Icons.calendar_today_outlined,
+  borderColor: borderColor,
+  radius: cardRadius,
+  trailing: Text(
+    joinedAt,
+    style: const TextStyle(
+      fontWeight: FontWeight.w600,
+      fontSize: 14,
+    ),
+  ),
+),
 
+const SizedBox(height: 12),
               // Assigned Branches
               _SectionCard(
   title: 'Assigned Branches',
@@ -227,40 +248,107 @@ class TeamMemberDetails extends StatelessWidget {
             }).toList(),
           ),
   ),
-)
+),
+// _SectionCard(
+//   title: 'Assigned Branches',
+//   icon: Icons.apartment_outlined,
+//   borderColor: borderColor,
+//   radius: cardRadius,
+//   child: Column(
+//     crossAxisAlignment: CrossAxisAlignment.start,
+//     children: salons.expand((salon) {
+//       final salonId = salon['id'] ?? '';
+//       final salonName = salon['name'] ?? '';
+//       final branches = salon['branches'] as List? ?? [];
+
+//       return branches.map((branch) {
+//         final branchId = branch['id'] ?? '';
+//         final branchName = branch['name'] ?? '';
+//         final address = branch['address'] ?? {};
+//         final addrText =
+//             "${address['line1'] ?? ''}, ${address['city'] }";
+
+//         return InkWell(
+//           onTap: () {
+//             // 👉 You can handle tap if you want to open branch details
+//             print("Tapped SalonId: $salonId | BranchId: $branchId");
+//           },
+//           borderRadius: BorderRadius.circular(8),
+//           child: Padding(
+//             padding: const EdgeInsets.symmetric(vertical: 6),
+//             child: Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 // Salon and Branch info
+//                 Text(
+//                   "Salon: $salonName (ID: $salonId)",
+//                   style: const TextStyle(
+//                       fontWeight: FontWeight.w600, fontSize: 14),
+//                 ),
+//                 const SizedBox(height: 2),
+//                 Row(
+//                   children: [
+//                     const Icon(Icons.location_on_outlined,
+//                         size: 18, color: Colors.black54),
+//                     const SizedBox(width: 6),
+//                     Expanded(
+//                       child: Text(
+//                         "Branch: $branchName (ID: $branchId)\n$addrText",
+//                         style: const TextStyle(fontSize: 13),
+//                         overflow: TextOverflow.ellipsis,
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//               ],
+//             ),
+//           ),
+//         );
+//       });
+//     }).toList(),
+//   ),
+// ),
+
 
             ],
           ),
         ),
       ),
-
-      // 🔹 Sticky bottom button (outside scroll)
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                // TODO: handle assign
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFDD8B1F),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 0,
-              ),
-              child: const Text(
-                'Assign User',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+       bottomNavigationBar: SafeArea(
+  top: false,
+  child: Padding(
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+    child: SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AssignUserScreen(
+                member: member,
+                salons: salons, // 👈 pass salons list
+                  salonId: salons.first['id'],
               ),
             ),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFDD8B1F),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
+          elevation: 0,
+        ),
+        child: const Text(
+          'Assign User',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
+    ),
+  ),
+),
     );
   }
 }

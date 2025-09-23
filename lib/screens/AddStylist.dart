@@ -751,40 +751,40 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                     const SizedBox(height: 20),
 
                     // Timeslot Selection Button
-                    _GradientButton(
-                      text: 'Choose Timeslot',
-                      onPressed: () async {
-                        if (!await _validateFormAndShowAlert()) {
-                          return;
-                        }
+                    // _GradientButton(
+                    //   text: 'Choose Timeslot',
+                    //   onPressed: () async {
+                    //     if (!await _validateFormAndShowAlert()) {
+                    //       return;
+                    //     }
 
-                        // Prepare data to be passed
-                        final formData = {
-                          'phoneNumber': _phoneCtrl.text,
-                          'firstName': _firstNameCtrl.text,
-                          'lastName': _lastNameCtrl.text,
-                          'email': _emailCtrl.text,
-                          'otp': _otpCtrl.text,
-                          'gender': _gender,
-                          'roles': _selectedRoles,
-                          'specializations': _selectedSpecs,
-                          'joiningDate': _joiningDate,
-                          'brief': _briefCtrl.text,
-                          'profileImage': imageUrl,
-                          'branchId': widget.branchId,
-                        };
-                        print('Form Data: $formData'); // Log the form data
-                        // Navigate to ChooseTimeSlot.dart and pass the form data
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ChooseTimeSlot(
-                              formData: formData,
-                            ), // Pass data directly to the new screen
-                          ),
-                        );
-                      },
-                    ),
+                    //     // Prepare data to be passed
+                    //     final formData = {
+                    //       'phoneNumber': _phoneCtrl.text,
+                    //       'firstName': _firstNameCtrl.text,
+                    //       'lastName': _lastNameCtrl.text,
+                    //       'email': _emailCtrl.text,
+                    //       'otp': _otpCtrl.text,
+                    //       'gender': _gender,
+                    //       'roles': _selectedRoles,
+                    //       'specializations': _selectedSpecs,
+                    //       'joiningDate': _joiningDate,
+                    //       'brief': _briefCtrl.text,
+                    //       'profileImage': imageUrl,
+                    //       'branchId': widget.branchId,
+                    //     };
+                    //     print('Form Data: $formData'); // Log the form data
+                    //     // Navigate to ChooseTimeSlot.dart and pass the form data
+                    //     Navigator.pushReplacement(
+                    //       context,
+                    //       MaterialPageRoute(
+                    //         builder: (context) => ChooseTimeSlot(
+                    //           formData: formData,
+                    //         ), // Pass data directly to the new screen
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
 
                     const SizedBox(height: 24),
                   ],

@@ -207,23 +207,46 @@ class _TeamScreenState extends State<TeamScreen> {
                                         ],
                                       ),
                                       const Spacer(),
-                                    ElevatedButton(
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => TeamMemberDetails(member: m),
-                                            ),
-                                          );
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.orange[400],
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                        child: const Text("View Member"),
-                                      ),
+                                    // ElevatedButton(
+                                    //     onPressed: () {
+                                    //       Navigator.push(
+                                    //         context,
+                                    //         MaterialPageRoute(
+                                    //           builder: (_) => TeamMemberDetails(member: m),
+                                    //         ),
+                                    //       );
+                                    //     },
+                                    //     style: ElevatedButton.styleFrom(
+                                    //       backgroundColor: Colors.orange[400],
+                                    //       shape: RoundedRectangleBorder(
+                                    //         borderRadius: BorderRadius.circular(8),
+                                    //       ),
+                                    //     ),
+                                    //     child: const Text("View Member"),
+                                    //   ),
+ElevatedButton(
+  onPressed: () {
+    Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => TeamMemberDetails(
+      member: m,
+      salons: salons,
+    ),
+  ),
+);
+
+  },
+  style: ElevatedButton.styleFrom(
+    backgroundColor: Colors.orange[400],
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(8),
+    ),
+  ),
+  child: const Text("View Member"),
+),
+
+
 
                                     ],
                                   ),
@@ -242,27 +265,37 @@ class _TeamScreenState extends State<TeamScreen> {
         ),
       ),
 floatingActionButton: FloatingActionButton.extended(
-  onPressed: () {
-    final int? branchId = selectedBranch?['branchId']; // ✅ extract branchId
-    if (branchId != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AddTeamScreen(branchId: branchId), // ✅ pass branchId
+  // 👉 FloatingActionButton "Add Member"
+onPressed: () async {
+  if (selectedBranch != null) {
+    final refresh = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddTeamScreen(
+          branchId: selectedBranch!['branchId'],
+          salonId: selectedBranch!['salonId'],
+          branchName: selectedBranch!['branchName'],
         ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please select a branch first."),
-        ),
-      );
+      ),
+    );
+
+    if (refresh == true) {
+      setState(() {
+        teamMembersFuture = getTeamMembers(selectedBranch!['salonId']);
+      });
     }
-  },
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Please select a branch first.")),
+    );
+  }
+},
+
   label: const Text("Add Member"),
   icon: const Icon(Icons.add),
   backgroundColor: Colors.orange[300],
 ),
+
 
     );
   }

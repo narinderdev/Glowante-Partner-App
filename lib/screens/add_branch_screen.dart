@@ -1,11 +1,11 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
-
+import '../utils/colors.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'add_location_screen.dart';
+import 'package:flutter/services.dart';
 
 class AddBranchScreen extends StatefulWidget {
   const AddBranchScreen({super.key, required this.salonId});
@@ -138,19 +138,19 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         final address = state.address;
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.white,
          appBar: AppBar(
-    backgroundColor: Colors.orange, // AppBar background
-    centerTitle: true, // center the title
+    backgroundColor: AppColors.grey, // AppBar background
+    // centerTitle: true, // center the title
     iconTheme: const IconThemeData(
-      color: Colors.white, // back button color
+      color: AppColors.black, // back button color
     ),
     title: const Text(
       'Add Branch',
       style: TextStyle(
         fontWeight: FontWeight.bold,
         fontSize: 20,
-        color: Colors.white, // title text color
+        color: AppColors.black, // title text color
       ),
     ),
   ),
@@ -168,12 +168,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                         label: 'Branch Name *',
                         hint: 'Enter branch name',
                       ),
-                      _buildTextField(
-                        controller: _phoneController,
-                        label: 'Phone Number *',
-                        hint: 'Enter phone number',
-                        enabled: false,
-                      ),
+               _buildTextField(
+  controller: _phoneController,
+  label: 'Phone Number *',
+  hint: 'Enter phone number',
+  maxLength: 10,
+  enabled: false,
+  keyboardType: TextInputType.number,
+  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+),
+
+
                       Row(
                         children: [
                           Expanded(
@@ -199,37 +204,42 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   style: Theme.of(context).textTheme.titleMedium,
 ),
 const SizedBox(height: 8),
-
-// ✅ Case 1: No address -> show button only
+// ✅ Case: No address -> show bordered box with "Add Location"
 if (address == null)
-  ElevatedButton.icon(
-    onPressed: () => _chooseLocation(state),
-    icon: const Icon(Icons.add_location, color: Colors.white),
-    label: const Text("Add Location"),
-    style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.orange,        // blue background
-      foregroundColor: Colors.white,       // white text + icon
-      minimumSize: const Size(double.infinity, 48), // full width
-      shape: RoundedRectangleBorder(
+  InkWell(
+    onTap: () => _chooseLocation(state),
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.darkGrey, width: 1),
         borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Center(
+        child: Text(
+          "Add Location",
+          style: TextStyle(
+            color: AppColors.darkGrey,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     ),
   )
 else
-  // ✅ Case 2: Address exists -> show bordered box with edit icon
+  // ✅ Case: Address exists -> your existing design
   InkWell(
     onTap: () => _chooseLocation(state),
     child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.orange),
+        border: Border.all(color: AppColors.darkGrey),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Address details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,7 +254,7 @@ else
               ],
             ),
           ),
-          const Icon(Icons.edit, color: Colors.orange),
+          const Icon(Icons.edit, color: AppColors.darkGrey),
         ],
       ),
     ),
@@ -260,7 +270,7 @@ else
                       
                       const SizedBox(height: 20),
                       Text(
-                        'Branch Images',
+                        'Branch Images(Optional)',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 8),
@@ -285,11 +295,11 @@ else
                               height: 80,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange),
+                                border: Border.all(color: AppColors.darkGrey),
                               ),
                               child: const Icon(
                                 Icons.add,
-                                color: Colors.orange,
+                                color:  AppColors.darkGrey,
                               ),
                             ),
                           ),
@@ -304,8 +314,8 @@ else
                               ? null
                               : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            foregroundColor: Colors.white,
+                            backgroundColor: AppColors.grey,
+                            foregroundColor: AppColors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -319,7 +329,7 @@ else
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Submit Branch'),
+                              : const Text('Add Branch'),
                         ),
                       ),
                     ],
@@ -339,21 +349,27 @@ else
       },
     );
   }
-
 Widget _buildTextField({
   required TextEditingController controller,
   required String label,
   required String hint,
   int maxLines = 1,
+  int? maxLength, // ✅ allow passing maxLength
   bool enabled = true,
+  TextInputType keyboardType = TextInputType.text,
+  List<TextInputFormatter>? inputFormatters, // ✅ optional
 }) {
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: TextFormField(
       controller: controller,
       maxLines: maxLines,
+      maxLength: maxLength, // ✅ applied here
       enabled: enabled,
-      autovalidateMode: AutovalidateMode.onUserInteraction, // ✅ validates live
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      textCapitalization: TextCapitalization.sentences,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return '$label is required';
@@ -363,34 +379,36 @@ Widget _buildTextField({
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(color: Colors.orange), // label always orange
+        counterText: "", // ✅ hides the default counter if you don’t want it
+        labelStyle: const TextStyle(color: AppColors.darkGrey),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 2),
           borderRadius: BorderRadius.circular(8),
         ),
         enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.grey, width: 1),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
           borderRadius: BorderRadius.circular(8),
         ),
         errorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
           borderRadius: BorderRadius.circular(8),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.orange, width: 2),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
           borderRadius: BorderRadius.circular(8),
         ),
         errorStyle: const TextStyle(
-          color: Colors.orange, // error text color
-          fontWeight: FontWeight.bold,
+          color: Colors.red,
+          // fontWeight: FontWeight.bold,
         ),
       ),
     ),
   );
 }
+
 
   Widget _buildTimePickerField({
     required TextEditingController controller,

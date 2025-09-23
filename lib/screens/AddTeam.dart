@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
-import 'package:bloc_onboarding/screens/ChooseTimeSlot.dart';
+// import 'package:bloc_onboarding/screens/ChooseTimeSlot.dart';
 import 'package:flutter/services.dart'; // For TextInputFormatter
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
 class AddTeamScreen extends StatefulWidget {
   final int branchId;
-  const AddTeamScreen({super.key, required this.branchId});
+   final int salonId;
+  final String branchName;
+  const AddTeamScreen({super.key, required this.branchId,required this.salonId,
+    required this.branchName,});
 
   @override
   State<AddTeamScreen> createState() => _AddTeamScreenState();
@@ -475,10 +478,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Text(
-                    //   'Branch ID: ${widget.branchId}',  // No need for toString() as branchId is already an int
-                    //   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                    // ),
+                 Text(
+  'Salon ID: ${widget.salonId}',
+  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+),
+Text(
+  'Branch ID: ${widget.branchId}',
+  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+),
+Text(
+  'Branch Name: ${widget.branchName}',
+  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+),
                     Center(
                       child: GestureDetector(
                         onTap: _pickImage,
@@ -770,40 +781,75 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     const SizedBox(height: 20),
 
                     // Timeslot Selection Button
-                    _GradientButton(
-                      text: 'Choose Timeslot',
-                      onPressed: () async {
-                        if (!await _validateFormAndShowAlert()) {
-                          return;
-                        }
+                    // _GradientButton(
+                    //   text: 'Choose Timeslot',
+                    //   onPressed: () async {
+                    //     if (!await _validateFormAndShowAlert()) {
+                    //       return;
+                    //     }
 
-                        // Prepare data to be passed
-                        final formData = {
-                          'phoneNumber': _phoneCtrl.text,
-                          'firstName': _firstNameCtrl.text,
-                          'lastName': _lastNameCtrl.text,
-                          'email': _emailCtrl.text,
-                          'otp': _otpCtrl.text,
-                          'gender': _gender,
-                          'roles': _selectedRoles,
-                          'specializations': _selectedSpecs,
-                          'joiningDate': _joiningDate,
-                          'brief': _briefCtrl.text,
-                          'profileImage': imageUrl,
-                          'branchId': widget.branchId,
-                        };
-                        print('Form Data: $formData'); // Log the form data
-                        // Navigate to ChooseTimeSlot.dart and pass the form data
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ChooseTimeSlot(
-                              formData: formData,
-                            ), // Pass data directly to the new screen
-                          ),
-                        );
-                      },
-                    ),
+                    //     // Prepare data to be passed
+                    //     final formData = {
+                    //       'phoneNumber': _phoneCtrl.text,
+                    //       'firstName': _firstNameCtrl.text,
+                    //       'lastName': _lastNameCtrl.text,
+                    //       'email': _emailCtrl.text,
+                    //       'otp': _otpCtrl.text,
+                    //       'gender': _gender,
+                    //       'roles': _selectedRoles,
+                    //       'specializations': _selectedSpecs,
+                    //       'joiningDate': _joiningDate,
+                    //       'brief': _briefCtrl.text,
+                    //       'profileImage': imageUrl,
+                    //       'branchId': widget.branchId,
+                    //     };
+                    //     print('Form Data: $formData'); // Log the form data
+                    //     // Navigate to ChooseTimeSlot.dart and pass the form data
+                    //     Navigator.pushReplacement(
+                    //       context,
+                    //       MaterialPageRoute(
+                    //         builder: (context) => ChooseTimeSlot(
+                    //           formData: formData,
+                    //         ), // Pass data directly to the new screen
+                    //       ),
+                    //     );
+                    //   },
+                    // ),
+_GradientButton(
+  text: 'Add Team Member',
+  onPressed: () async {
+    if (!await _validateFormAndShowAlert()) {
+      return;
+    }
+
+    final payload = {
+      "countryCode": "+91",
+      "phoneNumber": _phoneCtrl.text.trim(),
+      "firstName": _firstNameCtrl.text.trim(),
+      "lastName": _lastNameCtrl.text.trim(),
+      "email": _emailCtrl.text.trim(),"joinedAt": _joiningDate != null
+          ? "${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}"
+          : null,
+      "roles": _selectedRoles,
+      "specialities": _selectedSpecs,
+    };
+
+    print("📌 Final Team Member Payload: $payload");
+
+    final result = await ApiService().addSalonTeamMember(widget.salonId, payload);
+
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Team Member added successfully")),
+      );
+      Navigator.pop(context,true); // go back to TeamScreen
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("❌ Failed: ${result['message']}")),
+      );
+    }
+  },
+),
 
                     const SizedBox(height: 24),
                   ],
