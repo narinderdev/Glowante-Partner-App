@@ -380,7 +380,7 @@ InkWell(
                               ? null
                               : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.grey,
+                              backgroundColor: AppColors.black,
                             foregroundColor: AppColors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -406,7 +406,7 @@ InkWell(
                 const ColoredBox(
                   color: Colors.black54,
                   child: Center(
-                    child: CircularProgressIndicator(color: Colors.orange),
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
                 ),
             ],

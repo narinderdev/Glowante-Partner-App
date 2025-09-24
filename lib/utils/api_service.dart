@@ -15,7 +15,7 @@ import 'dart:async';
 
 class ApiService {
   static const String baseUrl = "https://dev-api.glowante.com/";
-  // static const String baseUrl = "https://c1e1a0e7513d.ngrok-free.app/";
+  // static const String baseUrl = "https://9cfac2be6c1d.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String resendOtpEndpoint = "auth/resend_otp";

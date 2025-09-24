@@ -223,7 +223,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       appBar: AppBar(
     backgroundColor: AppColors.grey, 
     iconTheme: const IconThemeData(
-    color: Colors.white, // ✅ sets back button color to white
+    color: Colors.black, // ✅ sets back button color to white
   ),
     // centerTitle: true, // center the title
     title: const Text(
@@ -231,7 +231,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       style: TextStyle(
         fontWeight: FontWeight.bold,
         fontSize: 20,
-        color: Colors.white,
+        color: Colors.black,
       ),
     ),
   ),
@@ -286,7 +286,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      backgroundColor: AppColors.grey,
+                      backgroundColor: AppColors.black,
                       foregroundColor: AppColors.white,
                     ),
                   ),
@@ -326,7 +326,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      backgroundColor: Colors.grey,
+                      backgroundColor: Colors.black,
                       foregroundColor: Colors.white,
                     ),
                   ),
