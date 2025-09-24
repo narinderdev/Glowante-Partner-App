@@ -14,8 +14,8 @@ import '../Viewmodels/AddSalonServiceRequest.dart';
 import 'dart:async';
 
 class ApiService {
-  static const String baseUrl = "https://dev-api.glowante.com/";
-  // static const String baseUrl = "https://9cfac2be6c1d.ngrok-free.app/";
+  // static const String baseUrl = "https://dev-api.glowante.com/";
+  static const String baseUrl = "https://1b395936c234.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String resendOtpEndpoint = "auth/resend_otp";
@@ -1807,7 +1807,6 @@ static Future<Map<String, dynamic>> startAppointment({
   required int appointmentId,
   required String otp,
 }) async {
-  // get token
   final token = await ApiService().getAuthToken();
   if (token.isEmpty) {
     throw Exception('Token is missing');
@@ -1815,60 +1814,76 @@ static Future<Map<String, dynamic>> startAppointment({
 
   final url = Uri.parse("$baseUrl${startAppointmentAPI(branchId, appointmentId)}");
 
-  print("➡️ [START_APPOINTMENT] Request:");
-  print("  URL: $url");
-  print("  Method: POST");
-  print("  Headers: { Content-Type: application/json, Authorization: Bearer $token }");
-  print("  Body: ${jsonEncode({
-    "branchId": branchId,
-    "appointmentId": appointmentId,
-    "otp": otp,
-  })}");
+  bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return normalized == 'true' || normalized == 'success' || normalized == 'ok';
+    }
+    return false;
+  }
 
   try {
     final response = await http.post(
       url,
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
       },
       body: jsonEncode({
-        "branchId": branchId,
-        "appointmentId": appointmentId,
-        "otp": otp,
+        'branchId': branchId,
+        'appointmentId': appointmentId,
+        'otp': otp,
       }),
     );
 
-    print("⬅️ [START_APPOINTMENT] Response:");
-    print("  Status Code: ${response.statusCode}");
-    print("  Body: ${response.body}");
+    final bool statusOk = response.statusCode >= 200 && response.statusCode < 300;
 
-    if (response.statusCode == 200) {
+    Map<String, dynamic> body = const <String, dynamic>{};
+    if (response.body.isNotEmpty) {
       try {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        print("✅ Parsed JSON: $decoded");
-        return decoded;
-      } catch (err) {
-        print("❌ JSON Decode Error: $err");
-        return {
-          "success": false,
-          "error": "Invalid JSON",
-          "rawBody": response.body,
-        };
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          body = decoded;
+        }
+      } catch (_) {
+        body = const <String, dynamic>{};
       }
-    } else {
-      return {
-        "success": false,
-        "statusCode": response.statusCode,
-        "body": response.body,
-      };
     }
+
+    bool? successValue;
+    if (body.containsKey('success')) {
+      successValue = _asBool(body['success']);
+    } else if (body.containsKey('status')) {
+      successValue = _asBool(body['status']);
+    }
+    final bool success = successValue ?? statusOk;
+
+    final result = <String, dynamic>{
+      'success': success,
+      'statusCode': response.statusCode,
+      'body': body,
+      'rawBody': response.body,
+    };
+
+    if (body.containsKey('message') && body['message'] != null) {
+      result['message'] = body['message'];
+    } else if (!success) {
+      result['message'] = 'Failed to start appointment';
+    }
+
+    if (body.containsKey('data')) {
+      result['data'] = body['data'];
+    }
+
+    return result;
   } catch (e, stack) {
-    print("❌ [START_APPOINTMENT] Exception: $e");
-    print("Stacktrace: $stack");
+    print('[START_APPOINTMENT] Exception: $e');
+    print('Stacktrace: $stack');
     return {
-      "success": false,
-      "error": e.toString(),
+      'success': false,
+      'message': e.toString(),
     };
   }
 }

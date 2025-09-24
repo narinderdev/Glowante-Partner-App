@@ -564,7 +564,7 @@ Future<void> getTeamMembers(int branchId) async {
     // Step 2: group by col + customer + staff + status
     final Map<String, List<Map<String, dynamic>>> groups = {};
     for (final it in flat) {
-      final key = '${it['col']}|${it['customerId']}|${it['staffUserId']}|${it['status']}';
+      final key = '${it['appointmentId']}|${it['col']}|${it['customerId']}|${it['staffUserId']}|${it['status']}';
       (groups[key] ??= <Map<String, dynamic>>[]).add(it);
     }
 
@@ -1831,29 +1831,95 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            final List items = (booking['items'] as List?) ?? const [];
-            final Map? useItem = item ?? (items.isNotEmpty ? items.first as Map : null);
+            final List rawItems = (booking['items'] as List?) ?? const [];
+            final Map<String, dynamic>? useItem =
+                item ?? (rawItems.isNotEmpty ? rawItems.first as Map<String, dynamic> : null);
 
-            final String services = useItem != null
-                ? (useItem['branchService']?['displayName']?.toString() ?? '')
-                : items
-                    .map((e) => (e as Map)['branchService']?['displayName']?.toString() ?? '')
-                    .where((s) => s.isNotEmpty)
-                    .join(', ');
+            final List<Map<String, dynamic>> serviceItems = [
+              for (final raw in rawItems)
+                if (raw is Map<String, dynamic>)
+                  raw
+                else if (raw is Map)
+                  raw.cast<String, dynamic>()
+            ];
+            final bool hasMultipleServices = serviceItems.length > 1;
+
+            final String headerTitle;
+            if (hasMultipleServices && serviceItems.isNotEmpty) {
+              final firstName = serviceItems.first['branchService']?['displayName']?.toString() ?? 'Service';
+              headerTitle = '$firstName + ${serviceItems.length - 1} more';
+            } else if (useItem != null) {
+              headerTitle = useItem['branchService']?['displayName']?.toString() ?? 'Appointment';
+            } else if (serviceItems.isNotEmpty) {
+              headerTitle = serviceItems.first['branchService']?['displayName']?.toString() ?? 'Appointment';
+            } else {
+              headerTitle = 'Appointment';
+            }
+
+            String formatUserName(dynamic rawUser) {
+              if (rawUser is Map) {
+                final first = rawUser['firstName']?.toString() ?? '';
+                final last = rawUser['lastName']?.toString() ?? '';
+                final combined = '$first $last'.trim();
+                if (combined.isNotEmpty) {
+                  return combined;
+                }
+                final fallback = rawUser['name']?.toString();
+                if (fallback != null && fallback.isNotEmpty) {
+                  return fallback;
+                }
+              }
+              return '';
+            }
+
+            int _toInt(dynamic value) {
+              if (value is int) return value;
+              if (value is num) return value.toInt();
+              if (value is String) return int.tryParse(value) ?? 0;
+              return 0;
+            }
+
+            final double serviceListMaxHeight = serviceItems.isEmpty
+                ? 0
+                : (serviceItems.length > 4 ? 320.0 : serviceItems.length * 72.0);
 
             final start = _parseLocal(useItem?['startAt']?.toString()) ?? _parseLocal(booking['startAt']);
             final end = _parseLocal(useItem?['endAt']?.toString()) ?? _parseLocal(booking['endAt']);
-            final timeStr = start != null && end != null
-                ? "${DateFormat('h:mm a').format(start)} - ${DateFormat('h:mm a').format(end)}"
+            final DateFormat timeFormatter = DateFormat('h:mm a');
+            final String timeStr = start != null && end != null
+                ? "${timeFormatter.format(start)} - ${timeFormatter.format(end)}"
                 : '';
 
             final bool isPending = statusUpper == 'PENDING';
             final bool isConfirmed = statusUpper == 'CONFIRMED';
 
-            final stylist = useItem?['assignedUserBranch']?['user']?['firstName'] ?? 'N/A';
-            final duration = useItem?['durationMin'] != null ? '${useItem!['durationMin']} min' : '';
-            final priceMinor = useItem?['branchService']?['priceMinor'];
-            final price = priceMinor != null ? '₹$priceMinor' : '';
+            final String primaryStylistName = formatUserName(
+              useItem?['assignedUserBranch']?['user'] ?? useItem?['user'],
+            );
+            final String stylist = hasMultipleServices
+                ? 'Multiple team members'
+                : (primaryStylistName.isNotEmpty ? primaryStylistName : 'N/A');
+
+            final int durationMinutes =
+                useItem != null ? _toInt(useItem['durationMin']) : 0;
+            final String duration = !hasMultipleServices && durationMinutes > 0
+                ? '$durationMinutes min'
+                : '';
+
+            final int singleServicePriceMinor =
+                useItem != null ? _toInt(useItem['branchService']?['priceMinor']) : 0;
+            final int aggregatedPriceMinor = serviceItems.fold<int>(
+              0,
+              (sum, svc) => sum + _toInt(svc['branchService']?['priceMinor']),
+            );
+            final String singleServicePrice =
+                !hasMultipleServices && singleServicePriceMinor > 0
+                    ? '₹$singleServicePriceMinor'
+                    : '';
+            final String totalPrice =
+                hasMultipleServices && aggregatedPriceMinor > 0
+                    ? '₹$aggregatedPriceMinor'
+                    : '';
 
             Future<void> onConfirm() async {
               if (selectedBranchId == null) return;
@@ -2038,7 +2104,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                       children: [
                         Expanded(
                           child: Text(
-                            services.isEmpty ? 'Appointment' : services,
+                            headerTitle,
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -2060,8 +2126,86 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                     if (duration.isNotEmpty)
                       Text('Duration: $duration', style: const TextStyle(color: Colors.black54)),
                     const SizedBox(height: 4),
-                    if (price.isNotEmpty)
-                      Text('Price: $price', style: const TextStyle(color: Colors.black54)),
+                    if (!hasMultipleServices && singleServicePrice.isNotEmpty)
+                      Text('Price: $singleServicePrice', style: const TextStyle(color: Colors.black54)),
+                    if (hasMultipleServices && totalPrice.isNotEmpty)
+                      Text('Total Price: $totalPrice', style: const TextStyle(color: Colors.black54)),
+                    if (serviceItems.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Services',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: serviceListMaxHeight,
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          primary: false,
+                          itemCount: serviceItems.length,
+                          separatorBuilder: (_, __) => const Divider(height: 12),
+                          itemBuilder: (_, idx) {
+                            final serviceItem = serviceItems[idx];
+                            final DateTime? itemStart =
+                                _parseLocal(serviceItem['startAt']?.toString()) ?? start;
+                            final DateTime? itemEnd =
+                                _parseLocal(serviceItem['endAt']?.toString()) ?? end;
+                            final String range = (itemStart != null && itemEnd != null)
+                                ? '${timeFormatter.format(itemStart)} - ${timeFormatter.format(itemEnd)}'
+                                : '';
+                            final String staffName = formatUserName(
+                              serviceItem['assignedUserBranch']?['user'] ?? serviceItem['user'],
+                            );
+                            final int itemPriceMinor =
+                                _toInt(serviceItem['branchService']?['priceMinor']);
+                            final String itemPrice =
+                                itemPriceMinor > 0 ? '₹$itemPriceMinor' : '';
+                            final bool isSelected = identical(serviceItem, useItem);
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.blue.withOpacity(0.08) : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          serviceItem['branchService']?['displayName']?.toString() ?? 'Service',
+                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                        ),
+                                        if (range.isNotEmpty)
+                                          Text(
+                                            range,
+                                            style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                          ),
+                                        if (staffName.isNotEmpty)
+                                          Text(
+                                            'Staff: $staffName',
+                                            style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (itemPrice.isNotEmpty)
+                                    Text(
+                                      itemPrice,
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
                     const Spacer(),
 
                     // ACTIONS:
