@@ -205,7 +205,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           backgroundColor: Colors.white,
           appBar: AppBar(
     backgroundColor: AppColors.grey, // main orange background
-    centerTitle: true, // center the title
+    // centerTitle: true, // center the title
     iconTheme: const IconThemeData(
     color: AppColors.black, // ✅ sets back button color to white
   ),
@@ -285,7 +285,7 @@ InkWell(
               Text(
                 'Add Location',
                 style: TextStyle(
-                  color: AppColors.darkGrey,
+                  color: AppColors.black,
                   fontWeight: FontWeight.w500,
                   fontSize: 16,
                 ),

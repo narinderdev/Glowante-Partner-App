@@ -334,13 +334,6 @@ Future<void> _addService() async {
                     : Text("Add Service", style: TextStyle(fontSize: 16)),
               ),
             ),
-
-            Center(
-              child: TextButton(
-                onPressed: () => Navigator.pop(context,true),
-                child: Text("Cancel", style: TextStyle(color: Colors.grey[700])),
-              ),
-            )
           ],
         ),
       ),

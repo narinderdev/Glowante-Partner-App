@@ -219,7 +219,7 @@ if (address == null)
         child: Text(
           "Add Location",
           style: TextStyle(
-            color: AppColors.darkGrey,
+            color: AppColors.black,
             fontWeight: FontWeight.bold,
           ),
         ),
