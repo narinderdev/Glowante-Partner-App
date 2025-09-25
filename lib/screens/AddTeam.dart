@@ -1,16 +1,22 @@
-import 'package:flutter/material.dart';
-import '../utils/api_service.dart';
-// import 'package:bloc_onboarding/screens/ChooseTimeSlot.dart';
-import 'package:flutter/services.dart'; // For TextInputFormatter
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../utils/api_service.dart';
 
 class AddTeamScreen extends StatefulWidget {
   final int branchId;
-   final int salonId;
+  final int salonId;
   final String branchName;
-  const AddTeamScreen({super.key, required this.branchId,required this.salonId,
-    required this.branchName,});
+
+  const AddTeamScreen({
+    super.key,
+    required this.branchId,
+    required this.salonId,
+    required this.branchName,
+  });
 
   @override
   State<AddTeamScreen> createState() => _AddTeamScreenState();
@@ -18,8 +24,100 @@ class AddTeamScreen extends StatefulWidget {
 
 class _AddTeamScreenState extends State<AddTeamScreen> {
   final _formKey = GlobalKey<FormState>();
-  String? imageUrl;
-  // All roles and specializations data
+
+  // Show inline validations only after user taps "Add Team Member"
+  bool _showGlobalErrors = false;
+
+  // Inline-error suppression flags (hide error while user is interacting)
+  bool _suppressPhoneError = false;
+  bool _suppressVerifyError = false;
+
+  bool _suppressFirstNameError = false;
+  bool _suppressLastNameError  = false;
+  bool _suppressEmailError     = false;
+  bool _suppressOtpError       = false;
+
+  bool _suppressGenderError = false;
+  bool _suppressRolesError  = false;
+  bool _suppressSpecsError  = false;
+  bool _suppressDateError   = false;
+
+  // Colors for statuses
+  final Color _errorColor      = Colors.red;      // invalid inputs
+  final Color _verifyWarnColor = Colors.orange;   // "please verify" prompt
+  final Color _successColor    = Colors.green;    // verified success
+
+  // --- Shared validators (return null when valid, error string when invalid) ---
+  String? _vPhone(String? v) {
+    if (_suppressPhoneError) return null;
+    final phone = (v ?? '').trim();
+    if (phone.isEmpty) return 'Phone number is required.';
+    if (phone.length != 10) return 'Phone number must be 10 digits.';
+    return null;
+  }
+
+  // exact string requested
+  String? _vPhoneVerified() {
+    if (_suppressVerifyError) return null;
+    return _phoneVerified ? null : 'please verify phone number';
+  }
+
+  String? _vFirstName(String? v) {
+    if (_suppressFirstNameError) return null;
+    final x = (v ?? '').trim();
+    if (x.isEmpty) return 'First name is required.';
+    if (!RegExp(r'^[A-Z]').hasMatch(x)) {
+      return 'First name must start with a capital letter.';
+    }
+    return null;
+  }
+
+  String? _vLastName(String? v) {
+    if (_suppressLastNameError) return null;
+    final x = (v ?? '').trim();
+    if (x.isEmpty) return 'Last name is required.';
+    if (!RegExp(r'^[A-Z]').hasMatch(x)) {
+      return 'Last name must start with a capital letter.';
+    }
+    return null;
+  }
+
+  String? _vEmail(String? v) {
+    if (_suppressEmailError) return null;
+    final x = (v ?? '').trim();
+    if (x.isEmpty) return 'Email is required.';
+    if (!_emailRegExp.hasMatch(x)) return 'Enter a valid email address.';
+    return null;
+  }
+
+  // exact strings requested
+  String? _vGender() {
+    if (_suppressGenderError) return null;
+    return _gender.isEmpty ? 'Select gender' : null;
+  }
+
+  String? _vJoiningDate() {
+    if (_suppressDateError) return null;
+    return _joiningDate == null ? 'select a joining date' : null;
+  }
+
+  String? _vRoles() {
+    if (_suppressRolesError) return null;
+    return _selectedRoles.isEmpty ? 'Select role' : null;
+  }
+
+  String? _vSpecs() {
+    if (_suppressSpecsError) return null;
+    return _selectedSpecs.isEmpty ? 'Select specialization' : null;
+  }
+
+  String? _vOtp(String? v) {
+    if (_suppressOtpError) return null;
+    final x = (v ?? '').trim();
+    return x.isEmpty ? 'OTP is required.' : null;
+  }
+
+  // Data for roles/specializations
   List<Map<String, dynamic>> _allRoles = [];
   List<Map<String, dynamic>> _allSpecs = [];
 
@@ -30,54 +128,77 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   final _emailCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
   final _briefCtrl = TextEditingController();
+
+  // State
   DateTime? _joiningDate;
-
-  // Gender
   String _gender = '';
-
   final List<String> _selectedRoles = [];
   final List<String> _selectedSpecs = [];
-
   bool _phoneVerified = false;
-  bool _otpFilled = false;
 
-  // Colors
-  final Color _bg = const Color(0xFFFFF8F0); // warm cream
-  final Color _fieldFill = const Color(0xFFF7EFE6);
+  // Verify button loader
+  bool _isVerifying = false;
+
+  // Theme (black & white)
+  final Color _bg = Colors.white;
+  final Color _fieldFill = Colors.grey.shade100;
   final BorderRadius _radius = BorderRadius.circular(12);
   final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+  // Image
   File? _cameraImage;
-  Future<void> _pickImage() async {
-    final ImagePicker _picker = ImagePicker();
+  String? imageUrl;
 
-    // Pick an image from the gallery
-    final XFile? pickedFile = await _picker.pickImage(
-      source: ImageSource.gallery,
-    );
+  // Button submit loader
+  bool _isSubmitting = false;
 
-    if (pickedFile != null) {
+  @override
+  void initState() {
+    super.initState();
+    _fetchRolesAndSpecializations();
+  }
+
+  @override
+  void dispose() {
+    _phoneCtrl.dispose();
+    _firstNameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _emailCtrl.dispose();
+    _otpCtrl.dispose();
+    _briefCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchRolesAndSpecializations() async {
+    try {
+      final data = await ApiService().getRolesAndSpecializations();
       setState(() {
-        _cameraImage = File(pickedFile.path); // Set the selected image
+        _allRoles = List<Map<String, dynamic>>.from(data['roles'] ?? const []);
+        _allSpecs =
+            List<Map<String, dynamic>>.from(data['specialities'] ?? const []);
       });
-
-      // Upload the image and get the URL
-      imageUrl = await _uploadImageToS3(
-        _cameraImage!,
-      ); // Store the image URL after uploading
-      print("Uploaded Image URL: $imageUrl"); // Print the URL to debug
+    } catch (e) {
+      debugPrint('Error fetching roles/specs: $e');
     }
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    setState(() {
+      _cameraImage = File(picked.path);
+    });
+
+    imageUrl = await _uploadImageToS3(_cameraImage!);
   }
 
   Future<String?> _uploadImageToS3(File image) async {
     try {
-      String? uploadedUrl = await ApiService().uploadImage(image);
-      if (uploadedUrl != null) {
-        print('Image uploaded successfully: $uploadedUrl');
-        return uploadedUrl; // Return the uploaded image URL
-      }
-      return null;
+      return await ApiService().uploadImage(image);
     } catch (e) {
-      print('Error uploading image: $e');
+      debugPrint('Image upload error: $e');
       return null;
     }
   }
@@ -86,10 +207,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     String? hint,
     Widget? prefix,
     Widget? suffix,
-    EdgeInsets contentPadding = const EdgeInsets.symmetric(
-      horizontal: 14,
-      vertical: 14,
-    ),
+    EdgeInsets contentPadding =
+        const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
   }) {
     return InputDecoration(
       hintText: hint,
@@ -100,15 +219,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       contentPadding: contentPadding,
       border: OutlineInputBorder(
         borderRadius: _radius,
-        borderSide: const BorderSide(color: Color(0xFFE0D6CC)),
+        borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: _radius,
-        borderSide: const BorderSide(color: Color(0xFFE0D6CC)),
+        borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: _radius,
-        borderSide: const BorderSide(color: Color(0xFFDBA35B), width: 1.5),
+        borderSide: const BorderSide(color: Colors.black, width: 1.5),
       ),
     );
   }
@@ -123,101 +242,77 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           fontWeight: FontWeight.w600,
         ),
         children: const [
-          TextSpan(
-            text: ' *',
-            style: TextStyle(color: Colors.red),
-          ),
+          TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
         ],
       ),
     );
   }
 
-  Future<void> _fetchRolesAndSpecializations() async {
-    try {
-      // Fetch data from the API
-      Map<String, dynamic> data = await ApiService()
-          .getRolesAndSpecializations();
-
-      // Log the data to check the response
-      print('Fetched roles and specializations: $data');
-
-      // Assuming the data has a 'roles' and 'specialities' field
-      setState(() {
-        _allRoles = List<Map<String, dynamic>>.from(data['roles']);
-        _allSpecs = List<Map<String, dynamic>>.from(data['specialities']);
-        print('Roles: $_allRoles');
-        print('Specializations: $_allSpecs');
-      });
-    } catch (e) {
-      print('Error fetching data: $e');
-      // Handle the error appropriately, e.g., show a message to the user
-    }
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
   Future<void> _handleVerifyPhoneNumber() async {
-    // Get phone number entered by the user
-    String phoneNumber = _phoneCtrl.text;
+    final phoneNumber = _phoneCtrl.text.trim();
 
+    // Local guards (toast only, don't show inline here)
+    if (phoneNumber.isEmpty) {
+      _toast('Please enter phone number');
+      return;
+    }
+    if (phoneNumber.length != 10) {
+      _toast('Enter a valid 10-digit phone number');
+      return;
+    }
+
+    // Hide the "please verify..." inline error while verifying
+    if (!_suppressVerifyError) {
+      setState(() => _suppressVerifyError = true);
+    }
+
+    setState(() => _isVerifying = true);
     try {
-      // Make the API call to verify phone number and fetch user data
-      var response = await ApiService.checkUserAndSendOtp(phoneNumber);
+      final response = await ApiService.checkUserAndSendOtp(phoneNumber);
+      final success = response['success'] == true;
 
-      // Check if the API response is successful
-      if (response['success']) {
-        var userData = response['data']['user']; // Get the user data
-        bool userExists =
-            response['data']['exists']; // Check if the user exists
+      if (success) {
+        final data = response['data'] ?? {};
+        final user = data['user'];
+        final exists = (data['exists'] == true);
 
-        // If user exists, auto-fill the fields
-        if (userExists) {
-          if (userData != null) {
-            print('User Data: $userData'); // Print user data to debug
-            _firstNameCtrl.text =
-                userData['firstName'] ?? ''; // Default to empty string if null
-            _lastNameCtrl.text =
-                userData['lastName'] ?? ''; // Default to empty string if null
-            _emailCtrl.text =
-                userData['email'] ?? ''; // Default to empty string if null
-          }
-        } else {
-          print('No user data found. User might not exist.');
-          // Optionally, you can show a message indicating the user doesn't exist
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('No user found.')));
+        if (exists && user != null) {
+          _firstNameCtrl.text = (user['firstName'] ?? '').toString();
+          _lastNameCtrl.text = (user['lastName'] ?? '').toString();
+          _emailCtrl.text = (user['email'] ?? '').toString();
         }
 
-        // Set the OTP in the OTP field
-        _otpCtrl.text =
-            response['data']['otp']; // Set the OTP received from the API
+        _otpCtrl.text = (data['otp'] ?? '').toString();
 
-        // Update the phone verification status
         setState(() {
           _phoneVerified = true;
+          _suppressVerifyError = true; // keep hidden after success
+          _suppressOtpError = true;    // hide OTP inline error once filled
         });
 
-        // Optionally, you can display a success message
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Phone Verified Successfully')));
+        // Re-validate after OTP auto-fill so "OTP is required" clears immediately
+        _formKey.currentState?.validate();
+
+        _toast('Phone verified successfully');
       } else {
-        // Handle failure (e.g., OTP error, invalid phone)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${response['message']}')),
-        );
+        final msg = response['message'];
+        final errorText = (msg is List)
+            ? msg.join('\n')
+            : (msg is String ? msg : 'Verification failed. Please try again.');
+        _toast(errorText);
       }
     } catch (e) {
-      // Handle network or other errors
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('An error occurred: $e')));
+      _toast('An error occurred: $e');
+    } finally {
+      if (mounted) setState(() => _isVerifying = false);
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchRolesAndSpecializations();
   }
 
   Future<void> _pickJoiningDate() async {
@@ -231,7 +326,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         return Theme(
           data: Theme.of(ctx).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFFEEA044),
+              primary: Colors.black,
               onPrimary: Colors.white,
               onSurface: Colors.black87,
             ),
@@ -240,17 +335,22 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         );
       },
     );
-    if (res != null) setState(() => _joiningDate = res);
+    if (res != null) {
+      setState(() {
+        _joiningDate = res;
+        _suppressDateError = true; // hide inline error after selection
+      });
+      _formKey.currentState?.validate(); // reflect removal instantly
+    }
   }
 
   Future<void> _openMultiSelect({
     required String title,
-    required List<Map<String, dynamic>> source, // List of Maps
+    required List<Map<String, dynamic>> source,
     required List<String> target,
   }) async {
-    final temp = [...target]; // Create a temporary list to track selections
+    final temp = [...target];
 
-    // Show bottom sheet for multi-select
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -258,107 +358,95 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 10,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 12),
-                decoration: BoxDecoration(
-                  color: Colors.black12,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 10,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
               ),
-              // Title of the sheet
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              // List of items with checkboxes
-              Flexible(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: source
-                      .length, // This should match the length of your roles or specialities
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (_, i) {
-                    final item = source[i];
-                    final itemName =
-                        item['label'] ??
-                        item['name'] ??
-                        ''; // Extract label or name
-                    final itemId = item['id']; // Extract id
-                    final itemCode = item['code']; // Extract code
-                    final checked = temp.contains(
-                      itemName,
-                    ); // Check if the item is selected
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: source.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final item = source[i];
+                        final itemName =
+                            (item['label'] ?? item['name'] ?? '').toString();
+                        final checked = temp.contains(itemName);
 
-                    // Log the data for each item (id, code, label)
-                    print(
-                      'Item ${itemName}: id = $itemId, code = $itemCode, selected = $checked',
-                    );
-
-                    return CheckboxListTile(
-                      value: checked,
-                      onChanged: (v) {
-                        // Update temporary list based on selection
-                        if (v == true && !temp.contains(itemName)) {
-                          temp.add(itemName);
-                          // Log the selected item
-                          print(
-                            'Selected ${itemName}: id = $itemId, code = $itemCode',
-                          );
-                        } else if (v == false) {
-                          temp.remove(itemName);
-                          // Log the deselected item
-                          print(
-                            'Deselected ${itemName}: id = $itemId, code = $itemCode',
-                          );
-                        }
-                        setState(() {}); // Refresh the sheet
+                        return CheckboxListTile(
+                          value: checked,
+                          onChanged: (v) {
+                            if (v == true && !temp.contains(itemName)) {
+                              temp.add(itemName);
+                            } else if (v == false) {
+                              temp.remove(itemName);
+                            }
+                            setModalState(() {});
+                          },
+                          title: Text(itemName),
+                          controlAffinity: ListTileControlAffinity.leading,
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                        );
                       },
-                      title: Text(itemName),
-                      controlAffinity: ListTileControlAffinity.leading,
-                      contentPadding: EdgeInsets.zero,
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _PrimaryButton(
+                    text: 'Done',
+                    onPressed: () {
+                      setState(() {
+                        target
+                          ..clear()
+                          ..addAll(temp);
+
+                        // Hide inline error after user selection interaction
+                        if (identical(target, _selectedRoles)) {
+                          _suppressRolesError = true;
+                        } else if (identical(target, _selectedSpecs)) {
+                          _suppressSpecsError = true;
+                        }
+                      });
+                      // reflect removal instantly
+                      _formKey.currentState?.validate();
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
-              const SizedBox(height: 12),
-              _GradientButton(
-                text: 'Done',
-                onPressed: () {
-                  setState(() {
-                    target
-                      ..clear()
-                      ..addAll(
-                        temp,
-                      ); // Update the target list with selected items
-                  });
-                  Navigator.pop(ctx); // Close the bottom sheet
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  @override
   Future<void> _showValidationDialog(List<String> errors) async {
     await showDialog<void>(
       context: context,
@@ -368,12 +456,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: errors
-              .map(
-                (message) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text('• ' + message),
-                ),
-              )
+              .map((m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text('• $m'),
+                  ))
               .toList(),
         ),
         actions: [
@@ -386,83 +472,77 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     );
   }
 
-  Future<bool> _validateFormAndShowAlert() async {
-    final errors = <String>[];
+  // Helper to run something after rebuild completes
+  Future<void> _afterRebuild() {
+    final c = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) => c.complete());
+    return c.future;
+  }
 
+  Future<bool> _validateFormAndShowAlert() async {
+    // Turn ON global inline errors before validating (so everything shows)
+    setState(() {
+      _showGlobalErrors     = true;
+
+      _suppressPhoneError    = false;
+      _suppressVerifyError   = false;
+      _suppressFirstNameError = false;
+      _suppressLastNameError  = false;
+      _suppressEmailError     = false;
+      _suppressOtpError       = false;
+      _suppressGenderError    = false;
+      _suppressRolesError     = false;
+      _suppressSpecsError     = false;
+      _suppressDateError      = false;
+    });
+
+    // ✅ Wait for the UI to rebuild, THEN validate so errors appear on first tap
+    await _afterRebuild();
     _formKey.currentState?.validate();
 
-    final phone = _phoneCtrl.text.trim();
-    if (phone.isEmpty) {
-      errors.add('Phone number is required.');
-    } else if (phone.length < 10) {
-      errors.add('Phone number must be 10 digits.');
+    final errors = <String>[];
+    void push(String? e) {
+      if (e != null && e.trim().isNotEmpty) errors.add(e);
     }
 
-    if (!_phoneVerified) {
-      errors.add('Please verify the phone number.');
-    }
-
-    final firstName = _firstNameCtrl.text.trim();
-  if (firstName.isEmpty) {
-    errors.add('First name is required.');
-  } else if (!RegExp(r'^[A-Z]').hasMatch(firstName)) {
-    errors.add('Must start with a capital letter.');
-  }
-
-  final lastName = _lastNameCtrl.text.trim();
-  if (lastName.isEmpty) {
-    errors.add('Last name is required.');
-  } else if (!RegExp(r'^[A-Z]').hasMatch(lastName)) {
-    errors.add('Must start with a capital letter.');
-  }
-    final email = _emailCtrl.text.trim();
-    if (email.isEmpty) {
-      errors.add('Email is required.');
-    } else if (!_emailRegExp.hasMatch(email)) {
-      errors.add('Enter a valid email address.');
-    }
-
-    if (_gender.isEmpty) {
-      errors.add('Please select a gender.');
-    }
-
-    if (_selectedRoles.isEmpty) {
-      errors.add('Select at least one role.');
-    }
-
-    if (_selectedSpecs.isEmpty) {
-      errors.add('Select at least one specialization.');
-    }
-
-    if (_joiningDate == null) {
-      errors.add('Select a joining date.');
-    }
-
-    if (_otpCtrl.text.trim().isEmpty) {
-      errors.add('OTP is required.');
-    }
+    // Collect same messages for Alert using shared helpers
+    push(_vPhone(_phoneCtrl.text));
+    push(_vPhoneVerified()); // verify state
+    push(_vFirstName(_firstNameCtrl.text));
+    push(_vLastName(_lastNameCtrl.text));
+    push(_vEmail(_emailCtrl.text));
+    push(_vGender());
+    push(_vRoles());
+    push(_vSpecs());
+    push(_vJoiningDate());
+    push(_vOtp(_otpCtrl.text));
+    // Brief excluded by requirement
 
     if (errors.isNotEmpty) {
       await _showValidationDialog(errors);
       return false;
     }
-
     return true;
   }
 
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: _bg,
+        backgroundColor: Colors.black,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.maybePop(context),
         ),
-        title: const Text('Add Team Member'),
+        title: const Text(
+          'Add Team Member',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         centerTitle: false,
       ),
       body: SafeArea(
@@ -472,35 +552,19 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
             builder: (_, constraints) => SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 16,
-                ),
+                constraints:
+                    BoxConstraints(minHeight: constraints.maxHeight - 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-//                  Text(
-//   'Salon ID: ${widget.salonId}',
-//   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-// ),
-// Text(
-//   'Branch ID: ${widget.branchId}',
-//   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-// ),
-// Text(
-//   'Branch Name: ${widget.branchName}',
-//   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-// ),
                     Center(
                       child: GestureDetector(
                         onTap: _pickImage,
                         child: CircleAvatar(
-                          radius: 40, // Size of the avatar
+                          radius: 40,
                           backgroundColor: Colors.grey[300],
                           child: _cameraImage == null
-                              ? const Icon(
-                                  Icons.camera_alt,
-                                  size: 30,
-                                ) // Default camera icon
+                              ? const Icon(Icons.camera_alt, size: 30)
                               : ClipRRect(
                                   borderRadius: BorderRadius.circular(40),
                                   child: Image.file(
@@ -514,9 +578,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
 
-                    // Phone Number Verification Field
                     _reqLabel('Verify Phone Number'),
                     const SizedBox(height: 8),
                     Row(
@@ -524,21 +587,29 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _phoneCtrl,
-
                             keyboardType: TextInputType.phone,
+                            // Only validate on typing AFTER first submit
+                            autovalidateMode: _showGlobalErrors
+                                ? AutovalidateMode.onUserInteraction
+                                : AutovalidateMode.disabled,
+                            textCapitalization: TextCapitalization.none,
                             decoration: _decor(
                               hint: 'Verify phone number',
                               prefix: const Icon(Icons.search),
                             ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Phone is required'
-                                : null,
+                            validator: _vPhone, // RED errors for "invalid phone"
+                            onChanged: (_) {
+                              // Hide phone+verify inline errors while typing
+                              if (!_suppressPhoneError || !_suppressVerifyError) {
+                                setState(() {
+                                  _suppressPhoneError  = true;
+                                  _suppressVerifyError = true;
+                                });
+                              }
+                            },
                             inputFormatters: [
-                              FilteringTextInputFormatter
-                                  .digitsOnly, // Allow only digits
-                              LengthLimitingTextInputFormatter(
-                                10,
-                              ), // Limit input to 10 digits
+                              FilteringTextInputFormatter.digitsOnly,
+                              LengthLimitingTextInputFormatter(10),
                             ],
                           ),
                         ),
@@ -546,16 +617,21 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         SizedBox(
                           width: 110,
                           height: 48,
-                          child: _GradientButton(
-                            text: _phoneVerified ? 'Verified' : 'Verify',
-                            onPressed: _phoneVerified
-                                ? () {} // Provide an empty function when disabled
+                          child: _PrimaryButton(
+                            text: _isVerifying
+                                ? 'Verifying...'
+                                : (_phoneVerified ? 'Verified' : 'Verify'),
+                            enabled: !_phoneVerified && !_isVerifying,
+                            isLoading: _isVerifying, // loader in button
+                            onPressed: (_phoneVerified || _isVerifying)
+                                ? null
                                 : () async {
-                                    await _handleVerifyPhoneNumber(); // Wrap async function in an anonymous function
+                                    // Hide the "please verify" prompt when tapping
+                                    if (!_suppressVerifyError) {
+                                      setState(() => _suppressVerifyError = true);
+                                    }
+                                    await _handleVerifyPhoneNumber();
                                   },
-                            enabled: !_phoneVerified,
-                            fullWidth: false,
-                            height: 48,
                           ),
                         ),
                       ],
@@ -563,7 +639,39 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     const SizedBox(height: 16),
 
-                    // First Name and Last Name Fields
+                    // Under the row:
+                    // - If verified: show green success immediately
+                    // - Else: show orange "please verify phone number" only AFTER first submit
+                    if (_phoneVerified)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          'Phone verified',
+                          style: TextStyle(
+                            color: _successColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    else if (_showGlobalErrors)
+                      FormField<bool>(
+                        autovalidateMode: AutovalidateMode.always,
+                        validator: (_) => _vPhoneVerified(),
+                        builder: (state) => state.hasError
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  state.errorText!,
+                                  style: TextStyle(
+                                      color: _verifyWarnColor, fontSize: 12),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+
+                    const SizedBox(height: 16),
+
                     Row(
                       children: [
                         Expanded(
@@ -572,29 +680,23 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             children: [
                               _reqLabel('First Name'),
                               const SizedBox(height: 8),
-                              // TextFormField(
-                              //   controller: _firstNameCtrl,
-
-                              //   decoration: _decor(hint: 'Enter first name'),
-                              //   validator: (v) =>
-                              //       (v == null || v.trim().isEmpty)
-                              //       ? 'Required'
-                              //       : null,
-                              // ),
-                                                 TextFormField(
-  controller: _firstNameCtrl,
-  textCapitalization: TextCapitalization.words, // helps user type caps
-  decoration: _decor(hint: 'Enter first name'),
-  autovalidateMode: AutovalidateMode.onUserInteraction,
-  validator: (v) {
-    final s = (v ?? '').trim();
-    if (s.isEmpty) return 'First name is required';
-    if (!RegExp(r'^[A-Z]').hasMatch(s)) {
-      return 'Must start with a capital letter';
-    }
-    return null;
-  },
-),
+                              TextFormField(
+                                controller: _firstNameCtrl,
+                                textCapitalization: TextCapitalization.words,
+                                autovalidateMode: _showGlobalErrors
+                                    ? AutovalidateMode.onUserInteraction
+                                    : AutovalidateMode.disabled,
+                                decoration: _decor(hint: 'Enter first name'),
+                                validator: _vFirstName,
+                                onChanged: (_) {
+                                  if (!_suppressFirstNameError) {
+                                    setState(() => _suppressFirstNameError = true);
+                                  }
+                                },
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.deny(RegExp(r'^\s')),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -605,28 +707,23 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             children: [
                               _reqLabel('Last Name'),
                               const SizedBox(height: 8),
-                              // TextFormField(
-                              //   controller: _lastNameCtrl,
-                              //   decoration: _decor(hint: 'Enter last name'),
-                              //   validator: (v) =>
-                              //       (v == null || v.trim().isEmpty)
-                              //       ? 'Required'
-                              //       : null,
-                              // ),
-                                   TextFormField(
-  controller: _lastNameCtrl,
-  textCapitalization: TextCapitalization.words,
-  decoration: _decor(hint: 'Enter last name'),
-  autovalidateMode: AutovalidateMode.onUserInteraction,
-  validator: (v) {
-    final s = (v ?? '').trim();
-    if (s.isEmpty) return 'Last name is required';
-    if (!RegExp(r'^[A-Z]').hasMatch(s)) {
-      return 'Must start with a capital letter';
-    }
-    return null;
-  },
-),
+                              TextFormField(
+                                controller: _lastNameCtrl,
+                                autovalidateMode: _showGlobalErrors
+                                    ? AutovalidateMode.onUserInteraction
+                                    : AutovalidateMode.disabled,
+                                textCapitalization: TextCapitalization.words,
+                                decoration: _decor(hint: 'Enter last name'),
+                                validator: _vLastName,
+                                onChanged: (_) {
+                                  if (!_suppressLastNameError) {
+                                    setState(() => _suppressLastNameError = true);
+                                  }
+                                },
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.deny(RegExp(r'^\s')),
+                                ],
+                              ),
                             ],
                           ),
                         ),
@@ -635,21 +732,26 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     const SizedBox(height: 16),
 
-                    // Email Field
                     _reqLabel('Email'),
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
+                      textCapitalization: TextCapitalization.none,
+                      autovalidateMode: _showGlobalErrors
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
                       decoration: _decor(hint: 'Enter email address'),
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Email is required'
-                          : null,
+                      validator: _vEmail,
+                      onChanged: (_) {
+                        if (!_suppressEmailError) {
+                          setState(() => _suppressEmailError = true);
+                        }
+                      },
                     ),
 
                     const SizedBox(height: 16),
 
-                    // OTP Field
                     const Text(
                       'Otp',
                       style: TextStyle(
@@ -662,12 +764,20 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       enabled: false,
                       controller: _otpCtrl,
                       keyboardType: TextInputType.number,
+                      autovalidateMode: _showGlobalErrors
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
                       decoration: _decor(hint: 'Enter otp'),
+                      validator: _vOtp,
+                      onChanged: (_) {
+                        if (!_suppressOtpError) {
+                          setState(() => _suppressOtpError = true);
+                        }
+                      },
                     ),
 
                     const SizedBox(height: 16),
 
-                    // Gender Radio Buttons
                     const Text(
                       'Gender',
                       style: TextStyle(
@@ -681,29 +791,51 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         Radio<String>(
                           value: 'Male',
                           groupValue: _gender,
-                          onChanged: (v) => setState(() => _gender = v!),
+                          onChanged: (v) => setState(() {
+                            _gender = v ?? '';
+                            _suppressGenderError = true;
+                          }),
                         ),
                         const Text('Male'),
                         const SizedBox(width: 16),
                         Radio<String>(
                           value: 'Female',
                           groupValue: _gender,
-                          onChanged: (v) => setState(() => _gender = v!),
+                          onChanged: (v) => setState(() {
+                            _gender = v ?? '';
+                            _suppressGenderError = true;
+                          }),
                         ),
                         const Text('Female'),
                         const SizedBox(width: 16),
                         Radio<String>(
                           value: 'Other',
                           groupValue: _gender,
-                          onChanged: (v) => setState(() => _gender = v!),
+                          onChanged: (v) => setState(() {
+                            _gender = v ?? '';
+                            _suppressGenderError = true;
+                          }),
                         ),
                         const Text('Other'),
                       ],
                     ),
+                    if (_showGlobalErrors)
+                      FormField<String>(
+                        autovalidateMode: AutovalidateMode.always,
+                        validator: (_) => _vGender(),
+                        builder: (state) => state.hasError
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  state.errorText!,
+                                  style: TextStyle(color: _errorColor, fontSize: 12),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
 
                     const SizedBox(height: 8),
 
-                    // Roles Selection
                     _reqLabel('Roles'),
                     const SizedBox(height: 8),
                     _PickField(
@@ -715,10 +847,23 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         target: _selectedRoles,
                       ),
                     ),
+                    if (_showGlobalErrors)
+                      FormField<List<String>>(
+                        autovalidateMode: AutovalidateMode.always,
+                        validator: (_) => _vRoles(),
+                        builder: (state) => state.hasError
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  state.errorText!,
+                                  style: TextStyle(color: _errorColor, fontSize: 12),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
 
                     const SizedBox(height: 16),
 
-                    // Specializations Selection
                     _reqLabel('Specializations'),
                     const SizedBox(height: 8),
                     _PickField(
@@ -730,10 +875,23 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         target: _selectedSpecs,
                       ),
                     ),
+                    if (_showGlobalErrors)
+                      FormField<List<String>>(
+                        autovalidateMode: AutovalidateMode.always,
+                        validator: (_) => _vSpecs(),
+                        builder: (state) => state.hasError
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  state.errorText!,
+                                  style: TextStyle(color: _errorColor, fontSize: 12),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
 
                     const SizedBox(height: 16),
 
-                    // Joining Date Field
                     _reqLabel('Joining Date'),
                     const SizedBox(height: 8),
                     GestureDetector(
@@ -741,27 +899,33 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       child: AbsorbPointer(
                         child: TextFormField(
                           readOnly: true,
-                          decoration:
-                              _decor(
-                                hint: 'Select joining date',
-                                prefix: const Icon(
-                                  Icons.calendar_today_outlined,
-                                ),
-                              ).copyWith(
-                                hintText: _joiningDate == null
-                                    ? 'Select joining date'
-                                    : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-                              ),
-                          validator: (_) => _joiningDate == null
-                              ? 'Joining date is required'
-                              : null,
+                          decoration: _decor(
+                            hint: _joiningDate == null
+                                ? 'Select joining date'
+                                : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
+                            prefix: const Icon(Icons.calendar_today_outlined),
+                          ),
+                          validator: (_) => null,
                         ),
                       ),
                     ),
+                    if (_showGlobalErrors)
+                      FormField<DateTime>(
+                        autovalidateMode: AutovalidateMode.always,
+                        validator: (_) => _vJoiningDate(),
+                        builder: (state) => state.hasError
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  state.errorText!,
+                                  style: TextStyle(color: _errorColor, fontSize: 12),
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
 
                     const SizedBox(height: 16),
 
-                    // Brief About Member Field
                     const Text(
                       'Brief About Member',
                       style: TextStyle(
@@ -773,83 +937,68 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     TextFormField(
                       controller: _briefCtrl,
                       maxLines: 4,
+                      textCapitalization: TextCapitalization.sentences,
                       decoration: _decor(
                         hint: 'Enter a brief about this member',
                       ).copyWith(contentPadding: const EdgeInsets.all(14)),
+                      validator: (_) => null, // Brief excluded
                     ),
 
                     const SizedBox(height: 20),
 
-                    // Timeslot Selection Button
-                    // _GradientButton(
-                    //   text: 'Choose Timeslot',
-                    //   onPressed: () async {
-                    //     if (!await _validateFormAndShowAlert()) {
-                    //       return;
-                    //     }
+                    _PrimaryButton(
+                      text: _isSubmitting ? 'Adding...' : 'Add Team Member',
+                      isLoading: _isSubmitting,
+                      onPressed: _isSubmitting
+                          ? null
+                          : () async {
+                              if (!await _validateFormAndShowAlert()) return;
 
-                    //     // Prepare data to be passed
-                    //     final formData = {
-                    //       'phoneNumber': _phoneCtrl.text,
-                    //       'firstName': _firstNameCtrl.text,
-                    //       'lastName': _lastNameCtrl.text,
-                    //       'email': _emailCtrl.text,
-                    //       'otp': _otpCtrl.text,
-                    //       'gender': _gender,
-                    //       'roles': _selectedRoles,
-                    //       'specializations': _selectedSpecs,
-                    //       'joiningDate': _joiningDate,
-                    //       'brief': _briefCtrl.text,
-                    //       'profileImage': imageUrl,
-                    //       'branchId': widget.branchId,
-                    //     };
-                    //     print('Form Data: $formData'); // Log the form data
-                    //     // Navigate to ChooseTimeSlot.dart and pass the form data
-                    //     Navigator.pushReplacement(
-                    //       context,
-                    //       MaterialPageRoute(
-                    //         builder: (context) => ChooseTimeSlot(
-                    //           formData: formData,
-                    //         ), // Pass data directly to the new screen
-                    //       ),
-                    //     );
-                    //   },
-                    // ),
-_GradientButton(
-  text: 'Add Team Member',
-  onPressed: () async {
-    if (!await _validateFormAndShowAlert()) {
-      return;
-    }
+                              setState(() => _isSubmitting = true);
+                              try {
+                                final payload = {
+                                  "countryCode": "+91",
+                                  "phoneNumber": _phoneCtrl.text.trim(),
+                                  "firstName": _firstNameCtrl.text.trim(),
+                                  "lastName": _lastNameCtrl.text.trim(),
+                                  "email": _emailCtrl.text.trim(),
+                                  "joinedAt": _joiningDate == null
+                                      ? null
+                                      : "${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}",
+                                  "roles": _selectedRoles,
+                                  "specialities": _selectedSpecs,
+                                  // "profileImage": imageUrl, // if needed
+                                  // "gender": _gender,        // if needed
+                                  // "brief": _briefCtrl.text, // if needed
+                                };
 
-    final payload = {
-      "countryCode": "+91",
-      "phoneNumber": _phoneCtrl.text.trim(),
-      "firstName": _firstNameCtrl.text.trim(),
-      "lastName": _lastNameCtrl.text.trim(),
-      "email": _emailCtrl.text.trim(),"joinedAt": _joiningDate != null
-          ? "${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}"
-          : null,
-      "roles": _selectedRoles,
-      "specialities": _selectedSpecs,
-    };
+                                final result = await ApiService()
+                                    .addSalonTeamMember(widget.salonId, payload);
 
-    print("📌 Final Team Member Payload: $payload");
-
-    final result = await ApiService().addSalonTeamMember(widget.salonId, payload);
-
-    if (result['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Team Member added successfully")),
-      );
-      Navigator.pop(context,true); // go back to TeamScreen
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("❌ Failed: ${result['message']}")),
-      );
-    }
-  },
-),
+                                if (!mounted) return;
+                                if (result['success'] == true) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("Team Member added successfully"),
+                                    ),
+                                  );
+                                  Navigator.pop(context, true);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        "Failed: ${result['message'] ?? 'Unknown error'}",
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _isSubmitting = false);
+                                }
+                              }
+                            },
+                    ),
 
                     const SizedBox(height: 24),
                   ],
@@ -885,90 +1034,77 @@ class _PickField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: text,
             filled: true,
-            fillColor: const Color(0xFFF7EFE6),
+            fillColor: Colors.grey.shade100,
             suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
-            ),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE0D6CC)),
+              borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE0D6CC)),
+              borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFFDBA35B),
-                width: 1.5,
-              ),
+              borderSide: const BorderSide(color: Colors.black, width: 1.5),
             ),
           ),
-          validator: (_) =>
-              values.isEmpty ? 'Please select at least one' : null,
+          // No validator here — inline errors are handled via FormField wrappers above.
         ),
       ),
     );
   }
 }
 
-class _GradientButton extends StatelessWidget {
-  const _GradientButton({
+class _PrimaryButton extends StatelessWidget {
+  const _PrimaryButton({
     required this.text,
     required this.onPressed,
     this.enabled = true,
-    this.fullWidth = true, // <-- new
-    this.height = 50, // <-- optional
+    this.isLoading = false,
+    this.fullWidth = true,
+    this.height = 50,
     super.key,
   });
 
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool enabled;
-  final bool fullWidth; // <-- new
-  final double height; // <-- new
+  final bool isLoading;
+  final bool fullWidth;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: enabled ? 1 : 0.6,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFF2A245), Color(0xFFF4C058)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 6,
-              offset: Offset(0, 3),
-            ),
-          ],
+    final effectiveOnPressed = enabled && !isLoading ? onPressed : null;
+
+    return SizedBox(
+      width: fullWidth ? double.infinity : null,
+      height: height,
+      child: ElevatedButton(
+        onPressed: effectiveOnPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
-        child: SizedBox(
-          // Only take all available width when asked to.
-          width: fullWidth ? double.infinity : null, // <-- changed
-          height: height, // <-- changed
-          child: TextButton(
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                text,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
-            ),
-            onPressed: enabled ? onPressed : null,
-            child: Text(
-              text,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-            ),
-          ),
-        ),
       ),
     );
   }

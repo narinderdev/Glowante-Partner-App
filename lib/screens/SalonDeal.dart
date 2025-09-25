@@ -3,7 +3,8 @@ import 'package:intl/intl.dart';
 import '../utils/api_service.dart';
 import 'Adddeals.dart';
 
-final  kDropdownFill =Colors.grey.shade100; // ← shared color for dropdown & cards
+final kDropdownFill = Colors.grey.shade100; // ← shared color for dropdown & cards
+
 class DealScreen extends StatefulWidget {
   @override
   _DealScreenState createState() => _DealScreenState();
@@ -18,6 +19,9 @@ class _DealScreenState extends State<DealScreen> {
   List<Map<String, dynamic>> offers = [];
 
   bool _autoPicked = false; // ensure we only auto-pick once
+
+  // NEW: track which offers are deleting (show per-button loader)
+  final Set<int> _deletingOfferIds = <int>{};
 
   @override
   void initState() {
@@ -53,7 +57,7 @@ class _DealScreenState extends State<DealScreen> {
     });
 
     final response = await ApiService().getSalonPackagesDealsApi(salonId);
-    debugPrint("Offers Response: $response");
+    print("Offers Response: $response");
 
     if (!mounted) return;
     setState(() {
@@ -99,11 +103,12 @@ class _DealScreenState extends State<DealScreen> {
     );
 
     if (confirmed == true) {
-      await _deleteOffer(offerId);
+      await _deleteOfferWithLoader(offerId);
     }
   }
 
-  Future<void> _deleteOffer(int offerId) async {
+  // NEW: delete with per-button loader
+  Future<void> _deleteOfferWithLoader(int offerId) async {
     if (selectedSalonId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a salon first')),
@@ -111,22 +116,37 @@ class _DealScreenState extends State<DealScreen> {
       return;
     }
 
-    final res = await ApiService().deleteSalonOfferApi(
-      salonId: selectedSalonId!,
-      offerId: offerId,
-    );
+    setState(() {
+      _deletingOfferIds.add(offerId);
+    });
 
-    if (res['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Offer deleted successfully')),
+    try {
+      final res = await ApiService().deleteSalonOfferApi(
+        salonId: selectedSalonId!,
+        offerId: offerId,
       );
-      await _fetchOffers(selectedSalonId!);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(res['message']?.toString() ?? 'Failed to delete deal')),
-      );
+
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offer deleted successfully')),
+        );
+        await _fetchOffers(selectedSalonId!);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              res['message']?.toString() ?? 'Failed to delete deal',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _deletingOfferIds.remove(offerId);
+      });
     }
   }
 
@@ -230,20 +250,20 @@ class _DealScreenState extends State<DealScreen> {
               final salons = snapshot.data!;
 
               // Auto-pick first salon once
-             if (!_autoPicked && selectedSalonId == null && salons.isNotEmpty) {
-  _autoPicked = true;
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted) return;
-    setState(() {
-      selectedSalonId = salons.first['id'] as int;
-      selectedSalon = {
-        'salonId': salons.first['id'],
-        'salonName': salons.first['name'],
-      };
-    });
-    _fetchOffers(selectedSalonId!);
-  });
-}
+              if (!_autoPicked && selectedSalonId == null && salons.isNotEmpty) {
+                _autoPicked = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  setState(() {
+                    selectedSalonId = salons.first['id'] as int;
+                    selectedSalon = {
+                      'salonId': salons.first['id'],
+                      'salonName': salons.first['name'],
+                    };
+                  });
+                  _fetchOffers(selectedSalonId!);
+                });
+              }
 
               final hasAnySalon = salons.isNotEmpty;
 
@@ -336,11 +356,15 @@ class _DealScreenState extends State<DealScreen> {
                           itemCount: offers.length,
                           itemBuilder: (context, i) {
                             final offer = offers[i];
+                            final offerId = (offer['id'] as num).toInt();
+                            final isDeleting = _deletingOfferIds.contains(offerId);
+
                             return _OfferCard(
                               offer: offer,
                               rs: _rs,
+                              isDeleting: isDeleting, // NEW
                               onDelete: () => _confirmDeleteOffer(
-                                (offer['id'] as num).toInt(),
+                                offerId,
                                 (offer['name'] ?? '').toString(),
                               ),
                               onEdit: () {
@@ -411,12 +435,14 @@ class _OfferCard extends StatelessWidget {
     required this.rs,
     required this.onDelete,
     required this.onEdit,
+    required this.isDeleting, // NEW
   });
 
   final Map<String, dynamic> offer;
   final String Function(num? n) rs;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+  final bool isDeleting; // NEW
 
   String? _fmt(dynamic date) {
     if (date == null) return null;
@@ -501,7 +527,7 @@ class _OfferCard extends StatelessWidget {
       elevation: 1.5,
       margin: const EdgeInsets.symmetric(vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-       color: kDropdownFill,
+      color: kDropdownFill,
       child: Padding(
         padding: const EdgeInsets.all(14.0),
         child: Column(
@@ -604,46 +630,60 @@ class _OfferCard extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            // Bottom row: Edit + delete
+            // Bottom row: Edit + delete (delete shows loader when isDeleting)
             Row(
-  mainAxisAlignment: MainAxisAlignment.end,
-  children: [
-    // Edit -> black bg, white text
-    ElevatedButton(
-      onPressed: onEdit,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        elevation: 0,
-      ),
-      child: const Text(
-        "Edit",
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    ),
-    const SizedBox(width: 10),
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                // Edit -> black bg, white text
+                ElevatedButton(
+                  onPressed: isDeleting ? null : onEdit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    "Edit",
+                    style:
+                        TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const SizedBox(width: 10),
 
-    // Delete -> black bg, white text
-    ElevatedButton.icon(
-      onPressed: onDelete,
-      icon: const Icon(Icons.delete, size: 16),
-      label: const Text(
-        "Delete",
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        elevation: 0,
-      ),
-    ),
-  ],
-),
-
+                // Delete -> when deleting, show spinner
+                ElevatedButton.icon(
+                  onPressed: isDeleting ? null : onDelete,
+                  icon: isDeleting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.delete, size: 16),
+                  label: Text(
+                    isDeleting ? "Deleting..." : "Delete",
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 6),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),

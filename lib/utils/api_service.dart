@@ -1193,50 +1193,65 @@ Future<Map<String, dynamic>> updateSubCategoryApi({
   }
 
   // Endpoint to check user existence and send OTP
-  static Future<Map<String, dynamic>> checkUserAndSendOtp(
-    String phoneNumber,
-  ) async {
-    final url = Uri.parse('$baseUrl$checkSendOtpEndpoint');
-    print('Sending request to: $url');
+static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) async {
+  final url = Uri.parse('$baseUrl$checkSendOtpEndpoint');
+  print('Sending request to: $url');
 
-    final headers = {'Content-Type': 'application/json'};
+  final headers = {'Content-Type': 'application/json'};
 
-    // Fetch the token and include it in the header
-    ApiService apiService =
-        ApiService(); // Create an instance of ApiService to access the method
-    String token = await apiService
-        .getAuthToken(); // Call getAuthToken() using the instance
-    if (token.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $token'; // Add token to the headers
-    }
-
-    // Print the headers
-    print('Headers: { "Authorization": "Bearer $token" }');
-
-    final body = json.encode({'phoneNumber': phoneNumber});
-
-    try {
-      final response = await http.post(url, headers: headers, body: body);
-
-      // Log the response status code and body
-      print('Response Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
-      // Update to handle both 200 and 201 as success codes
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        // If successful, parse the response JSON
-        return json.decode(response.body);
-      } else {
-        // If request fails, throw an error
-        throw Exception('Failed to send OTP');
-      }
-    } catch (e) {
-      // Handle errors (e.g., network issues)
-      print('Error: $e');
-      return {'success': false, 'message': 'Error: $e'};
-    }
+  final apiService = ApiService();
+  final token = await apiService.getAuthToken();
+  if (token.isNotEmpty) {
+    headers['Authorization'] = 'Bearer $token';
   }
 
+  print('Headers: { "Authorization": "Bearer $token" }');
+
+  final body = json.encode({'phoneNumber': phoneNumber});
+
+  try {
+    final response = await http.post(url, headers: headers, body: body);
+
+    print('Response Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    // Treat 200/201 as success and return parsed JSON.
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      // Ensure it’s a JSON object
+      final parsed = json.decode(response.body);
+      if (parsed is Map<String, dynamic>) return parsed;
+      return {'success': true, 'data': parsed};
+    }
+
+    // ----- Non-2xx: extract server error cleanly -----
+    String message = 'Verification failed. Please try again.';
+    try {
+      final parsed = json.decode(response.body);
+      final msg = (parsed is Map<String, dynamic>) ? parsed['message'] : null;
+      if (msg is List) {
+        message = msg.join('\n');
+      } else if (msg is String) {
+        message = msg;
+      }
+    } catch (_) {
+      // response body not JSON – keep default message
+    }
+
+    // Return a consistent shape the UI can read.
+    return {
+      'success': false,
+      'statusCode': response.statusCode,
+      'message': message,
+    };
+  } catch (e) {
+    // Transport / parsing errors
+    print('Error: $e');
+    return {
+      'success': false,
+      'message': 'Network error: $e',
+    };
+  }
+}
   // ---------------------- ADD TEAM MEMBER ----------------------
   Future<Map<String, dynamic>> addTeamMember(
     int branchId,
@@ -1378,29 +1393,52 @@ Future<Map<String, dynamic>> addSalonTeamMember(
       return {'success': false, 'message': 'Error: $e'};
     }
   }
+//---------------Get Salon Offers------------------------
+Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
+  final url = Uri.parse(baseUrl + getSalonPackagesDeals(salonId));
+  final sw = Stopwatch()..start();
 
-  Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
-    final url = Uri.parse(baseUrl + getSalonPackagesDeals(salonId));
+  print('➡️ GET $url');
+
+  try {
+    final response = await http.get(url);
+    sw.stop();
+
+    print('⬅️ ${response.statusCode} ${response.reasonPhrase} '
+        '(${sw.elapsedMilliseconds} ms) for $url');
+
+    // Try pretty JSON body (with length cap)
     try {
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data; // contains success, message, and data (list of offers)
-      } else {
-        throw Exception(
-          "Failed to fetch salon packages: ${response.statusCode}",
-        );
-      }
-    } catch (e) {
-      print("❌ Error fetching salon packages: $e");
-      return {
-        "success": false,
-        "message": "Error fetching salon packages",
-        "data": [],
-      };
+      final decoded = json.decode(response.body);
+      final pretty = const JsonEncoder.withIndent('  ').convert(decoded);
+      final preview = pretty.length > 2000
+          ? '${pretty.substring(0, 2000)}… (truncated)'
+          : pretty;
+      print('📦 Body preview:\n$preview');
+    } catch (_) {
+      // Non-JSON body preview
+      final body = response.body;
+      final preview =
+          body.length > 2000 ? '${body.substring(0, 2000)}… (truncated)' : body;
+      print('📦 Body (text):\n$preview');
     }
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      return data;
+    } else {
+      throw Exception('HTTP ${response.statusCode}: ${response.reasonPhrase}');
+    }
+  } catch (e, st) {
+    print('❌ Error fetching salon packages: $e');
+    print(st.toString());
+    return {
+      'success': false,
+      'message': 'Error fetching salon packages',
+      'data': [],
+    };
   }
+}
 
   Future<Map<String, dynamic>> deleteSalonOfferApi({
     required int salonId,

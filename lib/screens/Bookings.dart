@@ -1779,7 +1779,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
             }
 
             return FractionallySizedBox(
-              heightFactor: 0.42,
+              heightFactor: 0.52,
               child: Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,

@@ -12,6 +12,7 @@ class PackageScreen extends StatefulWidget {
 
 class _PackageScreenState extends State<PackageScreen> {
   late Future<List<Map<String, dynamic>>> salonsList;
+    final Set<int> _deletingIds = {};
   int? selectedSalonId;
   Map<String, dynamic>? selectedSalon;
 
@@ -78,43 +79,95 @@ class _PackageScreenState extends State<PackageScreen> {
     }
   }
 
-  Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Delete Deal'),
-        content: Text(
-          'Are you sure you want to delete "$offerName"? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+  // Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
+  //   final confirmed = await showDialog<bool>(
+  //     context: context,
+  //     builder: (ctx) => AlertDialog(
+  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  //       title: const Text('Delete Deal'),
+  //       content: Text(
+  //         'Are you sure you want to delete "$offerName"? This action cannot be undone.',
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(ctx, false),
+  //           child: const Text('Cancel'),
+  //         ),
+  //         ElevatedButton(
+  //           style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+  //           onPressed: () => Navigator.pop(ctx, true),
+  //           child: const Text('Delete', style: TextStyle(color: Colors.white)),
+  //         ),
+  //       ],
+  //     ),
+  //   );
 
-    if (confirmed == true) {
-      await _deleteOffer(offerId);
-    }
+  //   if (confirmed == true) {
+  //     await _deleteOffer(offerId);
+  //   }
+  // }
+
+  // // ✅ Call API to delete, then refresh offers
+  // Future<void> _deleteOffer(int offerId) async {
+  //   if (selectedSalonId == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Please select a salon first')),
+  //     );
+  //     return;
+  //   }
+
+  //   final res = await ApiService().deleteSalonOfferApi(
+  //     salonId: selectedSalonId!,
+  //     offerId: offerId,
+  //   );
+
+  //   if (res['success'] == true) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('Offer deleted successfully')),
+  //     );
+  //     await _fetchOffers(selectedSalonId!); // refresh list
+  //   } else {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content:
+  //             Text(res['message']?.toString() ?? 'Failed to delete deal'),
+  //       ),
+  //     );
+  //   }
+  // }
+Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: const Text('Delete Deal'),
+      content: Text('Are you sure you want to delete "$offerName"? This action cannot be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Delete', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed == true) {
+    await _deleteOffer(offerId);
+  }
+}
+
+Future<void> _deleteOffer(int offerId) async {
+  if (selectedSalonId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select a salon first')),
+    );
+    return;
   }
 
-  // ✅ Call API to delete, then refresh offers
-  Future<void> _deleteOffer(int offerId) async {
-    if (selectedSalonId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a salon first')),
-      );
-      return;
-    }
-
+  setState(() => _deletingIds.add(offerId));   // << start loader
+  try {
     final res = await ApiService().deleteSalonOfferApi(
       salonId: selectedSalonId!,
       offerId: offerId,
@@ -127,13 +180,13 @@ class _PackageScreenState extends State<PackageScreen> {
       await _fetchOffers(selectedSalonId!); // refresh list
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content:
-              Text(res['message']?.toString() ?? 'Failed to delete deal'),
-        ),
+        SnackBar(content: Text(res['message']?.toString() ?? 'Failed to delete deal')),
       );
     }
+  } finally {
+    if (mounted) setState(() => _deletingIds.remove(offerId));  // << stop loader
   }
+}
 
   // 👉 Navigate to edit
   Future<void> _editOffer(Map<String, dynamic> offer) async {
@@ -272,17 +325,19 @@ class _PackageScreenState extends State<PackageScreen> {
                           return const Center(
                               child: Text("No packages available"));
                         }
-                        return ListView.builder(
-                          itemCount: offers.length,
-                          itemBuilder: (context, i) {
-                            final offer = offers[i];
-                            return _OfferCard(
-                              offer: offer,
-                              rs: _rs,
-                              onDelete: () => _confirmDeleteOffer(
-                                (offer['id'] as num).toInt(),
-                                (offer['name'] ?? '').toString(),
-                              ),
+                       return ListView.builder(
+  itemCount: offers.length,
+  itemBuilder: (context, i) {
+    final offer = offers[i];
+    final offerId = (offer['id'] as num).toInt();
+    return _OfferCard(
+      offer: offer,
+      rs: _rs,
+      isDeleting: _deletingIds.contains(offerId), // << here
+      onDelete: () => _confirmDeleteOffer(
+        offerId,
+        (offer['name'] ?? '').toString(),
+      ),
                               onEdit: () {
                                 Navigator.push(
                                   context,
@@ -343,155 +398,214 @@ class _PackageScreenState extends State<PackageScreen> {
     );
   }
 }
-
 class _OfferCard extends StatelessWidget {
   const _OfferCard({
     required this.offer,
     required this.rs,
     required this.onDelete,
     required this.onEdit,
+    required this.isDeleting,
   });
 
   final Map<String, dynamic> offer;
   final String Function(num? n) rs;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+  final bool isDeleting;
 
   @override
   Widget build(BuildContext context) {
-    final items = (offer['items'] as List?) ?? const [];
-    final itemNames = items
-        .map((e) => (e['name'] ?? '').toString())
-        .where((s) => s.isNotEmpty)
-        .join(' + ');
+    // --------- read from response ---------
+    final String name         = (offer['name'] ?? '').toString();
+    final String status       = (offer['status'] ?? '').toString();        // ACTIVE / INACTIVE
+    final String type         = (offer['type'] ?? '').toString();          // PACKAGE / DEAL
+    final String pricingMode  = (offer['pricingMode'] ?? '').toString();   // FIXED / DISCOUNT
+    final String discountType = (offer['discountType'] ?? 'NONE').toString(); // PERCENT / AMOUNT / NONE
+    final num?  discountPct   = offer['discountPct'] as num?;
+    final num?  discountAmt   = offer['discount'] as num?;
+    final num    finalPrice   = (offer['price'] ?? 0) as num;
 
-    final itemSummary = (offer['itemSummary'] as Map?) ?? const {};
-    final totalPrice = (itemSummary['totalPrice'] ?? 0) as num;
-    final totalDuration = (itemSummary['totalDuration'] ?? 0) as num;
+    final Map itemSummary     = (offer['itemSummary'] as Map?) ?? const {};
+    final num actualPrice     = (itemSummary['totalPrice'] ?? 0) as num;
 
-    final pricingMode = (offer['pricingMode'] ?? '').toString(); // FIXED | DISCOUNT
-    final discountType =
-        (offer['discountType'] ?? '').toString(); // PERCENT | AMOUNT | NONE
-    final discountPct = offer['discountPct'] as num?;
-    final discountAmt = offer['discount'] as num?;
-    final price = (offer['price'] ?? 0) as num;
-    final validFrom = offer['validFrom']?.toString();
-    final validTo = offer['validTo']?.toString();
-    final terms = offer['terms']?.toString();
+    final List items          = (offer['items'] as List?) ?? const [];
+    final String? validFrom   = offer['validFrom']?.toString();
+    final String? validTo     = offer['validTo']?.toString();
+    final String terms        = (offer['terms'] ?? '').toString();
+
+    // --------- computed display helpers ---------
+    final bool isDiscount = pricingMode == 'DISCOUNT';
+    final num savings = _calcSavings(
+      pricingMode: pricingMode,
+      discountType: discountType,
+      actualPrice: actualPrice,
+      finalPrice: finalPrice,
+      discountAmt: discountAmt,
+      discountPct: discountPct,
+    );
+
+    final String? discountChipText = () {
+      if (!isDiscount) return null;
+      if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
+        return '${discountPct!.toStringAsFixed(0)}% OFF';
+      }
+      if (discountType == 'AMOUNT' && (discountAmt ?? 0) > 0) {
+        return '${rs(discountAmt)} OFF';
+      }
+      return null;
+    }();
 
     return Card(
       elevation: 1.5,
       margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
-        padding: const EdgeInsets.all(14.0),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title + status
+            // --------- header: title + chips ---------
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
-                    (offer['name'] ?? '').toString(),
-                    maxLines: 1,
+                    name,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                   ),
                 ),
                 const SizedBox(width: 8),
-                _statusChip((offer['status'] ?? '').toString()),
+                _statusChip(status),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _pillChip(type),                       // PACKAGE / DEAL
+                _softChip(pricingMode),                // FIXED / DISCOUNT
+                if (discountChipText != null) _offChip(discountChipText),
               ],
             ),
 
-            if (itemNames.isNotEmpty) ...[
+            const SizedBox(height: 10),
+
+            // --------- pricing block ---------
+            Row(
+              children: [
+                if (isDiscount && actualPrice > 0) ...[
+                  Text(
+                    rs(actualPrice),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                      decoration: TextDecoration.lineThrough,
+                      decorationThickness: 2,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  rs(finalPrice),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: isDiscount ? Colors.orange : Colors.black,
+                  ),
+                ),
+                const Spacer(),
+                if (savings > 0)
+                  Text(
+                    'You save ${rs(savings)}',
+                    style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w700),
+                  ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // --------- services as chips ---------
+            if (items.isNotEmpty) ...[
+              const Text('Includes', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),
-              Text(itemNames, style: const TextStyle(fontSize: 13)),
-            ],
-
-            const SizedBox(height: 8),
-
-            // Pricing row like screenshot
-            _pricingRow(
-              pricingMode: pricingMode,
-              discountType: discountType,
-              totalPrice: totalPrice,
-              price: price,
-              discountPct: discountPct,
-              discountAmt: discountAmt,
-              rs: rs,
-            ),
-
-            const SizedBox(height: 8),
-            Text(
-              "Total Duration: ${totalDuration.toStringAsFixed(0)} Min",
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
-            ),
-
-            if ((validFrom?.isNotEmpty ?? false) ||
-                (validTo?.isNotEmpty ?? false)) ...[
-              const SizedBox(height: 4),
-              Text(
-                (validFrom != null && validTo != null && validFrom.isNotEmpty && validTo.isNotEmpty)
-                    ? "Valid: $validFrom - $validTo"
-                    : (validFrom != null && validFrom.isNotEmpty)
-                        ? "Valid from: $validFrom"
-                        : "Valid till: $validTo",
-                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: items.map((e) {
+                  final m = Map<String, dynamic>.from(e as Map);
+                  final n = (m['name'] ?? '').toString();
+                  final q = (m['qty'] ?? 1) as num;
+                  return Chip(
+                    label: Text('$n × ${q.toStringAsFixed(0)}'),
+                    backgroundColor: const Color(0xFFF3F4F6),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+                  );
+                }).toList(),
               ),
             ],
 
-            if ((terms ?? '').isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                "Terms: $terms",
-                style: const TextStyle(fontSize: 13, color: Colors.grey),
+            // --------- validity & terms ---------
+            if ((validFrom?.isNotEmpty ?? false) || (validTo?.isNotEmpty ?? false)) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(Icons.event, size: 16, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _formatValidity(validFrom, validTo),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (terms.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.article_outlined, size: 16, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Terms: $terms',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                ],
               ),
             ],
 
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
+
+            // --------- actions ---------
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Edit -> black bg, white text
                 ElevatedButton(
-                  onPressed: onEdit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    "Edit",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
+                  onPressed: isDeleting ? null : onEdit,
+                  style: _blackButtonStyle,
+                  child: const Text('Edit', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                 ),
                 const SizedBox(width: 10),
-                // Delete -> black bg, white text
                 ElevatedButton.icon(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text(
-                    "Delete",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  onPressed: isDeleting ? null : onDelete,
+                  icon: isDeleting
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.delete, size: 16),
+                  label: Text(
+                    isDeleting ? 'Deleting...' : 'Delete',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    elevation: 0,
-                  ),
+                  style: _blackButtonStyle,
                 ),
               ],
             ),
@@ -501,6 +615,7 @@ class _OfferCard extends StatelessWidget {
     );
   }
 
+  // ---------- tiny UI helpers ----------
   Widget _statusChip(String status) {
     final isActive = status.toUpperCase() == 'ACTIVE';
     return Container(
@@ -513,76 +628,12 @@ class _OfferCard extends StatelessWidget {
         status.toUpperCase(),
         style: TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: isActive ? const Color(0xFF138A36) : Colors.grey[700],
         ),
       ),
     );
   }
-
-  Widget _pricingRow({
-    required String pricingMode,
-    required String discountType,
-    required num totalPrice,
-    required num price,
-    required num? discountPct,
-    required num? discountAmt,
-    required String Function(num? n) rs,
-  }) {
-    final children = <Widget>[];
-
-    if (pricingMode == 'FIXED') {
-      children.add(Text(
-        rs(price),
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-      ));
-    } else if (pricingMode == 'DISCOUNT') {
-      children.add(
-        Text.rich(
-          TextSpan(
-            text: 'Actual Price ',
-            style: const TextStyle(fontSize: 13, color: Colors.grey),
-            children: [
-              TextSpan(
-                text: rs(totalPrice),
-                style: const TextStyle(
-                  decoration: TextDecoration.lineThrough,
-                  decorationThickness: 2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-
-      children.add(const SizedBox(width: 8));
-      children.add(Text(
-        rs(price),
-        style: const TextStyle(
-            fontSize: 16, color: Colors.orange, fontWeight: FontWeight.w700),
-      ));
-
-      if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
-        children.add(const SizedBox(width: 8));
-        children.add(_offChip("${discountPct!.toStringAsFixed(0)}% OFF"));
-      } else if (discountType == 'AMOUNT' && (discountAmt ?? 0) > 0) {
-        children.add(const SizedBox(width: 8));
-        children.add(_offChip("${rs(discountAmt)} OFF"));
-      }
-    } else {
-      children.add(Text(
-        rs(price),
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-      ));
-    }
-
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 4,
-      runSpacing: 4,
-      children: children,
-    );
-    }
 
   Widget _offChip(String text) {
     return Container(
@@ -593,9 +644,91 @@ class _OfferCard extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(
-            fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white),
       ),
     );
   }
+
+  Widget _pillChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF1F4),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+    );
+  }
+
+  Widget _softChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Text(text, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87)),
+    );
+  }
+}
+
+// keep the shared style you already use
+ButtonStyle get _blackButtonStyle => ElevatedButton.styleFrom(
+  backgroundColor: Colors.black,
+  foregroundColor: Colors.white,
+  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  elevation: 0,
+).copyWith(
+  backgroundColor: MaterialStateProperty.resolveWith((_) => Colors.black),
+  foregroundColor: MaterialStateProperty.resolveWith(
+    (states) => states.contains(MaterialState.disabled)
+        ? Colors.white.withOpacity(0.6)
+        : Colors.white,
+  ),
+);
+
+// ---------- logic helpers ----------
+String _formatValidity(String? isoFrom, String? isoTo) {
+  String fmt(String iso) {
+    try {
+      final d = DateTime.parse(iso);
+      return '${d.day.toString().padLeft(2, '0')}-'
+             '${d.month.toString().padLeft(2, '0')}-'
+             '${d.year}';
+    } catch (_) {
+      return iso; // fall back to raw
+    }
+  }
+
+  if ((isoFrom?.isNotEmpty ?? false) && (isoTo?.isNotEmpty ?? false)) {
+    return 'Valid: ${fmt(isoFrom!)} - ${fmt(isoTo!)}';
+  }
+  if (isoFrom?.isNotEmpty ?? false) return 'Valid from: ${fmt(isoFrom!)}';
+  if (isoTo?.isNotEmpty ?? false)   return 'Valid till: ${fmt(isoTo!)}';
+  return '';
+}
+
+num _calcSavings({
+  required String pricingMode,
+  required String discountType,
+  required num actualPrice,
+  required num finalPrice,
+  required num? discountAmt,
+  required num? discountPct,
+}) {
+  if (pricingMode != 'DISCOUNT') return 0;
+  // Prefer exact delta (actual - final) if we have actual price
+  if (actualPrice > 0 && finalPrice > 0) {
+    final s = actualPrice - finalPrice;
+    return s > 0 ? s : 0;
+  }
+  // Fallback from discount fields
+  if (discountType == 'AMOUNT') return (discountAmt ?? 0);
+  if (discountType == 'PERCENT' && actualPrice > 0) {
+    final pct = (discountPct ?? 0).clamp(0, 100);
+    return (actualPrice * (pct / 100.0));
+  }
+  return 0;
 }
