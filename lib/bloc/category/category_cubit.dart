@@ -11,37 +11,85 @@ class CategoryCubit extends Cubit<CategoryState> {
 
   final SalonRepository _repository;
 
-  Future<bool> loadCategories(int salonId) async {
-    emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
-
-    try {
-      final response = await _repository.fetchSalonCatalog(salonId);
-      if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Failed to load categories');
-      }
-
-      final data = response['data'] as Map<String, dynamic>?;
-      final categories = (data?['categories'] as List?) ?? [];
-
-      emit(
-        state.copyWith(
-          status: CategoryStatus.success,
-          categories: categories.cast<dynamic>(),
-          clearMessage: true,
-        ),
-      );
-      return true;
-    } catch (error) {
-      emit(
-        state.copyWith(
-          status: CategoryStatus.failure,
-          message: _extractErrorMessage(error),
-        ),
-      );
-      return false;
-    }
+  void resetCategories() {
+    emit(
+      state.copyWith(
+        status: CategoryStatus.loading,
+        categories: const [],
+        clearMessage: true,
+      ),
+    );
   }
 
+  // Future<bool> loadCategories(int salonId) async {
+  //   emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
+
+  //   try {
+  //     final response = await _repository.fetchSalonCatalog(salonId);
+  //     if (response['success'] != true) {
+  //       throw Exception(response['message'] ?? 'Failed to load categories');
+  //     }
+
+  //     final data = response['data'] as Map<String, dynamic>?;
+  //     final categories = (data?['categories'] as List?) ?? [];
+
+  //     emit(
+  //       state.copyWith(
+  //         status: CategoryStatus.success,
+  //         categories: categories.cast<dynamic>(),
+  //         clearMessage: true,
+  //       ),
+  //     );
+  //     return true;
+  //   } catch (error) {
+  //     emit(
+  //       state.copyWith(
+  //         status: CategoryStatus.failure,
+  //         message: _extractErrorMessage(error),
+  //       ),
+  //     );
+  //     return false;
+  //   }
+  // }
+
+Future<bool> loadCategories(int salonId) async {
+  emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
+
+  try {
+    final response = await _repository.fetchSalonCatalog(salonId);
+    if (response['success'] != true) {
+      throw Exception(response['message'] ?? 'Failed to load categories');
+    }
+
+    final data = response['data'] as Map<String, dynamic>?;
+    final categories = (data?['categories'] as List?) ?? [];
+
+    emit(state.copyWith(
+      status: CategoryStatus.success,
+      categories: categories.cast<dynamic>(),
+      clearMessage: true,
+    ));
+    return true;
+
+  } catch (error) {
+    // ✅ Special-case the backend’s “no categories” response
+    if (_isNoCategories404(error)) {
+      emit(state.copyWith(
+        status: CategoryStatus.success,     // success, not failure
+        categories: const [],               // empty list -> your UI shows empty state
+        clearMessage: true,
+      ));
+      return true;                          // treat as a successful (empty) load
+    }
+
+    // Real error path
+    emit(state.copyWith(
+      status: CategoryStatus.failure,
+      message: _extractErrorMessage(error),
+    ));
+    return false;
+  }
+}
   Future<void> addCategory(int salonId, AddCategoryRequest request) async {
     await _performMutation(
       salonId,
@@ -86,6 +134,34 @@ class CategoryCubit extends Cubit<CategoryState> {
       fallbackMessage: 'Subcategory added successfully',
     );
   }
+bool _isNoCategories404(Object error) {
+  // Try to detect common http client types first (optional),
+  // but keep it generic so it works with your current repo.
+
+  // 1) Parse JSON object embedded in error.toString()
+  final raw = error.toString();
+  final match = RegExp(r'\{.*\}', dotAll: true).firstMatch(raw);
+  if (match != null) {
+    try {
+      final decoded = jsonDecode(match.group(0)!);
+      if (decoded is Map<String, dynamic>) {
+        final code = decoded['statusCode'] ?? decoded['status'] ?? decoded['code'];
+        final msg = (decoded['message'] ?? decoded['error'] ?? '').toString();
+        if (code == 404 && msg.toLowerCase().contains('no salon categories')) {
+          return true;
+        }
+      }
+    } catch (_) {/* ignore */}
+  }
+
+  // 2) Fallback: plain-text check (in case repo throws a simple string)
+  final lower = raw.toLowerCase();
+  if (lower.contains('statuscode":404') || lower.contains('status: 404') || lower.contains(' 404')) {
+    if (lower.contains('no salon categories')) return true;
+  }
+
+  return false;
+}
 
   Future<void> updateSubCategory(
     int salonId,
@@ -213,32 +289,37 @@ class CategoryCubit extends Cubit<CategoryState> {
 
   //   return parts.isEmpty ? null : parts.join('\n');
   // }
-String? _messageFromPayload(Map<String, dynamic> payload) {
-  final parts = <String>[];
+  String? _messageFromPayload(Map<String, dynamic> payload) {
+    final parts = <String>[];
 
-  final message = payload['message'];
-  if (message is String && message.trim().isNotEmpty) {
-    parts.add(message.trim());
-  } else if (message is List) {
-    parts.addAll(message.whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty));
+    final message = payload['message'];
+    if (message is String && message.trim().isNotEmpty) {
+      parts.add(message.trim());
+    } else if (message is List) {
+      parts.addAll(
+        message
+            .whereType<String>()
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty),
+      );
+    }
+
+    // Fall back to 'error' if present and we still have nothing
+    final error = payload['error'];
+    if (parts.isEmpty && error is String && error.trim().isNotEmpty) {
+      parts.add(error.trim());
+    }
+
+    final validation = payload['errors'];
+    if (validation is Map<String, dynamic>) {
+      final details = _flattenErrors(validation);
+      if (details.isNotEmpty) parts.add(details);
+    } else if (validation is List) {
+      parts.addAll(validation.whereType<String>());
+    }
+
+    return parts.isEmpty ? null : parts.join('\n');
   }
-
-  // Fall back to 'error' if present and we still have nothing
-  final error = payload['error'];
-  if (parts.isEmpty && error is String && error.trim().isNotEmpty) {
-    parts.add(error.trim());
-  }
-
-  final validation = payload['errors'];
-  if (validation is Map<String, dynamic>) {
-    final details = _flattenErrors(validation);
-    if (details.isNotEmpty) parts.add(details);
-  } else if (validation is List) {
-    parts.addAll(validation.whereType<String>());
-  }
-
-  return parts.isEmpty ? null : parts.join('\n');
-}
 
   String _extractErrorMessage(Object error) {
     if (error is String) {

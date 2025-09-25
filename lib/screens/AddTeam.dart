@@ -478,18 +478,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                 Text(
-  'Salon ID: ${widget.salonId}',
-  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-),
-Text(
-  'Branch ID: ${widget.branchId}',
-  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-),
-Text(
-  'Branch Name: ${widget.branchName}',
-  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-),
+//                  Text(
+//   'Salon ID: ${widget.salonId}',
+//   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+// ),
+// Text(
+//   'Branch ID: ${widget.branchId}',
+//   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+// ),
+// Text(
+//   'Branch Name: ${widget.branchName}',
+//   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+// ),
                     Center(
                       child: GestureDetector(
                         onTap: _pickImage,

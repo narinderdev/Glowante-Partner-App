@@ -8,8 +8,8 @@ import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import 'add_branch_screen.dart';
 import 'add_salon_screen.dart';
 import 'branch_screen.dart';
-import 'Deal.dart';
-import 'Package.dart';
+import 'SalonDeal.dart';
+import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import '../utils/colors.dart';
 class SalonsScreen extends StatefulWidget {

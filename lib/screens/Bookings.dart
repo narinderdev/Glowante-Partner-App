@@ -13,6 +13,7 @@ class BookingsScreen extends StatefulWidget {
   @override
   _BookingsScreenState createState() => _BookingsScreenState();
 }
+
 // top-level constants (outside any class)
 const String _kSalonsCacheKey = 'salons_cache_v1';
 String _branchCacheKey(int id) => 'branch_cache_v1_$id';
@@ -27,20 +28,20 @@ class _BookingsScreenState extends State<BookingsScreen> {
   Map<String, dynamic>? selectedBranch; // Store branch details
   List<Map<String, dynamic>> bookings = [];
   DateTime selectedDate = DateTime.now(); // Initial date is today
-  List<Map<String, dynamic>> teamMembers = []; // Store team members for the selected branch
+  List<Map<String, dynamic>> teamMembers =
+      []; 
   List<String> timeSlots = []; // Declare the timeSlots list
   // Branch working hours for rendering grid/blocks
   String? _branchStartTimeStr; // e.g. "08:00:00"
   String? _branchEndTimeStr; // e.g. "20:00:00"
   bool _loadingBranch = false;
   bool _loadingDate = false;
- DateTime _weekAnchor = DateTime.now();
+  DateTime _weekAnchor = DateTime.now();
   bool get _isFetchingData => isLoading || _loadingBranch || _loadingDate;
 
   // Layout constants for the grid
   static const double _rowHeight = 44.0; // 15-min slot height
   static const double _colWidth = 140.0; // staff column width
-
 
   int pendingCount = 0;
   int cancelledCount = 0;
@@ -62,8 +63,12 @@ class _BookingsScreenState extends State<BookingsScreen> {
   @override
   void initState() {
     super.initState();
-  _weekAnchor = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
-     _bootstrap();
+    _weekAnchor = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+    _bootstrap();
     getSalonListApi();
     _loadCachedSelection();
     // Sync vertical scroll between time column and grid body
@@ -123,101 +128,135 @@ class _BookingsScreenState extends State<BookingsScreen> {
       }
     });
   }
-DateTime _startOfWeek(DateTime d, {bool mondayStart = true}) {
-  final wd = d.weekday; // 1=Mon ... 7=Sun
-  final diff = mondayStart ? (wd - 1) : (wd % 7);
-  final onlyDate = DateTime(d.year, d.month, d.day);
-  return onlyDate.subtract(Duration(days: diff));
-}
 
-void changeWeek(bool isNext) {
-  setState(() {
-    _weekAnchor = isNext
-        ? _weekAnchor.add(const Duration(days: 7))
-        : _weekAnchor.subtract(const Duration(days: 7));
-  });
-}
+  DateTime _startOfWeek(DateTime d, {bool mondayStart = true}) {
+    final wd = d.weekday; // 1=Mon ... 7=Sun
+    final diff = mondayStart ? (wd - 1) : (wd % 7);
+    final onlyDate = DateTime(d.year, d.month, d.day);
+    return onlyDate.subtract(Duration(days: diff));
+  }
 
-
+  void changeWeek(bool isNext) {
+    setState(() {
+      _weekAnchor = isNext
+          ? _weekAnchor.add(const Duration(days: 7))
+          : _weekAnchor.subtract(const Duration(days: 7));
+    });
+  }
 
   Future<void> _bootstrap() async {
-  // 1) Load saved selection (branch/salon ids)
-  await _loadCachedSelection();
+    // 1) Load saved selection (branch/salon ids)
+    await _loadCachedSelection();
 
-  // 2) Salons: show cached list immediately; only fetch if missing
-  final hadSalons = await _loadSalonsFromCache();
-  if (!hadSalons) {
-    await getSalonListApi(); // This will also cache salons (step 4)
+    // 2) Salons: show cached list immediately; only fetch if missing
+    final hadSalons = await _loadSalonsFromCache();
+    if (!hadSalons) {
+      await getSalonListApi(); // This will also cache salons (step 4)
+    }
+
+    // 3) Branch data (slots + team): restore if present, no network
+    await _restoreBranchFromCacheIfAny();
+
+    // 4) Done booting
+    if (mounted) {
+      setState(() {}); // ensure UI reflects restored cache
+    }
   }
 
-  // 3) Branch data (slots + team): restore if present, no network
-  await _restoreBranchFromCacheIfAny();
-
-  // 4) Done booting
-  if (mounted) {
-    setState(() {}); // ensure UI reflects restored cache
+  Future<bool> _loadSalonsFromCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_kSalonsCacheKey);
+    if (raw == null) return false;
+    try {
+      final data = jsonDecode(raw);
+      if (data is List) {
+        setState(() {
+          salons = List<Map<String, dynamic>>.from(
+            data.map((e) => Map<String, dynamic>.from(e)),
+          );
+        });
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
-}
-Future<bool> _loadSalonsFromCache() async {
-  final prefs = await SharedPreferences.getInstance();
-  final raw = prefs.getString(_kSalonsCacheKey);
-  if (raw == null) return false;
-  try {
-    final data = jsonDecode(raw);
-    if (data is List) {
+
+  Future<void> _saveSalonsToCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kSalonsCacheKey, jsonEncode(salons));
+  }
+
+  /// Save per-branch cache: start/end → slots (derived) + teamMembers
+  Future<void> _saveBranchCache(int branchId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final payload = {
+      'startTime': _branchStartTimeStr ?? '08:00:00',
+      'endTime': _branchEndTimeStr ?? '20:00:00',
+      'teamMembers': teamMembers,
+    };
+    await prefs.setString(_branchCacheKey(branchId), jsonEncode(payload));
+  }
+
+  /// Restore per-branch cache if available (NO network)
+  Future<bool> _restoreBranchFromCacheIfAny() async {
+    if (selectedBranchId == null) return false;
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_branchCacheKey(selectedBranchId!));
+    if (raw == null) return false;
+
+    try {
+      final obj = jsonDecode(raw) as Map<String, dynamic>;
+      final start = (obj['startTime'] ?? '08:00:00').toString();
+      final end = (obj['endTime'] ?? '20:00:00').toString();
+      final members = (obj['teamMembers'] as List?) ?? const [];
+
       setState(() {
-        salons = List<Map<String, dynamic>>.from(
-          data.map((e) => Map<String, dynamic>.from(e)),
+        _branchStartTimeStr = start;
+        _branchEndTimeStr = end;
+        timeSlots = generateTimeSlots(start, end);
+        teamMembers = List<Map<String, dynamic>>.from(
+          members.map((e) => Map<String, dynamic>.from(e)),
         );
       });
       return true;
+    } catch (_) {
+      return false;
     }
-  } catch (_) {}
-  return false;
-}
-
-Future<void> _saveSalonsToCache() async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(_kSalonsCacheKey, jsonEncode(salons));
-}
-
-/// Save per-branch cache: start/end → slots (derived) + teamMembers
-Future<void> _saveBranchCache(int branchId) async {
-  final prefs = await SharedPreferences.getInstance();
-  final payload = {
-    'startTime': _branchStartTimeStr ?? '08:00:00',
-    'endTime': _branchEndTimeStr ?? '20:00:00',
-    'teamMembers': teamMembers,
-  };
-  await prefs.setString(_branchCacheKey(branchId), jsonEncode(payload));
-}
-
-/// Restore per-branch cache if available (NO network)
-Future<bool> _restoreBranchFromCacheIfAny() async {
-  if (selectedBranchId == null) return false;
-  final prefs = await SharedPreferences.getInstance();
-  final raw = prefs.getString(_branchCacheKey(selectedBranchId!));
-  if (raw == null) return false;
-
-  try {
-    final obj = jsonDecode(raw) as Map<String, dynamic>;
-    final start = (obj['startTime'] ?? '08:00:00').toString();
-    final end = (obj['endTime'] ?? '20:00:00').toString();
-    final members = (obj['teamMembers'] as List?) ?? const [];
-
-    setState(() {
-      _branchStartTimeStr = start;
-      _branchEndTimeStr = end;
-      timeSlots = generateTimeSlots(start, end);
-      teamMembers = List<Map<String, dynamic>>.from(
-        members.map((e) => Map<String, dynamic>.from(e)),
-      );
-    });
-    return true;
-  } catch (_) {
-    return false;
   }
-}
+
+  Future<void> _refreshAllData() async {
+    if (_isFetchingData) return;
+    setState(() {
+      isLoading = true;
+      if (selectedBranchId != null) {
+        _loadingBranch = true;
+      }
+    });
+
+    try {
+      await getSalonListApi();
+
+      if (selectedBranchId != null) {
+        await getTeamMembers(selectedBranchId!);
+        await getBookingsByDate(selectedBranchId!, selectedDate);
+      } else {
+        setState(() {
+          bookings = [];
+          pendingCount = 0;
+          cancelledCount = 0;
+          completedCount = 0;
+          confirmedCount = 0;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _loadingBranch = false;
+        });
+      }
+    }
+  }
 
   bool isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
@@ -235,30 +274,33 @@ Future<bool> _restoreBranchFromCacheIfAny() async {
     });
   }
 
-Future<void> getSalonListApi() async {
-  try {
-    final response = await ApiService().getSalonListApi();
-    if (response['success'] == true) {
-      List salonsList = response['data'];
+  Future<void> getSalonListApi() async {
+    try {
+      final response = await ApiService().getSalonListApi();
+      if (response['success'] == true) {
+        List salonsList = response['data'];
+        setState(() {
+          salons = salonsList.map<Map<String, dynamic>>((salon) {
+            return {
+              'id': salon['id'],
+              'name': salon['name'],
+              'branches': salon['branches'],
+            };
+          }).toList();
+          isLoading = false;
+        });
+        await _saveSalonsToCache(); // NEW: cache salons
+      } else {
+        throw Exception("Failed to fetch salon list");
+      }
+    } catch (e) {
+      print("Error fetching salon list: $e");
       setState(() {
-        salons = salonsList.map<Map<String, dynamic>>((salon) {
-          return {
-            'id': salon['id'],
-            'name': salon['name'],
-            'branches': salon['branches'],
-          };
-        }).toList();
         isLoading = false;
       });
-      await _saveSalonsToCache(); // NEW: cache salons
-    } else {
-      throw Exception("Failed to fetch salon list");
     }
-  } catch (e) {
-    print("Error fetching salon list: $e");
-    setState(() { isLoading = false; });
   }
-}
+
   List<String> generateTimeSlots(String startTime, String endTime) {
     List<String> timeSlots = [];
 
@@ -270,7 +312,8 @@ Future<void> getSalonListApi() async {
     DateTime effectiveEnd = end.subtract(const Duration(minutes: 15));
 
     // Add time slots up to and including effectiveEnd
-    while (start.isBefore(effectiveEnd) || start.isAtSameMomentAs(effectiveEnd)) {
+    while (start.isBefore(effectiveEnd) ||
+        start.isAtSameMomentAs(effectiveEnd)) {
       timeSlots.add(DateFormat("h:mm a").format(start));
       start = start.add(const Duration(minutes: 15));
     }
@@ -280,12 +323,19 @@ Future<void> getSalonListApi() async {
 
   Future<void> getBookingsByDate(int branchId, DateTime date) async {
     try {
-      String formattedDate = DateFormat('yyyy-MM-dd').format(date); // Format date
+      String formattedDate = DateFormat(
+        'yyyy-MM-dd',
+      ).format(date); // Format date
       ApiService apiService = ApiService();
 
-      final response = await apiService.fetchAppointments(branchId, formattedDate);
+      final response = await apiService.fetchAppointments(
+        branchId,
+        formattedDate,
+      );
 
-      if (response != null && response['success'] == true && response['data'] != null) {
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] != null) {
         List<dynamic> appointments = response['data'];
 
         // Try to fetch branch working hours from the payload (fallback-safe)
@@ -301,7 +351,10 @@ Future<void> getSalonListApi() async {
 
         // Generate time slots and populate the timeSlots list
         setState(() {
-          timeSlots = generateTimeSlots(startTime, endTime); // Populate timeSlots
+          timeSlots = generateTimeSlots(
+            startTime,
+            endTime,
+          ); // Populate timeSlots
           _branchStartTimeStr = startTime;
           _branchEndTimeStr = endTime;
         });
@@ -347,27 +400,30 @@ Future<void> getSalonListApi() async {
     });
   }
 
-Future<void> getTeamMembers(int branchId) async {
-  try {
-    final response = await ApiService.getTeamMembers(branchId);
-    if (response != null &&
-        response['success'] == true &&
-        response['data'] != null &&
-        response['data'].isNotEmpty) {
-      setState(() {
-        teamMembers = List<Map<String, dynamic>>.from(response['data']);
-      });
-      // Cache the branch bundle (uses current _branchStartTimeStr/_branchEndTimeStr)
-      await _saveBranchCache(branchId); // NEW
-    } else {
-      setState(() { teamMembers = []; });
-      print('No team members available for this branch.');
-      await _saveBranchCache(branchId); // save empty list too for consistency
+  Future<void> getTeamMembers(int branchId) async {
+    try {
+      final response = await ApiService.getTeamMembers(branchId);
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] != null &&
+          response['data'].isNotEmpty) {
+        setState(() {
+          teamMembers = List<Map<String, dynamic>>.from(response['data']);
+        });
+        // Cache the branch bundle (uses current _branchStartTimeStr/_branchEndTimeStr)
+        await _saveBranchCache(branchId); // NEW
+      } else {
+        setState(() {
+          teamMembers = [];
+        });
+        print('No team members available for this branch.');
+        await _saveBranchCache(branchId); // save empty list too for consistency
+      }
+    } catch (e) {
+      print('Error fetching team members: $e');
     }
-  } catch (e) {
-    print('Error fetching team members: $e');
   }
-}
+
   // Combine selected date with a HH:mm[:ss] string to a local DateTime
   DateTime _combineDateAndTime(DateTime date, String timeStr) {
     int h = 0, m = 0, s = 0;
@@ -446,7 +502,9 @@ Future<void> getTeamMembers(int branchId) async {
   }
 
   List<Map<String, dynamic>> _collectMergedSegments() {
-    if (bookings.isEmpty || _branchStartTimeStr == null || _branchEndTimeStr == null) {
+    if (bookings.isEmpty ||
+        _branchStartTimeStr == null ||
+        _branchEndTimeStr == null) {
       return const [];
     }
 
@@ -457,8 +515,14 @@ Future<void> getTeamMembers(int branchId) async {
       return null;
     }
 
-    final DateTime dayStart = _combineDateAndTime(selectedDate, _branchStartTimeStr!);
-    final DateTime dayEnd = _combineDateAndTime(selectedDate, _branchEndTimeStr!);
+    final DateTime dayStart = _combineDateAndTime(
+      selectedDate,
+      _branchStartTimeStr!,
+    );
+    final DateTime dayEnd = _combineDateAndTime(
+      selectedDate,
+      _branchEndTimeStr!,
+    );
 
     // Step 1: flatten items
     final List<Map<String, dynamic>> flat = [];
@@ -483,8 +547,10 @@ Future<void> getTeamMembers(int branchId) async {
             item['user']?['id'] ??
             item['userId'];
 
-        DateTime? s = _parseLocal(item['startAt']) ?? _parseLocal(booking['startAt']);
-        DateTime? e = _parseLocal(item['endAt']) ?? _parseLocal(booking['endAt']);
+        DateTime? s =
+            _parseLocal(item['startAt']) ?? _parseLocal(booking['startAt']);
+        DateTime? e =
+            _parseLocal(item['endAt']) ?? _parseLocal(booking['endAt']);
         if (s == null || e == null) continue;
 
         // clamp
@@ -503,7 +569,8 @@ Future<void> getTeamMembers(int branchId) async {
           'status': status,
           'start': s,
           'end': e,
-          'service': item['branchService']?['displayName']?.toString() ?? 'Service',
+          'service':
+              item['branchService']?['displayName']?.toString() ?? 'Service',
           'priceMinor': _toInt(item['branchService']?['priceMinor']),
         });
       }
@@ -514,14 +581,17 @@ Future<void> getTeamMembers(int branchId) async {
     // Step 2: group by col + customer + staff + status
     final Map<String, List<Map<String, dynamic>>> groups = {};
     for (final it in flat) {
-      final key = '${it['appointmentId']}|${it['col']}|${it['customerId']}|${it['staffUserId']}|${it['status']}';
+      final key =
+          '${it['appointmentId']}|${it['col']}|${it['customerId']}|${it['staffUserId']}|${it['status']}';
       (groups[key] ??= <Map<String, dynamic>>[]).add(it);
     }
 
     // Step 3: within each group, sort by start and coalesce consecutive items
     final List<Map<String, dynamic>> segments = [];
     for (final g in groups.values) {
-      g.sort((a, b) => (a['start'] as DateTime).compareTo(b['start'] as DateTime));
+      g.sort(
+        (a, b) => (a['start'] as DateTime).compareTo(b['start'] as DateTime),
+      );
       if (g.isEmpty) continue;
 
       // seed
@@ -618,453 +688,496 @@ Future<void> getTeamMembers(int branchId) async {
     return segments;
   }
 
-void _openMergedSegmentSheet(Map<String, dynamic> seg) {
-  final DateTime s = seg['start'] as DateTime;
-  final DateTime e = seg['end'] as DateTime;
-  final String status = _normalizeStatus(seg['status']);
-  final String customerName = seg['customerName'] as String? ?? 'Customer';
-  final int? priceTotal = seg['priceTotal'] as int?;
-  final List<Map<String, dynamic>> items =
-      List<Map<String, dynamic>>.from(seg['items'] as List);
+  void _openMergedSegmentSheet(Map<String, dynamic> seg) {
+    final DateTime s = seg['start'] as DateTime;
+    final DateTime e = seg['end'] as DateTime;
+    final String status = _normalizeStatus(seg['status']);
+    final String customerName = seg['customerName'] as String? ?? 'Customer';
+    final int? priceTotal = seg['priceTotal'] as int?;
+    final List<Map<String, dynamic>> items = List<Map<String, dynamic>>.from(
+      seg['items'] as List,
+    );
 
-  // Unique appointment IDs inside the block
-  final List<int> apptIds = items
-      .map((it) => it['appointmentId'] as int?)
-      .whereType<int>()
-      .toSet()
-      .toList()
-    ..sort();
+    // Unique appointment IDs inside the block
+    final List<int> apptIds =
+        items
+            .map((it) => it['appointmentId'] as int?)
+            .whereType<int>()
+            .toSet()
+            .toList()
+          ..sort();
 
-  final String timeRange = _fmtTimeRange(s, e);
+    final String timeRange = _fmtTimeRange(s, e);
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (ctx) {
-      bool loadingConfirm = false;
-      bool loadingStartAll = false;
-      bool loadingCompleteAll = false;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        bool loadingConfirm = false;
+        bool loadingStartAll = false;
+        bool loadingCompleteAll = false;
 
-      return StatefulBuilder(
-        builder: (_, setSheetState) {
-          Future<void> onConfirmAll() async {
-            if (loadingConfirm) return;
-            if (selectedBranchId == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please select a branch first.')),
-              );
-              return;
-            }
-            if (status != 'PENDING' || apptIds.isEmpty) return;
-
-            setSheetState(() => loadingConfirm = true);
-
-            int ok = 0, fail = 0;
-            final List<String> messages = [];
-            try {
-              for (final id in apptIds) {
-                try {
-                  final resp = await ApiService().confirmAppointment(
-                    branchId: selectedBranchId!,
-                    appointmentId: id,
-                  );
-                  final msg = resp['message']?.toString();
-                  if (msg != null && msg.isNotEmpty) messages.add(msg);
-                  if (resp['success'] == true) {
-                    ok++;
-                  } else {
-                    fail++;
-                  }
-                } catch (_) {
-                  fail++;
-                  messages.add('Failed to confirm appointment #$id');
-                }
-              }
-            } finally {
-              setSheetState(() => loadingConfirm = false);
-            }
-
-            Navigator.of(ctx).pop(); // close only the sheet
-            if (selectedBranchId != null) {
-              await getBookingsByDate(selectedBranchId!, selectedDate);
-            }
-
-            final fallbackMsg =
-                fail == 0 ? 'Confirmed $ok appointment(s).' : 'Confirmed $ok, failed $fail.';
-            final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
-          }
-
-          Future<String?> _askOtp() async {
-            final controller = TextEditingController();
-            String? result;
-            await showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (dCtx) {
-                return AlertDialog(
-                  title: const Text("Enter OTP"),
-                  content: TextField(
-                    controller: controller,
-                    maxLength: 6,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: "6-digit OTP",
-                    ),
+        return StatefulBuilder(
+          builder: (_, setSheetState) {
+            Future<void> onConfirmAll() async {
+              if (loadingConfirm) return;
+              if (selectedBranchId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please select a branch first.'),
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dCtx),
-                      child: const Text("Cancel"),
-                    ),
-                    ElevatedButton(
-                      onPressed: () {
-                        final otp = controller.text.trim();
-                        if (otp.length != 6) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Enter valid 6-digit OTP")),
-                          );
-                          return;
-                        }
-                        result = otp;
-                        Navigator.pop(dCtx);
-                      },
-                      child: const Text("Submit"),
-                    ),
-                  ],
                 );
-              },
-            );
-            return result;
-          }
-
-          Future<void> _startForIds(List<int> ids) async {
-            if (loadingStartAll) return;
-            if (selectedBranchId == null || ids.isEmpty) return;
-            final otp = await _askOtp();
-            if (otp == null) return;
-
-            setSheetState(() => loadingStartAll = true);
-
-            int ok = 0, fail = 0;
-            final List<String> messages = [];
-            try {
-              for (final id in ids) {
-                try {
-                  final resp = await ApiService.startAppointment(
-                    branchId: selectedBranchId!,
-                    appointmentId: id,
-                    otp: otp,
-                  );
-                  final msg = resp['message']?.toString();
-                  if (msg != null && msg.isNotEmpty) messages.add(msg);
-                  if (resp['success'] == true) {
-                    ok++;
-                  } else {
-                    fail++;
-                  }
-                } catch (_) {
-                  fail++;
-                  messages.add('Failed to start job for appointment #$id');
-                }
+                return;
               }
-            } finally {
-              setSheetState(() => loadingStartAll = false);
-            }
+              if (status != 'PENDING' || apptIds.isEmpty) return;
 
-            Navigator.of(ctx).pop();
-            if (selectedBranchId != null) {
-              await getBookingsByDate(selectedBranchId!, selectedDate);
-            }
+              setSheetState(() => loadingConfirm = true);
 
-            final fallbackMsg =
-                fail == 0 ? 'Job started for $ok appointment(s).' : 'Started $ok, failed $fail.';
-            final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
-          }
-
-          Future<void> onCompleteAll() async {
-            if (loadingCompleteAll) return;
-            if (selectedBranchId == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please select a branch first.')),
-              );
-              return;
-            }
-            if (status != 'IN_PROGRESS' || apptIds.isEmpty) return;
-
-            final feedback = await _getFeedbackFromUser(context);
-            if (feedback == null) return;
-            final int rating = feedback['rating'] as int;
-            final String comment = feedback['comment'] as String;
-
-            setSheetState(() => loadingCompleteAll = true);
-
-            int ok = 0, fail = 0;
-            final List<String> messages = [];
-            try {
-              for (final id in apptIds) {
-                try {
-                  final resp = await ApiService().completeAppointment(
-                    branchId: selectedBranchId!,
-                    appointmentId: id,
-                    rating: rating,
-                    comment: comment,
-                  );
-                  final msg = resp['message']?.toString();
-                  if (msg != null && msg.isNotEmpty) messages.add(msg);
-                  if (resp['success'] == true) {
-                    ok++;
-                  } else {
+              int ok = 0, fail = 0;
+              final List<String> messages = [];
+              try {
+                for (final id in apptIds) {
+                  try {
+                    final resp = await ApiService().confirmAppointment(
+                      branchId: selectedBranchId!,
+                      appointmentId: id,
+                    );
+                    final msg = resp['message']?.toString();
+                    if (msg != null && msg.isNotEmpty) messages.add(msg);
+                    if (resp['success'] == true) {
+                      ok++;
+                    } else {
+                      fail++;
+                    }
+                  } catch (_) {
                     fail++;
+                    messages.add('Failed to confirm appointment #$id');
                   }
-                } catch (_) {
-                  fail++;
-                  messages.add('Failed to complete appointment #$id');
                 }
+              } finally {
+                setSheetState(() => loadingConfirm = false);
               }
-            } finally {
-              setSheetState(() => loadingCompleteAll = false);
+
+              Navigator.of(ctx).pop(); // close only the sheet
+              if (selectedBranchId != null) {
+                await getBookingsByDate(selectedBranchId!, selectedDate);
+              }
+
+              final fallbackMsg = fail == 0
+                  ? 'Confirmed $ok appointment(s).'
+                  : 'Confirmed $ok, failed $fail.';
+              final snackText = messages.isNotEmpty
+                  ? messages.join(' | ')
+                  : fallbackMsg;
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(snackText)));
             }
 
-            Navigator.of(ctx).pop();
-            if (selectedBranchId != null) {
-              await getBookingsByDate(selectedBranchId!, selectedDate);
-            }
-
-            final fallbackMsg =
-                fail == 0 ? 'Completed $ok appointment(s).' : 'Completed $ok, failed $fail.';
-            final snackText = messages.isNotEmpty ? messages.join(' | ') : fallbackMsg;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(snackText)));
-          }
-
-          return FractionallySizedBox(
-            heightFactor: 0.60,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // Main content
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                customerName,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+            Future<String?> _askOtp() async {
+              final controller = TextEditingController();
+              String? result;
+              await showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (dCtx) {
+                  return AlertDialog(
+                    title: const Text("Enter OTP"),
+                    content: TextField(
+                      controller: controller,
+                      maxLength: 6,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        hintText: "6-digit OTP",
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dCtx),
+                        child: const Text("Cancel"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          final otp = controller.text.trim();
+                          if (otp.length != 6) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Enter valid 6-digit OTP"),
                               ),
-                            ),
-                            // IconButton(
-                            //   icon: const Icon(Icons.close),
-                            //   onPressed: () => Navigator.of(ctx).pop(),
-                            // ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(timeRange, style: const TextStyle(color: Colors.black54)),
-                        const SizedBox(height: 4),
-                        Text('Status: $status', style: const TextStyle(color: Colors.black54)),
-                        if (priceTotal != null) ...[
-                          const SizedBox(height: 4),
-                          Text('Total Price: ₹$priceTotal',
-                              style: const TextStyle(color: Colors.black87)),
-                        ],
-                        const SizedBox(height: 12),
+                            );
+                            return;
+                          }
+                          result = otp;
+                          Navigator.pop(dCtx);
+                        },
+                        child: const Text("Submit"),
+                      ),
+                    ],
+                  );
+                },
+              );
+              return result;
+            }
 
-                        // Services list
-                        const Text('Services',
-                            style: TextStyle(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 6),
-                        Expanded(
-                          child: ListView.separated(
-                            itemCount: items.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
-                            itemBuilder: (context, i) {
-                              final it = items[i];
-                              final String name =
-                                  (it['service']?.toString() ?? 'Service');
-                              final int? priceMinor = it['priceMinor'] as int?;
-                              final String priceText =
-                                  priceMinor != null ? '₹$priceMinor' : '';
-                              final String range = _fmtTimeRange(
-                                it['start'] as DateTime,
-                                it['end'] as DateTime,
-                              );
+            Future<void> _startForIds(List<int> ids) async {
+              if (loadingStartAll) return;
+              if (selectedBranchId == null || ids.isEmpty) return;
+              final otp = await _askOtp();
+              if (otp == null) return;
 
-                              return ListTile(
-                                dense: true,
-                                title: Text(
-                                  name,
-                                  maxLines: 1,
+              setSheetState(() => loadingStartAll = true);
+
+              int ok = 0, fail = 0;
+              final List<String> messages = [];
+              try {
+                for (final id in ids) {
+                  try {
+                    final resp = await ApiService.startAppointment(
+                      branchId: selectedBranchId!,
+                      appointmentId: id,
+                      otp: otp,
+                    );
+                    final msg = resp['message']?.toString();
+                    if (msg != null && msg.isNotEmpty) messages.add(msg);
+                    if (resp['success'] == true) {
+                      ok++;
+                    } else {
+                      fail++;
+                    }
+                  } catch (_) {
+                    fail++;
+                    messages.add('Failed to start job for appointment #$id');
+                  }
+                }
+              } finally {
+                setSheetState(() => loadingStartAll = false);
+              }
+
+              Navigator.of(ctx).pop();
+              if (selectedBranchId != null) {
+                await getBookingsByDate(selectedBranchId!, selectedDate);
+              }
+
+              final fallbackMsg = fail == 0
+                  ? 'Job started for $ok appointment(s).'
+                  : 'Started $ok, failed $fail.';
+              final snackText = messages.isNotEmpty
+                  ? messages.join(' | ')
+                  : fallbackMsg;
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(snackText)));
+            }
+
+            Future<void> onCompleteAll() async {
+              if (loadingCompleteAll) return;
+              if (selectedBranchId == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please select a branch first.'),
+                  ),
+                );
+                return;
+              }
+              if (status != 'IN_PROGRESS' || apptIds.isEmpty) return;
+
+              final feedback = await _getFeedbackFromUser(context);
+              if (feedback == null) return;
+              final int rating = feedback['rating'] as int;
+              final String comment = feedback['comment'] as String;
+
+              setSheetState(() => loadingCompleteAll = true);
+
+              int ok = 0, fail = 0;
+              final List<String> messages = [];
+              try {
+                for (final id in apptIds) {
+                  try {
+                    final resp = await ApiService().completeAppointment(
+                      branchId: selectedBranchId!,
+                      appointmentId: id,
+                      rating: rating,
+                      comment: comment,
+                    );
+                    final msg = resp['message']?.toString();
+                    if (msg != null && msg.isNotEmpty) messages.add(msg);
+                    if (resp['success'] == true) {
+                      ok++;
+                    } else {
+                      fail++;
+                    }
+                  } catch (_) {
+                    fail++;
+                    messages.add('Failed to complete appointment #$id');
+                  }
+                }
+              } finally {
+                setSheetState(() => loadingCompleteAll = false);
+              }
+
+              Navigator.of(ctx).pop();
+              if (selectedBranchId != null) {
+                await getBookingsByDate(selectedBranchId!, selectedDate);
+              }
+
+              final fallbackMsg = fail == 0
+                  ? 'Completed $ok appointment(s).'
+                  : 'Completed $ok, failed $fail.';
+              final snackText = messages.isNotEmpty
+                  ? messages.join(' | ')
+                  : fallbackMsg;
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(snackText)));
+            }
+
+            return FractionallySizedBox(
+              heightFactor: 0.60,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Main content
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  customerName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                subtitle: Text(range),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (priceText.isNotEmpty)
-                                      Padding(
-                                        padding:
-                                            const EdgeInsets.only(right: 8),
-                                        child: Text(
-                                          priceText,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600),
+                              ),
+                              // IconButton(
+                              //   icon: const Icon(Icons.close),
+                              //   onPressed: () => Navigator.of(ctx).pop(),
+                              // ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            timeRange,
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Status: $status',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                          if (priceTotal != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Total Price: ₹$priceTotal',
+                              style: const TextStyle(color: Colors.black87),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+
+                          // Services list
+                          const Text(
+                            'Services',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 6),
+                          Expanded(
+                            child: ListView.separated(
+                              itemCount: items.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (context, i) {
+                                final it = items[i];
+                                final String name =
+                                    (it['service']?.toString() ?? 'Service');
+                                final int? priceMinor =
+                                    it['priceMinor'] as int?;
+                                final String priceText = priceMinor != null
+                                    ? '₹$priceMinor'
+                                    : '';
+                                final String range = _fmtTimeRange(
+                                  it['start'] as DateTime,
+                                  it['end'] as DateTime,
+                                );
+
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(
+                                    name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(range),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (priceText.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            right: 8,
+                                          ),
+                                          child: Text(
+                                            priceText,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
 
-                        // ---- Actions (bottom) with IN_PROGRESS support ----
-                        if (status == 'PENDING') ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed:
-                                  loadingConfirm ? null : onConfirmAll,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                          // ---- Actions (bottom) with IN_PROGRESS support ----
+                          if (status == 'PENDING') ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: loadingConfirm ? null : onConfirmAll,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
-                              ),
-                              child: loadingConfirm
-                                  ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
+                                child: loadingConfirm
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        apptIds.length <= 1
+                                            ? 'Confirm'
+                                            : 'Confirm All (${apptIds.length})',
                                       ),
-                                    )
-                                  : Text(apptIds.length <= 1
-                                      ? 'Confirm'
-                                      : 'Confirm All (${apptIds.length})'),
-                            ),
-                          ),
-                        ] else if (status == 'CONFIRMED') ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: loadingStartAll
-                                  ? null
-                                  : () => _startForIds(apptIds),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
                               ),
-                              child: loadingStartAll
-                                  ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
+                            ),
+                          ] else if (status == 'CONFIRMED') ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: loadingStartAll
+                                    ? null
+                                    : () => _startForIds(apptIds),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: loadingStartAll
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        apptIds.length <= 1
+                                            ? 'Start Job'
+                                            : 'Start All (${apptIds.length})',
                                       ),
-                                    )
-                                  : Text(apptIds.length <= 1
-                                      ? 'Start Job'
-                                      : 'Start All (${apptIds.length})'),
-                            ),
-                          ),
-                        ] else if (status == 'IN_PROGRESS') ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: loadingCompleteAll
-                                  ? null
-                                  : onCompleteAll,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
                               ),
-                              child: loadingCompleteAll
-                                  ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
+                            ),
+                          ] else if (status == 'IN_PROGRESS') ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: loadingCompleteAll
+                                    ? null
+                                    : onCompleteAll,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: loadingCompleteAll
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        apptIds.length <= 1
+                                            ? 'Complete Job'
+                                            : 'Complete All (${apptIds.length})',
                                       ),
-                                    )
-                                  : Text(apptIds.length <= 1
-                                      ? 'Complete Job'
-                                      : 'Complete All (${apptIds.length})'),
-                            ),
-                          ),
-                        ] else ...[
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
                               ),
-                              child: Text(status),
                             ),
-                          ),
+                          ] else ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: Text(status),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
 
-                  // Floating close button
-                  Positioned(
-                    top: -50,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () => Navigator.of(ctx).pop(),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Colors.black,
-                            shape: BoxShape.circle,
+                    // Floating close button
+                    Positioned(
+                      top: -50,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () => Navigator.of(ctx).pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close, color: Colors.white),
                           ),
-                          child: const Icon(Icons.close, color: Colors.white),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
   List<Widget> _buildBookingBlocks() {
     if (bookings.isEmpty || timeSlots.isEmpty) return const <Widget>[];
@@ -1092,19 +1205,23 @@ void _openMergedSegmentSheet(Map<String, dynamic> seg) {
       Color bg = Colors.blue.shade300; // default (CONFIRMED)
       if (status == 'PENDING') bg = Colors.orange.shade300;
       if (status == 'CONFIRMED') bg = Colors.blue.shade300;
-      if (status == 'IN_PROGRESS') bg = Colors.green.shade400; // green after Start Job
+      if (status == 'IN_PROGRESS')
+        bg = Colors.green.shade400; // green after Start Job
       if (status == 'COMPLETED') bg = Colors.green.shade700;
       if (status == 'CANCELLED') bg = Colors.red.shade300;
 
       final String customerName = seg['customerName'] as String? ?? 'Customer';
       final List<String> services = List<String>.from(seg['services'] as List);
       final int moreCount = (services.length > 1) ? services.length - 1 : 0;
-      final String headService = services.isNotEmpty ? services.first : 'Service';
+      final String headService = services.isNotEmpty
+          ? services.first
+          : 'Service';
       final int? priceTotal = seg['priceTotal'] as int?;
       final String priceText = priceTotal != null ? '₹$priceTotal' : '';
       final String timeRange = _fmtTimeRange(s, e);
 
-      final List<Map<String, dynamic>> segItems = List<Map<String, dynamic>>.from(seg['items'] as List);
+      final List<Map<String, dynamic>> segItems =
+          List<Map<String, dynamic>>.from(seg['items'] as List);
 
       blocks.add(
         Positioned(
@@ -1129,16 +1246,16 @@ void _openMergedSegmentSheet(Map<String, dynamic> seg) {
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   // color: bg,
-                    decoration: BoxDecoration(
-    color: Colors.white, // keep a neutral background
-    border: Border(
-      left: BorderSide(
-        color: bg,       // use your status color here
-        width: 6,        // thin vertical line thickness
-      ),
-    ),
-    borderRadius: BorderRadius.circular(12),
-  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white, // keep a neutral background
+                    border: Border(
+                      left: BorderSide(
+                        color: bg, // use your status color here
+                        width: 6, // thin vertical line thickness
+                      ),
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   padding: const EdgeInsets.all(10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1158,7 +1275,9 @@ void _openMergedSegmentSheet(Map<String, dynamic> seg) {
                             ),
                           ),
                           Text(
-                            moreCount > 0 ? '$headService + $moreCount more' : headService,
+                            moreCount > 0
+                                ? '$headService + $moreCount more'
+                                : headService,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1207,136 +1326,142 @@ void _openMergedSegmentSheet(Map<String, dynamic> seg) {
 
     return blocks;
   }
-Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
-  int rating = 0;
-  final commentCtrl = TextEditingController();
 
-  return await showModalBottomSheet<Map<String, dynamic>>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (c) {
-      return StatefulBuilder(
-        builder: (c, setFBState) {
-          final bottomInset = MediaQuery.of(c).viewInsets.bottom;
-          final canSubmit = rating > 0 && commentCtrl.text.trim().isNotEmpty;
+  Future<Map<String, dynamic>?> _getFeedbackFromUser(
+    BuildContext context,
+  ) async {
+    int rating = 0;
+    final commentCtrl = TextEditingController();
 
-          Widget _star(int i) => IconButton(
-                icon: Icon(
-                  i <= rating ? Icons.star : Icons.star_border,
-                  color: Colors.amber,
-                ),
-                onPressed: () => setFBState(() => rating = i),
-              );
+    return await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (c) {
+        return StatefulBuilder(
+          builder: (c, setFBState) {
+            final bottomInset = MediaQuery.of(c).viewInsets.bottom;
+            final canSubmit = rating > 0 && commentCtrl.text.trim().isNotEmpty;
 
-          return FractionallySizedBox(
-            heightFactor: 0.55,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            Widget _star(int i) => IconButton(
+              icon: Icon(
+                i <= rating ? Icons.star : Icons.star_border,
+                color: Colors.amber,
               ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      top: 24,
-                      bottom: 16 + bottomInset,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Feedback',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text('Rating (required)'),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.start,
-                          children: List.generate(5, (i) => _star(i + 1)),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text('Comment (required)'),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: commentCtrl,
-                          maxLines: 4,
-                          onChanged: (_) => setFBState(() {}),
-                          decoration: const InputDecoration(
-                            hintText: 'Write your feedback...',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: canSubmit
-                                ? () {
-                                    Navigator.pop<Map<String, dynamic>>(c, {
-                                      'rating': rating,
-                                      'comment': commentCtrl.text.trim(),
-                                    });
-                                  }
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            child: const Text('Submit & Complete'),
-                          ),
-                        ),
-                        // TextButton(
-                        //   onPressed: () => Navigator.pop(c, null),
-                        //   child: const Text('Cancel'),
-                        // ),
-                      ],
-                    ),
-                  ),
+              onPressed: () => setFBState(() => rating = i),
+            );
 
-                  // Floating close button
-                  Positioned(
-                    top: -50,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () => Navigator.of(c).pop(),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Colors.black,
-                            shape: BoxShape.circle,
+            return FractionallySizedBox(
+              heightFactor: 0.55,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        top: 24,
+                        bottom: 16 + bottomInset,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Feedback',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                          child: const Icon(Icons.close, color: Colors.white),
+                          const SizedBox(height: 12),
+                          const Text('Rating (required)'),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            children: List.generate(5, (i) => _star(i + 1)),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text('Comment (required)'),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: commentCtrl,
+                            maxLines: 4,
+                            onChanged: (_) => setFBState(() {}),
+                            decoration: const InputDecoration(
+                              hintText: 'Write your feedback...',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: canSubmit
+                                  ? () {
+                                      Navigator.pop<Map<String, dynamic>>(c, {
+                                        'rating': rating,
+                                        'comment': commentCtrl.text.trim(),
+                                      });
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text('Submit & Complete'),
+                            ),
+                          ),
+                          // TextButton(
+                          //   onPressed: () => Navigator.pop(c, null),
+                          //   child: const Text('Cancel'),
+                          // ),
+                        ],
+                      ),
+                    ),
+
+                    // Floating close button
+                    Positioned(
+                      top: -50,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () => Navigator.of(c).pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close, color: Colors.white),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
-  void _openAppointmentSheet(Map<String, dynamic> booking, Map<String, dynamic>? item) {
+  void _openAppointmentSheet(
+    Map<String, dynamic> booking,
+    Map<String, dynamic>? item,
+  ) {
     // Mutable state captured by StatefulBuilder
     String statusUpper = _normalizeStatus(booking['status']);
     bool loadingConfirm = false;
@@ -1347,7 +1472,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-        backgroundColor: Colors.transparent,
+      backgroundColor: Colors.transparent,
       // backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -1357,25 +1482,36 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
           builder: (context, setModalState) {
             final List rawItems = (booking['items'] as List?) ?? const [];
             final Map<String, dynamic>? useItem =
-                item ?? (rawItems.isNotEmpty ? rawItems.first as Map<String, dynamic> : null);
+                item ??
+                (rawItems.isNotEmpty
+                    ? rawItems.first as Map<String, dynamic>
+                    : null);
 
             final List<Map<String, dynamic>> serviceItems = [
               for (final raw in rawItems)
                 if (raw is Map<String, dynamic>)
                   raw
                 else if (raw is Map)
-                  raw.cast<String, dynamic>()
+                  raw.cast<String, dynamic>(),
             ];
             final bool hasMultipleServices = serviceItems.length > 1;
 
             final String headerTitle;
             if (hasMultipleServices && serviceItems.isNotEmpty) {
-              final firstName = serviceItems.first['branchService']?['displayName']?.toString() ?? 'Service';
+              final firstName =
+                  serviceItems.first['branchService']?['displayName']
+                      ?.toString() ??
+                  'Service';
               headerTitle = '$firstName + ${serviceItems.length - 1} more';
             } else if (useItem != null) {
-              headerTitle = useItem['branchService']?['displayName']?.toString() ?? 'Appointment';
+              headerTitle =
+                  useItem['branchService']?['displayName']?.toString() ??
+                  'Appointment';
             } else if (serviceItems.isNotEmpty) {
-              headerTitle = serviceItems.first['branchService']?['displayName']?.toString() ?? 'Appointment';
+              headerTitle =
+                  serviceItems.first['branchService']?['displayName']
+                      ?.toString() ??
+                  'Appointment';
             } else {
               headerTitle = 'Appointment';
             }
@@ -1405,10 +1541,16 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
 
             final double serviceListMaxHeight = serviceItems.isEmpty
                 ? 0
-                : (serviceItems.length > 4 ? 320.0 : serviceItems.length * 72.0);
+                : (serviceItems.length > 4
+                      ? 320.0
+                      : serviceItems.length * 72.0);
 
-            final start = _parseLocal(useItem?['startAt']?.toString()) ?? _parseLocal(booking['startAt']);
-            final end = _parseLocal(useItem?['endAt']?.toString()) ?? _parseLocal(booking['endAt']);
+            final start =
+                _parseLocal(useItem?['startAt']?.toString()) ??
+                _parseLocal(booking['startAt']);
+            final end =
+                _parseLocal(useItem?['endAt']?.toString()) ??
+                _parseLocal(booking['endAt']);
             final DateFormat timeFormatter = DateFormat('h:mm a');
             final String timeStr = start != null && end != null
                 ? "${timeFormatter.format(start)} - ${timeFormatter.format(end)}"
@@ -1424,26 +1566,28 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                 ? 'Multiple team members'
                 : (primaryStylistName.isNotEmpty ? primaryStylistName : 'N/A');
 
-            final int durationMinutes =
-                useItem != null ? _toInt(useItem['durationMin']) : 0;
+            final int durationMinutes = useItem != null
+                ? _toInt(useItem['durationMin'])
+                : 0;
             final String duration = !hasMultipleServices && durationMinutes > 0
                 ? '$durationMinutes min'
                 : '';
 
-            final int singleServicePriceMinor =
-                useItem != null ? _toInt(useItem['branchService']?['priceMinor']) : 0;
+            final int singleServicePriceMinor = useItem != null
+                ? _toInt(useItem['branchService']?['priceMinor'])
+                : 0;
             final int aggregatedPriceMinor = serviceItems.fold<int>(
               0,
               (sum, svc) => sum + _toInt(svc['branchService']?['priceMinor']),
             );
             final String singleServicePrice =
                 !hasMultipleServices && singleServicePriceMinor > 0
-                    ? '₹$singleServicePriceMinor'
-                    : '';
+                ? '₹$singleServicePriceMinor'
+                : '';
             final String totalPrice =
                 hasMultipleServices && aggregatedPriceMinor > 0
-                    ? '₹$aggregatedPriceMinor'
-                    : '';
+                ? '₹$aggregatedPriceMinor'
+                : '';
 
             Future<void> onConfirm() async {
               if (selectedBranchId == null) return;
@@ -1455,7 +1599,9 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
               setModalState(() => loadingConfirm = false);
 
               if (resp['success'] == true) {
-                final newStatus = _normalizeStatus(resp['data']?['status'] ?? 'CONFIRMED');
+                final newStatus = _normalizeStatus(
+                  resp['data']?['status'] ?? 'CONFIRMED',
+                );
                 setModalState(() {
                   statusUpper = newStatus;
                 });
@@ -1468,7 +1614,11 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(resp['message']?.toString() ?? 'Failed to confirm')),
+                  SnackBar(
+                    content: Text(
+                      resp['message']?.toString() ?? 'Failed to confirm',
+                    ),
+                  ),
                 );
               }
             }
@@ -1505,7 +1655,9 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                               final otp = otpController.text.trim();
                               if (otp.length != 6) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Enter valid 6-digit OTP")),
+                                  const SnackBar(
+                                    content: Text("Enter valid 6-digit OTP"),
+                                  ),
                                 );
                                 return;
                               }
@@ -1524,7 +1676,9 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                                 setModalState(() => loadingStart = false);
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Failed to start job')),
+                                  const SnackBar(
+                                    content: Text('Failed to start job'),
+                                  ),
                                 );
                                 return;
                               }
@@ -1535,20 +1689,27 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                               }
 
                               final success = resp['success'] == true;
-                              final message = resp['message']?.toString() ??
-                                  (success ? 'Job started' : 'Failed to start job');
+                              final message =
+                                  resp['message']?.toString() ??
+                                  (success
+                                      ? 'Job started'
+                                      : 'Failed to start job');
 
                               setModalState(() => loadingStart = false);
 
                               if (success) {
-                                final newStatus =
-                                    _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
+                                final newStatus = _normalizeStatus(
+                                  resp['data']?['status'] ?? 'IN_PROGRESS',
+                                );
                                 setModalState(() {
                                   statusUpper = newStatus;
                                   booking['status'] = newStatus;
                                 });
 
-                                await getBookingsByDate(selectedBranchId!, selectedDate);
+                                await getBookingsByDate(
+                                  selectedBranchId!,
+                                  selectedDate,
+                                );
                               }
 
                               if (mounted) {
@@ -1589,247 +1750,331 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
 
               // Handle result
               if (resp['success'] == true) {
-                final newStatus = _normalizeStatus(resp['data']?['status'] ?? 'COMPLETED');
+                final newStatus = _normalizeStatus(
+                  resp['data']?['status'] ?? 'COMPLETED',
+                );
                 setModalState(() {
-                  statusUpper = newStatus; // sheet will now show disabled grey button
+                  statusUpper =
+                      newStatus; // sheet will now show disabled grey button
                 });
 
                 // Refresh grid so block color updates
                 await getBookingsByDate(selectedBranchId!, selectedDate);
 
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(resp['message']?.toString() ?? 'Appointment completed')),
+                  SnackBar(
+                    content: Text(
+                      resp['message']?.toString() ?? 'Appointment completed',
+                    ),
+                  ),
                 );
               } else {
                 final msg = (resp['message']?.toString().isNotEmpty ?? false)
                     ? resp['message'].toString()
                     : 'Failed to complete appointment';
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(msg)));
               }
             }
 
             return FractionallySizedBox(
               heightFactor: 0.42,
-            child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                // Main content
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            headerTitle,
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        // IconButton(
-                        //   icon: const Icon(Icons.close),
-                        //   onPressed: () => Navigator.pop(context),
-                        // ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    if (timeStr.isNotEmpty)
-                      Text(timeStr, style: const TextStyle(color: Colors.black54)),
-                    const SizedBox(height: 4),
-                    Text('Status: $statusUpper', style: const TextStyle(color: Colors.black54)),
-                    const SizedBox(height: 4),
-                    Text('Stylist: $stylist', style: const TextStyle(color: Colors.black54)),
-                    const SizedBox(height: 4),
-                    if (duration.isNotEmpty)
-                      Text('Duration: $duration', style: const TextStyle(color: Colors.black54)),
-                    const SizedBox(height: 4),
-                    if (!hasMultipleServices && singleServicePrice.isNotEmpty)
-                      Text('Price: $singleServicePrice', style: const TextStyle(color: Colors.black54)),
-                    if (hasMultipleServices && totalPrice.isNotEmpty)
-                      Text('Total Price: $totalPrice', style: const TextStyle(color: Colors.black54)),
-                    if (serviceItems.isNotEmpty) ...[
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Services',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 6),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: serviceListMaxHeight,
-                        ),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          primary: false,
-                          itemCount: serviceItems.length,
-                          separatorBuilder: (_, __) => const Divider(height: 12),
-                          itemBuilder: (_, idx) {
-                            final serviceItem = serviceItems[idx];
-                            final DateTime? itemStart =
-                                _parseLocal(serviceItem['startAt']?.toString()) ?? start;
-                            final DateTime? itemEnd =
-                                _parseLocal(serviceItem['endAt']?.toString()) ?? end;
-                            final String range = (itemStart != null && itemEnd != null)
-                                ? '${timeFormatter.format(itemStart)} - ${timeFormatter.format(itemEnd)}'
-                                : '';
-                            final String staffName = formatUserName(
-                              serviceItem['assignedUserBranch']?['user'] ?? serviceItem['user'],
-                            );
-                            final int itemPriceMinor =
-                                _toInt(serviceItem['branchService']?['priceMinor']);
-                            final String itemPrice =
-                                itemPriceMinor > 0 ? '₹$itemPriceMinor' : '';
-                            final bool isSelected = identical(serviceItem, useItem);
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: isSelected ? Colors.blue.withOpacity(0.08) : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
+                    // Main content
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  headerTitle,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                              // IconButton(
+                              //   icon: const Icon(Icons.close),
+                              //   onPressed: () => Navigator.pop(context),
+                              // ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          if (timeStr.isNotEmpty)
+                            Text(
+                              timeStr,
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Status: $statusUpper',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Stylist: $stylist',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                          const SizedBox(height: 4),
+                          if (duration.isNotEmpty)
+                            Text(
+                              'Duration: $duration',
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                          const SizedBox(height: 4),
+                          if (!hasMultipleServices &&
+                              singleServicePrice.isNotEmpty)
+                            Text(
+                              'Price: $singleServicePrice',
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                          if (hasMultipleServices && totalPrice.isNotEmpty)
+                            Text(
+                              'Total Price: $totalPrice',
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                          if (serviceItems.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Services',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 6),
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight: serviceListMaxHeight,
+                              ),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                primary: false,
+                                itemCount: serviceItems.length,
+                                separatorBuilder: (_, __) =>
+                                    const Divider(height: 12),
+                                itemBuilder: (_, idx) {
+                                  final serviceItem = serviceItems[idx];
+                                  final DateTime? itemStart =
+                                      _parseLocal(
+                                        serviceItem['startAt']?.toString(),
+                                      ) ??
+                                      start;
+                                  final DateTime? itemEnd =
+                                      _parseLocal(
+                                        serviceItem['endAt']?.toString(),
+                                      ) ??
+                                      end;
+                                  final String range =
+                                      (itemStart != null && itemEnd != null)
+                                      ? '${timeFormatter.format(itemStart)} - ${timeFormatter.format(itemEnd)}'
+                                      : '';
+                                  final String staffName = formatUserName(
+                                    serviceItem['assignedUserBranch']?['user'] ??
+                                        serviceItem['user'],
+                                  );
+                                  final int itemPriceMinor = _toInt(
+                                    serviceItem['branchService']?['priceMinor'],
+                                  );
+                                  final String itemPrice = itemPriceMinor > 0
+                                      ? '₹$itemPriceMinor'
+                                      : '';
+                                  final bool isSelected = identical(
+                                    serviceItem,
+                                    useItem,
+                                  );
+                                  return Container(
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? Colors.blue.withOpacity(0.08)
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 12,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          serviceItem['branchService']?['displayName']?.toString() ?? 'Service',
-                                          style: const TextStyle(fontWeight: FontWeight.w600),
-                                        ),
-                                        if (range.isNotEmpty)
-                                          Text(
-                                            range,
-                                            style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                serviceItem['branchService']?['displayName']
+                                                        ?.toString() ??
+                                                    'Service',
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              if (range.isNotEmpty)
+                                                Text(
+                                                  range,
+                                                  style: const TextStyle(
+                                                    color: Colors.black54,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              if (staffName.isNotEmpty)
+                                                Text(
+                                                  'Staff: $staffName',
+                                                  style: const TextStyle(
+                                                    color: Colors.black54,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                            ],
                                           ),
-                                        if (staffName.isNotEmpty)
+                                        ),
+                                        if (itemPrice.isNotEmpty)
                                           Text(
-                                            'Staff: $staffName',
-                                            style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                            itemPrice,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                       ],
                                     ),
-                                  ),
-                                  if (itemPrice.isNotEmpty)
-                                    Text(
-                                      itemPrice,
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
-                                    ),
-                                ],
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    const Spacer(),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          const Spacer(),
 
-                    // ACTIONS:
-                    if (isPending) ...[
-                      // Pending → Confirm
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: loadingConfirm ? null : onConfirm,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: loadingConfirm
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Text('Confirm'),
-                        ),
-                      ),
-                    ] else if (isConfirmed) ...[
-                      // Confirmed → Start Job
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: loadingStart ? null : onStartJob,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: loadingStart
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Text('Start Job'),
-                        ),
-                      ),
-                    ] else if (statusUpper == 'IN_PROGRESS') ...[
-                      // In Progress → Complete (green)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: loadingComplete ? null : onCompleteJob,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: loadingComplete
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Text('Complete Job'),
-                        ),
-                      ),
-                    ] else ...[
-                      // Completed / Cancelled / etc → Grey disabled
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: Text(statusUpper),
-                        ),
-                      ),
-                    ],
+                          // ACTIONS:
+                          if (isPending) ...[
+                            // Pending → Confirm
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: loadingConfirm ? null : onConfirm,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: loadingConfirm
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Confirm'),
+                              ),
+                            ),
+                          ] else if (isConfirmed) ...[
+                            // Confirmed → Start Job
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: loadingStart ? null : onStartJob,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: loadingStart
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Start Job'),
+                              ),
+                            ),
+                          ] else if (statusUpper == 'IN_PROGRESS') ...[
+                            // In Progress → Complete (green)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: loadingComplete
+                                    ? null
+                                    : onCompleteJob,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: loadingComplete
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Complete Job'),
+                              ),
+                            ),
+                          ] else ...[
+                            // Completed / Cancelled / etc → Grey disabled
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: Text(statusUpper),
+                              ),
+                            ),
+                          ],
 
-                    const SizedBox(height: 10),
+                          const SizedBox(height: 10),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      top: -50,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () => Navigator.of(ctx).pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Positioned(
-                  top: -50,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(ctx).pop(),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Colors.black,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.close, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-            ),
-            ));
+            );
           },
         );
       },
@@ -1859,13 +2104,19 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Feedback', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Text(
+                    'Feedback',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(5, (i) {
                       return IconButton(
-                        icon: Icon(i < rating ? Icons.star : Icons.star_border, color: Colors.amber),
+                        icon: Icon(
+                          i < rating ? Icons.star : Icons.star_border,
+                          color: Colors.amber,
+                        ),
                         onPressed: () => setSheet(() => rating = i + 1),
                       );
                     }),
@@ -1884,7 +2135,9 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
@@ -1903,47 +2156,56 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(BuildContext context) async {
       },
     );
   }
-Future<void> onBranchChanged(
-  int branchId,
-  int salonId,
-  Map<String, dynamic> branchData,
-) async {
-  final prefs = await SharedPreferences.getInstance(); // NEW
-  await prefs.setInt('selected_branch_id', branchId); // NEW
-  await prefs.setInt('selected_salon_id', salonId);   // NEW
 
-  final String startTime =
-      (branchData['startTime'] ?? _branchStartTimeStr ?? '08:00:00').toString();
-  final String endTime =
-      (branchData['endTime'] ?? _branchEndTimeStr ?? '20:00:00').toString();
+  Future<void> onBranchChanged(
+    int branchId,
+    int salonId,
+    Map<String, dynamic> branchData,
+  ) async {
+    final prefs = await SharedPreferences.getInstance(); // NEW
+    await prefs.setInt('selected_branch_id', branchId); // NEW
+    await prefs.setInt('selected_salon_id', salonId); // NEW
 
-  List<String> updatedSlots;
-  try {
-    updatedSlots = generateTimeSlots(startTime, endTime);
-  } catch (_) {
-    updatedSlots = timeSlots;
-  }
+    final String startTime =
+        (branchData['startTime'] ?? _branchStartTimeStr ?? '08:00:00')
+            .toString();
+    final String endTime =
+        (branchData['endTime'] ?? _branchEndTimeStr ?? '20:00:00').toString();
 
-  setState(() {
-    _loadingBranch = true;
-    selectedBranchId = branchId;
-    selectedSalonId = salonId;
-    selectedBranch = Map<String, dynamic>.from(branchData);
-    _branchStartTimeStr = startTime;
-    _branchEndTimeStr = endTime;
-    timeSlots = updatedSlots;
-  });
+    List<String> updatedSlots;
+    try {
+      updatedSlots = generateTimeSlots(startTime, endTime);
+    } catch (_) {
+      updatedSlots = timeSlots;
+    }
 
-  try {
-    await getTeamMembers(branchId);                 // fetch + cache team
-    await _saveBranchCache(branchId);               // ensure cache updated with new start/end + team
-    await getBookingsByDate(branchId, selectedDate); // (optional) always refresh bookings on branch change
-  } finally {
-    if (mounted) {
-      setState(() { _loadingBranch = false; });
+    setState(() {
+      _loadingBranch = true;
+      selectedBranchId = branchId;
+      selectedSalonId = salonId;
+      selectedBranch = Map<String, dynamic>.from(branchData);
+      _branchStartTimeStr = startTime;
+      _branchEndTimeStr = endTime;
+      timeSlots = updatedSlots;
+    });
+
+    try {
+      await getTeamMembers(branchId); // fetch + cache team
+      await _saveBranchCache(
+        branchId,
+      ); // ensure cache updated with new start/end + team
+      await getBookingsByDate(
+        branchId,
+        selectedDate,
+      ); // (optional) always refresh bookings on branch change
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingBranch = false;
+        });
+      }
     }
   }
-}
 
   // Function to handle date change (previous and next)
   Future<void> _setSelectedDate(DateTime date) async {
@@ -1971,8 +2233,9 @@ Future<void> onBranchChanged(
   }
 
   Future<void> changeDate(bool isNext) async {
-    final DateTime newDate =
-        isNext ? selectedDate.add(const Duration(days: 1)) : selectedDate.subtract(const Duration(days: 1));
+    final DateTime newDate = isNext
+        ? selectedDate.add(const Duration(days: 1))
+        : selectedDate.subtract(const Duration(days: 1));
 
     await _setSelectedDate(newDate);
   }
@@ -1982,86 +2245,81 @@ Future<void> onBranchChanged(
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
-        title: const Text(
-          'Bookings',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-        ),
-        centerTitle: false,
-       actions: [
-  Padding(
-    padding: const EdgeInsets.only(right: 16.0),
-    child: OutlinedButton(
-      onPressed: () async {
-        if (selectedBranchId == null || selectedSalonId == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a branch')),
-          );
-          return;
-        }
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => AddBookingScreen(
-              salonId: selectedSalonId,
-              branchId: selectedBranchId,
-            ),
-          ),
-        );
+  backgroundColor: AppColors.white,
+  elevation: 0,
+  centerTitle: false,
+  title: const Text(
+    'Bookings',
+    style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+  ),
+  actions: [
+    // 1) Add Booking FIRST
+    Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: OutlinedButton(
+        onPressed: () async {
+          if (selectedBranchId == null || selectedSalonId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please select a branch')),
+            );
+            return;
+          }
 
-        if (result != null && selectedBranchId != null) {
-          getBookingsByDate(selectedBranchId!, selectedDate);
-        }
-      },
-      style: OutlinedButton.styleFrom(
-        backgroundColor: AppColors.white,
-        side: const BorderSide(
-          color: Colors.grey,   // ✅ Border color
-          width: 1.5,
-          style: BorderStyle.solid, // Needed for compatibility
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24), // ✅ more circular
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      ).copyWith(
-        side: MaterialStateProperty.all(
-          const BorderSide(
-            color: AppColors.grey, // ✅ Border color
-            width: 0.5,
-            style: BorderStyle.solid,
-          ),
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(
-            "assets/images/plusIcn.png",
-            width: 18,
-            height: 18,
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            'Add Booking',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColors.grey,
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddBookingScreen(
+                salonId: selectedSalonId,
+                branchId: selectedBranchId,
+              ),
             ),
-          ),
-        ],
+          );
+
+          if (result != null && selectedBranchId != null) {
+            getBookingsByDate(selectedBranchId!, selectedDate);
+          }
+        },
+        style: OutlinedButton.styleFrom(
+          backgroundColor: AppColors.white,
+          side: const BorderSide(color: Colors.grey, width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset("assets/images/plusIcn.png", width: 18, height: 18),
+            const SizedBox(width: 6),
+            const Text(
+              'Add Booking',
+              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.grey),
+            ),
+          ],
+        ),
       ),
     ),
-  ),
-],
 
+    // 2) Refresh SECOND (to the right)
+    Padding(
+      padding: const EdgeInsets.only(right: 16.0),
+      child: IconButton(
+        tooltip: 'Refresh',
+        icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
+        onPressed: _isFetchingData ? null : _refreshAllData,
       ),
+    ),
+  ],
+),
+
       body: Stack(
         children: [
           Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -2078,25 +2336,45 @@ Future<void> onBranchChanged(
                   decoration: const InputDecoration(
                     border: InputBorder.none, // removes the ugly underline
                   ),
-                  icon: const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.black54,
+                  ),
                   dropdownColor: Colors.white,
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
                   hint: const Text(
                     "Select Salon Branch",
-                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey,
+                    ),
                   ),
                   value: selectedBranchId,
                   onChanged: (newValue) {
                     if (newValue != null) {
-                      final Map<String, dynamic> salon = Map<String, dynamic>.from(
-                        salons.firstWhere(
-                          (s) => (s['branches'] as List).any((b) => b['id'] == newValue),
-                        ),
+                      final Map<String, dynamic> salon =
+                          Map<String, dynamic>.from(
+                            salons.firstWhere(
+                              (s) => (s['branches'] as List).any(
+                                (b) => b['id'] == newValue,
+                              ),
+                            ),
+                          );
+                      final Map<String, dynamic> branch =
+                          Map<String, dynamic>.from(
+                            (salon['branches'] as List).firstWhere(
+                                  (b) => b['id'] == newValue,
+                                )
+                                as Map,
+                          );
+                      onBranchChanged(
+                        branch['id'] as int,
+                        salon['id'] as int,
+                        branch,
                       );
-                      final Map<String, dynamic> branch = Map<String, dynamic>.from(
-                        (salon['branches'] as List).firstWhere((b) => b['id'] == newValue) as Map,
-                      );
-                      onBranchChanged(branch['id'] as int, salon['id'] as int, branch);
                     }
                   },
                   items: salons.expand((salon) {
@@ -2106,7 +2384,11 @@ Future<void> onBranchChanged(
                         value: branch['id'],
                         child: Row(
                           children: [
-                            const Icon(Icons.store, color: Colors.blueGrey, size: 20),
+                            const Icon(
+                              Icons.store,
+                              color: Colors.blueGrey,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Text(branch['name']),
                           ],
@@ -2140,66 +2422,86 @@ Future<void> onBranchChanged(
                     icon: const Icon(Icons.chevron_left),
                     onPressed: () => changeWeek(false), // Previous date
                   ),
-              Flexible(
-  child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: List.generate(7, (index) {
-        // OLD: final DateTime weekStart = _startOfWeek(_weekAnchor, mondayStart: true);
-        // NEW:
-        final DateTime weekStart = DateTime(_weekAnchor.year, _weekAnchor.month, _weekAnchor.day);
-        final DateTime date = weekStart.add(Duration(days: index));
-        final bool isSelected = isSameDay(date, selectedDate);
-final now = DateTime.now();
-final bool isToday = isSameDay(date, DateTime(now.year, now.month, now.day));
+                  Flexible(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: List.generate(7, (index) {
+                          // OLD: final DateTime weekStart = _startOfWeek(_weekAnchor, mondayStart: true);
+                          // NEW:
+                          final DateTime weekStart = DateTime(
+                            _weekAnchor.year,
+                            _weekAnchor.month,
+                            _weekAnchor.day,
+                          );
+                          final DateTime date = weekStart.add(
+                            Duration(days: index),
+                          );
+                          final bool isSelected = isSameDay(date, selectedDate);
+                          final now = DateTime.now();
+                          final bool isToday = isSameDay(
+                            date,
+                            DateTime(now.year, now.month, now.day),
+                          );
 
-final Color bgColor = isSelected
-    ? Colors.blue
-    : (isToday ? Colors.blue.withOpacity(0.10) : Colors.grey[200]!);
+                          final Color bgColor = isSelected
+                              ? Colors.blue
+                              : (isToday
+                                    ? Colors.blue.withOpacity(0.10)
+                                    : Colors.grey[200]!);
 
-final Color textColor = isSelected
-    ? Colors.white
-    : (isToday ? Colors.blue : Colors.black);
+                          final Color textColor = isSelected
+                              ? Colors.white
+                              : (isToday ? Colors.blue : Colors.black);
 
-final Border border = isToday
-    ? Border.all(color: Colors.blue, width: 1.5)
-    : Border.all(color: Colors.transparent);
+                          final Border border = isToday
+                              ? Border.all(color: Colors.blue, width: 1.5)
+                              : Border.all(color: Colors.transparent);
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: GestureDetector(
-            onTap: () => _setSelectedDate(date),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-              decoration: BoxDecoration(
-               color: bgColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    DateFormat('EEE').format(date),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white : Colors.black,
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8.0,
+                            ),
+                            child: GestureDetector(
+                              onTap: () => _setSelectedDate(date),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8.0,
+                                  horizontal: 16.0,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: bgColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      DateFormat('EEE').format(date),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
+                                    Text(
+                                      DateFormat('d').format(date),
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
                     ),
                   ),
-                  Text(
-                    DateFormat('d').format(date),
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    ),
-  ),
-),
                   IconButton(
                     icon: const Icon(Icons.chevron_right),
                     onPressed: () => changeWeek(true), // Next date
@@ -2229,7 +2531,10 @@ final Border border = isToday
                             ),
                             child: const Text(
                               'Time',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                           Expanded(
@@ -2239,7 +2544,9 @@ final Border border = isToday
                               primary: false,
                               physics: const ClampingScrollPhysics(),
                               child: Row(
-                                children: List.generate(teamMembers.length, (index) {
+                                children: List.generate(teamMembers.length, (
+                                  index,
+                                ) {
                                   final m = teamMembers[index];
                                   final fn = (m['firstName'] ?? '').toString();
                                   final ln = (m['lastName'] ?? '').toString();
@@ -2247,18 +2554,30 @@ final Border border = isToday
                                     width: 140,
                                     height: 44,
                                     alignment: Alignment.centerLeft,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.grey.shade300,
                                       border: Border(
-                                        top: BorderSide(color: Colors.grey.shade300),
-                                        right: BorderSide(color: Colors.grey.shade300),
-                                        bottom: BorderSide(color: Colors.grey.shade300),
+                                        top: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        right: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        bottom: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
                                       ),
                                     ),
                                     child: Text(
-                                      '$fn $ln'.trim().isEmpty ? 'Staff' : '$fn $ln',
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                      '$fn $ln'.trim().isEmpty
+                                          ? 'Staff'
+                                          : '$fn $ln',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   );
@@ -2281,11 +2600,16 @@ final Border border = isToday
                                   ? const SizedBox()
                                   : NotificationListener<ScrollNotification>(
                                       onNotification: (notif) {
-                                        if (notif.metrics.axis == Axis.vertical) {
-                                          if (!_syncingV && _gridVController.hasClients) {
+                                        if (notif.metrics.axis ==
+                                            Axis.vertical) {
+                                          if (!_syncingV &&
+                                              _gridVController.hasClients) {
                                             _syncingV = true;
-                                            final off = _timeColumnVController.offset;
-                                            if ((_gridVController.offset - off).abs() > 0.5) {
+                                            final off =
+                                                _timeColumnVController.offset;
+                                            if ((_gridVController.offset - off)
+                                                    .abs() >
+                                                0.5) {
                                               _gridVController.jumpTo(off);
                                             }
                                             _syncingV = false;
@@ -2297,23 +2621,35 @@ final Border border = isToday
                                         controller: _timeColumnVController,
                                         primary: false,
                                         physics: const ClampingScrollPhysics(),
-                                        dragStartBehavior: DragStartBehavior.start,
+                                        dragStartBehavior:
+                                            DragStartBehavior.start,
                                         itemExtent: 44,
                                         itemCount: timeSlots.length,
                                         itemBuilder: (context, i) {
                                           return Container(
                                             alignment: Alignment.centerLeft,
-                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                            ),
                                             decoration: BoxDecoration(
-                                              color: i % 2 == 0 ? Colors.white : const Color(0xFFF0F0F0),
+                                              color: i % 2 == 0
+                                                  ? Colors.white
+                                                  : const Color(0xFFF0F0F0),
                                               border: Border(
-                                                right: BorderSide(color: Colors.grey.shade300),
-                                                bottom: BorderSide(color: Colors.grey.shade300),
+                                                right: BorderSide(
+                                                  color: Colors.grey.shade300,
+                                                ),
+                                                bottom: BorderSide(
+                                                  color: Colors.grey.shade300,
+                                                ),
                                               ),
                                             ),
                                             child: Text(
                                               timeSlots[i],
-                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 12,
+                                              ),
                                             ),
                                           );
                                         },
@@ -2329,17 +2665,37 @@ final Border border = isToday
                                 primary: false,
                                 physics: const ClampingScrollPhysics(),
                                 child: SizedBox(
-                                  width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
+                                  width:
+                                      (teamMembers.isEmpty
+                                          ? 1
+                                          : teamMembers.length) *
+                                      _colWidth,
                                   child: timeSlots.isEmpty
-                                      ? const Center(child: Text('No time slots available'))
-                                      : NotificationListener<ScrollNotification>(
+                                      ? const Center(
+                                          child: Text(
+                                            'No time slots available',
+                                          ),
+                                        )
+                                      : NotificationListener<
+                                          ScrollNotification
+                                        >(
                                           onNotification: (notif) {
-                                            if (notif.metrics.axis == Axis.vertical) {
-                                              if (!_syncingV && _timeColumnVController.hasClients) {
+                                            if (notif.metrics.axis ==
+                                                Axis.vertical) {
+                                              if (!_syncingV &&
+                                                  _timeColumnVController
+                                                      .hasClients) {
                                                 _syncingV = true;
-                                                final off = _gridVController.offset;
-                                                if ((_timeColumnVController.offset - off).abs() > 0.5) {
-                                                  _timeColumnVController.jumpTo(off);
+                                                final off =
+                                                    _gridVController.offset;
+                                                if ((_timeColumnVController
+                                                                .offset -
+                                                            off)
+                                                        .abs() >
+                                                    0.5) {
+                                                  _timeColumnVController.jumpTo(
+                                                    off,
+                                                  );
                                                 }
                                                 _syncingV = false;
                                               }
@@ -2349,10 +2705,16 @@ final Border border = isToday
                                           child: SingleChildScrollView(
                                             controller: _gridVController,
                                             primary: false,
-                                            physics: const ClampingScrollPhysics(),
+                                            physics:
+                                                const ClampingScrollPhysics(),
                                             child: SizedBox(
-                                              width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
-                                              height: timeSlots.length * _rowHeight,
+                                              width:
+                                                  (teamMembers.isEmpty
+                                                      ? 1
+                                                      : teamMembers.length) *
+                                                  _colWidth,
+                                              height:
+                                                  timeSlots.length * _rowHeight,
                                               child: Stack(
                                                 children: [
                                                   // Background grid
@@ -2410,9 +2772,15 @@ final Border border = isToday
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+          Text(
+            title,
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 4),
-          Text('$count', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          Text(
+            '$count',
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );

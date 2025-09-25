@@ -1,7 +1,8 @@
+// lib/screens/category_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // ← needed for TextInputFormatter
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:bloc_onboarding/utils/colors.dart';
 import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import '../Viewmodels/AddCategory.dart';
@@ -12,6 +13,20 @@ typedef SubcategoryOp = Future<void> Function({
   Map<String, dynamic>? subCategory,
   required int categoryId,
 });
+
+/// Ensures the first alphabetic character the user types is uppercase
+class FirstLetterUpperFormatter extends TextInputFormatter {
+  const FirstLetterUpperFormatter();
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldV, TextEditingValue newV) {
+    final t = newV.text;
+    final i = RegExp(r'[A-Za-z]').firstMatch(t)?.start;
+    if (i == null) return newV; // no letters yet
+    if (t[i] == t[i].toUpperCase()) return newV; // already upper
+    final fixed = t.replaceRange(i, i + 1, t[i].toUpperCase());
+    return TextEditingValue(text: fixed, selection: newV.selection);
+  }
+}
 
 class CategoryScreen extends StatefulWidget {
   const CategoryScreen({super.key});
@@ -25,7 +40,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
   int? _selectedBranchId;
   Map<String, dynamic>? _selectedBranch;
 
-  // ---------- LIFECYCLE ----------
   @override
   void initState() {
     super.initState();
@@ -59,13 +73,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
           _selectedBranchId = value;
           _selectedBranch = {
             'salonId': salon['id'],
+            'salonName': salon['name'],
             'branchId': match['id'],
             'branchName': match['name'],
           };
           _expandedSubcategories.clear();
         });
         context.read<SalonListCubit>().setSelectedBranch(_selectedBranch!);
-        context.read<CategoryCubit>().loadCategories(salon['id'] as int);
+        final categoryCubit = context.read<CategoryCubit>();
+        categoryCubit.resetCategories();
+        categoryCubit.loadCategories(salon['id'] as int);
         break;
       }
     }
@@ -78,25 +95,17 @@ class _CategoryScreenState extends State<CategoryScreen> {
       return;
     }
 
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
+    final salonId = _selectedBranch!['salonId'] as int;
+
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _EditCategorySheet(category: category),
+      builder: (sheetContext) => _EditCategorySheet(
+        category: category,
+        salonId: salonId, // sheet will call the cubit & show loader
+      ),
     );
-
-    if (!mounted || result == null) return;
-
-    final salonId = _selectedBranch!['salonId'] as int;
-    final req = result['request'] as AddCategoryRequest;
-    final categoryId = result['categoryId'] as int?;
-    final cubit = context.read<CategoryCubit>();
-
-    if (categoryId != null) {
-      cubit.updateCategory(salonId, categoryId, req);
-    } else {
-      cubit.addCategory(salonId, req);
-    }
   }
 
   // ---------- ADD / EDIT SUBCATEGORY ----------
@@ -106,26 +115,18 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }) async {
     if (_selectedBranch == null) return;
 
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
+    final salonId = _selectedBranch!['salonId'] as int;
+
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) =>
-          _EditSubcategorySheet(subCategory: subCategory),
+      builder: (sheetContext) => _EditSubcategorySheet(
+        subCategory: subCategory,
+        salonId: salonId,       // sheet will call the cubit & show loader
+        categoryId: categoryId, // needed for add
+      ),
     );
-
-    if (!mounted || result == null) return;
-
-    final salonId = _selectedBranch!['salonId'] as int;
-    final name = result['name'] as String;
-    final subCategoryId = result['subCategoryId'] as int?;
-    final cubit = context.read<CategoryCubit>();
-
-    if (subCategoryId != null) {
-      cubit.updateSubCategory(salonId, subCategoryId, name);
-    } else {
-      cubit.addSubCategory(salonId, categoryId, name);
-    }
   }
 
   // ---------- CONFIRM DELETE CATEGORY ----------
@@ -134,7 +135,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => _ConfirmDialog(
+      builder: (dialogContext) => const _ConfirmDialog(
         title: 'Delete Category',
         message: 'Are you sure you want to delete this category?',
         confirmColor: Colors.red,
@@ -145,9 +146,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final salonId = _selectedBranch!['salonId'] as int;
     context.read<CategoryCubit>().deleteCategory(
-          salonId,
-          category['id'] as int,
-        );
+      salonId,
+      category['id'] as int,
+    );
   }
 
   // ---------- CONFIRM DELETE SUBCATEGORY ----------
@@ -158,7 +159,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => _ConfirmDialog(
+      builder: (dialogContext) => const _ConfirmDialog(
         title: 'Delete Subcategory',
         message: 'Are you sure you want to delete this subcategory?',
         confirmColor: Colors.red,
@@ -169,9 +170,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final salonId = _selectedBranch!['salonId'] as int;
     context.read<CategoryCubit>().deleteSubCategory(
-          salonId,
-          subCategory['id'] as int,
-        );
+      salonId,
+      subCategory['id'] as int,
+    );
   }
 
   // ---------- EDIT SERVICE ----------
@@ -187,10 +188,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final salonId = _selectedBranch!['salonId'] as int;
     context.read<CategoryCubit>().updateService(
-          salonId,
-          result['serviceId'] as int,
-          result['payload'] as Map<String, dynamic>,
-        );
+      salonId,
+      result['serviceId'] as int,
+      result['payload'] as Map<String, dynamic>,
+    );
   }
 
   // ---------- CONFIRM DELETE SERVICE ----------
@@ -199,7 +200,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => _ConfirmDialog(
+      builder: (dialogContext) => const _ConfirmDialog(
         title: 'Delete Service',
         message: 'Are you sure you want to delete this service?',
         confirmColor: Colors.red,
@@ -230,128 +231,183 @@ class _CategoryScreenState extends State<CategoryScreen> {
       ),
     );
   }
+void _autoPickFirstBranch(SalonListState state) {
+  if (_selectedBranch != null) return;             // don't override user choice
+  if (state.salons.isEmpty) return;
+
+  for (final salon in state.salons) {
+    final branches = (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+    if (branches.isNotEmpty) {
+      final first = branches.first;
+      setState(() {
+        _selectedBranchId = first['id'] as int;
+        _selectedBranch = {
+          'salonId': salon['id'],
+          'salonName': salon['name'],
+          'branchId': first['id'],
+          'branchName': first['name'],
+        };
+        _expandedSubcategories.clear();
+      });
+      // reflect selection in SalonListCubit and load categories
+      context.read<SalonListCubit>().setSelectedBranch(_selectedBranch!);
+      final categoryCubit = context.read<CategoryCubit>();
+      categoryCubit.resetCategories();
+      categoryCubit.loadCategories(salon['id'] as int);
+      break;
+    }
+  }
+}
 
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final onBg = theme.colorScheme.onSurface;
+    final salonState = context.watch<SalonListCubit>().state;
+    final CategoryState catState = context.watch<CategoryCubit>().state;
+    final _CatalogueStats stats = _CatalogueStats.from(catState.categories);
 
     return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: AppColors.white,
-       title: const Text(
-      'My Catalogue',
-      style: TextStyle(
-        color: Colors.black,        // white text
-        fontWeight: FontWeight.w800 // bold
-      ),
+      backgroundColor: const Color(0xFFF4F6FB),
+     body: MultiBlocListener(
+  listeners: [
+    BlocListener<CategoryCubit, CategoryState>(
+      listenWhen: (previous, current) => previous.message != current.message,
+      listener: (context, state) {
+        if (state.message != null) {
+          _toast(state.message!);
+          context.read<CategoryCubit>().clearMessage();
+        }
+      },
     ),
-    iconTheme: const IconThemeData(color: Colors.white), // optional: white icons
-  ),
-      body: BlocListener<CategoryCubit, CategoryState>(
-        listenWhen: (previous, current) => previous.message != current.message,
-        listener: (context, state) {
-          if (state.message != null) {
-            _toast(state.message!);
-            context.read<CategoryCubit>().clearMessage();
-          }
-        },
-        child: BlocBuilder<CategoryCubit, CategoryState>(
-          builder: (context, catState) {
-            return Stack(
-              children: [
-                RefreshIndicator(
-                  color: Colors.orange,
-                  onRefresh: () async {
-                    if (_selectedBranch != null) {
-                      context
-                          .read<CategoryCubit>()
-                          .loadCategories(_selectedBranch!['salonId'] as int);
-                    } else {
-                      context.read<SalonListCubit>().loadSalons();
-                    }
-                  },
-                  child: ListView(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                    children: [
-                      _BranchPicker(
-                        selectedBranchId: _selectedBranchId,
-                        onSelected: _onBranchSelected,
-                      ),
-                      const SizedBox(height: 20),
-                      _SectionHeader(
-                        title: 'Categories',
-                        // trailing: _selectedBranch != null
-                        //     ? _SecondaryAction(
-                        //         icon: Icons.add_rounded,
-                        //         label: 'Add Category',
-                        //         onTap: () => _showAddCategorySheet(),
-                        //       )
-                        //     : null,
-                      ),
-                      const SizedBox(height: 8),
-                      if (_selectedBranch == null)
-                        _EmptyState(
-                          icon: Icons.store_mall_directory_outlined,
-                          title: 'Select a salon',
-                          subtitle:
-                              'Choose a salon to view and manage its categories.',
-                        )
-                      else if (catState.isLoading)
-                        const _LoaderCard()
-                      else if (catState.status == CategoryStatus.failure)
-                        _ErrorCard(
-                          message:
-                              catState.message ?? 'Failed to load categories',
-                          onRetry: () {
-                            final salonId =
-                                _selectedBranch?['salonId'] as int?;
-                            if (salonId != null) {
-                              context
-                                  .read<CategoryCubit>()
-                                  .loadCategories(salonId);
-                            }
-                          },
-                        )
-                      else
-                        _CategoryList(
-                          categories: catState.categories,
-                          // same handler for add & edit
-                          onAddSubcategory: _openSubcategorySheet,
-                          onEditSubcategory: _openSubcategorySheet,
-                          onAddServices: _openAddService,
-                          onEditCategory: _showAddCategorySheet,
-                          onDeleteCategory: _confirmDeleteCategory,
-                          onDeleteSubcategory: _confirmDeleteSubCategory,
-                          onEditService: _showUpdateServiceSheet,
-                          onDeleteService: _confirmDeleteService,
-                          expanded: _expandedSubcategories,
-                          toggleExpanded: (id) => setState(() {
-                            _expandedSubcategories[id] =
-                                !(_expandedSubcategories[id] ?? false);
-                          }),
-                          accent: Colors.orange,
-                          titleColor: onBg.withOpacity(0.9),
-                        ),
-                    ],
+    // NEW: when salons arrive, auto-pick first branch if none selected
+    BlocListener<SalonListCubit, SalonListState>(
+      listenWhen: (prev, curr) =>
+          prev.salons != curr.salons || prev.selectedBranch != curr.selectedBranch,
+      listener: (context, salonState) {
+        _autoPickFirstBranch(salonState);
+      },
+    ),
+  ],
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Container(
+                height: 220,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF5B86E5), Color(0xFF36D1DC)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
                 ),
-                if (catState.isSubmitting) _buildLoaderOverlay(),
-              ],
-            );
-          },
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _HeaderSection(
+                    salonState: salonState,
+                    selectedBranchId: _selectedBranchId,
+                    selectedBranch: _selectedBranch,
+                    onBranchSelected: _onBranchSelected,
+                    stats: stats,
+                    onRefresh: _handleManualRefresh,
+                  ),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF4F6FB),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(28),
+                        ),
+                      ),
+                      child: _buildCatalogueContent(catState),
+                    ),
+                  ),
+                ],
+              ),
+              if (catState.isSubmitting) _buildLoaderOverlay(),
+            ],
+          ),
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddCategorySheet(),
-        label: const Text('Add Category'),
-        icon: const Icon(Icons.add),
-        backgroundColor: Colors.orange[400],
+      floatingActionButton: _selectedBranch == null
+          ? null
+          : FloatingActionButton.extended(
+              heroTag: 'catalogueFab',
+              onPressed: () => _showAddCategorySheet(),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('New Category'),
+              backgroundColor: const Color(0xFF5B86E5),
+              foregroundColor: Colors.white,
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildCatalogueContent(CategoryState catState) {
+    return RefreshIndicator(
+      color: const Color(0xFF08183A),
+      displacement: 32,
+      onRefresh: _refreshData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
+        children: [
+          if (_selectedBranch == null) ...[
+            const _EmptyState(
+              icon: Icons.store_mall_directory_outlined,
+              title: 'Choose a salon',
+              subtitle: 'Pick a salon above to start managing its catalogue.',
+            ),
+          ] else ...[
+            if (catState.isLoading && catState.categories.isEmpty)
+              const _LoaderCard()
+            else if (catState.status == CategoryStatus.failure &&
+                catState.categories.isEmpty)
+              _ErrorCard(
+                message: catState.message ?? 'Failed to load categories',
+                onRetry: _refreshData,
+              )
+            else ...[
+              if (catState.isLoading)
+                const _InlineProgress(message: 'Refreshing catalogue...'),
+              _CategoryList(
+                categories: catState.categories,
+                onAddSubcategory: _openSubcategorySheet,
+                onEditSubcategory: _openSubcategorySheet,
+                onAddServices: _openAddService,
+                onEditCategory: _showAddCategorySheet,
+                onDeleteCategory: _confirmDeleteCategory,
+                onDeleteSubcategory: _confirmDeleteSubCategory,
+                onEditService: _showUpdateServiceSheet,
+                onDeleteService: _confirmDeleteService,
+                expanded: _expandedSubcategories,
+                toggleExpanded: (id) => setState(() {
+                  _expandedSubcategories[id] =
+                      !(_expandedSubcategories[id] ?? false);
+                }),
+              ),
+            ],
+          ],
+          const SizedBox(height: 40),
+        ],
       ),
     );
+  }
+
+  Future<void> _handleManualRefresh() async {
+    await _refreshData();
+  }
+
+  Future<void> _refreshData() async {
+    if (_selectedBranch != null) {
+      final salonId = _selectedBranch!['salonId'] as int;
+      context.read<CategoryCubit>().loadCategories(salonId);
+    } else {
+      context.read<SalonListCubit>().loadSalons();
+    }
+    await Future.delayed(const Duration(milliseconds: 400));
   }
 
   // ---------- OVERLAY ----------
@@ -360,7 +416,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       child: Stack(
         children: [
           ModalBarrier(dismissible: false, color: Colors.black45),
-          Center(child: CircularProgressIndicator(color: Colors.orange)),
+          Center(child: CircularProgressIndicator(color: Color(0xFF5B86E5))),
         ],
       ),
     );
@@ -373,72 +429,393 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 }
 
-/* =======================  UI BUILDING BLOCKS  ======================= */
-
-class _BranchPicker extends StatelessWidget {
-  const _BranchPicker({
+class _HeaderSection extends StatelessWidget {
+  const _HeaderSection({
+    required this.salonState,
     required this.selectedBranchId,
-    required this.onSelected,
+    required this.selectedBranch,
+    required this.onBranchSelected,
+    required this.stats,
+    required this.onRefresh,
   });
 
+  final SalonListState salonState;
   final int? selectedBranchId;
-  final void Function(int?, List<Map<String, dynamic>>) onSelected;
+  final Map<String, dynamic>? selectedBranch;
+  final void Function(int?, List<Map<String, dynamic>>) onBranchSelected;
+  final _CatalogueStats stats;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SalonListCubit, SalonListState>(
-      builder: (context, salonState) {
-        final salons = salonState.salons;
+    final textTheme = Theme.of(context).textTheme;
+    final String? branchName = selectedBranch?['branchName'] as String?;
+    final String? salonName = selectedBranch?['salonName'] as String?;
 
-        if (salonState.isLoading && salons.isEmpty) {
-          return const _LoaderCard();
-        }
-        if (salonState.hasError && salons.isEmpty) {
-          return _ErrorCard(
-            message: salonState.errorMessage ?? 'Failed to load salons',
-            onRetry: () => context.read<SalonListCubit>().loadSalons(),
-          );
-        }
-        if (salons.isEmpty) {
-          return const _EmptyState(
-            icon: Icons.store_mall_directory_outlined,
-            title: 'No salons found',
-            subtitle: 'Add a salon first to manage categories.',
-          );
-        }
+    final List<Map<String, dynamic>> salons = salonState.salons
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
 
-        return _FormCard(
-          title: 'Select Salon',
-          child: DropdownButtonFormField<int>(
-            isExpanded: true,
-            value: selectedBranchId,
-            decoration: const InputDecoration(
-              hintText: 'Select Salon',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            ),
-            items: salons
-                .expand((salon) {
-                  final branches = (salon['branches'] as List?)
-                          ?.cast<Map<String, dynamic>>() ??
-                      [];
-                  return branches.map<DropdownMenuItem<int>>(
-                    (branch) => DropdownMenuItem(
-                      value: branch['id'] as int,
-                      child: Text(branch['name'] as String),
-                    ),
-                  );
-                })
-                .toList()
-                .cast<DropdownMenuItem<int>>(),
-            onChanged: (value) =>
-                onSelected(value, salons.cast<Map<String, dynamic>>()),
+    final List<DropdownMenuItem<int>> branchItems = [];
+    for (final salon in salons) {
+      final List<Map<String, dynamic>> branches =
+          (salon['branches'] as List?)
+                  ?.map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList() ??
+              const [];
+      for (final branch in branches) {
+        branchItems.add(
+          DropdownMenuItem<int>(
+            value: branch['id'] as int,
+            child: Text(branch['name'] ?? 'Branch'),
           ),
         );
-      },
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Catalog',
+                      style: textTheme.headlineSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      branchName != null
+                          ? '${salonName ?? 'Salon'}'
+                          : 'Select a salon to get started',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: Colors.white70,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                tooltip: 'Refresh',
+                onPressed: salonState.isLoading ? null : () => onRefresh(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Salon & Branch',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (salonState.isLoading)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value: selectedBranchId,
+                  isExpanded: true,
+                  items: branchItems,
+                  onChanged: branchItems.isEmpty
+                      ? null
+                      : (value) => onBranchSelected(value, salons),
+                  decoration: InputDecoration(
+                    hintText:
+                        branchItems.isEmpty ? 'No branches available' : 'Choose branch',
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          _StatsStrip(stats: stats),
+        ],
+      ),
     );
   }
 }
+
+class _StatsStrip extends StatelessWidget {
+  const _StatsStrip({required this.stats});
+
+  final _CatalogueStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _StatCard(
+          icon: Icons.category_rounded,
+          label: 'Categories',
+          color: const Color(0xFF5B86E5),
+          value: stats.categoryCount,
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          icon: Icons.view_agenda_outlined,
+          label: 'Subcategories',
+          color: const Color(0xFF00BFA6),
+          value: stats.subcategoryCount,
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          icon: Icons.design_services_rounded,
+          label: 'Services',
+          color: const Color(0xFFFD6F76),
+          value: stats.serviceCount,
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value.toString(),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: color.withValues(alpha: 0.9),
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: color.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NoDataPill extends StatelessWidget {
+  const _NoDataPill({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.info_outline, size: 18, color: Colors.grey.shade600),
+          const SizedBox(width: 8),
+          Text(message, style: TextStyle(color: Colors.grey.shade600)),
+        ],
+      ),
+    );
+  }
+}
+
+class _InlineProgress extends StatelessWidget {
+  const _InlineProgress({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    const tint = Color(0xFF5B86E5);
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: tint),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              message,
+              style: const TextStyle(color: tint, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogueStats {
+  const _CatalogueStats({
+    required this.categoryCount,
+    required this.subcategoryCount,
+    required this.serviceCount,
+  });
+
+  final int categoryCount;
+  final int subcategoryCount;
+  final int serviceCount;
+
+  factory _CatalogueStats.from(List<dynamic> categories) {
+    int subcategories = 0;
+    int services = 0;
+    for (final category in categories) {
+      final Map<String, dynamic> categoryMap = Map<String, dynamic>.from(
+        category as Map,
+      );
+      final List<dynamic> subcats =
+          (categoryMap['subCategories'] as List?) ?? const [];
+      subcategories += subcats.length;
+      for (final sub in subcats) {
+        final Map<String, dynamic> subMap = Map<String, dynamic>.from(
+          sub as Map,
+        );
+        services += (subMap['services'] as List?)?.length ?? 0;
+      }
+    }
+    return _CatalogueStats(
+      categoryCount: categories.length,
+      subcategoryCount: subcategories,
+      serviceCount: services,
+    );
+  }
+}
+
+Color _darken(Color color, double amount) {
+  final hsl = HSLColor.fromColor(color);
+  final double lightness = (hsl.lightness - amount).clamp(0.0, 1.0);
+  return hsl.withLightness(lightness).toColor();
+}
+
+/* =======================  UI BUILDING BLOCKS  ======================= */
 
 class _CategoryList extends StatelessWidget {
   const _CategoryList({
@@ -453,24 +830,19 @@ class _CategoryList extends StatelessWidget {
     required this.onDeleteService,
     required this.expanded,
     required this.toggleExpanded,
-    required this.accent,
-    required this.titleColor,
   });
 
   final List<dynamic> categories;
 
-  // BOTH share the same named-parameter signature
   final SubcategoryOp onAddSubcategory;
   final SubcategoryOp onEditSubcategory;
 
   final void Function(Map<String, dynamic> category, List<dynamic> categories)
       onAddServices;
 
-  final Future<void> Function({Map<String, dynamic>? category})
-      onEditCategory;
+  final Future<void> Function({Map<String, dynamic>? category}) onEditCategory;
 
-  final Future<void> Function(Map<String, dynamic> category)
-      onDeleteCategory;
+  final Future<void> Function(Map<String, dynamic> category) onDeleteCategory;
 
   final Future<void> Function(Map<String, dynamic>) onDeleteSubcategory;
   final Future<void> Function(Map<String, dynamic>) onEditService;
@@ -478,8 +850,13 @@ class _CategoryList extends StatelessWidget {
 
   final Map<int, bool> expanded;
   final void Function(int id) toggleExpanded;
-  final Color accent;
-  final Color titleColor;
+
+  static const List<Color> _palette = [
+    Color(0xFF5B86E5),
+    Color(0xFF00BFA6),
+    Color(0xFFFD6F76),
+    Color(0xFF7F53AC),
+  ];
 
   String _pluralize(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
 
@@ -488,124 +865,208 @@ class _CategoryList extends StatelessWidget {
     if (categories.isEmpty) {
       return const _EmptyState(
         icon: Icons.category_outlined,
-        title: 'No categories found',
-        subtitle: 'Tap “Add Category” to create your first one.',
+        title: 'No categories yet',
+        subtitle: 'Tap “New Category” to create your first one.',
       );
     }
+
+    final theme = Theme.of(context);
 
     return ListView.separated(
       itemCount: categories.length,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => const SizedBox(height: 18),
       itemBuilder: (context, index) {
-        final category = categories[index] as Map<String, dynamic>;
-        final subCategories =
-            (category['subCategories'] as List?)?.cast<Map<String, dynamic>>() ??
-                [];
-        final subCount = subCategories.length;
+        final category = Map<String, dynamic>.from(categories[index] as Map);
+        final List<Map<String, dynamic>> subCategories =
+            (category['subCategories'] as List?)
+                    ?.map((e) => Map<String, dynamic>.from(e as Map))
+                    .toList() ??
+                const [];
+        final int subCount = subCategories.length;
+        final int serviceCount = subCategories.fold<int>(0, (total, sub) {
+          final services = (sub['services'] as List?) ?? const [];
+          return total + services.length;
+        });
+        final Color accent = _palette[index % _palette.length];
+        final Color headerInk = Colors.black87;
 
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          elevation: 2,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Category Header
-                Row(
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 22,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(22),
+                  ),
+                  gradient: LinearGradient(
+                    colors: [accent.withValues(alpha: 0.14), Colors.white],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Row(
                   children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.folder_special_rounded,
+                        color: headerInk,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
                     Expanded(
-                      child: Text(
-                        category['name'] as String,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: titleColor,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            category['name'] as String? ?? 'Category',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: headerInk,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_pluralize(subCount, 'subcategory')} · ${_pluralize(serviceCount, 'service')}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: headerInk.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     _IconButton(
                       icon: Icons.edit_rounded,
-                      color: Colors.brown,
+                      color: headerInk,
                       tooltip: 'Edit category',
                       onTap: () => onEditCategory(category: category),
                     ),
+                    const SizedBox(width: 6),
                     _IconButton(
                       icon: Icons.delete_rounded,
-                      color: Colors.redAccent,
+                      color: Colors.black,
                       tooltip: 'Delete category',
                       onTap: () => onDeleteCategory(category),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Row(
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    _Badge(
+                    _MetricChip(
                       icon: Icons.view_agenda_outlined,
-                      label: _pluralize(subCount, 'Subcategory'),
+                      label: _pluralize(subCount, 'subcategory'),
+                      color: accent,
+                    ),
+                    _MetricChip(
+                      icon: Icons.design_services_rounded,
+                      label: _pluralize(serviceCount, 'service'),
+                      color: accent,
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-
-                // Subcategories
-                if (subCategories.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      'No subcategories',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  )
-                else
-                  Column(
-                    children: [
-                      for (final sub in subCategories)
-                        _SubcategoryTile(
-                          categoryId: category['id'] as int,
-                          subCategory: sub,
-                          isExpanded: expanded[(sub['id'] as int)] ?? false,
-                          toggle: () => toggleExpanded(sub['id'] as int),
-                          onEditSubcategory: onEditSubcategory,
-                          onDeleteSubcategory: onDeleteSubcategory,
-                          onEditService: onEditService,
-                          onDeleteService: onDeleteService,
-                          accent: accent,
-                        ),
-                    ],
-                  ),
-
-                // Actions
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _TextAction(
-                      icon: Icons.add_rounded,
-                      label: 'Add Subcategory',
-                      color: accent,
-                      onTap: () => onAddSubcategory(
+              ),
+              const SizedBox(height: 14),
+              if (subCategories.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: _NoDataPill(message: 'No subcategories added yet'),
+                )
+              else
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Column(
+                    children: subCategories.map((sub) {
+                      final int subId = sub['id'] as int;
+                      return _SubcategoryTile(
                         categoryId: category['id'] as int,
+                        subCategory: sub,
+                        isExpanded: expanded[subId] ?? false,
+                        toggle: () => toggleExpanded(subId),
+                        onEditSubcategory: onEditSubcategory,
+                        onDeleteSubcategory: onDeleteSubcategory,
+                        onEditService: onEditService,
+                        onDeleteService: onDeleteService,
+                        accent: accent,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            onAddSubcategory(categoryId: category['id'] as int),
+                        icon: Icon(Icons.add_rounded, color: accent),
+                        label: Text(
+                          'Add subcategory',
+                          style: TextStyle(
+                            color: accent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: accent.withValues(alpha: 0.35),
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    _TextAction(
-                      icon: Icons.design_services_rounded,
-                      label: 'Add Services',
-                      color: accent,
-                      onTap: () => onAddServices(category, categories),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () => onAddServices(category, categories),
+                        icon: const Icon(Icons.design_services_rounded),
+                        label: const Text('Add services'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
         );
       },
@@ -641,285 +1102,163 @@ class _SubcategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final services =
-        (subCategory['services'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final serviceCount = services.length;
+    final List<Map<String, dynamic>> services =
+        (subCategory['services'] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            const [];
+    final int serviceCount = services.length;
+    final theme = Theme.of(context);
+    final Color borderColor = accent.withValues(
+      alpha: isExpanded ? 0.45 : 0.25,
+    );
+    final Color fillColor = accent.withValues(alpha: isExpanded ? 0.10 : 0.06);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(10),
-              onTap: toggle,
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _SubcategoryHeader(
-                        name: subCategory['name'] as String,
-                        serviceCount: serviceCount,
-                      ),
-                    ),
-                    _IconButton(
-                      icon: Icons.edit_rounded,
-                      color: Colors.brown,
-                      tooltip: 'Edit subcategory',
-                      onTap: () => onEditSubcategory(
-                        subCategory: subCategory,
-                        categoryId: categoryId,
-                      ),
-                    ),
-                    _IconButton(
-                      icon: Icons.delete_rounded,
-                      color: Colors.redAccent,
-                      tooltip: 'Delete subcategory',
-                      onTap: () => onDeleteSubcategory(subCategory),
-                    ),
-                    const SizedBox(width: 4),
-                    // Icon(
-                    //   isExpanded
-                    //       ? Icons.expand_less_rounded
-                    //       : Icons.expand_more_rounded,
-                    //   color: Colors.grey.shade600,
-                    // ),
-                  ],
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor),
+        color: fillColor,
+      ),
+      child: Theme(
+        data: theme.copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: ValueKey(subCategory['id']),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          initiallyExpanded: isExpanded,
+          onExpansionChanged: (value) {
+            if (value != isExpanded) {
+              toggle();
+            }
+          },
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                subCategory['name'] as String? ?? 'Subcategory',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: _darken(accent, .25),
                 ),
               ),
+              const SizedBox(height: 4),
+              Text(
+                '$serviceCount ${serviceCount == 1 ? 'service' : 'services'}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: _darken(accent, .05).withValues(alpha: 0.75),
+                ),
+              ),
+            ],
+          ),
+          trailing: SizedBox(
+            width: 104,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                _IconButton(
+                  icon: Icons.edit_rounded,
+                  color: _darken(accent, .25),
+                  tooltip: 'Edit subcategory',
+                  onTap: () => onEditSubcategory(
+                    subCategory: subCategory,
+                    categoryId: categoryId,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                _IconButton(
+                  icon: Icons.delete_rounded,
+                  color: Colors.redAccent,
+                  tooltip: 'Delete subcategory',
+                  onTap: () => onDeleteSubcategory(subCategory),
+                ),
+                const SizedBox(width: 4),
+              ],
             ),
-
-            // Services
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: !isExpanded
-                  ? const SizedBox.shrink()
-                  : Column(
-                      key: ValueKey('expanded_${subCategory['id']}'),
+          ),
+          children: [
+            if (services.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: _NoDataPill(message: 'No services added yet'),
+              )
+            else
+              Column(
+                children: services.map((service) {
+                  final String name =
+                      service['displayName']?.toString() ?? 'Unnamed service';
+                  final int? price = service['priceMinor'] as int?;
+                  final int? duration = service['durationMin'] as int?;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: accent.withValues(alpha: 0.12)),
+                    ),
+                    child: Row(
                       children: [
-                        const Divider(height: 1),
-                        if (services.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Text(
-                              'No services',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: accent.withValues(alpha: 0.12),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.design_services_rounded,
+                            color: _darken(accent, .25),
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          )
-                        else
-                          ...services.map((service) {
-                            return ListTile(
-                              dense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                              const SizedBox(height: 2),
+                              Text(
+                                '${price != null ? '₹$price' : 'No price'} • ${duration != null ? '$duration min' : 'No duration'}',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: Colors.grey.shade600,
+                                ),
                               ),
-                              title: Text(
-                                service['displayName'] as String? ??
-                                    'Unnamed Service',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              subtitle: Text(
-                                'Rs. ${service['priceMinor']} · ${service['durationMin']} min',
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  _IconButton(
-                                    icon: Icons.edit_rounded,
-                                    color: Colors.brown,
-                                    tooltip: 'Edit service',
-                                    onTap: () => onEditService(service),
-                                  ),
-                                  _IconButton(
-                                    icon: Icons.delete_rounded,
-                                    color: Colors.redAccent,
-                                    tooltip: 'Delete service',
-                                    onTap: () => onDeleteService(
-                                      service['id'] as int,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }),
-                        const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                        _IconButton(
+                          icon: Icons.edit_outlined,
+                          color: _darken(accent, .25),
+                          tooltip: 'Edit service',
+                          onTap: () => onEditService(service),
+                        ),
+                        const SizedBox(width: 4),
+                        _IconButton(
+                          icon: Icons.delete_outline_rounded,
+                          color: Colors.redAccent,
+                          tooltip: 'Delete service',
+                          onTap: () => onDeleteService(service['id'] as int),
+                        ),
                       ],
                     ),
-            ),
+                  );
+                }).toList(),
+              ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _SubcategoryHeader extends StatelessWidget {
-  const _SubcategoryHeader({
-    required this.name,
-    required this.serviceCount,
-  });
-
-  final String name;
-  final int serviceCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.purple,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          '$serviceCount ${serviceCount == 1 ? 'Service' : 'Services'}',
-          style: const TextStyle(
-            fontSize: 13,
-            color: Colors.grey,
-          ),
-        ),
-      ],
     );
   }
 }
 
 /* =======================  SMALL WIDGETS  ======================= */
-
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.trailing});
-  final String title;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Theme.of(context).colorScheme.onSurface.withOpacity(0.9);
-    return Row(
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
-        ),
-        const Spacer(),
-        if (trailing != null) trailing!,
-      ],
-    );
-  }
-}
-
-class _SecondaryAction extends StatelessWidget {
-  const _SecondaryAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, color: Colors.orange),
-      label: Text(
-        label,
-        style: const TextStyle(color: Colors.orange),
-      ),
-      style: TextButton.styleFrom(
-        foregroundColor: Colors.orange,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      ),
-    );
-  }
-}
-
-class _FormCard extends StatelessWidget {
-  const _FormCard({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final onBg = Theme.of(context).colorScheme.onSurface.withOpacity(0.9);
-
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title,
-                style: TextStyle(
-                  color: onBg,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                )),
-            const SizedBox(height: 10),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.icon, required this.label});
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.orange.withOpacity(0.25)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: Colors.orange),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.orange,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _IconButton extends StatelessWidget {
   const _IconButton({
@@ -936,38 +1275,24 @@ class _IconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      splashRadius: 22,
-      onPressed: onTap,
-      icon: Icon(icon, color: color),
-    );
-  }
-}
-
-class _TextAction extends StatelessWidget {
-  const _TextAction({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, color: color),
-      label: Text(label, style: TextStyle(color: color)),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    final button = InkWell(
+      borderRadius: BorderRadius.circular(32),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: _darken(color, .2), size: 18),
       ),
     );
+
+    if (tooltip == null) {
+      return button;
+    }
+
+    return Tooltip(message: tooltip!, child: button);
   }
 }
 
@@ -984,13 +1309,14 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onBg = Theme.of(context).colorScheme.onSurface.withOpacity(0.75);
+    final onBg =
+        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
       alignment: Alignment.center,
       child: Column(
         children: [
-          Icon(icon, size: 44, color: Colors.orange),
+          Icon(icon, size: 44, color: Colors.black),
           const SizedBox(height: 12),
           Text(
             title,
@@ -1005,7 +1331,7 @@ class _EmptyState extends StatelessWidget {
             subtitle,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: onBg.withOpacity(0.8),
+              color: onBg.withValues(alpha: 0.8),
               fontSize: 13.5,
             ),
           ),
@@ -1023,7 +1349,7 @@ class _ErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.red.withOpacity(0.06),
+      color: Colors.red.withValues(alpha: 0.06),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -1058,26 +1384,35 @@ class _LoaderCard extends StatelessWidget {
       elevation: 2,
       child: const Padding(
         padding: EdgeInsets.all(20),
-        child: Center(
-          child: CircularProgressIndicator(color: Colors.orange),
-        ),
+        child: Center(child: CircularProgressIndicator(color: Colors.black)),
       ),
     );
   }
 }
 
 class _BottomSheetScaffold extends StatelessWidget {
-  const _BottomSheetScaffold({required this.title, required this.child});
+  const _BottomSheetScaffold({
+    required this.title,
+    required this.child,
+    this.initial = 0.55,
+    this.min = 0.35,
+    this.max = 0.9,
+  });
+
   final String title;
   final Widget child;
 
+  // New: customizable sizes (with safe defaults)
+  final double initial;
+  final double min;
+  final double max;
+
   @override
   Widget build(BuildContext context) {
-    // Rounded top + safe padding + drag handle
     return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.9,
+      initialChildSize: initial,
+      minChildSize: min,
+      maxChildSize: max,
       expand: false,
       builder: (ctx, scrollCtrl) {
         return Container(
@@ -1147,8 +1482,10 @@ class _LabeledField extends StatelessWidget {
         border: OutlineInputBorder(),
       ).copyWith(
         labelText: label,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
       ),
     );
   }
@@ -1185,8 +1522,471 @@ class _ConfirmDialog extends StatelessWidget {
   }
 }
 
-/* =======================  SHEET WIDGETS (own controllers)  ======================= */
+/* =======================  SHEET WIDGETS  ======================= */
+/* Category: inline error + loader + API here */
+class _EditCategorySheet extends StatefulWidget {
+  const _EditCategorySheet({this.category, required this.salonId});
+  final Map<String, dynamic>? category;
+  final int salonId;
 
+  @override
+  State<_EditCategorySheet> createState() => _EditCategorySheetState();
+}
+
+class _EditCategorySheetState extends State<_EditCategorySheet> {
+  late final TextEditingController nameController;
+  late final TextEditingController descriptionController;
+
+  bool isSaving = false;
+  String? errorText;
+
+  bool get isEdit => widget.category != null;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(
+      text: widget.category?['name'] as String? ?? '',
+    );
+    descriptionController = TextEditingController(
+      text: widget.category?['description'] as String? ?? '',
+    );
+    // _validate(nameController.text);
+    // nameController.addListener(() => _validate(nameController.text));
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  void _validate(String v) {
+    final t = v.trim();
+    String? err;
+    if (t.isEmpty) {
+      err = 'Name is required';
+    } else {
+      final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
+      if (first != null && first != first.toUpperCase()) {
+        err = 'Name must start with a capital letter';
+      }
+    }
+    if (err != errorText) setState(() => errorText = err);
+  }
+
+Future<void> _submit() async {
+  final t = nameController.text.trim();
+
+  // validate only when pressing the button
+  if (t.isEmpty) {
+    setState(() => errorText = 'Name is required');
+    return;
+  }
+  final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
+  if (first != null && first != first.toUpperCase()) {
+    setState(() => errorText = 'Name must start with a capital letter');
+    return;
+  }
+  setState(() => errorText = null);
+
+  setState(() => isSaving = true);
+  try {
+    final req = AddCategoryRequest(
+      name: t,
+      description: descriptionController.text.trim(),
+    );
+
+    final cubit = context.read<CategoryCubit>();
+    if (isEdit) {
+      final categoryId = widget.category!['id'] as int;
+      await cubit.updateCategory(widget.salonId, categoryId, req);
+    } else {
+      await cubit.addCategory(widget.salonId, req);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  } catch (_) {
+    if (!mounted) return;
+    setState(() => errorText = 'Failed to save. Please try again.');
+  } finally {
+    if (mounted) setState(() => isSaving = false);
+  }
+}
+
+  @override
+  Widget build(BuildContext context) {
+    return _BottomSheetScaffold(
+      title: isEdit ? 'Edit Category' : 'Add Category',
+      initial: 0.30, // was 0.55
+  min: 0.10,     // was 0.35
+  max: 0.30,     // was 0.90
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: nameController,
+            textCapitalization: TextCapitalization.words,
+            inputFormatters: const [FirstLetterUpperFormatter()],
+            decoration: const InputDecoration(
+              labelText: 'Category Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Optional description input – keep if you need it in UI
+          // TextField(
+          //   controller: descriptionController,
+          //   maxLines: 2,
+          //   textCapitalization: TextCapitalization.sentences,
+          //   decoration: const InputDecoration(
+          //     labelText: 'Description (optional)',
+          //     border: OutlineInputBorder(),
+          //   ),
+          // ),
+          if (errorText != null) ...[
+            const SizedBox(height: 2),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                errorText!,
+                style: const TextStyle(color: Colors.red,),
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_rounded),
+              onPressed: isSaving ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              label: Text(isEdit ? 'Update Category' : 'Add Category'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* Subcategory: inline error + loader + API here */
+class _EditSubcategorySheet extends StatefulWidget {
+  const _EditSubcategorySheet({this.subCategory, required this.salonId, required this.categoryId});
+  final Map<String, dynamic>? subCategory;
+  final int salonId;
+  final int categoryId;
+
+  @override
+  State<_EditSubcategorySheet> createState() => _EditSubcategorySheetState();
+}
+
+class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
+  late final TextEditingController controller;
+  bool isSaving = false;
+  String? errorText;
+
+  bool get isEdit => widget.subCategory != null;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = TextEditingController(
+      text: widget.subCategory?['name'] as String? ?? '',
+    );
+    // _validate(controller.text);
+    // controller.addListener(() => _validate(controller.text));
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void _validate(String v) {
+    final t = v.trim();
+    String? err;
+    if (t.isEmpty) {
+      err = 'Name is required';
+    } else {
+      final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
+      if (first != null && first != first.toUpperCase()) {
+        err = 'Name must start with a capital letter';
+      }
+    }
+    if (err != errorText) setState(() => errorText = err);
+  }
+
+Future<void> _submit() async {
+  final t = controller.text.trim();
+
+  // validate only when pressing the button
+  if (t.isEmpty) {
+    setState(() => errorText = 'Name is required');
+    return;
+  }
+  final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
+  if (first != null && first != first.toUpperCase()) {
+    setState(() => errorText = 'Name must start with a capital letter');
+    return;
+  }
+  setState(() => errorText = null);
+
+  setState(() => isSaving = true);
+  try {
+    final cubit = context.read<CategoryCubit>();
+
+    if (isEdit) {
+      final subCategoryId = widget.subCategory!['id'] as int;
+      await cubit.updateSubCategory(widget.salonId, subCategoryId, t);
+    } else {
+      await cubit.addSubCategory(widget.salonId, widget.categoryId, t);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  } catch (_) {
+    if (!mounted) return;
+    setState(() => errorText = 'Failed to save. Please try again.');
+  } finally {
+    if (mounted) setState(() => isSaving = false);
+  }
+}
+
+  @override
+  Widget build(BuildContext context) {
+    return _BottomSheetScaffold(
+      title: isEdit ? 'Edit Subcategory' : 'Add Subcategory',
+          initial: 0.30, // was 0.55
+  min: 0.10,     // was 0.35
+  max: 0.30,     // was 0.90   
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: controller,
+            textCapitalization: TextCapitalization.words,
+            inputFormatters: const [FirstLetterUpperFormatter()],
+            decoration: const InputDecoration(
+              labelText: 'Subcategory Name',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          if (errorText != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                errorText!,
+                style: const TextStyle(color: Colors.red,),
+              ),
+            ),
+          ],
+          const SizedBox(height:6),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_rounded),
+              onPressed: isSaving ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              label: Text(isEdit ? 'Update Subcategory' : 'Add Subcategory'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* Service editor: inline error (no toast). Parent still performs API. */
+// class _EditServiceSheet extends StatefulWidget {
+//   const _EditServiceSheet({required this.service});
+//   final Map<String, dynamic> service;
+
+//   @override
+//   State<_EditServiceSheet> createState() => _EditServiceSheetState();
+// }
+
+// class _EditServiceSheetState extends State<_EditServiceSheet> {
+//   late final TextEditingController nameController;
+//   late final TextEditingController descriptionController;
+//   late final TextEditingController durationController;
+//   late final TextEditingController priceController;
+//   late final ValueNotifier<bool> isActive;
+
+//   String? errorText;
+//   bool isSaving = false; // visual spinner while we pop with payload
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     final s = widget.service;
+//     nameController = TextEditingController(
+//       text: s['displayName'] ?? s['name'] ?? '',
+//     );
+//     descriptionController = TextEditingController(text: s['description'] ?? '');
+//     durationController = TextEditingController(
+//       text: (s['durationMin'] ?? s['defaultDurationMin'])?.toString() ?? '',
+//     );
+//     priceController = TextEditingController(
+//       text: (s['priceMinor'] ?? s['defaultPriceMinor'])?.toString() ?? '',
+//     );
+//     isActive = ValueNotifier<bool>(s['isActive'] ?? true);
+//   }
+
+//   @override
+//   void dispose() {
+//     nameController.dispose();
+//     descriptionController.dispose();
+//     durationController.dispose();
+//     priceController.dispose();
+//     isActive.dispose();
+//     super.dispose();
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return _BottomSheetScaffold(
+//       title: 'Edit Service',
+//       child: Column(
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           _LabeledField(
+//             label: 'Service Name',
+//             controller: nameController,
+//             textCapitalization: TextCapitalization.words,
+//           ),
+//           const SizedBox(height: 12),
+//           _LabeledField(
+//             label: 'Description',
+//             controller: descriptionController,
+//             maxLines: 1,
+//             textCapitalization: TextCapitalization.sentences,
+//           ),
+//           const SizedBox(height: 12),
+//           _LabeledField(
+//             label: 'Duration (minutes)',
+//             controller: durationController,
+//             keyboardType: TextInputType.number,
+//           ),
+//           const SizedBox(height: 12),
+//           _LabeledField(
+//             label: 'Price (minor units)',
+//             controller: priceController,
+//             keyboardType: TextInputType.number,
+//           ),
+//           const SizedBox(height: 8),
+//           ValueListenableBuilder<bool>(
+//             valueListenable: isActive,
+//             builder: (context, value, _) {
+//               return SwitchListTile(
+//                 value: value,
+//                 onChanged: (nv) => isActive.value = nv,
+//                 title: const Text('Active'),
+//                 contentPadding: EdgeInsets.zero,
+//               );
+//             },
+//           ),
+//           if (errorText != null) ...[
+//             const SizedBox(height: 2),
+//             Align(
+//               alignment: Alignment.centerLeft,
+//               child: Text(
+//                 errorText!,
+//                 style: const TextStyle(color: Colors.red,),
+//               ),
+//             ),
+//           ],
+//           const SizedBox(height: 6),
+//           SizedBox(
+//             width: double.infinity,
+//             child: ElevatedButton.icon(
+//               icon: isSaving
+//                   ? const SizedBox(
+//                       width: 18, height: 18,
+//                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+//                     )
+//                   : const Icon(Icons.save_rounded),
+//               onPressed: isSaving
+//                   ? null
+//                   : () async {
+//                       final name = nameController.text.trim();
+//                       if (name.isEmpty) {
+//                         setState(() => errorText = 'Name is required');
+//                         return;
+//                       }
+//                       if (!RegExp(r'^[A-Z]').hasMatch(name)) {
+//                         setState(() => errorText = 'Name must start with an uppercase letter');
+//                         return;
+//                       }
+//                       setState(() => errorText = null);
+
+//                       FocusScope.of(context).unfocus();
+
+//                       setState(() => isSaving = true);
+//                       try {
+//                         final payload = {
+//                           'name': name,
+//                           'description': descriptionController.text.trim(),
+//                           'defaultDurationMin': int.tryParse(
+//                             durationController.text.trim(),
+//                           ),
+//                           'defaultPriceMinor': int.tryParse(
+//                             priceController.text.trim(),
+//                           ),
+//                           'isActive': isActive.value,
+//                         }..removeWhere((k, v) => v == null);
+
+//                         Navigator.of(context).pop(<String, dynamic>{
+//                           'serviceId': widget.service['id'] as int,
+//                           'payload': payload,
+//                         });
+//                       } finally {
+//                         if (mounted) setState(() => isSaving = false);
+//                       }
+//                     },
+//               style: ElevatedButton.styleFrom(
+//                 backgroundColor: Colors.black,
+//                 foregroundColor: Colors.white,
+//                 padding: const EdgeInsets.symmetric(vertical: 14),
+//                 shape: RoundedRectangleBorder(
+//                   borderRadius: BorderRadius.circular(12),
+//                 ),
+//               ),
+//               label: const Text('Update Service'),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+/* Service editor: field-level errors for name/price/duration */
 class _EditServiceSheet extends StatefulWidget {
   const _EditServiceSheet({required this.service});
   final Map<String, dynamic> service;
@@ -1202,14 +2002,21 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
   late final TextEditingController priceController;
   late final ValueNotifier<bool> isActive;
 
+  // Field-specific errors (shown under each field)
+  String? nameError;
+  String? priceError;
+  String? durationError;
+
+  bool isSaving = false; // spinner in the button while popping payload
+
   @override
   void initState() {
     super.initState();
     final s = widget.service;
-    nameController =
-        TextEditingController(text: s['displayName'] ?? s['name'] ?? '');
-    descriptionController =
-        TextEditingController(text: s['description'] ?? '');
+    nameController = TextEditingController(
+      text: s['displayName'] ?? s['name'] ?? '',
+    );
+    descriptionController = TextEditingController(text: s['description'] ?? '');
     durationController = TextEditingController(
       text: (s['durationMin'] ?? s['defaultDurationMin'])?.toString() ?? '',
     );
@@ -1229,40 +2036,100 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
     super.dispose();
   }
 
+  bool _validate() {
+    String? nErr, pErr, dErr;
+
+    final name = nameController.text.trim();
+    final priceTxt = priceController.text.trim();
+    final durationTxt = durationController.text.trim();
+
+    if (name.isEmpty) {
+      nErr = 'Name is required';
+    }
+
+    if (priceTxt.isEmpty) {
+      pErr = 'Price is required';
+    } else if (int.tryParse(priceTxt) == null) {
+      pErr = 'Enter a valid number';
+    }
+
+    if (durationTxt.isEmpty) {
+      dErr = 'Duration is required';
+    } else if (int.tryParse(durationTxt) == null) {
+      dErr = 'Enter a valid number';
+    }
+
+    setState(() {
+      nameError = nErr;
+      priceError = pErr;
+      durationError = dErr;
+    });
+
+    return nErr == null && pErr == null && dErr == null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    void toast(String m) =>
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
-
     return _BottomSheetScaffold(
       title: 'Edit Service',
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Name
           _LabeledField(
             label: 'Service Name',
             controller: nameController,
             textCapitalization: TextCapitalization.words,
           ),
+          if (nameError != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(nameError!, style: const TextStyle(color: Colors.red)),
+            ),
+          ],
           const SizedBox(height: 12),
+
+          // Description (optional)
           _LabeledField(
             label: 'Description',
             controller: descriptionController,
             maxLines: 1,
+            textCapitalization: TextCapitalization.sentences,
           ),
           const SizedBox(height: 12),
+
+          // Duration
           _LabeledField(
             label: 'Duration (minutes)',
             controller: durationController,
             keyboardType: TextInputType.number,
           ),
+          if (durationError != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(durationError!, style: const TextStyle(color: Colors.red)),
+            ),
+          ],
           const SizedBox(height: 12),
+
+          // Price
           _LabeledField(
-            label: 'Price (minor units)',
+            label: 'Price (in ₹)',
             controller: priceController,
             keyboardType: TextInputType.number,
           ),
+          if (priceError != null) ...[
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(priceError!, style: const TextStyle(color: Colors.red)),
+            ),
+          ],
           const SizedBox(height: 8),
+
+          // Active switch
           ValueListenableBuilder<bool>(
             valueListenable: isActive,
             builder: (context, value, _) {
@@ -1274,217 +2141,55 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
               );
             },
           ),
-          const SizedBox(height: 12),
+
+          const SizedBox(height: 6),
+
+          // Submit button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              icon: const Icon(Icons.save_rounded),
-              onPressed: () {
-                final name = nameController.text.trim();
-                if (name.isEmpty) {
-                  toast('Name is required.');
-                  return;
-                }
-                if (!RegExp(r'^[A-Z]').hasMatch(name)) {
-                  toast('Name must start with an uppercase letter');
-                  return;
-                }
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.save_rounded),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      // validate only on click
+                      if (!_validate()) return;
 
-                FocusScope.of(context).unfocus();
+                      FocusScope.of(context).unfocus();
+                      setState(() => isSaving = true);
+                      try {
+                        final payload = {
+                          'name': nameController.text.trim(),
+                          'description': descriptionController.text.trim(),
+                          'defaultDurationMin':
+                              int.tryParse(durationController.text.trim()),
+                          'defaultPriceMinor':
+                              int.tryParse(priceController.text.trim()),
+                          'isActive': isActive.value,
+                        }..removeWhere((k, v) => v == null);
 
-                final payload = {
-                  'name': name,
-                  'description': descriptionController.text.trim(),
-                  'defaultDurationMin':
-                      int.tryParse(durationController.text.trim()),
-                  'defaultPriceMinor':
-                      int.tryParse(priceController.text.trim()),
-                  'isActive': isActive.value,
-                }..removeWhere((k, v) => v == null);
-
-                Navigator.of(context).pop(<String, dynamic>{
-                  'serviceId': widget.service['id'] as int,
-                  'payload': payload,
-                });
-              },
+                        Navigator.of(context).pop(<String, dynamic>{
+                          'serviceId': widget.service['id'] as int,
+                          'payload': payload,
+                        });
+                      } finally {
+                        if (mounted) setState(() => isSaving = false);
+                      }
+                    },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
+                backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               label: const Text('Update Service'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EditCategorySheet extends StatefulWidget {
-  const _EditCategorySheet({this.category});
-  final Map<String, dynamic>? category;
-
-  @override
-  State<_EditCategorySheet> createState() => _EditCategorySheetState();
-}
-
-class _EditCategorySheetState extends State<_EditCategorySheet> {
-  late final TextEditingController nameController;
-  late final TextEditingController descriptionController;
-
-  bool get isEdit => widget.category != null;
-
-  @override
-  void initState() {
-    super.initState();
-    nameController =
-        TextEditingController(text: widget.category?['name'] as String? ?? '');
-    descriptionController = TextEditingController(
-        text: widget.category?['description'] as String? ?? '');
-  }
-
-  @override
-  void dispose() {
-    nameController.dispose();
-    descriptionController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    void toast(String m) =>
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
-
-    return _BottomSheetScaffold(
-      title: isEdit ? 'Edit Category' : 'Add Category',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LabeledField(
-            label: 'Category Name',
-            controller: nameController,
-            textCapitalization: TextCapitalization.words,
-          ),
-          const SizedBox(height: 12),
-          // _LabeledField(
-          //   label: 'Description (optional)',
-          //   controller: descriptionController,
-          //   maxLines: 2,
-          // ),
-          // const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.check_rounded),
-              onPressed: () {
-                final name = nameController.text.trim();
-                if (name.isEmpty) {
-                  toast('Name is required.');
-                  return;
-                }
-
-                FocusScope.of(context).unfocus();
-
-                final payload = AddCategoryRequest(
-                  name: name,
-                  description: descriptionController.text.trim(),
-                );
-                final categoryId = widget.category?['id'] as int?;
-                Navigator.of(context).pop(<String, dynamic>{
-                  'request': payload,
-                  'categoryId': categoryId,
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              label: Text(isEdit ? 'Update Category' : 'Add Category'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EditSubcategorySheet extends StatefulWidget {
-  const _EditSubcategorySheet({this.subCategory});
-  final Map<String, dynamic>? subCategory;
-
-  @override
-  State<_EditSubcategorySheet> createState() => _EditSubcategorySheetState();
-}
-
-class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
-  late final TextEditingController controller;
-  bool get isEdit => widget.subCategory != null;
-
-  @override
-  void initState() {
-    super.initState();
-    controller =
-        TextEditingController(text: widget.subCategory?['name'] as String? ?? '');
-  }
-
-  @override
-  void dispose() {
-    controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    void toast(String m) =>
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
-
-    return _BottomSheetScaffold(
-      title: isEdit ? 'Edit Subcategory' : 'Add Subcategory',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _LabeledField(
-            label: 'Subcategory Name',
-            controller: controller,
-            textCapitalization: TextCapitalization.words,
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.check_rounded),
-              onPressed: () {
-                final name = controller.text.trim();
-                if (name.isEmpty) {
-                  toast('Name is required.');
-                  return;
-                }
-                if (!RegExp(r'^[A-Z]').hasMatch(name)) {
-                  toast('Name must start with an uppercase letter');
-                  return;
-                }
-
-                FocusScope.of(context).unfocus();
-                final subCategoryId = widget.subCategory?['id'] as int?;
-                Navigator.of(context).pop(<String, dynamic>{
-                  'name': name,
-                  'subCategoryId': subCategoryId,
-                });
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              label: Text(isEdit ? 'Update Subcategory' : 'Add Subcategory'),
             ),
           ),
         ],

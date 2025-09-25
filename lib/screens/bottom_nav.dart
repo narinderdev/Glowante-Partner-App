@@ -37,7 +37,7 @@ class _BottomNavState extends State<BottomNav> {
   _Destination(
     iconPath: 'assets/images/service.png',
     activeIconPath: 'assets/images/service1.png',
-    label: 'Categories',
+    label: 'Catalog',
   ),
   _Destination(
     iconPath: 'assets/images/user.png',
