@@ -12,6 +12,7 @@ import 'SalonDeal.dart';
 import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import '../utils/colors.dart';
+
 class SalonsScreen extends StatefulWidget {
   const SalonsScreen({super.key});
 
@@ -236,10 +237,10 @@ class _SalonsScreenState extends State<SalonsScreen> {
                           child: _SalonCard(
                             salon: salon,
                             salonId: salonId,
-                            isExpanded: isExpanded,
-                            onToggle: () => context
-                                .read<SalonListCubit>()
-                                .toggleExpanded(salonId),
+                            // isExpanded: isExpanded,
+                            // onToggle: () => context
+                            //     .read<SalonListCubit>()
+                            //     .toggleExpanded(salonId),
                             onAddBranch: () => _goToAddBranch(salonId),
                             onOpenBranch: (branchId) => _openBranchDetail(
                               salonId: salonId,
@@ -884,17 +885,14 @@ class _MetricChip extends StatelessWidget {
     late final Color contentColor;
 
     if (useAccent) {
-      // 👈 White background, starColor text + icon
       backgroundColor = Colors.white;
       borderColor = accentColor;
       contentColor = accentColor;
     } else if (filled) {
-      // 👈 Original "filled" look (tinted background)
       backgroundColor = accentColor.withOpacity(0.12);
       borderColor = accentColor.withOpacity(0.25);
       contentColor = accentColor;
     } else {
-      // 👈 Default grey look
       backgroundColor = Colors.white;
       borderColor = const Color(0xFFE0E0E0);
       contentColor = const Color(0xFF607D8B);
@@ -912,12 +910,16 @@ class _MetricChip extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: contentColor),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: contentColor,
+          // Make the text widget take up remaining space to allow overflow behavior
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: contentColor,
+              ),
+              overflow: TextOverflow.ellipsis, 
             ),
           ),
         ],
@@ -926,41 +928,348 @@ class _MetricChip extends StatelessWidget {
   }
 }
 
+// class _SalonCard extends StatelessWidget {
+//   _SalonCard({
+//     required this.salon,
+//     required this.salonId,
+//     required this.isExpanded,
+//     required this.onToggle,
+//     required this.onAddBranch,
+//     required this.onOpenBranch,
+//   });
+
+//   final Map<String, dynamic> salon;
+//   final int salonId;
+//   final bool isExpanded;
+//   final VoidCallback onToggle;
+//   final VoidCallback onAddBranch;
+//   final Future<void> Function(int branchId) onOpenBranch;
+
+//   int _parseId(dynamic value) {
+//     if (value is int) {
+//       return value;
+//     }
+//     if (value is String) {
+//       return int.tryParse(value) ?? 0;
+//     }
+//     return 0;
+//   }
+
+//   String _cleanText(dynamic value) {
+//     if (value == null) {
+//       return '';
+//     }
+//     final text = value.toString();
+//     if (text.isEmpty || text.toLowerCase() == 'null') {
+//       return '';
+//     }
+//     return text;
+//   }
+
+//   Widget _buildAvatar(String? imageUrl) {
+//     return ClipRRect(
+//       borderRadius: BorderRadius.circular(16),
+//       child: imageUrl != null && imageUrl.isNotEmpty
+//           ? Image.network(imageUrl, width: 66, height: 66, fit: BoxFit.cover)
+//           : Image.asset(
+//               'assets/images/salonImage.png',
+//               width: 66,
+//               height: 66,
+//               fit: BoxFit.cover,
+//             ),
+//     );
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final theme = Theme.of(context);
+//     final accentColor = AppColors.starColor;
+//     final branches =
+//         (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+//     final branchCount = branches.length;
+//     final effectiveSalonId = salonId != 0 ? salonId : _parseId(salon['id']);
+//     final rawName = _cleanText(salon['name']);
+//     final salonName = rawName.isEmpty ? 'Unnamed Salon' : rawName;
+//     final rawTagline = _cleanText(salon['tagline']);
+//     final rawDescription = _cleanText(salon['description']);
+//     final tagline = rawTagline.isNotEmpty ? rawTagline : rawDescription;
+//     final rawImage = _cleanText(salon['imageUrl']);
+//     final String? imageUrl = rawImage.isEmpty ? null : rawImage;
+//
+//     if (imageUrl == null) {
+//       for (final branch in branches) {
+//         final branchImage = _cleanText(branch['imageUrl']);
+//         if (branchImage.isNotEmpty) {
+//           imageUrl = branchImage;
+//           break;
+//         }
+//       }
+//     }
+//
+
+//     final borderColor = accentColor.withOpacity(0.18);
+// String _norm(String s) => s.trim().toLowerCase();
+
+// final bool hasMainBranch = branches.any(
+//   (b) => _norm((b['name'] ?? '').toString()) == _norm(salonName),
+// );
+
+// // branches to show in the expanded list (exclude the “main”)
+// final List<Map<String, dynamic>> visibleBranches = branches.where((b) {
+//   final bName = _norm((b['name'] ?? '').toString());
+//   return bName != _norm(salonName);
+// }).toList();
+
+// // single main branch only?
+// final bool onlyMainBranch =
+//     branches.length == 1 &&
+//     _norm((branches.first['name'] ?? '').toString()) == _norm(salonName);
+
+// // number chip should show extra locations only (not the main)
+// final int additionalBranches =
+//     hasMainBranch ? (branches.length - 1) : branches.length;
+
+// return AnimatedContainer(
+//       duration: const Duration(milliseconds: 260),
+//       curve: Curves.easeOut,
+//       margin: const EdgeInsets.only(bottom: 16),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(26),
+//         border: isExpanded ? Border.all(color: borderColor, width: 1.1) : null,
+//         boxShadow: const [
+//           BoxShadow(
+//             color: Color(0x12000000),
+//             blurRadius: 20,
+//             offset: Offset(0, 12),
+//           ),
+//         ],
+//       ),
+//       child: Column(
+//         children: [
+//           InkWell(
+//             // onTap: onToggle,
+//             borderRadius: BorderRadius.circular(26),
+//             splashColor: accentColor.withOpacity(0.08),
+//             child: Padding(
+//               padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+//               child: Row(
+//                 crossAxisAlignment: CrossAxisAlignment.start,
+//                 children: [
+//                   _buildAvatar(imageUrl),
+//                   const SizedBox(width: 16),
+//                   Expanded(
+//                     child: Column(
+//                       crossAxisAlignment: CrossAxisAlignment.start,
+//                       children: [
+//                         Text(
+//                           salonName,
+//                           style:
+//                               theme.textTheme.titleMedium?.copyWith(
+//                                 fontWeight: FontWeight.w700,
+//                                 color: const Color(0xFF263238),
+//                               ) ??
+//                               const TextStyle(
+//                                 fontSize: 18,
+//                                 fontWeight: FontWeight.w700,
+//                                 color: Color(0xFF263238),
+//                               ),
+//                         ),
+//                         const SizedBox(height: 8),
+//             Wrap(
+//   spacing: 8,
+//   runSpacing: 6,
+//   children: [
+//     if (additionalBranches > 0)
+//       _MetricChip(
+//         icon: Icons.storefront_rounded,
+//         label: "$additionalBranches ${additionalBranches == 1 ? 'branch' : 'branches'}",
+//         accentColor: AppColors.starColor,
+//         useAccent: true,
+//       ),
+
+//     if (effectiveSalonId != 0)
+//       _MetricChip(
+//         icon: Icons.confirmation_number_outlined,
+//         label: 'Salon ID #$effectiveSalonId',
+//         accentColor: AppColors.starColor,
+//       ),
+//   ],
+// ),
+
+//                         if (tagline.isNotEmpty) ...[
+//                           const SizedBox(height: 10),
+//                           Text(
+//                             tagline,
+//                             maxLines: 2,
+//                             overflow: TextOverflow.ellipsis,
+//                             style:
+//                                 theme.textTheme.bodySmall?.copyWith(
+//                                   color: const Color(0xFF607D8B),
+//                                 ) ??
+//                                 const TextStyle(
+//                                   fontSize: 12,
+//                                   color: Color(0xFF607D8B),
+//                                 ),
+//                           ),
+//                         ],
+//                       ],
+//                     ),
+//                   ),
+//                   const SizedBox(width: 12),
+//                   AnimatedRotation(
+//                     turns: isExpanded ? 0.5 : 0,
+//                     duration: const Duration(milliseconds: 200),
+//                     child: Icon(
+//                       Icons.expand_more_rounded,
+//                       color: accentColor,
+//                       size: 28,
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+  
+//   AnimatedSize(
+//   duration: const Duration(milliseconds: 260),
+//   curve: Curves.easeOut,
+//   alignment: Alignment.topCenter,
+//   child: !isExpanded
+//       ? const SizedBox.shrink()
+//       : Column(
+//          children: [
+//   // 0 branches OR single (main) → only CTA
+//   if (branches.isEmpty || onlyMainBranch) ...[
+// Align(
+//   alignment: Alignment.centerRight,
+//   child: Container(
+//     margin: const EdgeInsets.only(right: 16, bottom: 16),
+//     child: OutlinedButton(
+//       onPressed: onAddBranch,
+//       style: OutlinedButton.styleFrom(
+//         backgroundColor: AppColors.white,
+//         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+//         shape: RoundedRectangleBorder(
+//           borderRadius: BorderRadius.circular(24), // ✅ rounded corners
+//         ),
+//         side: const BorderSide(
+//           color: AppColors.grey, // ✅ consistent border color
+//           width: 0.5,
+//           style: BorderStyle.solid,
+//         ),
+//       ),
+//       child: Row(
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           Image.asset(
+//             "assets/images/plusIcn.png", // ✅ custom plus icon
+//             width: 18,
+//             height: 18,
+//           ),
+//           const SizedBox(width: 6),
+//           const Text(
+//             'Add Branch',
+//             style: TextStyle(
+//               fontWeight: FontWeight.bold,
+//               color: AppColors.grey, // ✅ match "Add Booking" text color
+//             ),
+//           ),
+//         ],
+//       ),
+//     ),
+//   ),
+// ),
+
+//   ] else ...[
+//     // 2+ branches → show only non-main branches
+//     ...visibleBranches.map((branch) {
+//       final branchId = _parseId(branch['id']);
+//       if (branchId == 0) return const SizedBox.shrink();
+//       return _BranchTile(
+//         branch: branch,
+//         accentColor: AppColors.starColor,
+//         onOpen: () async => onOpenBranch(branchId),
+//         hideViewButton: false,
+//         hideTitle: false,
+//       );
+//     }).toList(),
+
+//     const SizedBox(height: 18),
+//   Align(
+//   alignment: Alignment.centerRight,
+//   child: Container(
+//     margin: const EdgeInsets.only(right: 16, bottom: 16), // ✅ space
+//     child: OutlinedButton(
+//       onPressed: onAddBranch,
+//       style: OutlinedButton.styleFrom(
+//         backgroundColor: AppColors.white,
+//         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+//         shape: RoundedRectangleBorder(
+//           borderRadius: BorderRadius.circular(24), // ✅ rounded corners
+//         ),
+//         side: const BorderSide(
+//           color: AppColors.grey, // ✅ consistent border color
+//           width: 0.5,
+//           style: BorderStyle.solid,
+//         ),
+//       ),
+//       child: Row(
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           Image.asset(
+//             "assets/images/plusIcn.png", // ✅ custom plus icon
+//             width: 18,
+//             height: 18,
+//           ),
+//           const SizedBox(width: 6),
+//           const Text(
+//             'Add Branch',
+//             style: TextStyle(
+//               fontWeight: FontWeight.bold,
+//               color: AppColors.grey, // ✅ same as Add Booking
+//             ),
+//           ),
+//         ],
+//       ),
+//     ),
+//   ),
+// ),
+
+//   ],
+// ],
+
+//         ),
+// ),
+
+//         ],
+//       ),
+//     );
+//   }
+// }
 class _SalonCard extends StatelessWidget {
   _SalonCard({
     required this.salon,
     required this.salonId,
-    required this.isExpanded,
-    required this.onToggle,
     required this.onAddBranch,
     required this.onOpenBranch,
   });
 
   final Map<String, dynamic> salon;
   final int salonId;
-  final bool isExpanded;
-  final VoidCallback onToggle;
   final VoidCallback onAddBranch;
   final Future<void> Function(int branchId) onOpenBranch;
 
   int _parseId(dynamic value) {
-    if (value is int) {
-      return value;
-    }
-    if (value is String) {
-      return int.tryParse(value) ?? 0;
-    }
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value) ?? 0;
     return 0;
   }
 
   String _cleanText(dynamic value) {
-    if (value == null) {
-      return '';
-    }
+    if (value == null) return '';
     final text = value.toString();
-    if (text.isEmpty || text.toLowerCase() == 'null') {
-      return '';
-    }
+    if (text.isEmpty || text.toLowerCase() == 'null') return '';
     return text;
   }
 
@@ -984,7 +1293,7 @@ class _SalonCard extends StatelessWidget {
     final accentColor = AppColors.starColor;
     final branches =
         (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-    final branchCount = branches.length;
+
     final effectiveSalonId = salonId != 0 ? salonId : _parseId(salon['id']);
     final rawName = _cleanText(salon['name']);
     final salonName = rawName.isEmpty ? 'Unnamed Salon' : rawName;
@@ -992,37 +1301,30 @@ class _SalonCard extends StatelessWidget {
     final rawDescription = _cleanText(salon['description']);
     final tagline = rawTagline.isNotEmpty ? rawTagline : rawDescription;
     final rawImage = _cleanText(salon['imageUrl']);
-    final String? imageUrl = rawImage.isEmpty ? null : rawImage;
+    String? imageUrl = rawImage.isEmpty ? null : rawImage;
+
+    if (imageUrl == null) {
+      for (final branch in branches) {
+        final branchImage = _cleanText(branch['imageUrl']);
+        if (branchImage.isNotEmpty) {
+          imageUrl = branchImage;
+          break;
+        }
+      }
+    }
+
+    // chips
+    final int additionalBranches =
+        branches.length > 1 ? branches.length - 1 : 0;
+
     final borderColor = accentColor.withOpacity(0.18);
-String _norm(String s) => s.trim().toLowerCase();
 
-final bool hasMainBranch = branches.any(
-  (b) => _norm((b['name'] ?? '').toString()) == _norm(salonName),
-);
-
-// branches to show in the expanded list (exclude the “main”)
-final List<Map<String, dynamic>> visibleBranches = branches.where((b) {
-  final bName = _norm((b['name'] ?? '').toString());
-  return bName != _norm(salonName);
-}).toList();
-
-// single main branch only?
-final bool onlyMainBranch =
-    branches.length == 1 &&
-    _norm((branches.first['name'] ?? '').toString()) == _norm(salonName);
-
-// number chip should show extra locations only (not the main)
-final int additionalBranches =
-    hasMainBranch ? (branches.length - 1) : branches.length;
-
-return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOut,
+    return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(26),
-        border: isExpanded ? Border.all(color: borderColor, width: 1.1) : null,
+        border: Border.all(color: borderColor, width: 1.1),
         boxShadow: const [
           BoxShadow(
             color: Color(0x12000000),
@@ -1031,313 +1333,98 @@ return AnimatedContainer(
           ),
         ],
       ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: onToggle,
-            borderRadius: BorderRadius.circular(26),
-            splashColor: accentColor.withOpacity(0.08),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-              child: Row(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildAvatar(imageUrl),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAvatar(imageUrl),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          salonName,
-                          style:
-                              theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF263238),
-                              ) ??
-                              const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF263238),
-                              ),
+                  Text(
+                    salonName,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF263238),
+                        ) ??
+                        const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF263238),
                         ),
-                        const SizedBox(height: 8),
-            Wrap(
+                  ),
+                  const SizedBox(height: 8),
+                  // Wrap(
+                  //   spacing: 8,
+                  //   runSpacing: 6,
+                  //   children: [
+                  //     if (additionalBranches > 0)
+                  //       _MetricChip(
+                  //         icon: Icons.storefront_rounded,
+                  //         label:
+                  //             "$additionalBranches ${additionalBranches == 1 ? 'branch' : 'branches'}",
+                  //         accentColor: AppColors.starColor,
+                  //         useAccent: true,
+                  //       ),
+                  //     if (effectiveSalonId != 0)
+                  //       _MetricChip(
+                  //         icon: Icons.confirmation_number_outlined,
+                  //         label: 'Salon ID #$effectiveSalonId',
+                  //         accentColor: AppColors.starColor,
+                  //       ),
+                  //   ],
+                  // ),
+Wrap(
   spacing: 8,
   runSpacing: 6,
   children: [
-    if (additionalBranches > 0)
-      _MetricChip(
-        icon: Icons.storefront_rounded,
-        label: "$additionalBranches ${additionalBranches == 1 ? 'branch' : 'branches'}",
-        accentColor: AppColors.starColor,
-        useAccent: true,
-      ),
+    if (branches.isNotEmpty)
+      Builder(
+        builder: (context) {
+          final address =
+              (branches.first['address'] as Map<String, dynamic>?) ?? {};
+          final city = (address['city'] ?? '').toString().trim();
+          final state = (address['state'] ?? '').toString().trim();
+          final label = [
+            if (city.isNotEmpty) city,
+            if (state.isNotEmpty) state,
+          ].join(', ');
 
-    if (effectiveSalonId != 0)
-      _MetricChip(
-        icon: Icons.confirmation_number_outlined,
-        label: 'Salon ID #$effectiveSalonId',
-        accentColor: AppColors.starColor,
+          return _MetricChip(
+            icon: Icons.location_on_outlined,
+            label: label.isNotEmpty ? label : 'No address',
+            accentColor: AppColors.starColor,
+          );
+        },
       ),
   ],
 ),
 
-                        if (tagline.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            tagline,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style:
-                                theme.textTheme.bodySmall?.copyWith(
-                                  color: const Color(0xFF607D8B),
-                                ) ??
-                                const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF607D8B),
-                                ),
+
+
+                  if (tagline.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      tagline,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF607D8B),
+                          ) ??
+                          const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF607D8B),
                           ),
-                        ],
-                      ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  AnimatedRotation(
-                    turns: isExpanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      color: accentColor,
-                      size: 28,
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
-          ),
-  //         AnimatedSize(
-  // duration: const Duration(milliseconds: 260),
-  // curve: Curves.easeOut,
-  // alignment: Alignment.topCenter,
-  // child: !isExpanded
-  //     ? const SizedBox.shrink()
-  //     : Column(
-  //         children: [
-  //           const Divider(height: 1, color: Color(0xFFECEFF1)),
-  //           Padding(
-  //             padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-  //             child: Column(
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 // 1) If there are NO branches at all → show NOTHING except the CTA
-  //                 if (branches.isEmpty) ...[
-  //                   Align(
-  //                     alignment: Alignment.centerRight,
-  //                     child: OutlinedButton.icon(
-  //                       onPressed: onAddBranch,
-  //                       icon: const Icon(Icons.add, size: 18),
-  //                       label: const Text('Add Branch'),
-  //                       style: OutlinedButton.styleFrom(
-  //                         foregroundColor: AppColors.starColor,
-  //                         side: BorderSide(
-  //                           color: AppColors.starColor.withOpacity(0.6),
-  //                         ),
-  //                         padding: const EdgeInsets.symmetric(
-  //                           horizontal: 20,
-  //                           vertical: 12,
-  //                         ),
-  //                         shape: RoundedRectangleBorder(
-  //                           borderRadius: BorderRadius.circular(18),
-  //                         ),
-  //                       ),
-  //                     ),
-  //                   ),
-  //                 ]
-  //                 // 2) If there ARE branches
-  //                 else ...[
-  //                   if (!hasSingleMainBranch) ...[
-  //                     Text(
-  //                       hasMainBranch
-  //                           ? 'Additional Locations'
-  //                           : 'Branch Locations',
-  //                       style: theme.textTheme.titleSmall?.copyWith(
-  //                             fontWeight: FontWeight.w700,
-  //                             color: const Color(0xFF37474F),
-  //                           ) ??
-  //                           const TextStyle(
-  //                             fontSize: 14,
-  //                             fontWeight: FontWeight.w700,
-  //                             color: Color(0xFF37474F),
-  //                           ),
-  //                     ),
-  //                     const SizedBox(height: 10),
-  //                   ],
-
-  //                   // List the branches (with your main-branch tweaks)
-  //                   ...branches.map((branch) {
-  //                     final branchId = _parseId(branch['id']);
-  //                     if (branchId == 0) return const SizedBox.shrink();
-
-  //                     final branchName = (branch['name'] ?? '')
-  //                         .toString()
-  //                         .trim()
-  //                         .toLowerCase();
-  //                     final salonDisplayName = salonName.toLowerCase();
-  //                     final bool isMainBranch =
-  //                         branches.length == 1 || branchName == salonDisplayName;
-
-  //                     return _BranchTile(
-  //                       branch: branch,
-  //                       accentColor: AppColors.starColor,
-  //                       onOpen: () async => onOpenBranch(branchId),
-  //                       hideViewButton: isMainBranch,
-  //                       hideTitle: isMainBranch,
-  //                     );
-  //                   }).toList(),
-
-  //                   const SizedBox(height: 18),
-  //                   Align(
-  //                     alignment: Alignment.centerRight,
-  //                     child: OutlinedButton.icon(
-  //                       onPressed: onAddBranch,
-  //                       icon: const Icon(Icons.add, size: 18),
-  //                       label: const Text('Add Branch'),
-  //                       style: OutlinedButton.styleFrom(
-  //                         foregroundColor: AppColors.starColor,
-  //                         side: BorderSide(
-  //                           color: AppColors.starColor.withOpacity(0.6),
-  //                         ),
-  //                         padding: const EdgeInsets.symmetric(
-  //                           horizontal: 20,
-  //                           vertical: 12,
-  //                         ),
-  //                         shape: RoundedRectangleBorder(
-  //                           borderRadius: BorderRadius.circular(18),
-  //                         ),
-  //                       ),
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ],
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //         ),
-  
-  AnimatedSize(
-  duration: const Duration(milliseconds: 260),
-  curve: Curves.easeOut,
-  alignment: Alignment.topCenter,
-  child: !isExpanded
-      ? const SizedBox.shrink()
-      : Column(
-         children: [
-  // 0 branches OR single (main) → only CTA
-  if (branches.isEmpty || onlyMainBranch) ...[
-Align(
-  alignment: Alignment.centerRight,
-  child: Container(
-    margin: const EdgeInsets.only(right: 16, bottom: 16),
-    child: OutlinedButton(
-      onPressed: onAddBranch,
-      style: OutlinedButton.styleFrom(
-        backgroundColor: AppColors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24), // ✅ rounded corners
+          ],
         ),
-        side: const BorderSide(
-          color: AppColors.grey, // ✅ consistent border color
-          width: 0.5,
-          style: BorderStyle.solid,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(
-            "assets/images/plusIcn.png", // ✅ custom plus icon
-            width: 18,
-            height: 18,
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            'Add Branch',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColors.grey, // ✅ match "Add Booking" text color
-            ),
-          ),
-        ],
-      ),
-    ),
-  ),
-),
-
-  ] else ...[
-    // 2+ branches → show only non-main branches
-    ...visibleBranches.map((branch) {
-      final branchId = _parseId(branch['id']);
-      if (branchId == 0) return const SizedBox.shrink();
-      return _BranchTile(
-        branch: branch,
-        accentColor: AppColors.starColor,
-        onOpen: () async => onOpenBranch(branchId),
-        hideViewButton: false,
-        hideTitle: false,
-      );
-    }).toList(),
-
-    const SizedBox(height: 18),
-  Align(
-  alignment: Alignment.centerRight,
-  child: Container(
-    margin: const EdgeInsets.only(right: 16, bottom: 16), // ✅ space
-    child: OutlinedButton(
-      onPressed: onAddBranch,
-      style: OutlinedButton.styleFrom(
-        backgroundColor: AppColors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24), // ✅ rounded corners
-        ),
-        side: const BorderSide(
-          color: AppColors.grey, // ✅ consistent border color
-          width: 0.5,
-          style: BorderStyle.solid,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Image.asset(
-            "assets/images/plusIcn.png", // ✅ custom plus icon
-            width: 18,
-            height: 18,
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            'Add Branch',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColors.grey, // ✅ same as Add Booking
-            ),
-          ),
-        ],
-      ),
-    ),
-  ),
-),
-
-  ],
-],
-
-        ),
-),
-
-        ],
       ),
     );
   }

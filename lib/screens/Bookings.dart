@@ -18,6 +18,24 @@ class BookingsScreen extends StatefulWidget {
 const String _kSalonsCacheKey = 'salons_cache_v1';
 String _branchCacheKey(int id) => 'branch_cache_v1_$id';
 
+class _BranchOption {
+  const _BranchOption({
+    required this.salonId,
+    required this.salonName,
+    required this.branchId,
+    required this.branchName,
+    required this.addressSummary,
+    required this.branch,
+  });
+
+  final int salonId;
+  final String salonName;
+  final int branchId;
+  final String branchName;
+  final String addressSummary;
+  final Map<String, dynamic> branch;
+}
+
 class _BookingsScreenState extends State<BookingsScreen> {
   List<Map<String, dynamic>> salons = [];
   bool isLoading = true;
@@ -28,8 +46,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   Map<String, dynamic>? selectedBranch; // Store branch details
   List<Map<String, dynamic>> bookings = [];
   DateTime selectedDate = DateTime.now(); // Initial date is today
-  List<Map<String, dynamic>> teamMembers =
-      []; 
+  List<Map<String, dynamic>> teamMembers = [];
   List<String> timeSlots = []; // Declare the timeSlots list
   // Branch working hours for rendering grid/blocks
   String? _branchStartTimeStr; // e.g. "08:00:00"
@@ -59,6 +76,105 @@ class _BookingsScreenState extends State<BookingsScreen> {
   // ---- Helper: normalize status everywhere ----
   String _normalizeStatus(dynamic value) =>
       (value ?? '').toString().trim().toUpperCase();
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  List<Map<String, dynamic>> _normalizeSalonsList(Iterable<dynamic> raw) {
+    final result = <Map<String, dynamic>>[];
+    for (final entry in raw) {
+      if (entry is Map) {
+        final map = Map<String, dynamic>.from(entry);
+        final rawBranches = (map['branches'] as List?) ?? const [];
+        final branches = <Map<String, dynamic>>[];
+        for (final branch in rawBranches) {
+          if (branch is Map) {
+            branches.add(Map<String, dynamic>.from(branch));
+          }
+        }
+        map['branches'] = branches;
+        result.add(map);
+      }
+    }
+    return result;
+  }
+
+  String _branchAddressSummary(Map<String, dynamic> branch) {
+    final address = branch['address'];
+    if (address is Map) {
+      final map = Map<String, dynamic>.from(address);
+      final parts = <String>[];
+      for (final key in ['line1', 'city', 'state']) {
+        final value = map[key]?.toString().trim();
+        if (value != null && value.isNotEmpty) {
+          parts.add(value);
+        }
+      }
+      return parts.join(', ');
+    }
+    return '';
+  }
+
+  List<_BranchOption> _computeBranchOptions() {
+    final options = <_BranchOption>[];
+    for (final salon in salons) {
+      final salonId = _asInt(salon['id']);
+      if (salonId == null) continue;
+      final salonName = (salon['name'] ?? '').toString();
+      final branches = salon['branches'];
+      if (branches is! List) continue;
+      for (final branchEntry in branches) {
+        if (branchEntry is! Map) continue;
+        final branch = Map<String, dynamic>.from(branchEntry);
+        final branchId = _asInt(branch['id']);
+        if (branchId == null) continue;
+        final branchName = (branch['name'] ?? '').toString();
+        options.add(
+          _BranchOption(
+            salonId: salonId,
+            salonName: salonName,
+            branchId: branchId,
+            branchName: branchName.isEmpty ? 'Branch #$branchId' : branchName,
+            addressSummary: _branchAddressSummary(branch),
+            branch: branch,
+          ),
+        );
+      }
+    }
+    return options;
+  }
+
+  void _ensureBranchSelection() {
+    if (!mounted) return;
+    final options = _computeBranchOptions();
+    if (options.isEmpty) {
+      if (selectedBranchId != null) {
+        setState(() {
+          selectedBranchId = null;
+          selectedSalonId = null;
+          selectedBranch = null;
+          salonName = null;
+          salonAddress = null;
+        });
+      }
+      return;
+    }
+
+    if (selectedBranchId != null &&
+        options.any((option) => option.branchId == selectedBranchId)) {
+      return;
+    }
+
+    final firstOption = options.first;
+    onBranchChanged(
+      firstOption.branchId,
+      firstOption.salonId,
+      firstOption.branch,
+    );
+  }
 
   @override
   void initState() {
@@ -170,12 +286,16 @@ class _BookingsScreenState extends State<BookingsScreen> {
     try {
       final data = jsonDecode(raw);
       if (data is List) {
+        final normalized = _normalizeSalonsList(data);
+        if (!mounted) {
+          salons = normalized;
+          return normalized.isNotEmpty;
+        }
         setState(() {
-          salons = List<Map<String, dynamic>>.from(
-            data.map((e) => Map<String, dynamic>.from(e)),
-          );
+          salons = normalized;
         });
-        return true;
+        _ensureBranchSelection();
+        return normalized.isNotEmpty;
       }
     } catch (_) {}
     return false;
@@ -278,26 +398,29 @@ class _BookingsScreenState extends State<BookingsScreen> {
     try {
       final response = await ApiService().getSalonListApi();
       if (response['success'] == true) {
-        List salonsList = response['data'];
+        final data = (response['data'] as List?)?.toList() ?? <dynamic>[];
+        final normalized = _normalizeSalonsList(data);
+        if (!mounted) {
+          salons = normalized;
+          return;
+        }
         setState(() {
-          salons = salonsList.map<Map<String, dynamic>>((salon) {
-            return {
-              'id': salon['id'],
-              'name': salon['name'],
-              'branches': salon['branches'],
-            };
-          }).toList();
+          salons = normalized;
           isLoading = false;
         });
-        await _saveSalonsToCache(); // NEW: cache salons
+        _ensureBranchSelection();
+        await _saveSalonsToCache();
       } else {
         throw Exception("Failed to fetch salon list");
       }
     } catch (e) {
       print("Error fetching salon list: $e");
-      setState(() {
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        _ensureBranchSelection();
+      }
     }
   }
 
@@ -2242,160 +2365,185 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final branchOptions = _computeBranchOptions();
+    final selectedBranchValue =
+        branchOptions.any((option) => option.branchId == selectedBranchId)
+        ? selectedBranchId
+        : null;
+    final branchHint = branchOptions.isEmpty
+        ? 'Add a salon branch to get started'
+        : 'Pick a branch to view bookings';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-  backgroundColor: AppColors.white,
-  elevation: 0,
-  centerTitle: false,
-  title: const Text(
-    'Bookings',
-    style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
-  ),
-  actions: [
-    // 1) Add Booking FIRST
-    Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: OutlinedButton(
-        onPressed: () async {
-          if (selectedBranchId == null || selectedSalonId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please select a branch')),
-            );
-            return;
-          }
+        backgroundColor: AppColors.white,
+        elevation: 0,
+        centerTitle: false,
+        title: const Text(
+          'Bookings',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+        ),
+        actions: [
+          // 1) Add Booking FIRST
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: OutlinedButton(
+              onPressed: () async {
+                if (selectedBranchId == null || selectedSalonId == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please select a branch')),
+                  );
+                  return;
+                }
 
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AddBookingScreen(
-                salonId: selectedSalonId,
-                branchId: selectedBranchId,
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AddBookingScreen(
+                      salonId: selectedSalonId,
+                      branchId: selectedBranchId,
+                    ),
+                  ),
+                );
+
+                if (result != null && selectedBranchId != null) {
+                  getBookingsByDate(selectedBranchId!, selectedDate);
+                }
+              },
+              style: OutlinedButton.styleFrom(
+                backgroundColor: AppColors.white,
+                side: const BorderSide(color: Colors.grey, width: 1.5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    "assets/images/plusIcn.png",
+                    width: 18,
+                    height: 18,
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Add Booking',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.grey,
+                    ),
+                  ),
+                ],
               ),
             ),
-          );
+          ),
 
-          if (result != null && selectedBranchId != null) {
-            getBookingsByDate(selectedBranchId!, selectedDate);
-          }
-        },
-        style: OutlinedButton.styleFrom(
-          backgroundColor: AppColors.white,
-          side: const BorderSide(color: Colors.grey, width: 1.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset("assets/images/plusIcn.png", width: 18, height: 18),
-            const SizedBox(width: 6),
-            const Text(
-              'Add Booking',
-              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.grey),
+          // 2) Refresh SECOND (to the right)
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: IconButton(
+              tooltip: 'Refresh',
+              icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
+              onPressed: _isFetchingData ? null : _refreshAllData,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-    ),
-
-    // 2) Refresh SECOND (to the right)
-    Padding(
-      padding: const EdgeInsets.only(right: 16.0),
-      child: IconButton(
-        tooltip: 'Refresh',
-        icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
-        onPressed: _isFetchingData ? null : _refreshAllData,
-      ),
-    ),
-  ],
-),
 
       body: Stack(
         children: [
           Column(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: DropdownButtonFormField<int>(
-                  decoration: const InputDecoration(
-                    border: InputBorder.none, // removes the ugly underline
+                  value: selectedBranchValue,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    labelText: 'Salon branch',
+                    hintText: branchHint,
+                    prefixIcon: const Icon(
+                      Icons.storefront_rounded,
+                      color: AppColors.starColor,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Colors.transparent),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(
+                        color: AppColors.starColor,
+                        width: 1.6,
+                      ),
+                    ),
                   ),
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Colors.black54,
-                  ),
-                  dropdownColor: Colors.white,
                   style: const TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                    color: Colors.black87,
                   ),
-                  hint: const Text(
-                    "Select Salon Branch",
-                    style: TextStyle(
+                  icon: const Icon(
+                    Icons.expand_more_rounded,
+                    color: AppColors.starColor,
+                  ),
+                  dropdownColor: Colors.white,
+                  menuMaxHeight: 360,
+                  hint: Text(
+                    branchHint,
+                    style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       color: Colors.grey,
                     ),
                   ),
-                  value: selectedBranchId,
-                  onChanged: (newValue) {
-                    if (newValue != null) {
-                      final Map<String, dynamic> salon =
-                          Map<String, dynamic>.from(
-                            salons.firstWhere(
-                              (s) => (s['branches'] as List).any(
-                                (b) => b['id'] == newValue,
-                              ),
-                            ),
-                          );
-                      final Map<String, dynamic> branch =
-                          Map<String, dynamic>.from(
-                            (salon['branches'] as List).firstWhere(
-                                  (b) => b['id'] == newValue,
-                                )
-                                as Map,
-                          );
-                      onBranchChanged(
-                        branch['id'] as int,
-                        salon['id'] as int,
-                        branch,
-                      );
-                    }
-                  },
-                  items: salons.expand((salon) {
-                    final branches = salon['branches'] as List;
-                    return branches.map<DropdownMenuItem<int>>((branch) {
-                      return DropdownMenuItem(
-                        value: branch['id'],
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.store,
-                              color: Colors.blueGrey,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(branch['name']),
-                          ],
+                  items: branchOptions
+                      .map(
+                        (option) => DropdownMenuItem<int>(
+                          value: option.branchId,
+                          child: _BranchDropdownOption(option: option),
                         ),
-                      );
-                    }).toList();
-                  }).toList(),
+                      )
+                      .toList(),
+                  selectedItemBuilder: branchOptions.isNotEmpty
+                      ? (context) => branchOptions
+                            .map(
+                              (option) => Align(
+                                alignment: Alignment.centerLeft,
+                                child: _BranchDropdownOption(
+                                  option: option,
+                                  compact: true,
+                                ),
+                              ),
+                            )
+                            .toList()
+                      : null,
+                  onChanged: branchOptions.isEmpty
+                      ? null
+                      : (newValue) {
+                          if (newValue == null) return;
+                          final option = branchOptions.firstWhere(
+                            (element) => element.branchId == newValue,
+                          );
+                          onBranchChanged(
+                            option.branchId,
+                            option.salonId,
+                            option.branch,
+                          );
+                        },
                 ),
               ),
 
@@ -2783,6 +2931,90 @@ class _BookingsScreenState extends State<BookingsScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BranchDropdownOption extends StatelessWidget {
+  const _BranchDropdownOption({required this.option, this.compact = false});
+
+  final _BranchOption option;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitleParts = <String>[option.salonName, option.addressSummary]
+      ..removeWhere((part) => part.isEmpty);
+    final subtitle = subtitleParts.join(' - ');
+    final theme = Theme.of(context);
+
+    final titleStyle =
+        theme.textTheme.titleMedium?.copyWith(
+          fontSize: compact ? 14 : 15,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ) ??
+        TextStyle(
+          fontSize: compact ? 14 : 15,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        );
+
+    final subtitleStyle =
+        theme.textTheme.bodySmall?.copyWith(
+          fontSize: 12,
+          color: Colors.blueGrey.shade500,
+        ) ??
+        TextStyle(fontSize: 12, color: Colors.blueGrey.shade500);
+
+    final bool showSubtitle = subtitle.isNotEmpty && !compact;
+    final bool showIcon = !compact;
+
+    return Row(
+      crossAxisAlignment: compact
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        if (showIcon) ...[
+          Container(
+            height: 36,
+            width: 36,
+            decoration: BoxDecoration(
+              color: AppColors.starColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.storefront_rounded,
+              color: AppColors.starColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                option.branchName,
+                style: titleStyle,
+                maxLines: compact ? 1 : 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (showSubtitle) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: subtitleStyle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
