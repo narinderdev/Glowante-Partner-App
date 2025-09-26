@@ -107,84 +107,95 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       if (_showErrors && !_sMaxDiscount) setState(() => _sMaxDiscount = true);
     });
 
-//     // ---------- Prefill when editing ----------
-//     if (widget.isEdit && widget.existingOffer != null) {
-//       final o = widget.existingOffer!;
+// if (widget.isEdit && widget.existingOffer != null) {
+//   final o = widget.existingOffer!;
 
-//       // UPPERCASE on prefill
-//      dealTitleController.text = (o['name'] ?? '').toString();
-// termsController.text = (o['terms'] ?? '').toString();
+//   // UPPERCASE on prefill
+//   dealTitleController.text = (o['name'] ?? '').toString();
+//   termsController.text = (o['terms'] ?? '').toString();
 
-//       String? fmtIn(dynamic v) {
-//         if (v == null) return null;
-//         try {
-//           return DateFormat('dd-MM-yyyy').format(DateTime.parse(v.toString()));
-//         } catch (_) {
-//           return null;
-//         }
-//       }
-
-//       final vf = fmtIn(o['validFrom']);
-//       final vt = fmtIn(o['validTo']);
-//       if (vf != null) validFromController.text = vf;
-//       if (vt != null) validTillController.text = vt;
-
-//       final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
-//       pricingMode = pmRaw == 'DISCOUNT' ? 'Discount' : 'Fixed';
-
-//       final dtRaw = (o['discountType'] ?? '').toString().toUpperCase(); // AMOUNT | PERCENT | NONE
-//       if (pricingMode == 'Discount') {
-//         if (dtRaw == 'PERCENT') {
-//           discountType = 'Percent';
-//           final pct = (o['discountPct'] as num?)?.toDouble() ?? 0.0;
-//           if (pct > 0) amountOffController.text = pct.toStringAsFixed(0);
-//           final maxD = (o['maxDiscount'] as num?)?.toDouble();
-//           if (maxD != null && maxD > 0) {
-//             maxDiscountController.text = maxD.toStringAsFixed(2);
-//           }
-//         } else {
-//           discountType = 'Flat';
-//           final amt = (o['discount'] as num?)?.toDouble()
-//               ?? (o['amount'] as num?)?.toDouble()
-//               ?? 0.0;
-//           if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
-//         }
-//       } else {
-//         final amt = (o['discount'] as num?)?.toDouble()
-//             ?? (o['amount'] as num?)?.toDouble()
-//             ?? 0.0;
-//         if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
-//       }
-
-//       // items -> selected
-//       final items = (o['items'] as List?) ?? const [];
-//       _selectedServices = items.map<Map<String, dynamic>>((e) {
-//         final m = Map<String, dynamic>.from(e as Map);
-//         final id = (m['salonServiceId'] ?? m['id']) as int?;
-//         final qty = (m['qty'] ?? 1) as int;
-//         final name = m['name'] ?? m['displayName'] ?? 'Service';
-//         final price = m['price'] ?? m['priceMinor'] ?? 0;
-//         return {
-//           'id': id ?? 0,
-//           'name': name,
-//           'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
-//           'qty': qty,
-//         };
-//       }).toList();
-
-//       originalPriceController.text = _originalTotal().toStringAsFixed(2);
-
-//       final price = (o['price'] as num?)?.toDouble();
-//       if (price != null) discountedPriceController.text = price.toStringAsFixed(2);
-
-//       _recalcDiscounted();
-//       setState(() {});
+//   // Format valid dates
+//   String? fmtIn(dynamic v) {
+//     if (v == null) return null;
+//     try {
+//       return DateFormat('dd-MM-yyyy').format(DateTime.parse(v.toString()));
+//     } catch (_) {
+//       return null;
 //     }
 //   }
+
+//   final vf = fmtIn(o['validFrom']);
+//   final vt = fmtIn(o['validTo']);
+//   if (vf != null) validFromController.text = vf;
+//   if (vt != null) validTillController.text = vt;
+
+//   // Set Pricing Mode
+//   final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
+//   pricingMode = pmRaw == 'DISCOUNT' ? 'Discount' : 'Fixed';
+
+//   // Set Discount Type and Amount Off
+//   final dtRaw = (o['discountType'] ?? '').toString().toUpperCase(); // AMOUNT | PERCENT | NONE
+//   if (pricingMode == 'Discount') {
+//     if (dtRaw == 'PERCENT') {
+//       discountType = 'Percent';
+//       final pct = (o['discountPct'] as num?)?.toDouble() ?? 0.0;
+//       if (pct > 0) amountOffController.text = pct.toStringAsFixed(0);
+//       final maxD = (o['maxDiscount'] as num?)?.toDouble();
+//       if (maxD != null && maxD > 0) {
+//         maxDiscountController.text = maxD.toStringAsFixed(2);
+//       }
+//     } else {
+//       discountType = 'Flat';
+//       final amt = (o['discount'] as num?)?.toDouble()
+//           ?? (o['amount'] as num?)?.toDouble()
+//           ?? 0.0;
+//       if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
+//     }
+//   } else {
+//     // FIXED Pricing - set the flat amount off from discount or amount field
+//     final amt = (o['discount'] as num?)?.toDouble()
+//         ?? (o['amount'] as num?)?.toDouble()
+//         ?? 0.0;
+
+//     // If discount is null, check 'amount' and assign 0 if null
+//     if (amt != null && amt > 0) {
+//       amountOffController.text = amt.toStringAsFixed(2);  // Fill for Fixed
+//     } else if (amt == null || amt == 0.0) {
+//       // Ensure the value doesn't remain empty
+//       amountOffController.text = '0.00';  // Default to 0 if no amount/discount is provided
+//     }
+//   }
+
+//   // items -> selected
+//   final items = (o['items'] as List?) ?? const [];
+//   _selectedServices = items.map<Map<String, dynamic>>((e) {
+//     final m = Map<String, dynamic>.from(e as Map);
+//     final id = (m['salonServiceId'] ?? m['id']) as int?;
+//     final qty = (m['qty'] ?? 1) as int;
+//     final name = m['name'] ?? m['displayName'] ?? 'Service';
+//     final price = m['price'] ?? m['priceMinor'] ?? 0;
+//     return {
+//       'id': id ?? 0,
+//       'name': name,
+//       'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
+//       'qty': qty,
+//     };
+//   }).toList();
+
+//   originalPriceController.text = _originalTotal().toStringAsFixed(2);
+
+//   final price = (o['price'] as num?)?.toDouble();
+//   if (price != null) discountedPriceController.text = price.toStringAsFixed(2);
+
+//   _recalcDiscounted();
+//   setState(() {});
+// }
+//   }
+
 if (widget.isEdit && widget.existingOffer != null) {
   final o = widget.existingOffer!;
 
-  // UPPERCASE on prefill
+  // Prefill title & terms
   dealTitleController.text = (o['name'] ?? '').toString();
   termsController.text = (o['terms'] ?? '').toString();
 
@@ -203,17 +214,18 @@ if (widget.isEdit && widget.existingOffer != null) {
   if (vf != null) validFromController.text = vf;
   if (vt != null) validTillController.text = vt;
 
-  // Set Pricing Mode
+  // Pricing mode
   final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
   pricingMode = pmRaw == 'DISCOUNT' ? 'Discount' : 'Fixed';
 
-  // Set Discount Type and Amount Off
+  // Discount type
   final dtRaw = (o['discountType'] ?? '').toString().toUpperCase(); // AMOUNT | PERCENT | NONE
   if (pricingMode == 'Discount') {
     if (dtRaw == 'PERCENT') {
       discountType = 'Percent';
       final pct = (o['discountPct'] as num?)?.toDouble() ?? 0.0;
       if (pct > 0) amountOffController.text = pct.toStringAsFixed(0);
+
       final maxD = (o['maxDiscount'] as num?)?.toDouble();
       if (maxD != null && maxD > 0) {
         maxDiscountController.text = maxD.toStringAsFixed(2);
@@ -226,21 +238,15 @@ if (widget.isEdit && widget.existingOffer != null) {
       if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
     }
   } else {
-    // FIXED Pricing - set the flat amount off from discount or amount field
+    // Fixed pricing
     final amt = (o['discount'] as num?)?.toDouble()
         ?? (o['amount'] as num?)?.toDouble()
         ?? 0.0;
-
-    // If discount is null, check 'amount' and assign 0 if null
-    if (amt != null && amt > 0) {
-      amountOffController.text = amt.toStringAsFixed(2);  // Fill for Fixed
-    } else if (amt == null || amt == 0.0) {
-      // Ensure the value doesn't remain empty
-      amountOffController.text = '0.00';  // Default to 0 if no amount/discount is provided
-    }
+    amountOffController.text =
+        (amt > 0 ? amt : 0.0).toStringAsFixed(2);
   }
 
-  // items -> selected
+  // Items → selected
   final items = (o['items'] as List?) ?? const [];
   _selectedServices = items.map<Map<String, dynamic>>((e) {
     final m = Map<String, dynamic>.from(e as Map);
@@ -256,15 +262,29 @@ if (widget.isEdit && widget.existingOffer != null) {
     };
   }).toList();
 
+  // Prices
   originalPriceController.text = _originalTotal().toStringAsFixed(2);
 
   final price = (o['price'] as num?)?.toDouble();
   if (price != null) discountedPriceController.text = price.toStringAsFixed(2);
 
-  _recalcDiscounted();
-  setState(() {});
-}
+  // 👉 Auto-compute amountOff only for Flat or Fixed
+  final orig = double.tryParse(originalPriceController.text) ?? 0.0;
+  final disc = double.tryParse(discountedPriceController.text) ?? 0.0;
 
+  if (pricingMode == 'Fixed' || (pricingMode == 'Discount' && discountType == 'Flat')) {
+    if (orig > 0 && disc >= 0) {
+      amountOffController.text = (orig - disc).toStringAsFixed(2);
+    }
+  }
+  // ❌ For Percent → keep % value from API, don’t overwrite
+
+  setState(() {});
+} else {
+  // Fresh create → always recalc
+  _recalcDiscounted();
+}
+  }
   @override
   void dispose() {
     dealTitleController.dispose();
@@ -651,7 +671,7 @@ if (widget.isEdit && widget.existingOffer != null) {
       appBar: AppBar(
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
-        title: Text(widget.isEdit ? 'Edit Package' : 'Create Package'),
+        title: Text(widget.isEdit ? 'Edit Offers' : 'Create Offers'),
         elevation: 0,
       ),
       body: SafeArea(

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-
+import '../screens/AddTeamSelectServices.dart';
 import '../utils/api_service.dart';
 
 class AddTeamScreen extends StatefulWidget {
@@ -59,7 +59,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   // exact string requested
   String? _vPhoneVerified() {
     if (_suppressVerifyError) return null;
-    return _phoneVerified ? null : 'please verify phone number';
+    return _phoneVerified ? null : 'Please verify phone number';
   }
 
   String? _vFirstName(String? v) {
@@ -946,61 +946,97 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     const SizedBox(height: 20),
 
-                    _PrimaryButton(
-                      text: _isSubmitting ? 'Adding...' : 'Add Team Member',
-                      isLoading: _isSubmitting,
-                      onPressed: _isSubmitting
-                          ? null
-                          : () async {
-                              if (!await _validateFormAndShowAlert()) return;
+                    // _PrimaryButton(
+                    //   text: _isSubmitting ? 'Adding...' : 'Add Team Member',
+                    //   isLoading: _isSubmitting,
+                    //   onPressed: _isSubmitting
+                    //       ? null
+                    //       : () async {
+                    //           if (!await _validateFormAndShowAlert()) return;
 
-                              setState(() => _isSubmitting = true);
-                              try {
-                                final payload = {
-                                  "countryCode": "+91",
-                                  "phoneNumber": _phoneCtrl.text.trim(),
-                                  "firstName": _firstNameCtrl.text.trim(),
-                                  "lastName": _lastNameCtrl.text.trim(),
-                                  "email": _emailCtrl.text.trim(),
-                                  "joinedAt": _joiningDate == null
-                                      ? null
-                                      : "${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}",
-                                  "roles": _selectedRoles,
-                                  "specialities": _selectedSpecs,
-                                  // "profileImage": imageUrl, // if needed
-                                  // "gender": _gender,        // if needed
-                                  // "brief": _briefCtrl.text, // if needed
-                                };
+                    //           setState(() => _isSubmitting = true);
+                    //           try {
+                    //             final payload = {
+                    //               "countryCode": "+91",
+                    //               "phoneNumber": _phoneCtrl.text.trim(),
+                    //               "firstName": _firstNameCtrl.text.trim(),
+                    //               "lastName": _lastNameCtrl.text.trim(),
+                    //               "email": _emailCtrl.text.trim(),
+                    //               "joinedAt": _joiningDate == null
+                    //                   ? null
+                    //                   : "${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}",
+                    //               "roles": _selectedRoles,
+                    //               "specialities": _selectedSpecs,
+                    //               // "profileImage": imageUrl, // if needed
+                    //               // "gender": _gender,        // if needed
+                    //               // "brief": _briefCtrl.text, // if needed
+                    //             };
 
-                                final result = await ApiService()
-                                    .addSalonTeamMember(widget.salonId, payload);
+                    //             final result = await ApiService()
+                    //                 .addSalonTeamMember(widget.salonId, payload);
 
-                                if (!mounted) return;
-                                if (result['success'] == true) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("Team Member added successfully"),
-                                    ),
-                                  );
-                                  Navigator.pop(context, true);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        "Failed: ${result['message'] ?? 'Unknown error'}",
-                                      ),
-                                    ),
-                                  );
-                                }
-                              } finally {
-                                if (mounted) {
-                                  setState(() => _isSubmitting = false);
-                                }
-                              }
-                            },
-                    ),
+                    //             if (!mounted) return;
+                    //             if (result['success'] == true) {
+                    //               ScaffoldMessenger.of(context).showSnackBar(
+                    //                 const SnackBar(
+                    //                   content: Text("Team Member added successfully"),
+                    //                 ),
+                    //               );
+                    //               Navigator.pop(context, true);
+                    //             } else {
+                    //               ScaffoldMessenger.of(context).showSnackBar(
+                    //                 SnackBar(
+                    //                   content: Text(
+                    //                     "Failed: ${result['message'] ?? 'Unknown error'}",
+                    //                   ),
+                    //                 ),
+                    //               );
+                    //             }
+                    //           } finally {
+                    //             if (mounted) {
+                    //               setState(() => _isSubmitting = false);
+                    //             }
+                    //           }
+                    //         },
+                    // ),
 
-                    const SizedBox(height: 24),
+                    // const SizedBox(height: 24),
+const SizedBox(height: 12),
+
+// ✅ New Next Button
+_PrimaryButton(
+  text: 'Next',
+  onPressed: () async {
+    if (!await _validateFormAndShowAlert()) return;
+
+    final payload = {
+      "countryCode": "+91",
+      "phoneNumber": _phoneCtrl.text.trim(),
+      "firstName": _firstNameCtrl.text.trim(),
+      "lastName": _lastNameCtrl.text.trim(),
+      "email": _emailCtrl.text.trim(),
+      "joinedAt": _joiningDate == null
+          ? null
+          : "${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}",
+      "roles": _selectedRoles,
+      "specialities": _selectedSpecs,
+      "profileImage": imageUrl,
+      "gender": _gender,
+      "brief": _briefCtrl.text,
+    };
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddTeamSelectServices(
+          salonId: widget.salonId,
+          teamPayload: payload,
+        ),
+      ),
+    );
+  },
+),
+
                   ],
                 ),
               ),
