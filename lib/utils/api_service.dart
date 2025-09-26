@@ -245,17 +245,21 @@ static String createAppointmentAPI(int branchId) {
 
   // Update profile
   Future<Map<String, dynamic>> updateUserProfileDetails(
-    String firstName,
-    String lastName,
-    String email,
-    String token,
-  ) async {
-    final updatePayload = {
-      "firstName": firstName,
-      "lastName": lastName,
-      "email": email,
-    };
+  String firstName,
+  String lastName,
+  String email,
+  String token,
+) async {
+  final updatePayload = {
+    "firstName": firstName,
+    "lastName": lastName,
+    "email": email,
+  };
 
+  // Log the payload being sent in the request
+  print("Request Payload (Update Profile): $updatePayload");
+
+  try {
     final response = await http.post(
       Uri.parse(baseUrl + updateUserProfile),
       headers: {
@@ -265,14 +269,26 @@ static String createAppointmentAPI(int branchId) {
       body: json.encode(updatePayload),
     );
 
-    print("Response (Update Profile): ${response.body}");
+    // Log the response status and body
+    print("Response Status Code (Update Profile): ${response.statusCode}");
+    print("Response Body (Update Profile): ${response.body}");
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return json.decode(response.body);
+      // Log the parsed JSON response
+      final Map<String, dynamic> responseBody = json.decode(response.body);
+      print("Response (Parsed): $responseBody");
+      return responseBody;
     } else {
+      // Log the error message if status code isn't 200/201
+      print("Failed update profile: ${response.statusCode}, ${response.body}");
       throw Exception("Failed update profile: ${response.body}");
     }
+  } catch (e) {
+    // Log any errors that occur during the HTTP request
+    print("Error during profile update: $e");
+    rethrow;  // Re-throw the exception after logging
   }
+}
 
   // ---------------------- SALONS ----------------------
 

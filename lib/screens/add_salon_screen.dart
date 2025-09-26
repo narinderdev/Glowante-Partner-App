@@ -6,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'add_location_screen.dart';
-
+import '../screens/bottom_nav.dart';
 class AddSalonScreen extends StatefulWidget {
   const AddSalonScreen({
     super.key,
@@ -194,7 +194,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Salon added successfully')),
           );
-          Navigator.pop(context, true);
+  Navigator.pushReplacement(
+  context,
+  MaterialPageRoute(
+    builder: (context) => BottomNav(tabIndex: 1), // Corrected parameter name to 'tabIndex'
+  ),
+);
+
         }
       },
       builder: (context, state) {
@@ -271,14 +277,16 @@ InkWell(
   onTap: () => _chooseLocation(state),
   child: Container(
     width: double.infinity,
-    // height only for empty state, dynamic otherwise
-    height: address == null ? 48 : null, 
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(8),
       border: Border.all(color: AppColors.darkGrey, width: 1),
     ),
-    child: address == null
+    child: (address == null ||
+            (address?.buildingName?.isEmpty ?? true) ||
+            (address?.city?.isEmpty ?? true) ||
+            (address?.state?.isEmpty ?? true) ||
+            (address?.pincode?.isEmpty ?? true)) // Using null-aware operators
         ? Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
@@ -293,7 +301,7 @@ InkWell(
             ],
           )
         : Row(
-            crossAxisAlignment: CrossAxisAlignment.start, // allow multi-line
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
@@ -301,21 +309,23 @@ InkWell(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      address.buildingName,
+                      address?.buildingName ?? '',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppColors.darkGrey,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${address.city}, ${address.state}',
-                      style: const TextStyle(color: AppColors.darkGrey),
-                    ),
-                    Text(
-                      'Pincode: ${address.pincode}',
-                      style: const TextStyle(color: AppColors.darkGrey),
-                    ),
+                    if ((address?.city?.isNotEmpty ?? false) &&
+                        (address?.state?.isNotEmpty ?? false))
+                      Text(
+                        '${address?.city}, ${address?.state}',
+                        style: const TextStyle(color: AppColors.darkGrey),
+                      ),
+                    if (address?.pincode?.isNotEmpty ?? false)
+                      Text(
+                        'Pincode: ${address?.pincode}',
+                        style: const TextStyle(color: AppColors.darkGrey),
+                      ),
                   ],
                 ),
               ),

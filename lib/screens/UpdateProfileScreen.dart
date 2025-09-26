@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Import for FilteringTextInputFormatter
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
-import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import '../utils/api_service.dart';
-import '../screens/bottom_nav.dart'; // Import BottomNav for navigation
-import '../screens/add_salon_screen.dart'; // Ensure the correct path
+import '../screens/add_salon_screen.dart'; // Import AddSalonScreen
+import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart'; // Import AddSalonCubit
+import 'package:bloc_onboarding/repositories/salon_repository.dart'; // Import SalonRepository
 
 class UpdateUserProfileScreen extends StatefulWidget {
   final String token; // Token passed from OTP verification screen
@@ -21,7 +21,11 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
-  String errorMessage = '';
+  
+  String firstNameError = '';
+  String lastNameError = '';
+  String emailError = '';
+  
   bool isLoading = false; // Flag to show loader while updating profile
 
   // API service instance
@@ -33,12 +37,35 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
     String lastName = lastNameController.text;
     String email = emailController.text;
 
-    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty) {
+    // Reset errors
+    setState(() {
+      firstNameError = '';
+      lastNameError = '';
+      emailError = '';
+    });
+
+    // Validate input
+    bool isValid = true;
+    if (firstName.isEmpty) {
       setState(() {
-        errorMessage = 'All fields are required';
+        firstNameError = 'First Name is required';
       });
-      return;
+      isValid = false;
     }
+    if (lastName.isEmpty) {
+      setState(() {
+        lastNameError = 'Last Name is required';
+      });
+      isValid = false;
+    }
+    if (email.isEmpty) {
+      setState(() {
+        emailError = 'Email is required';
+      });
+      isValid = false;
+    }
+
+    if (!isValid) return; // Don't proceed if validation fails
 
     setState(() {
       isLoading = true;
@@ -52,6 +79,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
         widget.token,
       );
 
+      // Check for success
       if (response['success'] == true) {
         var userData = response['data'];
         int salonId = userData['salonId'] ?? 0;
@@ -85,13 +113,13 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           ),
         );
       } else {
-        setState(() {
-          errorMessage = response['message'] ?? 'Failed to update profile';
-        });
+        // Handle API response error and show an alert dialog with validation messages
+        List<String> errorMessages = List<String>.from(response['message'] ?? []);
+        _showErrorDialog(errorMessages);
       }
     } catch (e) {
       setState(() {
-        errorMessage = 'Error updating profile: $e';
+        emailError = 'Error updating profile: $e';
       });
     } finally {
       setState(() {
@@ -100,21 +128,45 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
     }
   }
 
-  // Helper function to capitalize the first letter of a string
-  String _capitalizeFirstLetter(String text) {
-    if (text.isEmpty) return text;
-    return text[0].toUpperCase() + text.substring(1);
+  // Function to show the error messages in an alert dialog
+  void _showErrorDialog(List<String> errorMessages) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Profile Update Failed"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: errorMessages
+                .map((error) => Text(error, style: TextStyle(color: Colors.red)))
+                .toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Update Profile'),
-        backgroundColor: Colors.orange,
+        title: const Text(
+          'Update Profile',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.black,
         elevation: 0,
       ),
-      body: Padding(
+      body: SingleChildScrollView(  // Wrapping the body in a SingleChildScrollView
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,31 +175,23 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
               firstNameController,
               'First Name',
               'Enter your first name',
+              'firstName',
+              firstNameError,
             ),
             _buildTextField(
               lastNameController,
               'Last Name',
               'Enter your last name',
+              'lastName',
+              lastNameError,
             ),
-            _buildTextField(emailController, 'Email', 'Enter your email'),
-            if (errorMessage.isNotEmpty) ...[
-              SizedBox(height: 10),
-              Text(
-                errorMessage,
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+            _buildTextField(emailController, 'Email', 'Enter your email', 'email', emailError),
             SizedBox(height: 30),
             ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : _updateProfile, // Disable button while loading
+              onPressed: isLoading ? null : _updateProfile, // Disable button while loading
               style: ElevatedButton.styleFrom(
                 backgroundColor:
-                    Colors.orange, // Use backgroundColor instead of primary
+                    Colors.black, // Use backgroundColor instead of primary
                 minimumSize: Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -162,9 +206,6 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
                       style: TextStyle(color: Colors.white),
                     ),
             ),
-            //  SizedBox(height: 20),
-            // // Display the token on the screen
-            // Text('Token: ${widget.token}', style: TextStyle(fontSize: 16, color: Colors.blue)),
           ],
         ),
       ),
@@ -176,23 +217,54 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
     TextEditingController controller,
     String label,
     String hint,
+    String fieldType, // to determine the field type for error handling
+    String fieldError, // to handle specific field error message
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.orange),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: controller,
+            textInputAction: TextInputAction.next,
+            onChanged: (value) {
+              // Clear error when user starts typing
+              setState(() {
+                if (fieldType == 'firstName') firstNameError = '';
+                if (fieldType == 'lastName') lastNameError = '';
+                if (fieldType == 'email') emailError = '';
+              });
+            },
+            inputFormatters: [
+              // Restrict input to alphabet and whitespace only for first/last names
+              if (fieldType != 'email') 
+                FilteringTextInputFormatter.allow(RegExp('[a-zA-Z ]')),
+            ],
+            textCapitalization: fieldType == 'email'
+                ? TextCapitalization.none
+                : TextCapitalization.words, // Automatically capitalize for name fields
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.black),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.black),
+              ),
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.orange),
-          ),
-        ),
+          if (fieldError.isNotEmpty) ...[
+            SizedBox(height: 5),
+            Text(
+              fieldError,
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+        ],
       ),
     );
   }
