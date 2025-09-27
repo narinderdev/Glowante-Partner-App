@@ -1,24 +1,28 @@
 // lib/screens/category_screen.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // ← needed for TextInputFormatter
+import 'package:flutter/services.dart'; // needed for TextInputFormatter
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import '../Viewmodels/AddCategory.dart';
 import 'AddServices.dart';
-
+import '../utils/colors.dart';
 /// Shared function signature for opening the subcategory sheet
-typedef SubcategoryOp = Future<void> Function({
-  Map<String, dynamic>? subCategory,
-  required int categoryId,
-});
+typedef SubcategoryOp =
+    Future<void> Function({
+      Map<String, dynamic>? subCategory,
+      required int categoryId,
+    });
 
 /// Ensures the first alphabetic character the user types is uppercase
 class FirstLetterUpperFormatter extends TextInputFormatter {
   const FirstLetterUpperFormatter();
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldV, TextEditingValue newV) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldV,
+    TextEditingValue newV,
+  ) {
     final t = newV.text;
     final i = RegExp(r'[A-Za-z]').firstMatch(t)?.start;
     if (i == null) return newV; // no letters yet
@@ -123,7 +127,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _EditSubcategorySheet(
         subCategory: subCategory,
-        salonId: salonId,       // sheet will call the cubit & show loader
+        salonId: salonId, // sheet will call the cubit & show loader
         categoryId: categoryId, // needed for add
       ),
     );
@@ -138,7 +142,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       builder: (dialogContext) => const _ConfirmDialog(
         title: 'Delete Category',
         message: 'Are you sure you want to delete this category?',
-        confirmColor: Colors.red,
+        confirmColor: Colors.black,
       ),
     );
 
@@ -162,7 +166,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       builder: (dialogContext) => const _ConfirmDialog(
         title: 'Delete Subcategory',
         message: 'Are you sure you want to delete this subcategory?',
-        confirmColor: Colors.red,
+        confirmColor: Colors.black,
       ),
     );
 
@@ -203,7 +207,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       builder: (dialogContext) => const _ConfirmDialog(
         title: 'Delete Service',
         message: 'Are you sure you want to delete this service?',
-        confirmColor: Colors.red,
+        confirmColor: Colors.black,
       ),
     );
 
@@ -231,96 +235,82 @@ class _CategoryScreenState extends State<CategoryScreen> {
       ),
     );
   }
-void _autoPickFirstBranch(SalonListState state) {
-  if (_selectedBranch != null) return;             // don't override user choice
-  if (state.salons.isEmpty) return;
 
-  for (final salon in state.salons) {
-    final branches = (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
-    if (branches.isNotEmpty) {
-      final first = branches.first;
-      setState(() {
-        _selectedBranchId = first['id'] as int;
-        _selectedBranch = {
-          'salonId': salon['id'],
-          'salonName': salon['name'],
-          'branchId': first['id'],
-          'branchName': first['name'],
-        };
-        _expandedSubcategories.clear();
-      });
-      // reflect selection in SalonListCubit and load categories
-      context.read<SalonListCubit>().setSelectedBranch(_selectedBranch!);
-      final categoryCubit = context.read<CategoryCubit>();
-      categoryCubit.resetCategories();
-      categoryCubit.loadCategories(salon['id'] as int);
-      break;
+  void _autoPickFirstBranch(SalonListState state) {
+    if (_selectedBranch != null) return; // don't override user choice
+    if (state.salons.isEmpty) return;
+
+    for (final salon in state.salons) {
+      final branches =
+          (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ??
+          const [];
+      if (branches.isNotEmpty) {
+        final first = branches.first;
+        setState(() {
+          _selectedBranchId = first['id'] as int;
+          _selectedBranch = {
+            'salonId': salon['id'],
+            'salonName': salon['name'],
+            'branchId': first['id'],
+            'branchName': first['name'],
+          };
+          _expandedSubcategories.clear();
+        });
+        // reflect selection in SalonListCubit and load categories
+        context.read<SalonListCubit>().setSelectedBranch(_selectedBranch!);
+        final categoryCubit = context.read<CategoryCubit>();
+        categoryCubit.resetCategories();
+        categoryCubit.loadCategories(salon['id'] as int);
+        break;
+      }
     }
   }
-}
 
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
     final salonState = context.watch<SalonListCubit>().state;
     final CategoryState catState = context.watch<CategoryCubit>().state;
-    final _CatalogueStats stats = _CatalogueStats.from(catState.categories);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FB),
-     body: MultiBlocListener(
-  listeners: [
-    BlocListener<CategoryCubit, CategoryState>(
-      listenWhen: (previous, current) => previous.message != current.message,
-      listener: (context, state) {
-        if (state.message != null) {
-          _toast(state.message!);
-          context.read<CategoryCubit>().clearMessage();
-        }
-      },
-    ),
-    // NEW: when salons arrive, auto-pick first branch if none selected
-    BlocListener<SalonListCubit, SalonListState>(
-      listenWhen: (prev, curr) =>
-          prev.salons != curr.salons || prev.selectedBranch != curr.selectedBranch,
-      listener: (context, salonState) {
-        _autoPickFirstBranch(salonState);
-      },
-    ),
-  ],
+      backgroundColor: AppColors.white,
+      body: MultiBlocListener(
+        listeners: [
+          BlocListener<CategoryCubit, CategoryState>(
+            listenWhen: (previous, current) =>
+                previous.message != current.message,
+            listener: (context, state) {
+              if (state.message != null) {
+                _toast(state.message!);
+                context.read<CategoryCubit>().clearMessage();
+              }
+            },
+          ),
+          BlocListener<SalonListCubit, SalonListState>(
+            listenWhen: (prev, curr) =>
+                prev.salons != curr.salons ||
+                prev.selectedBranch != curr.selectedBranch,
+            listener: (context, salonState) {
+              _autoPickFirstBranch(salonState);
+            },
+          ),
+        ],
         child: SafeArea(
           child: Stack(
             children: [
-              Container(
-                height: 220,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF5B86E5), Color(0xFF36D1DC)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
               Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _HeaderSection(
                     salonState: salonState,
                     selectedBranchId: _selectedBranchId,
                     selectedBranch: _selectedBranch,
                     onBranchSelected: _onBranchSelected,
-                    stats: stats,
                     onRefresh: _handleManualRefresh,
                   ),
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF4F6FB),
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(28),
-                        ),
-                      ),
+                      color: Colors.grey.shade100,
                       child: _buildCatalogueContent(catState),
                     ),
                   ),
@@ -338,7 +328,7 @@ void _autoPickFirstBranch(SalonListState state) {
               onPressed: () => _showAddCategorySheet(),
               icon: const Icon(Icons.add_rounded),
               label: const Text('New Category'),
-              backgroundColor: const Color(0xFF5B86E5),
+              backgroundColor: Colors.black,
               foregroundColor: Colors.white,
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -347,7 +337,7 @@ void _autoPickFirstBranch(SalonListState state) {
 
   Widget _buildCatalogueContent(CategoryState catState) {
     return RefreshIndicator(
-      color: const Color(0xFF08183A),
+      color: Colors.black,
       displacement: 32,
       onRefresh: _refreshData,
       child: ListView(
@@ -416,7 +406,7 @@ void _autoPickFirstBranch(SalonListState state) {
       child: Stack(
         children: [
           ModalBarrier(dismissible: false, color: Colors.black45),
-          Center(child: CircularProgressIndicator(color: Color(0xFF5B86E5))),
+          Center(child: CircularProgressIndicator(color: Colors.white)),
         ],
       ),
     );
@@ -435,7 +425,6 @@ class _HeaderSection extends StatelessWidget {
     required this.selectedBranchId,
     required this.selectedBranch,
     required this.onBranchSelected,
-    required this.stats,
     required this.onRefresh,
   });
 
@@ -443,12 +432,13 @@ class _HeaderSection extends StatelessWidget {
   final int? selectedBranchId;
   final Map<String, dynamic>? selectedBranch;
   final void Function(int?, List<Map<String, dynamic>>) onBranchSelected;
-  final _CatalogueStats stats;
   final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final theme = Theme.of(context);
+    final textTheme = theme.textTheme;
+
     final String? branchName = selectedBranch?['branchName'] as String?;
     final String? salonName = selectedBranch?['salonName'] as String?;
 
@@ -456,25 +446,69 @@ class _HeaderSection extends StatelessWidget {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
-    final List<DropdownMenuItem<int>> branchItems = [];
-    for (final salon in salons) {
+    final List<DropdownMenuItem<int>> branchItems = salons.expand((salon) {
+      final String salonTitle = salon['name']?.toString() ?? 'Salon';
       final List<Map<String, dynamic>> branches =
           (salon['branches'] as List?)
-                  ?.map((e) => Map<String, dynamic>.from(e as Map))
-                  .toList() ??
-              const [];
-      for (final branch in branches) {
-        branchItems.add(
-          DropdownMenuItem<int>(
-            value: branch['id'] as int,
-            child: Text(branch['name'] ?? 'Branch'),
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          const [];
+      return branches.map((branch) {
+        final String branchTitle = branch['name']?.toString() ?? 'Branch';
+        return DropdownMenuItem<int>(
+          value: branch['id'] as int,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.storefront,
+                  color: Colors.black87,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      branchTitle,
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      salonTitle,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
-      }
-    }
+      });
+    }).toList();
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+    final bool hasSelection = branchItems.any(
+      (item) => item.value == selectedBranchId,
+    );
+    final int? dropdownValue = hasSelection ? selectedBranchId : null;
+
+    return Container(
+      width: double.infinity,
+      color: Colors.black,
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -491,10 +525,10 @@ class _HeaderSection extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       branchName != null
-                          ? '${salonName ?? 'Salon'}'
+                          ? '${branchName ?? ''} / ${salonName ?? 'Salon'}'
                           : 'Select a salon to get started',
                       style: textTheme.bodyMedium?.copyWith(
                         color: Colors.white70,
@@ -506,26 +540,20 @@ class _HeaderSection extends StatelessWidget {
                 ),
               ),
               IconButton(
+                onPressed: salonState.isLoading ? null : () => onRefresh(),
                 icon: const Icon(Icons.refresh_rounded, color: Colors.white),
                 tooltip: 'Refresh',
-                onPressed: salonState.isLoading ? null : () => onRefresh(),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+              border: Border.all(color: Colors.grey.shade300),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -533,9 +561,10 @@ class _HeaderSection extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'Salon & Branch',
+                      'Salon and Branch',
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: Colors.black,
                       ),
                     ),
                     const Spacer(),
@@ -543,167 +572,48 @@ class _HeaderSection extends StatelessWidget {
                       const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.black,
+                          ),
+                        ),
                       ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<int>(
-                  value: selectedBranchId,
-                  isExpanded: true,
-                  items: branchItems,
-                  onChanged: branchItems.isEmpty
-                      ? null
-                      : (value) => onBranchSelected(value, salons),
-                  decoration: InputDecoration(
-                    hintText:
-                        branchItems.isEmpty ? 'No branches available' : 'Choose branch',
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade300),
+                    color: Colors.grey.shade100,
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: dropdownValue,
+                      isExpanded: true,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: Colors.black,
+                      ),
+                      dropdownColor: Colors.white,
+                      items: branchItems,
+                      onChanged: branchItems.isEmpty
+                          ? null
+                          : (value) => onBranchSelected(value, salons),
+                      hint: Text(
+                        branchItems.isEmpty
+                            ? 'No branches available'
+                            : 'Choose branch',
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          _StatsStrip(stats: stats),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatsStrip extends StatelessWidget {
-  const _StatsStrip({required this.stats});
-
-  final _CatalogueStats stats;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatCard(
-          icon: Icons.category_rounded,
-          label: 'Categories',
-          color: const Color(0xFF5B86E5),
-          value: stats.categoryCount,
-        ),
-        const SizedBox(width: 12),
-        _StatCard(
-          icon: Icons.view_agenda_outlined,
-          label: 'Subcategories',
-          color: const Color(0xFF00BFA6),
-          value: stats.subcategoryCount,
-        ),
-        const SizedBox(width: 12),
-        _StatCard(
-          icon: Icons.design_services_rounded,
-          label: 'Services',
-          color: const Color(0xFFFD6F76),
-          value: stats.serviceCount,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.18),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    value.toString(),
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: color.withValues(alpha: 0.9),
-                    ),
-                  ),
-                  Text(
-                    label,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: color.withValues(alpha: 0.8),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricChip extends StatelessWidget {
-  const _MetricChip({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
             ),
           ),
         ],
@@ -743,14 +653,14 @@ class _InlineProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const tint = Color(0xFF5B86E5);
+    const tint = Colors.black;
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: tint.withValues(alpha: 0.08),
+          color: tint.withOpacity(0.08),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -769,42 +679,6 @@ class _InlineProgress extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _CatalogueStats {
-  const _CatalogueStats({
-    required this.categoryCount,
-    required this.subcategoryCount,
-    required this.serviceCount,
-  });
-
-  final int categoryCount;
-  final int subcategoryCount;
-  final int serviceCount;
-
-  factory _CatalogueStats.from(List<dynamic> categories) {
-    int subcategories = 0;
-    int services = 0;
-    for (final category in categories) {
-      final Map<String, dynamic> categoryMap = Map<String, dynamic>.from(
-        category as Map,
-      );
-      final List<dynamic> subcats =
-          (categoryMap['subCategories'] as List?) ?? const [];
-      subcategories += subcats.length;
-      for (final sub in subcats) {
-        final Map<String, dynamic> subMap = Map<String, dynamic>.from(
-          sub as Map,
-        );
-        services += (subMap['services'] as List?)?.length ?? 0;
-      }
-    }
-    return _CatalogueStats(
-      categoryCount: categories.length,
-      subcategoryCount: subcategories,
-      serviceCount: services,
     );
   }
 }
@@ -838,7 +712,7 @@ class _CategoryList extends StatelessWidget {
   final SubcategoryOp onEditSubcategory;
 
   final void Function(Map<String, dynamic> category, List<dynamic> categories)
-      onAddServices;
+  onAddServices;
 
   final Future<void> Function({Map<String, dynamic>? category}) onEditCategory;
 
@@ -851,14 +725,12 @@ class _CategoryList extends StatelessWidget {
   final Map<int, bool> expanded;
   final void Function(int id) toggleExpanded;
 
-  static const List<Color> _palette = [
-    Color(0xFF5B86E5),
-    Color(0xFF00BFA6),
-    Color(0xFFFD6F76),
-    Color(0xFF7F53AC),
+  static const List<Color> _tones = [
+    Color(0xFF111111),
+    Color(0xFF1F1F1F),
+    Color(0xFF2D2D2D),
+    Color(0xFF3B3B3B),
   ];
-
-  String _pluralize(int n, String word) => '$n $word${n == 1 ? '' : 's'}';
 
   @override
   Widget build(BuildContext context) {
@@ -866,7 +738,7 @@ class _CategoryList extends StatelessWidget {
       return const _EmptyState(
         icon: Icons.category_outlined,
         title: 'No categories yet',
-        subtitle: 'Tap “New Category” to create your first one.',
+        subtitle: 'Tap "New Category" to create your first one.',
       );
     }
 
@@ -881,28 +753,16 @@ class _CategoryList extends StatelessWidget {
         final category = Map<String, dynamic>.from(categories[index] as Map);
         final List<Map<String, dynamic>> subCategories =
             (category['subCategories'] as List?)
-                    ?.map((e) => Map<String, dynamic>.from(e as Map))
-                    .toList() ??
-                const [];
-        final int subCount = subCategories.length;
-        final int serviceCount = subCategories.fold<int>(0, (total, sub) {
-          final services = (sub['services'] as List?) ?? const [];
-          return total + services.length;
-        });
-        final Color accent = _palette[index % _palette.length];
-        final Color headerInk = Colors.black87;
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            const [];
+        final Color tone = _tones[index % _tones.length];
 
         return Container(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 22,
-                offset: const Offset(0, 12),
-              ),
-            ],
+            border: Border.all(color: Colors.grey.shade300),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -913,85 +773,46 @@ class _CategoryList extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(22),
                   ),
-                  gradient: LinearGradient(
-                    colors: [accent.withValues(alpha: 0.14), Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: Colors.grey.shade100,
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.15),
+                        color: Colors.grey.shade300,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
-                        Icons.folder_special_rounded,
-                        color: headerInk,
-                      ),
+                      child: Icon(Icons.folder_special_rounded, color: tone),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            category['name'] as String? ?? 'Category',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: headerInk,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${_pluralize(subCount, 'subcategory')} · ${_pluralize(serviceCount, 'service')}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: headerInk.withValues(alpha: 0.7),
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        category['name'] as String? ?? 'Category',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
                     _IconButton(
                       icon: Icons.edit_rounded,
-                      color: headerInk,
+                      color: Colors.black87,
                       tooltip: 'Edit category',
                       onTap: () => onEditCategory(category: category),
                     ),
                     const SizedBox(width: 6),
                     _IconButton(
                       icon: Icons.delete_rounded,
-                      color: Colors.black,
+                      color: Colors.black87,
                       tooltip: 'Delete category',
                       onTap: () => onDeleteCategory(category),
                     ),
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _MetricChip(
-                      icon: Icons.view_agenda_outlined,
-                      label: _pluralize(subCount, 'subcategory'),
-                      color: accent,
-                    ),
-                    _MetricChip(
-                      icon: Icons.design_services_rounded,
-                      label: _pluralize(serviceCount, 'service'),
-                      color: accent,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
               if (subCategories.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -1012,7 +833,6 @@ class _CategoryList extends StatelessWidget {
                         onDeleteSubcategory: onDeleteSubcategory,
                         onEditService: onEditService,
                         onDeleteService: onDeleteService,
-                        accent: accent,
                       );
                     }).toList(),
                   ),
@@ -1026,18 +846,20 @@ class _CategoryList extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () =>
                             onAddSubcategory(categoryId: category['id'] as int),
-                        icon: Icon(Icons.add_rounded, color: accent),
-                        label: Text(
+                        icon: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.black,
+                        ),
+                        label: const Text(
                           'Add subcategory',
                           style: TextStyle(
-                            color: accent,
+                            color: Colors.black,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: accent.withValues(alpha: 0.35),
-                          ),
+                          side: const BorderSide(color: Colors.black54),
+                          backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -1052,7 +874,7 @@ class _CategoryList extends StatelessWidget {
                         icon: const Icon(Icons.design_services_rounded),
                         label: const Text('Add services'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: accent,
+                          backgroundColor: Colors.black,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -1084,7 +906,6 @@ class _SubcategoryTile extends StatelessWidget {
     required this.onDeleteSubcategory,
     required this.onEditService,
     required this.onDeleteService,
-    required this.accent,
   });
 
   final int categoryId;
@@ -1098,21 +919,21 @@ class _SubcategoryTile extends StatelessWidget {
   final Future<void> Function(Map<String, dynamic>) onEditService;
   final Future<void> Function(int) onDeleteService;
 
-  final Color accent;
-
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> services =
         (subCategory['services'] as List?)
-                ?.map((e) => Map<String, dynamic>.from(e as Map))
-                .toList() ??
-            const [];
-    final int serviceCount = services.length;
+            ?.map((e) => Map<String, dynamic>.from(e as Map))
+            .toList() ??
+        const [];
     final theme = Theme.of(context);
-    final Color borderColor = accent.withValues(
-      alpha: isExpanded ? 0.45 : 0.25,
-    );
-    final Color fillColor = accent.withValues(alpha: isExpanded ? 0.10 : 0.06);
+
+    final Color borderColor = isExpanded
+        ? Colors.grey.shade400
+        : Colors.grey.shade300;
+    final Color fillColor = isExpanded
+        ? Colors.grey.shade200
+        : Colors.grey.shade100;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -1140,16 +961,18 @@ class _SubcategoryTile extends StatelessWidget {
                 subCategory['name'] as String? ?? 'Subcategory',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: _darken(accent, .25),
+                  color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                '$serviceCount ${serviceCount == 1 ? 'service' : 'services'}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: _darken(accent, .05).withValues(alpha: 0.75),
+              if (services.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '${services.length} ${services.length == 1 ? 'service' : 'services'}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade700,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
           trailing: SizedBox(
@@ -1159,7 +982,7 @@ class _SubcategoryTile extends StatelessWidget {
               children: [
                 _IconButton(
                   icon: Icons.edit_rounded,
-                  color: _darken(accent, .25),
+                  color: Colors.black87,
                   tooltip: 'Edit subcategory',
                   onTap: () => onEditSubcategory(
                     subCategory: subCategory,
@@ -1169,7 +992,7 @@ class _SubcategoryTile extends StatelessWidget {
                 const SizedBox(width: 4),
                 _IconButton(
                   icon: Icons.delete_rounded,
-                  color: Colors.redAccent,
+                  color: Colors.black87,
                   tooltip: 'Delete subcategory',
                   onTap: () => onDeleteSubcategory(subCategory),
                 ),
@@ -1196,19 +1019,19 @@ class _SubcategoryTile extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: accent.withValues(alpha: 0.12)),
+                      border: Border.all(color: Colors.grey.shade300),
                     ),
                     child: Row(
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.12),
+                            color: Colors.grey.shade200,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.design_services_rounded,
-                            color: _darken(accent, .25),
+                            color: Colors.black87,
                             size: 18,
                           ),
                         ),
@@ -1221,11 +1044,12 @@ class _SubcategoryTile extends StatelessWidget {
                                 name,
                                 style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
+                                  color: Colors.black,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '${price != null ? '₹$price' : 'No price'} • ${duration != null ? '$duration min' : 'No duration'}',
+                                '${price != null ? 'Rs ' + price.toString() : 'No price'} - ${duration != null ? duration.toString() + ' min' : 'No duration'}',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: Colors.grey.shade600,
                                 ),
@@ -1235,14 +1059,14 @@ class _SubcategoryTile extends StatelessWidget {
                         ),
                         _IconButton(
                           icon: Icons.edit_outlined,
-                          color: _darken(accent, .25),
+                          color: Colors.black87,
                           tooltip: 'Edit service',
                           onTap: () => onEditService(service),
                         ),
                         const SizedBox(width: 4),
                         _IconButton(
                           icon: Icons.delete_outline_rounded,
-                          color: Colors.redAccent,
+                          color: Colors.black87,
                           tooltip: 'Delete service',
                           onTap: () => onDeleteService(service['id'] as int),
                         ),
@@ -1309,8 +1133,9 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onBg =
-        Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75);
+    final onBg = Theme.of(
+      context,
+    ).colorScheme.onSurface.withValues(alpha: 0.75);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
       alignment: Alignment.center,
@@ -1349,21 +1174,21 @@ class _ErrorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.red.withValues(alpha: 0.06),
+      color: Colors.grey.shade100,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         child: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.red),
+            const Icon(Icons.error_outline_rounded, color: Colors.black),
             const SizedBox(width: 10),
             Expanded(child: Text(message)),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             OutlinedButton(
               onPressed: onRetry,
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
+                foregroundColor: Colors.black,
+                side: const BorderSide(color: Colors.black),
               ),
               child: const Text('Retry'),
             ),
@@ -1477,16 +1302,17 @@ class _LabeledField extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
-      decoration: const InputDecoration(
-        labelText: '',
-        border: OutlineInputBorder(),
-      ).copyWith(
-        labelText: label,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-      ),
+      decoration:
+          const InputDecoration(
+            labelText: '',
+            border: OutlineInputBorder(),
+          ).copyWith(
+            labelText: label,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
     );
   }
 }
@@ -1576,52 +1402,52 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
     if (err != errorText) setState(() => errorText = err);
   }
 
-Future<void> _submit() async {
-  final t = nameController.text.trim();
+  Future<void> _submit() async {
+    final t = nameController.text.trim();
 
-  // validate only when pressing the button
-  if (t.isEmpty) {
-    setState(() => errorText = 'Name is required');
-    return;
-  }
-  final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
-  if (first != null && first != first.toUpperCase()) {
-    setState(() => errorText = 'Name must start with a capital letter');
-    return;
-  }
-  setState(() => errorText = null);
-
-  setState(() => isSaving = true);
-  try {
-    final req = AddCategoryRequest(
-      name: t,
-      description: descriptionController.text.trim(),
-    );
-
-    final cubit = context.read<CategoryCubit>();
-    if (isEdit) {
-      final categoryId = widget.category!['id'] as int;
-      await cubit.updateCategory(widget.salonId, categoryId, req);
-    } else {
-      await cubit.addCategory(widget.salonId, req);
+    // validate only when pressing the button
+    if (t.isEmpty) {
+      setState(() => errorText = 'Name is required');
+      return;
     }
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  } catch (_) {
-    if (!mounted) return;
-    setState(() => errorText = 'Failed to save. Please try again.');
-  } finally {
-    if (mounted) setState(() => isSaving = false);
+    final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
+    if (first != null && first != first.toUpperCase()) {
+      setState(() => errorText = 'Name must start with a capital letter');
+      return;
+    }
+    setState(() => errorText = null);
+
+    setState(() => isSaving = true);
+    try {
+      final req = AddCategoryRequest(
+        name: t,
+        description: descriptionController.text.trim(),
+      );
+
+      final cubit = context.read<CategoryCubit>();
+      if (isEdit) {
+        final categoryId = widget.category!['id'] as int;
+        await cubit.updateCategory(widget.salonId, categoryId, req);
+      } else {
+        await cubit.addCategory(widget.salonId, req);
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => errorText = 'Failed to save. Please try again.');
+    } finally {
+      if (mounted) setState(() => isSaving = false);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return _BottomSheetScaffold(
       title: isEdit ? 'Edit Category' : 'Add Category',
       initial: 0.30, // was 0.55
-  min: 0.10,     // was 0.35
-  max: 0.30,     // was 0.90
+      min: 0.10, // was 0.35
+      max: 0.30, // was 0.90
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1635,7 +1461,7 @@ Future<void> _submit() async {
             ),
           ),
           const SizedBox(height: 12),
-          // Optional description input – keep if you need it in UI
+          // Optional description input ΓÇô keep if you need it in UI
           // TextField(
           //   controller: descriptionController,
           //   maxLines: 2,
@@ -1651,7 +1477,7 @@ Future<void> _submit() async {
               alignment: Alignment.centerLeft,
               child: Text(
                 errorText!,
-                style: const TextStyle(color: Colors.red,),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
@@ -1661,8 +1487,12 @@ Future<void> _submit() async {
             child: ElevatedButton.icon(
               icon: isSaving
                   ? const SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.check_rounded),
               onPressed: isSaving ? null : _submit,
@@ -1685,7 +1515,11 @@ Future<void> _submit() async {
 
 /* Subcategory: inline error + loader + API here */
 class _EditSubcategorySheet extends StatefulWidget {
-  const _EditSubcategorySheet({this.subCategory, required this.salonId, required this.categoryId});
+  const _EditSubcategorySheet({
+    this.subCategory,
+    required this.salonId,
+    required this.categoryId,
+  });
   final Map<String, dynamic>? subCategory;
   final int salonId;
   final int categoryId;
@@ -1731,48 +1565,48 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
     if (err != errorText) setState(() => errorText = err);
   }
 
-Future<void> _submit() async {
-  final t = controller.text.trim();
+  Future<void> _submit() async {
+    final t = controller.text.trim();
 
-  // validate only when pressing the button
-  if (t.isEmpty) {
-    setState(() => errorText = 'Name is required');
-    return;
-  }
-  final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
-  if (first != null && first != first.toUpperCase()) {
-    setState(() => errorText = 'Name must start with a capital letter');
-    return;
-  }
-  setState(() => errorText = null);
-
-  setState(() => isSaving = true);
-  try {
-    final cubit = context.read<CategoryCubit>();
-
-    if (isEdit) {
-      final subCategoryId = widget.subCategory!['id'] as int;
-      await cubit.updateSubCategory(widget.salonId, subCategoryId, t);
-    } else {
-      await cubit.addSubCategory(widget.salonId, widget.categoryId, t);
+    // validate only when pressing the button
+    if (t.isEmpty) {
+      setState(() => errorText = 'Name is required');
+      return;
     }
-    if (!mounted) return;
-    Navigator.of(context).pop();
-  } catch (_) {
-    if (!mounted) return;
-    setState(() => errorText = 'Failed to save. Please try again.');
-  } finally {
-    if (mounted) setState(() => isSaving = false);
+    final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
+    if (first != null && first != first.toUpperCase()) {
+      setState(() => errorText = 'Name must start with a capital letter');
+      return;
+    }
+    setState(() => errorText = null);
+
+    setState(() => isSaving = true);
+    try {
+      final cubit = context.read<CategoryCubit>();
+
+      if (isEdit) {
+        final subCategoryId = widget.subCategory!['id'] as int;
+        await cubit.updateSubCategory(widget.salonId, subCategoryId, t);
+      } else {
+        await cubit.addSubCategory(widget.salonId, widget.categoryId, t);
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => errorText = 'Failed to save. Please try again.');
+    } finally {
+      if (mounted) setState(() => isSaving = false);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return _BottomSheetScaffold(
       title: isEdit ? 'Edit Subcategory' : 'Add Subcategory',
-          initial: 0.30, // was 0.55
-  min: 0.10,     // was 0.35
-  max: 0.30,     // was 0.90   
+      initial: 0.30, // was 0.55
+      min: 0.10, // was 0.35
+      max: 0.30, // was 0.90
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1791,18 +1625,22 @@ Future<void> _submit() async {
               alignment: Alignment.centerLeft,
               child: Text(
                 errorText!,
-                style: const TextStyle(color: Colors.red,),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
-          const SizedBox(height:6),
+          const SizedBox(height: 6),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               icon: isSaving
                   ? const SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.check_rounded),
               onPressed: isSaving ? null : _submit,
@@ -1918,7 +1756,7 @@ Future<void> _submit() async {
 //               alignment: Alignment.centerLeft,
 //               child: Text(
 //                 errorText!,
-//                 style: const TextStyle(color: Colors.red,),
+//                 style: const TextStyle(color: Colors.black,),
 //               ),
 //             ),
 //           ],
@@ -2085,7 +1923,10 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(nameError!, style: const TextStyle(color: Colors.red)),
+              child: Text(
+                nameError!,
+                style: const TextStyle(color: Colors.black),
+              ),
             ),
           ],
           const SizedBox(height: 12),
@@ -2109,14 +1950,17 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(durationError!, style: const TextStyle(color: Colors.red)),
+              child: Text(
+                durationError!,
+                style: const TextStyle(color: Colors.black),
+              ),
             ),
           ],
           const SizedBox(height: 12),
 
           // Price
           _LabeledField(
-            label: 'Price (in ₹)',
+            label: 'Price (in Γé╣)',
             controller: priceController,
             keyboardType: TextInputType.number,
           ),
@@ -2124,7 +1968,10 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(priceError!, style: const TextStyle(color: Colors.red)),
+              child: Text(
+                priceError!,
+                style: const TextStyle(color: Colors.black),
+              ),
             ),
           ],
           const SizedBox(height: 8),
@@ -2150,8 +1997,12 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             child: ElevatedButton.icon(
               icon: isSaving
                   ? const SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.save_rounded),
               onPressed: isSaving
@@ -2166,10 +2017,12 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
                         final payload = {
                           'name': nameController.text.trim(),
                           'description': descriptionController.text.trim(),
-                          'defaultDurationMin':
-                              int.tryParse(durationController.text.trim()),
-                          'defaultPriceMinor':
-                              int.tryParse(priceController.text.trim()),
+                          'defaultDurationMin': int.tryParse(
+                            durationController.text.trim(),
+                          ),
+                          'defaultPriceMinor': int.tryParse(
+                            priceController.text.trim(),
+                          ),
                           'isActive': isActive.value,
                         }..removeWhere((k, v) => v == null);
 

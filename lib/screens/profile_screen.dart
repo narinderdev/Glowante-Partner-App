@@ -163,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               if (isDeleting) return;
               setDialogState(() => isDeleting = true);
 
-              final success = await apiService.deleteUserAPI();
+              final success = await apiService.deleteAccountAPI();
 
               if (!mounted) return;
               setDialogState(() => isDeleting = false);

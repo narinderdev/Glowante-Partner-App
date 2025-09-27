@@ -132,10 +132,10 @@ class _LoginScreenState extends State<LoginScreen> {
               BlocBuilder<AuthBloc, AuthState>(
                 builder: (context, state) {
                   if (state is AuthLoginSuccess) {
-                    return Text(
-                      'Login Success: ${state.response['message']}',
-                      style: const TextStyle(color: Colors.green),
-                    );
+                    // return Text(
+                    //   'Login Success: ${state.response['message']}',
+                    //   style: const TextStyle(color: Colors.green),
+                    // );
                   }
                   if (state is AuthError) {
                     return Text(

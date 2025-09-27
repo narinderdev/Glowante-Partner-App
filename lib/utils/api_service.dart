@@ -440,40 +440,52 @@ Future<bool> deleteUserAPI() async {
     return false;
   }
 }
-
 //----------------DELETE ACCOUNT PERMANENT---------------
 Future<bool> deleteAccountAPI() async {
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('user_token');
 
-  if (token == null) return false;
+  print("🔑 Loaded token: $token");
 
-  final url = Uri.parse(baseUrl + deleteAccount); 
+  if (token == null) {
+    print("❌ No token found in SharedPreferences");
+    return false;
+  }
+
+  final url = Uri.parse("$baseUrl$deleteAccount"); // safer with slash check
+  print("🌍 Request URL: $url");
+
   try {
     final response = await http.delete(
       url,
       headers: {
         "Authorization": "Bearer $token",
-        "accept": "*/*",
+        "accept": "application/json",
+        "Content-Type": "application/json",
       },
     );
 
-    print("Delete Account Response: ${response.statusCode} ${response.body}");
+    print("📡 Delete Account Response Status: ${response.statusCode}");
+    print("📩 Delete Account Response Body: ${response.body}");
+    print("📑 Delete Account Response Headers: ${response.headers}");
 
-    // succeed on 200/204 just like soft delete
-    if (response.statusCode == 200 || response.statusCode == 204) {
-      await prefs.clear(); // clear local session since account is gone
+    // succeed on 200/204 (or any 2xx for safety)
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      print("✅ Account deleted successfully, clearing local prefs...");
+      await prefs.clear();
       return true;
     } else {
-      await prefs.clear(); // still clear since user wanted permanent removal
+      print("⚠️ Failed to delete account, clearing prefs anyway...");
+      await prefs.clear();
       return false;
     }
   } catch (e) {
-    print("Error during delete account: $e");
+    print("💥 Error during delete account: $e");
     await prefs.clear();
     return false;
   }
 }
+
   // ---------------------- HELPERS ----------------------
 
   String _formatTime(String time) {
