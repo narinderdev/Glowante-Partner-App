@@ -62,9 +62,14 @@ class PushNotificationService {
       sound: true,
     );
 
-    final token = await _messaging.getToken();
-    await _persistToken(token);
-    print('FCM tokens: $token');
+    final hasApnsToken = await _waitForApnsToken();
+    if (!hasApnsToken) {
+      print('APNS token not available; skipping FCM token registration for now.');
+    } else {
+      final token = await _messaging.getToken();
+      await _persistToken(token);
+      print('FCM tokens: $token');
+    }
 
     _messaging.onTokenRefresh.listen((newToken) async {
       print('FCM token refreshed: $newToken');
@@ -96,6 +101,12 @@ class PushNotificationService {
       }
     }
 
+    final hasApnsToken = await _waitForApnsToken();
+    if (!hasApnsToken) {
+      print('APNS token not available; returning cached FCM token if any.');
+      return _cachedToken;
+    }
+
     final freshToken = await _messaging.getToken();
     await _persistToken(freshToken);
     return freshToken;
@@ -121,6 +132,23 @@ class PushNotificationService {
       provisional: false,
     );
     print('Notification permissions: ${settings.authorizationStatus}');
+  }
+
+  Future<bool> _waitForApnsToken() async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) return true;
+
+    const maxAttempts = 10;
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      final apnsToken = await _messaging.getAPNSToken();
+      if (apnsToken?.isNotEmpty == true) {
+        print('APNS token is available');
+        return true;
+      }
+      await Future.delayed(Duration(milliseconds: 300 * (attempt + 1)));
+    }
+
+    print('APNS token was not available after waiting');
+    return false;
   }
 
   Future<void> _showForegroundNotification(RemoteMessage message) async {

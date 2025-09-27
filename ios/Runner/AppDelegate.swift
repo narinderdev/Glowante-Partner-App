@@ -5,7 +5,8 @@ import FirebaseMessaging
 import UserNotifications
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, UNUserNotificationCenterDelegate, MessagingDelegate {
+@objc class AppDelegate: FlutterAppDelegate, MessagingDelegate {
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -30,20 +31,28 @@ import UserNotifications
 
   func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
     let token = fcmToken ?? ""
-    NotificationCenter.default.post(name: Notification.Name("FCMToken"), object: nil, userInfo: ["token": token])
+    NotificationCenter.default.post(
+      name: Notification.Name("FCMToken"),
+      object: nil,
+      userInfo: ["token": token]
+    )
   }
 
   @available(iOS 10.0, *)
-  func userNotificationCenter(
+  override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    completionHandler([.banner, .badge, .sound])
+    if #available(iOS 14.0, *) {
+      completionHandler([.banner, .badge, .sound])
+    } else {
+      completionHandler([.alert, .badge, .sound])
+    }
   }
 
   @available(iOS 10.0, *)
-  func userNotificationCenter(
+  override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
