@@ -19,10 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
+      appBar: AppBar(elevation: 0, backgroundColor: Colors.transparent),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20),
@@ -30,10 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 20),
-              Image.asset(
-                'assets/images/splash_logo.png',
-                height: 100,
-              ),
+              Image.asset('assets/images/splash_logo.png', height: 100),
               const SizedBox(height: 20),
               const Text(
                 'Where beauty and convenience unite',
@@ -73,18 +67,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => OtpScreen(
-                          phoneNumber: phoneNumber,
-                          otp: otp ?? '',
-                        ),
+                        builder: (_) =>
+                            OtpScreen(phoneNumber: phoneNumber, otp: otp ?? ''),
                       ),
                     );
                   }
                   if (state is AuthError) {
                     setState(() => _isLoading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(state.message)),
-                    );
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(state.message)));
                   }
                 },
                 child: ElevatedButton(
@@ -96,22 +88,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
                       String? deviceToken;
                       try {
-                        deviceToken = await PushNotificationService.instance.getToken();
+                        deviceToken = await PushNotificationService.instance
+                            .getToken();
                         print('FCM Device Token: $deviceToken');
                       } catch (error) {
                         debugPrint('Unable to fetch FCM token: ${error}');
                       }
 
                       context.read<AuthBloc>().add(
-                            AuthLoginEvent(
-                              phoneNumber: phoneNumber,
-                              deviceToken: deviceToken,
-                            ),
-                          );
+                        AuthLoginEvent(
+                          phoneNumber: phoneNumber,
+                          deviceToken: deviceToken,
+                        ),
+                      );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Please enter a valid 10-digit mobile number'),
+                          content: Text(
+                            'Please enter a valid 10-digit mobile number',
+                          ),
                         ),
                       );
                     }
@@ -139,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   }
                   if (state is AuthError) {
                     return Text(
-                      'Error: ${state.message}',
+                      state.message,
                       style: const TextStyle(color: Colors.red),
                     );
                   }

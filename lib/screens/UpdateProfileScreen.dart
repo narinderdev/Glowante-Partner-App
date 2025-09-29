@@ -33,9 +33,9 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
 
   // Function to update user profile
   Future<void> _updateProfile() async {
-    String firstName = firstNameController.text;
-    String lastName = lastNameController.text;
-    String email = emailController.text;
+  String firstName = firstNameController.text.trim();
+String lastName = lastNameController.text.trim();
+String email = emailController.text.trim();
 
     // Reset errors
     setState(() {
@@ -58,12 +58,14 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
       });
       isValid = false;
     }
-    if (email.isEmpty) {
-      setState(() {
-        emailError = 'Email is required';
-      });
-      isValid = false;
-    }
+   if (email.isEmpty) {
+  setState(() => emailError = 'Email is required');
+  isValid = false;
+} else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+  setState(() => emailError = 'Enter a valid email');
+  isValid = false;
+}
+
 
     if (!isValid) return; // Don't proceed if validation fails
 
@@ -211,61 +213,64 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
       ),
     );
   }
-
-  // Custom method to build text fields with consistent styling
-  Widget _buildTextField(
-    TextEditingController controller,
-    String label,
-    String hint,
-    String fieldType, // to determine the field type for error handling
-    String fieldError, // to handle specific field error message
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextField(
-            controller: controller,
-            textInputAction: TextInputAction.next,
-            onChanged: (value) {
-              // Clear error when user starts typing
-              setState(() {
-                if (fieldType == 'firstName') firstNameError = '';
-                if (fieldType == 'lastName') lastNameError = '';
-                if (fieldType == 'email') emailError = '';
-              });
-            },
-            inputFormatters: [
-              // Restrict input to alphabet and whitespace only for first/last names
-              if (fieldType != 'email') 
-                FilteringTextInputFormatter.allow(RegExp('[a-zA-Z ]')),
-            ],
-            textCapitalization: fieldType == 'email'
-                ? TextCapitalization.none
-                : TextCapitalization.words, // Automatically capitalize for name fields
-            decoration: InputDecoration(
-              labelText: label,
-              hintText: hint,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.black),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: Colors.black),
-              ),
+// Custom method to build text fields with consistent styling
+Widget _buildTextField(
+  TextEditingController controller,
+  String label,
+  String hint,
+  String fieldType, // to determine the field type for error handling
+  String fieldError, // to handle specific field error message
+) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: controller,
+          textInputAction: TextInputAction.next,
+          onChanged: (value) {
+            // Clear error when user starts typing
+            setState(() {
+              if (fieldType == 'firstName') firstNameError = '';
+              if (fieldType == 'lastName') lastNameError = '';
+              if (fieldType == 'email') emailError = '';
+            });
+          },
+          keyboardType: fieldType == 'email'
+              ? TextInputType.emailAddress
+              : TextInputType.text,
+          inputFormatters: [
+            if (fieldType == 'email')
+              FilteringTextInputFormatter.deny(RegExp(r'\s')), // 🚫 block spaces
+            if (fieldType != 'email')
+              FilteringTextInputFormatter.allow(RegExp('[a-zA-Z ]')), // ✅ allow letters + space
+          ],
+          textCapitalization: fieldType == 'email'
+              ? TextCapitalization.none
+              : TextCapitalization.words, // Auto-capitalize names
+          decoration: InputDecoration(
+            labelText: label,
+            hintText: hint,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.black),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: Colors.black),
             ),
           ),
-          if (fieldError.isNotEmpty) ...[
-            SizedBox(height: 5),
-            Text(
-              fieldError,
-              style: TextStyle(color: Colors.red, fontSize: 12),
-            ),
-          ],
+        ),
+        if (fieldError.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          Text(
+            fieldError,
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
         ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 }

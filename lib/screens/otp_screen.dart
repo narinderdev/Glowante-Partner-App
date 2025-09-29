@@ -1,10 +1,11 @@
-import 'dart:async';  // Import for Timer
+import 'dart:async'; // Import for Timer
 import 'package:flutter/material.dart';
-import 'package:bloc_onboarding/utils/api_service.dart';  // Import ApiService for OTP verification
+import 'package:bloc_onboarding/utils/api_service.dart'; // Import ApiService for OTP verification
+import 'package:bloc_onboarding/utils/error_parser.dart';
 import 'bottom_nav.dart'; // Import BottomNav (for your 4-tab navigation)
 import 'login_screen.dart'; // Import the LoginScreen
 import '../screens/UpdateProfileScreen.dart'; // Import UpdateUserProfileScreen
-import 'package:shared_preferences/shared_preferences.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -17,14 +18,21 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  final List<TextEditingController> otpControllers = List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> focusNodes = List.generate(6, (_) => FocusNode());  // Create a focus node for each field
+  final List<TextEditingController> otpControllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
+  final List<FocusNode> focusNodes = List.generate(
+    6,
+    (_) => FocusNode(),
+  ); // Create a focus node for each field
   String errorMessage = ''; // To store error message
-  bool isResendingOtp = false;  // Track whether OTP is being resent
-  int remainingTime = 30;  // Set initial time to 30 seconds
-  Timer? _timer;  // Timer instance to handle countdown
-  bool isContinueButtonEnabled = false;  // Track if the Continue button should be enabled
-  bool isLoading = false;  // Track loading state for button
+  bool isResendingOtp = false; // Track whether OTP is being resent
+  int remainingTime = 30; // Set initial time to 30 seconds
+  Timer? _timer; // Timer instance to handle countdown
+  bool isContinueButtonEnabled =
+      false; // Track if the Continue button should be enabled
+  bool isLoading = false; // Track loading state for button
 
   // API service instance
   final ApiService apiService = ApiService();
@@ -36,75 +44,83 @@ class _OtpScreenState extends State<OtpScreen> {
     _startCountdown();
   }
 
-Future<void> _verifyOtp() async {
-  String otp = otpControllers.map((controller) => controller.text).join();
-  if (otp.length < 6) {
+  Future<void> _verifyOtp() async {
+    String otp = otpControllers.map((controller) => controller.text).join();
+    if (otp.length < 6) {
+      setState(() {
+        errorMessage = 'Please enter a valid 6-digit OTP';
+      });
+      return;
+    }
+
     setState(() {
-      errorMessage = 'Please enter a valid 6-digit OTP';
+      isLoading = true; // Set loading state
     });
-    return;
-  }
 
-  setState(() {
-    isLoading = true; // Set loading state
-  });
+    try {
+      final response = await apiService.verifyOTP(widget.phoneNumber, otp);
 
-  try {
-    final response = await apiService.verifyOTP(widget.phoneNumber, otp);
+      if (response['success'] == true) {
+        print("OTP Verified successfully");
 
-    if (response['success'] == true) {
-      print("OTP Verified successfully");
+        String? token = response['data']?['token'];
+        Map<String, dynamic>? user = response['data']?['user'];
 
-      String? token = response['data']?['token'];
-      Map<String, dynamic>? user = response['data']?['user'];
+        if (token != null && user != null) {
+          String? firstName = user['firstName'];
+          String? lastName = user['lastName'];
 
-      if (token != null && user != null) {
-        String? firstName = user['firstName'];
-        String? lastName = user['lastName'];
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_token', token);
+          await prefs.setString('phone_number', widget.phoneNumber);
+          if (firstName != null) await prefs.setString('first_name', firstName);
+          if (lastName != null) await prefs.setString('last_name', lastName);
 
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_token', token);
-        await prefs.setString('phone_number', widget.phoneNumber);
-        if (firstName != null) await prefs.setString('first_name', firstName);
-        if (lastName != null) await prefs.setString('last_name', lastName);
+          print("Token saved: $token");
+          print("Phone saved: ${widget.phoneNumber}");
+          print("First Name saved: $firstName");
+          print("Last Name saved: $lastName");
 
-        print("Token saved: $token");
-        print("Phone saved: ${widget.phoneNumber}");
-        print("First Name saved: $firstName");
-        print("Last Name saved: $lastName");
-
-        // Navigate
-        if (firstName != null && firstName.isNotEmpty) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 0)),
-          );
+          // Navigate
+          if (firstName != null && firstName.isNotEmpty) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 0)),
+            );
+          } else {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => UpdateUserProfileScreen(token: token),
+              ),
+            );
+          }
         } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => UpdateUserProfileScreen(token: token)),
-          );
+          setState(() {
+            errorMessage = 'User data or token is missing';
+          });
         }
       } else {
         setState(() {
-          errorMessage = 'User data or token is missing';
+          errorMessage = extractMessage(
+            response,
+            fallback: 'Invalid or expired OTP',
+          );
         });
       }
-    } else {
+    } catch (e) {
       setState(() {
-        errorMessage = response['message'] ?? 'OTP verification failed';
+        errorMessage = extractErrorMessage(
+          e,
+          fallback: 'Invalid or expired OTP',
+        );
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
       });
     }
-  } catch (e) {
-    setState(() {
-      errorMessage = 'Error verifying OTP: $e';
-    });
-  } finally {
-    setState(() {
-      isLoading = false;
-    });
   }
-}
 
   // Function to handle OTP input focus and auto-switch to next field
   void _handleOtpInput(String value, int index) {
@@ -119,15 +135,18 @@ Future<void> _verifyOtp() async {
     }
 
     // Check if all OTP fields are filled
-    bool allFilled = otpControllers.every((controller) => controller.text.isNotEmpty);
+    bool allFilled = otpControllers.every(
+      (controller) => controller.text.isNotEmpty,
+    );
     setState(() {
-      isContinueButtonEnabled = allFilled;  // Enable button when all fields are filled
+      isContinueButtonEnabled =
+          allFilled; // Enable button when all fields are filled
     });
   }
 
   Future<void> _resendOtp() async {
     setState(() {
-      isResendingOtp = true;  // Set loading state
+      isResendingOtp = true; // Set loading state
     });
     try {
       final response = await apiService.resendOtp(widget.phoneNumber);
@@ -139,16 +158,19 @@ Future<void> _verifyOtp() async {
         _startCountdown();
       } else {
         setState(() {
-          errorMessage = response['message'] ?? 'Failed to resend OTP';
+          errorMessage = extractMessage(
+            response,
+            fallback: 'Failed to resend OTP',
+          );
         });
       }
     } catch (e) {
       setState(() {
-        errorMessage = 'Error during OTP resend: $e';
+        errorMessage = extractErrorMessage(e, fallback: 'Failed to resend OTP');
       });
     } finally {
       setState(() {
-        isResendingOtp = false;  // Reset loading state
+        isResendingOtp = false; // Reset loading state
       });
     }
   }
@@ -170,11 +192,11 @@ Future<void> _verifyOtp() async {
     _timer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (remainingTime > 0) {
         setState(() {
-          remainingTime--;  // Decrease the remaining time by 1 every second
+          remainingTime--; // Decrease the remaining time by 1 every second
         });
         // print('Remaining time: $remainingTime');  // Log to check timer progression
       } else {
-        _timer?.cancel();  // Stop the timer when countdown reaches 0
+        _timer?.cancel(); // Stop the timer when countdown reaches 0
         // print('Timer finished');  // Log when timer finishes
       }
     });
@@ -184,7 +206,9 @@ Future<void> _verifyOtp() async {
   void _onBackPressed() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => LoginScreen()),  // Navigate back to LoginScreen
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(),
+      ), // Navigate back to LoginScreen
     );
   }
 
@@ -194,108 +218,112 @@ Future<void> _verifyOtp() async {
     for (var focusNode in focusNodes) {
       focusNode.dispose();
     }
-    _timer?.cancel();  // Cancel the timer when disposing
+    _timer?.cancel(); // Cancel the timer when disposing
     super.dispose();
   }
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      elevation: 0,
-      backgroundColor: Colors.transparent,
-      leading: IconButton(
-        icon: Icon(Icons.arrow_back),
-        onPressed: _onBackPressed,
-      ),
-    ),
-    body: SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(height: 20),
-            Text(
-              "OTP Verification",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 10),
-            Text(
-              "Enter the OTP sent to *****${widget.phoneNumber.substring(6)}",
-              style: TextStyle(fontSize: 16),
-            ),
-            SizedBox(height: 30),
-            // OTP Input Fields (6 separate text fields)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(6, (index) {
-                return Container(
-                  width: 40,
-                  height: 50,
-                  margin: EdgeInsets.symmetric(horizontal: 5),
-                  child: TextField(
-                    controller: otpControllers[index],
-                    keyboardType: TextInputType.number,
-                    textAlign: TextAlign.center,
-                    maxLength: 1,
-                    focusNode: focusNodes[index],
-                    decoration: InputDecoration(
-                      counterText: "",
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      _handleOtpInput(value, index);
-                    },
-                  ),
-                );
-              }),
-            ),
-            if (errorMessage.isNotEmpty) ...[
-              SizedBox(height: 10),
-              Text(
-                errorMessage,
-                style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-              ),
-            ],
-            SizedBox(height: 20),
-            // Continue Button
-            ElevatedButton(
-              onPressed: isContinueButtonEnabled && !isLoading ? _verifyOtp : null,
-              style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
-                backgroundColor: isContinueButtonEnabled && !isLoading ? Colors.orange : Colors.grey[300],
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: isLoading
-                  ? CircularProgressIndicator(color: Colors.white)
-                  : Text("Continue", style: TextStyle(color: Colors.black)),
-            ),
-            SizedBox(height: 20),
-            // Resend OTP
-            GestureDetector(
-              onTap: isResendingOtp || remainingTime > 0 ? null : _resendOtp,
-              child: Text(
-                isResendingOtp
-                    ? "Resending..."
-                    : (remainingTime > 0 ? "Resend OTP in $remainingTime sec" : "Resend OTP"),
-                style: TextStyle(
-                  color: remainingTime > 0 ? Colors.grey : Colors.orange,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            SizedBox(height: 20),
-          ],
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: _onBackPressed,
         ),
       ),
-    ),
-  );
-}
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(height: 20),
+              Text(
+                "OTP Verification",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 10),
+              Text(
+                "Enter the OTP sent to *****${widget.phoneNumber.substring(6)}",
+                style: TextStyle(fontSize: 16),
+              ),
+              SizedBox(height: 30),
+              // OTP Input Fields (6 separate text fields)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(6, (index) {
+                  return Container(
+                    width: 40,
+                    height: 50,
+                    margin: EdgeInsets.symmetric(horizontal: 5),
+                    child: TextField(
+                      controller: otpControllers[index],
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      maxLength: 1,
+                      focusNode: focusNodes[index],
+                      decoration: InputDecoration(
+                        counterText: "",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        _handleOtpInput(value, index);
+                      },
+                    ),
+                  );
+                }),
+              ),
+              if (errorMessage.isNotEmpty) ...[
+                SizedBox(height: 10),
+                Text(errorMessage, style: TextStyle(color: Colors.red)),
+              ],
+              SizedBox(height: 20),
+              // Continue Button
+              ElevatedButton(
+                onPressed: isContinueButtonEnabled && !isLoading
+                    ? _verifyOtp
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size(double.infinity, 50),
+                  backgroundColor: isContinueButtonEnabled && !isLoading
+                      ? Colors.orange
+                      : Colors.grey[300],
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: isLoading
+                    ? CircularProgressIndicator(color: Colors.white)
+                    : Text("Continue", style: TextStyle(color: Colors.black)),
+              ),
+              SizedBox(height: 20),
+              // Resend OTP
+              GestureDetector(
+                onTap: isResendingOtp || remainingTime > 0 ? null : _resendOtp,
+                child: Text(
+                  isResendingOtp
+                      ? "Resending..."
+                      : (remainingTime > 0
+                            ? "Resend OTP in $remainingTime sec"
+                            : "Resend OTP"),
+                  style: TextStyle(
+                    color: remainingTime > 0 ? Colors.grey : Colors.orange,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   // @override
   // Widget build(BuildContext context) {
@@ -356,7 +384,7 @@ Widget build(BuildContext context) {
   //             SizedBox(height: 10),
   //             Text(
   //               errorMessage,
-  //               style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+  //               style: TextStyle(color: Colors.red),
   //             ),
   //           ],
   //           SizedBox(height: 20),

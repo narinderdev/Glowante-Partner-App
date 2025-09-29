@@ -45,7 +45,9 @@ class _TeamScreenState extends State<TeamScreen> {
 
   Future<List<dynamic>> getTeamMembers(int salonId) async {
     try {
-      final response = await ApiService().getSalonUsersApi(salonId); // 👈 calls your API
+      final response = await ApiService().getSalonUsersApi(
+        salonId,
+      ); // 👈 calls your API
       if (response['success'] == true) {
         return response['data'] ?? [];
       } else {
@@ -65,10 +67,7 @@ class _TeamScreenState extends State<TeamScreen> {
         backgroundColor: Colors.black,
         title: const Text(
           "Team Members",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -82,7 +81,44 @@ class _TeamScreenState extends State<TeamScreen> {
             } else if (snapshot.hasError) {
               return Center(child: Text("Error: ${snapshot.error}"));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return const Center(child: Text("No salons found"));
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<int>(
+                    isExpanded: true,
+                    value: null,
+                    items: const <DropdownMenuItem<int>>[],
+                    onChanged: null,
+                    decoration: InputDecoration(
+                      labelText: "Salon",
+                      labelStyle: TextStyle(
+                        color: Colors.grey.shade800,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      hintText: "No salons available",
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                    ),
+                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    dropdownColor: Colors.white,
+                  ),
+                  const SizedBox(height: 16),
+                  const Expanded(
+                    child: Center(child: Text("No salons available")),
+                  ),
+                ],
+              );
             } else {
               final salons = snapshot.data!;
 
@@ -115,13 +151,16 @@ class _TeamScreenState extends State<TeamScreen> {
 
               // Flatten all branches to build dropdown items
               final List<Map<String, dynamic>> allBranches = salons
-                  .expand<Map<String, dynamic>>((s) => ((s['branches'] as List?) ?? const [])
-                      .map((b) => {
-                            'branchId': b['id'],
-                            'branchName': b['name'],
-                            'salonId': s['id'],
-                            'salonName': s['name'],
-                          }))
+                  .expand<Map<String, dynamic>>(
+                    (s) => ((s['branches'] as List?) ?? const []).map(
+                      (b) => {
+                        'branchId': b['id'],
+                        'branchName': b['name'],
+                        'salonId': s['id'],
+                        'salonName': s['name'],
+                      },
+                    ),
+                  )
                   .toList();
 
               final bool hasAnyBranch = allBranches.isNotEmpty;
@@ -135,16 +174,18 @@ class _TeamScreenState extends State<TeamScreen> {
                     value: hasAnyBranch ? selectedBranchId : null,
                     items: hasAnyBranch
                         ? allBranches
-                            .map<DropdownMenuItem<int>>(
-                              (b) => DropdownMenuItem<int>(
-                                value: b['branchId'] as int,
-                                child: Text(
-                                  "${b['salonName']} • ${b['branchName']}",
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                              .map<DropdownMenuItem<int>>(
+                                (b) => DropdownMenuItem<int>(
+                                  value: b['branchId'] as int,
+                                  child: Text(
+                                    "${b['salonName']} • ${b['branchName']}",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            )
-                            .toList()
+                              )
+                              .toList()
                         : const <DropdownMenuItem<int>>[],
                     onChanged: hasAnyBranch
                         ? (value) {
@@ -152,19 +193,22 @@ class _TeamScreenState extends State<TeamScreen> {
                               selectedBranchId = value;
                               if (value != null) {
                                 final picked = allBranches.firstWhere(
-                                    (b) => b['branchId'] == value);
+                                  (b) => b['branchId'] == value,
+                                );
                                 selectedBranch = {
                                   'salonId': picked['salonId'],
                                   'branchId': picked['branchId'],
                                   'branchName': picked['branchName'],
                                 };
-                                teamMembersFuture =
-                                    getTeamMembers(picked['salonId'] as int);
+                                teamMembersFuture = getTeamMembers(
+                                  picked['salonId'] as int,
+                                );
 
                                 print(
-                                    "Selected SalonId: ${selectedBranch!['salonId']} "
-                                    "| BranchId: ${selectedBranch!['branchId']} "
-                                    "| BranchName: ${selectedBranch!['branchName']}");
+                                  "Selected SalonId: ${selectedBranch!['salonId']} "
+                                  "| BranchId: ${selectedBranch!['branchId']} "
+                                  "| BranchName: ${selectedBranch!['branchName']}",
+                                );
                               }
                             });
                           }
@@ -209,24 +253,27 @@ class _TeamScreenState extends State<TeamScreen> {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
                           return const Center(
-                              child: CircularProgressIndicator());
+                            child: CircularProgressIndicator(),
+                          );
                         } else if (snapshot.hasError) {
                           return Center(
-                              child: Text("Error: ${snapshot.error}"));
+                            child: Text("Error: ${snapshot.error}"),
+                          );
                         } else if (!snapshot.hasData ||
                             snapshot.data!.isEmpty) {
                           return const Center(
-                              child: Text("No team members found"));
+                            child: Text("No team members found"),
+                          );
                         } else {
                           final members = snapshot.data!;
                           return GridView.builder(
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              childAspectRatio: 0.7,
-                            ),
+                                  crossAxisCount: 2,
+                                  mainAxisSpacing: 12,
+                                  crossAxisSpacing: 12,
+                                  childAspectRatio: 0.7,
+                                ),
                             itemCount: members.length,
                             itemBuilder: (context, index) {
                               final m = members[index];
@@ -248,12 +295,15 @@ class _TeamScreenState extends State<TeamScreen> {
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) =>
                                             const SizedBox(
-                                          height: 110,
-                                          child: Center(
-                                              child: Icon(Icons.person,
+                                              height: 110,
+                                              child: Center(
+                                                child: Icon(
+                                                  Icons.person,
                                                   size: 48,
-                                                  color: Colors.grey)),
-                                        ),
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ),
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
@@ -271,18 +321,24 @@ class _TeamScreenState extends State<TeamScreen> {
                                             ? m['roles'][0]['label']
                                             : "Staff",
                                         style: TextStyle(
-                                            color: Colors.grey[600]),
+                                          color: Colors.grey[600],
+                                        ),
                                       ),
                                       const SizedBox(height: 6),
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: const [
-                                          Icon(Icons.work,
-                                              size: 16, color: Colors.grey),
+                                          Icon(
+                                            Icons.work,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
                                           SizedBox(width: 4),
-                                          Text("2 year+ Experience",
-                                              style: TextStyle(fontSize: 12)),
+                                          Text(
+                                            "2 year+ Experience",
+                                            style: TextStyle(fontSize: 12),
+                                          ),
                                         ],
                                       ),
                                       const SizedBox(height: 6),
@@ -290,11 +346,16 @@ class _TeamScreenState extends State<TeamScreen> {
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: const [
-                                          Icon(Icons.star,
-                                              size: 16, color: Colors.black),
+                                          Icon(
+                                            Icons.star,
+                                            size: 16,
+                                            color: Colors.black,
+                                          ),
                                           SizedBox(width: 4),
-                                          Text("4.5 (43)",
-                                              style: TextStyle(fontSize: 12)),
+                                          Text(
+                                            "4.5 (43)",
+                                            style: TextStyle(fontSize: 12),
+                                          ),
                                         ],
                                       ),
                                       const Spacer(),
@@ -304,8 +365,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
-                                              builder: (_) =>
-                                                  TeamMemberDetails(
+                                              builder: (_) => TeamMemberDetails(
                                                 member: m,
                                                 salons: salons,
                                               ),
@@ -316,8 +376,9 @@ class _TeamScreenState extends State<TeamScreen> {
                                           backgroundColor: Colors.black,
                                           foregroundColor: Colors.white,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                         ),
                                         child: const Text("View Member"),
@@ -355,8 +416,7 @@ class _TeamScreenState extends State<TeamScreen> {
 
             if (refresh == true) {
               setState(() {
-                teamMembersFuture =
-                    getTeamMembers(selectedBranch!['salonId']);
+                teamMembersFuture = getTeamMembers(selectedBranch!['salonId']);
               });
             }
           } else {

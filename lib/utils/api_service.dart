@@ -452,7 +452,7 @@ Future<bool> deleteAccountAPI() async {
     return false;
   }
 
-  final url = Uri.parse("$baseUrl$deleteAccount"); // safer with slash check
+  final url = Uri.parse("$baseUrl$deleteAccount");
   print("🌍 Request URL: $url");
 
   try {
@@ -461,7 +461,7 @@ Future<bool> deleteAccountAPI() async {
       headers: {
         "Authorization": "Bearer $token",
         "accept": "application/json",
-        "Content-Type": "application/json",
+        // 👇 do NOT include Content-Type since there's no body
       },
     );
 
@@ -469,19 +469,16 @@ Future<bool> deleteAccountAPI() async {
     print("📩 Delete Account Response Body: ${response.body}");
     print("📑 Delete Account Response Headers: ${response.headers}");
 
-    // succeed on 200/204 (or any 2xx for safety)
     if (response.statusCode >= 200 && response.statusCode < 300) {
       print("✅ Account deleted successfully, clearing local prefs...");
-      await prefs.clear();
+      await prefs.clear(); // only clear after confirmed delete
       return true;
     } else {
-      print("⚠️ Failed to delete account, clearing prefs anyway...");
-      await prefs.clear();
+      print("⚠️ Failed to delete account, keeping prefs for retry...");
       return false;
     }
   } catch (e) {
     print("💥 Error during delete account: $e");
-    await prefs.clear();
     return false;
   }
 }
