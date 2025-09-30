@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/colors.dart';
+
+import '../services/push_notification_service.dart';
+
 import 'Bookings.dart';
 import 'category_screen.dart';
 import 'profile_screen.dart';
@@ -18,6 +23,8 @@ class _BottomNavState extends State<BottomNav> {
   late int _currentIndex;
   late final List<_Destination> _destinations;
   late final List<Widget> _screens;
+  StreamSubscription<BookingNotificationPayload>? _navPushSub;
+
 
   @override
   void initState() {
@@ -47,11 +54,22 @@ class _BottomNavState extends State<BottomNav> {
 ];
 
     _screens = [
-      BookingsScreen(),
+      const BookingsScreen(),
       SalonsScreen(),
       CategoryScreen(),
       ProfileScreen(),
     ];
+
+    final pendingNotification = PushNotificationService.instance.pendingNavigationEvent;
+    if (pendingNotification != null && pendingNotification.wasTapped) {
+      _currentIndex = 0;
+    }
+
+    _navPushSub = PushNotificationService.instance.bookingNotifications.listen((payload) {
+      if (!payload.wasTapped || !mounted) return;
+      if (_currentIndex == 0) return;
+      setState(() => _currentIndex = 0);
+    });
   }
 
   @override
@@ -63,6 +81,12 @@ class _BottomNavState extends State<BottomNav> {
             widget.tabIndex.clamp(0, _destinations.length - 1);
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _navPushSub?.cancel();
+    super.dispose();
   }
 
   @override

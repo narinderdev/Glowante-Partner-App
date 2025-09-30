@@ -15,7 +15,27 @@ class _BookingsScreenState extends State<BookingsScreen> {
     super.initState();
     fetchSalonList();
   }
-
+Future<List<Map<String, dynamic>>> getSalonListApi() async {
+    try {
+      final response = await ApiService().getSalonListApi();
+      if (response['success'] == true) {
+        final List salons = response['data'];
+        return salons.map<Map<String, dynamic>>((salon) {
+          return {
+            'id': salon['id'],
+            'name': salon['name'],
+            'branches': salon['branches'],
+          };
+        }).toList();
+      } else {
+        throw Exception("Failed to fetch salon list");
+      }
+    } catch (e) {
+      debugPrint("Error fetching salon list: $e");
+      return [];
+    }
+  }
+  
   Future<void> fetchSalonList() async {
     try {
       final salons = await getSalonListApi(); // Get the list of salons

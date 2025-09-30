@@ -248,6 +248,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                   const SizedBox(height: 16), 
                   CompositedTransformTarget(
                     link: _searchFieldLink,
                     child: TextFormField(

@@ -1,15 +1,21 @@
-// Md
-import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
-import 'package:intl/intl.dart'; // For date formatting
-import '../utils/api_service.dart'; // Import the correct api_service.dart file
-import 'AddBookings.dart'; // Add Booking screen
-import '../utils/colors.dart'; // Custom colors
-import 'package:shared_preferences/shared_preferences.dart';
+﻿// Md
+import 'dart:async';
 import 'dart:convert'; // NEW
+
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart'; // For date formatting
 import 'package:dotted_border/dotted_border.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/push_notification_service.dart';
+import '../utils/api_service.dart'; // Import the correct api_service.dart file
+import '../utils/colors.dart'; // Custom colors
+import 'AddBookings.dart'; // Add Booking screen
 
 class BookingsScreen extends StatefulWidget {
+  const BookingsScreen({super.key});
+
   @override
   _BookingsScreenState createState() => _BookingsScreenState();
 }
@@ -72,6 +78,9 @@ class _BookingsScreenState extends State<BookingsScreen> {
   final ScrollController _gridHController = ScrollController();
   bool _syncingV = false;
   bool _syncingH = false;
+
+  StreamSubscription<BookingNotificationPayload>? _bookingPushSub;
+  BookingNotificationPayload? _queuedBookingNotification;
 
   // ---- Helper: normalize status everywhere ----
   String _normalizeStatus(dynamic value) =>
@@ -179,6 +188,19 @@ class _BookingsScreenState extends State<BookingsScreen> {
   @override
   void initState() {
     super.initState();
+    _bookingPushSub = PushNotificationService.instance.bookingNotifications.listen(
+      (payload) {
+        unawaited(_handleBookingNotification(payload));
+      },
+    );
+
+    final pendingNotification = PushNotificationService.instance.takePendingNavigationEvent();
+    if (pendingNotification != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_handleBookingNotification(pendingNotification));
+      });
+    }
+
     _weekAnchor = DateTime(
       selectedDate.year,
       selectedDate.month,
@@ -295,6 +317,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
           salons = normalized;
         });
         _ensureBranchSelection();
+        _processQueuedBookingNotificationIfAny();
         return normalized.isNotEmpty;
       }
     } catch (_) {}
@@ -378,6 +401,20 @@ class _BookingsScreenState extends State<BookingsScreen> {
     }
   }
 
+  void _processQueuedBookingNotificationIfAny() {
+    final queued = _queuedBookingNotification;
+    if (queued == null) return;
+
+    final options = _computeBranchOptions();
+    final hasOption = options.any((option) => option.branchId == queued.branchId);
+    if (!hasOption) return;
+
+    _queuedBookingNotification = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(_handleBookingNotification(queued));
+    });
+  }
   bool isSameDay(DateTime date1, DateTime date2) {
     return date1.year == date2.year &&
         date1.month == date2.month &&
@@ -409,6 +446,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
           isLoading = false;
         });
         _ensureBranchSelection();
+        _processQueuedBookingNotificationIfAny();
         await _saveSalonsToCache();
       } else {
         throw Exception("Failed to fetch salon list");
@@ -420,6 +458,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
           isLoading = false;
         });
         _ensureBranchSelection();
+        _processQueuedBookingNotificationIfAny();
       }
     }
   }
@@ -2321,6 +2360,8 @@ class _BookingsScreenState extends State<BookingsScreen> {
         branchId,
         selectedDate,
       ); // (optional) always refresh bookings on branch change
+      _processQueuedBookingNotificationIfAny();
+      print('[Bookings] processed any queued payload after branch change.');
     } finally {
       if (mounted) {
         setState(() {
@@ -2355,6 +2396,57 @@ class _BookingsScreenState extends State<BookingsScreen> {
     }
   }
 
+  Future<void> _handleBookingNotification(BookingNotificationPayload payload) async {
+    print('[Bookings] handling booking push: branch=' + payload.branchId.toString() + ', date=' + payload.date.toIso8601String() + ', tapped=' + payload.wasTapped.toString());
+    if (!mounted) return;
+
+    final options = _computeBranchOptions();
+    _BranchOption? targetOption;
+    for (final option in options) {
+      if (option.branchId == payload.branchId) {
+        targetOption = option;
+        break;
+      }
+    }
+
+    if (targetOption == null) {
+      print('[Bookings] branch=' + payload.branchId.toString() + ' not yet available, queueing payload.');
+      _queuedBookingNotification = payload;
+      if (!isLoading && !_isFetchingData) {
+        unawaited(_refreshAllData());
+      }
+      return;
+    }
+
+    if (selectedBranchId != targetOption.branchId) {
+      await onBranchChanged(
+        targetOption.branchId,
+        targetOption.salonId,
+        targetOption.branch,
+      );
+      if (!mounted) return;
+    }
+
+    if (selectedBranchId != targetOption.branchId) {
+      _queuedBookingNotification = payload;
+      return;
+    }
+
+    final bool shouldChangeDate = !isSameDay(selectedDate, payload.date);
+    if (shouldChangeDate) {
+      await _setSelectedDate(payload.date);
+      print('[Bookings] changed active date via push to ' + payload.date.toIso8601String());
+    } else {
+      await getBookingsByDate(selectedBranchId!, selectedDate);
+      print('[Bookings] reloaded bookings for existing date via push.');
+    }
+
+    if (!payload.wasTapped && payload.message?.isNotEmpty == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(payload.message!)),
+      );
+    }
+  }
   Future<void> changeDate(bool isNext) async {
     final DateTime newDate = isNext
         ? selectedDate.add(const Duration(days: 1))
@@ -2444,14 +2536,14 @@ class _BookingsScreenState extends State<BookingsScreen> {
           ),
 
           // 2) Refresh SECOND (to the right)
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: IconButton(
-              tooltip: 'Refresh',
-              icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
-              onPressed: _isFetchingData ? null : _refreshAllData,
-            ),
-          ),
+          // Padding(
+          //   padding: const EdgeInsets.only(right: 16.0),
+          //   child: IconButton(
+          //     tooltip: 'Refresh',
+          //     icon: const Icon(Icons.refresh_rounded, color: Colors.black87),
+          //     onPressed: _isFetchingData ? null : _refreshAllData,
+          //   ),
+          // ),
         ],
       ),
 
@@ -2900,6 +2992,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
   @override
   void dispose() {
+    _bookingPushSub?.cancel();
     _timeColumnVController.dispose();
     _gridVController.dispose();
     _headerHController.dispose();
