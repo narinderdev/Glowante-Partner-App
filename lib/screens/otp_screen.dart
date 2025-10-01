@@ -6,6 +6,7 @@ import 'bottom_nav.dart'; // Import BottomNav (for your 4-tab navigation)
 import 'login_screen.dart'; // Import the LoginScreen
 import '../screens/UpdateProfileScreen.dart'; // Import UpdateUserProfileScreen
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/colors.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -291,7 +292,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 style: ElevatedButton.styleFrom(
                   minimumSize: Size(double.infinity, 50),
                   backgroundColor: isContinueButtonEnabled && !isLoading
-                      ? Colors.orange
+                      ? AppColors.starColor
                       : Colors.grey[300],
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -299,7 +300,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
                 child: isLoading
                     ? CircularProgressIndicator(color: Colors.white)
-                    : Text("Continue", style: TextStyle(color: Colors.black)),
+                    : Text("Continue", style: TextStyle(color: Colors.white)),
               ),
               SizedBox(height: 20),
               // Resend OTP
@@ -312,7 +313,7 @@ class _OtpScreenState extends State<OtpScreen> {
                             ? "Resend OTP in $remainingTime sec"
                             : "Resend OTP"),
                   style: TextStyle(
-                    color: remainingTime > 0 ? Colors.grey : Colors.orange,
+                    color: remainingTime > 0 ? Colors.grey : AppColors.starColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -324,99 +325,4 @@ class _OtpScreenState extends State<OtpScreen> {
       ),
     );
   }
-
-  // @override
-  // Widget build(BuildContext context) {
-  //   return Scaffold(
-  //     appBar: AppBar(
-  //       elevation: 0, // Remove the default app bar shadow
-  //       backgroundColor: Colors.transparent, // Make the app bar transparent
-  //       leading: IconButton(
-  //         icon: Icon(Icons.arrow_back),
-  //         onPressed: _onBackPressed,  // Navigate to LoginScreen on back button press
-  //       ),
-  //     ),
-  //     body: Padding(
-  //       padding: const EdgeInsets.symmetric(horizontal: 16.0),
-  //       child: Column(
-  //         mainAxisAlignment: MainAxisAlignment.center,
-  //         crossAxisAlignment: CrossAxisAlignment.center,
-  //         children: [
-  //           Text(
-  //             "OTP Verification",
-  //             style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-  //           ),
-  //           SizedBox(height: 10),
-  //                      Text(
-  //             "Enter the OTP sent to *****${widget.phoneNumber.substring(6)}",
-  //             style: TextStyle(fontSize: 16),
-  //           ),
-  //           SizedBox(height: 30),
-  //           // OTP Input Fields (6 separate text fields)
-  //           Row(
-  //             mainAxisAlignment: MainAxisAlignment.center,
-  //             children: List.generate(6, (index) {
-  //               return Container(
-  //                 width: 40,
-  //                 height: 50,
-  //                 margin: EdgeInsets.symmetric(horizontal: 5),
-  //                 child: TextField(
-  //                   controller: otpControllers[index],
-  //                   keyboardType: TextInputType.number,
-  //                   textAlign: TextAlign.center,
-  //                   maxLength: 1,
-  //                   focusNode: focusNodes[index],  // Use corresponding FocusNode
-  //                   decoration: InputDecoration(
-  //                     counterText: "",
-  //                     border: OutlineInputBorder(
-  //                       borderRadius: BorderRadius.circular(8),
-  //                     ),
-  //                   ),
-  //                   onChanged: (value) {
-  //                     // Move focus on input
-  //                     _handleOtpInput(value, index);
-  //                   },
-  //                 ),
-  //               );
-  //             }),
-  //           ),
-  //           if (errorMessage.isNotEmpty) ...[
-  //             SizedBox(height: 10),
-  //             Text(
-  //               errorMessage,
-  //               style: TextStyle(color: Colors.red),
-  //             ),
-  //           ],
-  //           SizedBox(height: 20),
-  //           // Continue Button with loader logic
-  //           ElevatedButton(
-  //             onPressed: isContinueButtonEnabled && !isLoading ? _verifyOtp : null, // Enable only if all digits are filled and not loading
-  //             style: ElevatedButton.styleFrom(
-  //               minimumSize: Size(double.infinity, 50), // Full width button
-  //               backgroundColor: isContinueButtonEnabled && !isLoading ? Colors.orange : Colors.grey[300], // Button color change
-  //               shape: RoundedRectangleBorder(
-  //                 borderRadius: BorderRadius.circular(8), // Rounded corners
-  //               ),
-  //             ),
-  //             child: isLoading
-  //                 ? CircularProgressIndicator(color: Colors.white)  // Show loader if loading
-  //                 : Text("Continue", style: TextStyle(color: Colors.black)),
-  //           ),
-  //           SizedBox(height: 20),
-  //           // Resend OTP Text with countdown
-  //           GestureDetector(
-  //             onTap: isResendingOtp || remainingTime > 0 ? null : _resendOtp,  // Disable if OTP is being resent or time is remaining
-  //             child: Text(
-  //               isResendingOtp ? "Resending..." : (remainingTime > 0 ? "Resend OTP in $remainingTime sec" : "Resend OTP"),  // Show countdown
-  //               style: TextStyle(
-  //                 color: remainingTime > 0 ? Colors.grey : Colors.orange,  // Make countdown grey
-  //                 fontWeight: FontWeight.bold,
-  //               ),
-  //             ),
-  //           ),
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
 }

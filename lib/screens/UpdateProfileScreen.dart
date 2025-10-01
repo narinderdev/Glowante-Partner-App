@@ -5,6 +5,7 @@ import '../utils/api_service.dart';
 import '../screens/add_salon_screen.dart'; // Import AddSalonScreen
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart'; // Import AddSalonCubit
 import 'package:bloc_onboarding/repositories/salon_repository.dart'; // Import SalonRepository
+import '../utils/colors.dart';
 
 class UpdateUserProfileScreen extends StatefulWidget {
   final String token; // Token passed from OTP verification screen
@@ -161,12 +162,22 @@ String email = emailController.text.trim();
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          'Update Profile',
-          style: TextStyle(color: Colors.white),
-        ),
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        title: const Text(
+          'Create Profile',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.starColor, AppColors.getStartedButton],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: SingleChildScrollView(  // Wrapping the body in a SingleChildScrollView
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
@@ -204,7 +215,7 @@ String email = emailController.text.trim();
                       color: Colors.white,
                     ) // Show loader when loading
                   : Text(
-                      'Update Profile',
+                      'Create Profile',
                       style: TextStyle(color: Colors.white),
                     ),
             ),

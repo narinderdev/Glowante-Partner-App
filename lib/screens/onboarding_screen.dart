@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/screens/login_screen.dart';
 import 'package:bloc_onboarding/utils/user_defaults_manager.dart';
+import '../utils/colors.dart';
 
 class OnboardingPage {
   final String title;
@@ -138,7 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                       );
                                     },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.orange,
+                                      backgroundColor: AppColors.starColor,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -179,7 +180,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   width: isActive ? 30 : 10,
                   height: 10,
                   decoration: BoxDecoration(
-                    color: isActive ? Colors.orange : Colors.white38,
+                    color: isActive ? AppColors.starColor : Colors.white38,
                     borderRadius: BorderRadius.circular(6),
                   ),
                 );

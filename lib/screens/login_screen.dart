@@ -6,6 +6,7 @@ import 'package:bloc_onboarding/bloc/auth/auth_event.dart';
 import 'package:bloc_onboarding/bloc/auth/auth_state.dart';
 import 'package:bloc_onboarding/screens/otp_screen.dart';
 import 'package:bloc_onboarding/services/push_notification_service.dart';
+import '../utils/colors.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -113,7 +114,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   },
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: Colors.orange,
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: AppColors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
