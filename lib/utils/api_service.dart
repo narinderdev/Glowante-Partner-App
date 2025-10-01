@@ -1875,7 +1875,9 @@ static Future<Map<String, dynamic>> startAppointment({
     throw Exception('Token is missing');
   }
 
-  final url = Uri.parse("$baseUrl${startAppointmentAPI(branchId, appointmentId)}");
+  final url = Uri.parse(
+    "$baseUrl${startAppointmentAPI(branchId, appointmentId)}",
+  );
 
   bool _asBool(dynamic value) {
     if (value is bool) return value;
@@ -1888,6 +1890,19 @@ static Future<Map<String, dynamic>> startAppointment({
   }
 
   try {
+    // 🔍 Log request
+    print("====== [START_APPOINTMENT REQUEST] ======");
+    print("➡️ URL: $url");
+    print("➡️ Headers: {"
+        "Content-Type: application/json, "
+        "Authorization: Bearer ${token.substring(0, 8)}...}");
+    print("➡️ Body: ${jsonEncode({
+      'branchId': branchId,
+      'appointmentId': appointmentId,
+      'otp': otp,
+    })}");
+    print("=========================================");
+
     final response = await http.post(
       url,
       headers: {
@@ -1901,6 +1916,12 @@ static Future<Map<String, dynamic>> startAppointment({
       }),
     );
 
+    // 🔍 Log raw response
+    print("====== [START_APPOINTMENT RESPONSE] =====");
+    print("⬅️ Status: ${response.statusCode}");
+    print("⬅️ Raw Body: ${response.body}");
+    print("=========================================");
+
     final bool statusOk = response.statusCode >= 200 && response.statusCode < 300;
 
     Map<String, dynamic> body = const <String, dynamic>{};
@@ -1910,10 +1931,16 @@ static Future<Map<String, dynamic>> startAppointment({
         if (decoded is Map<String, dynamic>) {
           body = decoded;
         }
-      } catch (_) {
+      } catch (e) {
+        print("⚠️ JSON Decode Error: $e");
         body = const <String, dynamic>{};
       }
     }
+
+    // 🔍 Log decoded body
+    print("====== [PARSED JSON BODY] ===============");
+    print(body);
+    print("=========================================");
 
     bool? successValue;
     if (body.containsKey('success')) {
@@ -1940,6 +1967,11 @@ static Future<Map<String, dynamic>> startAppointment({
       result['data'] = body['data'];
     }
 
+    // 🔍 Final result
+    print("====== [FINAL RESULT MAP] ===============");
+    print(result);
+    print("=========================================");
+
     return result;
   } catch (e, stack) {
     print('[START_APPOINTMENT] Exception: $e');
@@ -1950,6 +1982,7 @@ static Future<Map<String, dynamic>> startAppointment({
     };
   }
 }
+
 
 // ---------------------- COMPLETE APPOINTMENT ----------------------
 Future<Map<String, dynamic>> completeAppointment({

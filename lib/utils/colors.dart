@@ -10,4 +10,14 @@ class AppColors {
   static const Color lightGray = Color(0xFFD3D3D3);
   static const Color black = Color(0xFF000000);
   static const Color red = Color(0xFFE53935);
+
+  // ✅ Booking status colors
+  static const Color confirmed = Color(0xFFEDA5D0);
+  static const Color pending = Color(0xFFB8D9FF);
+  static const Color inProgress = Color(0xFFD2A41C);
+  static const Color completed = Color(0xFFA5EEBE);
+  static const Color cancelled = Color(0xFFD5D5D4);
+static const Color inProgressStatus = Color(0xFF9C7105);
+
+
 }
