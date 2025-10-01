@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
+import '../utils/colors.dart';
+import 'package:flutter/services.dart'; 
 
 class AddTeamSelectServices extends StatefulWidget {
   final int salonId;
@@ -53,6 +55,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     // Prepare the final payload with the selected services
     final finalPayload = {
       ...widget.teamPayload,
+       "salonId": widget.salonId, 
       "selectedServiceIds": _selectedServiceIds.toList(),
     };
 
@@ -78,10 +81,33 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Select Services"),
-        backgroundColor: Colors.black, // Full black background for the app bar
-        foregroundColor: Colors.white, // White text color for app bar
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
+        title: const Text(
+          'Select Services',
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -176,7 +202,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                               style: const TextStyle(color: Colors.black), // Light grey subtitle
                             ),
                             checkColor: Colors.white,
-                            activeColor: Colors.black,
+                            activeColor:AppColors.starColor,
                             selectedTileColor: Colors.white,
                           );
                         }).toList(),
@@ -190,11 +216,11 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         padding: const EdgeInsets.all(16),
         child: ElevatedButton(
           child: _isSubmitting
-              ? const CircularProgressIndicator(color: Colors.black)
+              ? const CircularProgressIndicator(color: AppColors.starColor)
               : const Text("Submit"),
           onPressed: _isSubmitting ? null : _submit,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.black,
+            backgroundColor: AppColors.starColor,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(

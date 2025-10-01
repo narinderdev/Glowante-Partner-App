@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../utils/api_service.dart';
 import 'login_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
+import '../screens/web_doc_screen.dart';
+
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -24,25 +25,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadUserData() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
       userName = prefs.getString('first_name') ?? '';
       phoneNumber = prefs.getString('phone_number') ?? '';
     });
   }
 
-  Future<void> _openLink(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (!await launchUrl(
-      uri,
-      mode: LaunchMode.inAppWebView,
-      webViewConfiguration: const WebViewConfiguration(enableJavaScript: true),
-    )) {
-      throw Exception('Could not launch $url');
-    }
-  }
-
-  // ---------------------- LOGOUT (with loader inside button) ----------------------
+  // ---------------------- LOGOUT ----------------------
   void _showLogoutModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -69,7 +59,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 if (!mounted) return;
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => LoginScreen()),
+                  MaterialPageRoute(builder: (_) =>  LoginScreen()),
                   (route) => false,
                 );
               } else {
@@ -149,7 +139,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ---------------------- DELETE ACCOUNT (with loader inside button) ----------------------
+  // ---------------------- DELETE ACCOUNT ----------------------
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -169,15 +159,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               setDialogState(() => isDeleting = false);
 
               if (success) {
-                // Close dialog before navigation
-                Navigator.pop(ctx);
+                Navigator.pop(ctx); // close dialog
+                if (!mounted) return;
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => LoginScreen()),
                   (route) => false,
                 );
               } else {
-                // Keep dialog open to let the user retry or cancel
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Failed to delete account. Please try again.")),
                 );
@@ -230,22 +219,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // ---------------------- UI ----------------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         title: const Text(
           'Profile',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        // systemOverlayStyle: SystemUiOverlayStyle.light.copyWith(
-        //   statusBarColor: Colors.orange,
-        // ),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.starColor, AppColors.getStartedButton],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: Column(
         children: [
@@ -260,23 +254,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Column(
               children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 45,
-                      backgroundColor: Colors.grey[200],
-                      child: Icon(Icons.person, size: 50, color: Colors.grey[600]),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.orange,
-                        child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
-                      ),
-                    )
-                  ],
+                CircleAvatar(
+                  radius: 45,
+                  backgroundColor: Colors.grey[200],
+                  child: Icon(Icons.person, size: 50, color: Colors.grey[600]),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -301,21 +282,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black87),
                   title: const Text("Privacy Policy"),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () => _openLink("https://dev.glowante.com/privacy-policy"),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WebDocScreen(
+                          title: 'Privacy Policy',
+                          url: 'https://dev.glowante.com/privacy-policy',
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const Divider(indent: 16, endIndent: 16),
                 ListTile(
                   leading: const Icon(Icons.policy_outlined, color: Colors.black87),
                   title: const Text("Terms & Conditions"),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () => _openLink("https://dev.glowante.com/terms-of-services"),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WebDocScreen(
+                          title: 'Terms & Conditions',
+                          url: 'https://dev.glowante.com/terms-of-services',
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 const Divider(indent: 16, endIndent: 16),
               ],
             ),
           ),
 
-          // Logout button
+          // Logout
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             child: SizedBox(
@@ -325,8 +326,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: const Icon(Icons.logout),
                 label: const Text("Logout", style: TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.lightGrey,
-                  foregroundColor: Colors.black,
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: AppColors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -336,7 +337,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          // Delete account button (red)
+          // Delete account
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             child: SizedBox(
@@ -346,8 +347,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: const Icon(Icons.delete_forever),
                 label: const Text("Delete Account", style: TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.lightGrey,
-                  foregroundColor: Colors.black,
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: AppColors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

@@ -5,17 +5,19 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../screens/AddTeamSelectServices.dart';
 import '../utils/api_service.dart';
+import 'package:flutter/services.dart';
+import '../utils/colors.dart';
 
 class AddTeamScreen extends StatefulWidget {
-  final int branchId;
+  // final int branchId;
   final int salonId;
-  final String branchName;
+    final String? salonName; 
 
   const AddTeamScreen({
     super.key,
-    required this.branchId,
+    // required this.branchId,
     required this.salonId,
-    required this.branchName,
+    required this.salonName,
   });
 
   @override
@@ -44,7 +46,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   // Colors for statuses
   final Color _errorColor      = Colors.red;      // invalid inputs
-  final Color _verifyWarnColor = Colors.orange;   // "please verify" prompt
+  final Color _verifyWarnColor = Colors.red;   // "please verify" prompt
   final Color _successColor    = Colors.green;    // verified success
 
   // --- Shared validators (return null when valid, error string when invalid) ---
@@ -528,22 +530,33 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.maybePop(context),
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
         ),
         title: const Text(
           'Add Team Member',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
         ),
-        centerTitle: false,
       ),
       body: SafeArea(
         child: Form(
@@ -638,10 +651,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     ),
 
                     const SizedBox(height: 16),
-
-                    // Under the row:
-                    // - If verified: show green success immediately
-                    // - Else: show orange "please verify phone number" only AFTER first submit
                     if (_phoneVerified)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
@@ -1122,7 +1131,7 @@ class _PrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: effectiveOnPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
+          backgroundColor: AppColors.starColor,
           foregroundColor: Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

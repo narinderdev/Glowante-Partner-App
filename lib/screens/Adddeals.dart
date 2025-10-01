@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:flutter/services.dart'; // <-- for TextInputFormatter
 import 'SelectServices.dart';
 import '../utils/api_service.dart';
+import '../utils/colors.dart';
+import 'package:flutter/services.dart';
 
 class AddDealsScreen extends StatefulWidget {
   final int salonId;
@@ -667,12 +669,33 @@ if (widget.isEdit && widget.existingOffer != null) {
     final buttonLabel = widget.isEdit ? 'Update Package' : 'Submit';
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(widget.isEdit ? 'Edit Offers' : 'Create Offers'),
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
+        title: const Text(
+          'Create Offers',
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: SafeArea(
         child: Form(
@@ -1041,7 +1064,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                   child: ElevatedButton(
                     onPressed: _isSubmitting ? null : _submitOffer,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: AppColors.starColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(borderRadius: _radius),
                       elevation: 0,

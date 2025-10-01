@@ -273,7 +273,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
     final CategoryState catState = context.watch<CategoryCubit>().state;
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: AppColors.starColor,
       body: MultiBlocListener(
         listeners: [
           BlocListener<CategoryCubit, CategoryState>(
@@ -328,8 +328,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
               onPressed: () => _showAddCategorySheet(),
               icon: const Icon(Icons.add_rounded),
               label: const Text('New Category'),
-              backgroundColor: Colors.black,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.starColor,
+              foregroundColor: AppColors.white,
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
@@ -337,7 +337,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   Widget _buildCatalogueContent(CategoryState catState) {
     return RefreshIndicator(
-      color: Colors.black,
+      color: AppColors.starColor,
       displacement: 32,
       onRefresh: _refreshData,
       child: ListView(
@@ -467,7 +467,7 @@ class _HeaderSection extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.storefront,
-                  color: Colors.black87,
+                  color: AppColors.starColor,
                   size: 18,
                 ),
               ),
@@ -505,10 +505,18 @@ class _HeaderSection extends StatelessWidget {
     );
     final int? dropdownValue = hasSelection ? selectedBranchId : null;
 
+final headerGradient = LinearGradient(
+  colors: [AppColors.starColor, AppColors.getStartedButton],
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+);
     return Container(
       width: double.infinity,
-      color: Colors.black,
+      // color: Colors.black,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+       decoration: BoxDecoration(
+    gradient: headerGradient,
+  ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -539,11 +547,11 @@ class _HeaderSection extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
-                onPressed: salonState.isLoading ? null : () => onRefresh(),
-                icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                tooltip: 'Refresh',
-              ),
+              // IconButton(
+              //   onPressed: salonState.isLoading ? null : () => onRefresh(),
+              //   icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+              //   tooltip: 'Refresh',
+              // ),
             ],
           ),
           const SizedBox(height: 20),
@@ -561,7 +569,7 @@ class _HeaderSection extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'Salon and Branch',
+                      'Salon',
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.black,
@@ -595,7 +603,7 @@ class _HeaderSection extends StatelessWidget {
                       isExpanded: true,
                       icon: const Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        color: Colors.black,
+                        color: AppColors.starColor,
                       ),
                       dropdownColor: Colors.white,
                       items: branchItems,
@@ -780,10 +788,10 @@ class _CategoryList extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade300,
+                        color:Colors.grey.shade200,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.folder_special_rounded, color: tone),
+                      child: Icon(Icons.folder_special_rounded, color: AppColors.starColor),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -793,20 +801,20 @@ class _CategoryList extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
-                          color: Colors.black,
+                          color: AppColors.starColor,
                         ),
                       ),
                     ),
                     _IconButton(
                       icon: Icons.edit_rounded,
-                      color: Colors.black87,
+                      color: AppColors.starColor,
                       tooltip: 'Edit category',
                       onTap: () => onEditCategory(category: category),
                     ),
                     const SizedBox(width: 6),
                     _IconButton(
                       icon: Icons.delete_rounded,
-                      color: Colors.black87,
+                      color: AppColors.starColor,
                       tooltip: 'Delete category',
                       onTap: () => onDeleteCategory(category),
                     ),
@@ -848,17 +856,17 @@ class _CategoryList extends StatelessWidget {
                             onAddSubcategory(categoryId: category['id'] as int),
                         icon: const Icon(
                           Icons.add_rounded,
-                          color: Colors.black,
+                          color: AppColors.starColor,
                         ),
                         label: const Text(
                           'Add subcategory',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: AppColors.starColor,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.black54),
+                          side: const BorderSide(color: AppColors.starColor),
                           backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
@@ -874,7 +882,7 @@ class _CategoryList extends StatelessWidget {
                         icon: const Icon(Icons.design_services_rounded),
                         label: const Text('Add services'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
+                          backgroundColor:  AppColors.starColor,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -961,7 +969,7 @@ class _SubcategoryTile extends StatelessWidget {
                 subCategory['name'] as String? ?? 'Subcategory',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                  color: AppColors.getStartedButton,
                 ),
               ),
               if (services.isNotEmpty) ...[
@@ -982,7 +990,7 @@ class _SubcategoryTile extends StatelessWidget {
               children: [
                 _IconButton(
                   icon: Icons.edit_rounded,
-                  color: Colors.black87,
+                  color: AppColors.starColor,
                   tooltip: 'Edit subcategory',
                   onTap: () => onEditSubcategory(
                     subCategory: subCategory,
@@ -992,7 +1000,7 @@ class _SubcategoryTile extends StatelessWidget {
                 const SizedBox(width: 4),
                 _IconButton(
                   icon: Icons.delete_rounded,
-                  color: Colors.black87,
+                  color: AppColors.starColor,
                   tooltip: 'Delete subcategory',
                   onTap: () => onDeleteSubcategory(subCategory),
                 ),
@@ -1031,7 +1039,7 @@ class _SubcategoryTile extends StatelessWidget {
                           ),
                           child: const Icon(
                             Icons.design_services_rounded,
-                            color: Colors.black87,
+                            color:AppColors.starColor,
                             size: 18,
                           ),
                         ),
@@ -1059,14 +1067,14 @@ class _SubcategoryTile extends StatelessWidget {
                         ),
                         _IconButton(
                           icon: Icons.edit_outlined,
-                          color: Colors.black87,
+                          color: AppColors.starColor,
                           tooltip: 'Edit service',
                           onTap: () => onEditService(service),
                         ),
                         const SizedBox(width: 4),
                         _IconButton(
                           icon: Icons.delete_outline_rounded,
-                          color: Colors.black87,
+                          color: AppColors.starColor,
                           tooltip: 'Delete service',
                           onTap: () => onDeleteService(service['id'] as int),
                         ),
@@ -1497,8 +1505,8 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
                   : const Icon(Icons.check_rounded),
               onPressed: isSaving ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
+                backgroundColor:  AppColors.starColor,
+                foregroundColor: AppColors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1645,7 +1653,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
                   : const Icon(Icons.check_rounded),
               onPressed: isSaving ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
+                backgroundColor: AppColors.starColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -1960,7 +1968,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
 
           // Price
           _LabeledField(
-            label: 'Price (in Γé╣)',
+            label: 'Price (in ₹)',
             controller: priceController,
             keyboardType: TextInputType.number,
           ),
@@ -1977,17 +1985,21 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
           const SizedBox(height: 8),
 
           // Active switch
-          ValueListenableBuilder<bool>(
-            valueListenable: isActive,
-            builder: (context, value, _) {
-              return SwitchListTile(
-                value: value,
-                onChanged: (nv) => isActive.value = nv,
-                title: const Text('Active'),
-                contentPadding: EdgeInsets.zero,
-              );
-            },
-          ),
+//           ValueListenableBuilder<bool>(
+//             valueListenable: isActive,
+//             builder: (context, value, _) {
+//               return SwitchListTile(
+//   value: value,
+//   onChanged: (nv) => isActive.value = nv,
+//   title: const Text('Active'),
+//   thumbColor: MaterialStateProperty.resolveWith((states) =>
+//     states.contains(MaterialState.selected) ? AppColors.starColor : null),
+//   trackColor: MaterialStateProperty.resolveWith((states) =>
+//     states.contains(MaterialState.selected) ? AppColors.starColor.withOpacity(0.35) : null),
+//   contentPadding: EdgeInsets.zero,
+// );
+//             },
+//           ),
 
           const SizedBox(height: 6),
 
@@ -2035,8 +2047,8 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
+                backgroundColor:  AppColors.starColor,
+                foregroundColor: AppColors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'AssignUser.dart';
 import '../screens/AssignUser.dart';
+import 'package:flutter/services.dart';
+import '../utils/colors.dart';
 
 class TeamMemberDetails extends StatelessWidget {
   final Map<String, dynamic> member;
@@ -37,12 +39,34 @@ final String joinedAt = userSalons.isNotEmpty
     final cardRadius  = BorderRadius.circular(14);
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        centerTitle: true,
-        title: const Text('Profile'),
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
+        title: const Text(
+          'View Member',
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
-
       // 🔹 Scrollable content
       body: Container(
         decoration: const BoxDecoration(
@@ -320,32 +344,32 @@ const SizedBox(height: 12),
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
     child: SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AssignUserScreen(
-                member: member,
-                salons: salons, // 👈 pass salons list
-                  salonId: salons.first['id'],
-              ),
-            ),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFDD8B1F),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-        child: const Text(
-          'Assign User',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ),
+      // child: ElevatedButton(
+      //   onPressed: () {
+      //     Navigator.push(
+      //       context,
+      //       MaterialPageRoute(
+      //         builder: (_) => AssignUserScreen(
+      //           member: member,
+      //           salons: salons, // 👈 pass salons list
+      //             salonId: salons.first['id'],
+      //         ),
+      //       ),
+      //     );
+      //   },
+      //   style: ElevatedButton.styleFrom(
+      //     backgroundColor: const Color(0xFFDD8B1F),
+      //     padding: const EdgeInsets.symmetric(vertical: 14),
+      //     shape: RoundedRectangleBorder(
+      //       borderRadius: BorderRadius.circular(12),
+      //     ),
+      //     elevation: 0,
+      //   ),
+      //   child: const Text(
+      //     'Assign User',
+      //     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      //   ),
+      // ),
     ),
   ),
 ),

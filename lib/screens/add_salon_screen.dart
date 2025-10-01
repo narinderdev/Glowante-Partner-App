@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'add_location_screen.dart';
 import '../screens/bottom_nav.dart';
+import 'package:flutter/services.dart';
+
 class AddSalonScreen extends StatefulWidget {
   const AddSalonScreen({
     super.key,
@@ -207,23 +209,35 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         final images = state.images;
         final address = state.address;
 
-        return Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(
-    backgroundColor: AppColors.grey, // main orange background
-    // centerTitle: true, // center the title
-    iconTheme: const IconThemeData(
-    color: AppColors.black, // ✅ sets back button color to white
-  ),
-    title: const Text(
-      'Add Salon',
-      style: TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 20,
-        color: AppColors.black,
+      return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
+        title: const Text(
+          'Add Salon',
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
-    ),
-  ),
           body: Stack(
             children: [
               SingleChildScrollView(
@@ -390,7 +404,7 @@ InkWell(
                               ? null
                               : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.black,
+                              backgroundColor: AppColors.starColor,
                             foregroundColor: AppColors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),

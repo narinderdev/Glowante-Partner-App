@@ -1,6 +1,8 @@
 // lib/screens/SelectServices.dart
 import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
+import '../utils/colors.dart';
+import 'package:flutter/services.dart';
 
 class SelectServicesModal extends StatefulWidget {
   final int salonId;
@@ -194,16 +196,35 @@ double get total {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select Services'),
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.close),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ],
+  appBar: AppBar(
+    backgroundColor: Colors.transparent, // let gradient show
+    elevation: 0,
+    automaticallyImplyLeading: false,
+    iconTheme: const IconThemeData(color: Colors.white),
+    title: const Text(
+      'Select Services',
+      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+    ),
+    actions: [
+      IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: () => Navigator.pop(context),
       ),
+    ],
+    flexibleSpace: Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.starColor,        // start
+            AppColors.getStartedButton, // end
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+    ),
+  ),
+
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -264,7 +285,8 @@ double get total {
                           Navigator.pop(context, _collectSelected());
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
+                          backgroundColor: AppColors.starColor,
+                            foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),

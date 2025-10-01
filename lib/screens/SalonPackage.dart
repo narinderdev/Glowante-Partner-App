@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
 import 'Adddeals.dart';
-
+import 'package:flutter/services.dart';
+import '../utils/colors.dart';
 // ---- UI constants ----
 const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
 
@@ -233,14 +234,34 @@ class _PackageScreenState extends State<PackageScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+   return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          "Package",
-          style: TextStyle(fontWeight: FontWeight.w800, color: Colors.white),
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
         ),
-        backgroundColor: Colors.black, // bold white header
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text(
+          'Package',
+          style: TextStyle(color: Colors.white,fontWeight:FontWeight.bold),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -453,7 +474,7 @@ class _PackageScreenState extends State<PackageScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         icon: const Icon(Icons.add, color: Colors.white),
-        backgroundColor: Colors.black, // black bg, white text
+        backgroundColor: AppColors.starColor, // black bg, white text
       ),
     );
   }
@@ -788,7 +809,7 @@ ButtonStyle get _blackButtonStyle =>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       elevation: 0,
     ).copyWith(
-      backgroundColor: MaterialStateProperty.resolveWith((_) => Colors.black),
+      backgroundColor: MaterialStateProperty.resolveWith((_) => AppColors.starColor),
       foregroundColor: MaterialStateProperty.resolveWith(
         (states) => states.contains(MaterialState.disabled)
             ? Colors.white.withOpacity(0.6)

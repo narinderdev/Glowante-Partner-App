@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 2.0.0+15
 
 environment:
-  sdk: ^3.8.1
+  sdk: ">=3.2.0 <4.0.0"
 dependencies:
   flutter:
     sdk: flutter
@@ -32,6 +32,11 @@ dependencies:
   dotted_border: ^2.1.0
   flutter_svg: ^2.0.9
   pin_code_fields: ^8.0.1
+  webview_flutter: ^4.7.0
+
+  # Add the platform implementations at versions compatible with 4.7.0:
+  webview_flutter_android: ^3.16.1
+  webview_flutter_wkwebview: ^3.13.1
 
 dev_dependencies:
   flutter_test:

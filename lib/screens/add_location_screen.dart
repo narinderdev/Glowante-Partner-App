@@ -221,20 +221,32 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-    backgroundColor: AppColors.grey, 
-    iconTheme: const IconThemeData(
-    color: Colors.black, // ✅ sets back button color to white
-  ),
-    // centerTitle: true, // center the title
-    title: const Text(
-      'Add Location',
-      style: TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 20,
-        color: Colors.black,
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
+        title: const Text(
+          'Add location',
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
-    ),
-  ),
       body: GestureDetector(
         onTap: () {
           FocusScope.of(context).unfocus();
@@ -287,7 +299,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      backgroundColor: AppColors.black,
+                      backgroundColor: AppColors.starColor,
                       foregroundColor: AppColors.white,
                     ),
                   ),
@@ -327,7 +339,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      backgroundColor: Colors.black,
+                      backgroundColor: AppColors.starColor,
                       foregroundColor: Colors.white,
                     ),
                   ),

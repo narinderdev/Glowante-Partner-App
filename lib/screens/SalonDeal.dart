@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/api_service.dart';
 import 'Adddeals.dart';
+import 'package:flutter/services.dart';
+import '../utils/colors.dart';
 
 final kDropdownFill = Colors.grey.shade100; // ← shared color for dropdown & cards
 
@@ -185,17 +187,33 @@ class _DealScreenState extends State<DealScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // Header: bold + white
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
         title: const Text(
-          "Deals",
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
+          'Deals',
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -422,7 +440,7 @@ class _DealScreenState extends State<DealScreen> {
         },
         label: const Text("Add Deal"),
         icon: const Icon(Icons.add),
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.starColor,
         foregroundColor: Colors.white,
       ),
     );
@@ -638,7 +656,7 @@ class _OfferCard extends StatelessWidget {
                 ElevatedButton(
                   onPressed: isDeleting ? null : onEdit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
+                    backgroundColor: AppColors.starColor,
                     foregroundColor: Colors.white,
                     padding:
                         const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -673,7 +691,7 @@ class _OfferCard extends StatelessWidget {
                         fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
+                    backgroundColor: AppColors.starColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 6),
