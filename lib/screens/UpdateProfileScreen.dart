@@ -85,8 +85,10 @@ String email = emailController.text.trim();
  SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('firstName', firstName);
     await prefs.setString('lastName', lastName);
+    await prefs.setString('email', email);
     print('Saved firstName: $firstName');
   print('Saved lastName: $lastName');
+  print('Saved email: $email');
       // Check for success
       if (response['success'] == true) {
         var userData = response['data'];
