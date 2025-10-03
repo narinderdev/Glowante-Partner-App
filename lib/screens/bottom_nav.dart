@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/colors.dart';
-
+import '../services/network_listener.dart';
 import '../services/push_notification_service.dart';
 
 import 'Bookings.dart';
@@ -89,29 +89,103 @@ class _BottomNavState extends State<BottomNav> {
     super.dispose();
   }
 
+  // @override
+  // Widget build(BuildContext context) {
+  //   return Scaffold(
+  //     body: IndexedStack(
+  //       index: _currentIndex,
+  //       children: _screens,
+  //     ),
+  //     bottomNavigationBar: SafeArea(
+  //       top: false,
+  //       child: Padding(
+  //         padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
+  //         child: _FloatingNavBar(
+  //           destinations: _destinations,
+  //           currentIndex: _currentIndex,
+  //           onSelect: (index) {
+  //             if (_currentIndex == index) return;
+  //             setState(() => _currentIndex = index);
+  //           },
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
-          child: _FloatingNavBar(
-            destinations: _destinations,
-            currentIndex: _currentIndex,
-            onSelect: (index) {
-              if (_currentIndex == index) return;
-              setState(() => _currentIndex = index);
-            },
-          ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: StreamBuilder<bool>(
+      stream: NetworkManager.networkStatusStream,
+      initialData: true,
+      builder: (context, snapshot) {
+        final isConnected = snapshot.data ?? true;
+
+        return Stack(
+          children: [
+            // 👇 your main screens
+            IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+
+            // 🔴 No internet overlay (only over body)
+            if (!isConnected)
+              Container(
+                color: Colors.black.withOpacity(0.6),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(
+                      Icons.wifi_off,
+                      size: 80,
+                      color: Colors.white,
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      "No Internet Connection",
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                    SizedBox(height: 20),
+                    Text(
+                      "Please check your network settings.",
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+
+    // 👇 Bottom navigation stays outside the overlay
+    bottomNavigationBar: SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
+        child: _FloatingNavBar(
+          destinations: _destinations,
+          currentIndex: _currentIndex,
+          onSelect: (index) {
+            if (_currentIndex == index) return;
+            setState(() => _currentIndex = index);
+          },
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 }
 
 class _FloatingNavBar extends StatelessWidget {
