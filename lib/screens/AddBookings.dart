@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'SelectServices.dart';
 import '../utils/api_service.dart';
-
+import 'package:flutter/services.dart';
+import '../utils/colors.dart';
 class AddBookingScreen extends StatefulWidget {
   final int? salonId; // needed for SelectServicesModal
   final int? branchId; // future use when posting appointment
@@ -29,7 +30,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-
+String? _serviceError;
+String? _professionalError;
   // Selected services from modal: each {id, name, price, qty, durationMin}
   List<Map<String, dynamic>> _selectedServices = [];
 
@@ -54,13 +56,19 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return _professionalByService[sid];
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadServices();
-    _loadTeamMembers();
-  }
+@override
+void initState() {
+  super.initState();
+  _loadServices();
+  _loadTeamMembers();
 
+  // Set default date to today
+  _selectedDate = DateTime.now();
+
+  // Set default times
+  _startTime = const TimeOfDay(hour: 8, minute: 0);  // 08:00 AM
+  _endTime = const TimeOfDay(hour: 8, minute: 30);   // 08:00 PM
+}
   @override
   void dispose() {
     _clientfNameCtrl.dispose();
@@ -398,51 +406,97 @@ void _showOtpBox(String phone, String countryCode) {
       },
     );
 
+    // if (picked != null) {
+    //   final v = picked['id'] as int;
+    //   final name = (picked['name'] ?? '').toString();
+
+    //   setState(() {
+    //     final already = _selectedServices.any((s) => s['id'] == v);
+
+    //     if (already) {
+    //       // Deselect (remove)
+    //       _selectedServices.removeWhere((s) => s['id'] == v);
+    //       _professionalByService.remove(v); // drop its professional as well
+
+    //       // If it was the active service, move focus to another selected one (or none)
+    //       if (_selectedServiceId == v) {
+    //         _selectedServiceId = _selectedServices.isNotEmpty
+    //             ? _selectedServices.last['id'] as int
+    //             : null;
+    //         _selectedServiceName = _selectedServices.isNotEmpty
+    //             ? _selectedServices.last['name'] as String
+    //             : null;
+    //         _staffRole = _selectedServiceName;
+    //       }
+    //     } else {
+    //       // Add (select) this service
+    //       _selectedServices.add({
+    //         'id': v,
+    //         'name': name,
+    //         'price': picked['priceMinor'],
+    //         'qty': 1,
+    //         'durationMin': picked['durationMin'],
+    //       });
+
+    //       // Make the newly tapped service the ACTIVE one for pro filtering
+    //       _selectedServiceId = v;
+    //       _selectedServiceName = name;
+    //       _staffRole = name;
+
+    //       // Do NOT touch other services/professionals.
+    //       // Just prompt the user to choose a pro for the new service.
+    //       ScaffoldMessenger.of(context).showSnackBar(
+    //         SnackBar(content: Text('Select Professional for "$name"')),
+    //       );
+    //     }
+    //   });
+    // }
     if (picked != null) {
-      final v = picked['id'] as int;
-      final name = (picked['name'] ?? '').toString();
+  final v = picked['id'] as int;
+  final name = (picked['name'] ?? '').toString();
 
-      setState(() {
-        final already = _selectedServices.any((s) => s['id'] == v);
+  setState(() {
+    final already = _selectedServices.any((s) => s['id'] == v);
 
-        if (already) {
-          // Deselect (remove)
-          _selectedServices.removeWhere((s) => s['id'] == v);
-          _professionalByService.remove(v); // drop its professional as well
+    if (already) {
+      // Deselect (remove)
+      _selectedServices.removeWhere((s) => s['id'] == v);
+      _professionalByService.remove(v);
 
-          // If it was the active service, move focus to another selected one (or none)
-          if (_selectedServiceId == v) {
-            _selectedServiceId = _selectedServices.isNotEmpty
-                ? _selectedServices.last['id'] as int
-                : null;
-            _selectedServiceName = _selectedServices.isNotEmpty
-                ? _selectedServices.last['name'] as String
-                : null;
-            _staffRole = _selectedServiceName;
-          }
-        } else {
-          // Add (select) this service
-          _selectedServices.add({
-            'id': v,
-            'name': name,
-            'price': picked['priceMinor'],
-            'qty': 1,
-            'durationMin': picked['durationMin'],
-          });
-
-          // Make the newly tapped service the ACTIVE one for pro filtering
-          _selectedServiceId = v;
-          _selectedServiceName = name;
-          _staffRole = name;
-
-          // Do NOT touch other services/professionals.
-          // Just prompt the user to choose a pro for the new service.
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Select Professional for "$name"')),
-          );
-        }
+      // If it was the active service, move focus to another selected one (or none)
+      if (_selectedServiceId == v) {
+        _selectedServiceId = _selectedServices.isNotEmpty
+            ? _selectedServices.last['id'] as int
+            : null;
+        _selectedServiceName = _selectedServices.isNotEmpty
+            ? _selectedServices.last['name'] as String
+            : null;
+        _staffRole = _selectedServiceName;
+      }
+    } else {
+      // Add (select) this service
+      _selectedServices.add({
+        'id': v,
+        'name': name,
+        'price': picked['priceMinor'],
+        'qty': 1,
+        'durationMin': picked['durationMin'],
       });
+
+      _selectedServiceId = v;
+      _selectedServiceName = name;
+      _staffRole = name;
+
+      // Show prompt to select professional
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Select Professional for "$name"')),
+      );
     }
+
+    // ✅ Clear the service error when user selects/deselects a service
+    _serviceError = null;
+  });
+}
   }
 
   // Service row in the bottom sheet.
@@ -666,19 +720,33 @@ void _showOtpBox(String phone, String countryCode) {
 void _save() async {
   if (!_formKey.currentState!.validate()) return;
 
-  if (_selectedServiceId == null || _selectedServices.isEmpty) {
-    _showError('Please select Service');
-    return;
-  }
+if (_selectedServiceId == null || _selectedServices.isEmpty) {
+  setState(() {
+    _serviceError = 'Service is required';
+  });
+  _showError('Please select Service');
+  return;
+} else {
+  setState(() {
+    _serviceError = null;
+  });
+}
 
-  final missing = _selectedServices
-      .where((s) => !_professionalByService.containsKey(s['id']))
-      .map((s) => (s['name'] ?? '').toString())
-      .toList();
-  if (missing.isNotEmpty) {
-    _showError('Please select Professional for: ${missing.join(", ")}');
-    return;
-  }
+ final missing = _selectedServices
+    .where((s) => !_professionalByService.containsKey(s['id']))
+    .map((s) => (s['name'] ?? '').toString())
+    .toList();
+if (missing.isNotEmpty) {
+  setState(() {
+    _professionalError = 'Professional is required for: ${missing.join(", ")}';
+  });
+  // _showError('Please select Professional for: ${missing.join(", ")}');
+  return;
+} else {
+  setState(() {
+    _professionalError = null;
+  });
+}
 
   if (_selectedDate == null) {
     _showError('Please select a date');
@@ -708,7 +776,7 @@ void _save() async {
       };
     }).toList(),
   };
-
+ print("Booking payload: $payload");
   try {
     final result = await ApiService()
         .createAppointment(widget.branchId!, payload);
@@ -753,26 +821,100 @@ void _save() async {
         .toList();
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Add Booking'),
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
+        title: const Text(
+          'Add Booking',
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Client Name
-                Text(
-                    'Salon & Branch Id: ${widget.salonId ?? '-'} / ${widget.branchId ?? '-'}'),
-                const _FieldLabel('Add Customer *'),
-ElevatedButton(
-  onPressed: _showCustomerSearch,
-  child: const Text("Add Customer"),
-),  
-                const SizedBox(height: 16),
+            child:
+//              Column(
+//               crossAxisAlignment: CrossAxisAlignment.start,
+//               children: [
+//                 // Client Name
+//                 Text(
+//                     'Salon & Branch Id: ${widget.salonId ?? '-'} / ${widget.branchId ?? '-'}'),
+//                 const _FieldLabel('Add Customer *'),
+// ElevatedButton(
+//   onPressed: _showCustomerSearch,
+//   child: const Text("Add Customer"),
+// ),  
+//                 const SizedBox(height: 16),
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    // Salon & Branch info
+    // Text(
+    //   'Salon & Branch Id: ${widget.salonId ?? '-'} / ${widget.branchId ?? '-'}',
+    //   style: const TextStyle(
+    //     fontSize: 16,
+    //     fontWeight: FontWeight.w500,
+    //   ),
+    // ),
+    // const SizedBox(height: 16),
+
+    // Full-width outlined button with custom plus icon
+     SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: _showCustomerSearch,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white, // white inside
+          side: const BorderSide(color: Colors.grey, width: 1.5), // grey border
+          padding: const EdgeInsets.symmetric(vertical: 10), // reduced height
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20), // more rounded
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/plusIcn.png',
+              width: 20,
+              height: 20,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              "Add Customer",
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+    const SizedBox(height: 16),
                 //ID
                 // const _FieldLabel('Customer ID'),
                 // TextFormField(
@@ -794,8 +936,7 @@ Row(
           TextFormField(
             controller: _clientfNameCtrl,
             decoration: _inputDecoration('First name'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Required' : null,
+           validator: (v) => (v == null || v.trim().isEmpty) ? 'First Name is required' : null,
           ),
         ],
       ),
@@ -811,7 +952,7 @@ Row(
             controller: _clientlNameCtrl,
             decoration: _inputDecoration('Last name'),
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Required' : null,
+                (v == null || v.trim().isEmpty) ? 'Last Name is Required' : null,
           ),
         ],
       ),
@@ -822,98 +963,135 @@ Row(
                 const SizedBox(height: 16),
 
                 // Mobile
-                const _FieldLabel('Mobile Number *'),
-                TextFormField(
-                  controller: _mobileCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: _inputDecoration('Enter mobile number'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
-                 // Email
-                const _FieldLabel('Email *'),
-                TextFormField(
-                  controller: _emailCtrl,
-                  keyboardType: TextInputType.phone,
-                  decoration: _inputDecoration('Enter Email'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                const SizedBox(height: 16),
+                // const _FieldLabel('Mobile Number *'),
+                // TextFormField(
+                //   controller: _mobileCtrl,
+                //   keyboardType: TextInputType.phone,
+                //   decoration: _inputDecoration('Enter mobile number'),
+                //   validator: (v) =>
+                //       (v == null || v.trim().isEmpty) ? 'Moblile Number is Required' : null,
+                // ),
+                // const SizedBox(height: 16),
+                //  // Email
+                // const _FieldLabel('Email *'),
+                // TextFormField(
+                //   controller: _emailCtrl,
+                //   keyboardType: TextInputType.phone,
+                //   decoration: _inputDecoration('Enter Email'),
+                //   validator: (v) =>
+                //       (v == null || v.trim().isEmpty) ? 'Email is Required' : null,
+                // ),
+                // const SizedBox(height: 16),
 
                 // Service (hierarchical) + Professional (per active service)
                 Row(
                   children: [
                     // Left: Services *
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _FieldLabel('Services *'),
-                          InkWell(
-                            onTap: _loadingServices || _svcTree.isEmpty
-                                ? null
-                                : _showServicePicker,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                    color: Colors.grey.shade300),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.design_services, size: 18),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _selectedServiceId == null
-                                          ? 'Choose'
-                                          : (_branchServices.firstWhere(
-                                                  (e) =>
-                                                      e['id'] ==
-                                                      _selectedServiceId)['path']
-                                              as String),
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ),
-                                  const Icon(Icons.keyboard_arrow_down),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                   Expanded(
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const _FieldLabel('Services *'),
+      InkWell(
+        onTap: _loadingServices || _svcTree.isEmpty
+            ? null
+            : _showServicePicker,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+              horizontal: 12, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+                color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              // const Icon(Icons.design_services, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _selectedServiceId == null
+                      ? 'Choose'
+                      : (_branchServices.firstWhere(
+                              (e) =>
+                                  e['id'] ==
+                                  _selectedServiceId)['path']
+                          as String),
+                  style: const TextStyle(fontSize: 16),
+                ),
+              ),
+              const Icon(Icons.keyboard_arrow_down),
+            ],
+          ),
+        ),
+      ),
+      if (_serviceError != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 6, left: 4),
+          child: Text(
+            _serviceError!,
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ),
+    ],
+  ),
+),
                     const SizedBox(width: 12),
 
                     // Right: Professional * (applies to ACTIVE service)
+                    // Expanded(
+                    //   child: Column(
+                    //     crossAxisAlignment: CrossAxisAlignment.start,
+                    //     children: [
+                    //       const _FieldLabel('Professional *'),
+                    //       _Dropdown<String>(
+                    //         value: _activeProfessional,
+                    //         hint: proHint,
+                    //         items: proItems,
+                    //         // If no active service or members loading, disable change
+                    //         onChanged:
+                    //             (_selectedServiceId == null || _loadingMembers)
+                    //                 ? (_) {}
+                    //                 : (v) {
+                    //                     if (v == null) return;
+                    //                     setState(() {
+                    //                       _professionalByService[_selectedServiceId!] = v;
+                    //                     });
+                    //                   },
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const _FieldLabel('Professional *'),
-                          _Dropdown<String>(
-                            value: _activeProfessional,
-                            hint: proHint,
-                            items: proItems,
-                            // If no active service or members loading, disable change
-                            onChanged:
-                                (_selectedServiceId == null || _loadingMembers)
-                                    ? (_) {}
-                                    : (v) {
-                                        if (v == null) return;
-                                        setState(() {
-                                          _professionalByService[_selectedServiceId!] = v;
-                                        });
-                                      },
-                          ),
-                        ],
-                      ),
-                    ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const _FieldLabel('Professional *'),
+      _Dropdown<String>(
+        value: _activeProfessional,
+        hint: proHint,
+        items: proItems,
+        onChanged: (_selectedServiceId == null || _loadingMembers)
+            ? (_) {}
+            : (v) {
+                if (v == null) return;
+                setState(() {
+                  _professionalByService[_selectedServiceId!] = v;
+                });
+              },
+      ),
+      if (_professionalError != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 6, left: 4),
+          child: Text(
+            _professionalError!,
+            style: const TextStyle(color: Colors.red, fontSize: 12),
+          ),
+        ),
+    ],
+  ),
+),
                   ],
                 ),
 
@@ -969,15 +1147,42 @@ Row(
 
                 const SizedBox(height: 20),
                 // Date picker (above Start/End Time)
+                // const _FieldLabel('Date *'),
+                // InkWell(
+                //   // onTap: _pickDate,
+                //     onTap: null,
+                //   child: _TimeBox(
+                //     text: _selectedDate == null
+                //         ? 'Select date'
+                //         : _formatDate(_selectedDate),
+                //   ),
+                // ),
                 const _FieldLabel('Date *'),
-                InkWell(
-                  onTap: _pickDate,
-                  child: _TimeBox(
-                    text: _selectedDate == null
-                        ? 'Select date'
-                        : _formatDate(_selectedDate),
-                  ),
-                ),
+Container(
+  height: 48,
+  padding: const EdgeInsets.symmetric(horizontal: 12),
+  decoration: BoxDecoration(
+    color: Colors.grey.shade100, // Light grey to indicate disabled
+    borderRadius: BorderRadius.circular(12),
+    border: Border.all(color: Colors.grey.shade300),
+  ),
+  child: Row(
+    children: [
+      const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Text(
+          _selectedDate == null
+              ? 'Select date'
+              : _formatDate(_selectedDate),
+          style: const TextStyle(
+            color: Colors.grey, // Greyed out text
+          ),
+        ),
+      ),
+    ],
+  ),
+),
                 const SizedBox(height: 12),
 
                 // Start / End time
@@ -1023,7 +1228,8 @@ Row(
                   child: ElevatedButton(
                     onPressed: _save,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                      backgroundColor: AppColors.starColor,
+                      foregroundColor: AppColors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

@@ -540,9 +540,11 @@ if (widget.isEdit && widget.existingOffer != null) {
     if (!await _validateFormAndShowAlert()) return;
 
     _recalcDiscounted();
+  String capitalizeFirst(String value) =>
+      value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
 
     final body = <String, dynamic>{
-      'name': dealTitleController.text,
+        'name': capitalizeFirst(dealTitleController.text.trim()),
       'type': widget.source, // "DEAL" | "PACKAGE"
       'status': 'ACTIVE',
       'validFrom': _toIsoDate(validFromController.text),

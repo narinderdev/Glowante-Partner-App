@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/api_service.dart';
 import 'dart:convert';
-
+import '../utils/colors.dart';
+import 'package:flutter/services.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 import '../utils/colors.dart';
 
@@ -261,15 +262,33 @@ class _AddServicesState extends State<AddServices> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+   backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.grey,
-        iconTheme: const IconThemeData(color: AppColors.black),
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
         title: const Text(
           'Add Service',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.black),
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
-        elevation: 0,
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: Form(
         key: _formKey,

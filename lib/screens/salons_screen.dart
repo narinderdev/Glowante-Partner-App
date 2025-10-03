@@ -25,17 +25,24 @@ class _SalonsScreenState extends State<SalonsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final cubit = context.read<SalonListCubit>();
-      if (cubit.state.salons.isEmpty) {
-        cubit.loadSalons();
-      }
-    });
-  }
-
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     final cubit = context.read<SalonListCubit>();
+  //     if (cubit.state.salons.isEmpty) {
+  //       cubit.loadSalons();
+  //     }
+  //   });
+  // }
+@override
+void initState() {
+  super.initState();
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final cubit = context.read<SalonListCubit>();
+    cubit.loadSalons(); // Always refresh salons when screen is shown
+  });
+}
   @override
   void dispose() {
     _searchController.dispose();

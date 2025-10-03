@@ -18,19 +18,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? userName;
   String? phoneNumber;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadUserData();
-  }
+Future<void> _loadUserData() async {
+  final prefs = await SharedPreferences.getInstance();
+  setState(() {
+    // Try to get the new keys first, fallback to old if needed
+    String firstName = prefs.getString('firstName') ?? prefs.getString('first_name') ?? '';
+    String lastName = prefs.getString('lastName') ?? prefs.getString('last_name') ?? '';
+    userName = (firstName + ' ' + lastName).trim();
+    phoneNumber = prefs.getString('phone_number') ?? '';
+  });
+}
 
-  Future<void> _loadUserData() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      userName = prefs.getString('first_name') ?? '';
-      phoneNumber = prefs.getString('phone_number') ?? '';
-    });
-  }
+@override
+void initState() {
+  super.initState();
+  _loadUserData();
+}
 
   // ---------------------- LOGOUT ----------------------
   void _showLogoutModal(BuildContext context) {

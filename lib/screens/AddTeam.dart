@@ -68,9 +68,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     if (_suppressFirstNameError) return null;
     final x = (v ?? '').trim();
     if (x.isEmpty) return 'First name is required.';
-    if (!RegExp(r'^[A-Z]').hasMatch(x)) {
-      return 'First name must start with a capital letter.';
-    }
+    // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
+    //   return 'First name must start with a capital letter.';
+    // }
     return null;
   }
 
@@ -78,9 +78,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     if (_suppressLastNameError) return null;
     final x = (v ?? '').trim();
     if (x.isEmpty) return 'Last name is required.';
-    if (!RegExp(r'^[A-Z]').hasMatch(x)) {
-      return 'Last name must start with a capital letter.';
-    }
+    // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
+    //   return 'Last name must start with a capital letter.';
+    // }
     return null;
   }
 
@@ -600,6 +600,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _phoneCtrl,
+                             enabled: !_phoneVerified,
                             keyboardType: TextInputType.phone,
                             // Only validate on typing AFTER first submit
                             autovalidateMode: _showGlobalErrors
@@ -636,15 +637,24 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                 : (_phoneVerified ? 'Verified' : 'Verify'),
                             enabled: !_phoneVerified && !_isVerifying,
                             isLoading: _isVerifying, // loader in button
-                            onPressed: (_phoneVerified || _isVerifying)
-                                ? null
-                                : () async {
-                                    // Hide the "please verify" prompt when tapping
-                                    if (!_suppressVerifyError) {
-                                      setState(() => _suppressVerifyError = true);
-                                    }
-                                    await _handleVerifyPhoneNumber();
-                                  },
+                           onPressed: (_phoneVerified || _isVerifying)
+    ? null
+    : () async {
+        // Suppress all inline errors after verify tap
+        setState(() {
+          _suppressPhoneError = true;
+          _suppressVerifyError = true;
+          _suppressFirstNameError = true;
+          _suppressLastNameError = true;
+          _suppressEmailError = true;
+          _suppressOtpError = true;
+          _suppressGenderError = true;
+          _suppressRolesError = true;
+          _suppressSpecsError = true;
+          _suppressDateError = true;
+        });
+        await _handleVerifyPhoneNumber();
+      },
                           ),
                         ),
                       ],
@@ -1017,12 +1027,14 @@ _PrimaryButton(
   text: 'Next',
   onPressed: () async {
     if (!await _validateFormAndShowAlert()) return;
+ String capitalizeFirst(String value) =>
+        value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
 
     final payload = {
       "countryCode": "+91",
       "phoneNumber": _phoneCtrl.text.trim(),
-      "firstName": _firstNameCtrl.text.trim(),
-      "lastName": _lastNameCtrl.text.trim(),
+     "firstName": capitalizeFirst(_firstNameCtrl.text.trim()),
+      "lastName": capitalizeFirst(_lastNameCtrl.text.trim()),
       "email": _emailCtrl.text.trim(),
       "joinedAt": _joiningDate == null
           ? null
@@ -1031,9 +1043,10 @@ _PrimaryButton(
       "specialities": _selectedSpecs,
       "profileImage": imageUrl,
       "gender": _gender,
-      "brief": _briefCtrl.text,
+    "brief": capitalizeFirst(_briefCtrl.text.trim()),
     };
-
+ // Log the payload
+    print('Sending to AddTeamSelectServices: $payload');
     Navigator.push(
       context,
       MaterialPageRoute(

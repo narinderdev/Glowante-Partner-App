@@ -54,23 +54,27 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final _phoneController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
-  @override
-  void initState() {
-    super.initState();
+ @override
+void initState() {
+  super.initState();
 
-    final phone = widget.phoneNumber;
-    if (phone != null && phone.isNotEmpty) {
-      _phoneController.text = phone;
-    }
+  // Set default start and end time
+  _startTimeController.text = "08:00 AM";
+  _endTimeController.text = "08:00 PM";
 
-    final names = [widget.firstName, widget.lastName]
-        .whereType<String>()
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
-    if (names.isNotEmpty) {
-      _salonNameController.text = names.join(' ');
-    }
+  final phone = widget.phoneNumber;
+  if (phone != null && phone.isNotEmpty) {
+    _phoneController.text = phone;
+  }
+
+  final names = [widget.firstName, widget.lastName]
+      .whereType<String>()
+      .map((value) => value.trim())
+      .where((value) => value.isNotEmpty)
+      .toList();
+  if (names.isNotEmpty) {
+    _salonNameController.text = names.join(' ');
+  }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final latitude = widget.latitude;
@@ -164,14 +168,21 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       );
       return;
     }
-
+ String _capitalizeWords(String value) {
+    return value
+        .split(' ')
+        .map((word) => word.isNotEmpty
+            ? word[0].toUpperCase() + word.substring(1)
+            : '')
+        .join(' ');
+  }
     context.read<AddSalonCubit>().submit(
       AddSalonFormData(
-        name: _salonNameController.text.trim(),
+        name: _capitalizeWords(_salonNameController.text.trim()),
         phone: _phoneController.text.trim(),
         startTime: _startTimeController.text.trim(),
         endTime: _endTimeController.text.trim(),
-        description: _descriptionController.text.trim(),
+        description: _capitalizeWords(_descriptionController.text.trim()),
       ),
     );
   }

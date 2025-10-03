@@ -3227,7 +3227,11 @@ class _BranchDropdownOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final location = option.addressSummary.trim();
+    // final location = option.addressSummary.trim();
+final address = option.branch['address'] as Map<String, dynamic>? ?? {};
+final line1 = (address['line1'] ?? '').toString().trim();
+final city = (address['city'] ?? '').toString().trim();
+final location = city.isNotEmpty ? '$line1, $city' : line1;
 
     final titleStyle =
         theme.textTheme.titleMedium?.copyWith(

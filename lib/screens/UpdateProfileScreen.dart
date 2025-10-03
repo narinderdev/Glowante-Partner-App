@@ -6,6 +6,7 @@ import '../screens/add_salon_screen.dart'; // Import AddSalonScreen
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart'; // Import AddSalonCubit
 import 'package:bloc_onboarding/repositories/salon_repository.dart'; // Import SalonRepository
 import '../utils/colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class UpdateUserProfileScreen extends StatefulWidget {
   final String token; // Token passed from OTP verification screen
@@ -34,8 +35,8 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
 
   // Function to update user profile
   Future<void> _updateProfile() async {
-  String firstName = firstNameController.text.trim();
-String lastName = lastNameController.text.trim();
+String firstName = _capitalizeFirstLetter(firstNameController.text.trim());
+  String lastName = _capitalizeFirstLetter(lastNameController.text.trim());
 String email = emailController.text.trim();
 
     // Reset errors
@@ -81,7 +82,11 @@ String email = emailController.text.trim();
         email,
         widget.token,
       );
-
+ SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('firstName', firstName);
+    await prefs.setString('lastName', lastName);
+    print('Saved firstName: $firstName');
+  print('Saved lastName: $lastName');
       // Check for success
       if (response['success'] == true) {
         var userData = response['data'];
@@ -130,7 +135,10 @@ String email = emailController.text.trim();
       });
     }
   }
-
+String _capitalizeFirstLetter(String value) {
+  if (value.isEmpty) return value;
+  return value[0].toUpperCase() + value.substring(1);
+}
   // Function to show the error messages in an alert dialog
   void _showErrorDialog(List<String> errorMessages) {
     showDialog(

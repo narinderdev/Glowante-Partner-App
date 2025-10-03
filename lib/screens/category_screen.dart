@@ -218,23 +218,28 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   // ---------- OPEN ADD SERVICE SCREEN ----------
-  void _openAddService(
-    Map<String, dynamic> category,
-    List<dynamic> categories,
-  ) {
-    if (_selectedBranch == null) return;
+Future<void> _openAddService(
+  Map<String, dynamic> category,
+  List<dynamic> categories,
+) async {
+  if (_selectedBranch == null) return;
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddServices(
-          salonId: _selectedBranch!['salonId'] as int,
-          selectedCategory: category,
-          categories: categories,
-        ),
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => AddServices(
+        salonId: _selectedBranch!['salonId'] as int,
+        selectedCategory: category,
+        categories: categories,
       ),
-    );
+    ),
+  );
+
+  if (result == true) {
+    // Refresh categories/services after adding a service
+    await _refreshData();
   }
+}
 
   void _autoPickFirstBranch(SalonListState state) {
     if (_selectedBranch != null) return; // don't override user choice
@@ -1451,7 +1456,9 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
 
   @override
   Widget build(BuildContext context) {
-    return _BottomSheetScaffold(
+   return Padding(
+  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+  child: _BottomSheetScaffold(
       title: isEdit ? 'Edit Category' : 'Add Category',
       initial: 0.30, // was 0.55
       min: 0.10, // was 0.35
@@ -1516,6 +1523,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -1610,7 +1618,9 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 
   @override
   Widget build(BuildContext context) {
-    return _BottomSheetScaffold(
+    return Padding(
+  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+  child: _BottomSheetScaffold(
       title: isEdit ? 'Edit Subcategory' : 'Add Subcategory',
       initial: 0.30, // was 0.55
       min: 0.10, // was 0.35
@@ -1665,6 +1675,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
           ),
         ],
       ),
+  ),
     );
   }
 }

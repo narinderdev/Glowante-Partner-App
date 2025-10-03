@@ -137,7 +137,7 @@ static String resolveWalkinNumberAPI(int branchId) {
 static String updateSalonOffer(int salonId, int offerId) {
   return "salons/$salonId/offers/$offerId";
 }
-  //This below 3 api is pending to implement on frontend
+  //This below 4 api is pending to implement on frontend
   // Confirm Booking appointment (see static helper above)
 static String createAppointmentAPI(int branchId) {
   return "branches/$branchId/appointments/branch";

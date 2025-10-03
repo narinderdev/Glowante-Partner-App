@@ -7,6 +7,7 @@ import 'login_screen.dart'; // Import the LoginScreen
 import '../screens/UpdateProfileScreen.dart'; // Import UpdateUserProfileScreen
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
+import 'package:flutter/services.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -124,26 +125,50 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   // Function to handle OTP input focus and auto-switch to next field
-  void _handleOtpInput(String value, int index) {
-    if (value.isNotEmpty) {
-      // Move focus to next field
-      if (index < 5) {
-        FocusScope.of(context).requestFocus(focusNodes[index + 1]);
-      }
-    } else if (index > 0) {
-      // Move focus to previous field if value is empty (deletion)
-      FocusScope.of(context).requestFocus(focusNodes[index - 1]);
-    }
+  // void _handleOtpInput(String value, int index) {
+  //   if (value.isNotEmpty) {
+  //     // Move focus to next field
+  //     if (index < 5) {
+  //       FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+  //     }
+  //   } else if (index > 0) {
+  //     // Move focus to previous field if value is empty (deletion)
+  //     FocusScope.of(context).requestFocus(focusNodes[index - 1]);
+  //   }
 
-    // Check if all OTP fields are filled
-    bool allFilled = otpControllers.every(
-      (controller) => controller.text.isNotEmpty,
-    );
-    setState(() {
-      isContinueButtonEnabled =
-          allFilled; // Enable button when all fields are filled
-    });
+  //   // Check if all OTP fields are filled
+  //   bool allFilled = otpControllers.every(
+  //     (controller) => controller.text.isNotEmpty,
+  //   );
+  //   setState(() {
+  //     isContinueButtonEnabled =
+  //         allFilled; // Enable button when all fields are filled
+  //   });
+  // }
+void _handleOtpInput(String value, int index) {
+  if (value.isNotEmpty) {
+    otpControllers[index].text = value;
+    // Move to next box if not last
+    if (index < 5) {
+      FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+    }
+  } else {
+    // On delete, clear current and move focus to previous
+    otpControllers[index].clear();
+    if (index > 0) {
+      FocusScope.of(context).requestFocus(focusNodes[index - 1]);
+      otpControllers[index - 1].selection = TextSelection.fromPosition(
+        TextPosition(offset: otpControllers[index - 1].text.length),
+      );
+    }
   }
+
+  // Enable button if all fields are filled
+  bool allFilled = otpControllers.every((controller) => controller.text.isNotEmpty);
+  setState(() {
+    isContinueButtonEnabled = allFilled;
+  });
+}
 
   Future<void> _resendOtp() async {
     setState(() {
@@ -253,32 +278,145 @@ class _OtpScreenState extends State<OtpScreen> {
               ),
               SizedBox(height: 30),
               // OTP Input Fields (6 separate text fields)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(6, (index) {
-                  return Container(
-                    width: 40,
-                    height: 50,
-                    margin: EdgeInsets.symmetric(horizontal: 5),
-                    child: TextField(
-                      controller: otpControllers[index],
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      maxLength: 1,
-                      focusNode: focusNodes[index],
-                      decoration: InputDecoration(
-                        counterText: "",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onChanged: (value) {
-                        _handleOtpInput(value, index);
-                      },
-                    ),
-                  );
-                }),
-              ),
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.center,
+              //   children: List.generate(6, (index) {
+              //     return Container(
+              //       width: 40,
+              //       height: 50,
+              //       margin: EdgeInsets.symmetric(horizontal: 5),
+              //       child: TextField(
+              //         controller: otpControllers[index],
+              //         keyboardType: TextInputType.number,
+              //         textAlign: TextAlign.center,
+              //         maxLength: 1,
+              //         focusNode: focusNodes[index],
+              //         decoration: InputDecoration(
+              //           counterText: "",
+              //           border: OutlineInputBorder(
+              //             borderRadius: BorderRadius.circular(8),
+              //           ),
+              //         ),
+              //         onChanged: (value) {
+              //           _handleOtpInput(value, index);
+              //         },
+              //       ),
+              //     );
+              //   }),
+              // ),
+  //            Row(
+  // mainAxisAlignment: MainAxisAlignment.center,
+  // children: List.generate(6, (index) {
+  //   return Container(
+  //     width: 40,
+  //     height: 50,
+  //     margin: EdgeInsets.symmetric(horizontal: 5),
+  //     child: 
+//       RawKeyboardListener(
+//   focusNode: FocusNode(), // separate listener node
+//   onKey: (event) {
+//     if (event is RawKeyDownEvent &&
+//         event.logicalKey == LogicalKeyboardKey.backspace) {
+//       // Case 1: current box has something -> just clear it
+//       if (otpControllers[index].text.isNotEmpty) {
+//         otpControllers[index].clear();
+//         return;
+//       }
+
+//       // Case 2: current box already empty -> go back
+//       if (otpControllers[index].text.isEmpty && index > 0) {
+//         FocusScope.of(context).requestFocus(focusNodes[index - 1]);
+//         otpControllers[index - 1].selection = TextSelection.fromPosition(
+//           TextPosition(offset: otpControllers[index - 1].text.length),
+//         );
+//       }
+//     }
+//   },
+//   child: TextField(
+//     controller: otpControllers[index],
+//     focusNode: focusNodes[index],
+//     keyboardType: TextInputType.number,
+//     textAlign: TextAlign.center,
+//     maxLength: 1,
+//     decoration: InputDecoration(
+//       counterText: "",
+//       border: OutlineInputBorder(
+//         borderRadius: BorderRadius.circular(8),
+//       ),
+//     ),
+//     onChanged: (value) {
+//       if (value.isNotEmpty && index < 5) {
+//         FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+//       }
+//       setState(() {
+//         isContinueButtonEnabled =
+//             otpControllers.every((c) => c.text.isNotEmpty);
+//       });
+//     },
+//   ),
+// ),
+
+//     );
+//   }),
+// ),
+RawKeyboardListener(
+  focusNode: FocusNode(), // listener for the whole row
+  onKey: (event) {
+    if (event is RawKeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.backspace) {
+      // find the currently focused field
+      int index =
+          focusNodes.indexWhere((node) => node.hasFocus);
+      if (index != -1) {
+        if (otpControllers[index].text.isNotEmpty) {
+          otpControllers[index].clear();
+        } else if (index > 0) {
+          FocusScope.of(context).requestFocus(focusNodes[index - 1]);
+          otpControllers[index - 1].clear();
+        }
+      }
+    }
+  },
+  child: Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: List.generate(6, (index) {
+      return Container(
+        width: 40,
+        height: 50,
+        margin: EdgeInsets.symmetric(horizontal: 5),
+        child: TextField(
+          controller: otpControllers[index],
+          focusNode: focusNodes[index],
+          keyboardType: TextInputType.number,
+          textAlign: TextAlign.center,
+          maxLength: 1,
+          decoration: InputDecoration(
+            counterText: "",
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          onChanged: (value) {
+            if (value.isNotEmpty) {
+              // move to next empty
+              int nextIndex =
+                  otpControllers.indexWhere((c) => c.text.isEmpty);
+              if (nextIndex != -1 && nextIndex < 6) {
+                FocusScope.of(context).requestFocus(focusNodes[nextIndex]);
+              } else {
+                FocusScope.of(context).unfocus();
+              }
+            }
+            setState(() {
+              isContinueButtonEnabled =
+                  otpControllers.every((c) => c.text.isNotEmpty);
+            });
+          },
+        ),
+      );
+    }),
+  ),
+),
               if (errorMessage.isNotEmpty) ...[
                 SizedBox(height: 10),
                 Text(errorMessage, style: TextStyle(color: Colors.red)),
