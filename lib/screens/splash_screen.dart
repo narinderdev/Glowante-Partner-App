@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/screens/onboarding_screen.dart';
 import 'package:bloc_onboarding/screens/bottom_nav.dart';
+import 'package:provider/provider.dart';
+import '../services/language_listener.dart';
+import '../services/translations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

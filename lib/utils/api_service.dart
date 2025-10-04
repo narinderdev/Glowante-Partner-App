@@ -155,11 +155,17 @@ static String createAppointmentAPI(int branchId) {
 
   // / ---------------------- IMAGE UPLOAD ----------------------
 
-  Future<String?> uploadImage(File file) async {
-    // convert File -> XFile wrapper for AwsS3Uploader
-    final url = await AwsS3Uploader.uploadImage(XFile(file.path));
-    return url;
-  }
+  // Future<String?> uploadImage(File file) async {
+  //   // convert File -> XFile wrapper for AwsS3Uploader
+  //   final url = await AwsS3Uploader.uploadImage(XFile(file.path));
+  //   return url;
+  // }
+
+Future<String?> uploadImage(File file) async {
+  final uploader = AwsS3Uploader(); // create instance
+  final url = await uploader.uploadImage(XFile(file.path));
+  return url;
+}
 
   Future<List<String>> uploadMultipleImages(List<File> files) async {
     List<String> urls = [];

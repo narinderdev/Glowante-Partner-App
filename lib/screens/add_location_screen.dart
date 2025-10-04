@@ -37,7 +37,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   DateTime _lastType = DateTime.fromMillisecondsSinceEpoch(0);
   double? _anchorWidth;
   String _latestQuery = '';
-
+  bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
 
   final TextEditingController buildingNameController = TextEditingController();
@@ -77,21 +77,47 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     super.dispose();
   }
 
-  Future<void> _getCurrentLocation() async {
+  // Future<void> _getCurrentLocation() async {
+  //   bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  //   if (!serviceEnabled) return;
+
+  //   LocationPermission permission = await Geolocator.checkPermission();
+  //   if (permission == LocationPermission.denied) {
+  //     permission = await Geolocator.requestPermission();
+  //     if (permission != LocationPermission.whileInUse && permission != LocationPermission.always) {
+  //       return;
+  //     }
+  //   }
+
+  //   Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+  //   _getAddressFromCoordinates(position.latitude, position.longitude);
+  // }
+Future<void> _getCurrentLocation() async {
+  setState(() => _isLoading = true); // start loader
+
+  try {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
 
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission != LocationPermission.whileInUse && permission != LocationPermission.always) {
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
         return;
       }
     }
 
-    Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    _getAddressFromCoordinates(position.latitude, position.longitude);
+    Position position =
+        await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
+    await _getAddressFromCoordinates(position.latitude, position.longitude);
+  } catch (e) {
+    print("Error getting location: $e");
+  } finally {
+    setState(() => _isLoading = false); // stop loader
   }
+}
 
   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
     try {
@@ -291,18 +317,40 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     ),
                   ),
                   SizedBox(height: 20),
+                  // ElevatedButton(
+                  //   onPressed: _getCurrentLocation,
+                  //   child: Text('Use Current Location'),
+                  //   style: ElevatedButton.styleFrom(
+                  //     minimumSize: Size(double.infinity, 50),
+                  //     shape: RoundedRectangleBorder(
+                  //       borderRadius: BorderRadius.circular(10),
+                  //     ),
+                  //     backgroundColor: AppColors.starColor,
+                  //     foregroundColor: AppColors.white,
+                  //   ),
+                  // ),
                   ElevatedButton(
-                    onPressed: _getCurrentLocation,
-                    child: Text('Use Current Location'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      backgroundColor: AppColors.starColor,
-                      foregroundColor: AppColors.white,
-                    ),
-                  ),
+  onPressed: _isLoading ? null : _getCurrentLocation,
+  child: _isLoading
+      ? SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2,
+          ),
+        )
+      : Text('Use Current Location'),
+  style: ElevatedButton.styleFrom(
+    minimumSize: Size(double.infinity, 50),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    ),
+    backgroundColor: AppColors.starColor,
+    foregroundColor: AppColors.white,
+  ),
+),
+
                   SizedBox(height: 20),
                   _buildTextField(buildingNameController, 'Building Name and Flat No',
                       'Enter building name and flat number', textCapitalization: TextCapitalization.words),

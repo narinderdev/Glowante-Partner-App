@@ -1,6 +1,6 @@
 name: bloc_onboarding
 description: "A new Flutter project."
-publish_to: 'none' 
+publish_to: 'none'
 version: 2.0.0+15
 
 environment:
@@ -11,7 +11,7 @@ dependencies:
   flutter_bloc: ^8.0.1
   cupertino_icons: ^1.0.8
   geolocator: ^9.0.0
-  geocoding: ^2.0.0 # Add this package for address lookup
+  geocoding: ^2.0.0
   shared_preferences: ^2.0.15
   flutter_google_places_sdk: ^0.4.2+1
   flutter_dotenv: ^5.1.0
@@ -21,8 +21,10 @@ dependencies:
   firebase_messaging: ^15.0.4
   flutter_local_notifications: ^17.2.1
   bloc: ^8.1.4
-  intl: ^0.19.0
-  aws_s3_api: ^2.0.0
+  flutter_localizations:
+    sdk: flutter
+  flutter_gen: ^5.4.0
+  aws_s3_upload_lite: ^0.1.6     # ← replace with actual version from pub.dev
   mime: ^2.0.0
   path_provider: ^2.1.5
   provider: ^6.0.1
@@ -34,7 +36,6 @@ dependencies:
   pin_code_fields: ^8.0.1
   webview_flutter: ^4.7.0
   connectivity_plus: ^5.0.2
-  # Add the platform implementations at versions compatible with 4.7.0:
   webview_flutter_android: ^3.16.1
   webview_flutter_wkwebview: ^3.13.1
 
@@ -42,9 +43,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
+
 flutter:
   uses-material-design: true
   assets:
-  - assets/images/
-  - assets/images/icons/
-  - .env
+    - assets/images/
+    - assets/images/icons/
+    - .env
+
+  generate: true

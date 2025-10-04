@@ -1,44 +1,28 @@
+// services/language_listener.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class LanguageManager extends ChangeNotifier {
-  Locale _locale = const Locale('en');
+class LanguageListener extends ChangeNotifier {
+  String _currentLang = 'en';
 
-  Locale get locale => _locale;
+  String get currentLang => _currentLang;
 
-  void setLocale(Locale newLocale) {
-    if (_locale == newLocale) return;
-    _locale = newLocale;
+  Locale get currentLocale => Locale(_currentLang);
+
+  LanguageListener() {
+    _loadLanguage();
+  }
+
+  Future<void> _loadLanguage() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentLang = prefs.getString('language') ?? 'en';
     notifyListeners();
   }
-}
 
-class LanguageListener extends StatelessWidget {
-  final Widget child;
-
-  const LanguageListener({super.key, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<LanguageManager>(
-      builder: (context, languageManager, _) {
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          locale: languageManager.locale,
-          supportedLocales: const [
-            Locale('en'),
-            Locale('es'),
-            Locale('fr'),
-          ],
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          home: child,
-        );
-      },
-    );
+  Future<void> changeLanguage(String langCode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language', langCode);
+    _currentLang = langCode;
+    notifyListeners();
   }
 }
