@@ -13,11 +13,10 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 /// Shared function signature for opening the subcategory sheet
-typedef SubcategoryOp =
-    Future<void> Function({
-      Map<String, dynamic>? subCategory,
-      required int categoryId,
-    });
+typedef SubcategoryOp = Future<void> Function({
+  Map<String, dynamic>? subCategory,
+  required int categoryId,
+});
 
 /// Ensures the first alphabetic character the user types is uppercase
 class FirstLetterUpperFormatter extends TextInputFormatter {
@@ -154,9 +153,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final salonId = _selectedBranch!['salonId'] as int;
     context.read<CategoryCubit>().deleteCategory(
-      salonId,
-      category['id'] as int,
-    );
+          salonId,
+          category['id'] as int,
+        );
   }
 
   // ---------- CONFIRM DELETE SUBCATEGORY ----------
@@ -178,9 +177,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final salonId = _selectedBranch!['salonId'] as int;
     context.read<CategoryCubit>().deleteSubCategory(
-      salonId,
-      subCategory['id'] as int,
-    );
+          salonId,
+          subCategory['id'] as int,
+        );
   }
 
   // ---------- EDIT SERVICE ----------
@@ -196,10 +195,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final salonId = _selectedBranch!['salonId'] as int;
     context.read<CategoryCubit>().updateService(
-      salonId,
-      result['serviceId'] as int,
-      result['payload'] as Map<String, dynamic>,
-    );
+          salonId,
+          result['serviceId'] as int,
+          result['payload'] as Map<String, dynamic>,
+        );
   }
 
   // ---------- CONFIRM DELETE SERVICE ----------
@@ -222,28 +221,28 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   // ---------- OPEN ADD SERVICE SCREEN ----------
-Future<void> _openAddService(
-  Map<String, dynamic> category,
-  List<dynamic> categories,
-) async {
-  if (_selectedBranch == null) return;
+  Future<void> _openAddService(
+    Map<String, dynamic> category,
+    List<dynamic> categories,
+  ) async {
+    if (_selectedBranch == null) return;
 
-  final result = await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AddServices(
-        salonId: _selectedBranch!['salonId'] as int,
-        selectedCategory: category,
-        categories: categories,
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddServices(
+          salonId: _selectedBranch!['salonId'] as int,
+          selectedCategory: category,
+          categories: categories,
+        ),
       ),
-    ),
-  );
+    );
 
-  if (result == true) {
-    // Refresh categories/services after adding a service
-    await _refreshData();
+    if (result == true) {
+      // Refresh categories/services after adding a service
+      await _refreshData();
+    }
   }
-}
 
   void _autoPickFirstBranch(SalonListState state) {
     if (_selectedBranch != null) return; // don't override user choice
@@ -252,7 +251,7 @@ Future<void> _openAddService(
     for (final salon in state.salons) {
       final branches =
           (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ??
-          const [];
+              const [];
       if (branches.isNotEmpty) {
         final first = branches.first;
         setState(() {
@@ -458,8 +457,7 @@ class _HeaderSection extends StatelessWidget {
 
     final List<DropdownMenuItem<int>> branchItems = salons.expand((salon) {
       final String salonTitle = salon['name']?.toString() ?? 'Salon';
-      final List<Map<String, dynamic>> branches =
-          (salon['branches'] as List?)
+      final List<Map<String, dynamic>> branches = (salon['branches'] as List?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           const [];
@@ -515,18 +513,18 @@ class _HeaderSection extends StatelessWidget {
     );
     final int? dropdownValue = hasSelection ? selectedBranchId : null;
 
-final headerGradient = LinearGradient(
-  colors: [AppColors.starColor, AppColors.getStartedButton],
-  begin: Alignment.topLeft,
-  end: Alignment.bottomRight,
-);
+    final headerGradient = LinearGradient(
+      colors: [AppColors.starColor, AppColors.getStartedButton],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
     return Container(
       width: double.infinity,
       // color: Colors.black,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-       decoration: BoxDecoration(
-    gradient: headerGradient,
-  ),
+      decoration: BoxDecoration(
+        gradient: headerGradient,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -536,7 +534,8 @@ final headerGradient = LinearGradient(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(translateText('Catalog'),
+                    Text(
+                      translateText('Catalog'),
                       style: textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
@@ -577,7 +576,8 @@ final headerGradient = LinearGradient(
               children: [
                 Row(
                   children: [
-                    Text(translateText('Salon'),
+                    Text(
+                      translateText('Salon'),
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.black,
@@ -728,7 +728,7 @@ class _CategoryList extends StatelessWidget {
   final SubcategoryOp onEditSubcategory;
 
   final void Function(Map<String, dynamic> category, List<dynamic> categories)
-  onAddServices;
+      onAddServices;
 
   final Future<void> Function({Map<String, dynamic>? category}) onEditCategory;
 
@@ -769,14 +769,14 @@ class _CategoryList extends StatelessWidget {
         final category = Map<String, dynamic>.from(categories[index] as Map);
         final List<Map<String, dynamic>> subCategories =
             (category['subCategories'] as List?)
-                ?.map((e) => Map<String, dynamic>.from(e as Map))
-                .toList() ??
-            const [];
+                    ?.map((e) => Map<String, dynamic>.from(e as Map))
+                    .toList() ??
+                const [];
         final List<Map<String, dynamic>> categoryServices =
             (category['services'] as List?)
-                ?.map((e) => Map<String, dynamic>.from(e as Map))
-                .toList() ??
-            const [];
+                    ?.map((e) => Map<String, dynamic>.from(e as Map))
+                    .toList() ??
+                const [];
         final Color tone = _tones[index % _tones.length];
 
         return Container(
@@ -801,10 +801,11 @@ class _CategoryList extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color:Colors.grey.shade200,
+                        color: Colors.grey.shade200,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.folder_special_rounded, color: AppColors.starColor),
+                      child: Icon(Icons.folder_special_rounded,
+                          color: AppColors.starColor),
                     ),
                     SizedBox(width: 14),
                     Expanded(
@@ -859,7 +860,8 @@ class _CategoryList extends StatelessWidget {
               if (categoryServices.isNotEmpty) const SizedBox(height: 10),
               if (subCategories.isEmpty)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: _NoDataPill(message: 'No subcategories added yet'),
                 )
               else
@@ -894,7 +896,8 @@ class _CategoryList extends StatelessWidget {
                           Icons.add_rounded,
                           color: AppColors.starColor,
                         ),
-                        label: Text(translateText('Add subcategory'),
+                        label: Text(
+                          translateText('Add subcategory'),
                           style: TextStyle(
                             color: AppColors.starColor,
                             fontWeight: FontWeight.w600,
@@ -917,7 +920,7 @@ class _CategoryList extends StatelessWidget {
                         icon: Icon(Icons.design_services_rounded),
                         label: Text(translateText('Add services')),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:  AppColors.starColor,
+                          backgroundColor: AppColors.starColor,
                           foregroundColor: Colors.white,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
@@ -966,17 +969,15 @@ class _SubcategoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> services =
         (subCategory['services'] as List?)
-            ?.map((e) => Map<String, dynamic>.from(e as Map))
-            .toList() ??
-        const [];
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            const [];
     final theme = Theme.of(context);
 
-    final Color borderColor = isExpanded
-        ? Colors.grey.shade400
-        : Colors.grey.shade300;
-    final Color fillColor = isExpanded
-        ? Colors.grey.shade200
-        : Colors.grey.shade100;
+    final Color borderColor =
+        isExpanded ? Colors.grey.shade400 : Colors.grey.shade300;
+    final Color fillColor =
+        isExpanded ? Colors.grey.shade200 : Colors.grey.shade100;
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -1081,7 +1082,8 @@ class _ServiceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final String name = service['displayName']?.toString() ??
-        service['name']?.toString() ?? translateText('Unnamed service');
+        service['name']?.toString() ??
+        translateText('Unnamed service');
     final int? price = service['priceMinor'] as int?;
     final int? duration = service['durationMin'] as int?;
     final String description = (service['description'] ?? '').toString().trim();
@@ -1386,17 +1388,16 @@ class _LabeledField extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
-      decoration:
-          InputDecoration(
-            labelText: '',
-            border: OutlineInputBorder(),
-          ).copyWith(
-            labelText: label,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-          ),
+      decoration: InputDecoration(
+        labelText: '',
+        border: OutlineInputBorder(),
+      ).copyWith(
+        labelText: label,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+      ),
     );
   }
 }
@@ -1527,74 +1528,75 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
 
   @override
   Widget build(BuildContext context) {
-   return Padding(
-  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-  child: _BottomSheetScaffold(
-      title: isEdit ? 'Edit Category' : 'Add Category',
-      initial: 0.30, // was 0.55
-      min: 0.10, // was 0.35
-      max: 0.30, // was 0.90
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: nameController,
-            textCapitalization: TextCapitalization.words,
-            inputFormatters: const [FirstLetterUpperFormatter()],
-            decoration: InputDecoration(
-              labelText: translateText('Category Name'),
-              border: OutlineInputBorder(),
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: _BottomSheetScaffold(
+        title: isEdit ? 'Edit Category' : 'Add Category',
+        initial: 0.30, // was 0.55
+        min: 0.10, // was 0.35
+        max: 0.30, // was 0.90
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              textCapitalization: TextCapitalization.words,
+              inputFormatters: const [FirstLetterUpperFormatter()],
+              decoration: InputDecoration(
+                labelText: translateText('Category Name'),
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          SizedBox(height: 12),
-          // Optional description input ΓÇô keep if you need it in UI
-          // TextField(
-          //   controller: descriptionController,
-          //   maxLines: 2,
-          //   textCapitalization: TextCapitalization.sentences,
-          //   decoration: InputDecoration(
-          //     labelText: translateText('Description (optional)'),
-          //     border: OutlineInputBorder(),
-          //   ),
-          // ),
-          if (errorText != null) ...[
-            SizedBox(height: 2),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                errorText!,
-                style: const TextStyle(color: Colors.red),
+            SizedBox(height: 12),
+            // Optional description input ΓÇô keep if you need it in UI
+            // TextField(
+            //   controller: descriptionController,
+            //   maxLines: 2,
+            //   textCapitalization: TextCapitalization.sentences,
+            //   decoration: InputDecoration(
+            //     labelText: translateText('Description (optional)'),
+            //     border: OutlineInputBorder(),
+            //   ),
+            // ),
+            if (errorText != null) ...[
+              SizedBox(height: 2),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  errorText!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+            SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: isSaving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(Icons.check_rounded),
+                onPressed: isSaving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                label: Text(isEdit ? 'Update Category' : 'Add Category'),
               ),
             ),
           ],
-          SizedBox(height: 6),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: isSaving
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(Icons.check_rounded),
-              onPressed: isSaving ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor:  AppColors.starColor,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              label: Text(isEdit ? 'Update Category' : 'Add Category'),
-            ),
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -1690,63 +1692,64 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-  child: _BottomSheetScaffold(
-      title: isEdit ? 'Edit Subcategory' : 'Add Subcategory',
-      initial: 0.30, // was 0.55
-      min: 0.10, // was 0.35
-      max: 0.30, // was 0.90
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: controller,
-            textCapitalization: TextCapitalization.words,
-            inputFormatters: const [FirstLetterUpperFormatter()],
-            decoration: InputDecoration(
-              labelText: translateText('Subcategory Name'),
-              border: OutlineInputBorder(),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: _BottomSheetScaffold(
+        title: isEdit ? 'Edit Subcategory' : 'Add Subcategory',
+        initial: 0.30, // was 0.55
+        min: 0.10, // was 0.35
+        max: 0.30, // was 0.90
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              textCapitalization: TextCapitalization.words,
+              inputFormatters: const [FirstLetterUpperFormatter()],
+              decoration: InputDecoration(
+                labelText: translateText('Subcategory Name'),
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          if (errorText != null) ...[
-            SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                errorText!,
-                style: const TextStyle(color: Colors.red),
+            if (errorText != null) ...[
+              SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  errorText!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+            SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: isSaving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(Icons.check_rounded),
+                onPressed: isSaving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                label: Text(isEdit ? 'Update Subcategory' : 'Add Subcategory'),
               ),
             ),
           ],
-          SizedBox(height: 6),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: isSaving
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(Icons.check_rounded),
-              onPressed: isSaving ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              label: Text(isEdit ? 'Update Subcategory' : 'Add Subcategory'),
-            ),
-          ),
-        ],
+        ),
       ),
-  ),
     );
   }
 }
@@ -2129,7 +2132,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor:  AppColors.starColor,
+                backgroundColor: AppColors.starColor,
                 foregroundColor: AppColors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
