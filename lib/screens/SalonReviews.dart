@@ -262,151 +262,225 @@ class _SalonReviewsState extends State<SalonReviews> {
                                   style: const TextStyle(color: Colors.grey),
                                 )
                               : Column(
-                                  children: appointmentReviews.map((appt) {
-                                    return Card(
-                                      color: Colors.white,
-                                      margin: const EdgeInsets.only(bottom: 15),
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              translateText(
-                                                  "Appointment Details"),
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 16),
-                                            ),
-                                            Text("Client: ${appt["client"]}"),
-                                            Text(
-                                                "Start: ${dateFormat.format(appt["startAt"])}"),
-                                            Text(
-                                                "End: ${dateFormat.format(appt["endAt"])}"),
-                                            const SizedBox(height: 10),
+                                  // children: appointmentReviews.map((appt) {
+                                  //   return Card(
+                                  //     color: Colors.white,
+                                  //     margin: const EdgeInsets.only(bottom: 15),
+                                  //     child: Padding(
+                                  //       padding: const EdgeInsets.all(12),
+                                  //       child: Column(
+                                  //         crossAxisAlignment:
+                                  //             CrossAxisAlignment.start,
+                                  //         children: [
+                                  //           Text(
+                                  //             translateText(
+                                  //                 "Appointment Details"),
+                                  //             style: const TextStyle(
+                                  //                 fontWeight: FontWeight.bold,
+                                  //                 fontSize: 16),
+                                  //           ),
+                                  //           Text("${appt["client"]}"),
+                                  //           Text(
+                                  //               "Start: ${dateFormat.format(appt["startAt"])}"),
+                                  //           Text(
+                                  //               "End: ${dateFormat.format(appt["endAt"])}"),
+                                  //           const SizedBox(height: 10),
 
-                                            // 🏢 Branch review
-                                            if (appt["branchReview"] !=
-                                                null) ...[
-                                              Text(
-                                                translateText(
-                                                    "🏢 Review given for you"),
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w600),
-                                              ),
-                                              Row(
-                                                children: [
-                                                  buildStars(appt["branchReview"]
-                                                      ["rating"]),
-                                                  const SizedBox(width: 5),
-                                                  Text(
-                                                      "${appt["branchReview"]["rating"]}"),
-                                                ],
-                                              ),
-                                              if ((appt["branchReview"]
-                                                          ["comment"] ??
-                                                      "")
-                                                  .isNotEmpty)
-                                                Text(appt["branchReview"]
-                                                    ["comment"]),
-                                              Text(
-                                                  "Reviewer: ${appt["branchReview"]["reviewer"]}"),
-                                              Text(
-                                                  "Created At: ${dateFormat.format(appt["branchReview"]["date"])}"),
-                                              const Divider(),
-                                            ],
+                                  //           // 🏢 Branch review
+                                  //           if (appt["branchReview"] !=
+                                  //               null) ...[
+                                  //             Text(
+                                  //               translateText(
+                                  //                   "🏢 Review given for you"),
+                                  //               style: const TextStyle(
+                                  //                   fontWeight:
+                                  //                       FontWeight.w600),
+                                  //             ),
+                                  //             Row(
+                                  //               children: [
+                                  //                 buildStars(appt["branchReview"]
+                                  //                     ["rating"]),
+                                  //                 const SizedBox(width: 5),
+                                  //                 Text(
+                                  //                     "${appt["branchReview"]["rating"]}"),
+                                  //               ],
+                                  //             ),
+                                  //             if ((appt["branchReview"]
+                                  //                         ["comment"] ??
+                                  //                     "")
+                                  //                 .isNotEmpty)
+                                  //               Text(appt["branchReview"]
+                                  //                   ["comment"]),
+                                  //             // Text(
+                                  //             //     "Reviewer: ${appt["branchReview"]["reviewer"]}"),
+                                  //             // Text(
+                                  //             //     "Created At: ${dateFormat.format(appt["branchReview"]["date"])}"),
+                                  //             const Divider(),
+                                  //           ],
 
-                                            // 🙍 Client review
-                                            if (appt["clientReview"] !=
-                                                null) ...[
-                                              Text(
-                                                translateText(
-                                                    "Review given by you"),
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w600),
-                                              ),
-                                              Row(
-                                                children: [
-                                                  buildStars(appt["clientReview"]
-                                                      ["rating"]),
-                                                  const SizedBox(width: 5),
-                                                  Text(
-                                                      "${appt["clientReview"]["rating"]}"),
-                                                ],
-                                              ),
-                                              if ((appt["clientReview"]
-                                                          ["comment"] ??
-                                                      "")
-                                                  .isNotEmpty)
-                                                Text(appt["clientReview"]
-                                                    ["comment"]),
-                                              Text(
-                                                  "Recorded By: ${appt["clientReview"]["reviewer"]}"),
-                                              Text(
-                                                  "Target User: ${appt["clientReview"]["target"]}"),
-                                              Text(
-                                                  "Created At: ${dateFormat.format(appt["clientReview"]["date"])}"),
-                                              const Divider(),
-                                            ],
+                                  //           // 🙍 Client review
+                                  //           // if (appt["clientReview"] !=
+                                  //           //     null) ...[
+                                  //             // Text(
+                                  //             //   translateText(
+                                  //             //       "Review given by you"),
+                                  //             //   style: const TextStyle(
+                                  //             //       fontWeight:
+                                  //             //           FontWeight.w600),
+                                  //             // ),
+                                  //             // Row(
+                                  //             //   children: [
+                                  //             //     buildStars(appt["clientReview"]
+                                  //             //         ["rating"]),
+                                  //             //     const SizedBox(width: 5),
+                                  //             //     Text(
+                                  //             //         "${appt["clientReview"]["rating"]}"),
+                                  //             //   ],
+                                  //             // ),
+                                  //             // if ((appt["clientReview"]
+                                  //             //             ["comment"] ??
+                                  //             //         "")
+                                  //             //     .isNotEmpty)
+                                  //             //   Text(appt["clientReview"]
+                                  //             //       ["comment"]),
+                                  //             // Text(
+                                  //             //     "Recorded By: ${appt["clientReview"]["reviewer"]}"),
+                                  //             // Text(
+                                  //             //     "Target User: ${appt["clientReview"]["target"]}"),
+                                  //             // Text(
+                                  //             //     "Created At: ${dateFormat.format(appt["clientReview"]["date"])}"),
+                                  //             // const Divider(),
+                                  //           // ],
 
-                                            // 👩‍🎨 Professional reviews
-                                            if ((appt["professionalReviews"]
-                                                    as List)
-                                                .isNotEmpty) ...[
-                                              Text(
-                                                translateText(
-                                                    "Your professional"),
-                                                style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.w600),
-                                              ),
-                                              ...(appt["professionalReviews"]
-                                                      as List<
-                                                          Map<String, dynamic>>)
-                                                  .map((r) => Padding(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .only(top: 8),
-                                                        child: Column(
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            Text(
-                                                              "Professional: ${r["professional"]}",
-                                                              style: const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .bold),
-                                                            ),
-                                                            Row(
-                                                              children: [
-                                                                buildStars(
-                                                                    r["rating"]),
-                                                                const SizedBox(
-                                                                    width: 5),
-                                                                Text(
-                                                                    "${r["rating"]}"),
-                                                              ],
-                                                            ),
-                                                            if ((r["comment"] ??
-                                                                    "")
-                                                                .isNotEmpty)
-                                                              Text(r["comment"]),
-                                                            Text(
-                                                                "Created At: ${dateFormat.format(r["date"])}"),
-                                                          ],
-                                                        ),
-                                                      ))
-                                            ]
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
+                                  //           // 👩‍🎨 Professional reviews
+                                  //           if ((appt["professionalReviews"]
+                                  //                   as List)
+                                  //               .isNotEmpty) ...[
+                                  //             Text(
+                                  //               translateText(
+                                  //                   "Your professional"),
+                                  //               style: const TextStyle(
+                                  //                   fontWeight:
+                                  //                       FontWeight.w600),
+                                  //             ),
+                                  //             ...(appt["professionalReviews"]
+                                  //                     as List<
+                                  //                         Map<String, dynamic>>)
+                                  //                 .map((r) => Padding(
+                                  //                       padding:
+                                  //                           const EdgeInsets
+                                  //                               .only(top: 8),
+                                  //                       child: Column(
+                                  //                         crossAxisAlignment:
+                                  //                             CrossAxisAlignment
+                                  //                                 .start,
+                                  //                         children: [
+                                  //                           Text(
+                                  //                             "${r["professional"]}",
+                                  //                             style: const TextStyle(
+                                  //                                 fontWeight:
+                                  //                                     FontWeight
+                                  //                                         .bold),
+                                  //                           ),
+                                  //                           Row(
+                                  //                             children: [
+                                  //                               buildStars(
+                                  //                                   r["rating"]),
+                                  //                               const SizedBox(
+                                  //                                   width: 5),
+                                  //                               Text(
+                                  //                                   "${r["rating"]}"),
+                                  //                             ],
+                                  //                           ),
+                                  //                           if ((r["comment"] ??
+                                  //                                   "")
+                                  //                               .isNotEmpty)
+                                  //                             Text(r["comment"]),
+                                  //                           // Text(
+                                  //                           //     "Created At: ${dateFormat.format(r["date"])}"),
+                                  //                         ],
+                                  //                       ),
+                                  //                     ))
+                                  //           ]
+                                  //         ],
+                                  //       ),
+                                  //     ),
+                                  //   );
+                                  // }).toList(),
+                                  children: appointmentReviews
+      .where((appt) => appt["branchReview"] != null) // ✅ Only show cards with branchReview
+      .map((appt) {
+    return Card(
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 15),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              translateText("Appointment Details"),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Text("${appt["client"]}"),
+            Text("Start: ${dateFormat.format(appt["startAt"])}"),
+            Text("End: ${dateFormat.format(appt["endAt"])}"),
+            const SizedBox(height: 10),
+
+            // 🏢 Branch review
+            if (appt["branchReview"] != null) ...[
+              Text(
+                translateText("🏢 Review given for you"),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Row(
+                children: [
+                  buildStars(appt["branchReview"]["rating"]),
+                  const SizedBox(width: 5),
+                  Text("${appt["branchReview"]["rating"]}"),
+                ],
+              ),
+              if ((appt["branchReview"]["comment"] ?? "").isNotEmpty)
+                Text(appt["branchReview"]["comment"]),
+              const Divider(),
+            ],
+
+            // 👩‍🎨 Professional reviews
+            if ((appt["professionalReviews"] as List).isNotEmpty) ...[
+              Text(
+                translateText("Your professional"),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              ...(appt["professionalReviews"] as List<Map<String, dynamic>>)
+                  .map((r) => Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "${r["professional"]}",
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            Row(
+                              children: [
+                                buildStars(r["rating"]),
+                                const SizedBox(width: 5),
+                                Text("${r["rating"]}"),
+                              ],
+                            ),
+                            if ((r["comment"] ?? "").isNotEmpty)
+                              Text(r["comment"]),
+                          ],
+                        ),
+                      ))
+            ]
+          ],
+        ),
+      ),
+    );
+  }).toList(),
                                 )
                         ],
                       ),
