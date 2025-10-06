@@ -46,7 +46,7 @@
 //                     width: double.infinity,
 //                     child: imageUrl != null && imageUrl.isNotEmpty
 //                         ? Image.network(imageUrl, fit: BoxFit.cover)
-//                         : const Center(
+//                         : Center(
 //                             child: Icon(Icons.store, size: 70, color: Colors.grey),
 //                           ),
 //                   ),
@@ -66,11 +66,11 @@
 //                             shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
 //                           ),
 //                         ),
-//                         const SizedBox(height: 4),
+//                         SizedBox(height: 4),
 //                         Row(
 //                           children: [
-//                             const Icon(Icons.location_on, size: 16, color: Colors.white),
-//                             const SizedBox(width: 4),
+//                             Icon(Icons.location_on, size: 16, color: Colors.white),
+//                             SizedBox(width: 4),
 //                             Expanded(
 //                               child: Text(
 //                                 line1,

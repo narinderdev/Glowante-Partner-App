@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class SelectServicesModal extends StatefulWidget {
   final int salonId;
@@ -123,7 +125,7 @@ double get total {
     // filter by search query
     if (searchQuery.isNotEmpty &&
         !name.toLowerCase().contains(searchQuery.toLowerCase())) {
-      return const SizedBox.shrink();
+      return SizedBox.shrink();
     }
 
     return Padding(
@@ -137,7 +139,7 @@ double get total {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.remove_circle_outline),
+            icon: Icon(Icons.remove_circle_outline),
             onPressed: qty > 0
                 ? () => setState(() => selectedQty[id] = qty - 1)
                 : null,
@@ -154,7 +156,7 @@ double get total {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.add_circle_outline),
+            icon: Icon(Icons.add_circle_outline),
             onPressed: () => setState(() => selectedQty[id] = qty + 1),
           ),
         ],
@@ -201,13 +203,12 @@ double get total {
     elevation: 0,
     automaticallyImplyLeading: false,
     iconTheme: const IconThemeData(color: Colors.white),
-    title: const Text(
-      'Select Services',
+    title: Text(translateText('Select Services'),
       style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
     ),
     actions: [
       IconButton(
-        icon: const Icon(Icons.close),
+        icon: Icon(Icons.close),
         onPressed: () => Navigator.pop(context),
       ),
     ],
@@ -226,7 +227,7 @@ double get total {
   ),
 
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 // Search
@@ -234,8 +235,8 @@ double get total {
                   padding: const EdgeInsets.all(12.0),
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: 'Search Services',
-                      prefixIcon: const Icon(Icons.search),
+                      hintText: translateText('Search Services'),
+                      prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -291,7 +292,7 @@ double get total {
                             borderRadius: BorderRadius.circular(20),
                           ),
                         ),
-                        child: const Text('Done'),
+                        child: Text(translateText('Done')),
                       ),
                     ],
                   ),

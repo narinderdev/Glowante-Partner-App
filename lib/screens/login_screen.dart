@@ -7,6 +7,8 @@ import 'package:bloc_onboarding/bloc/auth/auth_state.dart';
 import 'package:bloc_onboarding/screens/otp_screen.dart';
 import 'package:bloc_onboarding/services/push_notification_service.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -27,29 +29,28 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               Image.asset('assets/images/splash_logo.png', height: 100),
-              const SizedBox(height: 20),
-              const Text(
-                'Where beauty and convenience unite',
+              SizedBox(height: 20),
+              Text(translateText('Where beauty and convenience unite'),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Text('- Shine bright  '),
-                  Text('- Feel radiant  '),
-                  Text('- Choose Glowante!'),
+                children: [
+                  Text(translateText('- Shine bright  ')),
+                  Text(translateText('- Feel radiant  ')),
+                  Text(translateText('- Choose Glowante!')),
                 ],
               ),
-              const SizedBox(height: 30),
+              SizedBox(height: 30),
               TextField(
                 controller: phoneController,
                 decoration: InputDecoration(
-                  labelText: 'Mobile Number',
-                  hintText: 'Enter mobile number',
+                  labelText: translateText('Mobile Number'),
+                  hintText: translateText('Enter mobile number'),
                   border: const OutlineInputBorder(),
                   errorText: phoneController.text.length > 10
                       ? 'Phone number cannot be more than 10 digits'
@@ -58,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 keyboardType: TextInputType.phone,
                 maxLength: 10,
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               BlocListener<AuthBloc, AuthState>(
                 listener: (context, state) {
                   if (state is AuthLoginSuccess) {
@@ -104,9 +105,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please enter a valid 10-digit mobile number',
+                        SnackBar(
+                          content: Text(translateText('Please enter a valid 10-digit mobile number'),
                           ),
                         ),
                       );
@@ -122,10 +122,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Continue'),
+                      : Text(translateText('Continue')),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               BlocBuilder<AuthBloc, AuthState>(
                 builder: (context, state) {
                   if (state is AuthLoginSuccess) {
@@ -140,10 +140,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: const TextStyle(color: Colors.red),
                     );
                   }
-                  return const SizedBox.shrink();
+                  return SizedBox.shrink();
                 },
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
             ],
           ),
         ),

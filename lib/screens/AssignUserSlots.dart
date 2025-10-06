@@ -4,6 +4,8 @@ import 'package:bloc_onboarding/widgets/step_header.dart';
 import '../utils/api_service.dart';                  // ✅ FIX: import ApiService
 import 'TeamMemberDetails.dart';                    // for navigation after success
 import 'SalonTeams.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 class AssignUserSlot extends StatefulWidget {
   final int salonId;
   final int branchId;
@@ -70,7 +72,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   void _copyMondayToAll() {
     if (weeklySchedule['Monday']!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add time slots for Monday first.')),
+        SnackBar(content: Text(translateText('Please add time slots for Monday first.'))),
       );
       return;
     }
@@ -105,7 +107,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(day, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            if (slots.isEmpty) const Text('No time slots added', style: TextStyle(color: Colors.black54)),
+            if (slots.isEmpty) Text(translateText('No time slots added'), style: TextStyle(color: Colors.black54)),
             for (var i = 0; i < slots.length; i++)
               Row(
                 children: [
@@ -115,7 +117,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                       child: _timeBox(slots[i]['start'] ?? '09:00 AM'),
                     ),
                   ),
-                  const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text('to')),
+                  Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text(translateText('to'))),
                   Expanded(
                     child: GestureDetector(
                       onTap: () => _pickTime(context, day, i, 'end'),
@@ -123,14 +125,14 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: Icon(Icons.delete, color: Colors.red),
                     onPressed: () => _deleteSlot(day, i),
                   ),
                 ],
               ),
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(onPressed: () => _addSlot(day), child: const Text('+ Add Slot')),
+              child: TextButton(onPressed: () => _addSlot(day), child: Text(translateText('+ Add Slot'))),
             ),
           ],
         ),
@@ -172,7 +174,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
       if (resp['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('User assigned successfully')),
+          SnackBar(content: Text(translateText('User assigned successfully'))),
         );
 
         // ✅ Keep the back button by pushing (not replacing) to TeamMemberDetails.
@@ -187,7 +189,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(content: Text("${translateText('Error')}: $e")),
       );
     } finally {
       if (mounted) setState(() => isSubmitting = false);
@@ -198,7 +200,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   Widget build(BuildContext context) {
     return Scaffold(
       // ✅ Default AppBar shows a back arrow automatically
-      appBar: AppBar(title: const Text('Assign User')),
+      appBar: AppBar(title: Text(translateText('Assign User'))),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -211,21 +213,21 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
             // Text('Joined At: ${widget.joinedAt}', style: const TextStyle(fontWeight: FontWeight.w600)),
             // Text('Salon ID: ${widget.salonId}', style: const TextStyle(fontWeight: FontWeight.w600)),
             // Text('Branch ID: ${widget.branchId}', style: const TextStyle(fontWeight: FontWeight.w600)),
-            // const SizedBox(height: 8),
+            // SizedBox(height: 8),
             // const Text('Branch Service IDs:', style: TextStyle(fontWeight: FontWeight.w600)),
             // Text(widget.selectedServiceIds.toString()),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
 
-            const Text('Set Weekly Working Hours', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(translateText('Set Weekly Working Hours'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             _buildDayCard('Monday'),
-            ElevatedButton(onPressed: _copyMondayToAll, child: const Text('Copy Monday to All Days')),
+            ElevatedButton(onPressed: _copyMondayToAll, child: Text(translateText('Copy Monday to All Days'))),
             _buildDayCard('Tuesday'),
             _buildDayCard('Wednesday'),
             _buildDayCard('Thursday'),
             _buildDayCard('Friday'),
             _buildDayCard('Saturday'),
             _buildDayCard('Sunday'),
-            const SizedBox(height: 80),
+            SizedBox(height: 80),
           ],
         ),
       ),
@@ -240,12 +242,12 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: isSubmitting
-                ? const SizedBox(
+                ? SizedBox(
                     height: 22,
                     width: 22,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('Assign User'),
+                : Text(translateText('Assign User')),
           ),
         ),
       ),

@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'AddTeam.dart';
 import 'AddStylist.dart';
 import '../utils/api_service.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class TeamMemberScreen extends StatefulWidget {
   final Map<String, dynamic> branchDetails;
@@ -56,7 +58,7 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 4.0),
           child: Column(
             children: [
-              // const SizedBox(height: 40),
+              // SizedBox(height: 40),
 //               Row(
 //                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
 //                 children: [
@@ -75,7 +77,7 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
 //   );
 // } else {
 //   ScaffoldMessenger.of(context).showSnackBar(
-//     const SnackBar(content: Text('Branch ID missing. Cannot add stylist.')),
+//     SnackBar(content: Text('Branch ID missing. Cannot add stylist.')),
 //   );
 // }
 
@@ -86,22 +88,21 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
 //                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
 //                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
 //                     ),
-//                     child: const Text('Become Stylist',
+//                     child: Text('Become Stylist',
 //                         style: TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold)),
 //                   ),
 //                 ],
 //               ),
-              // const SizedBox(height: 40),
+              // SizedBox(height: 40),
 
               // Text("Branch Id: ${branchId ?? '—'}"),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // If branchId is missing, show a friendly message instead of calling the API with null
               if (branchId == null)
-                const Expanded(
+                Expanded(
                   child: Center(
-                    child: Text(
-                      'Branch ID missing. Please go back and select a branch again.',
+                    child: Text(translateText('Branch ID missing. Please go back and select a branch again.'),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -113,18 +114,18 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
                     future: ApiService.getTeamMembers(branchId),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
+                        return Center(child: CircularProgressIndicator());
                       }
                       if (snapshot.hasError) {
                         return Center(child: Text('Error: ${snapshot.error}'));
                       }
                       if (!snapshot.hasData || snapshot.data!['success'] != true) {
-                        return const Center(child: Text('Failed to load team members'));
+                        return Center(child: Text(translateText('Failed to load team members')));
                       }
 
                       final List<dynamic> teamMembers = snapshot.data!['data'] ?? [];
                       if (teamMembers.isEmpty) {
-                        return const Center(child: Text('No team members yet'));
+                        return Center(child: Text(translateText('No team members yet')));
                       }
 
                       return GridView.builder(
@@ -157,13 +158,13 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
                                       height: 60,
                                       width: 60,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const SizedBox(
+                                      errorBuilder: (_, __, ___) => SizedBox(
                                         height: 110,
                                         child: Center(child: Icon(Icons.person, size: 48, color: Colors.grey)),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  SizedBox(height: 8),
                                   Text(
                                     fullName.isNotEmpty ? fullName : 'No Name',
                                     textAlign: TextAlign.center,
@@ -171,17 +172,17 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                   ),
-                                  const SizedBox(height: 4),
-                                  const Text('Hair Dresser', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 4),
-                                  const Text('1 year+ Experience', style: TextStyle(color: Colors.grey)),
-                                  const SizedBox(height: 8),
+                                  SizedBox(height: 4),
+                                  Text(translateText('Hair Dresser'), style: TextStyle(fontWeight: FontWeight.bold)),
+                                  SizedBox(height: 4),
+                                  Text(translateText('1 year+ Experience'), style: TextStyle(color: Colors.grey)),
+                                  SizedBox(height: 8),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
+                                    children: [
                                       Icon(Icons.star, color: Colors.orange, size: 16),
                                       SizedBox(width: 4),
-                                      Text('4.4 (43)',
+                                      Text(translateText('4.4 (43)'),
                                           style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                                     ],
                                   ),
@@ -195,7 +196,7 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
                   ),
                 ),
 
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
             ],
           ),
         ),
@@ -209,11 +210,11 @@ class _TeamMemberScreenState extends State<TeamMemberScreen> {
       //       Navigator.push(context, MaterialPageRoute(builder: (_) => AddTeamScreen(branchId: idForNav)));
       //     } else {
       //       ScaffoldMessenger.of(context).showSnackBar(
-      //         const SnackBar(content: Text('Please select a branch first.')),
+      //         SnackBar(content: Text('Please select a branch first.')),
       //       );
       //     }
       //   },
-      //   child: const Icon(Icons.add,color: Colors.white,),
+      //   child: Icon(Icons.add,color: Colors.white,),
       // ),
     );
   }

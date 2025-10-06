@@ -4,6 +4,8 @@ import 'package:bloc_onboarding/screens/ChooseTimeSlot.dart';
 import 'package:flutter/services.dart'; // For TextInputFormatter
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class AddStylistScreen extends StatefulWidget {
   final int branchId;
@@ -119,7 +121,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
           color: Colors.black87,
           fontWeight: FontWeight.w600,
         ),
-        children: const [
+        children: [
           TextSpan(
             text: ' *',
             style: TextStyle(color: Colors.red),
@@ -181,7 +183,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
           // Optionally, you can show a message indicating the user doesn't exist
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text('No user found.')));
+          ).showSnackBar(SnackBar(content: Text(translateText('No user found.'))));
         }
 
         // Set the OTP in the OTP field
@@ -196,18 +198,18 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
         // Optionally, you can display a success message
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Phone Verified Successfully')));
+        ).showSnackBar(SnackBar(content: Text(translateText('Phone Verified Successfully'))));
       } else {
         // Handle failure (e.g., OTP error, invalid phone)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${response['message']}')),
+          SnackBar(content: Text("${translateText('Error')}: ${response['message']}")),
         );
       }
     } catch (e) {
       // Handle network or other errors
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('An error occurred: $e')));
+      ).showSnackBar(SnackBar(content: Text(translateText('An error occurred: {error}', params: {'error': e.toString()}))));
     }
   }
 
@@ -282,7 +284,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               // List of items with checkboxes
               Flexible(
                 child: ListView.separated(
@@ -333,7 +335,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                   },
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               _GradientButton(
                 text: 'Done',
                 onPressed: () {
@@ -347,7 +349,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                   Navigator.pop(ctx); // Close the bottom sheet
                 },
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
             ],
           ),
         );
@@ -360,7 +362,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Please fix the following'),
+        title: Text(translateText('Please fix the following')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,7 +378,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(translateText('OK')),
           ),
         ],
       ),
@@ -390,50 +392,50 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
 
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      errors.add('Phone number is required.');
+      errors.add(translateText('Phone number is required.'));
     } else if (phone.length < 10) {
-      errors.add('Phone number must be 10 digits.');
+      errors.add(translateText('Phone number must be 10 digits.'));
     }
 
     if (!_phoneVerified) {
-      errors.add('Please verify the phone number.');
+      errors.add(translateText('Please verify the phone number.'));
     }
 
     final firstName = _firstNameCtrl.text.trim();
     if (firstName.isEmpty) {
-      errors.add('First name is required & Must start with a capital letter.');
+      errors.add(translateText('First name is required & Must start with a capital letter.'));
     }
 
     final lastName = _lastNameCtrl.text.trim();
     if (lastName.isEmpty) {
-      errors.add('Last name is required & Must start with a capital letter.');
+      errors.add(translateText('Last name is required & Must start with a capital letter.'));
     }
 
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) {
-      errors.add('Email is required.');
+      errors.add(translateText('Email is required.'));
     } else if (!_emailRegExp.hasMatch(email)) {
-      errors.add('Enter a valid email address.');
+      errors.add(translateText('Enter a valid email address.'));
     }
 
     if (_gender.isEmpty) {
-      errors.add('Please select a gender.');
+      errors.add(translateText('Please select a gender.'));
     }
 
     if (_selectedRoles.isEmpty) {
-      errors.add('Select at least one role.');
+      errors.add(translateText('Select at least one role.'));
     }
 
     if (_selectedSpecs.isEmpty) {
-      errors.add('Select at least one specialization.');
+      errors.add(translateText('Select at least one specialization.'));
     }
 
     if (_joiningDate == null) {
-      errors.add('Select a joining date.');
+      errors.add(translateText('Select a joining date.'));
     }
 
     if (_otpCtrl.text.trim().isEmpty) {
-      errors.add('OTP is required.');
+      errors.add(translateText('OTP is required.'));
     }
 
     if (errors.isNotEmpty) {
@@ -453,10 +455,10 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
         backgroundColor: _bg,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back),
           onPressed: () => Navigator.maybePop(context),
         ),
-        title: const Text('Become Stylish'),
+        title: Text(translateText('Become Stylish')),
         centerTitle: false,
       ),
       body: SafeArea(
@@ -482,7 +484,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                           radius: 40, // Size of the avatar
                           backgroundColor: Colors.grey[300],
                           child: _cameraImage == null
-                              ? const Icon(
+                              ? Icon(
                                   Icons.camera_alt,
                                   size: 30,
                                 ) // Default camera icon
@@ -499,11 +501,11 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
 
                     // Phone Number Verification Field
                     _reqLabel('Verify Phone Number'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -513,10 +515,10 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                             keyboardType: TextInputType.phone,
                             decoration: _decor(
                               hint: 'Verify phone number',
-                              prefix: const Icon(Icons.search),
+                              prefix: Icon(Icons.search),
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Phone is required'
+                                ? translateText('Phone is required')
                                 : null,
                             inputFormatters: [
                               FilteringTextInputFormatter
@@ -527,12 +529,12 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         SizedBox(
                           width: 110,
                           height: 48,
                           child: _GradientButton(
-                            text: _phoneVerified ? 'Verified' : 'Verify',
+                            text: _phoneVerified ? translateText('Verified') : translateText('Verify'),
                             onPressed: _phoneVerified
                                 ? () {} // Provide an empty function when disabled
                                 : () async {
@@ -546,7 +548,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // First Name and Last Name Fields
                     Row(
@@ -556,7 +558,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _reqLabel('First Name'),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8),
                               TextFormField(
   controller: _firstNameCtrl,
   textCapitalization: TextCapitalization.words, // helps user type caps
@@ -564,9 +566,9 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
   autovalidateMode: AutovalidateMode.onUserInteraction,
   validator: (v) {
     final s = (v ?? '').trim();
-    if (s.isEmpty) return 'First name is required';
+    if (s.isEmpty) return translateText('First name is required');
     if (!RegExp(r'^[A-Z]').hasMatch(s)) {
-      return 'Must start with a capital letter';
+      return translateText('Must start with a capital letter');
     }
     return null;
   },
@@ -575,13 +577,13 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _reqLabel('Last Name'),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8),
                               TextFormField(
   controller: _lastNameCtrl,
   textCapitalization: TextCapitalization.words,
@@ -589,9 +591,9 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
   autovalidateMode: AutovalidateMode.onUserInteraction,
   validator: (v) {
     final s = (v ?? '').trim();
-    if (s.isEmpty) return 'Last name is required';
+    if (s.isEmpty) return translateText('Last name is required');
     if (!RegExp(r'^[A-Z]').hasMatch(s)) {
-      return 'Must start with a capital letter';
+      return translateText('Must start with a capital letter');
     }
     return null;
   },
@@ -603,31 +605,30 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // Email Field
                     _reqLabel('Email'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextFormField(
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       decoration: _decor(hint: 'Enter email address'),
                       validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Email is required'
+                          ? translateText('Email is required')
                           : null,
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // OTP Field
-                    const Text(
-                      'Otp',
+                    Text(translateText('Otp'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextFormField(
                       enabled: false,
                       controller: _otpCtrl,
@@ -635,17 +636,16 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                       decoration: _decor(hint: 'Enter otp'),
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // Gender Radio Buttons
-                    const Text(
-                      'Gender',
+                    Text(translateText('Gender'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Row(
                       children: [
                         Radio<String>(
@@ -653,29 +653,29 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                           groupValue: _gender,
                           onChanged: (v) => setState(() => _gender = v!),
                         ),
-                        const Text('Male'),
-                        const SizedBox(width: 16),
+                        Text(translateText('Male')),
+                        SizedBox(width: 16),
                         Radio<String>(
                           value: 'Female',
                           groupValue: _gender,
                           onChanged: (v) => setState(() => _gender = v!),
                         ),
-                        const Text('Female'),
-                        const SizedBox(width: 16),
+                        Text(translateText('Female')),
+                        SizedBox(width: 16),
                         Radio<String>(
                           value: 'Other',
                           groupValue: _gender,
                           onChanged: (v) => setState(() => _gender = v!),
                         ),
-                        const Text('Other'),
+                        Text(translateText('Other')),
                       ],
                     ),
 
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
 
                     // Roles Selection
                     _reqLabel('Roles'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     _PickField(
                       hint: 'Select Roles',
                       values: _selectedRoles,
@@ -686,11 +686,11 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // Specializations Selection
                     _reqLabel('Specializations'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     _PickField(
                       hint: 'Select Specializations',
                       values: _selectedSpecs,
@@ -701,11 +701,11 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // Joining Date Field
                     _reqLabel('Joining Date'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     GestureDetector(
                       onTap: _pickJoiningDate,
                       child: AbsorbPointer(
@@ -714,32 +714,31 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                           decoration:
                               _decor(
                                 hint: 'Select joining date',
-                                prefix: const Icon(
+                                prefix: Icon(
                                   Icons.calendar_today_outlined,
                                 ),
                               ).copyWith(
                                 hintText: _joiningDate == null
-                                    ? 'Select joining date'
+                                    ? translateText('Select joining date')
                                     : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
                               ),
                           validator: (_) => _joiningDate == null
-                              ? 'Joining date is required'
+                              ? translateText('Joining date is required')
                               : null,
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // Brief About Member Field
-                    const Text(
-                      'Brief About Member',
+                    Text(translateText('Brief About Member'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextFormField(
                       controller: _briefCtrl,
                       maxLines: 4,
@@ -748,7 +747,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                       ).copyWith(contentPadding: const EdgeInsets.all(14)),
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
 
                     // Timeslot Selection Button
                     // _GradientButton(
@@ -786,7 +785,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                     //   },
                     // ),
 
-                    const SizedBox(height: 24),
+                    SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -821,7 +820,7 @@ class _PickField extends StatelessWidget {
             hintText: text,
             filled: true,
             fillColor: const Color(0xFFF7EFE6),
-            suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
+            suffixIcon: Icon(Icons.keyboard_arrow_down_rounded),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
               vertical: 14,
@@ -843,7 +842,7 @@ class _PickField extends StatelessWidget {
             ),
           ),
           validator: (_) =>
-              values.isEmpty ? 'Please select at least one' : null,
+              values.isEmpty ? translateText('Please select at least one') : null,
         ),
       ),
     );

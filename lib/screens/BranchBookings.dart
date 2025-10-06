@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 import '../utils/api_service.dart';  // Correct import path for apiservices.dart
 
 class BookingsScreen extends StatefulWidget {
@@ -52,7 +54,7 @@ Future<List<Map<String, dynamic>>> getSalonListApi() async {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Bookings'),
+        title: Text(translateText('Bookings')),
         centerTitle: true,
         automaticallyImplyLeading: false, // Hide the back button
       ),
@@ -64,7 +66,7 @@ Future<List<Map<String, dynamic>>> getSalonListApi() async {
                 ? CircularProgressIndicator()  // Show a loading indicator while fetching
                 : DropdownButton<String>(
                     value: selectedSalon,
-                    hint: Text('Select Salon'),
+                    hint: Text(translateText('Select Salon')),
                     onChanged: (newValue) {
                       setState(() {
                         selectedSalon = newValue;
@@ -80,7 +82,7 @@ Future<List<Map<String, dynamic>>> getSalonListApi() async {
           ),
           Expanded(
             child: Center(
-              child: Text('Your Bookings will appear here.'),
+              child: Text(translateText('Your Bookings will appear here.')),
             ),
           ),
         ],

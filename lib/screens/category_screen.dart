@@ -2,12 +2,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // needed for TextInputFormatter
+import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import '../Viewmodels/AddCategory.dart';
 import 'AddServices.dart';
+import '../services/language_listener.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 /// Shared function signature for opening the subcategory sheet
 typedef SubcategoryOp =
     Future<void> Function({
@@ -274,6 +278,7 @@ Future<void> _openAddService(
   // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
+    context.watch<LanguageListener>();
     final salonState = context.watch<SalonListCubit>().state;
     final CategoryState catState = context.watch<CategoryCubit>().state;
 
@@ -331,8 +336,8 @@ Future<void> _openAddService(
           : FloatingActionButton.extended(
               heroTag: 'catalogueFab',
               onPressed: () => _showAddCategorySheet(),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('New Category'),
+              icon: Icon(Icons.add_rounded),
+              label: Text(translateText('New Category')),
               backgroundColor: AppColors.starColor,
               foregroundColor: AppColors.white,
             ),
@@ -385,7 +390,7 @@ Future<void> _openAddService(
               ),
             ],
           ],
-          const SizedBox(height: 40),
+          SizedBox(height: 40),
         ],
       ),
     );
@@ -470,13 +475,13 @@ class _HeaderSection extends StatelessWidget {
                   color: Colors.grey.shade200,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.storefront,
                   color: AppColors.starColor,
                   size: 18,
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,14 +536,13 @@ final headerGradient = LinearGradient(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Catalog',
+                    Text(translateText('Catalog'),
                       style: textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(
                       branchName != null
                           ? '${branchName ?? ''} / ${salonName ?? 'Salon'}'
@@ -554,12 +558,12 @@ final headerGradient = LinearGradient(
               ),
               // IconButton(
               //   onPressed: salonState.isLoading ? null : () => onRefresh(),
-              //   icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+              //   icon: Icon(Icons.refresh_rounded, color: Colors.white),
               //   tooltip: 'Refresh',
               // ),
             ],
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(16),
@@ -573,8 +577,7 @@ final headerGradient = LinearGradient(
               children: [
                 Row(
                   children: [
-                    Text(
-                      'Salon',
+                    Text(translateText('Salon'),
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.black,
@@ -582,7 +585,7 @@ final headerGradient = LinearGradient(
                     ),
                     const Spacer(),
                     if (salonState.isLoading)
-                      const SizedBox(
+                      SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
@@ -594,7 +597,7 @@ final headerGradient = LinearGradient(
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
@@ -606,7 +609,7 @@ final headerGradient = LinearGradient(
                     child: DropdownButton<int>(
                       value: dropdownValue,
                       isExpanded: true,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.keyboard_arrow_down_rounded,
                         color: AppColors.starColor,
                       ),
@@ -652,7 +655,7 @@ class _NoDataPill extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.info_outline, size: 18, color: Colors.grey.shade600),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Text(message, style: TextStyle(color: Colors.grey.shade600)),
         ],
       ),
@@ -679,12 +682,12 @@ class _InlineProgress extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
+            SizedBox(
               width: 18,
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2, color: tint),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Text(
               message,
               style: const TextStyle(color: tint, fontWeight: FontWeight.w600),
@@ -761,11 +764,16 @@ class _CategoryList extends StatelessWidget {
       itemCount: categories.length,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      separatorBuilder: (_, __) => const SizedBox(height: 18),
+      separatorBuilder: (_, __) => SizedBox(height: 18),
       itemBuilder: (context, index) {
         final category = Map<String, dynamic>.from(categories[index] as Map);
         final List<Map<String, dynamic>> subCategories =
             (category['subCategories'] as List?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            const [];
+        final List<Map<String, dynamic>> categoryServices =
+            (category['services'] as List?)
                 ?.map((e) => Map<String, dynamic>.from(e as Map))
                 .toList() ??
             const [];
@@ -798,7 +806,7 @@ class _CategoryList extends StatelessWidget {
                       ),
                       child: Icon(Icons.folder_special_rounded, color: AppColors.starColor),
                     ),
-                    const SizedBox(width: 14),
+                    SizedBox(width: 14),
                     Expanded(
                       child: Text(
                         category['name'] as String? ?? 'Category',
@@ -816,7 +824,7 @@ class _CategoryList extends StatelessWidget {
                       tooltip: 'Edit category',
                       onTap: () => onEditCategory(category: category),
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     _IconButton(
                       icon: Icons.delete_rounded,
                       color: AppColors.starColor,
@@ -826,9 +834,32 @@ class _CategoryList extends StatelessWidget {
                   ],
                 ),
               ),
+              if (categoryServices.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        translateText('Services'),
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...categoryServices.map((service) => _ServiceCard(
+                            service: service,
+                            onEditService: onEditService,
+                            onDeleteService: onDeleteService,
+                          )),
+                    ],
+                  ),
+                ),
+              if (categoryServices.isNotEmpty) const SizedBox(height: 10),
               if (subCategories.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: _NoDataPill(message: 'No subcategories added yet'),
                 )
               else
@@ -859,12 +890,11 @@ class _CategoryList extends StatelessWidget {
                       child: OutlinedButton.icon(
                         onPressed: () =>
                             onAddSubcategory(categoryId: category['id'] as int),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.add_rounded,
                           color: AppColors.starColor,
                         ),
-                        label: const Text(
-                          'Add subcategory',
+                        label: Text(translateText('Add subcategory'),
                           style: TextStyle(
                             color: AppColors.starColor,
                             fontWeight: FontWeight.w600,
@@ -880,12 +910,12 @@ class _CategoryList extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () => onAddServices(category, categories),
-                        icon: const Icon(Icons.design_services_rounded),
-                        label: const Text('Add services'),
+                        icon: Icon(Icons.design_services_rounded),
+                        label: Text(translateText('Add services')),
                         style: ElevatedButton.styleFrom(
                           backgroundColor:  AppColors.starColor,
                           foregroundColor: Colors.white,
@@ -900,7 +930,7 @@ class _CategoryList extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
             ],
           ),
         );
@@ -978,7 +1008,7 @@ class _SubcategoryTile extends StatelessWidget {
                 ),
               ),
               if (services.isNotEmpty) ...[
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   '${services.length} ${services.length == 1 ? 'service' : 'services'}',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1002,94 +1032,135 @@ class _SubcategoryTile extends StatelessWidget {
                     categoryId: categoryId,
                   ),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
                 _IconButton(
                   icon: Icons.delete_rounded,
                   color: AppColors.starColor,
                   tooltip: 'Delete subcategory',
                   onTap: () => onDeleteSubcategory(subCategory),
                 ),
-                const SizedBox(width: 4),
+                SizedBox(width: 4),
               ],
             ),
           ),
           children: [
             if (services.isEmpty)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 12),
                 child: _NoDataPill(message: 'No services added yet'),
               )
             else
               Column(
-                children: services.map((service) {
-                  final String name =
-                      service['displayName']?.toString() ?? 'Unnamed service';
-                  final int? price = service['priceMinor'] as int?;
-                  final int? duration = service['durationMin'] as int?;
-                  return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.design_services_rounded,
-                            color:AppColors.starColor,
-                            size: 18,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${price != null ? 'Rs ' + price.toString() : 'No price'} - ${duration != null ? duration.toString() + ' min' : 'No duration'}',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        _IconButton(
-                          icon: Icons.edit_outlined,
-                          color: AppColors.starColor,
-                          tooltip: 'Edit service',
-                          onTap: () => onEditService(service),
-                        ),
-                        const SizedBox(width: 4),
-                        _IconButton(
-                          icon: Icons.delete_outline_rounded,
-                          color: AppColors.starColor,
-                          tooltip: 'Delete service',
-                          onTap: () => onDeleteService(service['id'] as int),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
+                children: services
+                    .map((service) => _ServiceCard(
+                          service: service,
+                          onEditService: onEditService,
+                          onDeleteService: onDeleteService,
+                        ))
+                    .toList(),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ServiceCard extends StatelessWidget {
+  const _ServiceCard({
+    required this.service,
+    required this.onEditService,
+    required this.onDeleteService,
+  });
+
+  final Map<String, dynamic> service;
+  final Future<void> Function(Map<String, dynamic>) onEditService;
+  final Future<void> Function(int) onDeleteService;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final String name = service['displayName']?.toString() ??
+        service['name']?.toString() ?? translateText('Unnamed service');
+    final int? price = service['priceMinor'] as int?;
+    final int? duration = service['durationMin'] as int?;
+    final String description = (service['description'] ?? '').toString().trim();
+
+    final String priceLabel =
+        price != null ? 'Rs ' + price.toString() : translateText('No price');
+    final String durationLabel = duration != null
+        ? duration.toString() + ' min'
+        : translateText('No duration');
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.design_services_rounded,
+              color: AppColors.starColor,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '$priceLabel - $durationLabel',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+          _IconButton(
+            icon: Icons.edit_outlined,
+            color: AppColors.starColor,
+            tooltip: 'Edit service',
+            onTap: () => onEditService(service),
+          ),
+          const SizedBox(width: 4),
+          _IconButton(
+            icon: Icons.delete_outline_rounded,
+            color: AppColors.starColor,
+            tooltip: 'Delete service',
+            onTap: () => onDeleteService(service['id'] as int),
+          ),
+        ],
       ),
     );
   }
@@ -1155,7 +1226,7 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         children: [
           Icon(icon, size: 44, color: Colors.black),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Text(
             title,
             style: TextStyle(
@@ -1164,7 +1235,7 @@ class _EmptyState extends StatelessWidget {
               color: onBg,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             subtitle,
             textAlign: TextAlign.center,
@@ -1193,17 +1264,17 @@ class _ErrorCard extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
         child: Row(
           children: [
-            const Icon(Icons.error_outline_rounded, color: Colors.black),
-            const SizedBox(width: 10),
+            Icon(Icons.error_outline_rounded, color: Colors.black),
+            SizedBox(width: 10),
             Expanded(child: Text(message)),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             OutlinedButton(
               onPressed: onRetry,
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.black,
                 side: const BorderSide(color: Colors.black),
               ),
-              child: const Text('Retry'),
+              child: Text(translateText('Retry')),
             ),
           ],
         ),
@@ -1220,7 +1291,7 @@ class _LoaderCard extends StatelessWidget {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 2,
-      child: const Padding(
+      child: Padding(
         padding: EdgeInsets.all(20),
         child: Center(child: CircularProgressIndicator(color: Colors.black)),
       ),
@@ -1282,7 +1353,7 @@ class _BottomSheetScaffold extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
                 child,
               ],
             ),
@@ -1316,7 +1387,7 @@ class _LabeledField extends StatelessWidget {
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
       decoration:
-          const InputDecoration(
+          InputDecoration(
             labelText: '',
             border: OutlineInputBorder(),
           ).copyWith(
@@ -1349,12 +1420,12 @@ class _ConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(translateText('Cancel')),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
           style: TextButton.styleFrom(foregroundColor: confirmColor),
-          child: const Text('Delete'),
+          child: Text(translateText('Delete')),
         ),
       ],
     );
@@ -1405,7 +1476,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
     final t = v.trim();
     String? err;
     if (t.isEmpty) {
-      err = 'Name is required';
+      err = translateText('Name is required');
     } else {
       final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
       if (first != null && first != first.toUpperCase()) {
@@ -1420,7 +1491,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
 
     // validate only when pressing the button
     if (t.isEmpty) {
-      setState(() => errorText = 'Name is required');
+      setState(() => errorText = translateText('Name is required'));
       return;
     }
     final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
@@ -1470,24 +1541,24 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
             controller: nameController,
             textCapitalization: TextCapitalization.words,
             inputFormatters: const [FirstLetterUpperFormatter()],
-            decoration: const InputDecoration(
-              labelText: 'Category Name',
+            decoration: InputDecoration(
+              labelText: translateText('Category Name'),
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           // Optional description input ΓÇô keep if you need it in UI
           // TextField(
           //   controller: descriptionController,
           //   maxLines: 2,
           //   textCapitalization: TextCapitalization.sentences,
-          //   decoration: const InputDecoration(
-          //     labelText: 'Description (optional)',
+          //   decoration: InputDecoration(
+          //     labelText: translateText('Description (optional)'),
           //     border: OutlineInputBorder(),
           //   ),
           // ),
           if (errorText != null) ...[
-            const SizedBox(height: 2),
+            SizedBox(height: 2),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -1496,12 +1567,12 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
               ),
             ),
           ],
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               icon: isSaving
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
@@ -1509,7 +1580,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.check_rounded),
+                  : Icon(Icons.check_rounded),
               onPressed: isSaving ? null : _submit,
               style: ElevatedButton.styleFrom(
                 backgroundColor:  AppColors.starColor,
@@ -1571,7 +1642,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
     final t = v.trim();
     String? err;
     if (t.isEmpty) {
-      err = 'Name is required';
+      err = translateText('Name is required');
     } else {
       final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
       if (first != null && first != first.toUpperCase()) {
@@ -1586,7 +1657,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 
     // validate only when pressing the button
     if (t.isEmpty) {
-      setState(() => errorText = 'Name is required');
+      setState(() => errorText = translateText('Name is required'));
       return;
     }
     final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
@@ -1632,13 +1703,13 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
             controller: controller,
             textCapitalization: TextCapitalization.words,
             inputFormatters: const [FirstLetterUpperFormatter()],
-            decoration: const InputDecoration(
-              labelText: 'Subcategory Name',
+            decoration: InputDecoration(
+              labelText: translateText('Subcategory Name'),
               border: OutlineInputBorder(),
             ),
           ),
           if (errorText != null) ...[
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -1647,12 +1718,12 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
               ),
             ),
           ],
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               icon: isSaving
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
@@ -1660,7 +1731,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.check_rounded),
+                  : Icon(Icons.check_rounded),
               onPressed: isSaving ? null : _submit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.starColor,
@@ -1738,26 +1809,26 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 //             controller: nameController,
 //             textCapitalization: TextCapitalization.words,
 //           ),
-//           const SizedBox(height: 12),
+//           SizedBox(height: 12),
 //           _LabeledField(
 //             label: 'Description',
 //             controller: descriptionController,
 //             maxLines: 1,
 //             textCapitalization: TextCapitalization.sentences,
 //           ),
-//           const SizedBox(height: 12),
+//           SizedBox(height: 12),
 //           _LabeledField(
 //             label: 'Duration (minutes)',
 //             controller: durationController,
 //             keyboardType: TextInputType.number,
 //           ),
-//           const SizedBox(height: 12),
+//           SizedBox(height: 12),
 //           _LabeledField(
 //             label: 'Price (minor units)',
 //             controller: priceController,
 //             keyboardType: TextInputType.number,
 //           ),
-//           const SizedBox(height: 8),
+//           SizedBox(height: 8),
 //           ValueListenableBuilder<bool>(
 //             valueListenable: isActive,
 //             builder: (context, value, _) {
@@ -1770,7 +1841,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 //             },
 //           ),
 //           if (errorText != null) ...[
-//             const SizedBox(height: 2),
+//             SizedBox(height: 2),
 //             Align(
 //               alignment: Alignment.centerLeft,
 //               child: Text(
@@ -1779,22 +1850,22 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 //               ),
 //             ),
 //           ],
-//           const SizedBox(height: 6),
+//           SizedBox(height: 6),
 //           SizedBox(
 //             width: double.infinity,
 //             child: ElevatedButton.icon(
 //               icon: isSaving
-//                   ? const SizedBox(
+//                   ? SizedBox(
 //                       width: 18, height: 18,
 //                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
 //                     )
-//                   : const Icon(Icons.save_rounded),
+//                   : Icon(Icons.save_rounded),
 //               onPressed: isSaving
 //                   ? null
 //                   : () async {
 //                       final name = nameController.text.trim();
 //                       if (name.isEmpty) {
-//                         setState(() => errorText = 'Name is required');
+//                         setState(() => errorText = translateText('Name is required'));
 //                         return;
 //                       }
 //                       if (!RegExp(r'^[A-Z]').hasMatch(name)) {
@@ -1901,7 +1972,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
     final durationTxt = durationController.text.trim();
 
     if (name.isEmpty) {
-      nErr = 'Name is required';
+      nErr = translateText('Name is required');
     }
 
     if (priceTxt.isEmpty) {
@@ -1939,7 +2010,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             textCapitalization: TextCapitalization.words,
           ),
           if (nameError != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -1948,7 +2019,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Description (optional)
           _LabeledField(
@@ -1957,7 +2028,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             maxLines: 1,
             textCapitalization: TextCapitalization.sentences,
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Duration
           _LabeledField(
@@ -1966,7 +2037,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             keyboardType: TextInputType.number,
           ),
           if (durationError != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -1975,7 +2046,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
 
           // Price
           _LabeledField(
@@ -1984,7 +2055,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             keyboardType: TextInputType.number,
           ),
           if (priceError != null) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -1993,7 +2064,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
               ),
             ),
           ],
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
 
           // Active switch
 //           ValueListenableBuilder<bool>(
@@ -2012,14 +2083,14 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
 //             },
 //           ),
 
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
 
           // Submit button
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               icon: isSaving
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
@@ -2027,7 +2098,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.save_rounded),
+                  : Icon(Icons.save_rounded),
               onPressed: isSaving
                   ? null
                   : () async {
@@ -2065,7 +2136,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              label: const Text('Update Service'),
+              label: Text(translateText('Update Service')),
             ),
           ),
         ],

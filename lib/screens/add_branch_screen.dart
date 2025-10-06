@@ -1,11 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../utils/colors.dart';
+import '../services/language_listener.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'add_location_screen.dart';
 import 'package:flutter/services.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class AddBranchScreen extends StatefulWidget {
   const AddBranchScreen({super.key, required this.salonId});
@@ -94,7 +98,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select start and end time.')),
+        SnackBar(content: Text(translateText('Please select start and end time.'))),
       );
       return;
     }
@@ -112,7 +116,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<AddBranchCubit, AddBranchState>(
+    context.watch<LanguageListener>();
+        return BlocConsumer<AddBranchCubit, AddBranchState>(
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
         if (state.savedPhone != null) {
@@ -128,7 +133,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
         if (state.status == BranchFormStatus.success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Branch added successfully')),
+            SnackBar(content: Text(translateText('Branch added successfully'))),
           );
           Navigator.pop(context, true);
         }
@@ -145,8 +150,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     iconTheme: const IconThemeData(
       color: AppColors.black, // back button color
     ),
-    title: const Text(
-      'Add Branch',
+    title: Text(translateText('Add Branch'),
       style: TextStyle(
         fontWeight: FontWeight.bold,
         fontSize: 20,
@@ -188,7 +192,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               onTap: () => _selectTime(_startTimeController),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: _buildTimePickerField(
                               controller: _endTimeController,
@@ -198,12 +202,11 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-                Text(
-  'Branch Address',
+                      SizedBox(height: 20),
+                Text(translateText('Branch Address'),
   style: Theme.of(context).textTheme.titleMedium,
 ),
-const SizedBox(height: 8),
+SizedBox(height: 8),
 // ✅ Case: No address -> show bordered box with "Add Location"
 if (address == null)
   InkWell(
@@ -215,9 +218,8 @@ if (address == null)
         border: Border.all(color: AppColors.darkGrey, width: 1),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: const Center(
-        child: Text(
-          "Add Location",
+      child: Center(
+        child: Text(translateText("Add Location"),
           style: TextStyle(
             color: AppColors.black,
             fontWeight: FontWeight.bold,
@@ -248,19 +250,19 @@ else
                   address.buildingName,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text('${address.city}, ${address.state}'),
                 Text('Pincode: ${address.pincode}'),
               ],
             ),
           ),
-          const Icon(Icons.edit, color: AppColors.darkGrey),
+          Icon(Icons.edit, color: AppColors.darkGrey),
         ],
       ),
     ),
   ),
 
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
                         label: 'Description *',
@@ -268,12 +270,11 @@ else
                         maxLines: 1,
                       ),
                       
-                      const SizedBox(height: 20),
-                      Text(
-                        'Branch Images(Optional)',
+                      SizedBox(height: 20),
+                      Text(translateText('Branch Images(Optional)'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -297,7 +298,7 @@ else
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: AppColors.darkGrey),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.add,
                                 color:  AppColors.darkGrey,
                               ),
@@ -305,7 +306,7 @@ else
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
+                      SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
                         height: 48,
@@ -321,7 +322,7 @@ else
                             ),
                           ),
                           child: state.isSubmitting
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
@@ -329,7 +330,7 @@ else
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Add Branch'),
+                              : Text(translateText('Add Branch')),
                         ),
                       ),
                     ],
@@ -354,32 +355,38 @@ Widget _buildTextField({
   required String label,
   required String hint,
   int maxLines = 1,
-  int? maxLength, // ✅ allow passing maxLength
+  int? maxLength,
   bool enabled = true,
+  TextCapitalization textCapitalization = TextCapitalization.sentences,
   TextInputType keyboardType = TextInputType.text,
-  List<TextInputFormatter>? inputFormatters, // ✅ optional
+  List<TextInputFormatter>? inputFormatters,
 }) {
+  final localizedLabel = translateText(label);
+  final localizedHint = translateText(hint);
+  final sanitizedField = localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
+  final fieldForMessage = sanitizedField.isEmpty ? localizedLabel : sanitizedField;
+
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: TextFormField(
       controller: controller,
       maxLines: maxLines,
-      maxLength: maxLength, // ✅ applied here
+      maxLength: maxLength,
       enabled: enabled,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
-      textCapitalization: TextCapitalization.sentences,
+      textCapitalization: textCapitalization,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
-          return '$label is required';
+          return translateText('{field} is required', params: {'field': fieldForMessage});
         }
         return null;
       },
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        counterText: "", // ✅ hides the default counter if you don’t want it
+        counterText: '',
+        labelText: localizedLabel,
+        hintText: localizedHint,
         labelStyle: const TextStyle(color: AppColors.darkGrey),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -402,12 +409,12 @@ Widget _buildTextField({
         ),
         errorStyle: const TextStyle(
           color: Colors.red,
-          // fontWeight: FontWeight.bold,
         ),
       ),
     ),
   );
 }
+
 
 
   Widget _buildTimePickerField({

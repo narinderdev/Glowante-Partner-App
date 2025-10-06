@@ -136,7 +136,7 @@
 //                 alignment: Alignment.center,
 //                 child: Column(
 //                   mainAxisAlignment: MainAxisAlignment.center,
-//                   children: const [
+//                   children: [
 //                     Icon(
 //                       Icons.wifi_off,
 //                       size: 80,
@@ -271,7 +271,7 @@
 //       width: 24,
 //       height: 24,
 //     ),
-//     const SizedBox(height: 4),
+//     SizedBox(height: 4),
 //    Opacity(
 //   opacity: isActive ? 1.0 : 0.0, 
 //   child: Text(
@@ -306,7 +306,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/language_listener.dart';
-import '../services/translations.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../services/network_listener.dart';
 import '../services/push_notification_service.dart';
 import '../utils/colors.dart';
@@ -381,24 +381,24 @@ class _BottomNavState extends State<BottomNav> {
         iconPath: 'assets/images/bookings.png',
         activeIconPath: 'assets/images/bookings1.png',
         label:
-            AppTranslations.t('bookings', langListener.currentLocale.languageCode),
+            context.t('Bookings'),
       ),
       _Destination(
         iconPath: 'assets/images/salon.png',
         activeIconPath: 'assets/images/salon1.png',
-        label: AppTranslations.t('salons', langListener.currentLocale.languageCode),
+        label: context.t('Salons'),
       ),
       _Destination(
         iconPath: 'assets/images/service.png',
         activeIconPath: 'assets/images/service1.png',
         label:
-            AppTranslations.t('catalog', langListener.currentLocale.languageCode),
+            context.t('Catalog'),
       ),
       _Destination(
         iconPath: 'assets/images/user.png',
         activeIconPath: 'assets/images/user1.png',
         label:
-            AppTranslations.t('profile', langListener.currentLocale.languageCode),
+            context.t('Profile'),
       ),
     ];
 
@@ -424,11 +424,10 @@ class _BottomNavState extends State<BottomNav> {
                   alignment: Alignment.center,
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
+                    children: [
                       Icon(Icons.wifi_off, size: 80, color: Colors.white),
                       SizedBox(height: 16),
-                      Text(
-                        "No Internet Connection",
+                      Text(translateText("No Internet Connection"),
                         style: TextStyle(
                           fontSize: 20,
                           color: Colors.white,
@@ -440,8 +439,7 @@ class _BottomNavState extends State<BottomNav> {
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
                       SizedBox(height: 20),
-                      Text(
-                        "Please check your network settings.",
+                      Text(translateText("Please check your network settings."),
                         style: TextStyle(color: Colors.white70, fontSize: 14),
                       ),
                     ],
@@ -552,7 +550,7 @@ class _NavButton extends StatelessWidget {
                 width: 24,
                 height: 24,
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Opacity(
                 opacity: isActive ? 1.0 : 0.0,
                 child: Text(
@@ -585,3 +583,7 @@ class _Destination {
   final String activeIconPath;
   final String label;
 }
+
+
+
+

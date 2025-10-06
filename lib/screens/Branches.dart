@@ -40,10 +40,10 @@
 //         future: _branchesFuture,
 //         builder: (context, snapshot) {
 //           if (snapshot.connectionState == ConnectionState.waiting) {
-//             return const Center(child: CircularProgressIndicator());
+//             return Center(child: CircularProgressIndicator());
 //           }
 //           if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-//             return const Center(child: Text("No branches found"));
+//             return Center(child: Text("No branches found"));
 //           }
 
 //           final branches = snapshot.data!;
@@ -83,11 +83,11 @@
 //                                 width: 60,
 //                                 height: 60,
 //                                 color: Colors.grey.shade300,
-//                                 child: const Icon(Icons.store,
+//                                 child: Icon(Icons.store,
 //                                     size: 30, color: Colors.grey),
 //                               ),
 //                       ),
-//                       const SizedBox(width: 12),
+//                       SizedBox(width: 12),
 
 //                       // Branch Info
 //                       Expanded(
@@ -102,12 +102,12 @@
 //                                 color: Colors.pink, // magenta like screenshot
 //                               ),
 //                             ),
-//                             const SizedBox(height: 6),
+//                             SizedBox(height: 6),
 //                             Row(
 //                               children: [
-//                                 const Icon(Icons.phone,
+//                                 Icon(Icons.phone,
 //                                     size: 14, color: Colors.black54),
-//                                 const SizedBox(width: 6),
+//                                 SizedBox(width: 6),
 //                                 Text(
 //                                   phone,
 //                                   style: const TextStyle(
@@ -117,12 +117,12 @@
 //                                 ),
 //                               ],
 //                             ),
-//                             const SizedBox(height: 6),
+//                             SizedBox(height: 6),
 //                             Row(
 //                               children: [
-//                                 const Icon(Icons.location_on,
+//                                 Icon(Icons.location_on,
 //                                     size: 14, color: Colors.black54),
-//                                 const SizedBox(width: 6),
+//                                 SizedBox(width: 6),
 //                                 Expanded(
 //                                   child: Text(
 //                                     address,
@@ -154,7 +154,7 @@
 //         onPressed: () {
 //           // TODO: Navigate to Add Branch Screen
 //         },
-//         child: const Icon(Icons.add),
+//         child: Icon(Icons.add),
 //       ),
 //     );
 //   }

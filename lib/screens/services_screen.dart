@@ -46,13 +46,13 @@
 // @override
 // Widget build(BuildContext context) {
 //   if (isLoading) {
-//     return const Center(child: CircularProgressIndicator());
+//     return Center(child: CircularProgressIndicator());
 //   }
 
 //   // Check if there are any categories
 //   final categories = (serviceData['categories'] as List?) ?? [];
 //   if (categories.isEmpty) {
-//     return const Center(child: Text('No service category found'));
+//     return Center(child: Text('No service category found'));
 //   }
 //   // Inside build method after data loaded
 // return SingleChildScrollView(
@@ -72,7 +72,7 @@
 //           padding: const EdgeInsets.symmetric(horizontal: 16),
 //           scrollDirection: Axis.horizontal,
 //           itemCount: categories.length,
-//           separatorBuilder: (_, __) => const SizedBox(width: 8),
+//           separatorBuilder: (_, __) => SizedBox(width: 8),
 //           itemBuilder: (context, index) {
 //             final category = categories[index];
 //             final bool selected = selectedCategoryId == category['id'];
@@ -116,7 +116,7 @@
 //             padding: const EdgeInsets.symmetric(horizontal: 16),
 //             scrollDirection: Axis.horizontal,
 //             itemCount: subCategories.length,
-//             separatorBuilder: (_, __) => const SizedBox(width: 8),
+//             separatorBuilder: (_, __) => SizedBox(width: 8),
 //             itemBuilder: (context, index) {
 //               final subCategory = subCategories[index];
 //               final bool selected = selectedSubCategoryId == subCategory['id'];
@@ -142,7 +142,7 @@
 //         ),
 //       ],
 
-//       const SizedBox(height: 16),
+//       SizedBox(height: 16),
 
 //       // Services list
 //       Padding(
@@ -197,7 +197,7 @@
 //                   );
 //                 }).toList(),
 //               )
-//             : const Center(
+//             : Center(
 //                 child: Padding(
 //                 padding: EdgeInsets.symmetric(vertical: 40),
 //                 child: Text('No services available'),
@@ -210,6 +210,8 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 import '../utils/api_service.dart'; // your ApiService (with updateBCategory, deleteBCategory, updateBSubCategory, deleteBSubCategory, updateBService, deleteBService)
 
 class ServicesTab extends StatefulWidget {
@@ -273,7 +275,7 @@ class _ServicesTabState extends State<ServicesTab> {
       debugPrint('Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load services: $e')),
+          SnackBar(content: Text(translateText('Failed to load services: {error}', params: {'error': e.toString()}))),
         );
       }
     }
@@ -308,35 +310,35 @@ class _ServicesTabState extends State<ServicesTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(children: [
-                const Text('Edit category',
+                Text(translateText('Edit category'),
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
                     onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close))
+                    icon: Icon(Icons.close))
               ]),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
+                decoration: InputDecoration(
+                  labelText: translateText('Name'),
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   const Spacer(),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancel')),
-                  const SizedBox(width: 8),
+                      child: Text(translateText('Cancel'))),
+                  SizedBox(width: 8),
                   FilledButton(
                     onPressed: () =>
                         Navigator.pop(ctx, nameCtrl.text.trim()),
-                    child: const Text('Save'),
+                    child: Text(translateText('Save')),
                   ),
                 ],
               ),
@@ -368,7 +370,7 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Updated category "$updatedName"')),
+            SnackBar(content: Text(translateText('Updated category "{name}"', params: {'name': updatedName}))),
           );
         }
       } else {
@@ -377,7 +379,7 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Update failed: $e')));
+            .showSnackBar(SnackBar(content: Text(translateText('Update failed: {error}', params: {'error': e.toString()}))));
       }
     }
   }
@@ -391,16 +393,16 @@ class _ServicesTabState extends State<ServicesTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete category?'),
+        title: Text(translateText('Delete category?')),
         content: Text(
             'Are you sure you want to delete "${current['displayName']}" and its subcategories/services from this branch?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(translateText('Cancel'))),
           FilledButton.tonal(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete')),
+              child: Text(translateText('Delete'))),
         ],
       ),
     );
@@ -437,7 +439,7 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Deleted "${current['displayName']}"')),
+            SnackBar(content: Text(translateText('Deleted "{name}"', params: {'name': current['displayName']}))),
           );
         }
       } else {
@@ -446,7 +448,7 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+            .showSnackBar(SnackBar(content: Text(translateText('Delete failed: {error}', params: {'error': e.toString()}))));
       }
     }
   }
@@ -462,16 +464,16 @@ class _ServicesTabState extends State<ServicesTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete subcategory?'),
+        title: Text(translateText('Delete subcategory?')),
         content: Text(
             'Are you sure you want to delete "${current['displayName']}" and its services from this branch?'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(translateText('Cancel'))),
           FilledButton.tonal(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete')),
+              child: Text(translateText('Delete'))),
         ],
       ),
     );
@@ -504,7 +506,7 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Deleted "${current['displayName']}"')),
+            SnackBar(content: Text(translateText('Deleted "{name}"', params: {'name': current['displayName']}))),
           );
         }
       } else {
@@ -513,7 +515,7 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+            .showSnackBar(SnackBar(content: Text(translateText('Delete failed: {error}', params: {'error': e.toString()}))));
       }
     }
   }
@@ -538,35 +540,35 @@ class _ServicesTabState extends State<ServicesTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(children: [
-                const Text('Edit subcategory',
+                Text(translateText('Edit subcategory'),
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
                     onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close)),
+                    icon: Icon(Icons.close)),
               ]),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
+                decoration: InputDecoration(
+                  labelText: translateText('Name'),
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Row(
                 children: [
                   const Spacer(),
                   TextButton(
                       onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Cancel')),
-                  const SizedBox(width: 8),
+                      child: Text(translateText('Cancel'))),
+                  SizedBox(width: 8),
                   FilledButton(
                     onPressed: () =>
                         Navigator.pop(ctx, nameCtrl.text.trim()),
-                    child: const Text('Save'),
+                    child: Text(translateText('Save')),
                   ),
                 ],
               ),
@@ -606,7 +608,7 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Updated subcategory "$updatedName"')),
+            SnackBar(content: Text(translateText('Updated subcategory "{name}"', params: {'name': updatedName}))),
           );
         }
       } else {
@@ -615,7 +617,7 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e')),
+          SnackBar(content: Text(translateText('Update failed: {error}', params: {'error': e.toString()}))),
         );
       }
     }
@@ -626,17 +628,17 @@ class _ServicesTabState extends State<ServicesTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete service?'),
+        title: Text(translateText('Delete service?')),
         content: Text(
           'Are you sure you want to delete "${service['displayName']}"?',
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(translateText('Cancel'))),
           FilledButton.tonal(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text(translateText('Delete')),
           ),
         ],
       ),
@@ -669,7 +671,7 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Deleted "${service['displayName']}"')),
+            SnackBar(content: Text(translateText('Deleted "{name}"', params: {'name': service['displayName']}))),
           );
         }
       } else {
@@ -678,7 +680,7 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Delete failed: $e')),
+          SnackBar(content: Text(translateText('Delete failed: {error}', params: {'error': e.toString()}))),
         );
       }
     }
@@ -707,75 +709,75 @@ class _ServicesTabState extends State<ServicesTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(children: [
-                const Text('Edit service',
+                Text(translateText('Edit service'),
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
                     onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close)),
+                    icon: Icon(Icons.close)),
               ]),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               TextField(
                 controller: nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
+                decoration: InputDecoration(
+                  labelText: translateText('Name'),
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Row(children: [
                 Expanded(
                   child: TextField(
                     controller: priceCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Price (₹, minor)',
+                    decoration: InputDecoration(
+                      labelText: translateText('Price (₹, minor)'),
                       border: OutlineInputBorder(),
                       isDense: true,
                       prefixText: '₹',
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: TextField(
                     controller: durationCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'Duration (min)',
+                    decoration: InputDecoration(
+                      labelText: translateText('Duration (min)'),
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
                   ),
                 ),
               ]),
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               TextField(
                 controller: descCtrl,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
+                decoration: InputDecoration(
+                  labelText: translateText('Description'),
                   border: OutlineInputBorder(),
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: 14),
               Row(children: [
                 const Spacer(),
                 TextButton(
                     onPressed: () => Navigator.pop(ctx),
-                    child: const Text('Cancel')),
-                const SizedBox(width: 8),
+                    child: Text(translateText('Cancel'))),
+                SizedBox(width: 8),
                 FilledButton(
                   onPressed: () {
                     final price = int.tryParse(priceCtrl.text.trim());
                     final dur = int.tryParse(durationCtrl.text.trim());
                     if (price == null || dur == null) {
                       ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(
-                            content: Text('Enter valid price & duration')),
+                        SnackBar(
+                            content: Text(translateText('Enter valid price & duration'))),
                       );
                       return;
                     }
@@ -788,7 +790,7 @@ class _ServicesTabState extends State<ServicesTab> {
                       "isActive": true,
                     });
                   },
-                  child: const Text('Save'),
+                  child: Text(translateText('Save')),
                 )
               ]),
             ],
@@ -836,7 +838,7 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Updated "${updated['displayName']}"')),
+            SnackBar(content: Text(translateText('Updated "{name}"', params: {'name': updated['displayName']}))),
           );
         }
       } else {
@@ -845,7 +847,7 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e')),
+          SnackBar(content: Text(translateText('Update failed: {error}', params: {'error': e.toString()}))),
         );
       }
     }
@@ -857,11 +859,11 @@ class _ServicesTabState extends State<ServicesTab> {
     Widget body;
 
     if (isLoading) {
-      body = const Center(child: CircularProgressIndicator());
+      body = Center(child: CircularProgressIndicator());
     } else {
       final categories = _categories;
       if (categories.isEmpty) {
-        body = const Center(child: Text('No service category found'));
+        body = Center(child: Text(translateText('No service category found')));
       } else {
         body = SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 80),
@@ -874,7 +876,7 @@ class _ServicesTabState extends State<ServicesTab> {
                     const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8),
                 child: Row(
                   children: [
-                    const Text('Categories',
+                    Text(translateText('Categories'),
                         style: TextStyle(
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     const Spacer(),
@@ -883,7 +885,7 @@ class _ServicesTabState extends State<ServicesTab> {
                         message: 'Edit selected category',
                         child: IconButton(
                           onPressed: _onEditCategory,
-                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          icon: Icon(Icons.edit_outlined, size: 20),
                           visualDensity:
                               const VisualDensity(horizontal: -4, vertical: -4),
                           splashRadius: 18,
@@ -893,7 +895,7 @@ class _ServicesTabState extends State<ServicesTab> {
                         message: 'Delete selected category',
                         child: IconButton(
                           onPressed: _onDeleteCategory,
-                          icon: const Icon(Icons.delete_outline, size: 20),
+                          icon: Icon(Icons.delete_outline, size: 20),
                           color: Colors.redAccent,
                           visualDensity:
                               const VisualDensity(horizontal: -4, vertical: -4),
@@ -912,7 +914,7 @@ class _ServicesTabState extends State<ServicesTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   scrollDirection: Axis.horizontal,
                   itemCount: categories.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, __) => SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final category = categories[index];
                     final bool selected =
@@ -954,7 +956,7 @@ class _ServicesTabState extends State<ServicesTab> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Row(
                     children: [
-                      const Text('Subcategories',
+                      Text(translateText('Subcategories'),
                           style: TextStyle(
                               fontSize: 16, fontWeight: FontWeight.bold)),
                       const Spacer(),
@@ -963,7 +965,7 @@ class _ServicesTabState extends State<ServicesTab> {
                           message: 'Edit selected subcategory',
                           child: IconButton(
                             onPressed: _onEditSubCategory,
-                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            icon: Icon(Icons.edit_outlined, size: 20),
                             visualDensity: const VisualDensity(
                                 horizontal: -4, vertical: -4),
                             splashRadius: 18,
@@ -973,7 +975,7 @@ class _ServicesTabState extends State<ServicesTab> {
                           message: 'Delete selected subcategory',
                           child: IconButton(
                             onPressed: _onDeleteSubCategory,
-                            icon: const Icon(Icons.delete_outline, size: 20),
+                            icon: Icon(Icons.delete_outline, size: 20),
                             color: Colors.redAccent,
                             visualDensity: const VisualDensity(
                                 horizontal: -4, vertical: -4),
@@ -992,7 +994,7 @@ class _ServicesTabState extends State<ServicesTab> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     scrollDirection: Axis.horizontal,
                     itemCount: subCategories.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, __) => SizedBox(width: 8),
                     itemBuilder: (context, index) {
                       final subCategory = subCategories[index];
                       final bool selected =
@@ -1021,7 +1023,7 @@ class _ServicesTabState extends State<ServicesTab> {
                 ),
               ],
 
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Services list (with per-card edit/delete)
               Padding(
@@ -1086,7 +1088,7 @@ class _ServicesTabState extends State<ServicesTab> {
                                     ],
                                   ),
 
-                                  const SizedBox(width: 8),
+                                  SizedBox(width: 8),
 
                                   // Edit/Delete icons
                                   Column(
@@ -1097,7 +1099,7 @@ class _ServicesTabState extends State<ServicesTab> {
                                         child: IconButton(
                                           onPressed: () =>
                                               _onEditService(service),
-                                          icon: const Icon(
+                                          icon: Icon(
                                               Icons.edit_outlined),
                                           visualDensity:
                                               const VisualDensity(
@@ -1116,7 +1118,7 @@ class _ServicesTabState extends State<ServicesTab> {
                                         child: IconButton(
                                           onPressed: () =>
                                               _onDeleteService(service),
-                                          icon: const Icon(
+                                          icon: Icon(
                                               Icons.delete_outline),
                                           visualDensity:
                                               const VisualDensity(
@@ -1139,10 +1141,10 @@ class _ServicesTabState extends State<ServicesTab> {
                           );
                         }).toList(),
                       )
-                    : const Center(
+                    : Center(
                         child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 40),
-                        child: Text('No services available'),
+                        child: Text(translateText('No services available')),
                       )),
               ),
             ],
@@ -1160,7 +1162,7 @@ class _ServicesTabState extends State<ServicesTab> {
               absorbing: true,
               child: Container(
                 color: Colors.black.withOpacity(0.08),
-                child: const Center(child: CircularProgressIndicator()),
+                child: Center(child: CircularProgressIndicator()),
               ),
             ),
           ),

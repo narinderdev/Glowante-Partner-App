@@ -3,6 +3,8 @@ import 'AssignUser.dart';
 import '../screens/AssignUser.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class TeamMemberDetails extends StatelessWidget {
   final Map<String, dynamic> member;
@@ -49,8 +51,7 @@ final String joinedAt = userSalons.isNotEmpty
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'View Member',
+        title: Text(translateText('View Member'),
           style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
         // Paint the gradient here:
@@ -104,7 +105,7 @@ final String joinedAt = userSalons.isNotEmpty
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -116,7 +117,7 @@ final String joinedAt = userSalons.isNotEmpty
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Text(
                             role.isEmpty ? 'Hair' : role,
                             style: const TextStyle(
@@ -124,18 +125,18 @@ final String joinedAt = userSalons.isNotEmpty
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          SizedBox(height: 8),
                           Row(
                             children: [
                               ...List.generate(
                                 5,
-                                (i) => const Icon(
+                                (i) => Icon(
                                   Icons.star,
                                   size: 18,
                                   color: Color(0xFFFFB300),
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              SizedBox(width: 6),
                               Text(rating,
                                   style: const TextStyle(
                                       fontSize: 14, color: Colors.black87)),
@@ -149,7 +150,7 @@ final String joinedAt = userSalons.isNotEmpty
                       child: InkWell(
                         borderRadius: BorderRadius.circular(20),
                         onTap: () {},
-                        child: const Padding(
+                        child: Padding(
                           padding: EdgeInsets.all(6.0),
                           child: Icon(Icons.more_horiz, color: Colors.black54),
                         ),
@@ -159,7 +160,7 @@ final String joinedAt = userSalons.isNotEmpty
                 ),
               ),
 
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 // Text("Assign User ($userId)"),
               // Specializations
               _SectionCard(
@@ -189,7 +190,7 @@ final String joinedAt = userSalons.isNotEmpty
                 ),
               ),
 
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 
               // Experience
               _SectionCard(
@@ -204,7 +205,7 @@ final String joinedAt = userSalons.isNotEmpty
                 ),
               ),
 
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
 // ✅ Joined At
 _SectionCard(
   title: 'Joined At',
@@ -220,7 +221,7 @@ _SectionCard(
   ),
 ),
 
-const SizedBox(height: 12),
+SizedBox(height: 12),
               // Assigned Branches
               _SectionCard(
   title: 'Assigned Branches',
@@ -231,8 +232,7 @@ const SizedBox(height: 12),
   child: Align(
     alignment: Alignment.centerLeft,
     child: branches.isEmpty
-        ? const Text(
-            'No branched assigned',
+        ? Text(translateText('No branched assigned'),
             style: TextStyle(color: Colors.black54),
           )
         : Column(
@@ -250,9 +250,9 @@ const SizedBox(height: 12),
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
                     children: [
-                      const Icon(Icons.location_on_outlined,
+                      Icon(Icons.location_on_outlined,
                           size: 18, color: Colors.black54),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           branchName,
@@ -260,7 +260,7 @@ const SizedBox(height: 12),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Icon(
+                      Icon(
                         Icons.chevron_right_rounded,
                         size: 22,
                         color: Colors.black45,
@@ -309,12 +309,12 @@ const SizedBox(height: 12),
 //                   style: const TextStyle(
 //                       fontWeight: FontWeight.w600, fontSize: 14),
 //                 ),
-//                 const SizedBox(height: 2),
+//                 SizedBox(height: 2),
 //                 Row(
 //                   children: [
-//                     const Icon(Icons.location_on_outlined,
+//                     Icon(Icons.location_on_outlined,
 //                         size: 18, color: Colors.black54),
-//                     const SizedBox(width: 6),
+//                     SizedBox(width: 6),
 //                     Expanded(
 //                       child: Text(
 //                         "Branch: $branchName (ID: $branchId)\n$addrText",
@@ -365,7 +365,7 @@ const SizedBox(height: 12),
       //     ),
       //     elevation: 0,
       //   ),
-      //   child: const Text(
+      //   child: Text(
       //     'Assign User',
       //     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
       //   ),
@@ -415,7 +415,7 @@ class _SectionCard extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 20, color: Colors.black87),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
@@ -428,7 +428,7 @@ class _SectionCard extends StatelessWidget {
               if (hasTrailing) trailing!,
             ],
           ),
-          if (hasChild) const SizedBox(height: 10),
+          if (hasChild) SizedBox(height: 10),
           if (hasChild) child!,
         ],
       ),

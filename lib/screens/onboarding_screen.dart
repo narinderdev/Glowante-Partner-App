@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/screens/login_screen.dart';
 import 'package:bloc_onboarding/utils/user_defaults_manager.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class OnboardingPage {
   final String title;
@@ -117,7 +119,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 30),
+                          SizedBox(height: 30),
                           if (index == pages.length - 1)
                             Padding(
                               padding: const EdgeInsets.symmetric(
@@ -145,8 +147,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                       ),
                                       padding: const EdgeInsets.symmetric(vertical: 14),
                                     ),
-                                    child: const Text(
-                                      "Get Started",
+                                    child: Text(translateText("Get Started"),
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 18,
@@ -157,7 +158,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                                 ),
                               ),
                             ),
-                          const SizedBox(height: 25),
+                          SizedBox(height: 25),
                         ],
                       ),
                     ),

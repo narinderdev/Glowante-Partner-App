@@ -4,6 +4,8 @@ import 'Addteam.dart';
 import 'TeamMemberDetails.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class TeamScreen extends StatefulWidget {
   @override
@@ -67,8 +69,7 @@ class _TeamScreenState extends State<TeamScreen> {
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: const Text(
-          'Team Members',
+        title: Text(translateText('Team Members'),
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         flexibleSpace: Container(
@@ -87,7 +88,7 @@ class _TeamScreenState extends State<TeamScreen> {
           future: salonsList,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text("Error: ${snapshot.error}"));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -100,12 +101,12 @@ class _TeamScreenState extends State<TeamScreen> {
                     items: const <DropdownMenuItem<int>>[],
                     onChanged: null,
                     decoration: InputDecoration(
-                      labelText: "Salon",
+                      labelText: translateText("Salon"),
                       labelStyle: TextStyle(
                         color: Colors.grey.shade800,
                         fontWeight: FontWeight.w700,
                       ),
-                      hintText: "No salons available",
+                      hintText: translateText("No salons available"),
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                       border: OutlineInputBorder(
@@ -118,12 +119,12 @@ class _TeamScreenState extends State<TeamScreen> {
                       filled: true,
                       fillColor: Colors.grey.shade100,
                     ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded),
                     dropdownColor: Colors.white,
                   ),
-                  const SizedBox(height: 16),
-                  const Expanded(
-                    child: Center(child: Text("No salons available")),
+                  SizedBox(height: 16),
+                  Expanded(
+                    child: Center(child: Text(translateText("No salons available"))),
                   ),
                 ],
               );
@@ -178,12 +179,12 @@ class _TeamScreenState extends State<TeamScreen> {
                       });
                     },
                     decoration: InputDecoration(
-                      labelText: "Salon",
+                      labelText: translateText("Salon"),
                       labelStyle: TextStyle(
                         color: Colors.grey.shade800,
                         fontWeight: FontWeight.w700,
                       ),
-                      hintText: "Select salon",
+                      hintText: translateText("Select salon"),
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                       border: OutlineInputBorder(
@@ -200,25 +201,25 @@ class _TeamScreenState extends State<TeamScreen> {
                       filled: true,
                       fillColor: Colors.grey.shade100,
                     ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded),
                     dropdownColor: Colors.white,
                   ),
 
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
 
                   Expanded(
                     child: FutureBuilder<List<dynamic>>(
                       future: teamMembersFuture,
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
+                          return Center(child: CircularProgressIndicator());
                         } else if (snapshot.hasError) {
                           return Center(
                             child: Text("Error: ${snapshot.error}"),
                           );
                         } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return const Center(
-                            child: Text("No team members found"),
+                          return Center(
+                            child: Text(translateText("No team members found")),
                           );
                         } else {
                           final members = snapshot.data!;
@@ -248,7 +249,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                         height: 60,
                                         width: 60,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const SizedBox(
+                                        errorBuilder: (_, __, ___) => SizedBox(
                                           height: 110,
                                           child: Center(
                                             child: Icon(
@@ -259,7 +260,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      SizedBox(height: 8),
                                       Text(
                                         "${m['firstName']} ${m['lastName'] ?? ''}",
                                         textAlign: TextAlign.center,
@@ -268,7 +269,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                           fontSize: 16,
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
+                                      SizedBox(height: 6),
                                       Text(
                                         (m['roles'] != null &&
                                                 m['roles'].isNotEmpty)
@@ -276,22 +277,22 @@ class _TeamScreenState extends State<TeamScreen> {
                                             : "Staff",
                                         style: TextStyle(color: Colors.grey[600]),
                                       ),
-                                      const SizedBox(height: 6),
+                                      SizedBox(height: 6),
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
-                                        children: const [
+                                        children: [
                                           Icon(Icons.work, size: 16, color: AppColors.starColor),
                                           SizedBox(width: 4),
-                                          Text("2 year+ Experience", style: TextStyle(fontSize: 12)),
+                                          Text(translateText("2 year+ Experience"), style: TextStyle(fontSize: 12)),
                                         ],
                                       ),
-                                      const SizedBox(height: 6),
+                                      SizedBox(height: 6),
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
-                                        children: const [
+                                        children: [
                                           Icon(Icons.star, size: 16, color: AppColors.starColor),
                                           SizedBox(width: 4),
-                                          Text("4.5 (43)", style: TextStyle(fontSize: 12)),
+                                          Text(translateText("4.5 (43)"), style: TextStyle(fontSize: 12)),
                                         ],
                                       ),
                                       const Spacer(),
@@ -315,7 +316,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                         ),
-                                        child: const Text("View Member"),
+                                        child: Text(translateText("View Member")),
                                       ),
                                     ],
                                   ),
@@ -354,12 +355,12 @@ class _TeamScreenState extends State<TeamScreen> {
             }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please select a salon first.")),
+              SnackBar(content: Text(translateText("Please select a salon first."))),
             );
           }
         },
-        label: const Text("Add Member"),
-        icon: const Icon(Icons.add),
+        label: Text(translateText("Add Member")),
+        icon: Icon(Icons.add),
         backgroundColor: AppColors.starColor,
         foregroundColor: Colors.white,
       ),

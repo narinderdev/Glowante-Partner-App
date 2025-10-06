@@ -78,7 +78,7 @@
 //               final messenger = ScaffoldMessenger.of(context);
 //               messenger.clearSnackBars();
 //               messenger.showSnackBar(
-//                 const SnackBar(
+//                 SnackBar(
 //                   content: Text("⚠️ No internet connection"),
 //                   backgroundColor: Colors.red,
 //                   duration: Duration(days: 1),
@@ -94,7 +94,7 @@
 //               final messenger = ScaffoldMessenger.of(context);
 //               messenger.clearSnackBars();
 //               messenger.showSnackBar(
-//                 const SnackBar(
+//                 SnackBar(
 //                   content: Text("✅ Internet reconnected"),
 //                   backgroundColor: Colors.green,
 //                   duration: Duration(seconds: 2),
@@ -117,6 +117,8 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 /// Handles internet connectivity monitoring.
 class NetworkManager {
@@ -180,16 +182,15 @@ class _NetworkListenerState extends State<NetworkListener> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // 🌐 Network-off icon
-                    const Icon(
+                    Icon(
                       Icons.wifi_off,
                       size: 80,
                       color: Colors.white,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     // 🧠 Message
-                    const Text(
-                      "No Internet Connection",
+                    Text(translateText("No Internet Connection"),
                       style: TextStyle(
                         fontSize: 20,
                         color: Colors.white,
@@ -197,16 +198,15 @@ class _NetworkListenerState extends State<NetworkListener> {
                       decoration: TextDecoration.none,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
 
                     // ⏳ Loader
                     const CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
 
-                    const SizedBox(height: 20),
-                    const Text(
-                      "Please check your network settings.",
+                    SizedBox(height: 20),
+                    Text(translateText("Please check your network settings."),
                       style: TextStyle(color: Colors.white70, fontSize: 14,decoration: TextDecoration.none,),
                     ),
                   ],

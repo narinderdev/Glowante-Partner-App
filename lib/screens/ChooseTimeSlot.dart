@@ -232,15 +232,15 @@
 //                 //         radius: 40,
 //                 //         backgroundImage: NetworkImage(profileImage), // Load the image from URL
 //                 //       )
-//                 //     : const Icon(Icons.camera_alt, size: 40), // Default camera icon if no image
+//                 //     : Icon(Icons.camera_alt, size: 40), // Default camera icon if no image
 
-//                 // const SizedBox(height: 16),
+//                 // SizedBox(height: 16),
 
 //                 // // Show the image URL as text
 //                 // if (profileImage != null)
 //                 //   Text('Profile Image URL: $profileImage'),
 
-//               //   const SizedBox(height: 16),
+//               //   SizedBox(height: 16),
 //               //  Text('Branch ID: ${widget.formData['branchId']}'),
 //               //   Text('Phone Number: $phoneNumber'),
 //               //   Text('First Name: $firstName'),
@@ -253,7 +253,7 @@
 //               //   Text('Joining Date: $formattedJoiningDate'),
 //               //   Text('Brief About Member: $brief'),
 
-//                 // const SizedBox(height: 24), // Add space before "Set Weekly Working Hours" section
+//                 // SizedBox(height: 24), // Add space before "Set Weekly Working Hours" section
 
 //                 // Now "Set Weekly Working Hours" section
 //                 Text(

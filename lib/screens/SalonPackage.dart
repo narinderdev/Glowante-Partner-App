@@ -3,6 +3,8 @@ import '../utils/api_service.dart';
 import 'Adddeals.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 // ---- UI constants ----
 const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
 
@@ -93,12 +95,12 @@ class _PackageScreenState extends State<PackageScreen> {
   //       actions: [
   //         TextButton(
   //           onPressed: () => Navigator.pop(ctx, false),
-  //           child: const Text('Cancel'),
+  //           child: Text('Cancel'),
   //         ),
   //         ElevatedButton(
   //           style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
   //           onPressed: () => Navigator.pop(ctx, true),
-  //           child: const Text('Delete', style: TextStyle(color: Colors.white)),
+  //           child: Text('Delete', style: TextStyle(color: Colors.white)),
   //         ),
   //       ],
   //     ),
@@ -113,7 +115,7 @@ class _PackageScreenState extends State<PackageScreen> {
   // Future<void> _deleteOffer(int offerId) async {
   //   if (selectedSalonId == null) {
   //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('Please select a salon first')),
+  //       SnackBar(content: Text('Please select a salon first')),
   //     );
   //     return;
   //   }
@@ -125,7 +127,7 @@ class _PackageScreenState extends State<PackageScreen> {
 
   //   if (res['success'] == true) {
   //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(content: Text('Offer deleted successfully')),
+  //       SnackBar(content: Text('Offer deleted successfully')),
   //     );
   //     await _fetchOffers(selectedSalonId!); // refresh list
   //   } else {
@@ -142,19 +144,19 @@ class _PackageScreenState extends State<PackageScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Delete Deal'),
+        title: Text(translateText('Delete Deal')),
         content: Text(
           'Are you sure you want to delete "$offerName"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(translateText('Cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            child: Text(translateText('Delete'), style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -168,7 +170,7 @@ class _PackageScreenState extends State<PackageScreen> {
   Future<void> _deleteOffer(int offerId) async {
     if (selectedSalonId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a salon first')),
+        SnackBar(content: Text(translateText('Please select a salon first'))),
       );
       return;
     }
@@ -182,7 +184,7 @@ class _PackageScreenState extends State<PackageScreen> {
 
       if (res['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offer deleted successfully')),
+          SnackBar(content: Text(translateText('Offer deleted successfully'))),
         );
         await _fetchOffers(selectedSalonId!); // refresh list
       } else {
@@ -205,7 +207,7 @@ class _PackageScreenState extends State<PackageScreen> {
     if (selectedSalon == null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("Please select a salon")));
+      ).showSnackBar(SnackBar(content: Text(translateText("Please select a salon"))));
       return;
     }
 
@@ -245,8 +247,7 @@ class _PackageScreenState extends State<PackageScreen> {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'Package',
+        title: Text(translateText('Package'),
           style: TextStyle(color: Colors.white,fontWeight:FontWeight.bold),
         ),
         // Paint the gradient here:
@@ -269,7 +270,7 @@ class _PackageScreenState extends State<PackageScreen> {
           future: salonsList,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text("Error: ${snapshot.error}"));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -282,12 +283,12 @@ class _PackageScreenState extends State<PackageScreen> {
                     items: const <DropdownMenuItem<int>>[],
                     onChanged: null,
                     decoration: InputDecoration(
-                      labelText: "Salon",
+                      labelText: translateText("Salon"),
                       labelStyle: TextStyle(
                         color: Colors.grey.shade800,
                         fontWeight: FontWeight.w700,
                       ),
-                      hintText: 'No salons available',
+                      hintText: translateText('No salons available'),
                       filled: true,
                       fillColor: kDropdownFill,
                       contentPadding: const EdgeInsets.symmetric(
@@ -302,12 +303,12 @@ class _PackageScreenState extends State<PackageScreen> {
                         borderSide: BorderSide(color: Colors.grey.shade300),
                       ),
                     ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded),
                     dropdownColor: Colors.white,
                   ),
-                  const SizedBox(height: 12),
-                  const Expanded(
-                    child: Center(child: Text('No salons available')),
+                  SizedBox(height: 12),
+                  Expanded(
+                    child: Center(child: Text(translateText('No salons available'))),
                   ),
                 ],
               );
@@ -381,25 +382,25 @@ class _PackageScreenState extends State<PackageScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   // Offers list
                   Expanded(
                     child: Builder(
                       builder: (context) {
                         if (selectedSalonId == null) {
-                          return const Center(
-                            child: Text("Please select a salon"),
+                          return Center(
+                            child: Text(translateText("Please select a salon")),
                           );
                         }
                         if (loadingOffers) {
-                          return const Center(
+                          return Center(
                             child: CircularProgressIndicator(),
                           );
                         }
                         if (offers.isEmpty) {
-                          return const Center(
-                            child: Text("No packages available"),
+                          return Center(
+                            child: Text(translateText("No packages available")),
                           );
                         }
                         return ListView.builder(
@@ -449,7 +450,7 @@ class _PackageScreenState extends State<PackageScreen> {
         onPressed: () {
           if (selectedSalon == null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please select a salon")),
+              SnackBar(content: Text(translateText("Please select a salon"))),
             );
             return;
           }
@@ -469,11 +470,10 @@ class _PackageScreenState extends State<PackageScreen> {
             ),
           );
         },
-        label: const Text(
-          "Add Package",
+        label: Text(translateText("Add Package"),
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
-        icon: const Icon(Icons.add, color: Colors.white),
+        icon: Icon(Icons.add, color: Colors.white),
         backgroundColor: AppColors.starColor, // black bg, white text
       ),
     );
@@ -564,11 +564,11 @@ class _OfferCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _statusChip(status),
               ],
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -579,7 +579,7 @@ class _OfferCard extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
 
             // --------- pricing block ---------
             Row(
@@ -594,7 +594,7 @@ class _OfferCard extends StatelessWidget {
                       decorationThickness: 2,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                 ],
                 Text(
                   rs(finalPrice),
@@ -617,15 +617,14 @@ class _OfferCard extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
 
             // --------- services as chips ---------
             if (items.isNotEmpty) ...[
-              const Text(
-                'Includes',
+              Text(translateText('Includes'),
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -649,11 +648,11 @@ class _OfferCard extends StatelessWidget {
             // --------- validity & terms ---------
             if ((validFrom?.isNotEmpty ?? false) ||
                 (validTo?.isNotEmpty ?? false)) ...[
-              const SizedBox(height: 10),
+              SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(Icons.event, size: 16, color: Colors.grey),
-                  const SizedBox(width: 6),
+                  Icon(Icons.event, size: 16, color: Colors.grey),
+                  SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       _formatValidity(validFrom, validTo),
@@ -664,16 +663,16 @@ class _OfferCard extends StatelessWidget {
               ),
             ],
             if (terms.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.article_outlined,
                     size: 16,
                     color: Colors.grey,
                   ),
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Terms: $terms',
@@ -684,7 +683,7 @@ class _OfferCard extends StatelessWidget {
               ),
             ],
 
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
 
             // --------- actions ---------
             Row(
@@ -693,16 +692,15 @@ class _OfferCard extends StatelessWidget {
                 ElevatedButton(
                   onPressed: isDeleting ? null : onEdit,
                   style: _blackButtonStyle,
-                  child: const Text(
-                    'Edit',
+                  child: Text(translateText('Edit'),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 ElevatedButton.icon(
                   onPressed: isDeleting ? null : onDelete,
                   icon: isDeleting
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
@@ -710,7 +708,7 @@ class _OfferCard extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.delete, size: 16),
+                      : Icon(Icons.delete, size: 16),
                   label: Text(
                     isDeleting ? 'Deleting...' : 'Delete',
                     style: const TextStyle(

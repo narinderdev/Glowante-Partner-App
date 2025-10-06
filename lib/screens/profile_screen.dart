@@ -68,7 +68,7 @@
 //               } else {
 //                 if (!mounted) return;
 //                 ScaffoldMessenger.of(context).showSnackBar(
-//                   const SnackBar(content: Text('Logout failed. Please try again.')),
+//                   SnackBar(content: Text('Logout failed. Please try again.')),
 //                 );
 //               }
 //             }
@@ -86,13 +86,13 @@
 //                       color: Colors.red,
 //                     ),
 //                   ),
-//                   const SizedBox(height: 10),
+//                   SizedBox(height: 10),
 //                   const Text(
 //                     'Are you sure you want to log out?',
 //                     textAlign: TextAlign.center,
 //                     style: TextStyle(fontSize: 16, color: Colors.black87),
 //                   ),
-//                   const SizedBox(height: 20),
+//                   SizedBox(height: 20),
 //                   Row(
 //                     children: [
 //                       Expanded(
@@ -104,10 +104,10 @@
 //                               borderRadius: BorderRadius.circular(12),
 //                             ),
 //                           ),
-//                           child: const Text('Cancel'),
+//                           child: Text('Cancel'),
 //                         ),
 //                       ),
-//                       const SizedBox(width: 12),
+//                       SizedBox(width: 12),
 //                       Expanded(
 //                         child: ElevatedButton(
 //                           onPressed: isLoggingOut ? null : _handleLogout,
@@ -120,7 +120,7 @@
 //                             ),
 //                           ),
 //                           child: isLoggingOut
-//                               ? const SizedBox(
+//                               ? SizedBox(
 //                                   height: 20,
 //                                   width: 20,
 //                                   child: CircularProgressIndicator(
@@ -171,7 +171,7 @@
 //                 );
 //               } else {
 //                 ScaffoldMessenger.of(context).showSnackBar(
-//                   const SnackBar(content: Text("Failed to delete account. Please try again.")),
+//                   SnackBar(content: Text("Failed to delete account. Please try again.")),
 //                 );
 //               }
 //             }
@@ -192,7 +192,7 @@
 //               actions: [
 //                 TextButton(
 //                   onPressed: isDeleting ? null : () => Navigator.pop(ctx),
-//                   child: const Text("Cancel"),
+//                   child: Text("Cancel"),
 //                 ),
 //                 ElevatedButton(
 //                   style: ElevatedButton.styleFrom(
@@ -204,7 +204,7 @@
 //                   ),
 //                   onPressed: isDeleting ? null : _handleDelete,
 //                   child: isDeleting
-//                       ? const SizedBox(
+//                       ? SizedBox(
 //                           height: 20,
 //                           width: 20,
 //                           child: CircularProgressIndicator(
@@ -262,7 +262,7 @@
 //                   backgroundColor: Colors.grey[200],
 //                   child: Icon(Icons.person, size: 50, color: Colors.grey[600]),
 //                 ),
-//                 const SizedBox(height: 12),
+//                 SizedBox(height: 12),
 //                 Text(
 //                   userName ?? '',
 //                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -275,21 +275,21 @@
 //             ),
 //           ),
 
-//           const SizedBox(height: 10),
+//           SizedBox(height: 10),
 
 //           // Options list
 //           Expanded(
 //             child: ListView(
 //               children: [
 //                 ListTile(
-//                   leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black87),
+//                   leading: Icon(Icons.privacy_tip_outlined, color: Colors.black87),
 //                   title: const Text("Privacy Policy"),
-//                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+//                   trailing: Icon(Icons.arrow_forward_ios, size: 16),
 //                   onTap: () {
 //                     Navigator.push(
 //                       context,
 //                       MaterialPageRoute(
-//                         builder: (_) => const WebDocScreen(
+//                         builder: (_) => WebDocScreen(
 //                           title: 'Privacy Policy',
 //                           url: 'https://dev.glowante.com/privacy-policy',
 //                         ),
@@ -299,14 +299,14 @@
 //                 ),
 //                 const Divider(indent: 16, endIndent: 16),
 //                 ListTile(
-//                   leading: const Icon(Icons.policy_outlined, color: Colors.black87),
+//                   leading: Icon(Icons.policy_outlined, color: Colors.black87),
 //                   title: const Text("Terms & Conditions"),
-//                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+//                   trailing: Icon(Icons.arrow_forward_ios, size: 16),
 //                   onTap: () {
 //                     Navigator.push(
 //                       context,
 //                       MaterialPageRoute(
-//                         builder: (_) => const WebDocScreen(
+//                         builder: (_) => WebDocScreen(
 //                           title: 'Terms & Conditions',
 //                           url: 'https://dev.glowante.com/terms-of-services',
 //                         ),
@@ -326,7 +326,7 @@
 //               width: double.infinity,
 //               child: ElevatedButton.icon(
 //                 onPressed: () => _showLogoutModal(context),
-//                 icon: const Icon(Icons.logout),
+//                 icon: Icon(Icons.logout),
 //                 label: const Text("Logout", style: TextStyle(fontSize: 16)),
 //                 style: ElevatedButton.styleFrom(
 //                   backgroundColor: AppColors.starColor,
@@ -347,7 +347,7 @@
 //               width: double.infinity,
 //               child: ElevatedButton.icon(
 //                 onPressed: () => _showDeleteAccountDialog(context),
-//                 icon: const Icon(Icons.delete_forever),
+//                 icon: Icon(Icons.delete_forever),
 //                 label: const Text("Delete Account", style: TextStyle(fontSize: 16)),
 //                 style: ElevatedButton.styleFrom(
 //                   backgroundColor: AppColors.starColor,
@@ -456,7 +456,7 @@
 //               } else {
 //                 if (!mounted) return;
 //                 ScaffoldMessenger.of(context).showSnackBar(
-//                   const SnackBar(content: Text('Logout failed. Please try again.')),
+//                   SnackBar(content: Text('Logout failed. Please try again.')),
 //                 );
 //               }
 //             }
@@ -470,13 +470,13 @@
 //                     'Logout',
 //                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
 //                   ),
-//                   const SizedBox(height: 10),
+//                   SizedBox(height: 10),
 //                   const Text(
 //                     'Are you sure you want to log out?',
 //                     textAlign: TextAlign.center,
 //                     style: TextStyle(fontSize: 16, color: Colors.black87),
 //                   ),
-//                   const SizedBox(height: 20),
+//                   SizedBox(height: 20),
 //                   Row(
 //                     children: [
 //                       Expanded(
@@ -488,10 +488,10 @@
 //                               borderRadius: BorderRadius.circular(12),
 //                             ),
 //                           ),
-//                           child: const Text('Cancel'),
+//                           child: Text('Cancel'),
 //                         ),
 //                       ),
-//                       const SizedBox(width: 12),
+//                       SizedBox(width: 12),
 //                       Expanded(
 //                         child: ElevatedButton(
 //                           onPressed: isLoggingOut ? null : _handleLogout,
@@ -504,7 +504,7 @@
 //                             ),
 //                           ),
 //                           child: isLoggingOut
-//                               ? const SizedBox(
+//                               ? SizedBox(
 //                                   height: 20,
 //                                   width: 20,
 //                                   child: CircularProgressIndicator(
@@ -555,7 +555,7 @@
 //                 );
 //               } else {
 //                 ScaffoldMessenger.of(context).showSnackBar(
-//                   const SnackBar(content: Text("Failed to delete account. Please try again.")),
+//                   SnackBar(content: Text("Failed to delete account. Please try again.")),
 //                 );
 //               }
 //             }
@@ -573,7 +573,7 @@
 //               actions: [
 //                 TextButton(
 //                   onPressed: isDeleting ? null : () => Navigator.pop(ctx),
-//                   child: const Text("Cancel"),
+//                   child: Text("Cancel"),
 //                 ),
 //                 ElevatedButton(
 //                   style: ElevatedButton.styleFrom(
@@ -585,7 +585,7 @@
 //                   ),
 //                   onPressed: isDeleting ? null : _handleDelete,
 //                   child: isDeleting
-//                       ? const SizedBox(
+//                       ? SizedBox(
 //                           height: 20,
 //                           width: 20,
 //                           child: CircularProgressIndicator(
@@ -640,7 +640,7 @@
 //                     backgroundColor: Colors.grey[200],
 //                     child: Icon(Icons.person, size: 50, color: Colors.grey[600]),
 //                   ),
-//                   const SizedBox(height: 12),
+//                   SizedBox(height: 12),
 //                   Text(
 //                     userName ?? '',
 //                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -654,7 +654,7 @@
 //             ),
 //           ),
 
-//           const SizedBox(height: 20),
+//           SizedBox(height: 20),
 
 //           // Language selection
 //           Card(
@@ -668,11 +668,11 @@
 //                     'Language',
 //                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
 //                   ),
-//                   const SizedBox(height: 12),
+//                   SizedBox(height: 12),
 //                   Row(
 //                     children: [
-//                       _languageButton('en', 'English'),
-//                       const SizedBox(width: 12),
+//                       _languageButton('en', context.t('English')),
+//                       SizedBox(width: 12),
 //                       _languageButton('hi', 'हिंदी'),
 //                     ],
 //                   ),
@@ -681,7 +681,7 @@
 //             ),
 //           ),
 
-//           const SizedBox(height: 20),
+//           SizedBox(height: 20),
 
 //           // Documents links
 //           Card(
@@ -689,14 +689,14 @@
 //             child: Column(
 //               children: [
 //                 ListTile(
-//                   leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black87),
+//                   leading: Icon(Icons.privacy_tip_outlined, color: Colors.black87),
 //                   title: const Text("Privacy Policy"),
-//                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+//                   trailing: Icon(Icons.arrow_forward_ios, size: 16),
 //                   onTap: () {
 //                     Navigator.push(
 //                       context,
 //                       MaterialPageRoute(
-//                         builder: (_) => const WebDocScreen(
+//                         builder: (_) => WebDocScreen(
 //                           title: 'Privacy Policy',
 //                           url: 'https://dev.glowante.com/privacy-policy',
 //                         ),
@@ -706,14 +706,14 @@
 //                 ),
 //                 const Divider(height: 1, indent: 16, endIndent: 16),
 //                 ListTile(
-//                   leading: const Icon(Icons.policy_outlined, color: Colors.black87),
+//                   leading: Icon(Icons.policy_outlined, color: Colors.black87),
 //                   title: const Text("Terms & Conditions"),
-//                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+//                   trailing: Icon(Icons.arrow_forward_ios, size: 16),
 //                   onTap: () {
 //                     Navigator.push(
 //                       context,
 //                       MaterialPageRoute(
-//                         builder: (_) => const WebDocScreen(
+//                         builder: (_) => WebDocScreen(
 //                           title: 'Terms & Conditions',
 //                           url: 'https://dev.glowante.com/terms-of-services',
 //                         ),
@@ -725,12 +725,12 @@
 //             ),
 //           ),
 
-//           const SizedBox(height: 30),
+//           SizedBox(height: 30),
 
 //           // Logout & Delete
 //           ElevatedButton.icon(
 //             onPressed: () => _showLogoutModal(context),
-//             icon: const Icon(Icons.logout),
+//             icon: Icon(Icons.logout),
 //             label: const Text("Logout"),
 //             style: ElevatedButton.styleFrom(
 //               backgroundColor: AppColors.starColor,
@@ -739,10 +739,10 @@
 //               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
 //             ),
 //           ),
-//           const SizedBox(height: 12),
+//           SizedBox(height: 12),
 //           ElevatedButton.icon(
 //             onPressed: () => _showDeleteAccountDialog(context),
-//             icon: const Icon(Icons.delete_forever),
+//             icon: Icon(Icons.delete_forever),
 //             label: const Text("Delete Account"),
 //             style: ElevatedButton.styleFrom(
 //               backgroundColor: AppColors.starColor,
@@ -751,7 +751,7 @@
 //               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
 //             ),
 //           ),
-//           const SizedBox(height: 24),
+//           SizedBox(height: 24),
 //         ],
 //       ),
 //     );
@@ -786,7 +786,7 @@ import '../screens/web_doc_screen.dart';
 import 'login_screen.dart';
 import 'package:provider/provider.dart';
 import '../services/language_listener.dart';
-import '../services/translations.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -823,7 +823,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 
   // ---------------------- LOGOUT ----------------------
-  void _showLogoutModal(BuildContext context, LanguageListener langListener) {
+  void _showLogoutModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -854,7 +854,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               } else {
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(AppTranslations.t('logout_failed', langListener.currentLang))),
+                  SnackBar(content: Text(context.t('Logout failed. Please try again.'))),
                 );
               }
             }
@@ -865,16 +865,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    AppTranslations.t('logout', langListener.currentLang),
+                    context.t('Logout'),
                     style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Text(
-                    AppTranslations.t('logout_confirmation', langListener.currentLang),
+                    context.t('Are you sure you want to log out?'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 16, color: Colors.black87),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
                   Row(
                     children: [
                       Expanded(
@@ -886,10 +886,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: Text(AppTranslations.t('cancel', langListener.currentLang)),
+                          child: Text(context.t('Cancel')),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: isLoggingOut ? null : _handleLogout,
@@ -902,7 +902,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           child: isLoggingOut
-                              ? const SizedBox(
+                              ? SizedBox(
                                   height: 20,
                                   width: 20,
                                   child: CircularProgressIndicator(
@@ -910,7 +910,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
-                              : Text(AppTranslations.t('yes_logout', langListener.currentLang)),
+                              : Text(context.t('Yes, log out')),
                         ),
                       ),
                     ],
@@ -925,7 +925,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ---------------------- DELETE ACCOUNT ----------------------
-  void _showDeleteAccountDialog(BuildContext context, LanguageListener langListener) {
+  void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -953,7 +953,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(AppTranslations.t('delete_failed', langListener.currentLang))),
+                  SnackBar(content: Text(context.t('Delete failed. Please try again.'))),
                 );
               }
             }
@@ -961,17 +961,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Text(
-                AppTranslations.t('delete_account', langListener.currentLang),
+                context.t('Delete Account'),
                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.starColor),
               ),
               content: Text(
-                AppTranslations.t('delete_account_confirmation', langListener.currentLang),
+                context.t('Are you sure you want to delete your account?'),
                 style: const TextStyle(fontSize: 15),
               ),
               actions: [
                 TextButton(
                   onPressed: isDeleting ? null : () => Navigator.pop(ctx),
-                  child: Text(AppTranslations.t('cancel', langListener.currentLang)),
+                  child: Text(context.t('Cancel')),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -983,7 +983,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   onPressed: isDeleting ? null : _handleDelete,
                   child: isDeleting
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
@@ -991,7 +991,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : Text(AppTranslations.t('yes_delete', langListener.currentLang)),
+                      : Text(context.t('Yes, delete')),
                 ),
               ],
             );
@@ -1012,7 +1012,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
         title: Text(
-          AppTranslations.t('profile', langListener.currentLang),
+          context.t('Profile'),
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         flexibleSpace: Container(
@@ -1040,7 +1040,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     backgroundColor: Colors.grey[200],
                     child: Icon(Icons.person, size: 50, color: Colors.grey[600]),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Text(
                     userName ?? '',
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -1054,7 +1054,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // Language selection
           Card(
@@ -1065,15 +1065,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                 Text(
-  AppTranslations.t('Language', langListener.currentLang), // will rebuild automatically
+  context.t('Language'), // will rebuild automatically
   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
 ),
 
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   Row(
                     children: [
-                      _languageButton('en', 'English'),
-                      const SizedBox(width: 12),
+                      _languageButton('en', context.t('English')),
+                      SizedBox(width: 12),
                       _languageButton('hi', 'हिंदी'),
                     ],
                   ),
@@ -1082,7 +1082,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
 
           // Documents links
           Card(
@@ -1090,14 +1090,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.privacy_tip_outlined, color: Colors.black87),
-                  title: Text(AppTranslations.t('privacy_policy', langListener.currentLang)),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  leading: Icon(Icons.privacy_tip_outlined, color: Colors.black87),
+                  title: Text(context.t('Privacy Policy')),
+                  trailing: Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const WebDocScreen(
+                        builder: (_) => WebDocScreen(
                           title: 'Privacy Policy',
                           url: 'https://dev.glowante.com/privacy-policy',
                         ),
@@ -1107,14 +1107,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
                 ListTile(
-                  leading: const Icon(Icons.policy_outlined, color: Colors.black87),
-                  title: Text(AppTranslations.t('terms_conditions', langListener.currentLang)),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  leading: Icon(Icons.policy_outlined, color: Colors.black87),
+                  title: Text(context.t('Terms & Conditions')),
+                  trailing: Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => const WebDocScreen(
+                        builder: (_) => WebDocScreen(
                           title: 'Terms & Conditions',
                           url: 'https://dev.glowante.com/terms-of-services',
                         ),
@@ -1126,13 +1126,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          const SizedBox(height: 30),
+          SizedBox(height: 30),
 
           // Logout & Delete
           ElevatedButton.icon(
-            onPressed: () => _showLogoutModal(context, langListener),
-            icon: const Icon(Icons.logout),
-            label: Text(AppTranslations.t('logout', langListener.currentLang)),
+            onPressed: () => _showLogoutModal(context),
+            icon: Icon(Icons.logout),
+            label: Text(context.t('Logout')),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.starColor,
               foregroundColor: Colors.white,
@@ -1140,11 +1140,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: () => _showDeleteAccountDialog(context, langListener),
-            icon: const Icon(Icons.delete_forever),
-            label: Text(AppTranslations.t('delete_account', langListener.currentLang)),
+            onPressed: () => _showDeleteAccountDialog(context),
+            icon: Icon(Icons.delete_forever),
+            label: Text(context.t('Delete Account')),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.starColor,
               foregroundColor: Colors.white,
@@ -1152,7 +1152,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: 24),
         ],
       ),
     );
@@ -1178,3 +1178,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
+
+
+
+
+
+

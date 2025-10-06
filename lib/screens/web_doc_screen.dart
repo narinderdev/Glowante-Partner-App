@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // for SystemUiOverlayStyle
 import 'package:webview_flutter/webview_flutter.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class WebDocScreen extends StatefulWidget {
   final String title;
   final String url;
 
-  const WebDocScreen({
+  WebDocScreen({
     super.key,
     required this.title,
     required this.url,
@@ -88,14 +90,14 @@ class _WebDocScreenState extends State<WebDocScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.wifi_off, size: 48, color: Colors.grey),
-                    const SizedBox(height: 12),
+                    Icon(Icons.wifi_off, size: 48, color: Colors.grey),
+                    SizedBox(height: 12),
                     Text(
                       _errorText!,
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.black87),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () {
                         setState(() {
@@ -108,7 +110,7 @@ class _WebDocScreenState extends State<WebDocScreen> {
                         backgroundColor: AppColors.starColor,
                         foregroundColor: Colors.white,
                       ),
-                      child: const Text('Try again'),
+                      child: Text(translateText('Try again')),
                     ),
                   ],
                 ),
@@ -117,7 +119,7 @@ class _WebDocScreenState extends State<WebDocScreen> {
 
           // Loader (star color) while loading
           if (_loading)
-            const Center(
+            Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(AppColors.starColor),
               ),

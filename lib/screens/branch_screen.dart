@@ -5,6 +5,8 @@ import 'reviews_screen.dart';
 import 'about_screen.dart';
 import '../screens/BranchPackages.dart';
 import '../screens/BranchDeals.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 // import '../screens/BranchBookings.dart';
 
 class BranchScreen extends StatelessWidget {
@@ -36,9 +38,8 @@ class BranchScreen extends StatelessWidget {
   automaticallyImplyLeading: true,
   iconTheme: const IconThemeData(color: Colors.white),
   backgroundColor: Colors.orange,
-  title: const Center(
-    child: Text(
-      'Branch Details',
+  title: Center(
+    child: Text(translateText('Branch Details'),
       style: TextStyle(
         color: Colors.white,
         fontWeight: FontWeight.bold, // Bold text
@@ -79,11 +80,11 @@ class BranchScreen extends StatelessWidget {
                             shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Row(
                           children: [
-                            const Icon(Icons.location_on, size: 16, color: Colors.white),
-                            const SizedBox(width: 4),
+                            Icon(Icons.location_on, size: 16, color: Colors.white),
+                            SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 line1,

@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LanguageListener extends ChangeNotifier {
-  String _currentLang = 'en';
+  static String _latestLang = 'en';
+
+  String _currentLang = _latestLang;
 
   String get currentLang => _currentLang;
+
+  static String get latestLang => _latestLang;
 
   Locale get currentLocale => Locale(_currentLang);
 
@@ -15,14 +19,22 @@ class LanguageListener extends ChangeNotifier {
 
   Future<void> _loadLanguage() async {
     final prefs = await SharedPreferences.getInstance();
-    _currentLang = prefs.getString('language') ?? 'en';
-    notifyListeners();
+    final savedLanguage = prefs.getString('language') ?? _currentLang;
+    _updateLanguage(savedLanguage, notify: true);
   }
 
   Future<void> changeLanguage(String langCode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('language', langCode);
+    _updateLanguage(langCode, notify: true);
+  }
+
+  void _updateLanguage(String langCode, {bool notify = false}) {
     _currentLang = langCode;
-    notifyListeners();
+    _latestLang = langCode;
+    if (notify) {
+      notifyListeners();
+    }
   }
 }
+

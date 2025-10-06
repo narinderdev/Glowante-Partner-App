@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 import 'package:flutter/services.dart'; 
 
 class AddTeamSelectServices extends StatefulWidget {
@@ -47,7 +49,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     if (_selectedServiceIds.isEmpty) {
       // Show message if no service is selected
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select at least one service")),
+        SnackBar(content: Text(translateText("Please select at least one service"))),
       );
       return;
     }
@@ -74,7 +76,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Team member added successfully")),
+      SnackBar(content: Text(translateText("Team member added successfully"))),
     );
   }
   
@@ -91,8 +93,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'Select Services',
+        title: Text(translateText('Select Services'),
           style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
         // Paint the gradient here:
@@ -110,7 +111,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : ListView.builder(
               itemCount: _categories.length,
               itemBuilder: (_, i) {
@@ -217,7 +218,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         child: ElevatedButton(
           child: _isSubmitting
               ? const CircularProgressIndicator(color: AppColors.starColor)
-              : const Text("Submit"),
+              : Text(translateText("Submit")),
           onPressed: _isSubmitting ? null : _submit,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.starColor,

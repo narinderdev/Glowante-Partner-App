@@ -4,6 +4,8 @@ import 'SelectServices.dart';
 import '../utils/api_service.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 class AddBookingScreen extends StatefulWidget {
   final int? salonId; // needed for SelectServicesModal
   final int? branchId; // future use when posting appointment
@@ -164,7 +166,7 @@ void _showCustomerSearch() {
       String countryCode = "+91"; // default
       return AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text("Search Customer"),
+        title: Text(translateText("Search Customer")),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -180,27 +182,27 @@ void _showCustomerSearch() {
                     if (v != null) countryCode = v;
                   },
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: TextField(
                     controller: phoneCtrl,
                     keyboardType: TextInputType.phone,
                     maxLength: 10,
-                    decoration: const InputDecoration(
-                      hintText: "Enter phone number",
+                    decoration: InputDecoration(
+                      hintText: translateText("Enter phone number"),
                       border: OutlineInputBorder(),
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {
                 final phone = phoneCtrl.text.trim();
                 if (phone.length < 10) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Enter 10-digit number")));
+                      SnackBar(content: Text(translateText("Enter 10-digit number"))));
                   return;
                 }
 
@@ -228,7 +230,7 @@ void _showCustomerSearch() {
     print("⚠️ Unexpected data format: $data");
     Navigator.pop(ctx);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Unexpected response from server")),
+      SnackBar(content: Text(translateText("Unexpected response from server"))),
     );
   }
 }
@@ -241,7 +243,7 @@ void _showCustomerSearch() {
 }
 
               },
-              child: const Text("Search"),
+              child: Text(translateText("Search")),
             ),
           ],
         ),
@@ -255,7 +257,7 @@ void _showCustomerDetails(Map<String, dynamic> customer) {
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text("Customer Found"),
+      title: Text(translateText("Customer Found")),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -280,7 +282,7 @@ void _showCustomerDetails(Map<String, dynamic> customer) {
 
             Navigator.pop(ctx); // close modal
           },
-          child: const Text("OK"),
+          child: Text(translateText("OK")),
         ),
       ],
     ),
@@ -293,13 +295,13 @@ void _showOtpBox(String phone, String countryCode) {
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text("Enter OTP"),
+      title: Text(translateText("Enter OTP")),
       content: TextField(
         controller: otpCtrl,
         keyboardType: TextInputType.number,
         maxLength: 6,
-        decoration: const InputDecoration(
-          hintText: "Enter 6-digit OTP",
+        decoration: InputDecoration(
+          hintText: translateText("Enter 6-digit OTP"),
           border: OutlineInputBorder(),
         ),
       ),
@@ -309,7 +311,7 @@ void _showOtpBox(String phone, String countryCode) {
             print("➡️ OTP entered: ${otpCtrl.text}");
             Navigator.pop(ctx);
           },
-          child: const Text("Verify"),
+          child: Text(translateText("Verify")),
         ),
       ],
     ),
@@ -339,14 +341,14 @@ void _showOtpBox(String phone, String countryCode) {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.design_services),
-                      const SizedBox(width: 8),
-                      const Text('Select Service',
+                      Icon(Icons.design_services),
+                      SizedBox(width: 8),
+                      Text(translateText('Select Service'),
                           style: TextStyle(
                               fontWeight: FontWeight.w700, fontSize: 16)),
                       const Spacer(),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close),
                         onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
@@ -446,7 +448,7 @@ void _showOtpBox(String phone, String countryCode) {
     //       // Do NOT touch other services/professionals.
     //       // Just prompt the user to choose a pro for the new service.
     //       ScaffoldMessenger.of(context).showSnackBar(
-    //         SnackBar(content: Text('Select Professional for "$name"')),
+    //         SnackBar(content: Text(translateText('Select Professional for {name}', params: {'name': name}))),
     //       );
     //     }
     //   });
@@ -489,7 +491,7 @@ void _showOtpBox(String phone, String countryCode) {
 
       // Show prompt to select professional
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Select Professional for "$name"')),
+        SnackBar(content: Text(translateText('Select Professional for {name}', params: {'name': name}))),
       );
     }
 
@@ -523,17 +525,17 @@ void _showOtpBox(String phone, String countryCode) {
 
     // Icon logic: active > selected > none
     final Widget trailing = isActive
-        ? const Icon(Icons.radio_button_checked, color: Colors.orange)
+        ? Icon(Icons.radio_button_checked, color: Colors.orange)
         : (isSelected
-            ? const Icon(Icons.check_box, color: Colors.grey)
-            : const Icon(Icons.check_box_outline_blank, color: Colors.grey));
+            ? Icon(Icons.check_box, color: Colors.grey)
+            : Icon(Icons.check_box_outline_blank, color: Colors.grey));
 
     return Padding(
       padding: EdgeInsets.only(left: leftPad),
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.only(left: 8, right: 8),
-        leading: const Icon(Icons.cut),
+        leading: Icon(Icons.cut),
         title:
             Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: meta.isNotEmpty ? Text(meta) : null,
@@ -722,7 +724,7 @@ void _save() async {
 
 if (_selectedServiceId == null || _selectedServices.isEmpty) {
   setState(() {
-    _serviceError = 'Service is required';
+    _serviceError = translateText('Service is required');
   });
   _showError('Please select Service');
   return;
@@ -738,7 +740,7 @@ if (_selectedServiceId == null || _selectedServices.isEmpty) {
     .toList();
 if (missing.isNotEmpty) {
   setState(() {
-    _professionalError = 'Professional is required for: ${missing.join(", ")}';
+    _professionalError = translateText('Professional is required for: {items}', params: {'items': missing.join(', ')});
   });
   // _showError('Please select Professional for: ${missing.join(", ")}');
   return;
@@ -831,8 +833,7 @@ if (missing.isNotEmpty) {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'Add Booking',
+        title: Text(translateText('Add Booking'),
           style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
         // Paint the gradient here:
@@ -864,9 +865,9 @@ if (missing.isNotEmpty) {
 //                 const _FieldLabel('Add Customer *'),
 // ElevatedButton(
 //   onPressed: _showCustomerSearch,
-//   child: const Text("Add Customer"),
+//   child: Text("Add Customer"),
 // ),  
-//                 const SizedBox(height: 16),
+//                 SizedBox(height: 16),
 Column(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
@@ -878,7 +879,7 @@ Column(
     //     fontWeight: FontWeight.w500,
     //   ),
     // ),
-    // const SizedBox(height: 16),
+    // SizedBox(height: 16),
 
     // Full-width outlined button with custom plus icon
      SizedBox(
@@ -901,9 +902,8 @@ Column(
               width: 20,
               height: 20,
             ),
-            const SizedBox(width: 8),
-            const Text(
-              "Add Customer",
+            SizedBox(width: 8),
+            Text(translateText("Add Customer"),
               style: TextStyle(
                 color: Colors.grey,
                 fontSize: 16,
@@ -914,7 +914,7 @@ Column(
         ),
       ),
     ),
-    const SizedBox(height: 16),
+    SizedBox(height: 16),
                 //ID
                 // const _FieldLabel('Customer ID'),
                 // TextFormField(
@@ -923,7 +923,7 @@ Column(
                 //   validator: (v) =>
                 //       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 // ),
-                // const SizedBox(height: 16),
+                // SizedBox(height: 16),
                 // Client Name (First + Last side by side)
 Row(
   children: [
@@ -936,12 +936,12 @@ Row(
           TextFormField(
             controller: _clientfNameCtrl,
             decoration: _inputDecoration('First name'),
-           validator: (v) => (v == null || v.trim().isEmpty) ? 'First Name is required' : null,
+           validator: (v) => (v == null || v.trim().isEmpty) ? translateText('First Name is required') : null,
           ),
         ],
       ),
     ),
-    const SizedBox(width: 12), // spacing between fields
+    SizedBox(width: 12), // spacing between fields
     // Last Name
     Expanded(
       child: Column(
@@ -960,7 +960,7 @@ Row(
   ],
 ),
 
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
 
                 // Mobile
                 // const _FieldLabel('Mobile Number *'),
@@ -971,7 +971,7 @@ Row(
                 //   validator: (v) =>
                 //       (v == null || v.trim().isEmpty) ? 'Moblile Number is Required' : null,
                 // ),
-                // const SizedBox(height: 16),
+                // SizedBox(height: 16),
                 //  // Email
                 // const _FieldLabel('Email *'),
                 // TextFormField(
@@ -981,7 +981,7 @@ Row(
                 //   validator: (v) =>
                 //       (v == null || v.trim().isEmpty) ? 'Email is Required' : null,
                 // ),
-                // const SizedBox(height: 16),
+                // SizedBox(height: 16),
 
                 // Service (hierarchical) + Professional (per active service)
                 Row(
@@ -1007,8 +1007,8 @@ Row(
           ),
           child: Row(
             children: [
-              // const Icon(Icons.design_services, size: 18),
-              const SizedBox(width: 8),
+              // Icon(Icons.design_services, size: 18),
+              SizedBox(width: 8),
               Expanded(
                 child: Text(
                   _selectedServiceId == null
@@ -1021,7 +1021,7 @@ Row(
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
-              const Icon(Icons.keyboard_arrow_down),
+              Icon(Icons.keyboard_arrow_down),
             ],
           ),
         ),
@@ -1037,7 +1037,7 @@ Row(
     ],
   ),
 ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
 
                     // Right: Professional * (applies to ACTIVE service)
                     // Expanded(
@@ -1097,7 +1097,7 @@ Row(
 
                 // SHOW CHIPS: only for services which already have a professional
                 if (chipServices.isNotEmpty) ...[
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   Wrap(
                     spacing: 8,
                     runSpacing: -8,
@@ -1145,7 +1145,7 @@ Row(
                   ),
                 ],
 
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 // Date picker (above Start/End Time)
                 // const _FieldLabel('Date *'),
                 // InkWell(
@@ -1168,8 +1168,8 @@ Container(
   ),
   child: Row(
     children: [
-      const Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-      const SizedBox(width: 8),
+      Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+      SizedBox(width: 8),
       Expanded(
         child: Text(
           _selectedDate == null
@@ -1183,7 +1183,7 @@ Container(
     ],
   ),
 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
 
                 // Start / End time
                 Row(
@@ -1203,7 +1203,7 @@ Container(
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1222,7 +1222,7 @@ Container(
                   ],
                 ),
 
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -1236,7 +1236,7 @@ Container(
                       padding:
                           const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('Save',
+                    child: Text(translateText('Save'),
                         style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
@@ -1312,7 +1312,7 @@ class _Dropdown<T> extends StatelessWidget {
           isExpanded: true,
           hint: Row(
             children: [
-              const SizedBox(width: 6),
+              SizedBox(width: 6),
               Text(hint),
             ],
           ),
@@ -1344,8 +1344,8 @@ class _TimeBox extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.calendar_today, size: 18),
-          const SizedBox(width: 8),
+          Icon(Icons.calendar_today, size: 18),
+          SizedBox(width: 8),
           Expanded(child: Text(text.isEmpty ? 'Select' : text)),
         ],
       ),

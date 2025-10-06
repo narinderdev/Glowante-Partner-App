@@ -1,13 +1,16 @@
 import 'dart:io';
 import '../utils/colors.dart';
+import '../services/language_listener.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'add_location_screen.dart';
 import '../screens/bottom_nav.dart';
-import 'package:flutter/services.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class AddSalonScreen extends StatefulWidget {
   const AddSalonScreen({
@@ -164,7 +167,7 @@ void initState() {
 
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select start and end time.')),
+        SnackBar(content: Text(translateText('Please select start and end time.'))),
       );
       return;
     }
@@ -189,6 +192,7 @@ void initState() {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<LanguageListener>();
     return BlocConsumer<AddSalonCubit, AddSalonState>(
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
@@ -205,7 +209,7 @@ void initState() {
 
         if (state.status == AddSalonStatus.success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Salon added successfully')),
+            SnackBar(content: Text(translateText('Salon added successfully'))),
           );
   Navigator.pushReplacement(
   context,
@@ -231,8 +235,7 @@ void initState() {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'Add Salon',
+        title: Text(translateText('Add Salon'),
           style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
         // Paint the gradient here:
@@ -282,7 +285,7 @@ void initState() {
                               onTap: () => _selectTime(_startTimeController),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: _buildTimePickerField(
                               controller: _endTimeController,
@@ -292,12 +295,11 @@ void initState() {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
-       Text(
-  'Salon Address',
+                      SizedBox(height: 20),
+       Text(translateText('Salon Address'),
   style: Theme.of(context).textTheme.titleMedium,
 ),
-const SizedBox(height: 8),
+SizedBox(height: 8),
 InkWell(
   onTap: () => _chooseLocation(state),
   child: Container(
@@ -314,9 +316,8 @@ InkWell(
             (address?.pincode?.isEmpty ?? true)) // Using null-aware operators
         ? Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Text(
-                'Add Location',
+            children: [
+              Text(translateText('Add Location'),
                 style: TextStyle(
                   color: AppColors.black,
                   fontWeight: FontWeight.w500,
@@ -354,13 +355,13 @@ InkWell(
                   ],
                 ),
               ),
-              const Icon(Icons.edit, color: AppColors.darkGrey),
+              Icon(Icons.edit, color: AppColors.darkGrey),
             ],
           ),
   ),
 ),
 
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
                         textCapitalization: TextCapitalization.words,
@@ -369,12 +370,11 @@ InkWell(
                         maxLines: 1,
                       ),
                       
-                      const SizedBox(height: 20),
-                      Text(
-                        'Salon Images',
+                      SizedBox(height: 20),
+                      Text(translateText('Salon Images'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -398,7 +398,7 @@ InkWell(
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: AppColors.darkGrey),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.add,
                                 color: AppColors.darkGrey,
                               ),
@@ -406,7 +406,7 @@ InkWell(
                           ),
                         ],
                       ),
-                      const SizedBox(height: 32),
+                      SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
                         height: 48,
@@ -422,7 +422,7 @@ InkWell(
                             ),
                           ),
                           child: state.isSubmitting
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
@@ -430,7 +430,7 @@ InkWell(
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('Add Salon'),
+                              : Text(translateText('Add Salon')),
                         ),
                       ),
                     ],
@@ -456,18 +456,23 @@ Widget _buildTextField({
   required String label,
   required String hint,
   int maxLines = 1,
-   int? maxLength, // ✅ added
+  int? maxLength,
   bool enabled = true,
   TextCapitalization textCapitalization = TextCapitalization.none,
   TextInputType keyboardType = TextInputType.text,
   List<TextInputFormatter>? inputFormatters,
 }) {
+  final localizedLabel = translateText(label);
+  final localizedHint = translateText(hint);
+  final sanitizedField = localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
+  final fieldForMessage = sanitizedField.isEmpty ? localizedLabel : sanitizedField;
+
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: TextFormField(
       controller: controller,
       maxLines: maxLines,
-      maxLength: maxLength, // ✅ added
+      maxLength: maxLength,
       enabled: enabled,
       textCapitalization: textCapitalization,
       keyboardType: keyboardType,
@@ -475,14 +480,14 @@ Widget _buildTextField({
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
-          return '$label is required';
+          return translateText('{field} is required', params: {'field': fieldForMessage});
         }
         return null;
       },
       decoration: InputDecoration(
-         counterText: '',
-        labelText: label,
-        hintText: hint,
+        counterText: '',
+        labelText: localizedLabel,
+        hintText: localizedHint,
         labelStyle: const TextStyle(color: AppColors.darkGrey),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -505,12 +510,12 @@ Widget _buildTextField({
         ),
         errorStyle: const TextStyle(
           color: AppColors.red,
-          // fontWeight: FontWeight.bold,
         ),
       ),
     ),
   );
 }
+
 
 
   Widget _buildTimePickerField({

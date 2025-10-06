@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/api_service.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 import '../utils/colors.dart';
-import 'package:flutter/services.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
-import '../utils/colors.dart';
+import '../bloc/category/category_cubit.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class AddServices extends StatefulWidget {
   final int salonId;
@@ -26,28 +29,27 @@ class AddServices extends StatefulWidget {
 class TitleCaseInputFormatter extends TextInputFormatter {
   const TitleCaseInputFormatter();
 
-  String _toTitleCase(String input) {
-    if (input.trim().isEmpty) return input;
-    final parts = input.split(RegExp(r'(\s+)'));
-    final mapped = parts.map((p) {
-      if (p.trim().isEmpty) return p; // preserve spaces
-      if (p.length == 1) return p.toUpperCase();
-      final firstAlpha = RegExp(r'[A-Za-z]').firstMatch(p);
-      if (firstAlpha == null) return p; // no letters
-      final i = firstAlpha.start;
-      return p.substring(0, i) + p[i].toUpperCase() + p.substring(i + 1);
-    }).toList();
-    return mapped.join('');
-  }
+ String _toTitleCase(String input) {
+  if (input.isEmpty) return input; // no trim()
+  final parts = input.split(' ');
+  final mapped = parts.map((p) {
+    if (p.isEmpty) return p;
+    return p[0].toUpperCase() + p.substring(1);
+  }).toList();
+  return mapped.join(' ');
+}
+
 
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
     if (newValue.text.length >= oldValue.text.length) {
       final transformed = _toTitleCase(newValue.text);
-      final baseOffset = newValue.selection.baseOffset;
+      final selection = newValue.selection;
+      final offset = math.min(transformed.length, math.max(0, selection.baseOffset));
+
       return TextEditingValue(
         text: transformed,
-        selection: TextSelection.collapsed(offset: baseOffset),
+        selection: TextSelection.collapsed(offset: offset),
       );
     }
     return newValue;
@@ -119,20 +121,20 @@ class _AddServicesState extends State<AddServices> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to fetch service catalog")),
+        SnackBar(content: Text(translateText("Failed to fetch service catalog"))),
       );
     }
   }
 
   String _mapErrorMessage(String backendMessage) {
     if (backendMessage.contains("defaultDurationMin")) {
-      return "Duration must be a positive number";
+      return translateText("Duration must be a positive number");
     }
     if (backendMessage.contains("defaultPriceMinor")) {
-      return "Price must be a positive number";
+      return translateText("Price must be a positive number");
     }
     if (backendMessage.contains("name")) {
-      return "Service name is required";
+      return translateText("Service name is required");
     }
     return backendMessage; // fallback
   }
@@ -156,7 +158,7 @@ class _AddServicesState extends State<AddServices> {
 
       if (salonCategoryId != null && salonSubCategoryId != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Select either category or subcategory, not both")),
+          SnackBar(content: Text(translateText("Select either category or subcategory, not both"))),
         );
         return;
       }
@@ -185,13 +187,20 @@ class _AddServicesState extends State<AddServices> {
       await ApiService().addService(salonId: widget.salonId, request: request);
 
       if (!mounted) return;
+
+      try {
+        await context.read<CategoryCubit>().loadCategories(widget.salonId);
+      } catch (_) {
+        // CategoryCubit not found in this context; ignore refresh hint.
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Service added successfully!")),
+        SnackBar(content: Text(translateText("Service added successfully!"))),
       );
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      String errorMessage = "Failed to add service";
+      String errorMessage = translateText("Failed to add service");
       try {
         String errorStr = e.toString();
         errorStr = errorStr.replaceFirst("Exception: ", "");
@@ -207,10 +216,10 @@ class _AddServicesState extends State<AddServices> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text("Alert"),
+          title: Text(translateText("Alert")),
           content: Text(errorMessage),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text("OK")),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(translateText("OK"))),
           ],
         ),
       );
@@ -222,12 +231,12 @@ class _AddServicesState extends State<AddServices> {
   // --- Validators ---
   String? _validateLabel(String? value) {
     final v = (value ?? '').trim();
-    if (v.isEmpty) return "Service name is required";
+    if (v.isEmpty) return translateText("Service name is required");
     final firstAlpha = RegExp(r'[A-Za-z]').firstMatch(v);
     if (firstAlpha != null) {
       final ch = v[firstAlpha.start];
       if (ch != ch.toUpperCase()) {
-        return "Service name should start with a capital letter";
+        return translateText("Service name should start with a capital letter");
       }
     }
     return null;
@@ -235,27 +244,27 @@ class _AddServicesState extends State<AddServices> {
 
   String? _validatePrice(String? value) {
     final v = (value ?? '').trim();
-    if (v.isEmpty) return "Price is required";
+    if (v.isEmpty) return translateText("Price is required");
     final num? n = int.tryParse(v);
-    if (n == null || n <= 0) return "Price must be a positive number";
+    if (n == null || n <= 0) return translateText("Price must be a positive number");
     return null;
   }
 
   String? _validateDuration(String? value) {
     final v = (value ?? '').trim();
-    if (v.isEmpty) return "Duration is required";
+    if (v.isEmpty) return translateText("Duration is required");
     final num? n = int.tryParse(v);
-    if (n == null || n <= 0) return "Duration must be a positive number";
+    if (n == null || n <= 0) return translateText("Duration must be a positive number");
     return null;
   }
 
   String? _validateCategory(Map<String, dynamic>? _) {
-    if (selectedCategory == null) return "Category is required";
+    if (selectedCategory == null) return translateText("Category is required");
     return null;
   }
 
   String? _validateSubcategory(int? _) {
-    if (selectedService == null) return "Subcategory is required";
+    if (selectedService == null) return translateText("Subcategory is required");
     return null;
   }
 
@@ -272,8 +281,7 @@ class _AddServicesState extends State<AddServices> {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'Add Service',
+        title: Text(translateText('Add Service'),
           style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
         // Paint the gradient here:
@@ -299,12 +307,12 @@ class _AddServicesState extends State<AddServices> {
             children: [
               _SectionCard(
                 title: "Basic Info",
-                subtitle: "Service name is required, description is optional",
+                subtitle: translateText('Service name is required, description is optional'),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const _FieldLabel("Service Name *"),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     TextFormField(
                       controller: nameController,
                       focusNode: _nameFocus,
@@ -318,9 +326,9 @@ class _AddServicesState extends State<AddServices> {
                       ),
                       validator: _validateLabel,
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     const _FieldLabel("Description (Optional)"),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     TextFormField(
                       controller: descController,
                       maxLines: 2,
@@ -334,7 +342,7 @@ class _AddServicesState extends State<AddServices> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               _SectionCard(
                 title: "Categorization",
@@ -347,11 +355,11 @@ class _AddServicesState extends State<AddServices> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const _FieldLabel("Category *"),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             isExpanded: true,
                             value: selectedCategoryKey,
-                            hint: const Text("Select Category"),
+                            hint: Text(translateText("Select Category")),
                             items: buildCategoryAndSubcategoryKeyItems(widget.categories ?? []),
                             onChanged: (key) {
                               if (key == null) return;
@@ -376,7 +384,7 @@ class _AddServicesState extends State<AddServices> {
                       ),
                     ),
 
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
 
                     // Right: Subcategory (kept as int IDs)
                     Expanded(
@@ -384,11 +392,11 @@ class _AddServicesState extends State<AddServices> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const _FieldLabel("Subcategory *"),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           DropdownButtonFormField<int>(
                             isExpanded: true,
                             value: selectedService?['id'],
-                            hint: const Text("Select"),
+                            hint: Text(translateText("Select")),
                             items: serviceCatalog.expand<DropdownMenuItem<int>>((service) {
                               final subCats = service['subCategories'] ?? [];
                               return (subCats as List).map<DropdownMenuItem<int>>((sub) {
@@ -423,7 +431,7 @@ class _AddServicesState extends State<AddServices> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               _SectionCard(
                 title: "Pricing & Duration",
@@ -442,7 +450,7 @@ class _AddServicesState extends State<AddServices> {
                         validator: _validatePrice,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: durationController,
@@ -459,24 +467,25 @@ class _AddServicesState extends State<AddServices> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   icon: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 18,
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Icon(Icons.add_task_outlined),
+                      : Icon(Icons.add_task_outlined),
                   label: Text(
                     _isLoading ? 'Adding...' : 'Add Service',
                     style: const TextStyle(fontSize: 16, color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
+                    foregroundColor: AppColors.white,
+                    backgroundColor: AppColors.starColor,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
@@ -549,18 +558,18 @@ class _SectionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              const Icon(Icons.checklist_outlined, size: 18),
-              const SizedBox(width: 8),
+              Icon(Icons.checklist_outlined, size: 18),
+              SizedBox(width: 8),
               Text(
                 title,
                 style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
             ]),
             if (subtitle != null) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(subtitle!, style: const TextStyle(color: Colors.black54, fontSize: 12)),
             ],
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             child,
           ],
         ),
@@ -634,3 +643,4 @@ Map<String, dynamic>? findSubcategoryById(List<dynamic> categories, int id) {
   }
   return null;
 }
+

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
 import 'AssignUserSlots.dart'; // 👈 NEW: Step 3 screen
 import 'package:bloc_onboarding/widgets/step_header.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class SelectServicesAssignUser extends StatefulWidget {
   final int salonId;
@@ -155,13 +157,13 @@ Text(cat['displayName']?.toString() ?? '',
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Assign User")),
+      appBar: AppBar(title: Text(translateText("Assign User"))),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 // ✅ Step header (Step 2 active; Step 1 is already done)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.symmetric(vertical: 12),
                   child: StepHeader(currentStep: 2),
                 ),
@@ -172,7 +174,7 @@ Text(cat['displayName']?.toString() ?? '',
                   child: CheckboxListTile(
                     value: allSelected,
                     onChanged: toggleAll,
-                    title: const Text("Select All Services"),
+                    title: Text(translateText("Select All Services")),
                     controlAffinity: ListTileControlAffinity.trailing,
                   ),
                 ),
@@ -187,7 +189,7 @@ Column(
   //       color: Colors.black54,
   //     ),
   //   ),
-  //   const SizedBox(height: 4),
+  //   SizedBox(height: 4),
   //   Text(
   //     "Joined At: ${widget.joinedAt}",
   //     style: const TextStyle(
@@ -196,7 +198,7 @@ Column(
   //       color: Colors.black54,
   //     ),
   //   ),
-  //    const SizedBox(height: 4),
+  //    SizedBox(height: 4),
   //   Text(
   //     "Salon ID: ${widget.salonId}",
   //     style: const TextStyle(
@@ -205,7 +207,7 @@ Column(
   //       color: Colors.black54,
   //     ),
   //   ),
-  //   const SizedBox(height: 4),
+  //   SizedBox(height: 4),
   //   Text(
   //     "Branch ID: ${widget.branchId}",
   //     style: const TextStyle(
@@ -214,7 +216,7 @@ Column(
   //       color: Colors.black54,
   //     ),
   //   ),
-  //   const SizedBox(height: 12),
+  //   SizedBox(height: 12),
   // ],
 ),
 
@@ -241,13 +243,12 @@ Column(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: Colors.orange),
                   ),
-                  child: const Text(
-                    "Back",
+                  child: Text(translateText("Back"),
                     style: TextStyle(color: Colors.orange),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
      onPressed: () {
@@ -289,7 +290,7 @@ Column(
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text("Next"),
+                  child: Text(translateText("Next")),
                 ),
               ),
             ],

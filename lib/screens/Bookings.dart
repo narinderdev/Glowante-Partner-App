@@ -10,9 +10,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../services/push_notification_service.dart';
 import '../utils/api_service.dart'; // Import the correct api_service.dart file
 import '../utils/colors.dart'; // Custom colors
+import '../services/language_listener.dart';
 import 'AddBookings.dart'; // Add Booking screen
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class BookingsScreen extends StatefulWidget {
   const BookingsScreen({super.key});
@@ -1075,9 +1079,8 @@ void _openAppointmentModal({
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                "Customer",
+                              SizedBox(height: 2),
+                              Text(translateText("Customer"),
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: Colors.black54,
@@ -1122,17 +1125,17 @@ void _openAppointmentModal({
                     // ✅ Time + price
                     Text(timeRange, style: const TextStyle(color: Colors.black54)),
                     if (priceTotal != null) ...[
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text('Total Price: ₹$priceTotal',
                           style: const TextStyle(color: Colors.black87)),
                     ],
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
 
                     // ✅ Assigned To
-                    const Text("Assigned To",
+                    Text(translateText("Assigned To"),
                         style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       _buildStylistName(items), // <-- helper inline below
                       style: const TextStyle(
@@ -1142,7 +1145,7 @@ void _openAppointmentModal({
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
 
                     // ✅ Services list
                     Expanded(
@@ -1180,7 +1183,7 @@ void _openAppointmentModal({
                     ),
 
                     // ✅ Action buttons
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     _buildActionButton(status, apptIds, setSheetState),
                   ],
                 ),
@@ -1198,21 +1201,21 @@ Widget _buildActionButton(String status, List<int> apptIds, void Function(void F
       onPressed: () {
         // handle confirm here
       },
-      child: const Text('Confirm'),
+      child: Text(translateText('Confirm')),
     );
   } else if (status == 'CONFIRMED') {
     return ElevatedButton(
       onPressed: () {
         // handle start job here
       },
-      child: const Text('Start Job'),
+      child: Text(translateText('Start Job')),
     );
   } else if (status == 'IN_PROGRESS') {
     return ElevatedButton(
       onPressed: () {
         // handle complete here
       },
-      child: const Text('Complete Job'),
+      child: Text(translateText('Complete Job')),
     );
   } else {
     return ElevatedButton(
@@ -1233,7 +1236,7 @@ String _buildStylistName(List<Map<String, dynamic>> items) {
       final fallback = rawUser['name']?.toString();
       if (fallback != null && fallback.isNotEmpty) return fallback;
     }
-    return 'N/A';
+    return translateText('N/A');
   }
 
   final stylistNames = items.map((it) {
@@ -1458,7 +1461,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 12),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -1470,8 +1473,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                const Text(
-                                  "Customer Review",
+                                Text(translateText("Customer Review"),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.starColor,
@@ -1482,7 +1484,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
                           ],
                         ),
 
-                        const SizedBox(height: 20),
+                        SizedBox(height: 20),
 
                         // Rating stars
                         Row(
@@ -1490,21 +1492,19 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
                           children: List.generate(5, (i) => _star(i + 1)),
                         ),
 
-                        const SizedBox(height: 16),
+                        SizedBox(height: 16),
 
                         // Comment input
-                        const Text(
-                          "Add detailed review",
+                        Text(translateText("Add detailed review"),
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6),
                         TextField(
                           controller: commentCtrl,
                           maxLines: 1,
                           onChanged: (_) => setFBState(() {}),
-                          decoration: const InputDecoration(
-                            hintText:
-                                "Share your experience with this customer...",
+                          decoration: InputDecoration(
+                            hintText: translateText("Share your experience with this customer..."),
                             filled: true,
                             fillColor: Color(0xFFF9FAFB),
                             border: OutlineInputBorder(
@@ -1515,14 +1515,13 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
                           ),
                         ),
 
-                        const SizedBox(height: 20),
+                        SizedBox(height: 20),
 
                         // Services list
-                        const Text(
-                          "Services Provided",
+                        Text(translateText("Services Provided"),
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                         Expanded(
                           child: ListView.builder(
                             shrinkWrap: true,
@@ -1550,7 +1549,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
                           ),
                         ),
 
-                        const SizedBox(height: 20),
+                        SizedBox(height: 20),
 
                         // Submit button
                         SizedBox(
@@ -1572,8 +1571,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
                               padding:
                                   const EdgeInsets.symmetric(vertical: 14),
                             ),
-                            child: const Text(
-                              "Submit Review",
+                            child: Text(translateText("Submit Review"),
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: Colors.white,
@@ -1597,7 +1595,7 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
               color: Colors.black,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.close, color: Colors.white, size: 22),
+            child: Icon(Icons.close, color: Colors.white, size: 22),
           ),
         ),
       ),
@@ -1781,7 +1779,7 @@ final String timeStr = (start != null && end != null)
                 }
                 // Exact text as requested
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Booking Confirmed')),
+                  SnackBar(content: Text(translateText('Booking Confirmed'))),
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1811,8 +1809,7 @@ Future<void> onStartJob() async {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
-            title: const Text(
-              "Enter OTP",
+            title: Text(translateText("Enter OTP"),
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             content: SizedBox(
@@ -1853,7 +1850,7 @@ Future<void> onStartJob() async {
 
                   // 👇 Inline error under OTP field
                   if (errorMessage.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       errorMessage,
                       style: const TextStyle(color: Colors.red, fontSize: 13),
@@ -1865,7 +1862,7 @@ Future<void> onStartJob() async {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogCtx),
-                child: const Text("Cancel"),
+                child: Text(translateText("Cancel")),
               ),
               ElevatedButton(
                 onPressed: isSubmitting
@@ -1873,7 +1870,7 @@ Future<void> onStartJob() async {
                     : () async {
                         if (otp.length != 6) {
                           setDialogState(() {
-                            errorMessage = "Enter valid 6-digit OTP";
+                            errorMessage = translateText("Enter valid 6-digit OTP");
                               hasError = true; 
                           });
                           return;
@@ -1894,7 +1891,7 @@ Future<void> onStartJob() async {
                         } catch (e) {
                           setDialogState(() {
                             isSubmitting = false;
-                            errorMessage = "Failed to reach server";
+                            errorMessage = translateText("Failed to reach server");
                           });
                           return;
                         }
@@ -1936,7 +1933,7 @@ Future<void> onStartJob() async {
                   backgroundColor: AppColors.starColor,
                 ),
                 child: isSubmitting
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 18,
                         width: 18,
                         child: CircularProgressIndicator(
@@ -1944,7 +1941,7 @@ Future<void> onStartJob() async {
                           color: Colors.white,
                         ),
                       )
-                    : const Text("Submit"),
+                    : Text(translateText("Submit")),
               ),
             ],
           );
@@ -2039,7 +2036,7 @@ Future<void> onCompleteJob() async {
                        Column(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
-    const SizedBox(height: 4),Row(
+    SizedBox(height: 4),Row(
   crossAxisAlignment: CrossAxisAlignment.start,
   children: [
     // Customer name + subtitle
@@ -2055,9 +2052,8 @@ Future<void> onCompleteJob() async {
             ),
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
-          const Text(
-            'Customer',
+          SizedBox(height: 2),
+          Text(translateText('Customer'),
             style: TextStyle(
   fontSize: 13,
               color: Colors.black54,
@@ -2101,7 +2097,7 @@ Future<void> onCompleteJob() async {
 
   ],
 ),
-const SizedBox(height: 12),
+SizedBox(height: 12),
 
     // Row: Date + Time
     const Divider( // 👈 thin line between items
@@ -2117,8 +2113,7 @@ const SizedBox(height: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Date',
+                  Text(translateText('Date'),
                     style: TextStyle(
                       color: Colors.black54,
                       fontWeight: FontWeight.bold,
@@ -2136,8 +2131,7 @@ const SizedBox(height: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Time',
+                  Text(translateText('Time'),
                     style: TextStyle(
                       color: Colors.black54,
                       fontWeight: FontWeight.bold,
@@ -2153,7 +2147,7 @@ const SizedBox(height: 12),
         ],
       ),
 
-    const SizedBox(height: 12),
+    SizedBox(height: 12),
 
     // Row: Duration + Price
     if (duration.isNotEmpty || totalPrice.isNotEmpty || singleServicePrice.isNotEmpty)
@@ -2164,8 +2158,7 @@ const SizedBox(height: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Duration',
+                  Text(translateText('Duration'),
                     style: TextStyle(
                       color: Colors.black54,
                       fontWeight: FontWeight.bold,
@@ -2183,8 +2176,7 @@ const SizedBox(height: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Total Price',
+                  Text(translateText('Total Price'),
                     style: TextStyle(
                       color: Colors.black54,
                       fontWeight: FontWeight.bold,
@@ -2202,8 +2194,7 @@ const SizedBox(height: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Total Price',
+                  Text(translateText('Total Price'),
                     style: TextStyle(
                       color: Colors.black54,
                       fontWeight: FontWeight.bold,
@@ -2219,14 +2210,13 @@ const SizedBox(height: 12),
         ],
       ),
 
-    const SizedBox(height: 12),
+    SizedBox(height: 12),
 
     // Assigned To
     Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Assigned To',
+        Text(translateText('Assigned To'),
           style: TextStyle(
             color: Colors.black54,
             fontWeight: FontWeight.bold,
@@ -2246,13 +2236,12 @@ const Divider( // 👈 thin line between items
       color: Color(0xFFE0E0E0), // light grey
     ),
                           if (serviceItems.isNotEmpty) ...[
-                            const SizedBox(height: 12),
-                            const Text(
-                              'Services',
+                            SizedBox(height: 12),
+                            Text(translateText('Services'),
                               style: TextStyle( color: Colors.black54,
             fontWeight: FontWeight.bold,),
                             ),
-                            const SizedBox(height: 6),
+                            SizedBox(height: 6),
                             ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxHeight: serviceListMaxHeight,
@@ -2331,7 +2320,7 @@ const Divider( // 👈 thin line between items
                               ),
                             ),
                           ],
-                          const SizedBox(height: 12),
+                          SizedBox(height: 12),
                           const Spacer(),
 
                           // ACTIONS:
@@ -2348,7 +2337,7 @@ const Divider( // 👈 thin line between items
                                   ),
                                 ),
                                 child: loadingConfirm
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         height: 18,
                                         width: 18,
                                         child: CircularProgressIndicator(
@@ -2356,7 +2345,7 @@ const Divider( // 👈 thin line between items
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Text('Accept', style: TextStyle(
+                                    : Text(translateText('Accept'), style: TextStyle(
       color: Colors.white,   // 👈 force white text
       fontWeight: FontWeight.w600,),),
                               ),
@@ -2375,7 +2364,7 @@ const Divider( // 👈 thin line between items
                                   ),
                                 ),
                                 child: loadingStart
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         height: 18,
                                         width: 18,
                                         child: CircularProgressIndicator(
@@ -2383,7 +2372,7 @@ const Divider( // 👈 thin line between items
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Text('Start job'),
+                                    : Text(translateText('Start job')),
                               ),
                             ),
                           ] else if (statusUpper == 'IN_PROGRESS') ...[
@@ -2401,7 +2390,7 @@ const Divider( // 👈 thin line between items
                                   ),
                                 ),
                                 child: loadingComplete
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         height: 18,
                                         width: 18,
                                         child: CircularProgressIndicator(
@@ -2409,7 +2398,7 @@ const Divider( // 👈 thin line between items
                                           color: Colors.white,
                                         ),
                                       )
-                                    : const Text('Complete Job'),
+                                    : Text(translateText('Complete Job')),
                               ),
                             ),
                           ] else ...[
@@ -2429,7 +2418,7 @@ const Divider( // 👈 thin line between items
                             ),
                           ],
 
-                          const SizedBox(height: 10),
+                          SizedBox(height: 10),
                         ],
                       ),
                     ),
@@ -2446,7 +2435,7 @@ const Divider( // 👈 thin line between items
                               color: Colors.black,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.close, color: Colors.white),
+                            child: Icon(Icons.close, color: Colors.white),
                           ),
                         ),
                       ),
@@ -2670,28 +2659,29 @@ Future<void> onBranchChanged(
 
   @override
   Widget build(BuildContext context) {
+    context.watch<LanguageListener>();
     final branchOptions = _computeBranchOptions();
     final selectedBranchValue =
         branchOptions.any((option) => option.branchId == selectedBranchId)
         ? selectedBranchId
         : null;
     final branchHint = branchOptions.isEmpty
-        ? 'Add a salon to get started'
-        : 'Pick a salon to view bookings';
+        ? context.t('Add a salon to get started')
+        : context.t('Pick a salon to view bookings');
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
           Column(
             children: [
-              const SizedBox(height: 30),
+              SizedBox(height: 30),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: DropdownButtonFormField<int>(
                   value: selectedBranchValue,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: 'Salon',
+                    labelText: translateText('Salon'),
                     hintText: branchHint,
                     filled: true,
                     fillColor: Colors.white,
@@ -2719,7 +2709,7 @@ Future<void> onBranchChanged(
                     fontWeight: FontWeight.w600,
                     color: Colors.black87,
                   ),
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.expand_more_rounded,
                     color: AppColors.grey,
                   ),
@@ -2768,7 +2758,7 @@ Future<void> onBranchChanged(
                         },
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(
                 children: [
              IconButton(
@@ -2876,7 +2866,7 @@ Future<void> onBranchChanged(
 ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Expanded(
                 child: Container(
                   color: const Color(0xFFF7F4F1),
@@ -2902,8 +2892,7 @@ Future<void> onBranchChanged(
                                 bottom: BorderSide(color: Colors.grey.shade300),
                               ),
                             ),
-                            child: const Text(
-                              'Time',
+                            child: Text(translateText('Time'),
                               style: TextStyle(
                                 color: Colors.black87,
                                 fontWeight: FontWeight.w700,
@@ -2967,7 +2956,7 @@ Future<void> onBranchChanged(
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               displayName,
@@ -2996,7 +2985,7 @@ Future<void> onBranchChanged(
                             SizedBox(
                               width: 100,
                               child: timeSlots.isEmpty
-                                  ? const SizedBox()
+                                  ? SizedBox()
                                   : NotificationListener<ScrollNotification>(
                                       onNotification: (notif) {
                                         if (notif.metrics.axis ==
@@ -3065,9 +3054,8 @@ Future<void> onBranchChanged(
                                 child: SizedBox(
                                    width: _totalColumns * _colWidth,
                                   child: timeSlots.isEmpty
-                                      ? const Center(
-                                          child: Text(
-                                            'No time slots available',
+                                      ? Center(
+                                          child: Text(translateText('No time slots available'),
                                           ),
                                         )
                                       : NotificationListener<
@@ -3132,7 +3120,7 @@ Future<void> onBranchChanged(
             Positioned.fill(
               child: Container(
                 color: Colors.black.withOpacity(0.05),
-                child: const Center(child: CircularProgressIndicator()),
+                child: Center(child: CircularProgressIndicator()),
               ),
             ),
         ],
@@ -3141,7 +3129,7 @@ Future<void> onBranchChanged(
     onPressed: () async {
       if (selectedBranchId == null || selectedSalonId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a salon')),
+          SnackBar(content: Text(translateText('Please select a salon'))),
         );
         return;
       }
@@ -3167,8 +3155,7 @@ Future<void> onBranchChanged(
       width: 18,
       height: 18,
     ),
-    label: const Text(
-      'Add Booking',
+    label: Text(translateText('Add Booking'),
       style: TextStyle(
         // fontWeight: FontWeight.bold,
         color: AppColors.darkGrey,
@@ -3207,7 +3194,7 @@ Future<void> onBranchChanged(
             title,
             style: TextStyle(color: color, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text(
             '$count',
             style: TextStyle(color: color, fontWeight: FontWeight.bold),
@@ -3266,7 +3253,7 @@ final location = city.isNotEmpty ? '$line1, $city' : line1;
         size: 16,
         color: Colors.blueGrey.shade400,
       ),
-      const SizedBox(width: 4),
+      SizedBox(width: 4),
     Expanded(
   child: RichText(
     maxLines: 1,
@@ -3308,13 +3295,13 @@ final location = city.isNotEmpty ? '$line1, $city' : line1;
               color: AppColors.starColor.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.storefront_rounded,
               color: AppColors.starColor,
               size: 22,
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
         ],
         Expanded(
           child: Column(
@@ -3328,7 +3315,7 @@ final location = city.isNotEmpty ? '$line1, $city' : line1;
                 overflow: TextOverflow.ellipsis,
               ),
               if (showLocation) ...[
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Row(
                   children: [
                     Icon(
@@ -3336,7 +3323,7 @@ final location = city.isNotEmpty ? '$line1, $city' : line1;
                       size: 16,
                       color: Colors.blueGrey.shade400,
                     ),
-                    const SizedBox(width: 6),
+                    SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         location,

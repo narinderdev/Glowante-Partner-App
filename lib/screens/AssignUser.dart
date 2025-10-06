@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import 'select_services_AssignUser.dart';
 import 'package:bloc_onboarding/widgets/step_header.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class Branch {
   final int id;
@@ -69,14 +71,14 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
         : 'N/A';
     return Scaffold(
       backgroundColor: AppColors.white,
-      appBar: AppBar(title: const Text("Assign User")),
+      appBar: AppBar(title: Text(translateText("Assign User"))),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ✅ Step header (Step 1 active)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(top: 8, bottom: 16),
               child: StepHeader(currentStep: 1),
             ),
@@ -85,10 +87,10 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
               "Choose branch where you'd like to assign $userName",
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             Expanded(
               child: widget.branches.isEmpty
-                  ? const Center(child: Text("No branches found for this salon"))
+                  ? Center(child: Text(translateText("No branches found for this salon")))
                   : ListView.builder(
                       itemCount: widget.branches.length,
                       itemBuilder: (_, i) {
@@ -99,7 +101,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
                     ),
             ),
 
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -138,8 +140,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: const Text(
-                  "Next",
+                child: Text(translateText("Next"),
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
@@ -172,8 +173,8 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
             style: const TextStyle(color: Colors.black54),
           ),
           trailing: isSelected
-              ? const Icon(Icons.check_circle, color: Colors.orange)
-              : const Icon(Icons.radio_button_unchecked, color: Colors.grey),
+              ? Icon(Icons.check_circle, color: Colors.orange)
+              : Icon(Icons.radio_button_unchecked, color: Colors.grey),
         ),
       ),
     );

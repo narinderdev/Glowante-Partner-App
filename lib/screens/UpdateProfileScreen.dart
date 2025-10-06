@@ -7,6 +7,8 @@ import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart'; // Import AddS
 import 'package:bloc_onboarding/repositories/salon_repository.dart'; // Import SalonRepository
 import '../utils/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class UpdateUserProfileScreen extends StatefulWidget {
   final String token; // Token passed from OTP verification screen
@@ -50,13 +52,13 @@ String email = emailController.text.trim();
     bool isValid = true;
     if (firstName.isEmpty) {
       setState(() {
-        firstNameError = 'First Name is required';
+        firstNameError = translateText('First Name is required');
       });
       isValid = false;
     }
     if (lastName.isEmpty) {
       setState(() {
-        lastNameError = 'Last Name is required';
+        lastNameError = translateText('Last Name is required');
       });
       isValid = false;
     }
@@ -147,7 +149,7 @@ String _capitalizeFirstLetter(String value) {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Profile Update Failed"),
+          title: Text(translateText("Profile Update Failed")),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: errorMessages
@@ -159,7 +161,7 @@ String _capitalizeFirstLetter(String value) {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text("OK"),
+              child: Text(translateText("OK")),
             ),
           ],
         );
@@ -175,8 +177,7 @@ String _capitalizeFirstLetter(String value) {
         backgroundColor: Colors.transparent,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: const Text(
-          'Create Profile',
+        title: Text(translateText('Create Profile'),
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         flexibleSpace: Container(
@@ -224,8 +225,7 @@ String _capitalizeFirstLetter(String value) {
                   ? CircularProgressIndicator(
                       color: Colors.white,
                     ) // Show loader when loading
-                  : Text(
-                      'Create Profile',
+                  : Text(translateText('Create Profile'),
                       style: TextStyle(color: Colors.white),
                     ),
             ),
@@ -284,7 +284,7 @@ Widget _buildTextField(
           ),
         ),
         if (fieldError.isNotEmpty) ...[
-          const SizedBox(height: 5),
+          SizedBox(height: 5),
           Text(
             fieldError,
             style: const TextStyle(color: Colors.red, fontSize: 12),

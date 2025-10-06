@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 import '../screens/AddDealsBranch.dart';  // Import the AddDealsScreen
 import '../utils/api_service.dart'; // Import your API service to fetch offers
 
@@ -25,19 +27,19 @@ class _BranchPackagesScreenState extends State<BranchPackagesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Delete Package'),
+        title: Text(translateText('Delete Package')),
         content: Text(
           'Are you sure you want to delete "$offerName"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false), // Cancels the dialog
-            child: const Text('Cancel'),
+            child: Text(translateText('Cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () => Navigator.pop(ctx, true), // Confirms the dialog
-            child: const Text('Delete'),
+            child: Text(translateText('Delete')),
           ),
         ],
       ),
@@ -45,7 +47,7 @@ class _BranchPackagesScreenState extends State<BranchPackagesScreen> {
 
     if (confirmed == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Offer deleted successfully')),
+        SnackBar(content: Text(translateText('Offer deleted successfully'))),
       );
       // Optionally refresh the offers here
     }
@@ -64,7 +66,7 @@ class _BranchPackagesScreenState extends State<BranchPackagesScreen> {
           future: _offersData,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(child: CircularProgressIndicator());
             }
 
             if (snapshot.hasError) {
@@ -102,7 +104,7 @@ class _BranchPackagesScreenState extends State<BranchPackagesScreen> {
                       //   'Branch ID: ${widget.branchDetails['id']}',
                       //   style: const TextStyle(fontSize: 14, color: Colors.black87),
                       // ),
-                      // const SizedBox(height: 12),
+                      // SizedBox(height: 12),
                     ],
                   ),
                 ),
@@ -111,9 +113,8 @@ class _BranchPackagesScreenState extends State<BranchPackagesScreen> {
 if (packages.isEmpty)
   SizedBox(
     height: MediaQuery.of(context).size.height * 0.6, // adjust height if needed
-    child: const Center(
-      child: Text(
-        'No packages available',
+    child: Center(
+      child: Text(translateText('No packages available'),
         style: TextStyle(fontSize: 16, color: Colors.grey),
       ),
     ),
@@ -144,11 +145,11 @@ if (packages.isEmpty)
                                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8),
                               _statusChip((package['status'] ?? '').toString()),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           Text(
                             (package['items'] as List?)
                                     ?.map((item) => item['name'] ?? '')
@@ -157,19 +158,19 @@ if (packages.isEmpty)
                                 '',
                             style: const TextStyle(fontSize: 14, color: Colors.black87),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           Text(
                             'Total Duration: ${package['itemSummary']['totalDuration']} Min',
                             style: const TextStyle(fontSize: 13, color: Colors.black87),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           _pricingRow(
                             pricingMode: pricingMode,
                             discountPct: discountPct ?? 0,
                             price: price,
                             rs: _rs,
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           Align(
                             alignment: Alignment.centerRight,
                             child: IconButton(
@@ -211,8 +212,8 @@ if (packages.isEmpty)
             ),
           );
         },
-        icon: const Icon(Icons.add,color: Colors.white),
-        label: const Text('Add Package'),
+        icon: Icon(Icons.add,color: Colors.white),
+        label: Text(translateText('Add Package')),
         foregroundColor: Colors.white,
         backgroundColor: Colors.orange,
       ),

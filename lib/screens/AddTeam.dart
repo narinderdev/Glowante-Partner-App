@@ -7,6 +7,8 @@ import '../screens/AddTeamSelectServices.dart';
 import '../utils/api_service.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class AddTeamScreen extends StatefulWidget {
   // final int branchId;
@@ -53,8 +55,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   String? _vPhone(String? v) {
     if (_suppressPhoneError) return null;
     final phone = (v ?? '').trim();
-    if (phone.isEmpty) return 'Phone number is required.';
-    if (phone.length != 10) return 'Phone number must be 10 digits.';
+    if (phone.isEmpty) return translateText('Phone number is required.');
+    if (phone.length != 10) return translateText('Phone number must be 10 digits.');
     return null;
   }
 
@@ -67,9 +69,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   String? _vFirstName(String? v) {
     if (_suppressFirstNameError) return null;
     final x = (v ?? '').trim();
-    if (x.isEmpty) return 'First name is required.';
+    if (x.isEmpty) return translateText('First name is required.');
     // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
-    //   return 'First name must start with a capital letter.';
+    //   return translateText('First name must start with a capital letter.');
     // }
     return null;
   }
@@ -77,9 +79,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   String? _vLastName(String? v) {
     if (_suppressLastNameError) return null;
     final x = (v ?? '').trim();
-    if (x.isEmpty) return 'Last name is required.';
+    if (x.isEmpty) return translateText('Last name is required.');
     // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
-    //   return 'Last name must start with a capital letter.';
+    //   return translateText('Last name must start with a capital letter.');
     // }
     return null;
   }
@@ -87,8 +89,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   String? _vEmail(String? v) {
     if (_suppressEmailError) return null;
     final x = (v ?? '').trim();
-    if (x.isEmpty) return 'Email is required.';
-    if (!_emailRegExp.hasMatch(x)) return 'Enter a valid email address.';
+    if (x.isEmpty) return translateText('Email is required.');
+    if (!_emailRegExp.hasMatch(x)) return translateText('Enter a valid email address.');
     return null;
   }
 
@@ -116,7 +118,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   String? _vOtp(String? v) {
     if (_suppressOtpError) return null;
     final x = (v ?? '').trim();
-    return x.isEmpty ? 'OTP is required.' : null;
+    return x.isEmpty ? translateText('OTP is required.') : null;
   }
 
   // Data for roles/specializations
@@ -243,7 +245,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           color: Colors.black87,
           fontWeight: FontWeight.w600,
         ),
-        children: const [
+        children: [
           TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
         ],
       ),
@@ -388,7 +390,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Flexible(
                     child: ListView.separated(
                       shrinkWrap: true,
@@ -418,7 +420,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   _PrimaryButton(
                     text: 'Done',
                     onPressed: () {
@@ -439,7 +441,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       Navigator.pop(ctx);
                     },
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                 ],
               ),
             );
@@ -453,7 +455,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Please fix the following'),
+        title: Text(translateText('Please fix the following')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -467,7 +469,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(translateText('OK')),
           ),
         ],
       ),
@@ -540,8 +542,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'Add Team Member',
+        title: Text(translateText('Add Team Member'),
           style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
         // Paint the gradient here:
@@ -577,7 +578,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           radius: 40,
                           backgroundColor: Colors.grey[300],
                           child: _cameraImage == null
-                              ? const Icon(Icons.camera_alt, size: 30)
+                              ? Icon(Icons.camera_alt, size: 30)
                               : ClipRRect(
                                   borderRadius: BorderRadius.circular(40),
                                   child: Image.file(
@@ -591,10 +592,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
 
                     _reqLabel('Verify Phone Number'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
@@ -609,7 +610,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             textCapitalization: TextCapitalization.none,
                             decoration: _decor(
                               hint: 'Verify phone number',
-                              prefix: const Icon(Icons.search),
+                              prefix: Icon(Icons.search),
                             ),
                             validator: _vPhone, // RED errors for "invalid phone"
                             onChanged: (_) {
@@ -627,7 +628,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         SizedBox(
                           width: 110,
                           height: 48,
@@ -660,12 +661,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     if (_phoneVerified)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          'Phone verified',
+                        child: Text(translateText('Phone verified'),
                           style: TextStyle(
                             color: _successColor,
                             fontSize: 12,
@@ -686,10 +686,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                       color: _verifyWarnColor, fontSize: 12),
                                 ),
                               )
-                            : const SizedBox.shrink(),
+                            : SizedBox.shrink(),
                       ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     Row(
                       children: [
@@ -698,7 +698,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _reqLabel('First Name'),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8),
                               TextFormField(
                                 controller: _firstNameCtrl,
                                 textCapitalization: TextCapitalization.words,
@@ -719,13 +719,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _reqLabel('Last Name'),
-                              const SizedBox(height: 8),
+                              SizedBox(height: 8),
                               TextFormField(
                                 controller: _lastNameCtrl,
                                 autovalidateMode: _showGlobalErrors
@@ -749,10 +749,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     _reqLabel('Email'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextFormField(
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
@@ -769,16 +769,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       },
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
-                    const Text(
-                      'Otp',
+                    Text(translateText('Otp'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextFormField(
                       enabled: false,
                       controller: _otpCtrl,
@@ -795,16 +794,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       },
                     ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
-                    const Text(
-                      'Gender',
+                    Text(translateText('Gender'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Row(
                       children: [
                         Radio<String>(
@@ -815,8 +813,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             _suppressGenderError = true;
                           }),
                         ),
-                        const Text('Male'),
-                        const SizedBox(width: 16),
+                        Text(translateText('Male')),
+                        SizedBox(width: 16),
                         Radio<String>(
                           value: 'Female',
                           groupValue: _gender,
@@ -825,8 +823,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             _suppressGenderError = true;
                           }),
                         ),
-                        const Text('Female'),
-                        const SizedBox(width: 16),
+                        Text(translateText('Female')),
+                        SizedBox(width: 16),
                         Radio<String>(
                           value: 'Other',
                           groupValue: _gender,
@@ -835,7 +833,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             _suppressGenderError = true;
                           }),
                         ),
-                        const Text('Other'),
+                        Text(translateText('Other')),
                       ],
                     ),
                     if (_showGlobalErrors)
@@ -850,13 +848,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                   style: TextStyle(color: _errorColor, fontSize: 12),
                                 ),
                               )
-                            : const SizedBox.shrink(),
+                            : SizedBox.shrink(),
                       ),
 
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
 
                     _reqLabel('Roles'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     _PickField(
                       hint: 'Select Roles',
                       values: _selectedRoles,
@@ -878,13 +876,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                   style: TextStyle(color: _errorColor, fontSize: 12),
                                 ),
                               )
-                            : const SizedBox.shrink(),
+                            : SizedBox.shrink(),
                       ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     _reqLabel('Specializations'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     _PickField(
                       hint: 'Select Specializations',
                       values: _selectedSpecs,
@@ -906,13 +904,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                   style: TextStyle(color: _errorColor, fontSize: 12),
                                 ),
                               )
-                            : const SizedBox.shrink(),
+                            : SizedBox.shrink(),
                       ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
                     _reqLabel('Joining Date'),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     GestureDetector(
                       onTap: _pickJoiningDate,
                       child: AbsorbPointer(
@@ -922,7 +920,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             hint: _joiningDate == null
                                 ? 'Select joining date'
                                 : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-                            prefix: const Icon(Icons.calendar_today_outlined),
+                            prefix: Icon(Icons.calendar_today_outlined),
                           ),
                           validator: (_) => null,
                         ),
@@ -940,19 +938,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                   style: TextStyle(color: _errorColor, fontSize: 12),
                                 ),
                               )
-                            : const SizedBox.shrink(),
+                            : SizedBox.shrink(),
                       ),
 
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
 
-                    const Text(
-                      'Brief About Member',
+                    Text(translateText('Brief About Member'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     TextFormField(
                       controller: _briefCtrl,
                       maxLines: 4,
@@ -963,7 +960,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       validator: (_) => null, // Brief excluded
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
 
                     // _PrimaryButton(
                     //   text: _isSubmitting ? 'Adding...' : 'Add Team Member',
@@ -997,7 +994,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     //             if (!mounted) return;
                     //             if (result['success'] == true) {
                     //               ScaffoldMessenger.of(context).showSnackBar(
-                    //                 const SnackBar(
+                    //                 SnackBar(
                     //                   content: Text("Team Member added successfully"),
                     //                 ),
                     //               );
@@ -1019,8 +1016,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     //         },
                     // ),
 
-                    // const SizedBox(height: 24),
-const SizedBox(height: 12),
+                    // SizedBox(height: 24),
+SizedBox(height: 12),
 
 // ✅ New Next Button
 _PrimaryButton(
@@ -1093,7 +1090,7 @@ class _PickField extends StatelessWidget {
             hintText: text,
             filled: true,
             fillColor: Colors.grey.shade100,
-            suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
+            suffixIcon: Icon(Icons.keyboard_arrow_down_rounded),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             border: OutlineInputBorder(
@@ -1150,7 +1147,7 @@ class _PrimaryButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(

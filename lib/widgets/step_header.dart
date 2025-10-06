@@ -55,13 +55,13 @@ class _StepCircle extends StatelessWidget {
           radius: 16,
           backgroundColor: completed || active ? activeColor : idleColor,
           child: completed
-              ? const Icon(Icons.check, color: Colors.white, size: 18)
+              ? Icon(Icons.check, color: Colors.white, size: 18)
               : Text(
                   number.toString(),
                   style: const TextStyle(color: Colors.white),
                 ),
         ),
-        const SizedBox(height: 4),
+        SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(

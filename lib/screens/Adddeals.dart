@@ -7,6 +7,8 @@ import 'SelectServices.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class AddDealsScreen extends StatefulWidget {
   final int salonId;
@@ -402,7 +404,7 @@ if (widget.isEdit && widget.existingOffer != null) {
   String? _vTitle(String? v) {
     if (_sTitle) return null;
     final x = (v ?? '').trim();
-    return x.isEmpty ? 'Deal title is required.' : null;
+    return x.isEmpty ? translateText('Deal title is required.') : null;
   }
 
   DateTime? _parseUiDate(String s) {
@@ -416,20 +418,20 @@ if (widget.isEdit && widget.existingOffer != null) {
   String? _vValidFrom(String? v) {
     if (_sValidFrom) return null;
     final x = (v ?? '').trim();
-    if (x.isEmpty) return 'Valid From is required.';
-    if (_parseUiDate(x) == null) return 'Enter a valid start date.';
+    if (x.isEmpty) return translateText('Valid From is required.');
+    if (_parseUiDate(x) == null) return translateText('Enter a valid start date.');
     return null;
   }
 
   String? _vValidTill(String? v) {
     if (_sValidTill) return null;
     final x = (v ?? '').trim();
-    if (x.isEmpty) return 'Valid Till is required.';
+    if (x.isEmpty) return translateText('Valid Till is required.');
     final to = _parseUiDate(x);
-    if (to == null) return 'Enter a valid end date.';
+    if (to == null) return translateText('Enter a valid end date.');
     final from = _parseUiDate(validFromController.text);
     if (from != null && to.isBefore(from)) {
-      return 'Valid Till must be on or after Valid From.';
+      return translateText('Valid Till must be on or after Valid From.');
     }
     return null;
   }
@@ -444,15 +446,15 @@ if (widget.isEdit && widget.existingOffer != null) {
     final x = (v ?? '').trim();
     if (pricingMode == 'Fixed') {
       final a = _parseCurrency(x);
-      if (a == null || a <= 0) return 'Enter a valid amount off.';
+      if (a == null || a <= 0) return translateText('Enter a valid amount off.');
     } else {
       if (discountType == 'Flat') {
         final a = _parseCurrency(x);
-        if (a == null || a <= 0) return 'Enter a valid discount amount.';
+        if (a == null || a <= 0) return translateText('Enter a valid discount amount.');
       } else {
         final p = double.tryParse(x);
-        if (p == null || p <= 0) return 'Enter a valid percentage off.';
-        if (p > 100) return 'Percentage off cannot exceed 100.';
+        if (p == null || p <= 0) return translateText('Enter a valid percentage off.');
+        if (p > 100) return translateText('Percentage off cannot exceed 100.');
       }
     }
     return null;
@@ -462,7 +464,7 @@ if (widget.isEdit && widget.existingOffer != null) {
     if (_sMaxDiscount) return null;
     if (pricingMode == 'Discount' && discountType == 'Percent') {
       final m = _parseCurrency(v ?? '');
-      if (m == null || m <= 0) return 'Enter the maximum discount amount.';
+      if (m == null || m <= 0) return translateText('Enter the maximum discount amount.');
     }
     return null;
   }
@@ -470,7 +472,7 @@ if (widget.isEdit && widget.existingOffer != null) {
   String? _vDiscounted() {
     if (_sDiscounted) return null;
     final d = _parseCurrency(discountedPriceController.text);
-    if (d == null || d <= 0) return 'Discounted price must be greater than 0.';
+    if (d == null || d <= 0) return translateText('Discounted price must be greater than 0.');
     return null;
   }
 
@@ -479,7 +481,7 @@ if (widget.isEdit && widget.existingOffer != null) {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Please fix the following'),
+        title: Text(translateText('Please fix the following')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,7 +493,7 @@ if (widget.isEdit && widget.existingOffer != null) {
               .toList(),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(translateText('OK'))),
         ],
       ),
     );
@@ -588,7 +590,7 @@ if (widget.isEdit && widget.existingOffer != null) {
         if (!mounted) return;
         if (res['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Offer updated successfully')),
+            SnackBar(content: Text(translateText('Offer updated successfully'))),
           );
           widget.onPackageCreated(widget.salonId);
           Navigator.pop(context);
@@ -605,7 +607,7 @@ if (widget.isEdit && widget.existingOffer != null) {
       if (!mounted) return;
       if (res['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offer created successfully')),
+          SnackBar(content: Text(translateText('Offer created successfully'))),
         );
         widget.onPackageCreated(widget.salonId);
         Navigator.pop(context);
@@ -681,8 +683,7 @@ if (widget.isEdit && widget.existingOffer != null) {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'Create Offers',
+        title: Text(translateText('Create Offers'),
           style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
         // Paint the gradient here:
@@ -726,7 +727,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                   },
                 ),
 
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
 
                 Row(
                   children: [
@@ -742,7 +743,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                           hint: 'dd-MM-yyyy',
                           prefix: Icons.calendar_today_outlined,
                           suffix: IconButton(
-                            icon: const Icon(Icons.date_range, color: Colors.black),
+                            icon: Icon(Icons.date_range, color: Colors.black),
                             onPressed: () => _pickDate(validFromController, isFrom: true),
                           ),
                         ),
@@ -750,7 +751,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                         onTap: () => _pickDate(validFromController, isFrom: true),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: validTillController,
@@ -763,7 +764,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                           hint: 'dd-MM-yyyy',
                           prefix: Icons.calendar_today_outlined,
                           suffix: IconButton(
-                            icon: const Icon(Icons.date_range, color: Colors.black),
+                            icon: Icon(Icons.date_range, color: Colors.black),
                             onPressed: () => _pickDate(validTillController, isFrom: false),
                           ),
                         ),
@@ -774,7 +775,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                   ],
                 ),
 
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
 
                 _section('Pricing Option'),
 
@@ -818,7 +819,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                           decoration: _decor(label: 'Pricing Option *', prefix: Icons.local_offer_outlined),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
                           value: discountType,
@@ -842,7 +843,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                   ),
                 ],
 
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
 
                 _section('Select Services'),
 
@@ -884,11 +885,11 @@ if (widget.isEdit && widget.existingOffer != null) {
                       border: Border.all(color: _border),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: const Row(
+                    child: Row(
                       children: [
                         Icon(Icons.add, color: Colors.black),
                         SizedBox(width: 8),
-                        Text('Select services',
+                        Text(translateText('Select services'),
                             style: TextStyle(
                               color: Colors.black,
                               fontWeight: FontWeight.w600,
@@ -902,14 +903,14 @@ if (widget.isEdit && widget.existingOffer != null) {
                     autovalidateMode: AutovalidateMode.always,
                     validator: (_) => _vServices(),
                     builder: (state) =>
-                        state.hasError ? _err(state.errorText!) : const SizedBox.shrink(),
+                        state.hasError ? _err(state.errorText!) : SizedBox.shrink(),
                   ),
 
                 if (_selectedServices.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  const Text('Selected Services',
+                  SizedBox(height: 12),
+                  Text(translateText('Selected Services'),
                       style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   ..._selectedServices.map((s) {
                     final name = (s['name'] ?? '').toString();
                     final price = (s['price'] ?? 0) as int;
@@ -937,7 +938,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                                       fontWeight: FontWeight.w700, fontSize: 14)),
                             ],
                           ),
-                          const SizedBox(height: 4),
+                          SizedBox(height: 4),
                           Text('Qty: $qty × ₹$price',
                               style: const TextStyle(color: Colors.black54, fontSize: 13)),
                         ],
@@ -946,7 +947,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                   }),
                 ],
 
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
 
                 // Discount Inputs
                 if (showFlatField) ...[
@@ -966,7 +967,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                       if (!_sAmountOff) setState(() => _sAmountOff = true);
                     },
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                 ],
                 if (showPercentField) ...[
                   Row(
@@ -989,7 +990,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                           },
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: TextFormField(
                           controller: maxDiscountController,
@@ -1010,7 +1011,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  SizedBox(height: 14),
                 ],
 
                 Row(
@@ -1026,7 +1027,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: discountedPriceController,
@@ -1045,7 +1046,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                   ],
                 ),
 
-                const SizedBox(height: 14),
+                SizedBox(height: 14),
 
                 TextFormField(
                   controller: termsController,
@@ -1058,7 +1059,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                   ),
                 ),
 
-                const SizedBox(height: 22),
+                SizedBox(height: 22),
 
                 SizedBox(
                   width: double.infinity,
@@ -1072,7 +1073,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                       elevation: 0,
                     ),
                     child: _isSubmitting
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 20,
                             height: 20,
                             child: CircularProgressIndicator(

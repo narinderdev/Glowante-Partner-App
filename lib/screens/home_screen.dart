@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/api_service.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -200,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _formatAddressFromFirstBranch(Map<String, dynamic> salon) {
     final branches = salon['branches'] as List? ?? const [];
     final addr = branches.isNotEmpty ? branches.first['address'] as Map<String, dynamic>? : null;
-    if (addr == null) return 'No address available';
+    if (addr == null) return translateText('No address available');
     final parts = [
       addr['line1'],
       addr['city'],
@@ -587,7 +589,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Future<void> onConfirmAll() async {
           if (_selectedBranchId == null) {
             ScaffoldMessenger.of(context)
-                .showSnackBar(const SnackBar(content: Text('Please select a branch first.')));
+                .showSnackBar(SnackBar(content: Text(translateText('Please select a branch first.'))));
             return;
           }
           if (status != 'PENDING' || apptIds.isEmpty) return;
@@ -640,17 +642,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ]),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(timeRange, style: const TextStyle(color: Colors.black54)),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text('Status: $status', style: const TextStyle(color: Colors.black54)),
                 if (priceTotal != null) ...[
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text('Total Price: ₹$priceTotal', style: const TextStyle(color: Colors.black87)),
                 ],
-                const SizedBox(height: 12),
-                const Text('Services', style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
+                SizedBox(height: 12),
+                Text(translateText('Services'), style: TextStyle(fontWeight: FontWeight.w700)),
+                SizedBox(height: 6),
                 Expanded(
                   child: ListView.separated(
                     itemCount: items.length,
@@ -682,14 +684,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: loadingConfirm
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 18, width: 18,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
                         : Text(apptIds.length <= 1 ? 'Confirm' : 'Confirm All (${apptIds.length})'),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
@@ -697,7 +699,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: const Text('Close'),
+                    child: Text(translateText('Close')),
                   ),
                 ),
               ],
@@ -839,7 +841,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Expanded(
                           child: loadingHeader
-                              ? const SizedBox(
+                              ? SizedBox(
                                   height: 22,
                                   child: Align(
                                     alignment: Alignment.centerLeft,
@@ -850,11 +852,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(salonName!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 4),
+                                    SizedBox(height: 4),
                                     Row(
                                       children: [
-                                        const Icon(Icons.location_on, size: 18),
-                                        const SizedBox(width: 6),
+                                        Icon(Icons.location_on, size: 18),
+                                        SizedBox(width: 6),
                                         Expanded(
                                           child: Text(
                                             salonAddress!,
@@ -875,7 +877,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     AnimatedCrossFade(
-                      firstChild: const SizedBox.shrink(),
+                      firstChild: SizedBox.shrink(),
                       secondChild: _buildSalonPicker(),
                       crossFadeState: _pickerOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
                       duration: const Duration(milliseconds: 200),
@@ -892,35 +894,32 @@ Padding(
     children: [
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text(
-            "Specialists",
+        children: [
+          Text(translateText("Specialists"),
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          Text(
-            "View all",
+          Text(translateText("View all"),
             style: TextStyle(color: Colors.orange, fontSize: 14),
           ),
         ],
       ),
-      const SizedBox(height: 8),
+      SizedBox(height: 8),
 
       // ✅ Legends
       Row(
         children: [
           _legendDot(Colors.green, "Present"),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           _legendDot(Colors.red, "Absent"),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           _legendDot(Colors.orange, "Break"),
         ],
       ),
-      const SizedBox(height: 20),
+      SizedBox(height: 20),
 
       // ✅ Static placeholders
-      const Center(
-        child: Text(
-          "No specialists available",
+      Center(
+        child: Text(translateText("No specialists available"),
           style: TextStyle(color: Colors.grey),
         ),
       ),
@@ -930,7 +929,7 @@ Padding(
 
             // status counts
             if (_selectedBranchId != null) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -947,12 +946,12 @@ Padding(
 
             // date row
             if (_selectedBranchId != null) ...[
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
                   children: [
-                    IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeDate(false)),
+                    IconButton(icon: Icon(Icons.chevron_left), onPressed: () => _changeDate(false)),
                     Flexible(
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
@@ -991,18 +990,18 @@ Padding(
                         ),
                       ),
                     ),
-                    IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeDate(true)),
+                    IconButton(icon: Icon(Icons.chevron_right), onPressed: () => _changeDate(true)),
                   ],
                 ),
               ),
             ],
 
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
 
             // timetable grid
             Expanded(
               child: (_selectedBranchId == null)
-                  ? const Center(child: Text('Select a salon above to view bookings'))
+                  ? Center(child: Text(translateText('Select a salon above to view bookings')))
                   : Container(
                       color: const Color(0xFFF7F4F1),
                       child: Column(
@@ -1018,7 +1017,7 @@ Padding(
                                   color: Colors.blueGrey.shade600,
                                   border: Border.all(color: Colors.grey.shade300),
                                 ),
-                                child: const Text('Time', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                child: Text(translateText('Time'), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                               ),
                               Expanded(
                                 child: SingleChildScrollView(
@@ -1064,7 +1063,7 @@ Padding(
                                 SizedBox(
                                   width: 100,
                                   child: timeSlots.isEmpty
-                                      ? const SizedBox()
+                                      ? SizedBox()
                                       : NotificationListener<ScrollNotification>(
                                           onNotification: (n) {
                                             if (n.metrics.axis == Axis.vertical) {
@@ -1113,7 +1112,7 @@ Padding(
                                     child: SizedBox(
                                       width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
                                       child: timeSlots.isEmpty
-                                          ? const Center(child: Text('No time slots available'))
+                                          ? Center(child: Text(translateText('No time slots available')))
                                           : NotificationListener<ScrollNotification>(
                                               onNotification: (n) {
                                                 if (n.metrics.axis == Axis.vertical) {
@@ -1163,9 +1162,9 @@ Padding(
   // salon picker (no branch dropdown here)
   Widget _buildSalonPicker() {
     if (_salons.isEmpty) {
-      return const Padding(
+      return Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('No salons available'),
+        child: Text(translateText('No salons available')),
       );
     }
 
@@ -1198,7 +1197,7 @@ Padding(
               style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
             ),
             subtitle: Text(addr, maxLines: 1, overflow: TextOverflow.ellipsis),
-            trailing: selected ? const Icon(Icons.check_circle, color: Colors.blue) : const SizedBox.shrink(),
+            trailing: selected ? Icon(Icons.check_circle, color: Colors.blue) : SizedBox.shrink(),
             onTap: () => _onPickSalon(s),
           );
         },
@@ -1219,7 +1218,7 @@ Padding(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
+          SizedBox(height: 4),
           Text('$count', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ],
       ),

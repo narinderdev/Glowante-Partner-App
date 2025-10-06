@@ -59,7 +59,7 @@
 //         ),
 //         ChangeNotifierProvider(create: (_) => BranchViewModel()),
 //       ],
-//       child: const MaterialApp(
+//       child: MaterialApp(
 //         debugShowCheckedModeBanner: false,
 //         home: SplashScreen(),
 //       ),
@@ -298,7 +298,7 @@ return MaterialApp(
     // AppTranslations.delegate,
   ],
   home: NetworkListener(
-    child: const SplashScreen(),
+    child: SplashScreen(),
   ),
 );
 

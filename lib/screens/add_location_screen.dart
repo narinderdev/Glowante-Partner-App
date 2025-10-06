@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import '../utils/colors.dart';
-import 'package:flutter/services.dart'; 
+import '../services/language_listener.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:flutter/services.dart';
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({
@@ -77,53 +80,40 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     super.dispose();
   }
 
-  // Future<void> _getCurrentLocation() async {
-  //   bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-  //   if (!serviceEnabled) return;
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isLoading = true); // start loader
 
-  //   LocationPermission permission = await Geolocator.checkPermission();
-  //   if (permission == LocationPermission.denied) {
-  //     permission = await Geolocator.requestPermission();
-  //     if (permission != LocationPermission.whileInUse && permission != LocationPermission.always) {
-  //       return;
-  //     }
-  //   }
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
 
-  //   Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-  //   _getAddressFromCoordinates(position.latitude, position.longitude);
-  // }
-Future<void> _getCurrentLocation() async {
-  setState(() => _isLoading = true); // start loader
-
-  try {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) return;
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission != LocationPermission.whileInUse &&
-          permission != LocationPermission.always) {
-        return;
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission != LocationPermission.whileInUse &&
+            permission != LocationPermission.always) {
+          return;
+        }
       }
+
+      Position position =
+          await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
+      await _getAddressFromCoordinates(position.latitude, position.longitude);
+    } catch (e) {
+      // ignore: avoid_print
+      print("Error getting location: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false); // stop loader
     }
-
-    Position position =
-        await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-
-    await _getAddressFromCoordinates(position.latitude, position.longitude);
-  } catch (e) {
-    print("Error getting location: $e");
-  } finally {
-    setState(() => _isLoading = false); // stop loader
   }
-}
 
   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
         Placemark placemark = placemarks[0];
+        if (!mounted) return;
         setState(() {
           buildingNameController.text = placemark.name ?? '';
           cityController.text = placemark.locality ?? '';
@@ -136,6 +126,7 @@ Future<void> _getCurrentLocation() async {
         });
       }
     } catch (e) {
+      // ignore: avoid_print
       print("Error fetching address: $e");
     }
   }
@@ -163,6 +154,7 @@ Future<void> _getCurrentLocation() async {
         _showOverlay();
       }
     } catch (e) {
+      // ignore: avoid_print
       print('Error fetching predictions: $e');
     }
   }
@@ -228,6 +220,7 @@ Future<void> _getCurrentLocation() async {
       model.longitude = lng;
     }
 
+    if (!mounted) return;
     setState(() {
       buildingNameController.text = model.buildingOrFlat.isNotEmpty
           ? model.buildingOrFlat
@@ -244,28 +237,26 @@ Future<void> _getCurrentLocation() async {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<LanguageListener>();
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        // Let the gradient show through:
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
         systemOverlayStyle: SystemUiOverlayStyle.light,
         iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
+          color: Colors.white,
         ),
-        title: const Text(
-          'Add location',
-          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        title: Text(
+          translateText('Add location'),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        // Paint the gradient here:
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.starColor,        // your start color
-                AppColors.getStartedButton, // your end color
+                AppColors.starColor,
+                AppColors.getStartedButton,
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -286,15 +277,15 @@ Future<void> _getCurrentLocation() async {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                   const SizedBox(height: 16), 
+                  const SizedBox(height: 16),
                   CompositedTransformTarget(
                     link: _searchFieldLink,
                     child: TextFormField(
                       controller: searchLocationController,
                       focusNode: _searchFocus,
                       decoration: InputDecoration(
-                        labelText: 'Search Location',
-                        hintText: 'Search for a location',
+                        labelText: translateText('Search Location'),
+                        hintText: translateText('Search for a location'),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -316,54 +307,70 @@ Future<void> _getCurrentLocation() async {
                       },
                     ),
                   ),
-                  SizedBox(height: 20),
-                  // ElevatedButton(
-                  //   onPressed: _getCurrentLocation,
-                  //   child: Text('Use Current Location'),
-                  //   style: ElevatedButton.styleFrom(
-                  //     minimumSize: Size(double.infinity, 50),
-                  //     shape: RoundedRectangleBorder(
-                  //       borderRadius: BorderRadius.circular(10),
-                  //     ),
-                  //     backgroundColor: AppColors.starColor,
-                  //     foregroundColor: AppColors.white,
-                  //   ),
-                  // ),
-                  ElevatedButton(
-  onPressed: _isLoading ? null : _getCurrentLocation,
-  child: _isLoading
-      ? SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2,
-          ),
-        )
-      : Text('Use Current Location'),
-  style: ElevatedButton.styleFrom(
-    minimumSize: Size(double.infinity, 50),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(10),
-    ),
-    backgroundColor: AppColors.starColor,
-    foregroundColor: AppColors.white,
-  ),
-),
+                  const SizedBox(height: 20),
 
-                  SizedBox(height: 20),
-                  _buildTextField(buildingNameController, 'Building Name and Flat No',
-                      'Enter building name and flat number', textCapitalization: TextCapitalization.words),
-                  _buildTextField(cityController, 'City', 'Enter city', textCapitalization: TextCapitalization.words),
-                  _buildTextField(pincodeController, 'Pincode', 'Enter pincode', maxLength: 6,
-  keyboardType: TextInputType.number,
-  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-  textCapitalization: TextCapitalization.none,),
-                  _buildTextField(stateController, 'State', 'Enter state', textCapitalization: TextCapitalization.words),
-                  _buildTextField(completeAddressController, 'Complete Address',
-                      'Full address will appear here',
-                      enabled: false, isRequired: false),
-                  SizedBox(height: 20),
+                  // Use Current Location
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _getCurrentLocation,
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      backgroundColor: AppColors.starColor,
+                      foregroundColor: AppColors.white,
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(translateText('Use Current Location')),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  _buildTextField(
+                    controller: buildingNameController,
+                    label: 'Building Name and Flat No',
+                    hint: 'Enter building name and flat number',
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  _buildTextField(
+                    controller: cityController,
+                    label: 'City',
+                    hint: 'Enter city',
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  _buildTextField(
+                    controller: pincodeController,
+                    label: 'Pincode',
+                    hint: 'Enter pincode',
+                    maxLength: 6,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    textCapitalization: TextCapitalization.none,
+                  ),
+                  _buildTextField(
+                    controller: stateController,
+                    label: 'State',
+                    hint: 'Enter state',
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                  _buildTextField(
+                    controller: completeAddressController,
+                    label: 'Complete Address',
+                    hint: 'Full address will appear here',
+                    enabled: false,
+                    isRequired: false,
+                  ),
+
+                  const SizedBox(height: 20),
+
                   ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState?.validate() ?? false) {
@@ -377,19 +384,19 @@ Future<void> _getCurrentLocation() async {
                         });
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Please fill all required fields')),
+                          SnackBar(content: Text(translateText('Please fill all required fields'))),
                         );
                       }
                     },
-                    child: Text('Submit Location'),
                     style: ElevatedButton.styleFrom(
-                      minimumSize: Size(double.infinity, 50),
+                      minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                       backgroundColor: AppColors.starColor,
                       foregroundColor: Colors.white,
                     ),
+                    child: Text(translateText('Submit Location')),
                   ),
                 ],
               ),
@@ -399,17 +406,27 @@ Future<void> _getCurrentLocation() async {
       ),
     );
   }
-Widget _buildTextField(
-  TextEditingController controller,
-  String label,
-  String hint, {
+}
+
+///
+/// Standalone field builder (named params)
+///
+Widget _buildTextField({
+  required TextEditingController controller,
+  required String label,
+  required String hint,
   bool enabled = true,
   bool isRequired = true,
   int? maxLength,
   TextInputType keyboardType = TextInputType.text,
   List<TextInputFormatter>? inputFormatters,
-  TextCapitalization textCapitalization = TextCapitalization.sentences, // default
+  TextCapitalization textCapitalization = TextCapitalization.sentences,
 }) {
+  final localizedLabel = translateText(label);
+  final localizedHint = translateText(hint);
+  final sanitizedField = localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
+  final fieldForMessage = sanitizedField.isEmpty ? localizedLabel : sanitizedField;
+
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: TextFormField(
@@ -423,14 +440,14 @@ Widget _buildTextField(
       cursorColor: Colors.orange,
       validator: (value) {
         if (isRequired && (value == null || value.trim().isEmpty)) {
-          return '$label is required';
+          return translateText('{field} is required', params: {'field': fieldForMessage});
         }
         return null;
       },
       decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        counterText: "", // hides default counter
+        labelText: localizedLabel,
+        hintText: localizedHint,
+        counterText: '',
         labelStyle: const TextStyle(color: AppColors.darkGrey),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -453,7 +470,11 @@ Widget _buildTextField(
       ),
     ),
   );
-}}
+}
+
+///
+/// Top-level model so it doesn’t get nested inside the State class
+///
 class AddressComponentsModel {
   String fullAddress;
   String city;

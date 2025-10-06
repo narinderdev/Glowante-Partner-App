@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/api_service.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class ReviewsScreen extends StatefulWidget {
   final int branchId;
@@ -130,7 +132,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
       backgroundColor: Colors.grey[100],
       appBar: null,
       body: loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -145,7 +147,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                           style: const TextStyle(
                               fontSize: 40, fontWeight: FontWeight.bold),
                         ),
-                        const SizedBox(width: 10),
+                        SizedBox(width: 10),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -156,12 +158,12 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                   ],
 
                   // ✅ Appointment reviews
                   appointmentReviews.isEmpty
-                      ? const Text("No reviews yet.",
+                      ? Text(translateText("No reviews yet."),
                           style: TextStyle(color: Colors.grey))
                       : Column(
                           children: appointmentReviews.map((appt) {
@@ -174,7 +176,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     // 📅 Appointment details
-                                    Text("Appointment Details",
+                                    Text(translateText("Appointment Details"),
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 16)),
@@ -182,17 +184,17 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                     Text("Client: ${appt["client"]}"),
                                     Text("Start: ${dateFormat.format(appt["startAt"])}"),
                                     Text("End: ${dateFormat.format(appt["endAt"])}"),
-                                    const SizedBox(height: 10),
+                                    SizedBox(height: 10),
 
                                     // 🏢 Branch review
                                     if (appt["branchReview"] != null) ...[
-                                      const Text("🏢 Review given for you",
+                                      Text(translateText("🏢 Review given for you"),
                                           style: TextStyle(
                                               fontWeight: FontWeight.w600)),
                                       Row(
                                         children: [
                                           buildStars(appt["branchReview"]["rating"]),
-                                          const SizedBox(width: 5),
+                                          SizedBox(width: 5),
                                           Text("${appt["branchReview"]["rating"]}"),
                                         ],
                                       ),
@@ -207,13 +209,13 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
                                     // 🙍 Client review (branch → client)
                                     if (appt["clientReview"] != null) ...[
-                                      const Text("Review given by you",
+                                      Text(translateText("Review given by you"),
                                           style: TextStyle(
                                               fontWeight: FontWeight.w600)),
                                       Row(
                                         children: [
                                           buildStars(appt["clientReview"]["rating"]),
-                                          const SizedBox(width: 5),
+                                          SizedBox(width: 5),
                                           Text("${appt["clientReview"]["rating"]}"),
                                         ],
                                       ),
@@ -230,7 +232,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
 
                                     // 👩‍🎨 Professional reviews
                                     if ((appt["professionalReviews"] as List).isNotEmpty) ...[
-                                      const Text("Your professional",
+                                      Text(translateText("Your professional"),
                                           style: TextStyle(
                                               fontWeight: FontWeight.w600)),
                                       ...(appt["professionalReviews"]
@@ -248,7 +250,7 @@ class _ReviewsScreenState extends State<ReviewsScreen> {
                                                     Row(
                                                       children: [
                                                         buildStars(r["rating"]),
-                                                        const SizedBox(width: 5),
+                                                        SizedBox(width: 5),
                                                         Text("${r["rating"]}"),
                                                       ],
                                                     ),

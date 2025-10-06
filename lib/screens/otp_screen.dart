@@ -8,6 +8,8 @@ import '../screens/UpdateProfileScreen.dart'; // Import UpdateUserProfileScreen
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -50,7 +52,7 @@ class _OtpScreenState extends State<OtpScreen> {
     String otp = otpControllers.map((controller) => controller.text).join();
     if (otp.length < 6) {
       setState(() {
-        errorMessage = 'Please enter a valid 6-digit OTP';
+        errorMessage = translateText('Please enter a valid 6-digit OTP');
       });
       return;
     }
@@ -99,7 +101,7 @@ class _OtpScreenState extends State<OtpScreen> {
           }
         } else {
           setState(() {
-            errorMessage = 'User data or token is missing';
+            errorMessage = translateText('User data or token is missing');
           });
         }
       } else {
@@ -178,7 +180,7 @@ void _handleOtpInput(String value, int index) {
       final response = await apiService.resendOtp(widget.phoneNumber);
       if (response['success'] == true) {
         setState(() {
-          errorMessage = 'OTP has been resent successfully';
+          errorMessage = translateText('OTP has been resent successfully');
         });
         // Start the countdown timer after OTP is resent
         _startCountdown();
@@ -267,8 +269,7 @@ void _handleOtpInput(String value, int index) {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(height: 20),
-              Text(
-                "OTP Verification",
+              Text(translateText("OTP Verification"),
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 10),
@@ -438,7 +439,7 @@ RawKeyboardListener(
                 ),
                 child: isLoading
                     ? CircularProgressIndicator(color: Colors.white)
-                    : Text("Continue", style: TextStyle(color: Colors.white)),
+                    : Text(translateText("Continue"), style: TextStyle(color: Colors.white)),
               ),
               SizedBox(height: 20),
               // Resend OTP

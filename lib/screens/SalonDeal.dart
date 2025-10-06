@@ -4,6 +4,8 @@ import '../utils/api_service.dart';
 import 'Adddeals.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 final kDropdownFill = Colors.grey.shade100; // ← shared color for dropdown & cards
 
@@ -86,19 +88,19 @@ class _DealScreenState extends State<DealScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Text('Delete Deal'),
+        title: Text(translateText('Delete Deal')),
         content: Text(
           'Are you sure you want to delete "$offerName"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(translateText('Cancel')),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text(translateText('Delete')),
           ),
         ],
       ),
@@ -113,7 +115,7 @@ class _DealScreenState extends State<DealScreen> {
   Future<void> _deleteOfferWithLoader(int offerId) async {
     if (selectedSalonId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a salon first')),
+        SnackBar(content: Text(translateText('Please select a salon first'))),
       );
       return;
     }
@@ -132,7 +134,7 @@ class _DealScreenState extends State<DealScreen> {
 
       if (res['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offer deleted successfully')),
+          SnackBar(content: Text(translateText('Offer deleted successfully'))),
         );
         await _fetchOffers(selectedSalonId!);
       } else {
@@ -156,7 +158,7 @@ class _DealScreenState extends State<DealScreen> {
   Future<void> _editOffer(Map<String, dynamic> offer) async {
     if (selectedSalon == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a salon")),
+        SnackBar(content: Text(translateText("Please select a salon"))),
       );
       return;
     }
@@ -197,8 +199,7 @@ class _DealScreenState extends State<DealScreen> {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: const Text(
-          'Deals',
+        title: Text(translateText('Deals'),
           style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
         ),
         // Paint the gradient here:
@@ -221,7 +222,7 @@ class _DealScreenState extends State<DealScreen> {
           future: salonsList,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text("Error: ${snapshot.error}"));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -235,12 +236,12 @@ class _DealScreenState extends State<DealScreen> {
                     items: const <DropdownMenuItem<int>>[],
                     onChanged: null,
                     decoration: InputDecoration(
-                      labelText: "Salon",
+                      labelText: translateText("Salon"),
                       labelStyle: TextStyle(
                         color: Colors.grey.shade800,
                         fontWeight: FontWeight.w700,
                       ),
-                      hintText: "No salons available",
+                      hintText: translateText("No salons available"),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 14,
@@ -255,12 +256,12 @@ class _DealScreenState extends State<DealScreen> {
                       filled: true,
                       fillColor: Colors.grey.shade100,
                     ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded),
                     dropdownColor: Colors.white,
                   ),
-                  const SizedBox(height: 16),
-                  const Expanded(
-                    child: Center(child: Text("No salons found")),
+                  SizedBox(height: 16),
+                  Expanded(
+                    child: Center(child: Text(translateText("No salons found"))),
                   ),
                 ],
               );
@@ -325,7 +326,7 @@ class _DealScreenState extends State<DealScreen> {
                           }
                         : null,
                     decoration: InputDecoration(
-                      labelText: "Salon",
+                      labelText: translateText("Salon"),
                       labelStyle: TextStyle(
                         color: Colors.grey.shade800,
                         fontWeight: FontWeight.w700,
@@ -351,24 +352,24 @@ class _DealScreenState extends State<DealScreen> {
                       filled: true,
                       fillColor: Colors.grey.shade100,
                     ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                    icon: Icon(Icons.keyboard_arrow_down_rounded),
                     dropdownColor: Colors.white,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   Expanded(
                     child: Builder(
                       builder: (context) {
                         if (selectedSalonId == null) {
-                          return const Center(
-                              child: Text("Please select a salon"));
+                          return Center(
+                              child: Text(translateText("Please select a salon")));
                         }
                         if (loadingOffers) {
-                          return const Center(
+                          return Center(
                               child: CircularProgressIndicator());
                         }
                         if (offers.isEmpty) {
-                          return const Center(child: Text("No deals available"));
+                          return Center(child: Text(translateText("No deals available")));
                         }
                         return ListView.builder(
                           itemCount: offers.length,
@@ -418,7 +419,7 @@ class _DealScreenState extends State<DealScreen> {
         onPressed: () {
           if (selectedSalon == null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Please select a salon")),
+              SnackBar(content: Text(translateText("Please select a salon"))),
             );
             return;
           }
@@ -438,8 +439,8 @@ class _DealScreenState extends State<DealScreen> {
             ),
           );
         },
-        label: const Text("Add Deal"),
-        icon: const Icon(Icons.add),
+        label: Text(translateText("Add Deal")),
+        icon: Icon(Icons.add),
         backgroundColor: AppColors.starColor,
         foregroundColor: Colors.white,
       ),
@@ -564,7 +565,7 @@ class _OfferCard extends StatelessWidget {
                         const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 _headerBadge(
                   status: status,
                   pricingMode: pricingMode,
@@ -576,11 +577,11 @@ class _OfferCard extends StatelessWidget {
             ),
 
             if (itemNames.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              SizedBox(height: 6),
               Text(itemNames, style: const TextStyle(fontSize: 13)),
             ],
 
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
 
             // Pricing section
             if (pricingMode == 'DISCOUNT') ...[
@@ -600,7 +601,7 @@ class _OfferCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 "Discounted Price: ${rs(price)}",
                 style: const TextStyle(
@@ -620,14 +621,14 @@ class _OfferCard extends StatelessWidget {
               ),
             ],
 
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               "Duration: ${totalDuration.toStringAsFixed(0)} Min",
               style: const TextStyle(fontSize: 13, color: Colors.black87),
             ),
 
             if (validFrom != null || validTo != null) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 (validFrom != null && validTo != null)
                     ? "Valid: $validFrom - $validTo"
@@ -639,14 +640,14 @@ class _OfferCard extends StatelessWidget {
             ],
 
             if (terms != null && terms.isNotEmpty) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 "Terms: $terms",
                 style: const TextStyle(fontSize: 13, color: Colors.grey),
               ),
             ],
 
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
 
             // Bottom row: Edit + delete (delete shows loader when isDeleting)
             Row(
@@ -664,19 +665,18 @@ class _OfferCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8)),
                     elevation: 0,
                   ),
-                  child: const Text(
-                    "Edit",
+                  child: Text(translateText("Edit"),
                     style:
                         TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
 
                 // Delete -> when deleting, show spinner
                 ElevatedButton.icon(
                   onPressed: isDeleting ? null : onDelete,
                   icon: isDeleting
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(
@@ -684,7 +684,7 @@ class _OfferCard extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Icon(Icons.delete, size: 16),
+                      : Icon(Icons.delete, size: 16),
                   label: Text(
                     isDeleting ? "Deleting..." : "Delete",
                     style: const TextStyle(

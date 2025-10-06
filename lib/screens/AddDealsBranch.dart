@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'SelectServices.dart';
 import '../utils/api_service.dart';
 import 'dart:math' as math;
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 
 class AddDealsBranchScreen extends StatefulWidget {
   final int salonId;
@@ -178,7 +180,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Please fix the following'),
+        title: Text(translateText('Please fix the following')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -194,7 +196,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
+            child: Text(translateText('OK')),
           ),
         ],
       ),
@@ -213,40 +215,40 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     final errors = <String>[];
 
     if (dealTitleController.text.trim().isEmpty) {
-      errors.add('Deal title is required.');
+      errors.add(translateText('Deal title is required.'));
     }
 
     if (_selectedServices.isEmpty) {
-      errors.add('Select at least one service.');
+      errors.add(translateText('Select at least one service.'));
     }
 
     final discounted = _parseCurrency(discountedPriceController.text);
     if (discounted == null || discounted <= 0) {
-      errors.add('Discounted price must be greater than 0.');
+      errors.add(translateText('Discounted price must be greater than 0.'));
     }
 
     final amountText = amountOffController.text.trim();
     if (pricingMode == 'Fixed') {
       final amount = _parseCurrency(amountText);
       if (amount == null || amount <= 0) {
-        errors.add('Enter a valid amount off.');
+        errors.add(translateText('Enter a valid amount off.'));
       }
     } else {
       if (discountType == 'Flat') {
         final amount = _parseCurrency(amountText);
         if (amount == null || amount <= 0) {
-          errors.add('Enter a valid discount amount.');
+          errors.add(translateText('Enter a valid discount amount.'));
         }
       } else {
         final percent = double.tryParse(amountText);
         if (percent == null || percent <= 0) {
-          errors.add('Enter a valid percentage off.');
+          errors.add(translateText('Enter a valid percentage off.'));
         } else if (percent > 100) {
-          errors.add('Percentage off cannot exceed 100.');
+          errors.add(translateText('Percentage off cannot exceed 100.'));
         }
         final maxDiscount = _parseCurrency(maxDiscountController.text);
         if (maxDiscount == null || maxDiscount <= 0) {
-          errors.add('Enter the maximum discount amount.');
+          errors.add(translateText('Enter the maximum discount amount.'));
         }
       }
     }
@@ -319,7 +321,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     if (response['success'] == true) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Offer created successfully')),
+          SnackBar(content: Text(translateText('Offer created successfully'))),
         );
         widget.onPackageCreated(widget.salonId);
         Navigator.pop(context);
@@ -412,7 +414,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
         pricingMode == 'Discount' && discountType == 'Percent';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Package Deal')),
+      appBar: AppBar(title: Text(translateText('Create Package Deal'))),
       body: Container(
         color: const Color(0xFFFEFBF5),
         child: SingleChildScrollView(
@@ -431,18 +433,17 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                   hint: "e.g. Men's Grooming Package",
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
 
               // Pricing Mode / Discount Type
               if (!showDiscountRow) ...[
-                Text(
-                  'Pricing Mode *',
+                Text(translateText('Pricing Mode *'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   value: pricingMode,
                   items: pricingModes
@@ -459,7 +460,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     label: '',
                     prefix: Icons.local_offer_outlined,
                   ),
-                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                  icon: Icon(Icons.keyboard_arrow_down_rounded),
                 ),
               ] else ...[
                 Row(
@@ -468,14 +469,13 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Pricing Mode *',
+                          Text(translateText('Pricing Mode *'),
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             value: pricingMode,
                             items: pricingModes
@@ -497,24 +497,23 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                               label: '',
                               prefix: Icons.local_offer_outlined,
                             ),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                            icon: Icon(Icons.keyboard_arrow_down_rounded),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Discount Type *',
+                          Text(translateText('Discount Type *'),
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             value: discountType,
                             items: discountTypes
@@ -536,7 +535,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                               label: '',
                               prefix: Icons.sell_outlined,
                             ),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                            icon: Icon(Icons.keyboard_arrow_down_rounded),
                           ),
                         ],
                       ),
@@ -545,7 +544,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                 ),
               ],
 
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
 
               // Services
               _sectionTitle('Services'),
@@ -598,12 +597,11 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     border: Border.all(color: Colors.black.withOpacity(.12)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
-                  child: const Row(
+                  child: Row(
                     children: [
                       Icon(Icons.add, color: Color(0xFF946317)),
                       SizedBox(width: 8),
-                      Text(
-                        'Select Services',
+                      Text(translateText('Select Services'),
                         style: TextStyle(
                           color: Color(0xFF946317),
                           fontWeight: FontWeight.w600,
@@ -615,12 +613,11 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
               ),
 
               if (_selectedServices.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text(
-                  'Selected Services',
+                SizedBox(height: 16),
+                Text(translateText('Selected Services'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 ..._selectedServices.map((s) {
                   final name = (s['name'] ?? '').toString();
                   final price = (s['price'] ?? 0) as int;
@@ -657,7 +654,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           'Qty: $qty × ${_rsInt(price)}',
                           style: const TextStyle(
@@ -671,7 +668,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                 }),
               ],
 
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
 
               // Discount-specific fields
               if (showFlatField) ...[
@@ -686,7 +683,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     prefix: Icons.currency_rupee,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
               ],
               if (showPercentField) ...[
                 Row(
@@ -713,7 +710,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                         },
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    SizedBox(width: 12),
                     Expanded(
                       child: TextField(
                         controller: maxDiscountController,
@@ -733,7 +730,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
               ],
 
               // Original / Discounted Price
@@ -751,7 +748,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(
                     child: TextField(
                       controller: discountedPriceController,
@@ -767,7 +764,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                 ],
               ),
 
-              const SizedBox(height: 22),
+              SizedBox(height: 22),
               // Add Packages button
               SizedBox(
                 width: double.infinity,
@@ -779,8 +776,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     backgroundColor: _accent,
                     shape: RoundedRectangleBorder(borderRadius: _radius),
                   ),
-                  child: const Text(
-                    'Add Packages',
+                  child: Text(translateText('Add Packages'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                   ),
                 ),
