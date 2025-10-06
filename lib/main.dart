@@ -297,9 +297,10 @@ return MaterialApp(
     // Add your custom translations if any
     // AppTranslations.delegate,
   ],
-  home: NetworkListener(
-    child: SplashScreen(),
+  builder: (context, child) => NetworkListener(
+    child: child ?? const SizedBox.shrink(),
   ),
+  home: const SplashScreen(),
 );
 
       },

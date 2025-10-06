@@ -373,7 +373,7 @@ class _BottomNavState extends State<BottomNav> {
 
   @override
   Widget build(BuildContext context) {
-    final langListener = Provider.of<LanguageListener>(context);
+    context.watch<LanguageListener>();
 
     // Build destinations dynamically based on current language
     final _destinations = [
@@ -551,18 +551,17 @@ class _NavButton extends StatelessWidget {
                 height: 24,
               ),
               SizedBox(height: 4),
-              Opacity(
-                opacity: isActive ? 1.0 : 0.0,
-                child: Text(
-                  destination.label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: isActive
-                        ? AppColors.starColor
-                        : Colors.transparent,
-                  ),
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: isActive
+                      ? AppColors.starColor
+                      : AppColors.darkGrey.withOpacity(0.6),
                 ),
+                child: Text(destination.label),
               ),
             ],
           ),
