@@ -21,38 +21,8 @@ class CategoryCubit extends Cubit<CategoryState> {
     );
   }
 
-  // Future<bool> loadCategories(int salonId) async {
-  //   emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
+Future<bool> loadCategories(int salonId, {bool silent = false}) async {
 
-  //   try {
-  //     final response = await _repository.fetchSalonCatalog(salonId);
-  //     if (response['success'] != true) {
-  //       throw Exception(response['message'] ?? 'Failed to load categories');
-  //     }
-
-  //     final data = response['data'] as Map<String, dynamic>?;
-  //     final categories = (data?['categories'] as List?) ?? [];
-
-  //     emit(
-  //       state.copyWith(
-  //         status: CategoryStatus.success,
-  //         categories: categories.cast<dynamic>(),
-  //         clearMessage: true,
-  //       ),
-  //     );
-  //     return true;
-  //   } catch (error) {
-  //     emit(
-  //       state.copyWith(
-  //         status: CategoryStatus.failure,
-  //         message: _extractErrorMessage(error),
-  //       ),
-  //     );
-  //     return false;
-  //   }
-  // }
-
-Future<bool> loadCategories(int salonId) async {
   emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
 
   try {
@@ -236,59 +206,71 @@ bool _isNoCategories404(Object error) {
     emit(state.copyWith(status: normalizedStatus, clearMessage: true));
   }
 
-  Future<void> _performMutation(
-    int salonId,
-    Future<Map<String, dynamic>> Function() action, {
-    required String fallbackMessage,
-  }) async {
-    emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
+  // Future<void> _performMutation(
+  //   int salonId,
+  //   Future<Map<String, dynamic>> Function() action, {
+  //   required String fallbackMessage,
+  // }) async {
+  //   emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
 
-    try {
-      final result = await action();
-      final success =
-          result['success'] == true || !result.containsKey('success');
-      if (!success) {
-        final reason = _messageFromPayload(result) ?? 'Request failed';
-        throw Exception(reason);
-      }
+  //   try {
+  //     final result = await action();
+  //     final success =
+  //         result['success'] == true || !result.containsKey('success');
+  //     if (!success) {
+  //       final reason = _messageFromPayload(result) ?? 'Request failed';
+  //       throw Exception(reason);
+  //     }
 
-      final loaded = await loadCategories(salonId);
-      if (loaded) {
-        emit(
-          state.copyWith(
-            status: CategoryStatus.actionSuccess,
-            message: _messageFromPayload(result) ?? fallbackMessage,
-          ),
-        );
-      }
-    } catch (error) {
-      emit(
-        state.copyWith(
-          status: CategoryStatus.actionFailure,
-          message: _extractErrorMessage(error),
-        ),
-      );
-    }
-  }
-
-  // String? _messageFromPayload(Map<String, dynamic> payload) {
-  //   final message = payload['message'];
-  //   final validation = payload['errors'];
-
-  //   final details = validation is Map<String, dynamic>
-  //       ? _flattenErrors(validation)
-  //       : null;
-
-  //   final parts = <String>[];
-  //   if (message is String && message.isNotEmpty) {
-  //     parts.add(message);
+  //     final loaded = await loadCategories(salonId);
+  //     if (loaded) {
+  //       emit(
+  //         state.copyWith(
+  //           status: CategoryStatus.actionSuccess,
+  //           message: _messageFromPayload(result) ?? fallbackMessage,
+  //         ),
+  //       );
+  //     }
+  //   } catch (error) {
+  //     emit(
+  //       state.copyWith(
+  //         status: CategoryStatus.actionFailure,
+  //         message: _extractErrorMessage(error),
+  //       ),
+  //     );
   //   }
-  //   if (details != null && details.isNotEmpty) {
-  //     parts.add(details);
-  //   }
-
-  //   return parts.isEmpty ? null : parts.join('\n');
   // }
+Future<void> _performMutation(
+  int salonId,
+  Future<Map<String, dynamic>> Function() action, {
+  required String fallbackMessage,
+}) async {
+  emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
+
+  try {
+    final result = await action();
+    final success =
+        result['success'] == true || !result.containsKey('success');
+    if (!success) throw Exception('Request failed');
+
+    // Emit success message first — so UI shows toast once
+    emit(state.copyWith(
+      status: CategoryStatus.actionSuccess,
+      message: _messageFromPayload(result) ?? fallbackMessage,
+    ));
+
+    // Then refresh silently
+    await loadCategories(salonId, silent: true);
+  } catch (error) {
+    emit(
+      state.copyWith(
+        status: CategoryStatus.actionFailure,
+        message: _extractErrorMessage(error),
+      ),
+    );
+  }
+}
+
   String? _messageFromPayload(Map<String, dynamic> payload) {
     final parts = <String>[];
 
