@@ -1,14 +1,28 @@
 import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../utils/colors.dart';
+
 import '../utils/api_service.dart';
+
 import '../screens/web_doc_screen.dart';
+
 import 'login_screen.dart';
+
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
+import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
+
 import '../services/language_listener.dart';
+
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+
 import 'SalonReviews.dart';
+
 import 'SalonAbout.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -20,32 +34,43 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ApiService apiService = ApiService();
+
   String? userName;
+
   String? phoneNumber;
 
   @override
   void initState() {
     super.initState();
+
     _loadUserData();
   }
 
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+
     setState(() {
-      String firstName = prefs.getString('firstName') ?? prefs.getString('first_name') ?? '';
-      String lastName = prefs.getString('lastName') ?? prefs.getString('last_name') ?? '';
+      String firstName =
+          prefs.getString('firstName') ?? prefs.getString('first_name') ?? '';
+
+      String lastName =
+          prefs.getString('lastName') ?? prefs.getString('last_name') ?? '';
+
       userName = (firstName + ' ' + lastName).trim();
+
       phoneNumber = prefs.getString('phone_number') ?? '';
     });
   }
 
- void _changeLanguage(String langCode) {
-  final langListener = Provider.of<LanguageListener>(context, listen: false);
-  langListener.changeLanguage(langCode); // should call notifyListeners() inside
-}
+  void _changeLanguage(String langCode) {
+    final langListener = Provider.of<LanguageListener>(context, listen: false);
 
+    langListener
+        .changeLanguage(langCode); // should call notifyListeners() inside
+  }
 
   // ---------------------- LOGOUT ----------------------
+
   void _showLogoutModal(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -59,16 +84,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (ctx, setSheetState) {
             Future<void> _handleLogout() async {
               if (isLoggingOut) return;
+
               setSheetState(() => isLoggingOut = true);
 
               final success = await apiService.logoutUserAPI();
 
               if (!mounted) return;
+
               setSheetState(() => isLoggingOut = false);
+
               Navigator.pop(ctx);
 
               if (success) {
                 if (!mounted) return;
+
+                context.read<SalonListCubit>().clear();
+                context.read<CategoryCubit>().clear();
+
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => LoginScreen()),
@@ -76,8 +108,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               } else {
                 if (!mounted) return;
+
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(context.t('Logout failed. Please try again.'))),
+                  SnackBar(
+                      content:
+                          Text(context.t('Logout failed. Please try again.'))),
                 );
               }
             }
@@ -89,7 +124,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(
                     context.t('Logout'),
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.red),
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.red),
                   ),
                   SizedBox(height: 10),
                   Text(
@@ -102,7 +140,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: isLoggingOut ? null : () => Navigator.pop(ctx),
+                          onPressed:
+                              isLoggingOut ? null : () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -130,7 +169,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   width: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white),
                                   ),
                                 )
                               : Text(context.t('Yes, log out')),
@@ -148,6 +188,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ---------------------- DELETE ACCOUNT ----------------------
+
   void _showDeleteAccountDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -159,16 +200,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (ctx, setDialogState) {
             Future<void> _handleDelete() async {
               if (isDeleting) return;
+
               setDialogState(() => isDeleting = true);
 
               final success = await apiService.deleteAccountAPI();
 
               if (!mounted) return;
+
               setDialogState(() => isDeleting = false);
 
               if (success) {
                 Navigator.pop(ctx);
+
                 if (!mounted) return;
+
+                context.read<SalonListCubit>().clear();
+                context.read<CategoryCubit>().clear();
+
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => LoginScreen()),
@@ -176,16 +224,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(context.t('Delete failed. Please try again.'))),
+                  SnackBar(
+                      content:
+                          Text(context.t('Delete failed. Please try again.'))),
                 );
               }
             }
 
             return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               title: Text(
                 context.t('Delete Account'),
-                style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.starColor),
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, color: AppColors.starColor),
               ),
               content: Text(
                 context.t('Are you sure you want to delete your account?'),
@@ -211,7 +263,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                       : Text(context.t('Yes, delete')),
@@ -236,7 +289,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         systemOverlayStyle: SystemUiOverlayStyle.light,
         title: Text(
           context.t('Profile'),
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         flexibleSpace: Container(
           decoration: BoxDecoration(
@@ -252,8 +306,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           // Profile card
+
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -261,12 +317,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 45,
                     backgroundColor: Colors.grey[200],
-                    child: Icon(Icons.person, size: 50, color: Colors.grey[600]),
+                    child:
+                        Icon(Icons.person, size: 50, color: Colors.grey[600]),
                   ),
                   SizedBox(height: 12),
                   Text(
                     userName ?? '',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   Text(
                     phoneNumber ?? '',
@@ -280,18 +338,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SizedBox(height: 20),
 
           // Language selection
+
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                Text(
-  context.t('Language'), // will rebuild automatically
-  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-),
+                  Text(
+                    context.t('Language'), // will rebuild automatically
 
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                   SizedBox(height: 12),
                   Row(
                     children: [
@@ -308,12 +369,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SizedBox(height: 20),
 
           // Documents links
+
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Column(
               children: [
                 ListTile(
-                  leading: Icon(Icons.privacy_tip_outlined, color: Colors.black87),
+                  leading:
+                      Icon(Icons.privacy_tip_outlined, color: Colors.black87),
                   title: Text(context.t('Privacy Policy')),
                   trailing: Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
@@ -346,33 +410,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
-               ListTile(
-              leading: const Icon(Icons.rate_review_outlined, color: Colors.black87),
-              title: Text(context.t('Reviews')),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SalonReviews(),
-                  ),
-                );
-              },
-            ),
+                ListTile(
+                  leading: const Icon(Icons.rate_review_outlined,
+                      color: Colors.black87),
+                  title: Text(context.t('Reviews')),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SalonReviews(),
+                      ),
+                    );
+                  },
+                ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
-               ListTile(
-              leading: const Icon(Icons.rate_review_outlined, color: Colors.black87),
-              title: Text(context.t('About Salon')),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SalonAbout(),
-                  ),
-                );
-              },
-            ),
+                ListTile(
+                  leading: const Icon(Icons.rate_review_outlined,
+                      color: Colors.black87),
+                  title: Text(context.t('About Salon')),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const SalonAbout(),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -380,6 +446,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SizedBox(height: 30),
 
           // Logout & Delete
+
           ElevatedButton.icon(
             onPressed: () => _showLogoutModal(context),
             icon: Icon(Icons.logout),
@@ -388,10 +455,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: AppColors.starColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
+
           SizedBox(height: 12),
+
           ElevatedButton.icon(
             onPressed: () => _showDeleteAccountDialog(context),
             icon: Icon(Icons.delete_forever),
@@ -400,9 +470,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: AppColors.starColor,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
+
           SizedBox(height: 24),
         ],
       ),
@@ -410,8 +482,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // Language selection button
+
   Widget _languageButton(String code, String label) {
     final langListener = Provider.of<LanguageListener>(context);
+
     final isSelected = langListener.currentLang == code;
 
     return Expanded(
@@ -422,16 +496,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           foregroundColor: isSelected ? Colors.white : Colors.black87,
           side: BorderSide(color: AppColors.starColor),
           padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
   }
 }
-
-
-
-
-
-

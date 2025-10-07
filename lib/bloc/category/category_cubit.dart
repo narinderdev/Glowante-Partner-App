@@ -21,45 +21,48 @@ class CategoryCubit extends Cubit<CategoryState> {
     );
   }
 
-Future<bool> loadCategories(int salonId, {bool silent = false}) async {
+  void clear() {
+    emit(const CategoryState());
+  }
 
-  emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
+  Future<bool> loadCategories(int salonId, {bool silent = false}) async {
+    emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
 
-  try {
-    final response = await _repository.fetchSalonCatalog(salonId);
-    if (response['success'] != true) {
-      throw Exception(response['message'] ?? 'Failed to load categories');
-    }
+    try {
+      final response = await _repository.fetchSalonCatalog(salonId);
+      if (response['success'] != true) {
+        throw Exception(response['message'] ?? 'Failed to load categories');
+      }
 
-    final data = response['data'] as Map<String, dynamic>?;
-    final categories = (data?['categories'] as List?) ?? [];
+      final data = response['data'] as Map<String, dynamic>?;
+      final categories = (data?['categories'] as List?) ?? [];
 
-    emit(state.copyWith(
-      status: CategoryStatus.success,
-      categories: categories.cast<dynamic>(),
-      clearMessage: true,
-    ));
-    return true;
-
-  } catch (error) {
-    // ✅ Special-case the backend’s “no categories” response
-    if (_isNoCategories404(error)) {
       emit(state.copyWith(
-        status: CategoryStatus.success,     // success, not failure
-        categories: const [],               // empty list -> your UI shows empty state
+        status: CategoryStatus.success,
+        categories: categories.cast<dynamic>(),
         clearMessage: true,
       ));
-      return true;                          // treat as a successful (empty) load
-    }
+      return true;
+    } catch (error) {
+      // â Special-case the backendâs âno categoriesâ response
+      if (_isNoCategories404(error)) {
+        emit(state.copyWith(
+          status: CategoryStatus.success, // success, not failure
+          categories: const [], // empty list -> your UI shows empty state
+          clearMessage: true,
+        ));
+        return true; // treat as a successful (empty) load
+      }
 
-    // Real error path
-    emit(state.copyWith(
-      status: CategoryStatus.failure,
-      message: _extractErrorMessage(error),
-    ));
-    return false;
+      // Real error path
+      emit(state.copyWith(
+        status: CategoryStatus.failure,
+        message: _extractErrorMessage(error),
+      ));
+      return false;
+    }
   }
-}
+
   Future<void> addCategory(int salonId, AddCategoryRequest request) async {
     await _performMutation(
       salonId,
@@ -104,34 +107,39 @@ Future<bool> loadCategories(int salonId, {bool silent = false}) async {
       fallbackMessage: 'Subcategory added successfully',
     );
   }
-bool _isNoCategories404(Object error) {
-  // Try to detect common http client types first (optional),
-  // but keep it generic so it works with your current repo.
 
-  // 1) Parse JSON object embedded in error.toString()
-  final raw = error.toString();
-  final match = RegExp(r'\{.*\}', dotAll: true).firstMatch(raw);
-  if (match != null) {
-    try {
-      final decoded = jsonDecode(match.group(0)!);
-      if (decoded is Map<String, dynamic>) {
-        final code = decoded['statusCode'] ?? decoded['status'] ?? decoded['code'];
-        final msg = (decoded['message'] ?? decoded['error'] ?? '').toString();
-        if (code == 404 && msg.toLowerCase().contains('no salon categories')) {
-          return true;
+  bool _isNoCategories404(Object error) {
+    // Try to detect common http client types first (optional),
+    // but keep it generic so it works with your current repo.
+
+    // 1) Parse JSON object embedded in error.toString()
+    final raw = error.toString();
+    final match = RegExp(r'\{.*\}', dotAll: true).firstMatch(raw);
+    if (match != null) {
+      try {
+        final decoded = jsonDecode(match.group(0)!);
+        if (decoded is Map<String, dynamic>) {
+          final code =
+              decoded['statusCode'] ?? decoded['status'] ?? decoded['code'];
+          final msg = (decoded['message'] ?? decoded['error'] ?? '').toString();
+          if (code == 404 &&
+              msg.toLowerCase().contains('no salon categories')) {
+            return true;
+          }
         }
-      }
-    } catch (_) {/* ignore */}
-  }
+      } catch (_) {/* ignore */}
+    }
 
-  // 2) Fallback: plain-text check (in case repo throws a simple string)
-  final lower = raw.toLowerCase();
-  if (lower.contains('statuscode":404') || lower.contains('status: 404') || lower.contains(' 404')) {
-    if (lower.contains('no salon categories')) return true;
-  }
+    // 2) Fallback: plain-text check (in case repo throws a simple string)
+    final lower = raw.toLowerCase();
+    if (lower.contains('statuscode":404') ||
+        lower.contains('status: 404') ||
+        lower.contains(' 404')) {
+      if (lower.contains('no salon categories')) return true;
+    }
 
-  return false;
-}
+    return false;
+  }
 
   Future<void> updateSubCategory(
     int salonId,
@@ -197,8 +205,7 @@ bool _isNoCategories404(Object error) {
 
   void clearMessage() {
     if (!state.hasMessage) return;
-    final normalizedStatus =
-        state.status == CategoryStatus.actionSuccess ||
+    final normalizedStatus = state.status == CategoryStatus.actionSuccess ||
             state.status == CategoryStatus.actionFailure
         ? CategoryStatus.success
         : state.status;
@@ -240,36 +247,36 @@ bool _isNoCategories404(Object error) {
   //     );
   //   }
   // }
-Future<void> _performMutation(
-  int salonId,
-  Future<Map<String, dynamic>> Function() action, {
-  required String fallbackMessage,
-}) async {
-  emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
+  Future<void> _performMutation(
+    int salonId,
+    Future<Map<String, dynamic>> Function() action, {
+    required String fallbackMessage,
+  }) async {
+    emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
 
-  try {
-    final result = await action();
-    final success =
-        result['success'] == true || !result.containsKey('success');
-    if (!success) throw Exception('Request failed');
+    try {
+      final result = await action();
+      final success =
+          result['success'] == true || !result.containsKey('success');
+      if (!success) throw Exception('Request failed');
 
-    // Emit success message first — so UI shows toast once
-    emit(state.copyWith(
-      status: CategoryStatus.actionSuccess,
-      message: _messageFromPayload(result) ?? fallbackMessage,
-    ));
+      // Emit success message first â so UI shows toast once
+      emit(state.copyWith(
+        status: CategoryStatus.actionSuccess,
+        message: _messageFromPayload(result) ?? fallbackMessage,
+      ));
 
-    // Then refresh silently
-    await loadCategories(salonId, silent: true);
-  } catch (error) {
-    emit(
-      state.copyWith(
-        status: CategoryStatus.actionFailure,
-        message: _extractErrorMessage(error),
-      ),
-    );
+      // Then refresh silently
+      await loadCategories(salonId, silent: true);
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: CategoryStatus.actionFailure,
+          message: _extractErrorMessage(error),
+        ),
+      );
+    }
   }
-}
 
   String? _messageFromPayload(Map<String, dynamic> payload) {
     final parts = <String>[];

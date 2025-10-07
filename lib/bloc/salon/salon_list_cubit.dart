@@ -1,4 +1,4 @@
-﻿import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../repositories/salon_repository.dart';
 
@@ -39,13 +39,17 @@ class SalonListCubit extends Cubit<SalonListState> {
       emit(state.copyWith(expandedSalonId: salonId));
     }
   }
-    void setSelectedBranch(Map<String, dynamic> branch) {
+
+  void clear() {
+    emit(const SalonListState());
+  }
+
+  void setSelectedBranch(Map<String, dynamic> branch) {
     emit(state.copyWith(selectedBranch: branch));
   }
 
-  /// 👇 Optional helper to reset selection
+  /// Optional helper to reset selection
   // void clearSelectedBranch() {
   //   emit(state.copyWith(clearSelectedBranch: true));
   // }
 }
-

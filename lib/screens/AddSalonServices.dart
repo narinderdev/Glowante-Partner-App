@@ -134,8 +134,10 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                           'Choose the services that best describe your salon.\nYou can select multiple options.',
                         ),
                         textAlign: TextAlign.center,
-                        style:
-                            const TextStyle(fontSize: 14, color: Colors.grey,fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500),
                       ),
                       const SizedBox(height: 24),
                       Expanded(
