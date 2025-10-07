@@ -44,8 +44,8 @@ class CategoryScreen extends StatefulWidget {
 
 class _CategoryScreenState extends State<CategoryScreen> {
   final Map<int, bool> _expandedSubcategories = {};
-  int? _selectedBranchId;
-  Map<String, dynamic>? _selectedBranch;
+  int? _selectedSalonId;
+  Map<String, dynamic>? _selectedSalon;
 
   @override
   void initState() {
@@ -55,54 +55,56 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
       if (salonCubit.state.salons.isEmpty) {
         salonCubit.loadSalons();
-      } else if (salonCubit.state.selectedBranch != null) {
+      } else if (salonCubit.state.selectedSalon != null) {
         setState(() {
-          _selectedBranch = salonCubit.state.selectedBranch;
-          _selectedBranchId = _selectedBranch!['branchId'];
+          _selectedSalon = salonCubit.state.selectedSalon;
+          _selectedSalonId = _selectedSalon!['salonId'] as int?;
         });
       }
     });
   }
 
-  // ---------- BRANCH HANDLING ----------
-  void _onBranchSelected(int? value, List<Map<String, dynamic>> salons) {
+  // ---------- SALON HANDLING ----------
+  void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
     if (value == null) return;
 
+    Map<String, dynamic>? selected;
     for (final salon in salons) {
-      final branches =
-          (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      final Map<String, dynamic> match = branches.firstWhere(
-        (branch) => branch['id'] == value,
-        orElse: () => <String, dynamic>{},
-      );
-      if (match.isNotEmpty) {
-        setState(() {
-          _selectedBranchId = value;
-          _selectedBranch = {
-            'salonId': salon['id'],
-            'salonName': salon['name'],
-            'branchId': match['id'],
-            'branchName': match['name'],
-          };
-          _expandedSubcategories.clear();
-        });
-        context.read<SalonListCubit>().setSelectedBranch(_selectedBranch!);
-        final categoryCubit = context.read<CategoryCubit>();
-        categoryCubit.resetCategories();
-        categoryCubit.loadCategories(salon['id'] as int);
+      final dynamic rawId = salon['id'];
+      final int? salonId =
+          rawId is int ? rawId : int.tryParse(rawId.toString());
+      if (salonId == value) {
+        selected = Map<String, dynamic>.from(salon as Map);
         break;
       }
     }
+
+    if (selected == null) return;
+
+    final int salonId = value;
+    setState(() {
+      _selectedSalonId = salonId;
+      _selectedSalon = {
+        'salonId': salonId,
+        'salonName': selected?['name'],
+      };
+      _expandedSubcategories.clear();
+    });
+
+    context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
+    final categoryCubit = context.read<CategoryCubit>();
+    categoryCubit.resetCategories();
+    categoryCubit.loadCategories(salonId);
   }
 
-  // ---------- ADD / EDIT CATEGORY ----------
+// ---------- ADD / EDIT CATEGORY ----------
   Future<void> _showAddCategorySheet({Map<String, dynamic>? category}) async {
-    if (_selectedBranch == null) {
+    if (_selectedSalon == null) {
       _toast('Select a salon first.');
       return;
     }
 
-    final salonId = _selectedBranch!['salonId'] as int;
+    final salonId = _selectedSalon!['salonId'] as int;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -120,9 +122,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
     Map<String, dynamic>? subCategory,
     required int categoryId,
   }) async {
-    if (_selectedBranch == null) return;
+    if (_selectedSalon == null) return;
 
-    final salonId = _selectedBranch!['salonId'] as int;
+    final salonId = _selectedSalon!['salonId'] as int;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -138,7 +140,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   // ---------- CONFIRM DELETE CATEGORY ----------
   Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
-    if (_selectedBranch == null) return;
+    if (_selectedSalon == null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -151,7 +153,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     if (!mounted || confirmed != true) return;
 
-    final salonId = _selectedBranch!['salonId'] as int;
+    final salonId = _selectedSalon!['salonId'] as int;
     context.read<CategoryCubit>().deleteCategory(
           salonId,
           category['id'] as int,
@@ -162,7 +164,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   Future<void> _confirmDeleteSubCategory(
     Map<String, dynamic> subCategory,
   ) async {
-    if (_selectedBranch == null) return;
+    if (_selectedSalon == null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -175,7 +177,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     if (!mounted || confirmed != true) return;
 
-    final salonId = _selectedBranch!['salonId'] as int;
+    final salonId = _selectedSalon!['salonId'] as int;
     context.read<CategoryCubit>().deleteSubCategory(
           salonId,
           subCategory['id'] as int,
@@ -193,7 +195,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     if (!mounted || result == null) return;
 
-    final salonId = _selectedBranch!['salonId'] as int;
+    final salonId = _selectedSalon!['salonId'] as int;
     context.read<CategoryCubit>().updateService(
           salonId,
           result['serviceId'] as int,
@@ -203,7 +205,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
   // ---------- CONFIRM DELETE SERVICE ----------
   Future<void> _confirmDeleteService(int serviceId) async {
-    if (_selectedBranch == null) return;
+    if (_selectedSalon == null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -216,7 +218,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     if (!mounted || confirmed != true) return;
 
-    final salonId = _selectedBranch!['salonId'] as int;
+    final salonId = _selectedSalon!['salonId'] as int;
     context.read<CategoryCubit>().deleteService(salonId, serviceId);
   }
 
@@ -225,13 +227,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
     Map<String, dynamic> category,
     List<dynamic> categories,
   ) async {
-    if (_selectedBranch == null) return;
+    if (_selectedSalon == null) return;
 
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => AddServices(
-          salonId: _selectedBranch!['salonId'] as int,
+          salonId: _selectedSalon!['salonId'] as int,
           selectedCategory: category,
           categories: categories,
         ),
@@ -244,37 +246,32 @@ class _CategoryScreenState extends State<CategoryScreen> {
     }
   }
 
-  void _autoPickFirstBranch(SalonListState state) {
-    if (_selectedBranch != null) return; // don't override user choice
+void _autoPickFirstSalon(SalonListState state) {
+    if (_selectedSalon != null) return;
     if (state.salons.isEmpty) return;
 
-    for (final salon in state.salons) {
-      final branches =
-          (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ??
-              const [];
-      if (branches.isNotEmpty) {
-        final first = branches.first;
-        setState(() {
-          _selectedBranchId = first['id'] as int;
-          _selectedBranch = {
-            'salonId': salon['id'],
-            'salonName': salon['name'],
-            'branchId': first['id'],
-            'branchName': first['name'],
-          };
-          _expandedSubcategories.clear();
-        });
-        // reflect selection in SalonListCubit and load categories
-        context.read<SalonListCubit>().setSelectedBranch(_selectedBranch!);
-        final categoryCubit = context.read<CategoryCubit>();
-        categoryCubit.resetCategories();
-        categoryCubit.loadCategories(salon['id'] as int);
-        break;
-      }
-    }
+    final Map<String, dynamic> salon =
+        Map<String, dynamic>.from(state.salons.first as Map);
+    final dynamic rawId = salon['id'];
+    final int? salonId = rawId is int ? rawId : int.tryParse(rawId.toString());
+    if (salonId == null) return;
+
+    setState(() {
+      _selectedSalonId = salonId;
+      _selectedSalon = {
+        'salonId': salonId,
+        'salonName': salon['name'],
+      };
+      _expandedSubcategories.clear();
+    });
+
+    context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
+    final categoryCubit = context.read<CategoryCubit>();
+    categoryCubit.resetCategories();
+    categoryCubit.loadCategories(salonId);
   }
 
-  // ---------- UI ----------
+// ---------- UI ----------
   @override
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
@@ -298,9 +295,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
           BlocListener<SalonListCubit, SalonListState>(
             listenWhen: (prev, curr) =>
                 prev.salons != curr.salons ||
-                prev.selectedBranch != curr.selectedBranch,
+                prev.selectedSalon != curr.selectedSalon,
             listener: (context, salonState) {
-              _autoPickFirstBranch(salonState);
+              _autoPickFirstSalon(salonState);
             },
           ),
         ],
@@ -311,9 +308,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
                 children: [
                   _HeaderSection(
                     salonState: salonState,
-                    selectedBranchId: _selectedBranchId,
-                    selectedBranch: _selectedBranch,
-                    onBranchSelected: _onBranchSelected,
+                    selectedSalonId: _selectedSalonId,
+                    selectedSalon: _selectedSalon,
+                    onSalonSelected: _onSalonSelected,
                     onRefresh: _handleManualRefresh,
                   ),
                   Expanded(
@@ -330,7 +327,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
           ),
         ),
       ),
-      floatingActionButton: _selectedBranch == null
+      floatingActionButton: _selectedSalon == null
           ? null
           : FloatingActionButton.extended(
               heroTag: 'catalogueFab',
@@ -353,7 +350,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
         children: [
-          if (_selectedBranch == null) ...[
+          if (_selectedSalon == null) ...[
             const _EmptyState(
               icon: Icons.store_mall_directory_outlined,
               title: 'Choose a salon',
@@ -400,8 +397,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   Future<void> _refreshData() async {
-    if (_selectedBranch != null) {
-      final salonId = _selectedBranch!['salonId'] as int;
+    if (_selectedSalon != null) {
+      final salonId = _selectedSalon!['salonId'] as int;
       context.read<CategoryCubit>().loadCategories(salonId);
     } else {
       context.read<SalonListCubit>().loadSalons();
@@ -431,16 +428,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
 class _HeaderSection extends StatelessWidget {
   const _HeaderSection({
     required this.salonState,
-    required this.selectedBranchId,
-    required this.selectedBranch,
-    required this.onBranchSelected,
+    required this.selectedSalonId,
+    required this.selectedSalon,
+    required this.onSalonSelected,
     required this.onRefresh,
   });
 
   final SalonListState salonState;
-  final int? selectedBranchId;
-  final Map<String, dynamic>? selectedBranch;
-  final void Function(int?, List<Map<String, dynamic>>) onBranchSelected;
+  final int? selectedSalonId;
+  final Map<String, dynamic>? selectedSalon;
+  final void Function(int?, List<Map<String, dynamic>>) onSalonSelected;
   final Future<void> Function() onRefresh;
 
   @override
@@ -448,23 +445,23 @@ class _HeaderSection extends StatelessWidget {
     final theme = Theme.of(context);
     final textTheme = theme.textTheme;
 
-    final String? branchName = selectedBranch?['branchName'] as String?;
-    final String? salonName = selectedBranch?['salonName'] as String?;
-
     final List<Map<String, dynamic>> salons = salonState.salons
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
-    final List<DropdownMenuItem<int>> branchItems = salons.expand((salon) {
-      final String salonTitle = salon['name']?.toString() ?? 'Salon';
-      final List<Map<String, dynamic>> branches = (salon['branches'] as List?)
-              ?.map((e) => Map<String, dynamic>.from(e as Map))
-              .toList() ??
-          const [];
-      return branches.map((branch) {
-        final String branchTitle = branch['name']?.toString() ?? 'Branch';
-        return DropdownMenuItem<int>(
-          value: branch['id'] as int,
+    final List<DropdownMenuItem<int>> salonItems = <DropdownMenuItem<int>>[];
+    for (final salon in salons) {
+      final dynamic rawId = salon['id'];
+      final int? salonId =
+          rawId is int ? rawId : int.tryParse(rawId.toString());
+      if (salonId == null) continue;
+      final String salonTitle =
+          salon['name']?.toString().trim().isNotEmpty == true
+              ? salon['name'].toString()
+              : 'Salon';
+      salonItems.add(
+        DropdownMenuItem<int>(
+          value: salonId,
           child: Row(
             children: [
               Container(
@@ -479,39 +476,29 @@ class _HeaderSection extends StatelessWidget {
                   size: 18,
                 ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      branchTitle,
-                      style: textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      salonTitle,
-                      style: textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                child: Text(
+                  salonTitle,
+                  style: textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
-        );
-      });
-    }).toList();
+        ),
+      );
+    }
 
-    final bool hasSelection = branchItems.any(
-      (item) => item.value == selectedBranchId,
+    final bool hasSelection = salonItems.any(
+      (item) => item.value == selectedSalonId,
     );
-    final int? dropdownValue = hasSelection ? selectedBranchId : null;
+    final int? dropdownValue = hasSelection ? selectedSalonId : null;
+
+    final String? selectedName = selectedSalon?['salonName'] as String?;
 
     final headerGradient = LinearGradient(
       colors: [AppColors.starColor, AppColors.getStartedButton],
@@ -520,7 +507,6 @@ class _HeaderSection extends StatelessWidget {
     );
     return Container(
       width: double.infinity,
-      // color: Colors.black,
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
       decoration: BoxDecoration(
         gradient: headerGradient,
@@ -541,11 +527,10 @@ class _HeaderSection extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(height: 6),
+                    const SizedBox(height: 6),
                     Text(
-                      branchName != null
-                          ? '${branchName ?? ''} / ${salonName ?? 'Salon'}'
-                          : 'Select a salon to get started',
+                      selectedName ??
+                          translateText('Select a salon to get started'),
                       style: textTheme.bodyMedium?.copyWith(
                         color: Colors.white70,
                       ),
@@ -555,29 +540,29 @@ class _HeaderSection extends StatelessWidget {
                   ],
                 ),
               ),
-              // IconButton(
-              //   onPressed: salonState.isLoading ? null : () => onRefresh(),
-              //   icon: Icon(Icons.refresh_rounded, color: Colors.white),
-              //   tooltip: 'Refresh',
-              // ),
             ],
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Text(
-                      translateText('Salon'),
+                      translateText('Choose Salon'),
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.black,
@@ -585,19 +570,14 @@ class _HeaderSection extends StatelessWidget {
                     ),
                     const Spacer(),
                     if (salonState.isLoading)
-                      SizedBox(
+                      const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.black,
-                          ),
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                   ],
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),
@@ -614,14 +594,14 @@ class _HeaderSection extends StatelessWidget {
                         color: AppColors.starColor,
                       ),
                       dropdownColor: Colors.white,
-                      items: branchItems,
-                      onChanged: branchItems.isEmpty
+                      items: salonItems,
+                      onChanged: salonItems.isEmpty
                           ? null
-                          : (value) => onBranchSelected(value, salons),
+                          : (value) => onSalonSelected(value, salons),
                       hint: Text(
-                        branchItems.isEmpty
-                            ? 'No branches available'
-                            : 'Choose branch',
+                        salonItems.isEmpty
+                            ? translateText('No salons available')
+                            : translateText('Choose salon'),
                         style: textTheme.bodyMedium?.copyWith(
                           color: Colors.grey.shade600,
                         ),
@@ -632,6 +612,19 @@ class _HeaderSection extends StatelessWidget {
               ],
             ),
           ),
+          // const SizedBox(height: 20),
+          // OutlinedButton.icon(
+          //   onPressed: salonState.isLoading ? null : onRefresh,
+          //   style: OutlinedButton.styleFrom(
+          //     foregroundColor: Colors.white,
+          //     side: const BorderSide(color: Colors.white54),
+          //     shape: RoundedRectangleBorder(
+          //       borderRadius: BorderRadius.circular(12),
+          //     ),
+          //   ),
+          //   icon: const Icon(Icons.refresh_rounded),
+          //   label: Text(translateText('Refresh salons')),
+          // ),
         ],
       ),
     );

@@ -44,7 +44,7 @@ class CategoryCubit extends Cubit<CategoryState> {
       ));
       return true;
     } catch (error) {
-      // â Special-case the backendâs âno categoriesâ response
+      // Ã¢ÂÂ Special-case the backendÃ¢ÂÂs Ã¢ÂÂno categoriesÃ¢ÂÂ response
       if (_isNoCategories404(error)) {
         emit(state.copyWith(
           status: CategoryStatus.success, // success, not failure
@@ -258,12 +258,17 @@ class CategoryCubit extends Cubit<CategoryState> {
       final result = await action();
       final success =
           result['success'] == true || !result.containsKey('success');
-      if (!success) throw Exception('Request failed');
+      if (!success) {
+        final reason = _messageFromPayload(result) ?? 'Request failed';
+        throw Exception(reason);
+      }
 
-      // Emit success message first â so UI shows toast once
+      final successMessage = _messageFromPayload(result) ?? fallbackMessage;
+
+      // Emit success message first so UI shows toast once
       emit(state.copyWith(
         status: CategoryStatus.actionSuccess,
-        message: _messageFromPayload(result) ?? fallbackMessage,
+        message: successMessage,
       ));
 
       // Then refresh silently

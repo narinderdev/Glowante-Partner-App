@@ -1,4 +1,4 @@
-﻿part of 'salon_list_cubit.dart';
+part of 'salon_list_cubit.dart';
 
 enum SalonListStatus { initial, loading, success, failure }
 
@@ -7,15 +7,15 @@ class SalonListState {
     this.status = SalonListStatus.initial,
     this.salons = const [],
     this.expandedSalonId,
-    this.selectedBranch,
+    this.selectedSalon,
     this.errorMessage,
   });
 
   final SalonListStatus status;
   final List<Map<String, dynamic>> salons;
   final int? expandedSalonId;
+  final Map<String, dynamic>? selectedSalon;
   final String? errorMessage;
-    final Map<String, dynamic>? selectedBranch;
 
   bool get isLoading => status == SalonListStatus.loading;
   bool get hasError => status == SalonListStatus.failure;
@@ -25,22 +25,19 @@ class SalonListState {
     List<Map<String, dynamic>>? salons,
     int? expandedSalonId,
     bool clearExpandedSalon = false,
+    Map<String, dynamic>? selectedSalon,
+    bool clearSelectedSalon = false,
     String? errorMessage,
     bool clearError = false,
-     Map<String, dynamic>? selectedBranch, // 👈 new
-    bool clearSelectedBranch = false, // 👈 allow reset
   }) {
     return SalonListState(
       status: status ?? this.status,
       salons: salons ?? this.salons,
-      expandedSalonId: clearExpandedSalon
-          ? null
-          : (expandedSalonId ?? this.expandedSalonId),
-      errorMessage:
-          clearError ? null : (errorMessage ?? this.errorMessage),
-      selectedBranch: clearSelectedBranch
-          ? null
-          : (selectedBranch ?? this.selectedBranch), // 👈 new
+      expandedSalonId:
+          clearExpandedSalon ? null : (expandedSalonId ?? this.expandedSalonId),
+      selectedSalon:
+          clearSelectedSalon ? null : (selectedSalon ?? this.selectedSalon),
+      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
   }
 }

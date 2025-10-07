@@ -9,7 +9,6 @@ import '../Viewmodels/AddSalonServiceRequest.dart';
 import '../bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
-
 class AddServices extends StatefulWidget {
   final int salonId;
   final Map<String, dynamic>? selectedCategory;
@@ -29,23 +28,24 @@ class AddServices extends StatefulWidget {
 class TitleCaseInputFormatter extends TextInputFormatter {
   const TitleCaseInputFormatter();
 
- String _toTitleCase(String input) {
-  if (input.isEmpty) return input; // no trim()
-  final parts = input.split(' ');
-  final mapped = parts.map((p) {
-    if (p.isEmpty) return p;
-    return p[0].toUpperCase() + p.substring(1);
-  }).toList();
-  return mapped.join(' ');
-}
-
+  String _toTitleCase(String input) {
+    if (input.isEmpty) return input; // no trim()
+    final parts = input.split(' ');
+    final mapped = parts.map((p) {
+      if (p.isEmpty) return p;
+      return p[0].toUpperCase() + p.substring(1);
+    }).toList();
+    return mapped.join(' ');
+  }
 
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
     if (newValue.text.length >= oldValue.text.length) {
       final transformed = _toTitleCase(newValue.text);
       final selection = newValue.selection;
-      final offset = math.min(transformed.length, math.max(0, selection.baseOffset));
+      final offset =
+          math.min(transformed.length, math.max(0, selection.baseOffset));
 
       return TextEditingValue(
         text: transformed,
@@ -59,6 +59,7 @@ class TitleCaseInputFormatter extends TextInputFormatter {
 class _AddServicesState extends State<AddServices> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _autoValidate = false;
 
   // controllers
   final nameController = TextEditingController();
@@ -74,11 +75,11 @@ class _AddServicesState extends State<AddServices> {
 
   /// Category dropdown state
   Map<String, dynamic>? selectedCategory; // full map for request
-  String? selectedCategoryKey;            // "cat:<id>" or "sub:<id>"
-  String? selectedCategoryType;           // 'category' or 'subCategory'
+  String? selectedCategoryKey; // "cat:<id>" or "sub:<id>"
+  String? selectedCategoryType; // 'category' or 'subCategory'
 
   /// Subcategory (right dropdown)
-  Map<String, dynamic>? selectedService;  // full map for request
+  Map<String, dynamic>? selectedService; // full map for request
 
   @override
   void initState() {
@@ -93,7 +94,8 @@ class _AddServicesState extends State<AddServices> {
       final hasSub = (selectedCategory!['subCategories'] ?? []).isNotEmpty;
       selectedCategoryType = hasSub ? 'category' : 'subCategory';
       final id = selectedCategory!['id'];
-      selectedCategoryKey = (selectedCategoryType == 'category') ? 'cat:$id' : 'sub:$id';
+      selectedCategoryKey =
+          (selectedCategoryType == 'category') ? 'cat:$id' : 'sub:$id';
     }
 
     // Focus the Service Name field and open keyboard with Caps
@@ -121,7 +123,8 @@ class _AddServicesState extends State<AddServices> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText("Failed to fetch service catalog"))),
+        SnackBar(
+            content: Text(translateText("Failed to fetch service catalog"))),
       );
     }
   }
@@ -158,7 +161,9 @@ class _AddServicesState extends State<AddServices> {
 
       if (salonCategoryId != null && salonSubCategoryId != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText("Select either category or subcategory, not both"))),
+          SnackBar(
+              content: Text(translateText(
+                  "Select either category or subcategory, not both"))),
         );
         return;
       }
@@ -219,7 +224,9 @@ class _AddServicesState extends State<AddServices> {
           title: Text(translateText("Alert")),
           content: Text(errorMessage),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(translateText("OK"))),
+            TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(translateText("OK"))),
           ],
         ),
       );
@@ -246,7 +253,8 @@ class _AddServicesState extends State<AddServices> {
     final v = (value ?? '').trim();
     if (v.isEmpty) return translateText("Price is required");
     final num? n = int.tryParse(v);
-    if (n == null || n <= 0) return translateText("Price must be a positive number");
+    if (n == null || n <= 0)
+      return translateText("Price must be a positive number");
     return null;
   }
 
@@ -254,7 +262,8 @@ class _AddServicesState extends State<AddServices> {
     final v = (value ?? '').trim();
     if (v.isEmpty) return translateText("Duration is required");
     final num? n = int.tryParse(v);
-    if (n == null || n <= 0) return translateText("Duration must be a positive number");
+    if (n == null || n <= 0)
+      return translateText("Duration must be a positive number");
     return null;
   }
 
@@ -264,14 +273,15 @@ class _AddServicesState extends State<AddServices> {
   }
 
   String? _validateSubcategory(int? _) {
-    if (selectedService == null) return translateText("Subcategory is required");
+    if (selectedService == null)
+      return translateText("Subcategory is required");
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-   backgroundColor: Colors.white,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         // Let the gradient show through:
         backgroundColor: Colors.transparent,
@@ -281,15 +291,19 @@ class _AddServicesState extends State<AddServices> {
         iconTheme: const IconThemeData(
           color: Colors.white, // back button color
         ),
-        title: Text(translateText('Add Service'),
-          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        title: Text(
+          translateText('Add Service'),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         // Paint the gradient here:
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.starColor,        // your start color
+                AppColors.starColor, // your start color
                 AppColors.getStartedButton, // your end color
               ],
               begin: Alignment.topLeft,
@@ -300,14 +314,17 @@ class _AddServicesState extends State<AddServices> {
       ),
       body: Form(
         key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
+        autovalidateMode: _autoValidate
+            ? AutovalidateMode.onUserInteraction
+            : AutovalidateMode.disabled,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
               _SectionCard(
-                title: "Basic Info",
-                subtitle: translateText('Service name is required, description is optional'),
+                title: "",
+                // subtitle: translateText(
+                //     'Service name is required, description is optional'),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -318,7 +335,8 @@ class _AddServicesState extends State<AddServices> {
                       focusNode: _nameFocus,
                       autofocus: true,
                       textInputAction: TextInputAction.next,
-                      textCapitalization: TextCapitalization.words, // open keyboard with Caps
+                      textCapitalization:
+                          TextCapitalization.words, // open keyboard with Caps
                       inputFormatters: const [TitleCaseInputFormatter()],
                       decoration: _inputDecoration(
                         hint: "Add a service name",
@@ -332,7 +350,8 @@ class _AddServicesState extends State<AddServices> {
                     TextFormField(
                       controller: descController,
                       maxLines: 2,
-                      textCapitalization: TextCapitalization.sentences, // keyboard Caps, no validation
+                      textCapitalization: TextCapitalization
+                          .sentences, // keyboard Caps, no validation
                       decoration: _inputDecoration(
                         hint: "Add a short description",
                         icon: Icons.description_outlined,
@@ -341,12 +360,10 @@ class _AddServicesState extends State<AddServices> {
                   ],
                 ),
               ),
-
               SizedBox(height: 16),
-
               _SectionCard(
-                title: "Categorization",
-                subtitle: "Choose where this service belongs",
+                title: "",
+                // subtitle: "Choose where this service belongs",
                 child: Row(
                   children: [
                     // Left: Category (uses unique string keys)
@@ -360,7 +377,8 @@ class _AddServicesState extends State<AddServices> {
                             isExpanded: true,
                             value: selectedCategoryKey,
                             hint: Text(translateText("Select Category")),
-                            items: buildCategoryAndSubcategoryKeyItems(widget.categories ?? []),
+                            items: buildCategoryAndSubcategoryKeyItems(
+                                widget.categories ?? []),
                             onChanged: (key) {
                               if (key == null) return;
                               setState(() {
@@ -369,16 +387,20 @@ class _AddServicesState extends State<AddServices> {
                                 if (key.startsWith('cat:')) {
                                   final id = int.parse(key.substring(4));
                                   selectedCategoryType = 'category';
-                                  selectedCategory = findCategoryById(widget.categories ?? [], id);
+                                  selectedCategory = findCategoryById(
+                                      widget.categories ?? [], id);
                                 } else {
-                                  final id = int.parse(key.substring(4)); // 'sub:'
+                                  final id =
+                                      int.parse(key.substring(4)); // 'sub:'
                                   selectedCategoryType = 'subCategory';
-                                  selectedCategory = findSubcategoryById(widget.categories ?? [], id);
+                                  selectedCategory = findSubcategoryById(
+                                      widget.categories ?? [], id);
                                 }
                               });
                             },
                             decoration: _inputDecoration(),
-                            validator: (_) => _validateCategory(selectedCategory),
+                            validator: (_) =>
+                                _validateCategory(selectedCategory),
                           ),
                         ],
                       ),
@@ -397,9 +419,11 @@ class _AddServicesState extends State<AddServices> {
                             isExpanded: true,
                             value: selectedService?['id'],
                             hint: Text(translateText("Select")),
-                            items: serviceCatalog.expand<DropdownMenuItem<int>>((service) {
+                            items: serviceCatalog
+                                .expand<DropdownMenuItem<int>>((service) {
                               final subCats = service['subCategories'] ?? [];
-                              return (subCats as List).map<DropdownMenuItem<int>>((sub) {
+                              return (subCats as List)
+                                  .map<DropdownMenuItem<int>>((sub) {
                                 return DropdownMenuItem<int>(
                                   value: sub['id'] as int,
                                   child: Text("${sub['name']}"),
@@ -409,7 +433,8 @@ class _AddServicesState extends State<AddServices> {
                             onChanged: (value) {
                               if (value == null) return;
                               final found = serviceCatalog
-                                  .expand((service) => service['subCategories'] ?? [])
+                                  .expand((service) =>
+                                      service['subCategories'] ?? [])
                                   .firstWhere((sub) => sub['id'] == value);
 
                               setState(() {
@@ -422,7 +447,8 @@ class _AddServicesState extends State<AddServices> {
                               });
                             },
                             decoration: _inputDecoration(),
-                            validator: (_) => _validateSubcategory(selectedService?['id']),
+                            validator: (_) =>
+                                _validateSubcategory(selectedService?['id']),
                           ),
                         ],
                       ),
@@ -430,19 +456,19 @@ class _AddServicesState extends State<AddServices> {
                   ],
                 ),
               ),
-
               SizedBox(height: 16),
-
               _SectionCard(
-                title: "Pricing & Duration",
-                subtitle: "Enter positive values only",
+                title: "",
+                // subtitle: "Enter positive values only",
                 child: Row(
                   children: [
                     Expanded(
                       child: TextFormField(
                         controller: priceController,
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                         decoration: _inputDecoration(
                           label: "Price *",
                           icon: Icons.currency_rupee,
@@ -455,7 +481,9 @@ class _AddServicesState extends State<AddServices> {
                       child: TextFormField(
                         controller: durationController,
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                         decoration: _inputDecoration(
                           label: "Duration (min) *",
                           icon: Icons.timer_outlined,
@@ -466,9 +494,7 @@ class _AddServicesState extends State<AddServices> {
                   ],
                 ),
               ),
-
               SizedBox(height: 24),
-
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -476,7 +502,8 @@ class _AddServicesState extends State<AddServices> {
                       ? SizedBox(
                           height: 18,
                           width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
                         )
                       : Icon(Icons.add_task_outlined),
                   label: Text(
@@ -487,12 +514,16 @@ class _AddServicesState extends State<AddServices> {
                     foregroundColor: AppColors.white,
                     backgroundColor: AppColors.starColor,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     elevation: 0,
                   ),
                   onPressed: _isLoading
                       ? null
                       : () async {
+                          if (!_autoValidate) {
+                            setState(() => _autoValidate = true);
+                          }
                           final valid = _formKey.currentState!.validate();
                           if (!valid) return;
                           await _addService();
@@ -508,7 +539,8 @@ class _AddServicesState extends State<AddServices> {
 }
 
 /// ---------- UI bits ----------
-InputDecoration _inputDecoration({String? hint, String? label, IconData? icon}) {
+InputDecoration _inputDecoration(
+    {String? hint, String? label, IconData? icon}) {
   return InputDecoration(
     hintText: hint,
     labelText: label,
@@ -533,7 +565,6 @@ InputDecoration _inputDecoration({String? hint, String? label, IconData? icon}) 
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
   );
 }
-
 class _SectionCard extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -547,6 +578,8 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasTitle = title.trim().isNotEmpty;
+
     return Card(
       elevation: 0,
       shadowColor: Colors.transparent,
@@ -557,19 +590,32 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(children: [
-              Icon(Icons.checklist_outlined, size: 18),
-              SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+            if (hasTitle) ...[
+              Row(
+                children: [
+                  const Icon(Icons.checklist_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
               ),
-            ]),
-            if (subtitle != null) ...[
-              SizedBox(height: 4),
-              Text(subtitle!, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+              if (subtitle != null && subtitle!.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle!,
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
             ],
-            SizedBox(height: 12),
             child,
           ],
         ),
@@ -578,19 +624,22 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
+
 class _FieldLabel extends StatelessWidget {
   final String text;
   const _FieldLabel(this.text);
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13));
+    return Text(text,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13));
   }
 }
 
 /// ---------- Category dropdown helpers (unique keys) ----------
 
 // Build unique items: "cat:<id>" for categories, "sub:<id>" for subcategories.
-List<DropdownMenuItem<String>> buildCategoryAndSubcategoryKeyItems(List<dynamic> categories) {
+List<DropdownMenuItem<String>> buildCategoryAndSubcategoryKeyItems(
+    List<dynamic> categories) {
   final List<DropdownMenuItem<String>> items = [];
 
   for (final category in categories) {
@@ -599,13 +648,16 @@ List<DropdownMenuItem<String>> buildCategoryAndSubcategoryKeyItems(List<dynamic>
       DropdownMenuItem<String>(
         value: 'cat:$catId',
         // Enabled only if it has no subcategories (same behavior you had)
-        enabled: category['subCategories'] == null || (category['subCategories'] as List).isEmpty,
+        enabled: category['subCategories'] == null ||
+            (category['subCategories'] as List).isEmpty,
         child: Text(
           category['name'] ?? '',
           style: TextStyle(
-            color: (category['subCategories'] == null || (category['subCategories'] as List).isEmpty)
+            color: (category['subCategories'] == null ||
+                    (category['subCategories'] as List).isEmpty)
                 ? Colors.black
-                : Colors.grey,
+                // : Colors.grey,
+                : Colors.black,
           ),
         ),
       ),
@@ -643,4 +695,3 @@ Map<String, dynamic>? findSubcategoryById(List<dynamic> categories, int id) {
   }
   return null;
 }
-
