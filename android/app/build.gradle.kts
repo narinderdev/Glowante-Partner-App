@@ -7,6 +7,7 @@ plugins {
     // Flutter plugin must be applied after Android and Kotlin
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 val keystoreProperties = Properties()
