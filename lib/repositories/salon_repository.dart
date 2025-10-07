@@ -1,25 +1,110 @@
 import 'dart:io';
 
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+
+import 'package:flutter/foundation.dart';
+
+import 'package:http/http.dart' as http;
+
+import 'dart:convert';
+
 import '../utils/api_service.dart';
+
 import '../Viewmodels/AddCategory.dart';
+
 import '../Viewmodels/AddSalonBranchRequest.dart';
+
 import '../Viewmodels/AddSalonServiceRequest.dart';
 
 class SalonRepository {
   SalonRepository({ApiService? apiService})
-    : _apiService = apiService ?? ApiService();
+      : _apiService = apiService ?? ApiService();
 
   final ApiService _apiService;
 
   Future<List<Map<String, dynamic>>> fetchSalons() async {
     final response = await _apiService.getSalonListApi();
+
     if (response['success'] != true) {
       throw Exception(response['message'] ?? 'Failed to fetch salons');
     }
 
     final List items = response['data'] ?? [];
+
     return items.cast<Map<String, dynamic>>();
   }
+
+  // Future<Map<String, dynamic>> createSalon({
+
+  //   required String name,
+
+  //   required String phone,
+
+  //   required String startTime,
+
+  //   required String endTime,
+
+  //   required String description,
+
+  //   required String buildingName,
+
+  //   required String city,
+
+  //   required String pincode,
+
+  //   required String state,
+
+  //   required double latitude,
+
+  //   required double longitude,
+
+  //   List<File> images = const [],
+
+  // }) async {
+
+  //   String? imageUrl;
+
+  //   if (images.isNotEmpty) {
+
+  //     final urls = await _apiService.uploadMultipleImages(images);
+
+  //     if (urls.isNotEmpty) {
+
+  //       imageUrl = urls.first;
+
+  //     }
+
+  //   }
+
+  //   return _apiService.createSalon(
+
+  //     name,
+
+  //     phone,
+
+  //     startTime,
+
+  //     endTime,
+
+  //     description,
+
+  //     buildingName,
+
+  //     city,
+
+  //     pincode,
+
+  //     state,
+
+  //     latitude,
+
+  //     longitude,
+
+  //     imageUrl: imageUrl,
+
+  //   );
+
+  // }
 
   Future<Map<String, dynamic>> createSalon({
     required String name,
@@ -33,6 +118,7 @@ class SalonRepository {
     required String state,
     required double latitude,
     required double longitude,
+    required List<String> serviceCodes,
     List<File> images = const [],
   }) async {
     String? imageUrl;
@@ -43,20 +129,60 @@ class SalonRepository {
       }
     }
 
-    return _apiService.createSalon(
-      name,
-      phone,
-      startTime,
-      endTime,
-      description,
-      buildingName,
-      city,
-      pincode,
-      state,
-      latitude,
-      longitude,
-      imageUrl: imageUrl,
+    final body = <String, dynamic>{
+      'name': name,
+      'phone': phone,
+      'startTime': startTime,
+      'endTime': endTime,
+      'description': description,
+      'image_url': imageUrl,
+      'address': {
+        'line1': '$buildingName, $city'.trim(),
+        'line2': pincode.isNotEmpty ? '$pincode, ' : '',
+        'village': '',
+        'district': '',
+        'city': city,
+        'state': state,
+        'country': 'India',
+        'postalCode': pincode,
+        'latitude': latitude,
+        'longitude': longitude,
+      },
+      'selectedCategoryCodes': serviceCodes,
+    };
+
+    final encoder = const JsonEncoder.withIndent('  ');
+    final payloadLog = encoder.convert(body);
+    debugPrint('[SalonRepository] createSalon payload ->\n$payloadLog');
+    FirebaseCrashlytics.instance
+        .log('[SalonRepository] createSalon payload -> $payloadLog');
+
+    final endpoint =
+        Uri.parse(ApiService.baseUrl + ApiService.createSalonEndpoint);
+    final token = await _apiService.getAuthToken();
+    final response = await http.post(
+      endpoint,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
     );
+
+    debugPrint(
+        '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
+    FirebaseCrashlytics.instance.log(
+        '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HttpException(
+        'createSalon failed (${response.statusCode}): ${response.body}',
+        uri: endpoint,
+      );
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return decoded;
   }
 
   Future<Map<String, dynamic>> addBranch({
@@ -72,8 +198,10 @@ class SalonRepository {
     List<File> images = const [],
   }) async {
     String imageUrl = '';
+
     if (images.isNotEmpty) {
       final urls = await _apiService.uploadMultipleImages(images);
+
       if (urls.isNotEmpty) {
         imageUrl = urls.first;
       }

@@ -10,7 +10,7 @@ import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'add_location_screen.dart';
 import '../screens/bottom_nav.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
+import 'AddSalonServices.dart';
 
 class AddSalonScreen extends StatefulWidget {
   const AddSalonScreen({
@@ -57,27 +57,27 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final _phoneController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
- @override
-void initState() {
-  super.initState();
+  @override
+  void initState() {
+    super.initState();
 
-  // Set default start and end time
-  _startTimeController.text = "08:00 AM";
-  _endTimeController.text = "08:00 PM";
+    // Set default start and end time
+    _startTimeController.text = "08:00 AM";
+    _endTimeController.text = "08:00 PM";
 
-  final phone = widget.phoneNumber;
-  if (phone != null && phone.isNotEmpty) {
-    _phoneController.text = phone;
-  }
+    final phone = widget.phoneNumber;
+    if (phone != null && phone.isNotEmpty) {
+      _phoneController.text = phone;
+    }
 
-  final names = [widget.firstName, widget.lastName]
-      .whereType<String>()
-      .map((value) => value.trim())
-      .where((value) => value.isNotEmpty)
-      .toList();
-  if (names.isNotEmpty) {
-    _salonNameController.text = names.join(' ');
-  }
+    final names = [widget.firstName, widget.lastName]
+        .whereType<String>()
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+    if (names.isNotEmpty) {
+      _salonNameController.text = names.join(' ');
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final latitude = widget.latitude;
@@ -89,19 +89,19 @@ void initState() {
           latitude != null &&
           longitude != null) {
         context.read<AddSalonCubit>().updateAddress(
-          AddSalonAddress(
-            buildingName: widget.buildingName ?? '',
-            city: widget.city ?? '',
-            pincode: widget.pincode ?? '',
-            state: widget.state ?? '',
-            latitude: latitude,
-            longitude: longitude,
-          ),
-        );
+              AddSalonAddress(
+                buildingName: widget.buildingName ?? '',
+                city: widget.city ?? '',
+                pincode: widget.pincode ?? '',
+                state: widget.state ?? '',
+                latitude: latitude,
+                longitude: longitude,
+              ),
+            );
       }
       context.read<AddSalonCubit>().loadSavedPhone(
-        initialPhone: widget.phoneNumber,
-      );
+            initialPhone: widget.phoneNumber,
+          );
     });
   }
 
@@ -148,18 +148,18 @@ void initState() {
 
     if (!mounted || result == null) return;
     context.read<AddSalonCubit>().updateAddress(
-      AddSalonAddress(
-        buildingName: result['buildingName'] as String? ?? '',
-        city: result['city'] as String? ?? '',
-        pincode: result['pincode'] as String? ?? '',
-        state: result['state'] as String? ?? '',
-        latitude: (result['latitude'] as num?)?.toDouble() ?? 0,
-        longitude: (result['longitude'] as num?)?.toDouble() ?? 0,
-      ),
-    );
+          AddSalonAddress(
+            buildingName: result['buildingName'] as String? ?? '',
+            city: result['city'] as String? ?? '',
+            pincode: result['pincode'] as String? ?? '',
+            state: result['state'] as String? ?? '',
+            latitude: (result['latitude'] as num?)?.toDouble() ?? 0,
+            longitude: (result['longitude'] as num?)?.toDouble() ?? 0,
+          ),
+        );
   }
 
-  void _submit(AddSalonState state) {
+  Future<void> _submit(AddSalonState state) async {
     final form = _formKey.currentState;
     if (form == null || !form.validate()) {
       return;
@@ -167,25 +167,47 @@ void initState() {
 
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select start and end time.'))),
+        SnackBar(
+            content: Text(translateText('Please select start and end time.'))),
       );
       return;
     }
- String _capitalizeWords(String value) {
-    return value
-        .split(' ')
-        .map((word) => word.isNotEmpty
-            ? word[0].toUpperCase() + word.substring(1)
-            : '')
-        .join(' ');
-  }
-    context.read<AddSalonCubit>().submit(
-      AddSalonFormData(
-        name: _capitalizeWords(_salonNameController.text.trim()),
-        phone: _phoneController.text.trim(),
-        startTime: _startTimeController.text.trim(),
-        endTime: _endTimeController.text.trim(),
-        description: _capitalizeWords(_descriptionController.text.trim()),
+    String _capitalizeWords(String value) {
+      return value
+          .split(' ')
+          .map((word) =>
+              word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
+          .join(' ');
+    }
+
+    if (state.address == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(translateText('Please add the salon location.'))),
+      );
+      return;
+    }
+
+    final formData = AddSalonFormData(
+      name: _capitalizeWords(_salonNameController.text.trim()),
+      phone: _phoneController.text.trim(),
+      startTime: _startTimeController.text.trim(),
+      endTime: _endTimeController.text.trim(),
+      description: _capitalizeWords(_descriptionController.text.trim()),
+    );
+
+    final cubit = context.read<AddSalonCubit>();
+
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: cubit,
+          child: AddSalonServices(
+            initialCodes: state.selectedServiceCodes,
+            formData: formData,
+          ),
+        ),
       ),
     );
   }
@@ -200,58 +222,64 @@ void initState() {
           _phoneController.text = state.savedPhone!;
         }
 
+        final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+
         if (state.status == AddSalonStatus.failure &&
-            state.errorMessage != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+            state.errorMessage != null &&
+            isCurrent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.errorMessage!)),
+          );
         }
 
-        if (state.status == AddSalonStatus.success) {
+        if (state.status == AddSalonStatus.success && isCurrent) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(translateText('Salon added successfully'))),
           );
-  Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (context) => BottomNav(tabIndex: 1), // Corrected parameter name to 'tabIndex'
-  ),
-);
-
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BottomNav(tabIndex: 1),
+            ),
+          );
         }
       },
       builder: (context, state) {
         final images = state.images;
         final address = state.address;
 
-      return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        // Let the gradient show through:
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
-        ),
-        title: Text(translateText('Add Salon'),
-          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
-        ),
-        // Paint the gradient here:
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.starColor,        // your start color
-                AppColors.getStartedButton, // your end color
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+        return Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            // Let the gradient show through:
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            // Ensure status bar + icons look good on the gradient:
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+            iconTheme: const IconThemeData(
+              color: Colors.white, // back button color
+            ),
+            title: Text(
+              translateText('Add Salon'),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            // Paint the gradient here:
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.starColor, // your start color
+                    AppColors.getStartedButton, // your end color
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
           body: Stack(
             children: [
               SingleChildScrollView(
@@ -273,8 +301,11 @@ void initState() {
                         maxLength: 10,
                         hint: 'Enter phone number',
                         enabled: true,
-                          keyboardType: TextInputType.phone, // ✅ phone-optimized keyboard
-  inputFormatters: [FilteringTextInputFormatter.digitsOnly], // ✅ digits only
+                        keyboardType:
+                            TextInputType.phone, // ✅ phone-optimized keyboard
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ], // ✅ digits only
                       ),
                       Row(
                         children: [
@@ -296,71 +327,81 @@ void initState() {
                         ],
                       ),
                       SizedBox(height: 20),
-       Text(translateText('Salon Address'),
-  style: Theme.of(context).textTheme.titleMedium,
-),
-SizedBox(height: 8),
-InkWell(
-  onTap: () => _chooseLocation(state),
-  child: Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: AppColors.darkGrey, width: 1),
-    ),
-    child: (address == null ||
-            (address?.buildingName?.isEmpty ?? true) ||
-            (address?.city?.isEmpty ?? true) ||
-            (address?.state?.isEmpty ?? true) ||
-            (address?.pincode?.isEmpty ?? true)) // Using null-aware operators
-        ? Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(translateText('Add Location'),
-                style: TextStyle(
-                  color: AppColors.black,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          )
-        : Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      address?.buildingName ?? '',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.darkGrey,
-                      ),
-                    ),
-                    if ((address?.city?.isNotEmpty ?? false) &&
-                        (address?.state?.isNotEmpty ?? false))
                       Text(
-                        '${address?.city}, ${address?.state}',
-                        style: const TextStyle(color: AppColors.darkGrey),
+                        translateText('Salon Address'),
+                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                    if (address?.pincode?.isNotEmpty ?? false)
-                      Text(
-                        'Pincode: ${address?.pincode}',
-                        style: const TextStyle(color: AppColors.darkGrey),
+                      SizedBox(height: 8),
+                      InkWell(
+                        onTap: () => _chooseLocation(state),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border:
+                                Border.all(color: AppColors.darkGrey, width: 1),
+                          ),
+                          child: (address == null ||
+                                  (address?.buildingName?.isEmpty ?? true) ||
+                                  (address?.city?.isEmpty ?? true) ||
+                                  (address?.state?.isEmpty ?? true) ||
+                                  (address?.pincode?.isEmpty ??
+                                      true)) // Using null-aware operators
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      translateText('Add Location'),
+                                      style: TextStyle(
+                                        color: AppColors.black,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            address?.buildingName ?? '',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.darkGrey,
+                                            ),
+                                          ),
+                                          if ((address?.city?.isNotEmpty ??
+                                                  false) &&
+                                              (address?.state?.isNotEmpty ??
+                                                  false))
+                                            Text(
+                                              '${address?.city}, ${address?.state}',
+                                              style: const TextStyle(
+                                                  color: AppColors.darkGrey),
+                                            ),
+                                          if (address?.pincode?.isNotEmpty ??
+                                              false)
+                                            Text(
+                                              'Pincode: ${address?.pincode}',
+                                              style: const TextStyle(
+                                                  color: AppColors.darkGrey),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(Icons.edit, color: AppColors.darkGrey),
+                                  ],
+                                ),
+                        ),
                       ),
-                  ],
-                ),
-              ),
-              Icon(Icons.edit, color: AppColors.darkGrey),
-            ],
-          ),
-  ),
-),
-
                       SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
@@ -369,9 +410,9 @@ InkWell(
                         hint: 'Enter a description about your salon',
                         maxLines: 1,
                       ),
-                      
                       SizedBox(height: 20),
-                      Text(translateText('Salon Images'),
+                      Text(
+                        translateText('Salon Images'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       SizedBox(height: 8),
@@ -411,11 +452,10 @@ InkWell(
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: state.isSubmitting
-                              ? null
-                              : () => _submit(state),
+                          onPressed:
+                              state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.starColor,
+                            backgroundColor: AppColors.starColor,
                             foregroundColor: AppColors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -430,7 +470,7 @@ InkWell(
                                     color: Colors.white,
                                   ),
                                 )
-                              : Text(translateText('Add Salon')),
+                              : Text(translateText('Next')),
                         ),
                       ),
                     ],
@@ -451,72 +491,73 @@ InkWell(
     );
   }
 
-Widget _buildTextField({
-  required TextEditingController controller,
-  required String label,
-  required String hint,
-  int maxLines = 1,
-  int? maxLength,
-  bool enabled = true,
-  TextCapitalization textCapitalization = TextCapitalization.none,
-  TextInputType keyboardType = TextInputType.text,
-  List<TextInputFormatter>? inputFormatters,
-}) {
-  final localizedLabel = translateText(label);
-  final localizedHint = translateText(hint);
-  final sanitizedField = localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
-  final fieldForMessage = sanitizedField.isEmpty ? localizedLabel : sanitizedField;
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    int maxLines = 1,
+    int? maxLength,
+    bool enabled = true,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+  }) {
+    final localizedLabel = translateText(label);
+    final localizedHint = translateText(hint);
+    final sanitizedField =
+        localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
+    final fieldForMessage =
+        sanitizedField.isEmpty ? localizedLabel : sanitizedField;
 
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      maxLength: maxLength,
-      enabled: enabled,
-      textCapitalization: textCapitalization,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return translateText('{field} is required', params: {'field': fieldForMessage});
-        }
-        return null;
-      },
-      decoration: InputDecoration(
-        counterText: '',
-        labelText: localizedLabel,
-        hintText: localizedHint,
-        labelStyle: const TextStyle(color: AppColors.darkGrey),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.grey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        errorStyle: const TextStyle(
-          color: AppColors.red,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        maxLength: maxLength,
+        enabled: enabled,
+        textCapitalization: textCapitalization,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return translateText('{field} is required',
+                params: {'field': fieldForMessage});
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          counterText: '',
+          labelText: localizedLabel,
+          hintText: localizedHint,
+          labelStyle: const TextStyle(color: AppColors.darkGrey),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: Colors.grey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          errorStyle: const TextStyle(
+            color: AppColors.red,
+          ),
         ),
       ),
-    ),
-  );
-}
-
-
+    );
+  }
 
   Widget _buildTimePickerField({
     required TextEditingController controller,

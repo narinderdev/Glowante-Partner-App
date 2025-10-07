@@ -1,4 +1,4 @@
-﻿part of 'add_salon_cubit.dart';
+part of 'add_salon_cubit.dart';
 
 const _noPhoneValue = Object();
 
@@ -47,6 +47,7 @@ class AddSalonState {
     this.images = const <File>[],
     this.savedPhone,
     this.errorMessage,
+    this.selectedServiceCodes = const <String>[],
   });
 
   final AddSalonStatus status;
@@ -54,6 +55,7 @@ class AddSalonState {
   final List<File> images;
   final String? savedPhone;
   final String? errorMessage;
+  final List<String> selectedServiceCodes;
 
   bool get isSubmitting => status == AddSalonStatus.submitting;
   bool get isSuccess => status == AddSalonStatus.success;
@@ -67,15 +69,19 @@ class AddSalonState {
     Object? savedPhone = _noPhoneValue,
     String? errorMessage,
     bool clearError = false,
+    List<String>? selectedServiceCodes,
+    bool clearSelectedServiceCodes = false,
   }) {
     return AddSalonState(
       status: status ?? this.status,
       address: clearAddress ? null : (address ?? this.address),
       images: clearImages ? const <File>[] : (images ?? this.images),
-      savedPhone: savedPhone == _noPhoneValue
-          ? this.savedPhone
-          : savedPhone as String?,
+      savedPhone:
+          savedPhone == _noPhoneValue ? this.savedPhone : savedPhone as String?,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      selectedServiceCodes: clearSelectedServiceCodes
+          ? const <String>[]
+          : (selectedServiceCodes ?? this.selectedServiceCodes),
     );
   }
 }

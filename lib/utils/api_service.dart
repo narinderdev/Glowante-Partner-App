@@ -298,68 +298,134 @@ Future<String?> uploadImage(File file) async {
 
   // ---------------------- SALONS ----------------------
 
-  Future<Map<String, dynamic>> createSalon(
-    String name,
-    String phone,
-    String startTime,
-    String endTime,
-    String description,
-    String buildingName,
-    String city,
-    String pincode,
-    String state,
-    double latitude,
-    double longitude, {
-    String? imageUrl, // 👈 optional
-  }) async {
-    final token = await getAuthToken();
+  // Future<Map<String, dynamic>> createSalon(
+  //   String name,
+  //   String phone,
+  //   String startTime,
+  //   String endTime,
+  //   String description,
+  //   String buildingName,
+  //   String city,
+  //   String pincode,
+  //   String state,
+  //   double latitude,
+  //   double longitude, {
+  //   String? imageUrl, // 👈 optional
+  // }) async {
+  //   final token = await getAuthToken();
 
-    String formattedStartTime = _formatTime(startTime);
-    String formattedEndTime = _formatTime(endTime);
+  //   String formattedStartTime = _formatTime(startTime);
+  //   String formattedEndTime = _formatTime(endTime);
 
-    final createPayload = {
-      "name": name,
-      "phone": phone,
-      "startTime": formattedStartTime,
-      "endTime": formattedEndTime,
-      "description": description,
-      "address": {
-        "line1": buildingName,
-        "line2": "",
-        "village": "",
-        "district": "",
-        "city": city,
-        "state": state,
-        "country": "India",
-        "postalCode": pincode,
-        "latitude": latitude,
-        "longitude": longitude,
-      },
-    };
+  //   final createPayload = {
+  //     "name": name,
+  //     "phone": phone,
+  //     "startTime": formattedStartTime,
+  //     "endTime": formattedEndTime,
+  //     "description": description,
+  //     "address": {
+  //       "line1": buildingName,
+  //       "line2": "",
+  //       "village": "",
+  //       "district": "",
+  //       "city": city,
+  //       "state": state,
+  //       "country": "India",
+  //       "postalCode": pincode,
+  //       "latitude": latitude,
+  //       "longitude": longitude,
+  //     },
+  //   };
 
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      createPayload["imageUrl"] = imageUrl;
-    }
+  //   if (imageUrl != null && imageUrl.isNotEmpty) {
+  //     createPayload["imageUrl"] = imageUrl;
+  //   }
 
-    print("Payload to create salon: ${json.encode(createPayload)}");
+  //   print("Payload to create salon: ${json.encode(createPayload)}");
 
-    final response = await http.post(
-      Uri.parse(baseUrl + createSalonEndpoint),
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: json.encode(createPayload),
-    );
+  //   final response = await http.post(
+  //     Uri.parse(baseUrl + createSalonEndpoint),
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       "Authorization": "Bearer $token",
+  //     },
+  //     body: json.encode(createPayload),
+  //   );
 
-    print("Response (Create Salon): ${response.body}");
+  //   print("Response (Create Salon): ${response.body}");
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return json.decode(response.body);
-    } else {
-      throw Exception("Failed create salon: ${response.body}");
-    }
+  //   if (response.statusCode == 200 || response.statusCode == 201) {
+  //     return json.decode(response.body);
+  //   } else {
+  //     throw Exception("Failed create salon: ${response.body}");
+  //   }
+  // }
+Future<Map<String, dynamic>> createSalon(
+  String name,
+  String phone,
+  String startTime,
+  String endTime,
+  String description,
+  String buildingName,
+  String city,
+  String pincode,
+  String state,
+  double latitude,
+  double longitude, {
+  String? imageUrl, // 👈 optional
+  required List<String> selectedCategoryCodes, // ✅ new required field
+}) async {
+  final token = await getAuthToken();
+
+  // ✅ Format time to match backend expectations
+  final formattedStartTime = _formatTime(startTime);
+  final formattedEndTime = _formatTime(endTime);
+
+  // ✅ Construct payload exactly as expected
+  final createPayload = {
+    "name": name,
+    "phone": phone,
+    "startTime": formattedStartTime,
+    "endTime": formattedEndTime,
+    "description": description,
+    "image_url": imageUrl, // 👈 matches backend field name
+    "address": {
+      "line1": buildingName,
+      "line2": "",
+      "village": "",
+      "district": "",
+      "city": city,
+      "state": state,
+      "country": "India",
+      "postalCode": pincode,
+      "latitude": latitude,
+      "longitude": longitude,
+    },
+    "selectedCategoryCodes": selectedCategoryCodes, // ✅ added field
+  };
+
+  // Remove null values to keep payload clean
+  createPayload.removeWhere((key, value) => value == null);
+
+  print("📦 Payload to create salon: ${json.encode(createPayload)}");
+
+  final response = await http.post(
+    Uri.parse(baseUrl + createSalonEndpoint),
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+    body: json.encode(createPayload),
+  );
+
+  print("📥 Response (Create Salon): ${response.statusCode} ${response.body}");
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return json.decode(response.body);
+  } else {
+    throw Exception("❌ Failed to create salon: ${response.body}");
   }
+}
 
   Future<Map<String, dynamic>> getSalonListApi() async {
     final token = await getAuthToken();

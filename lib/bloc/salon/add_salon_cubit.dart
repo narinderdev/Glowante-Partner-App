@@ -70,21 +70,83 @@ class AddSalonCubit extends Cubit<AddSalonState> {
     emit(state.copyWith(images: images, status: AddSalonStatus.ready));
   }
 
+  void updateSelectedServiceCodes(List<String> codes) {
+    emit(
+      state.copyWith(
+        selectedServiceCodes: List<String>.from(codes),
+        status: AddSalonStatus.ready,
+      ),
+    );
+  }
+
+  // Future<void> submit(AddSalonFormData formData) async {
+  //   final address = state.address;
+  //   if (address == null) {
+  //     emit(
+  //       state.copyWith(
+  //         status: AddSalonStatus.failure,
+  //         errorMessage: 'Please select the salon location before submitting.',
+  //       ),
+  //     );
+  //     return;
+  //   }
+
+  //   emit(state.copyWith(status: AddSalonStatus.submitting, clearError: true));
+
+  //   try {
+  //     await _repository.createSalon(
+  //       name: formData.name,
+  //       phone: formData.phone,
+  //       startTime: formData.startTime,
+  //       endTime: formData.endTime,
+  //       description: formData.description,
+  //       buildingName: address.buildingName,
+  //       city: address.city,
+  //       pincode: address.pincode,
+  //       state: address.state,
+  //       latitude: address.latitude,
+  //       longitude: address.longitude,
+  //       images: state.images,
+  //     );
+
+  //     emit(
+  //       state.copyWith(
+  //         status: AddSalonStatus.success,
+  //         clearError: true,
+  //         clearImages: true,
+  //         clearAddress: true,
+  //       ),
+  //     );
+  //   } catch (error) {
+  //     emit(
+  //       state.copyWith(
+  //         status: AddSalonStatus.failure,
+  //         errorMessage: error.toString(),
+  //       ),
+  //     );
+  //   }
+  // }
   Future<void> submit(AddSalonFormData formData) async {
     final address = state.address;
     if (address == null) {
-      emit(
-        state.copyWith(
-          status: AddSalonStatus.failure,
-          errorMessage: 'Please select the salon location before submitting.',
-        ),
-      );
+      emit(state.copyWith(
+        status: AddSalonStatus.failure,
+        errorMessage: 'Please select the salon location before submitting.',
+      ));
       return;
     }
 
     emit(state.copyWith(status: AddSalonStatus.submitting, clearError: true));
 
     try {
+      if (state.selectedServiceCodes.isEmpty) {
+        emit(state.copyWith(
+          status: AddSalonStatus.failure,
+          errorMessage: 'Please select at least one service.',
+        ));
+        return;
+      }
+
       await _repository.createSalon(
         name: formData.name,
         phone: formData.phone,
@@ -97,24 +159,21 @@ class AddSalonCubit extends Cubit<AddSalonState> {
         state: address.state,
         latitude: address.latitude,
         longitude: address.longitude,
-        images: state.images,
+        serviceCodes: state.selectedServiceCodes,
       );
 
-      emit(
-        state.copyWith(
-          status: AddSalonStatus.success,
-          clearError: true,
-          clearImages: true,
-          clearAddress: true,
-        ),
-      );
+      emit(state.copyWith(
+        status: AddSalonStatus.success,
+        clearError: true,
+        clearImages: true,
+        clearAddress: true,
+        clearSelectedServiceCodes: true,
+      ));
     } catch (error) {
-      emit(
-        state.copyWith(
-          status: AddSalonStatus.failure,
-          errorMessage: error.toString(),
-        ),
-      );
+      emit(state.copyWith(
+        status: AddSalonStatus.failure,
+        errorMessage: error.toString(),
+      ));
     }
   }
 

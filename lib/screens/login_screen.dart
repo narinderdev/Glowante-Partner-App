@@ -40,9 +40,9 @@ class _LoginScreenState extends State<LoginScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(translateText('- Shine bright  ')),
-                  Text(translateText('- Feel radiant  ')),
-                  Text(translateText('- Choose Glowante!')),
+                  Text(translateText('• Shine bright  ')),
+                  Text(translateText('• Feel radiant  ')),
+                  Text(translateText('• Choose Glowante!')),
                 ],
               ),
               SizedBox(height: 30),
