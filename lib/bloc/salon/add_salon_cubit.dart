@@ -61,6 +61,10 @@ class AddSalonCubit extends Cubit<AddSalonState> {
       );
     }
   }
+void removeImage(File image) {
+  final updated = List<File>.from(state.images)..remove(image);
+  emit(state.copyWith(images: updated));
+}
 
   void updateAddress(AddSalonAddress address) {
     emit(state.copyWith(address: address, status: AddSalonStatus.ready));

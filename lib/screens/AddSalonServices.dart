@@ -9,6 +9,7 @@ import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/api_service.dart';
 import 'bottom_nav.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class AddSalonServices extends StatefulWidget {
   const AddSalonServices({
@@ -36,40 +37,84 @@ class _AddSalonServicesState extends State<AddSalonServices> {
     fetchServiceCatalog();
   }
 
-  Future<void> fetchServiceCatalog() async {
-    try {
-      final token = await ApiService().getAuthToken();
-      final url =
-          Uri.parse('${ApiService.baseUrl}${ApiService.serviceCatalog}');
+  // Future<void> fetchServiceCatalog() async {
+  //   try {
+  //     final token = await ApiService().getAuthToken();
+  //     final url =
+  //         Uri.parse('${ApiService.baseUrl}${ApiService.serviceCatalog}');
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+  //     final response = await http.get(
+  //       url,
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         'Authorization': 'Bearer $token',
+  //       },
+  //     );
+
+  //     if (response.statusCode == 200) {
+  //       final body = jsonDecode(response.body) as Map<String, dynamic>;
+  //       setState(() {
+  //         _services = (body['data'] as List<dynamic>?) ?? <dynamic>[];
+  //         _isLoading = false;
+  //       });
+  //     } else {
+  //       throw Exception('Failed to fetch service catalog: ${response.body}');
+  //     }
+  //   } catch (e, stack) {
+  //     debugPrint('Failed to load service catalog: $e');
+  //     debugPrintStack(stackTrace: stack);
+  //     if (mounted) {
+  //       setState(() => _isLoading = false);
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Unable to load services: $e')),
+  //       );
+  //     }
+  //   }
+  // }
+Future<void> fetchServiceCatalog() async {
+  try {
+    final token = await ApiService().getAuthToken();
+    final url = Uri.parse('${ApiService.baseUrl}${ApiService.serviceCatalog}');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = (body['data'] as List<dynamic>?) ?? <dynamic>[];
+
+      // ✅ Pre-cache images before building UI (for smooth scroll)
+      for (final service in data) {
+        final imageUrl = (service['image_url'] ?? '') as String;
+        if (imageUrl.isNotEmpty && mounted) {
+          // Precache with small delay to avoid blocking UI thread
+          precacheImage(CachedNetworkImageProvider(imageUrl), context);
+        }
+      }
+
+      setState(() {
+        _services = data;
+        _isLoading = false;
+      });
+    } else {
+      throw Exception('Failed to fetch service catalog: ${response.body}');
+    }
+  } catch (e, stack) {
+    debugPrint('Failed to load service catalog: $e');
+    debugPrintStack(stackTrace: stack);
+    if (mounted) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to load services: $e')),
       );
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        setState(() {
-          _services = (body['data'] as List<dynamic>?) ?? <dynamic>[];
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to fetch service catalog: ${response.body}');
-      }
-    } catch (e, stack) {
-      debugPrint('Failed to load service catalog: $e');
-      debugPrintStack(stackTrace: stack);
-      if (mounted) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to load services: $e')),
-        );
-      }
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -192,19 +237,41 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                             ),
                                           ],
                                         ),
-                                        child: ClipOval(
-                                          child: imageUrl.isEmpty
-                                              ? const Icon(
-                                                  Icons.image_not_supported)
-                                              : Image.network(
-                                                  imageUrl,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error,
-                                                          stackTrace) =>
-                                                      const Icon(Icons
-                                                          .image_not_supported),
-                                                ),
-                                        ),
+                                        // child: ClipOval(
+                                        //   child: imageUrl.isEmpty
+                                        //       ? const Icon(
+                                        //           Icons.image_not_supported)
+                                        //       : Image.network(
+                                        //           imageUrl,
+                                        //           fit: BoxFit.cover,
+                                        //           errorBuilder: (context, error,
+                                        //                   stackTrace) =>
+                                        //               const Icon(Icons
+                                        //                   .image_not_supported),
+                                        //         ),
+                                        // ),
+                                  child: ClipOval(
+  child: imageUrl.isEmpty
+      ? const Icon(Icons.image_not_supported)
+      : CachedNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          fadeInDuration: const Duration(milliseconds: 300),
+          memCacheWidth: 200, // ✅ reduce memory footprint for thumbnails
+          memCacheHeight: 200,
+          placeholder: (context, url) => const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 1.8),
+            ),
+          ),
+          errorWidget: (context, url, error) =>
+              const Icon(Icons.image_not_supported),
+        ),
+),
+
+
                                       ),
 
                                       /// ✅ Tick overlay when selected
@@ -230,7 +297,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                     name,
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                      fontSize: 13,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.w500,
                                       color: isSelected
                                           ? Colors.black

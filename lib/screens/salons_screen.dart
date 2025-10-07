@@ -379,7 +379,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Column(
@@ -397,17 +397,17 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                                 fontWeight: FontWeight.w700,
                               ),
                         ),
-                        SizedBox(height: 4),
-                        Text(translateText('Stay on top of every branch and booking'),
-                          style:
-                              theme.textTheme.bodySmall?.copyWith(
-                                color: Colors.white70,
-                              ) ??
-                              const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                        ),
+                        // SizedBox(height: 4),
+                        // Text(translateText('Stay on top of every branch and booking'),
+                        //   style:
+                        //       theme.textTheme.bodySmall?.copyWith(
+                        //         color: Colors.white70,
+                        //       ) ??
+                        //       const TextStyle(
+                        //         color: Colors.white70,
+                        //         fontSize: 12,
+                        //       ),
+                        // ),
                       ],
                     ),
                   ),
@@ -482,44 +482,82 @@ class _AppBarSearchField extends StatelessWidget {
           ),
         ],
       ),
+      // child: ValueListenableBuilder<TextEditingValue>(
+      //   valueListenable: controller,
+      //   builder: (context, value, _) {
+      //     final hasQuery = value.text.isNotEmpty;
+      //     return TextField(
+      //       controller: controller,
+      //       onChanged: onChanged,
+      //       textInputAction: TextInputAction.search,
+      //       style: const TextStyle(
+      //         fontWeight: FontWeight.w500,
+      //         color: Color(0xFF37474F),
+      //       ),
+      //       decoration: InputDecoration(
+      //         hintText: translateText('Search salons'),
+      //         hintStyle: const TextStyle(color: Color(0xFFB0BEC5)),
+      //         prefixIcon: Icon(
+      //         Icons.search,
+      //         color: AppColors.starColor,
+      //       ),
+
+      //         suffixIcon: hasQuery
+      //             ? IconButton(
+      //                 onPressed: () {
+      //                   controller.clear();
+      //                   onChanged('');
+      //                 },
+      //                 icon: Icon(Icons.close, color: Color(0xFF90A4AE)),
+      //               )
+      //             : Icon(Icons.tune, color: AppColors.starColor,),
+      //         border: InputBorder.none,
+      //         contentPadding: const EdgeInsets.symmetric(
+      //           horizontal: 18,
+      //           vertical: 10,
+      //         ),
+      //       ),
+      //     );
+      //   },
+      // ),
       child: ValueListenableBuilder<TextEditingValue>(
-        valueListenable: controller,
-        builder: (context, value, _) {
-          final hasQuery = value.text.isNotEmpty;
-          return TextField(
-            controller: controller,
-            onChanged: onChanged,
-            textInputAction: TextInputAction.search,
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF37474F),
-            ),
-            decoration: InputDecoration(
-              hintText: translateText('Search salons or branches'),
-              hintStyle: const TextStyle(color: Color(0xFFB0BEC5)),
-              prefixIcon: Icon(
-  Icons.search,
-  color: AppColors.starColor,
+  valueListenable: controller,
+  builder: (context, value, _) {
+    final hasQuery = value.text.isNotEmpty;
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      textInputAction: TextInputAction.search,
+      style: const TextStyle(
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF37474F),
+      ),
+      decoration: InputDecoration(
+        hintText: translateText('Search salons'),
+        hintStyle: const TextStyle(color: Color(0xFFB0BEC5)),
+        prefixIcon: Icon(
+          Icons.search,
+          color: AppColors.starColor,
+        ),
+        suffixIcon: hasQuery
+            ? IconButton(
+                onPressed: () {
+                  controller.clear();
+                  onChanged('');
+                },
+                icon: const Icon(Icons.close, color: Color(0xFF90A4AE)),
+              )
+            : null, // 🔹 No filter icon anymore
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 10,
+        ),
+      ),
+    );
+  },
 ),
 
-              suffixIcon: hasQuery
-                  ? IconButton(
-                      onPressed: () {
-                        controller.clear();
-                        onChanged('');
-                      },
-                      icon: Icon(Icons.close, color: Color(0xFF90A4AE)),
-                    )
-                  : Icon(Icons.tune, color: AppColors.starColor,),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 10,
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 }
@@ -588,19 +626,7 @@ class _SalonsOverview extends StatelessWidget {
                     ),
                   ],
                 )
-              : Text(translateText('Preview branches and drill down into details.'),
-                  key: const ValueKey('overview-ready'),
-                  style:
-                      theme.textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF607D8B),
-                        fontWeight: FontWeight.w500,
-                      ) ??
-                      const TextStyle(
-                        color: Color(0xFF607D8B),
-                        fontWeight: FontWeight.w500,
-                      ),
-                ),
-        ),
+              : null,),
       ],
     );
   }
@@ -1016,7 +1042,7 @@ class _MetricChip extends StatelessWidget {
 //   (b) => _norm((b['name'] ?? '').toString()) == _norm(salonName),
 // );
 
-// // branches to show in the expanded list (exclude the �main�)
+// // branches to show in the expanded list (exclude the �main�)
 // final List<Map<String, dynamic>> visibleBranches = branches.where((b) {
 //   final bName = _norm((b['name'] ?? '').toString());
 //   return bName != _norm(salonName);
@@ -1379,26 +1405,157 @@ class _SalonCard extends StatelessWidget {
                   //       ),
                   //   ],
                   // ),
-Wrap(
-  spacing: 8,
-  runSpacing: 6,
+// Wrap(
+//   spacing: 8,
+//   runSpacing: 6,
+//   children: [
+//     if (branches.isNotEmpty)
+//       Builder(
+//         builder: (context) {
+//           final address =
+//               (branches.first['address'] as Map<String, dynamic>?) ?? {};
+//           final city = (address['city'] ?? '').toString().trim();
+//           final state = (address['state'] ?? '').toString().trim();
+//           final label = [
+//             if (city.isNotEmpty) city,
+//             if (state.isNotEmpty) state,
+//           ].join(', ');
+
+//           return _MetricChip(
+//             icon: Icons.location_on_outlined,
+//             label: label.isNotEmpty ? label : 'No address',
+//             accentColor: AppColors.starColor,
+//           );
+//         },
+//       ),
+//   ],
+// ),
+// Wrap(
+//   spacing: 8,
+//   runSpacing: 6,
+//   children: [
+//     if (branches.isNotEmpty)
+//       Builder(
+//         builder: (context) {
+//           final firstBranch = branches.first;
+//           final address =
+//               (firstBranch['address'] as Map<String, dynamic>?) ?? {};
+
+//           final city = (address['city'] ?? '').toString().trim();
+//           final state = (address['state'] ?? '').toString().trim();
+//           final label = [
+//             if (city.isNotEmpty) city,
+//             if (state.isNotEmpty) state,
+//           ].join(', ');
+
+//           // 🟢 Extract phone from branch
+//           final phone = (firstBranch['phone'] ??
+//                   firstBranch['phoneNumber'] ??
+//                   firstBranch['contactNumber'] ??
+//                   '')
+//               .toString()
+//               .trim();
+
+//           final chips = <Widget>[];
+
+//           // 🏙️ Address chip
+//           chips.add(
+//             _MetricChip(
+//               icon: Icons.location_on_outlined,
+//               label: label.isNotEmpty ? label : 'No address',
+//               accentColor: AppColors.starColor,
+//             ),
+//           );
+
+//           // ☎️ Phone chip (only if available)
+//           if (phone.isNotEmpty) {
+//             chips.add(
+//               _MetricChip(
+//                 icon: Icons.phone_outlined,
+//                 label: phone,
+//                 accentColor: AppColors.starColor,
+//               ),
+//             );
+//           }
+
+//           return Wrap(spacing: 8, runSpacing: 6, children: chips);
+//         },
+//       ),
+//   ],
+// ),
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
   children: [
     if (branches.isNotEmpty)
       Builder(
         builder: (context) {
+          final firstBranch = branches.first;
           final address =
-              (branches.first['address'] as Map<String, dynamic>?) ?? {};
+              (firstBranch['address'] as Map<String, dynamic>?) ?? {};
+
           final city = (address['city'] ?? '').toString().trim();
           final state = (address['state'] ?? '').toString().trim();
-          final label = [
-            if (city.isNotEmpty) city,
-            if (state.isNotEmpty) state,
-          ].join(', ');
+          final phone = (firstBranch['phone'] ??
+                  firstBranch['phoneNumber'] ??
+                  firstBranch['contactNumber'] ??
+                  '')
+              .toString()
+              .trim();
 
-          return _MetricChip(
-            icon: Icons.location_on_outlined,
-            label: label.isNotEmpty ? label : 'No address',
-            accentColor: AppColors.starColor,
+          // Build clean address label
+          final addressLabel =
+              [city, state].where((e) => e.isNotEmpty).join(', ');
+
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.starColor.withOpacity(0.08),
+              border: Border.all(color: AppColors.starColor.withOpacity(0.25)),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (addressLabel.isNotEmpty)
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined,
+                          size: 16, color: AppColors.starColor),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          addressLabel,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.starColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                if (phone.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_outlined,
+                          size: 16, color: AppColors.starColor),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          phone,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.starColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           );
         },
       ),

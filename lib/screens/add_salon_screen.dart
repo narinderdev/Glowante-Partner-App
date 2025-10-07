@@ -294,6 +294,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         textCapitalization: TextCapitalization.words,
                         label: 'Salon Name *',
                         hint: 'Enter your salon name',
+                         forceCapitalize: true,
                       ),
                       _buildTextField(
                         controller: _phoneController,
@@ -409,6 +410,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
                         maxLines: 1,
+                         forceCapitalize: true,
+                         maxWords: 250, 
                       ),
                       SizedBox(height: 20),
                       Text(
@@ -420,16 +423,56 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
+                          // for (final image in images)
+                          //   ClipRRect(
+                          //     borderRadius: BorderRadius.circular(8),
+                          //     child: Image.file(
+                          //       image,
+                          //       width: 80,
+                          //       height: 80,
+                          //       fit: BoxFit.cover,
+                          //     ),
+                          //   ),
                           for (final image in images)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                image,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
+  Stack(
+    clipBehavior: Clip.none,
+    children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.file(
+          image,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+        ),
+      ),
+      // ❌ Remove button
+      Positioned(
+        top: -6,
+        right: -6,
+        child: GestureDetector(
+          onTap: () {
+            setState(() {
+              context.read<AddSalonCubit>().removeImage(image);
+            });
+          },
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.black54,
+              shape: BoxShape.circle,
+            ),
+            padding: const EdgeInsets.all(3),
+            child: const Icon(
+              Icons.close,
+              color: Colors.white,
+              size: 14,
+            ),
+          ),
+        ),
+      ),
+    ],
+  ),
+
                           GestureDetector(
                             onTap: _pickImages,
                             child: Container(
@@ -492,72 +535,135 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   }
 
   Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    int maxLines = 1,
-    int? maxLength,
-    bool enabled = true,
-    TextCapitalization textCapitalization = TextCapitalization.none,
-    TextInputType keyboardType = TextInputType.text,
-    List<TextInputFormatter>? inputFormatters,
-  }) {
-    final localizedLabel = translateText(label);
-    final localizedHint = translateText(hint);
-    final sanitizedField =
-        localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
-    final fieldForMessage =
-        sanitizedField.isEmpty ? localizedLabel : sanitizedField;
+  required TextEditingController controller,
+  required String label,
+  required String hint,
+  int maxLines = 1,
+  int? maxLength,
+  bool enabled = true,
+  TextCapitalization textCapitalization = TextCapitalization.none,
+  TextInputType keyboardType = TextInputType.text,
+  List<TextInputFormatter>? inputFormatters,
+  bool forceCapitalize = false,
+  int? maxWords,
+}) {
+  final localizedLabel = translateText(label);
+  final localizedHint = translateText(hint);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines,
-        maxLength: maxLength,
-        enabled: enabled,
-        textCapitalization: textCapitalization,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return translateText('{field} is required',
-                params: {'field': fieldForMessage});
+  // ✅ Check for asterisk to style required fields
+  final bool hasAsterisk = localizedLabel.contains('*');
+  final String cleanLabel = localizedLabel.replaceAll('*', '').trim();
+
+  // ✅ Optional capitalization listener
+  if (forceCapitalize) {
+    controller.addListener(() {
+      final text = controller.text;
+      final capitalized = text
+          .split(' ')
+          .map((word) => word.isNotEmpty
+              ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+              : '')
+          .join(' ');
+      if (text != capitalized) {
+        final cursor = controller.selection;
+        controller.value = TextEditingValue(
+          text: capitalized,
+          selection: cursor,
+        );
+      }
+    });
+  }
+
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 10),
+    child: TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      maxLength: maxLength,
+      enabled: enabled,
+      textCapitalization: textCapitalization,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (value) {
+        final text = value?.trim() ?? '';
+
+        // ✅ Required field validation
+        if (text.isEmpty) {
+          return translateText('$cleanLabel is required');
+        }
+
+        // ✅ Phone number validation
+        if (label.toLowerCase().contains('phone') ||
+            label.toLowerCase().contains('mobile')) {
+          if (text.length != 10) {
+            return translateText('Phone number must be 10 digits');
           }
-          return null;
-        },
-        decoration: InputDecoration(
-          counterText: '',
-          labelText: localizedLabel,
-          hintText: localizedHint,
-          labelStyle: const TextStyle(color: AppColors.darkGrey),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: Colors.grey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          errorStyle: const TextStyle(
-            color: AppColors.red,
+          // Optionally block invalid patterns like "0000000000"
+          if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
+            return translateText('Invalid phone number');
+          }
+        }
+
+        // ✅ Word count validation
+        if (maxWords != null &&
+            text.split(RegExp(r'\s+')).length > maxWords) {
+          return translateText('Maximum $maxWords words allowed');
+        }
+
+        return null; // ✅ passes validation
+      },
+      decoration: InputDecoration(
+        counterText: '',
+        hintText: localizedHint,
+        label: RichText(
+          text: TextSpan(
+            text: cleanLabel,
+            style: const TextStyle(
+              color: AppColors.darkGrey,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+            children: hasAsterisk
+                ? const [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ]
+                : null,
           ),
         ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: Colors.grey, width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        errorStyle: const TextStyle(
+          color: AppColors.red,
+        ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   Widget _buildTimePickerField({
     required TextEditingController controller,
