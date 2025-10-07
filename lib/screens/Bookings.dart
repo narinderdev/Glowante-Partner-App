@@ -3125,44 +3125,45 @@ Future<void> onBranchChanged(
             ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-    onPressed: () async {
-      if (selectedBranchId == null || selectedSalonId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Please select a salon'))),
-        );
-        return;
-      }
-
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => AddBookingScreen(
-            salonId: selectedSalonId,
-            branchId: selectedBranchId,
-          ),
-        ),
+   floatingActionButton: FloatingActionButton.extended(
+  heroTag: 'add_booking_fab', // ✅ unique tag
+  onPressed: () async {
+    if (selectedBranchId == null || selectedSalonId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Please select a salon'))),
       );
+      return;
+    }
 
-      if (result != null && selectedBranchId != null) {
-        getBookingsByDate(selectedBranchId!, selectedDate);
-      }
-    },
-    backgroundColor: AppColors.white,
-    foregroundColor: AppColors.grey,
-    icon: Image.asset(
-      "assets/images/plusIcn.png",
-      width: 18,
-      height: 18,
-    ),
-    label: Text(translateText('Add Booking'),
-      style: TextStyle(
-        // fontWeight: FontWeight.bold,
-        color: AppColors.darkGrey,
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddBookingScreen(
+          salonId: selectedSalonId,
+          branchId: selectedBranchId,
+        ),
       ),
+    );
+
+    if (result != null && selectedBranchId != null) {
+      getBookingsByDate(selectedBranchId!, selectedDate);
+    }
+  },
+  backgroundColor: AppColors.white,
+  foregroundColor: AppColors.grey,
+  icon: Image.asset(
+    "assets/images/plusIcn.png",
+    width: 18,
+    height: 18,
+  ),
+  label: Text(
+    translateText('Add Booking'),
+    style: TextStyle(
+      color: AppColors.darkGrey,
     ),
   ),
-  floatingActionButtonLocation: FloatingActionButtonLocation.endFloat, // bottom right
+),
+floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
 
     );
   }
