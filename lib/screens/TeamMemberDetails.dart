@@ -164,7 +164,7 @@ final String joinedAt = userSalons.isNotEmpty
 // Text("Assign User ($userId)"),
               // Specializations
               _SectionCard(
-                title: 'Specializations',
+                title: translateText('Specializations'),
                 icon: Icons.emoji_objects_outlined,
                 borderColor: borderColor,
                 radius: cardRadius,
@@ -194,7 +194,7 @@ final String joinedAt = userSalons.isNotEmpty
 
               // Experience
               _SectionCard(
-                title: 'Experience',
+                title: translateText('Experience'),
                 icon: Icons.work_outline,
                 borderColor: borderColor,
                 radius: cardRadius,
@@ -208,7 +208,7 @@ final String joinedAt = userSalons.isNotEmpty
               SizedBox(height: 12),
 // ✅ Joined At
 _SectionCard(
-  title: 'Joined At',
+  title: translateText('Joined At'),
   icon: Icons.calendar_today_outlined,
   borderColor: borderColor,
   radius: cardRadius,
@@ -224,7 +224,7 @@ _SectionCard(
 SizedBox(height: 12),
               // Assigned Branches
               _SectionCard(
-  title: 'Assigned Branches',
+  title: translateText('Assigned Branches'),
   icon: Icons.apartment_outlined,
   borderColor: borderColor,
   radius: cardRadius,

@@ -34,6 +34,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   TimeOfDay? _endTime;
 String? _serviceError;
 String? _professionalError;
+String? _firstNameError;
+String? _lastNameError;
+
   // Selected services from modal: each {id, name, price, qty, durationMin}
   List<Map<String, dynamic>> _selectedServices = [];
 
@@ -663,62 +666,6 @@ void _showOtpBox(String phone, String countryCode) {
 
   int _toMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
 
-  // void _save() {
-  //   if (!_formKey.currentState!.validate()) return;
-
-  //   if (_selectedServiceId == null || _selectedServices.isEmpty) {
-  //     _showError('Please select Service');
-  //     return;
-  //   }
-
-  //   // ENFORCE: Each selected service must have a professional
-  //   final missing = _selectedServices
-  //       .where((s) => !_professionalByService.containsKey(s['id']))
-  //       .map((s) => (s['name'] ?? '').toString())
-  //       .toList();
-  //   if (missing.isNotEmpty) {
-  //     _showError('Please select Professional for: ${missing.join(", ")}');
-  //     return;
-  //   }
-
-  //   // validate date/time
-  //   if (_selectedDate == null) {
-  //     _showError('Please select a date');
-  //     return;
-  //   }
-  //   if (_startTime == null || _endTime == null) {
-  //     _showError('Please select start and end time');
-  //     return;
-  //   }
-
-  //   // Back-compat (single-service)
-  //   String? legacyProfessional;
-  //   if (_selectedServices.length == 1) {
-  //     final onlyId = _selectedServices.first['id'] as int;
-  //     legacyProfessional = _professionalByService[onlyId];
-  //   }
-
-  //   final payload = {
-  //     'clientfName': _clientfNameCtrl.text.trim(),
-  //     'clientlName': _clientlNameCtrl.text.trim(),
-  //     'clientId': _clientIdCtrl.text.trim(),
-  //     'phone': _mobileCtrl.text.trim(),
-  //     'email': _emailCtrl.text.trim(),
-  //     'staffRole': _staffRole,
-  //     'professional': legacyProfessional, // legacy single-service field
-  //     'professionalsByService': _professionalByService, // preferred
-  //     'date': _formatDate(_selectedDate),
-  //     'dateISO': _selectedDate!.toIso8601String(),
-  //     'startTime': _formatTimeOfDay(_startTime),
-  //     'endTime': _formatTimeOfDay(_endTime),
-  //     'services': _selectedServices,
-  //     'salonId': widget.salonId,
-  //     'branchId': widget.branchId,
-  //     'servicesTotal': _servicesTotal,
-  //   };
-
-  //   Navigator.pop(context, payload);
-  // }
 void _save() async {
   if (!_formKey.currentState!.validate()) return;
 
@@ -726,7 +673,7 @@ if (_selectedServiceId == null || _selectedServices.isEmpty) {
   setState(() {
     _serviceError = translateText('Service is required');
   });
-  _showError('Please select Service');
+ _showError(translateText('Please select Service'));
   return;
 } else {
   setState(() {
@@ -751,11 +698,11 @@ if (missing.isNotEmpty) {
 }
 
   if (_selectedDate == null) {
-    _showError('Please select a date');
+_showError(translateText('Please select a date'));
     return;
   }
   if (_startTime == null || _endTime == null) {
-    _showError('Please select start and end time');
+  _showError(translateText('Please select start and end time'));
     return;
   }
 
@@ -790,6 +737,10 @@ if (missing.isNotEmpty) {
     _showError("Failed to create appointment: $e");
   }
 }
+String capitalizeFirstLetter(String input) {
+  if (input.isEmpty) return input;
+  return input[0].toUpperCase() + input.substring(1);
+}
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -806,16 +757,17 @@ if (missing.isNotEmpty) {
                     "${m['firstName']} ${m['lastName'] ?? ''}".trim())
                 .toList();
             // Always include "Any" at the top
-            return <String>['Any', ...names];
+           return <String>[translateText('Any'), ...names];
+
           })();
 
-    final proHint = _loadingMembers
-        ? 'Loading...'
-        : (_selectedServiceId == null
-            ? 'Choose'
-            : (proItems.length == 1 && proItems.first != 'Any'
-                ? 'Choose'
-                : 'Choose / Any'));
+  final proHint = _loadingMembers
+    ? translateText('Loading...')
+    : (_selectedServiceId == null
+        ? translateText('Choose')
+        : (proItems.length == 1 && proItems.first != 'Any'
+            ? translateText('Choose')
+            : translateText('Choose / Any')));
 
     // Chips should show only for services that already have a professional
     final chipServices = _selectedServices
@@ -932,12 +884,41 @@ Row(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _FieldLabel('First Name *'),
-          TextFormField(
-            controller: _clientfNameCtrl,
-            decoration: _inputDecoration('First name'),
-           validator: (v) => (v == null || v.trim().isEmpty) ? translateText('First Name is required') : null,
-          ),
+_FieldLabel(translateText('First Name *')),
+         // First Name
+TextFormField(
+  controller: _clientfNameCtrl,
+  textCapitalization: TextCapitalization.words,
+  decoration: _inputDecoration(translateText('First name')).copyWith(
+    errorText: _firstNameError,
+  ),
+  // ✅ Do NOT return '', we handle the text manually for inline display
+  validator: (v) {
+    if (v == null || v.trim().isEmpty) {
+      _firstNameError = translateText('First Name is required');
+      return null; // let errorText handle it
+    }
+    _firstNameError = null;
+    return null;
+  },
+  onChanged: (value) {
+    // ✅ Only clear validation error when user types non-empty
+    if (value.trim().isNotEmpty && _firstNameError != null) {
+      setState(() => _firstNameError = null);
+    }
+
+    // Auto-capitalize first letter(s)
+    final capitalized = capitalizeFirstLetter(value);
+    if (value != capitalized) {
+      _clientfNameCtrl.value = _clientfNameCtrl.value.copyWith(
+        text: capitalized,
+        selection: TextSelection.collapsed(offset: capitalized.length),
+      );
+    }
+  },
+),
+
+
         ],
       ),
     ),
@@ -947,13 +928,38 @@ Row(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _FieldLabel('Last Name *'),
-          TextFormField(
-            controller: _clientlNameCtrl,
-            decoration: _inputDecoration('Last name'),
-            validator: (v) =>
-                (v == null || v.trim().isEmpty) ? translateText('Last Name is required') : null,
-          ),
+_FieldLabel(translateText('Last Name *')),
+         // Last Name
+TextFormField(
+  controller: _clientlNameCtrl,
+  textCapitalization: TextCapitalization.words,
+  decoration: _inputDecoration(translateText('Last name')).copyWith(
+    errorText: _lastNameError,
+  ),
+  validator: (v) {
+    if (v == null || v.trim().isEmpty) {
+      _lastNameError = translateText('Last Name is required');
+      return null; // handled manually
+    }
+    _lastNameError = null;
+    return null;
+  },
+  onChanged: (value) {
+    if (value.trim().isNotEmpty && _lastNameError != null) {
+      setState(() => _lastNameError = null);
+    }
+
+    final capitalized = capitalizeFirstLetter(value);
+    if (value != capitalized) {
+      _clientlNameCtrl.value = _clientlNameCtrl.value.copyWith(
+        text: capitalized,
+        selection: TextSelection.collapsed(offset: capitalized.length),
+      );
+    }
+  },
+),
+
+
         ],
       ),
     ),
@@ -991,7 +997,7 @@ Row(
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const _FieldLabel('Services *'),
+      _FieldLabel(translateText('Services *')),
       InkWell(
         onTap: _loadingServices || _svcTree.isEmpty
             ? null
@@ -1012,7 +1018,7 @@ Row(
               Expanded(
                 child: Text(
                   _selectedServiceId == null
-                      ? 'Choose'
+                      ? translateText('Choose')
                       : (_branchServices.firstWhere(
                               (e) =>
                                   e['id'] ==
@@ -1067,7 +1073,7 @@ Row(
   child: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      const _FieldLabel('Professional *'),
+      _FieldLabel(translateText('Professional *')),
       _Dropdown<String>(
         value: _activeProfessional,
         hint: proHint,
@@ -1157,7 +1163,7 @@ Row(
                 //         : _formatDate(_selectedDate),
                 //   ),
                 // ),
-                const _FieldLabel('Date *'),
+                _FieldLabel(translateText('Date *')),
 Container(
   height: 48,
   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1171,14 +1177,12 @@ Container(
       Icon(Icons.calendar_today, size: 18, color: Colors.grey),
       SizedBox(width: 8),
       Expanded(
-        child: Text(
-          _selectedDate == null
-              ? 'Select date'
-              : _formatDate(_selectedDate),
-          style: const TextStyle(
-            color: Colors.grey, // Greyed out text
-          ),
-        ),
+       child: Text(
+  _selectedDate == null
+      ? translateText('Select date')
+      : _formatDate(_selectedDate),
+  style: const TextStyle(color: Colors.grey),
+),
       ),
     ],
   ),
@@ -1192,14 +1196,15 @@ Container(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const _FieldLabel('Start Time *'),
-                          InkWell(
-                            onTap: () => _pickTime(isStart: true),
-                            child: _TimeBox(
-                                text: _startTime == null
-                                    ? 'Start Time'
-                                    : _formatTimeOfDay(_startTime)),
-                          ),
+                           _FieldLabel(translateText('Start Time *')),
+InkWell(
+  onTap: () => _pickTime(isStart: true),
+  child: _TimeBox(
+    text: _startTime == null
+        ? translateText('Start Time')
+        : _formatTimeOfDay(_startTime),
+  ),
+),
                         ],
                       ),
                     ),
@@ -1208,14 +1213,15 @@ Container(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const _FieldLabel('End Time *'),
-                          InkWell(
-                            onTap: () => _pickTime(isStart: false),
-                            child: _TimeBox(
-                                text: _endTime == null
-                                    ? 'End Time'
-                                    : _formatTimeOfDay(_endTime)),
-                          ),
+                          _FieldLabel(translateText('End Time *')),
+InkWell(
+  onTap: () => _pickTime(isStart: false),
+  child: _TimeBox(
+    text: _endTime == null
+        ? translateText('End Time')
+        : _formatTimeOfDay(_endTime),
+  ),
+),
                         ],
                       ),
                     ),

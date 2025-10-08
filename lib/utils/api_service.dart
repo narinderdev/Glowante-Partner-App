@@ -42,8 +42,8 @@ static String getServicesAPI(int branchId) => "branches/$branchId/services";
   static String getCategoriesAPI(int salonId, {bool withSubcats = true}) =>
       "salons/$salonId/categories?withSubcats=$withSubcats";
 
-  static String updateCategoryAPI(int salonId, int categoryId) =>
-      "salons/$salonId/categories/$categoryId";
+  static String updateCategoryAPI(int branchId, int branchCategoryId) =>
+      "branches/$branchId/categories/$branchCategoryId";
 
   // static String deleteCategoryAPI(int salonId, int categoryId) =>
   //     "salons/$salonId/categories/$categoryId";
@@ -601,8 +601,8 @@ Future<bool> deleteAccountAPI() async {
 
   // ---------------------- DELETE CATEGORY ----------------------
   Future<Map<String, dynamic>> deleteCategoryApi({
-    required int salonId,
-    required int categoryId,
+    required int branchId,
+    required int CategoryId,
   }) async {
     final token = await getAuthToken();
 
@@ -611,7 +611,7 @@ Future<bool> deleteAccountAPI() async {
     }
 
     final url = Uri.parse(
-      "${baseUrl}salons/$salonId/categories/$categoryId/delete",
+      "${baseUrl}branches/$branchId/services/category/$CategoryId",
     );
 
     print("➡️ Calling Delete Category API");
@@ -649,7 +649,7 @@ Future<bool> deleteAccountAPI() async {
 
   // ---------------------- DELETE SUBCATEGORY ----------------------
   Future<Map<String, dynamic>> deleteSubCategoryApi({
-    required int salonId,
+    required int branchId,
     required int subCategoryId,
   }) async {
     final token = await getAuthToken();
@@ -659,7 +659,7 @@ Future<bool> deleteAccountAPI() async {
     }
 
     final url = Uri.parse(
-      "${baseUrl}salons/$salonId/subcategories/$subCategoryId/delete",
+      "${baseUrl}branches/$branchId/services/subCategory/$subCategoryId",
     );
 
     print("➡️ Calling Delete SubCategory API");
@@ -699,7 +699,7 @@ Future<bool> deleteAccountAPI() async {
 
   // ---------------------- DELETE SERVICE ----------------------
   Future<Map<String, dynamic>> deleteServiceApi({
-    required int salonId,
+    required int branchId,
     required int serviceId,
   }) async {
     final token = await getAuthToken();
@@ -708,7 +708,7 @@ Future<bool> deleteAccountAPI() async {
       return {"success": false, "message": "Auth token missing"};
     }
 
-    final url = Uri.parse("${baseUrl}salons/$salonId/services/$serviceId");
+    final url = Uri.parse("${baseUrl}branches/$branchId/services/$serviceId");
 
     print("➡️ Calling Delete Service API");
     print("➡️ URL: $url");
@@ -778,59 +778,69 @@ Future<bool> deleteAccountAPI() async {
 
   // ---------------------- UPDATE CATEGORY ----------------------
   Future<Map<String, dynamic>> updateCategory({
-    required int salonId,
-    required int categoryId,
-    required AddCategoryRequest request,
-  }) async {
-    final token = await getAuthToken();
-    final url = Uri.parse(baseUrl + updateCategoryAPI(salonId, categoryId));
+  required int branchId,
+  required int branchCategoryId,
+  required AddCategoryRequest request,
+}) async {
+  final token = await getAuthToken();
 
-    final payload = request.toJson();
-
-    final response = await http.patch(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(payload),
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-
-    throw Exception('Failed to update category: ${response.body}');
+  if (token.isEmpty) {
+    throw Exception('{"message":["Authentication required"]}');
   }
+
+  final url = Uri.parse(baseUrl + updateCategoryAPI(branchId, branchCategoryId));
+
+  final payload = request.toJson();
+  print("Request URL: $url");
+  print("Request Body: $payload");
+
+  final response = await http.patch(
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode(payload),
+  );
+
+  print("Response Status Code: ${response.statusCode}");
+  print("Response Body: ${response.body}");
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  throw Exception('Failed to update category: ${response.body}');
+}
 
   // ---------------------- DELETE CATEGORY ----------------------
-  Future<Map<String, dynamic>> deleteCategory({
-    required int salonId,
-    required int categoryId,
-  }) async {
-    final token = await getAuthToken();
-    final url = Uri.parse("${baseUrl}salons/$salonId/categories/$categoryId");
+  // Future<Map<String, dynamic>> deleteCategory({
+  //   required int branchId,
+  //   required int CategoryId,
+  // }) async {
+  //   final token = await getAuthToken();
+  //   final url = Uri.parse("${baseUrl}branches/$branchId/services/category/$CategoryId");
 
-    print("➡️ Calling Delete Category API");
-    print("➡️ URL: $url");
-    print("➡️ Token: $token");
+  //   print("➡️ Calling Delete Category API");
+  //   print("➡️ URL: $url");
+  //   print("➡️ Token: $token");
 
-    final response = await http.delete(
-      url,
-      headers: {
-        "Authorization": "Bearer $token", // ✅ only auth header
-      },
-    );
+  //   final response = await http.delete(
+  //     url,
+  //     headers: {
+  //       "Authorization": "Bearer $token", // ✅ only auth header
+  //     },
+  //   );
 
-    print("⬅️ Status Code: ${response.statusCode}");
-    print("⬅️ Response Body: ${response.body}");
+  //   print("⬅️ Status Code: ${response.statusCode}");
+  //   print("⬅️ Response Body: ${response.body}");
 
-    if (response.statusCode == 200 || response.statusCode == 204) {
-      return response.body.isNotEmpty ? jsonDecode(response.body) : {};
-    } else {
-      throw Exception("Failed to delete category: ${response.body}");
-    }
-  }
+  //   if (response.statusCode == 200 || response.statusCode == 204) {
+  //     return response.body.isNotEmpty ? jsonDecode(response.body) : {};
+  //   } else {
+  //     throw Exception("Failed to delete category: ${response.body}");
+  //   }
+  // }
 
   // ---------------------- SERVICE CATALOG ----------------------
   Future<Map<String, dynamic>> getServiceCatalog() async {
@@ -1168,22 +1178,26 @@ Future<Map<String, dynamic>> addSubCategoryApi({
   //     throw Exception('Error updating subcategory: $e');
   //   }
   // }
-
 Future<Map<String, dynamic>> updateSubCategoryApi({
-  required int salonId,
+  required int branchId,
   required int subCategoryId,
-  required String name,
+  required String displayName,
+  required int sortOrder,
+  required bool isActive,
 }) async {
   final url = Uri.parse(
-    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/salons/$salonId/subcategories/$subCategoryId',
+    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/subcategories/$subCategoryId',
   );
   print("Request URL: $url");
 
   final token = await getAuthToken();
-  // optional: short-circuit if missing
   if (token.isEmpty) throw Exception('{"message":["Authentication required"]}');
 
-  final requestBody = json.encode({'name': name});
+  final requestBody = json.encode({
+    'displayName': displayName,
+    'sortOrder': sortOrder,
+    'isActive': isActive,
+  });
   print("Request Body: $requestBody");
 
   final response = await http.patch(
@@ -1202,10 +1216,10 @@ Future<Map<String, dynamic>> updateSubCategoryApi({
     return json.decode(response.body) as Map<String, dynamic>;
   }
 
-  // ❗ Surface server validation to Cubit (e.g., {"message":["Name must start with an uppercase letter"], ...})
   final body = response.body;
   throw Exception(body.isNotEmpty ? body : 'Failed to update subcategory');
 }
+
   // ---------------------- GET BRANCH SERVICE DETAILS ----------------------
   Future<Map<String, dynamic>> getBranchServiceDetail(int branchId) async {
     try {
@@ -1905,37 +1919,54 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
       return {'success': false, 'message': 'Error: $e'};
     }
   }
-
-  Future<Map<String, dynamic>> updateService({
-    required int salonId,
-    required int serviceId,
-    required Map<String, dynamic> body,
-  }) async {
-    final token = await getAuthToken();
-    if (token.isEmpty) {
-      throw Exception('Token is missing');
-    }
-
-    final url = Uri.parse(baseUrl + 'salons/$salonId/services/$serviceId');
-    final payload = Map<String, dynamic>.from(body)
-      ..removeWhere((key, value) => value == null);
-
-    final response = await http.patch(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: json.encode(payload),
-    );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final responseBody = response.body.isEmpty ? '{}' : response.body;
-      return json.decode(responseBody) as Map<String, dynamic>;
-    }
-
-    throw Exception('Failed to update service: ${response.body}');
+Future<Map<String, dynamic>> updateService({
+  required int branchId,
+  required int branchServiceId,
+  required Map<String, dynamic> body,
+}) async {
+  final token = await getAuthToken();
+  if (token.isEmpty) {
+    throw Exception('{"message":["Authentication required"]}');
   }
+
+  final url = Uri.parse(
+    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/services/$branchServiceId',
+  );
+
+  // ✅ Clean and fix payload field names
+  final payload = {
+    'displayName': body['displayName'] ?? body['name'],
+    'description': body['description'] ?? '',
+    'durationMin': body['durationMin'] ?? body['defaultDurationMin'],
+    'priceType': body['priceType'] ?? 'fixed',
+    'priceMinor': body['priceMinor'] ?? body['defaultPriceMinor'],
+    'isActive': body['isActive'] ?? true,
+  }..removeWhere((key, value) => value == null);
+
+  // ✅ Pretty logging
+  const encoder = JsonEncoder.withIndent('  ');
+  print('🟢 [UPDATE SERVICE] PATCH -> $url');
+  print('🔸 Request Body:\n${encoder.convert(payload)}');
+
+  final response = await http.patch(
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode(payload),
+  );
+
+  print('🔹 Response Status: ${response.statusCode}');
+  print('🔹 Response Body: ${response.body}');
+
+  if (response.statusCode >= 200 && response.statusCode < 300) {
+    final responseBody = response.body.isEmpty ? '{}' : response.body;
+    return jsonDecode(responseBody) as Map<String, dynamic>;
+  }
+
+  throw Exception('Failed to update service: ${response.body}');
+}
 
 // ---------------------- START APPOINTMENT ----------------------
 static Future<Map<String, dynamic>> startAppointment({

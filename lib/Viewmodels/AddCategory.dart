@@ -1,32 +1,32 @@
 class AddCategoryRequest {
-  final String name;
+  final String displayName;
   final String? description;
-  final bool isDisabled;
-  final int? sortOrder;
+  final bool isActive;
+  final int sortOrder;
 
   AddCategoryRequest({
-    required this.name,
+    required this.displayName,
     this.description,
-    this.isDisabled = false,
-    this.sortOrder,
+    this.isActive = true,
+    this.sortOrder = 100,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      'name': name,
+      'displayName': displayName,
       if (description != null && description!.isNotEmpty)
         'description': description,
-      'sortOrder': 100,
+      'sortOrder': sortOrder,
+      'isActive': isActive,
     };
   }
 
   factory AddCategoryRequest.fromJson(Map<String, dynamic> json) {
-    final isActive = json['isActive'] as bool? ?? true;
     return AddCategoryRequest(
-      name: json['name'] ?? '',
+      displayName: json['displayName'] ?? '',
       description: json['description'] as String?,
-      // isDisabled: !isActive,
-      sortOrder: json['sortOrder'] as int?,
+      isActive: json['isActive'] as bool? ?? true,
+      sortOrder: json['sortOrder'] as int? ?? 100,
     );
   }
 }

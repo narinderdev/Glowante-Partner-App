@@ -34,78 +34,6 @@ class SalonRepository {
     return items.cast<Map<String, dynamic>>();
   }
 
-  // Future<Map<String, dynamic>> createSalon({
-
-  //   required String name,
-
-  //   required String phone,
-
-  //   required String startTime,
-
-  //   required String endTime,
-
-  //   required String description,
-
-  //   required String buildingName,
-
-  //   required String city,
-
-  //   required String pincode,
-
-  //   required String state,
-
-  //   required double latitude,
-
-  //   required double longitude,
-
-  //   List<File> images = const [],
-
-  // }) async {
-
-  //   String? imageUrl;
-
-  //   if (images.isNotEmpty) {
-
-  //     final urls = await _apiService.uploadMultipleImages(images);
-
-  //     if (urls.isNotEmpty) {
-
-  //       imageUrl = urls.first;
-
-  //     }
-
-  //   }
-
-  //   return _apiService.createSalon(
-
-  //     name,
-
-  //     phone,
-
-  //     startTime,
-
-  //     endTime,
-
-  //     description,
-
-  //     buildingName,
-
-  //     city,
-
-  //     pincode,
-
-  //     state,
-
-  //     latitude,
-
-  //     longitude,
-
-  //     imageUrl: imageUrl,
-
-  //   );
-
-  // }
-
   Future<Map<String, dynamic>> createSalon({
     required String name,
     required String phone,
@@ -234,24 +162,25 @@ class SalonRepository {
   }
 
   Future<Map<String, dynamic>> updateCategory({
-    required int salonId,
-    required int categoryId,
-    required AddCategoryRequest request,
-  }) {
-    return _apiService.updateCategory(
-      salonId: salonId,
-      categoryId: categoryId,
-      request: request,
-    );
-  }
+  required int branchId,
+  required int branchCategoryId,
+  required AddCategoryRequest request,
+}) {
+  return _apiService.updateCategory(
+    branchId: branchId,
+    branchCategoryId: branchCategoryId,
+    request: request,
+  );
+}
+
 
   Future<Map<String, dynamic>> deleteCategory({
-    required int salonId,
-    required int categoryId,
+    required int branchId,
+    required int CategoryId,
   }) {
     return _apiService.deleteCategoryApi(
-      salonId: salonId,
-      categoryId: categoryId,
+      branchId: branchId,
+      CategoryId: CategoryId,
     );
   }
 
@@ -268,32 +197,37 @@ class SalonRepository {
   }
 
   Future<Map<String, dynamic>> updateSubCategory({
-    required int salonId,
-    required int subCategoryId,
-    required String name,
-  }) {
-    return _apiService.updateSubCategoryApi(
-      salonId: salonId,
-      subCategoryId: subCategoryId,
-      name: name,
-    );
-  }
+  required int branchId,
+  required int subCategoryId,
+  required String displayName,
+  required int sortOrder,
+  required bool isActive,
+}) {
+  return _apiService.updateSubCategoryApi(
+    branchId: branchId,
+    subCategoryId: subCategoryId,
+    displayName: displayName,
+    sortOrder: sortOrder,
+    isActive: isActive,
+  );
+}
+
 
   Future<Map<String, dynamic>> deleteSubCategory({
-    required int salonId,
+    required int branchId,
     required int subCategoryId,
   }) {
     return _apiService.deleteSubCategoryApi(
-      salonId: salonId,
+      branchId: branchId,
       subCategoryId: subCategoryId,
     );
   }
 
   Future<Map<String, dynamic>> deleteService({
-    required int salonId,
+    required int branchId,
     required int serviceId,
   }) {
-    return _apiService.deleteServiceApi(salonId: salonId, serviceId: serviceId);
+    return _apiService.deleteServiceApi(branchId: branchId, serviceId: serviceId);
   }
 
   Future<Map<String, dynamic>> addService({
@@ -303,17 +237,17 @@ class SalonRepository {
     return _apiService.addService(salonId: salonId, request: request);
   }
 
-  Future<Map<String, dynamic>> updateService(
-    int salonId,
-    int serviceId,
-    Map<String, dynamic> body,
-  ) {
-    return _apiService.updateService(
-      salonId: salonId,
-      serviceId: serviceId,
-      body: body,
-    );
-  }
+Future<Map<String, dynamic>> updateService(
+  int branchId,
+  int branchServiceId,
+  Map<String, dynamic> body,
+) {
+  return _apiService.updateService(
+    branchId: branchId,
+    branchServiceId: branchServiceId,
+    body: body,
+  );
+}
 
   Future<Map<String, dynamic>> createSalonOffer({
     required int salonId,

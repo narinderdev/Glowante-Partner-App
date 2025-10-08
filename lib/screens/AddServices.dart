@@ -328,7 +328,8 @@ class _AddServicesState extends State<AddServices> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _FieldLabel("Service Name *"),
+                   _FieldLabel(translateText("Service Name *")),
+
                     SizedBox(height: 6),
                     TextFormField(
                       controller: nameController,
@@ -339,13 +340,13 @@ class _AddServicesState extends State<AddServices> {
                           TextCapitalization.words, // open keyboard with Caps
                       inputFormatters: const [TitleCaseInputFormatter()],
                       decoration: _inputDecoration(
-                        hint: "Add a service name",
+                        hint: translateText("Add a service name"),
                         icon: Icons.badge_outlined,
                       ),
                       validator: _validateLabel,
                     ),
                     SizedBox(height: 16),
-                    const _FieldLabel("Description (Optional)"),
+                   _FieldLabel(translateText("Description (Optional)")),
                     SizedBox(height: 6),
                     TextFormField(
                       controller: descController,
@@ -353,7 +354,7 @@ class _AddServicesState extends State<AddServices> {
                       textCapitalization: TextCapitalization
                           .sentences, // keyboard Caps, no validation
                       decoration: _inputDecoration(
-                        hint: "Add a short description",
+                        hint: translateText("Add a short description"),
                         icon: Icons.description_outlined,
                       ),
                     ),
@@ -371,7 +372,7 @@ class _AddServicesState extends State<AddServices> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const _FieldLabel("Category *"),
+                          _FieldLabel(translateText("Category *")),
                           SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             isExpanded: true,
@@ -413,7 +414,7 @@ class _AddServicesState extends State<AddServices> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const _FieldLabel("Subcategory *"),
+                          _FieldLabel(translateText("Subcategory *")),
                           SizedBox(height: 6),
                           DropdownButtonFormField<int>(
                             isExpanded: true,
@@ -470,7 +471,7 @@ class _AddServicesState extends State<AddServices> {
                           FilteringTextInputFormatter.digitsOnly
                         ],
                         decoration: _inputDecoration(
-                          label: "Price *",
+                          label: translateText("Price *"),
                           icon: Icons.currency_rupee,
                         ),
                         validator: _validatePrice,
@@ -485,7 +486,7 @@ class _AddServicesState extends State<AddServices> {
                           FilteringTextInputFormatter.digitsOnly
                         ],
                         decoration: _inputDecoration(
-                          label: "Duration (min) *",
+                          label: translateText("Duration (min) *"),
                           icon: Icons.timer_outlined,
                         ),
                         validator: _validateDuration,
@@ -507,7 +508,7 @@ class _AddServicesState extends State<AddServices> {
                         )
                       : Icon(Icons.add_task_outlined),
                   label: Text(
-                    _isLoading ? 'Adding...' : 'Add Service',
+                    _isLoading ? translateText('Adding...') : translateText('Add Service'),
                     style: const TextStyle(fontSize: 16, color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -651,7 +652,7 @@ List<DropdownMenuItem<String>> buildCategoryAndSubcategoryKeyItems(
         enabled: category['subCategories'] == null ||
             (category['subCategories'] as List).isEmpty,
         child: Text(
-          category['name'] ?? '',
+          category['displayName'] ?? '',
           style: TextStyle(
             color: (category['subCategories'] == null ||
                     (category['subCategories'] as List).isEmpty)
@@ -670,7 +671,7 @@ List<DropdownMenuItem<String>> buildCategoryAndSubcategoryKeyItems(
           value: 'sub:$subId',
           child: Padding(
             padding: const EdgeInsets.only(left: 20),
-            child: Text(sub['name'] ?? ''),
+            child: Text(sub['displayName'] ?? ''),
           ),
         ),
       );

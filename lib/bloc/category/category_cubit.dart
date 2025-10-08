@@ -71,27 +71,28 @@ class CategoryCubit extends Cubit<CategoryState> {
     );
   }
 
-  Future<void> updateCategory(
-    int salonId,
-    int categoryId,
-    AddCategoryRequest request,
-  ) async {
-    await _performMutation(
-      salonId,
-      () => _repository.updateCategory(
-        salonId: salonId,
-        categoryId: categoryId,
-        request: request,
-      ),
-      fallbackMessage: 'Category updated successfully',
-    );
-  }
+Future<void> updateCategory(
+  int branchId,
+  int branchCategoryId,
+  AddCategoryRequest request,
+) async {
+  await _performMutation(
+    branchId,
+    () => _repository.updateCategory(
+      branchId: branchId,
+      branchCategoryId: branchCategoryId,
+      request: request,
+    ),
+    fallbackMessage: 'Category updated successfully',
+  );
+}
 
-  Future<void> deleteCategory(int salonId, int categoryId) async {
+
+  Future<void> deleteCategory(int branchId, int categoryId) async {
     await _performMutation(
-      salonId,
+      branchId,
       () =>
-          _repository.deleteCategory(salonId: salonId, categoryId: categoryId),
+          _repository.deleteCategory(branchId: branchId, CategoryId: categoryId),
       fallbackMessage: 'Category deleted successfully',
     );
   }
@@ -140,38 +141,42 @@ class CategoryCubit extends Cubit<CategoryState> {
 
     return false;
   }
+Future<void> updateSubCategory(
+  int branchId,
+  int subCategoryId,
+  String displayName, {
+  int sortOrder = 0,
+  bool isActive = true,
+}) async {
+  await _performMutation(
+    branchId,
+    () => _repository.updateSubCategory(
+      branchId: branchId,
+      subCategoryId: subCategoryId,
+      displayName: displayName,
+      sortOrder: sortOrder,
+      isActive: isActive,
+    ),
+    fallbackMessage: 'Subcategory updated successfully',
+  );
+}
 
-  Future<void> updateSubCategory(
-    int salonId,
-    int subCategoryId,
-    String name,
-  ) async {
-    await _performMutation(
-      salonId,
-      () => _repository.updateSubCategory(
-        salonId: salonId,
-        subCategoryId: subCategoryId,
-        name: name,
-      ),
-      fallbackMessage: 'Subcategory updated successfully',
-    );
-  }
 
-  Future<void> deleteSubCategory(int salonId, int subCategoryId) async {
+  Future<void> deleteSubCategory(int branchId, int subCategoryId) async {
     await _performMutation(
-      salonId,
+      branchId,
       () => _repository.deleteSubCategory(
-        salonId: salonId,
+        branchId: branchId,
         subCategoryId: subCategoryId,
       ),
       fallbackMessage: 'Subcategory deleted successfully',
     );
   }
 
-  Future<void> deleteService(int salonId, int serviceId) async {
+  Future<void> deleteService(int branchId, int serviceId) async {
     await _performMutation(
-      salonId,
-      () => _repository.deleteService(salonId: salonId, serviceId: serviceId),
+      branchId,
+      () => _repository.deleteService(branchId: branchId, serviceId: serviceId),
       fallbackMessage: 'Service deleted successfully',
     );
   }
