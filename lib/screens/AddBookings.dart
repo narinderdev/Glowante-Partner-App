@@ -952,7 +952,7 @@ Row(
             controller: _clientlNameCtrl,
             decoration: _inputDecoration('Last name'),
             validator: (v) =>
-                (v == null || v.trim().isEmpty) ? 'Last Name is Required' : null,
+                (v == null || v.trim().isEmpty) ? translateText('Last Name is required') : null,
           ),
         ],
       ),

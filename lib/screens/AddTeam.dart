@@ -79,7 +79,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   String? _vLastName(String? v) {
     if (_suppressLastNameError) return null;
     final x = (v ?? '').trim();
-    if (x.isEmpty) return translateText('Last name is required.');
+    if (x.isEmpty) return translateText('Last Name is required.');
     // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
     //   return translateText('Last name must start with a capital letter.');
     // }

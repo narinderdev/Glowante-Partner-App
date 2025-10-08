@@ -403,12 +403,12 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
 
     final firstName = _firstNameCtrl.text.trim();
     if (firstName.isEmpty) {
-      errors.add(translateText('First name is required & Must start with a capital letter.'));
+      errors.add(translateText('First Name is required & Must start with a capital letter.'));
     }
 
     final lastName = _lastNameCtrl.text.trim();
     if (lastName.isEmpty) {
-      errors.add(translateText('Last name is required & Must start with a capital letter.'));
+      errors.add(translateText('Last Name is required & Must start with a capital letter.'));
     }
 
     final email = _emailCtrl.text.trim();
@@ -591,7 +591,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
   autovalidateMode: AutovalidateMode.onUserInteraction,
   validator: (v) {
     final s = (v ?? '').trim();
-    if (s.isEmpty) return translateText('Last name is required');
+    if (s.isEmpty) return translateText('Last Name is required');
     if (!RegExp(r'^[A-Z]').hasMatch(s)) {
       return translateText('Must start with a capital letter');
     }
