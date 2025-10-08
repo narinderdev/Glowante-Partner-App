@@ -803,7 +803,7 @@ class _CategoryList extends StatelessWidget {
                     SizedBox(width: 14),
                     Expanded(
                       child: Text(
-                        category['name'] as String? ?? 'Category',
+                        category['displayName'] as String? ?? 'Category',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleMedium?.copyWith(
@@ -995,7 +995,7 @@ class _SubcategoryTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                subCategory['name'] as String? ?? 'Subcategory',
+                subCategory['displayName'] as String? ?? 'Subcategory',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppColors.getStartedButton,

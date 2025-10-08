@@ -325,7 +325,9 @@ void initState() {
               backgroundColor: Colors.white,
               foregroundColor: AppColors.starColor,
               icon: Icon(fabExpanded ? Icons.close : Icons.menu_rounded),
-              label: Text(fabExpanded ? 'Close' : 'Quick actions'),
+              label: Text(
+  translateText(fabExpanded ? 'Close' : 'Quick actions'),
+),
               onPressed: () {
                 setState(() => fabExpanded = !fabExpanded);
               },
@@ -585,7 +587,7 @@ class _SalonsOverview extends StatelessWidget {
             Expanded(
               child: _OverviewCard(
                 icon: Icons.store_mall_directory_outlined,
-                label: 'Total salons',
+                label: translateText('Total salons'),
                 value: totalSalons.toString(),
                   highlightAccent: true,
               ),
@@ -1836,25 +1838,26 @@ class _FabActionPanel extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _FabActionTile(
-                icon: Icons.groups_2_rounded,
-                label: 'Team members',
-                subtitle: 'Manage stylists & staff',
-                onTap: onTeam,
-              ),
-              const Divider(height: 1, color: Color(0xFFE0E0E0)),
-              _FabActionTile(
-                icon: Icons.local_offer_outlined,
-                label: 'Deals',
-                subtitle: 'Create irresistible offers',
-                onTap: onDeals,
-              ),
-              const Divider(height: 1, color: Color(0xFFE0E0E0)),
-              _FabActionTile(
-                icon: Icons.card_giftcard_outlined,
-                label: 'Packages',
-                subtitle: 'Bundle services smartly',
-                onTap: onPackages,
-              ),
+  icon: Icons.groups_2_rounded,
+  label: translateText('Team members'),
+  subtitle: translateText('Manage stylists & staff'),
+  onTap: onTeam,
+),
+const Divider(height: 1, color: Color(0xFFE0E0E0)),
+_FabActionTile(
+  icon: Icons.local_offer_outlined,
+  label: translateText('Deals'),
+  subtitle: translateText('Create irresistible offers'),
+  onTap: onDeals,
+),
+const Divider(height: 1, color: Color(0xFFE0E0E0)),
+_FabActionTile(
+  icon: Icons.card_giftcard_outlined,
+  label: translateText('Packages'),
+  subtitle: translateText('Bundle services smartly'),
+  onTap: onPackages,
+),
+
             ],
           ),
         ),

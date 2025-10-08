@@ -392,13 +392,13 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
 
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      errors.add(translateText('Phone number is required.'));
+      errors.add(translateText('Phone number is required'));
     } else if (phone.length < 10) {
       errors.add(translateText('Phone number must be 10 digits.'));
     }
 
     if (!_phoneVerified) {
-      errors.add(translateText('Please verify the phone number.'));
+      errors.add(translateText('Please verify phone number'));
     }
 
     final firstName = _firstNameCtrl.text.trim();
@@ -566,7 +566,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
   autovalidateMode: AutovalidateMode.onUserInteraction,
   validator: (v) {
     final s = (v ?? '').trim();
-    if (s.isEmpty) return translateText('First name is required');
+    if (s.isEmpty) return translateText('First Name is required');
     if (!RegExp(r'^[A-Z]').hasMatch(s)) {
       return translateText('Must start with a capital letter');
     }

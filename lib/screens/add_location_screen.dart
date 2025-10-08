@@ -856,7 +856,6 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     controller: buildingNameController,
                     label: 'Building Name and Flat No',
                     hint: 'Enter building name and flat number',
-                    // enabled: !_buildingLocked,
                   ),
                   _buildTextField(
                     controller: cityController,
@@ -928,6 +927,49 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 }
 
+// Widget _buildTextField({
+//   required TextEditingController controller,
+//   required String label,
+//   required String hint,
+//   bool enabled = true,
+//   bool isRequired = true,
+//   int? maxLength,
+//   RegExp? regex,
+//   TextInputType keyboardType = TextInputType.text,
+//   List<TextInputFormatter>? inputFormatters,
+//   TextCapitalization textCapitalization = TextCapitalization.words,
+// }) {
+//   return Padding(
+//     padding: const EdgeInsets.symmetric(vertical: 8),
+//     child: TextFormField(
+//       controller: controller,
+//       readOnly: !enabled,
+//       maxLength: maxLength,
+//       keyboardType: keyboardType,
+//       inputFormatters: inputFormatters,
+//       textCapitalization: textCapitalization,
+//       autovalidateMode: AutovalidateMode.onUserInteraction,
+//       validator: (value) {
+//         final v = value?.trim() ?? '';
+//         if (isRequired && v.isEmpty) {
+//           return translateText('$label is required');
+//         }
+//         if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
+//           return translateText('Invalid $label');
+//         }
+//         return null;
+//       },
+//       decoration: InputDecoration(
+//         labelText: translateText(label),
+//         hintText: translateText(hint),
+//         counterText: '',
+//         border: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//       ),
+//     ),
+//   );
+// }
 Widget _buildTextField({
   required TextEditingController controller,
   required String label,
@@ -940,6 +982,11 @@ Widget _buildTextField({
   List<TextInputFormatter>? inputFormatters,
   TextCapitalization textCapitalization = TextCapitalization.words,
 }) {
+  // ✅ Normalize label (strip any * to handle consistently)
+  final baseLabel = label.replaceAll('*', '').trim();
+  final translatedLabel = translateText(baseLabel);
+  final translatedHint = translateText(hint.trim());
+
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 8),
     child: TextFormField(
@@ -952,25 +999,70 @@ Widget _buildTextField({
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (value) {
         final v = value?.trim() ?? '';
+
+        // ✅ Required validation
         if (isRequired && v.isEmpty) {
-          return translateText('$label is required');
+          final errorTemplate = translateText('{field} is required');
+          return errorTemplate.replaceAll('{field}', translatedLabel);
         }
+
+        // ✅ Regex validation (localized)
         if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
-          return translateText('Invalid $label');
+          final errorTemplate = translateText('Invalid {field}');
+          return errorTemplate.replaceAll('{field}', translatedLabel);
         }
+
         return null;
       },
       decoration: InputDecoration(
-        labelText: translateText(label),
-        hintText: translateText(hint),
         counterText: '',
+        hintText: translatedHint,
+        label: RichText(
+          text: TextSpan(
+            text: translatedLabel,
+            style: const TextStyle(
+              color: AppColors.darkGrey,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+            children: isRequired
+                ? const [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ]
+                : null,
+          ),
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.grey, width: 1),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.red, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.red, width: 1),
+        ),
+        errorStyle: const TextStyle(color: AppColors.red),
       ),
     ),
   );
 }
+
 
 class AddressComponentsModel {
   String name;

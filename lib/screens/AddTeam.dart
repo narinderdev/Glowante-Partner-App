@@ -55,7 +55,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   String? _vPhone(String? v) {
     if (_suppressPhoneError) return null;
     final phone = (v ?? '').trim();
-    if (phone.isEmpty) return translateText('Phone number is required.');
+    if (phone.isEmpty) return translateText('Phone number is required');
     if (phone.length != 10) return translateText('Phone number must be 10 digits.');
     return null;
   }
@@ -63,13 +63,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   // exact string requested
   String? _vPhoneVerified() {
     if (_suppressVerifyError) return null;
-    return _phoneVerified ? null : 'Please verify phone number';
+    return _phoneVerified ? null : translateText('Please verify phone number');
   }
 
   String? _vFirstName(String? v) {
     if (_suppressFirstNameError) return null;
     final x = (v ?? '').trim();
-    if (x.isEmpty) return translateText('First name is required.');
+    if (x.isEmpty) return translateText('First Name is required');
     // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
     //   return translateText('First name must start with a capital letter.');
     // }
@@ -79,7 +79,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   String? _vLastName(String? v) {
     if (_suppressLastNameError) return null;
     final x = (v ?? '').trim();
-    if (x.isEmpty) return translateText('Last Name is required.');
+    if (x.isEmpty) return translateText('Last Name is required');
     // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
     //   return translateText('Last name must start with a capital letter.');
     // }
@@ -97,22 +97,22 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   // exact strings requested
   String? _vGender() {
     if (_suppressGenderError) return null;
-    return _gender.isEmpty ? 'Select gender' : null;
+    return _gender.isEmpty ? translateText('Select gender') : null;
   }
 
   String? _vJoiningDate() {
     if (_suppressDateError) return null;
-    return _joiningDate == null ? 'select a joining date' : null;
+    return _joiningDate == null ? translateText('Select a joining date') : null;
   }
 
   String? _vRoles() {
     if (_suppressRolesError) return null;
-    return _selectedRoles.isEmpty ? 'Select role' : null;
+    return _selectedRoles.isEmpty ? translateText('Select role') : null;
   }
 
   String? _vSpecs() {
     if (_suppressSpecsError) return null;
-    return _selectedSpecs.isEmpty ? 'Select specialization' : null;
+    return _selectedSpecs.isEmpty ? translateText('Select specialization') : null;
   }
 
   String? _vOtp(String? v) {
@@ -697,7 +697,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _reqLabel('First Name'),
+                              _reqLabel(translateText('First Name')),
                               SizedBox(height: 8),
                               TextFormField(
                                 controller: _firstNameCtrl,
@@ -705,7 +705,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                 autovalidateMode: _showGlobalErrors
                                     ? AutovalidateMode.onUserInteraction
                                     : AutovalidateMode.disabled,
-                                decoration: _decor(hint: 'Enter first name'),
+                                decoration: _decor(hint: translateText('Enter first name')),
                                 validator: _vFirstName,
                                 onChanged: (_) {
                                   if (!_suppressFirstNameError) {
@@ -724,7 +724,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _reqLabel('Last Name'),
+                              _reqLabel(translateText('Last Name')),
                               SizedBox(height: 8),
                               TextFormField(
                                 controller: _lastNameCtrl,
@@ -732,7 +732,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                     ? AutovalidateMode.onUserInteraction
                                     : AutovalidateMode.disabled,
                                 textCapitalization: TextCapitalization.words,
-                                decoration: _decor(hint: 'Enter last name'),
+                                decoration: _decor(hint: translateText('Enter last name')),
                                 validator: _vLastName,
                                 onChanged: (_) {
                                   if (!_suppressLastNameError) {
@@ -751,7 +751,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 16),
 
-                    _reqLabel('Email'),
+                    _reqLabel(translateText('Email')),
                     SizedBox(height: 8),
                     TextFormField(
                       controller: _emailCtrl,
@@ -760,7 +760,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       autovalidateMode: _showGlobalErrors
                           ? AutovalidateMode.onUserInteraction
                           : AutovalidateMode.disabled,
-                      decoration: _decor(hint: 'Enter email address'),
+                      decoration: _decor(hint: translateText('Enter email address')),
                       validator: _vEmail,
                       onChanged: (_) {
                         if (!_suppressEmailError) {
@@ -771,7 +771,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 16),
 
-                    Text(translateText('Otp'),
+                    Text(translateText('OTP'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -785,7 +785,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       autovalidateMode: _showGlobalErrors
                           ? AutovalidateMode.onUserInteraction
                           : AutovalidateMode.disabled,
-                      decoration: _decor(hint: 'Enter otp'),
+                      decoration: _decor(hint: translateText('Enter otp')),
                       validator: _vOtp,
                       onChanged: (_) {
                         if (!_suppressOtpError) {
@@ -796,7 +796,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 16),
 
-                    Text(translateText('Gender'),
+                    Text (translateText('Gender'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -853,13 +853,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 8),
 
-                    _reqLabel('Roles'),
+                    _reqLabel(translateText('Roles')),
                     SizedBox(height: 8),
                     _PickField(
-                      hint: 'Select Roles',
+                      hint: translateText('Select Roles'),
                       values: _selectedRoles,
                       onTap: () => _openMultiSelect(
-                        title: 'Select Roles',
+                        title: translateText('Select Roles'),
                         source: _allRoles,
                         target: _selectedRoles,
                       ),
@@ -881,13 +881,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 16),
 
-                    _reqLabel('Specializations'),
+                    _reqLabel(translateText('Specializations')),
                     SizedBox(height: 8),
                     _PickField(
-                      hint: 'Select Specializations',
+                      hint: translateText('Select Specializations'),
                       values: _selectedSpecs,
                       onTap: () => _openMultiSelect(
-                        title: 'Select Specializations',
+                        title: translateText('Select Specializations'),
                         source: _allSpecs,
                         target: _selectedSpecs,
                       ),
@@ -909,7 +909,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 16),
 
-                    _reqLabel('Joining Date'),
+                    _reqLabel(translateText('Joining Date')),
                     SizedBox(height: 8),
                     GestureDetector(
                       onTap: _pickJoiningDate,
@@ -918,7 +918,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           readOnly: true,
                           decoration: _decor(
                             hint: _joiningDate == null
-                                ? 'Select joining date'
+                                ? translateText('Select joining date')
                                 : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
                             prefix: Icon(Icons.calendar_today_outlined),
                           ),

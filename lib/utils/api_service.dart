@@ -32,7 +32,8 @@ class ApiService {
   static const String checkSendOtpEndpoint = "users/check-and-send-otp";
   static String addServiceAPI(int salonId) => "salons/$salonId/services";
 
-  static String getServicesAPI(int salonId) => "salons/$salonId/services";
+  // static String getServicesAPI(int salonId) => "salons/$salonId/services";
+static String getServicesAPI(int branchId) => "branches/$branchId/services";
 
   static String addCategoryAPI(int salonId) {
     return "salons/$salonId/categories";

@@ -353,14 +353,29 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               ? Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      translateText('Add Location'),
-                                      style: TextStyle(
-                                        color: AppColors.black,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 16,
-                                      ),
-                                    ),
+                                    RichText(
+  text: TextSpan(
+    children: [
+      TextSpan(
+        text: translateText('Add Location'),
+        style: const TextStyle(
+          color: AppColors.black,
+          fontWeight: FontWeight.w500,
+          fontSize: 16,
+        ),
+      ),
+      const TextSpan(
+        text: ' *',
+        style: TextStyle(
+          color: Colors.red,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
+        ),
+      ),
+    ],
+  ),
+),
+
                                   ],
                                 )
                               : Row(
@@ -547,12 +562,27 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   bool forceCapitalize = false,
   int? maxWords,
 }) {
-  final localizedLabel = translateText(label);
-  final localizedHint = translateText(hint);
+// ✅ Localize the label and hint
+// ✅ Clean label text before translation (remove * and any spaces around it)
+final normalizedLabel = label.replaceAll('*', '').trim();
+final normalizedHint = hint.trim();
 
-  // ✅ Check for asterisk to style required fields
-  final bool hasAsterisk = localizedLabel.contains('*');
-  final String cleanLabel = localizedLabel.replaceAll('*', '').trim();
+// ✅ Try translating the cleaned label and hint
+final translatedLabel = translateText(normalizedLabel);
+final translatedHint = translateText(normalizedHint);
+
+// ✅ Fallback to original English if translation not found
+final localizedLabel =
+    translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+final localizedHint =
+    translatedHint != normalizedHint ? translatedHint : normalizedHint;
+
+// ✅ Detect if original label contained '*' (even with space before/after)
+final bool hasAsterisk = label.contains('*');
+
+// ✅ Clean label text for error messages
+final String cleanLabel = localizedLabel.trim();
+
 
   // ✅ Optional capitalization listener
   if (forceCapitalize) {
@@ -586,33 +616,33 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       inputFormatters: inputFormatters,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: (value) {
-        final text = value?.trim() ?? '';
+  final text = value?.trim() ?? '';
 
-        // ✅ Required field validation
-        if (text.isEmpty) {
-          return translateText('$cleanLabel is required');
-        }
+  // ✅ Required field validation with placeholder translation
+  if (text.isEmpty) {
+    return translateText('{field} is required').replaceAll('{field}', cleanLabel);
+  }
 
-        // ✅ Phone number validation
-        if (label.toLowerCase().contains('phone') ||
-            label.toLowerCase().contains('mobile')) {
-          if (text.length != 10) {
-            return translateText('Phone number must be 10 digits');
-          }
-          // Optionally block invalid patterns like "0000000000"
-          if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
-            return translateText('Invalid phone number');
-          }
-        }
+  // ✅ Phone number validation
+  if (label.toLowerCase().contains('phone') ||
+      label.toLowerCase().contains('mobile')) {
+    if (text.length != 10) {
+      return translateText('Phone number must be 10 digits');
+    }
+    if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
+      return translateText('Invalid phone number');
+    }
+  }
 
-        // ✅ Word count validation
-        if (maxWords != null &&
-            text.split(RegExp(r'\s+')).length > maxWords) {
-          return translateText('Maximum $maxWords words allowed');
-        }
+  // ✅ Word count validation
+  if (maxWords != null &&
+      text.split(RegExp(r'\s+')).length > maxWords) {
+    return translateText('Maximum $maxWords words allowed');
+  }
 
-        return null; // ✅ passes validation
-      },
+  return null;
+},
+
       decoration: InputDecoration(
         counterText: '',
         hintText: localizedHint,

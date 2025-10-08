@@ -170,7 +170,7 @@ double get total {
 
     return ExpansionTile(
       title: Text(
-        cat['name']?.toString() ?? '',
+        cat['displayName']?.toString() ?? '',
         style: const TextStyle(fontWeight: FontWeight.w600),
       ),
       children: [
@@ -183,7 +183,7 @@ double get total {
           final subMap = (sub as Map).cast<String, dynamic>();
           final List subServices = subMap['services'] as List? ?? [];
           return ExpansionTile(
-            title: Text(subMap['name']?.toString() ?? ''),
+            title: Text(subMap['displayName']?.toString() ?? ''),
             children: subServices
                 .map<Widget>((s) => _buildServiceItem(
                       (s as Map).cast<String, dynamic>(),

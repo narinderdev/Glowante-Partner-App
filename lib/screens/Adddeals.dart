@@ -438,7 +438,7 @@ if (widget.isEdit && widget.existingOffer != null) {
 
   String? _vServices() {
     if (_sServices) return null;
-    return _selectedServices.isEmpty ? 'Select at least one service.' : null;
+    return _selectedServices.isEmpty ? translateText('Select at least one service') : null;
   }
 
   String? _vAmountOff(String? v) {
@@ -708,7 +708,7 @@ if (widget.isEdit && widget.existingOffer != null) {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _section('Deal Information'),
+                _section(translateText('Deal Information')),
 
                 TextFormField(
                   controller: dealTitleController,
@@ -718,8 +718,8 @@ if (widget.isEdit && widget.existingOffer != null) {
                       ? AutovalidateMode.onUserInteraction
                       : AutovalidateMode.disabled,
                   decoration: _decor(
-                    label: 'Package Title *',
-                    hint: "E.G. MEN'S GROOMING PACKAGE",
+                    label: translateText('Package Title').trim() + ' *',
+                    hint: translateText("E.G. MEN'S GROOMING PACKAGE"),
                   ),
                   validator: _vTitle,
                   onChanged: (_) {
@@ -739,7 +739,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                             ? AutovalidateMode.onUserInteraction
                             : AutovalidateMode.disabled,
                         decoration: _decor(
-                          label: 'Valid From *',
+                          label: '${translateText('Valid From')} *',
                           hint: 'dd-MM-yyyy',
                           prefix: Icons.calendar_today_outlined,
                           suffix: IconButton(
@@ -760,7 +760,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                             ? AutovalidateMode.onUserInteraction
                             : AutovalidateMode.disabled,
                         decoration: _decor(
-                          label: 'Valid Till *',
+                          label: '${translateText('Valid Till')} *',
                           hint: 'dd-MM-yyyy',
                           prefix: Icons.calendar_today_outlined,
                           suffix: IconButton(
@@ -777,7 +777,7 @@ if (widget.isEdit && widget.existingOffer != null) {
 
                 SizedBox(height: 18),
 
-                _section('Pricing Option'),
+                _section(translateText('Pricing Option')),
 
                 if (!showDiscountRow) ...[
                   DropdownButtonFormField<String>(
@@ -786,7 +786,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                         ? AutovalidateMode.onUserInteraction
                         : AutovalidateMode.disabled,
                     items: pricingModes
-                        .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                        .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
                         .toList(),
                     onChanged: (v) {
                       setState(() {
@@ -795,7 +795,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                       });
                       _recalcDiscounted();
                     },
-                    decoration: _decor(label: 'Pricing Option *', prefix: Icons.local_offer_outlined),
+                   decoration: _decor(label: '${translateText('Pricing Option')} *', prefix: Icons.local_offer_outlined),
                   ),
                 ] else ...[
                   Row(
@@ -807,7 +807,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                               ? AutovalidateMode.onUserInteraction
                               : AutovalidateMode.disabled,
                           items: pricingModes
-                              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                              .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
                               .toList(),
                           onChanged: (v) {
                             setState(() {
@@ -816,7 +816,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                             });
                             _recalcDiscounted();
                           },
-                          decoration: _decor(label: 'Pricing Option *', prefix: Icons.local_offer_outlined),
+                          decoration: _decor(label: '${translateText('Discount Type')} *', prefix: Icons.sell_outlined),
                         ),
                       ),
                       SizedBox(width: 12),
@@ -827,7 +827,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                               ? AutovalidateMode.onUserInteraction
                               : AutovalidateMode.disabled,
                           items: discountTypes
-                              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                              .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
                               .toList(),
                           onChanged: (v) {
                             setState(() {
@@ -845,7 +845,7 @@ if (widget.isEdit && widget.existingOffer != null) {
 
                 SizedBox(height: 18),
 
-                _section('Select Services'),
+               _section(translateText('Select Services')),
 
                 InkWell(
                   onTap: () async {
@@ -951,113 +951,115 @@ if (widget.isEdit && widget.existingOffer != null) {
 
                 // Discount Inputs
                 if (showFlatField) ...[
-                  TextFormField(
-                    controller: amountOffController,
-                    keyboardType: TextInputType.number,
-                    autovalidateMode: _showErrors
-                        ? AutovalidateMode.onUserInteraction
-                        : AutovalidateMode.disabled,
-                    decoration: _decor(
-                      label: 'Amount Off (₹) *',
-                      hint: 'e.g. 200',
-                      prefix: Icons.currency_rupee,
-                    ),
-                    validator: _vAmountOff,
-                    onChanged: (_) {
-                      if (!_sAmountOff) setState(() => _sAmountOff = true);
-                    },
-                  ),
-                  SizedBox(height: 14),
-                ],
-                if (showPercentField) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: amountOffController,
-                          keyboardType: TextInputType.number,
-                          autovalidateMode: _showErrors
-                              ? AutovalidateMode.onUserInteraction
-                              : AutovalidateMode.disabled,
-                          decoration: _decor(
-                            label: 'Percentage Off (%) *',
-                            hint: 'e.g. 20',
-                            prefix: Icons.percent,
-                          ),
-                          validator: _vAmountOff,
-                          onChanged: (_) {
-                            if (!_sAmountOff) setState(() => _sAmountOff = true);
-                          },
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: maxDiscountController,
-                          keyboardType: TextInputType.number,
-                          autovalidateMode: _showErrors
-                              ? AutovalidateMode.onUserInteraction
-                              : AutovalidateMode.disabled,
-                          decoration: _decor(
-                            label: 'Max Discount (₹) *',
-                            hint: 'auto from %',
-                            prefix: Icons.currency_rupee,
-                          ),
-                          validator: _vMaxDiscount,
-                          onChanged: (_) {
-                            if (!_sMaxDiscount) setState(() => _sMaxDiscount = true);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 14),
-                ],
+  TextFormField(
+    controller: amountOffController,
+    keyboardType: TextInputType.number,
+    autovalidateMode: _showErrors
+        ? AutovalidateMode.onUserInteraction
+        : AutovalidateMode.disabled,
+    decoration: _decor(
+      label: translateText('Amount Off (₹) *'),
+      hint: translateText('e.g. 200'),
+      prefix: Icons.currency_rupee,
+    ),
+    validator: _vAmountOff,
+    onChanged: (_) {
+      if (!_sAmountOff) setState(() => _sAmountOff = true);
+    },
+  ),
+  SizedBox(height: 14),
+],
 
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: originalPriceController,
-                        readOnly: true,
-                        decoration: _decor(
-                          label: 'Original Price *',
-                          hint: 'auto from services',
-                          prefix: Icons.currency_rupee,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: discountedPriceController,
-                        readOnly: true,
-                        autovalidateMode: _showErrors
-                            ? AutovalidateMode.always
-                            : AutovalidateMode.disabled,
-                        decoration: _decor(
-                          label: 'Discounted Price *',
-                          hint: 'auto calculated',
-                          prefix: Icons.currency_rupee,
-                        ),
-                        validator: (_) => _vDiscounted(),
-                      ),
-                    ),
-                  ],
-                ),
+if (showPercentField) ...[
+  Row(
+    children: [
+      Expanded(
+        child: TextFormField(
+          controller: amountOffController,
+          keyboardType: TextInputType.number,
+          autovalidateMode: _showErrors
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
+          decoration: _decor(
+            label: translateText('Percentage Off (%) *'),
+            hint: translateText('e.g. 20'),
+            prefix: Icons.percent,
+          ),
+          validator: _vAmountOff,
+          onChanged: (_) {
+            if (!_sAmountOff) setState(() => _sAmountOff = true);
+          },
+        ),
+      ),
+      SizedBox(width: 12),
+      Expanded(
+        child: TextFormField(
+          controller: maxDiscountController,
+          keyboardType: TextInputType.number,
+          autovalidateMode: _showErrors
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
+          decoration: _decor(
+            label: translateText('Max Discount (₹) *'),
+            hint: translateText('auto from %'),
+            prefix: Icons.currency_rupee,
+          ),
+          validator: _vMaxDiscount,
+          onChanged: (_) {
+            if (!_sMaxDiscount) setState(() => _sMaxDiscount = true);
+          },
+        ),
+      ),
+    ],
+  ),
+  SizedBox(height: 14),
+],
 
-                SizedBox(height: 14),
+Row(
+  children: [
+    Expanded(
+      child: TextFormField(
+        controller: originalPriceController,
+        readOnly: true,
+        decoration: _decor(
+          label: translateText('Original Price *'),
+          hint: translateText('auto from services'),
+          prefix: Icons.currency_rupee,
+        ),
+      ),
+    ),
+    SizedBox(width: 12),
+    Expanded(
+      child: TextFormField(
+        controller: discountedPriceController,
+        readOnly: true,
+        autovalidateMode: _showErrors
+            ? AutovalidateMode.always
+            : AutovalidateMode.disabled,
+        decoration: _decor(
+          label: translateText('Discounted Price *'),
+          hint: translateText('auto calculated'),
+          prefix: Icons.currency_rupee,
+        ),
+        validator: (_) => _vDiscounted(),
+      ),
+    ),
+  ],
+),
 
-                TextFormField(
-                  controller: termsController,
-                  textCapitalization: TextCapitalization.none, // caps keyboard
-                  inputFormatters:  [_SentenceCaseTextFormatter()], // force UPPER
-                  decoration: _decor(
-                    label: 'Terms (optional)',
-                    hint: 'ANY TERMS & CONDITIONS…',
-                    prefix: Icons.article_outlined,
-                  ),
-                ),
+SizedBox(height: 14),
+
+TextFormField(
+  controller: termsController,
+  textCapitalization: TextCapitalization.none,
+  inputFormatters: [_SentenceCaseTextFormatter()],
+  decoration: _decor(
+    label: translateText('Terms (optional)'),
+    hint: translateText('ANY TERMS & CONDITIONS…'),
+    prefix: Icons.article_outlined,
+  ),
+),
+
 
                 SizedBox(height: 22),
 
