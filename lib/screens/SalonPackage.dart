@@ -154,7 +154,7 @@ class _PackageScreenState extends State<PackageScreen> {
             child: Text(translateText('Cancel')),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.starColor),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(translateText('Delete'), style: TextStyle(color: Colors.white)),
           ),

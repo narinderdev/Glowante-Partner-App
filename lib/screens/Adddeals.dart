@@ -96,7 +96,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   @override
   void initState() {
     super.initState();
-
+_showErrors = false;
     // live recompute
     amountOffController.addListener(() {
       if (_settingFields) return;
@@ -252,19 +252,38 @@ if (widget.isEdit && widget.existingOffer != null) {
 
   // Items → selected
   final items = (o['items'] as List?) ?? const [];
-  _selectedServices = items.map<Map<String, dynamic>>((e) {
-    final m = Map<String, dynamic>.from(e as Map);
-    final id = (m['salonServiceId'] ?? m['id']) as int?;
-    final qty = (m['qty'] ?? 1) as int;
-    final name = m['name'] ?? m['displayName'] ?? 'Service';
-    final price = m['price'] ?? m['priceMinor'] ?? 0;
-    return {
-      'id': id ?? 0,
-      'name': name,
-      'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
-      'qty': qty,
-    };
-  }).toList();
+  // _selectedServices = items.map<Map<String, dynamic>>((e) {
+  //   final m = Map<String, dynamic>.from(e as Map);
+  //   final id = (m['salonServiceId'] ?? m['id']) as int?;
+  //   final qty = (m['qty'] ?? 1) as int;
+  //   final name = m['name'] ?? m['displayName'] ?? 'Service';
+  //   final price = m['price'] ?? m['priceMinor'] ?? 0;
+  //   return {
+  //     'id': id ?? 0,
+  //     'name': name,
+  //     'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
+  //     'qty': qty,
+  //   };
+  // }).toList();
+_selectedServices = items.map<Map<String, dynamic>>((e) {
+  final m = Map<String, dynamic>.from(e as Map);
+
+  // ✅ Correct priority order
+  final id = (m['serviceId'] ?? m['salonServiceId'] ?? m['id']) as int?;
+
+  final qty = (m['qty'] ?? 1) as int;
+  final name = m['name'] ?? m['displayName'] ?? 'Service';
+  final price = m['price'] ?? m['priceMinor'] ?? 0;
+
+  return {
+    'id': id ?? -1, // invalid IDs become -1, not 0
+    'name': name,
+    'price': (price is num)
+        ? price.toInt()
+        : int.tryParse(price.toString()) ?? 0,
+    'qty': qty,
+  };
+}).where((s) => s['id'] != -1).toList();
 
   // Prices
   originalPriceController.text = _originalTotal().toStringAsFixed(2);
@@ -333,17 +352,22 @@ if (widget.isEdit && widget.existingOffer != null) {
         child: child!,
       ),
     );
-    if (picked != null) {
-      setState(() {
-        c.text = _formatDate(picked);
-        if (isFrom) {
-          _sValidFrom = true;
-        } else {
-          _sValidTill = true;
-        }
-      });
-      _formKey.currentState?.validate();
+   if (picked != null) {
+  setState(() {
+    c.text = _formatDate(picked);
+    if (isFrom) {
+      _sValidFrom = true;
+    } else {
+      _sValidTill = true;
     }
+  });
+
+  // ✅ Only revalidate if errors are currently visible
+  if (_showErrors) {
+    _formKey.currentState?.validate();
+  }
+}
+
   }
 
   double _originalTotal() {
@@ -557,7 +581,7 @@ if (widget.isEdit && widget.existingOffer != null) {
           ? null
           : termsController.text.trim(),
       'items': _selectedServices
-          .map((s) => {'salonServiceId': s['id'], 'qty': s['qty']})
+          .map((s) => {'serviceId': s['id'], 'qty': s['qty']})
           .toList(),
     };
 
@@ -715,7 +739,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                   textCapitalization: TextCapitalization.none, // caps keyboard
                   inputFormatters:  [_SentenceCaseTextFormatter()], // force UPPER
                   autovalidateMode: _showErrors
-                      ? AutovalidateMode.onUserInteraction
+                      ? AutovalidateMode.always
                       : AutovalidateMode.disabled,
                   decoration: _decor(
                     label: translateText('Package Title').trim() + ' *',
@@ -873,7 +897,7 @@ if (widget.isEdit && widget.existingOffer != null) {
                         _sDiscounted = true;
                       });
                       _recalcDiscounted();
-                      _formKey.currentState?.validate();
+                      // _formKey.currentState?.validate();
                     }
                   },
                   borderRadius: _radius,
@@ -1052,7 +1076,10 @@ SizedBox(height: 14),
 TextFormField(
   controller: termsController,
   textCapitalization: TextCapitalization.none,
-  inputFormatters: [_SentenceCaseTextFormatter()],
+  inputFormatters: [
+    _SentenceCaseTextFormatter(),
+    NoSpecialCharsFormatter(), // 🔥 prevents special characters
+  ],
   decoration: _decor(
     label: translateText('Terms (optional)'),
     hint: translateText('ANY TERMS & CONDITIONS…'),
@@ -1097,6 +1124,24 @@ TextFormField(
           ),
         ),
       ),
+    );
+  }
+}
+/// Blocks special characters in "Terms" field
+class NoSpecialCharsFormatter extends TextInputFormatter {
+  // Allow letters, digits, spaces, commas, periods, and basic punctuation
+  final RegExp _allowed = RegExp(r"[a-zA-Z0-9\s,.\-']");
+
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final filtered = newValue.text.split('').where((ch) => _allowed.hasMatch(ch)).join();
+    return newValue.copyWith(
+      text: filtered,
+      selection: TextSelection.collapsed(offset: filtered.length),
     );
   }
 }

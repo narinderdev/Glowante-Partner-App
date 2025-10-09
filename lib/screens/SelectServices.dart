@@ -25,11 +25,19 @@ class SelectServicesModal extends StatefulWidget {
 }
 
 class _SelectServicesModalState extends State<SelectServicesModal> {
+ final TextEditingController _searchController = TextEditingController();
+
   List categories = [];
   /// serviceId -> quantity
   final Map<int, int> selectedQty = {};
   String searchQuery = '';
   bool isLoading = true;
+
+ @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -115,85 +123,129 @@ double get total {
   return sum;
 }
 
+Widget _buildServiceItem(Map<String, dynamic> s) {
+  final int id = s['id'] as int;
+  final String name = (s['displayName'] ?? '').toString();
+  final int price = (s['priceMinor'] ?? 0) as int; // rupees (e.g., 1220)
+  final int qty = selectedQty[id] ?? 0;
 
-  Widget _buildServiceItem(Map<String, dynamic> s) {
-    final int id = s['id'] as int;
-    final String name = (s['displayName'] ?? '').toString();
-    final int price = (s['priceMinor'] ?? 0) as int; // rupees (e.g., 1220)
-    final int qty = selectedQty[id] ?? 0;
+  // ❌ DO NOT FILTER HERE.
+  // Filtering is already handled inside _buildCategory().
+  // Keeping it here hides your entire widget during search.
 
-    // filter by search query
-    if (searchQuery.isNotEmpty &&
-        !name.toLowerCase().contains(searchQuery.toLowerCase())) {
-      return SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              "$name\n₹$price",
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.remove_circle_outline),
-            onPressed: qty > 0
-                ? () => setState(() => selectedQty[id] = qty - 1)
-                : null,
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.black26),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              qty.toString(),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.add_circle_outline),
-            onPressed: () => setState(() => selectedQty[id] = qty + 1),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategory(Map<String, dynamic> cat) {
-    final List services = cat['services'] as List? ?? [];
-    final List subs = cat['subCategories'] as List? ?? [];
-
-    return ExpansionTile(
-      title: Text(
-        cat['displayName']?.toString() ?? '',
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        ...services
-            .map<Widget>((s) => _buildServiceItem(
-                  (s as Map).cast<String, dynamic>(),
-                ))
-            .toList(),
-        ...subs.map<Widget>((sub) {
-          final subMap = (sub as Map).cast<String, dynamic>();
-          final List subServices = subMap['services'] as List? ?? [];
-          return ExpansionTile(
-            title: Text(subMap['displayName']?.toString() ?? ''),
-            children: subServices
-                .map<Widget>((s) => _buildServiceItem(
-                      (s as Map).cast<String, dynamic>(),
-                    ))
-                .toList(),
-          );
-        }).toList(),
+        Expanded(
+          child: Text(
+            "$name\n₹$price",
+            style: const TextStyle(fontSize: 14),
+          ),
+        ),
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline),
+              onPressed: qty > 0
+                  ? () => setState(() => selectedQty[id] = qty - 1)
+                  : null,
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black26),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                qty.toString(),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              onPressed: () => setState(() => selectedQty[id] = qty + 1),
+            ),
+          ],
+        ),
       ],
-    );
+    ),
+  );
+}
+
+Widget _buildCategory(Map<String, dynamic> cat) {
+  final List services = cat['services'] as List? ?? [];
+  final List subs = cat['subCategories'] as List? ?? [];
+
+  final String q = searchQuery.toLowerCase();
+
+  // Category matches search?
+  final bool matchesCategory = q.isEmpty ||
+      (cat['displayName']?.toString().toLowerCase() ?? '').contains(q);
+
+  // Filter category-level services
+  final filteredServices = services.where((s) {
+    final name = (s['displayName'] ?? '').toString().toLowerCase();
+    return q.isEmpty || name.contains(q);
+  }).toList();
+
+  // Handle subcategories
+  final filteredSubs = subs.where((sub) {
+    final subMap = (sub as Map).cast<String, dynamic>();
+    final subName = (subMap['displayName'] ?? '').toString().toLowerCase();
+    final subServices = (subMap['services'] ?? []) as List;
+
+    // check if subcategory name matches or if any service name matches
+    final bool hasMatchingService = subServices.any((svc) =>
+        (svc['displayName'] ?? '').toString().toLowerCase().contains(q));
+
+    return q.isEmpty || subName.contains(q) || hasMatchingService;
+  }).toList();
+
+  // Hide category if nothing matches
+  if (!matchesCategory && filteredServices.isEmpty && filteredSubs.isEmpty) {
+    return const SizedBox.shrink();
   }
+
+  return ExpansionTile(
+    initiallyExpanded: searchQuery.isNotEmpty,
+    title: Text(
+      cat['displayName']?.toString() ?? '',
+      style: const TextStyle(fontWeight: FontWeight.w600),
+    ),
+    children: [
+      // Category-level services
+      ...filteredServices.map<Widget>((s) => _buildServiceItem((s as Map).cast<String, dynamic>())),
+
+      // Subcategories
+      ...filteredSubs.map<Widget>((sub) {
+        final subMap = (sub as Map).cast<String, dynamic>();
+        final subName = (subMap['displayName'] ?? '').toString().toLowerCase();
+        final subServices = (subMap['services'] ?? []) as List;
+
+        // 🔥 If the subcategory name matches, show all its services.
+        // Otherwise, only show the ones that match the search.
+        final bool subMatches = subName.contains(q);
+        final filteredSubServices = subMatches
+            ? subServices
+            : subServices.where((svc) {
+                final name =
+                    (svc['displayName'] ?? '').toString().toLowerCase();
+                return q.isEmpty || name.contains(q);
+              }).toList();
+
+        return ExpansionTile(
+          initiallyExpanded: searchQuery.isNotEmpty,
+          title: Text(subMap['displayName']?.toString() ?? ''),
+          children: filteredSubServices
+              .map<Widget>((s) => _buildServiceItem((s as Map).cast<String, dynamic>()))
+              .toList(),
+        );
+      }).toList(),
+    ],
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -231,20 +283,47 @@ double get total {
           : Column(
               children: [
                 // Search
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: translateText('Search Services'),
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onChanged: (val) =>
-                        setState(() => searchQuery = val.trim()),
-                  ),
-                ),
+                // Padding(
+                //   padding: const EdgeInsets.all(12.0),
+                //   child: TextField(
+                //     decoration: InputDecoration(
+                //       hintText: translateText('Search Services'),
+                //       prefixIcon: Icon(Icons.search),
+                //       border: OutlineInputBorder(
+                //         borderRadius: BorderRadius.circular(12),
+                //       ),
+                //     ),
+                //     onChanged: (val) =>
+                //         setState(() => searchQuery = val.trim()),
+                //   ),
+                // ),
+Padding(
+  padding: const EdgeInsets.all(12.0),
+  child: TextField(
+    controller: _searchController,
+    decoration: InputDecoration(
+      hintText: translateText('Search Services'),
+      prefixIcon: const Icon(Icons.search),
+      suffixIcon: searchQuery.isNotEmpty
+          ? IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                setState(() {
+                  _searchController.clear(); // clear UI text
+                  searchQuery = '';          // clear search filter
+                  FocusScope.of(context).unfocus(); // hide keyboard (optional)
+                });
+              },
+            )
+          : null,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+    onChanged: (val) => setState(() => searchQuery = val.trim()),
+  ),
+),
+
 
                 // List
                 Expanded(

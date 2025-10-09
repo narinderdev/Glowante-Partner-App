@@ -232,23 +232,53 @@ Future<String?> uploadImage(File file) async {
   }
 
   // Resend OTP
-  Future<Map<String, dynamic>> resendOtp(String phoneNumber) async {
-    final resendPayload = {"phoneNo": phoneNumber};
+ Future<Map<String, dynamic>> resendOtp(String phoneNumber) async {
+  final resendPayload = {"phoneNumber": phoneNumber};
+  final url = Uri.parse(baseUrl + resendOtpEndpoint);
+  final headers = {"Content-Type": "application/json"};
+  final body = json.encode(resendPayload);
+
+  print("========== RESEND OTP START ==========");
+  print("Request URL: $url");
+  print("Request Headers: $headers");
+  print("Request Body: $body");
+
+  try {
+    final stopwatch = Stopwatch()..start();
 
     final response = await http.post(
-      Uri.parse(baseUrl + resendOtpEndpoint),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode(resendPayload),
+      url,
+      headers: headers,
+      body: body,
     );
 
-    print("Response (Resend OTP): ${response.body}");
+    stopwatch.stop();
+
+    print("---------- RESPONSE ----------");
+    print("Status Code: ${response.statusCode}");
+    print("Response Body: ${response.body}");
+    print("Request Duration: ${stopwatch.elapsedMilliseconds} ms");
+    print("------------------------------");
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return json.decode(response.body);
+      final decodedResponse = json.decode(response.body);
+      print("Decoded JSON Response: $decodedResponse");
+      print("========== RESEND OTP SUCCESS ==========");
+      return decodedResponse;
     } else {
+      print("========== RESEND OTP FAILED ==========");
+      print("Error Response Body: ${response.body}");
       throw Exception("Failed resend OTP: ${response.body}");
     }
+  } catch (e, stackTrace) {
+    print("========== RESEND OTP ERROR ==========");
+    print("Exception: $e");
+    print("StackTrace: $stackTrace");
+    rethrow;
+  } finally {
+    print("========== RESEND OTP END ==========\n");
   }
+}
 
   // Update profile
   Future<Map<String, dynamic>> updateUserProfileDetails(
