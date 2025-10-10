@@ -812,60 +812,102 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
                     items: pricingModes
                         .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
                         .toList(),
-                    onChanged: (v) {
-                      setState(() {
-                        pricingMode = v ?? 'Fixed';
-                        _autoSetMaxFromPercent = true;
-                      });
-                      _recalcDiscounted();
-                    },
+                    // onChanged: (v) {
+                    //   setState(() {
+                    //     pricingMode = v ?? 'Fixed';
+                    //     _autoSetMaxFromPercent = true;
+                    //   });
+                    //   _recalcDiscounted();
+                    // },
+  onChanged: (v) {
+  setState(() {
+    pricingMode = v ?? 'Fixed';
+    _autoSetMaxFromPercent = true;
+
+    // ✅ Reset fields when switching pricing type
+    amountOffController.clear();
+    maxDiscountController.clear();
+    discountedPriceController.clear();
+
+    // ✅ Force discount type to Flat for Fixed pricing
+    if (pricingMode == 'Fixed') {
+      discountType = 'Flat';
+    }
+  });
+
+  _recalcDiscounted();
+},
+
                    decoration: _decor(label: '${translateText('Pricing Option')} *', prefix: Icons.local_offer_outlined),
                   ),
                 ] else ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: pricingMode,
-                          autovalidateMode: _showErrors
-                              ? AutovalidateMode.onUserInteraction
-                              : AutovalidateMode.disabled,
-                          items: pricingModes
-                              .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
-                              .toList(),
-                          onChanged: (v) {
-                            setState(() {
-                              pricingMode = v ?? 'Discount';
-                              _autoSetMaxFromPercent = true;
-                            });
-                            _recalcDiscounted();
-                          },
-                          decoration: _decor(label: '${translateText('Discount Type')} *', prefix: Icons.sell_outlined),
-                        ),
-                      ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: discountType,
-                          autovalidateMode: _showErrors
-                              ? AutovalidateMode.onUserInteraction
-                              : AutovalidateMode.disabled,
-                          items: discountTypes
-                              .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
-                              .toList(),
-                          onChanged: (v) {
-                            setState(() {
-                              discountType = v ?? 'Flat';
-                              _autoSetMaxFromPercent = true;
-                            });
-                            _recalcDiscounted();
-                          },
-                          decoration: _decor(label: 'Discount Type *', prefix: Icons.sell_outlined),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+  Row(
+    children: [
+      Expanded(
+        child: DropdownButtonFormField<String>(
+          value: pricingMode,
+          autovalidateMode: _showErrors
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
+          items: pricingModes
+              .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
+              .toList(),
+          onChanged: (v) {
+            setState(() {
+              pricingMode = v ?? 'Discount';
+              _autoSetMaxFromPercent = true;
+              // ✅ Reset discountType if user switches back to Fixed
+              if (pricingMode == 'Fixed') discountType = 'Flat';
+            });
+            _recalcDiscounted();
+          },
+          decoration: _decor(
+            label: '${translateText('Pricing Option')} *',
+            prefix: Icons.sell_outlined,
+          ),
+        ),
+      ),
+      SizedBox(width: 12),
+
+      // 👇 Show discount type only when pricingMode == 'Discount'
+      if (pricingMode == 'Discount')
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            value: discountType,
+            autovalidateMode: _showErrors
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
+            items: discountTypes
+                .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
+                .toList(),
+            // onChanged: (v) {
+            //   setState(() {
+            //     discountType = v ?? 'Flat';
+            //     _autoSetMaxFromPercent = true;
+            //   });
+            //   _recalcDiscounted();
+            // },
+            onChanged: (v) {
+  setState(() {
+    discountType = v ?? 'Flat';
+    _autoSetMaxFromPercent = true;
+
+    // ✅ Reset both values when switching between Flat ↔ Percent
+    amountOffController.clear();
+    maxDiscountController.clear();
+    discountedPriceController.clear();
+  });
+
+  _recalcDiscounted();
+},
+
+            decoration: _decor(label: translateText('Discount Type *'), prefix: Icons.sell_outlined),
+          ),
+        ),
+    ],
+  ),
+],
+
 
                 SizedBox(height: 18),
 

@@ -610,22 +610,53 @@ class _OfferCard extends StatelessWidget {
                   color: Colors.orange,
                 ),
               ),
-            ] else ...[
-              Text(
-                "Price: ${rs(totalPrice)}",
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black,
-                ),
-              ),
+            ] else if (pricingMode == 'FIXED') ...[
+  Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  children: [
+    // Left side: Actual (cut) price
+    Row(
+      children: [
+        Text(
+          '₹${totalPrice.toStringAsFixed(0)}',
+          style: const TextStyle(
+            color: Colors.grey,
+            fontSize: 13,
+            decoration: TextDecoration.lineThrough,
+            decorationThickness: 2,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '₹${price.toStringAsFixed(0)}',
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.orange,
+          ),
+        ),
+      ],
+    ),
+
+    // Right side: savings text
+    if (totalPrice > price)
+      Text(
+        'You save ₹${(totalPrice - price).toStringAsFixed(0)}',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Colors.green,
+        ),
+      ),
+  ],
+),
             ],
 
             SizedBox(height: 8),
-            Text(
-              "Duration: ${totalDuration.toStringAsFixed(0)} Min",
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
-            ),
+            // Text(
+            //   "Duration: ${totalDuration.toStringAsFixed(0)} Min",
+            //   style: const TextStyle(fontSize: 13, color: Colors.black87),
+            // ),
 
             if (validFrom != null || validTo != null) ...[
               SizedBox(height: 4),
