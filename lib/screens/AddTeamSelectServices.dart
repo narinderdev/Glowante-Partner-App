@@ -57,7 +57,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     // Prepare the final payload with the selected services
     final finalPayload = {
       ...widget.teamPayload,
-       "salonId": widget.salonId, 
+      //  "salonId": widget.salonId, 
       "selectedServiceIds": _selectedServiceIds.toList(),
     };
 

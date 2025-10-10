@@ -27,24 +27,29 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   Future<List<Map<String, dynamic>>> getSalonListApi() async {
-    try {
-      final response = await ApiService().getSalonListApi();
-      if (response['success'] == true) {
-        List salons = response['data'];
-        return salons.map((salon) {
-          return {
-            'id': salon['id'],
-            'name': salon['name'],
-          };
-        }).toList();
-      } else {
-        throw Exception("Failed to fetch salon list");
-      }
-    } catch (e) {
-      print("Error fetching salon list: $e");
-      return [];
+  try {
+    final response = await ApiService().getSalonListApi();
+    if (response['success'] == true) {
+      List salons = response['data'];
+      return salons.map((salon) {
+        final branches = salon['branches'] as List? ?? [];
+        final firstBranch = branches.isNotEmpty ? branches.first : null;
+
+        return {
+          'id': salon['id'], // salon ID
+          'name': salon['name'], // salon name
+          'branchId': firstBranch?['id'], // 👈 extract branch ID
+          'branchName': firstBranch?['name'], // 👈 extract branch name
+        };
+      }).toList();
+    } else {
+      throw Exception("Failed to fetch salon list");
     }
+  } catch (e) {
+    print("❌ Error fetching salon list: $e");
+    return [];
   }
+}
 
   Future<List<dynamic>> getTeamMembers(int salonId) async {
     try {
@@ -167,13 +172,15 @@ class _TeamScreenState extends State<TeamScreen> {
                           final picked =
                               salons.firstWhere((s) => s['id'] == value);
                           selectedSalon = {
-                            'salonId': picked['id'],
-                            'salonName': picked['name'],
+                              'salonId': picked['id'],
+        'salonName': picked['name'],
+        'branchId': picked['branchId'],
+        'branchName': picked['branchName'],
                           };
                           teamMembersFuture = getTeamMembers(value);
 
                           print(
-                            "Selected SalonId: ${picked['id']} | SalonName: ${picked['name']}",
+                            "Selected SalonId: ${picked['id']} | SalonName: ${picked['name']} | BranchId: ${picked['branchId']} | BranchName: ${picked['branchName']}",
                           );
                         }
                       });
@@ -344,6 +351,7 @@ class _TeamScreenState extends State<TeamScreen> {
                 builder: (_) => AddTeamScreen(
                   salonId: selectedSalon!['salonId'],
                   salonName: selectedSalon!['salonName'], // ✅ REQUIRED by your AddTeamScreen
+            branchId: selectedSalon!['branchId'], // ✅ Pass branchId too
                 ),
               ),
             );
