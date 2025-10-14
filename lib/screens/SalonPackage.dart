@@ -332,7 +332,7 @@ class _PackageScreenState extends State<PackageScreen> {
                           (salon) => DropdownMenuItem(
                             value: salon['branchId'],
                             child: Text(
-                              "${salon['salonName']} - ${salon['branchName']}",
+                              "${salon['salonName']}",
                               style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),

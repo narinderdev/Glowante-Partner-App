@@ -1006,7 +1006,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                           IntrinsicHeight(
+  child: Row(
                       children: [
                         Expanded(
                           child: TextFormField(
@@ -1057,6 +1058,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                         ),
                       ],
                     ),
+                ),
                   ],
                 ),
                 SizedBox(height: 18),

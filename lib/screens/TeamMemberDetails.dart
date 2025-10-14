@@ -347,33 +347,33 @@ SizedBox(height: 12),
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
     child: SizedBox(
       width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AssignUserScreen(
-                member: member,
-                salons: salons, // 👈 pass salons list
-                  salonId: salons.first['id'],
-              ),
-            ),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.starColor,
-          foregroundColor: AppColors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 0,
-        ),
-        child: Text(
-          'Assign User',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-      ),
+      // child: ElevatedButton(
+      //   onPressed: () {
+      //     Navigator.push(
+      //       context,
+      //       MaterialPageRoute(
+      //         builder: (_) => AssignUserScreen(
+      //           member: member,
+      //           salons: salons, // 👈 pass salons list
+      //             salonId: salons.first['id'],
+      //         ),
+      //       ),
+      //     );
+      //   },
+      //   style: ElevatedButton.styleFrom(
+      //     backgroundColor: AppColors.starColor,
+      //     foregroundColor: AppColors.white,
+      //     padding: const EdgeInsets.symmetric(vertical: 14),
+      //     shape: RoundedRectangleBorder(
+      //       borderRadius: BorderRadius.circular(12),
+      //     ),
+      //     elevation: 0,
+      //   ),
+      //   child: Text(
+      //     'Assign User',
+      //     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      //   ),
+      // ),
     ),
   ),
 ),

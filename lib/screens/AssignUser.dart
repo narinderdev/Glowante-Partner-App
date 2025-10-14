@@ -58,6 +58,27 @@ class AssignUserScreen extends StatefulWidget {
 
 class _AssignUserScreenState extends State<AssignUserScreen> {
   int? _selectedBranchId;
+@override
+void initState() {
+  super.initState();
+  // Log the branches when screen initializes
+  print("🟢 Salon ID (filter): ${widget.salonId}");
+  print("🟢 Total salons received: ${widget.salons.length}");
+
+  for (var s in widget.salons) {
+    print("Salon: ${s['name']} (${s['id']})");
+    final branches = s['branches'] ?? [];
+    print("  Branches count: ${branches.length}");
+    for (var b in branches) {
+      print("    ↳ Branch: ${b['name']} | ID: ${b['id']} | Salon ID: ${s['id']}");
+    }
+  }
+
+  print("🟡 Filtered branches for salonId ${widget.salonId}:");
+  for (var b in widget.branches) {
+    print("   ✅ ${b.name} (ID: ${b.id}) - SalonId: ${b.salonId}");
+  }
+}
 
   @override
   Widget build(BuildContext context) {
