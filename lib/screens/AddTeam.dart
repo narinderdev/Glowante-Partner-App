@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -137,6 +137,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   final _otpCtrl = TextEditingController();
   final _briefCtrl = TextEditingController();
 
+  final FocusNode _firstNameFocus = FocusNode();
+  final FocusNode _lastNameFocus = FocusNode();
+  final FocusNode _emailFocus = FocusNode();
+  final FocusNode _brieftFocus = FocusNode();
+
   // State
   DateTime? _joiningDate;
   String _gender = '';
@@ -174,6 +179,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _emailCtrl.dispose();
     _otpCtrl.dispose();
     _briefCtrl.dispose();
+    _firstNameFocus.dispose();
+    _lastNameFocus.dispose();
+    _emailFocus.dispose();
+    _brieftFocus.dispose();
     super.dispose();
   }
 
@@ -323,7 +332,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     }
   }
 
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
+    _firstNameFocus.unfocus();
+    _lastNameFocus.unfocus();
+    _emailFocus.unfocus();
+    _brieftFocus.unfocus();
+  }
   Future<void> _pickJoiningDate() async {
+    _dismissKeyboard();
     final now = DateTime.now();
     final res = await showDatePicker(
       context: context,
@@ -343,12 +360,12 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         );
       },
     );
+    _dismissKeyboard();
     if (res != null) {
       setState(() {
         _joiningDate = res;
         _suppressDateError = true; // hide inline error after selection
       });
-      _formKey.currentState?.validate(); // reflect removal instantly
     }
   }
 
@@ -357,6 +374,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     required List<Map<String, dynamic>> source,
     required List<String> target,
   }) async {
+    _dismissKeyboard();
     final temp = [...target];
 
     await showModalBottomSheet(
@@ -441,7 +459,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         }
                       });
                       // reflect removal instantly
-                      _formKey.currentState?.validate();
                       Navigator.pop(ctx);
                     },
                   ),
@@ -453,6 +470,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         );
       },
     );
+    _dismissKeyboard();
   }
 
   Future<void> _showValidationDialog(List<String> errors) async {
@@ -466,7 +484,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           children: errors
               .map((m) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
-                    child: Text('• $m'),
+                    child: Text('â€¢ $m'),
                   ))
               .toList(),
         ),
@@ -504,7 +522,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       _suppressDateError = false;
     });
 
-    // ✅ Wait for the UI to rebuild, THEN validate so errors appear on first tap
+    // âœ… Wait for the UI to rebuild, THEN validate so errors appear on first tap
     await _afterRebuild();
     _formKey.currentState?.validate();
 
@@ -713,6 +731,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
             _reqLabel(translateText('First Name')),
             const SizedBox(height: 8),
             TextFormField(
+              focusNode: _firstNameFocus,
               controller: _firstNameCtrl,
               textCapitalization: TextCapitalization.words,
               autovalidateMode: _showGlobalErrors
@@ -737,6 +756,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
             _reqLabel(translateText('Last Name')),
             const SizedBox(height: 8),
             TextFormField(
+              focusNode: _lastNameFocus,
               controller: _lastNameCtrl,
               textCapitalization: TextCapitalization.words,
               autovalidateMode: _showGlobalErrors
@@ -763,6 +783,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     _reqLabel(translateText('Email')),
                     SizedBox(height: 8),
                     TextFormField(
+                      focusNode: _emailFocus,
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       textCapitalization: TextCapitalization.none,
@@ -968,6 +989,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     ),
                     SizedBox(height: 8),
                     TextFormField(
+                      focusNode: _brieftFocus,
                       controller: _briefCtrl,
                       maxLines: 4,
                       textCapitalization: TextCapitalization.sentences,
@@ -981,7 +1003,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 12),
 
-// ✅ New Next Button
+// âœ… New Next Button
                     _PrimaryButton(
                       text: 'Next',
                       onPressed: () async {
@@ -1074,7 +1096,7 @@ class _PickField extends StatelessWidget {
               borderSide: const BorderSide(color: Colors.black, width: 1.5),
             ),
           ),
-          // No validator here — inline errors are handled via FormField wrappers above.
+          // No validator here â€” inline errors are handled via FormField wrappers above.
         ),
       ),
     );
@@ -1407,7 +1429,7 @@ class _PrimaryButton extends StatelessWidget {
 //       // "brief": _briefCtrl.text.trim(),
 //     };
 
-//     print('🚀 Sending to next screen:');
+//     print('ðŸš€ Sending to next screen:');
 //     print(payload);
 
 //     Navigator.push(
@@ -1589,10 +1611,10 @@ class _PrimaryButton extends StatelessWidget {
 //                   validator: (v) => _validateNotEmpty(v, 'Address'),
 //                   onChanged: (_) {
 //                     _capitalizeFirst(
-//                         _addressCtrl); // 👈 Auto-capitalize first letter
+//                         _addressCtrl); // ðŸ‘ˆ Auto-capitalize first letter
 //                     setState(() => _validateNow = false);
 //                     _addressKey.currentState
-//                         ?.validate(); // 👈 Revalidate only this field
+//                         ?.validate(); // ðŸ‘ˆ Revalidate only this field
 //                   },
 //                 ),
 
@@ -1761,3 +1783,7 @@ class _PrimaryButton extends StatelessWidget {
 //     );
 //   }
 // }
+
+
+
+
