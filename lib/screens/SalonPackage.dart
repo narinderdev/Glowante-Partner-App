@@ -35,110 +35,101 @@ class _PackageScreenState extends State<PackageScreen> {
   Future<List<Map<String, dynamic>>> getSalonListApi() async {
     try {
       final response = await ApiService().getSalonListApi();
-      if (response['success'] == true) {
-        final List salons = response['data'];
-        return salons.map<Map<String, dynamic>>((salon) {
-          return {
-            'id': salon['id'],
-            'name': salon['name'],
-            'branches': salon['branches'],
-          };
+
+      if (response['success'] == true && response['data'] is List) {
+        final List data = response['data'];
+
+        // Flatten: convert each salon + branch into a unified entry
+        final List<Map<String, dynamic>> branchItems = data.expand((salon) {
+          final List branches = salon['branches'] ?? [];
+          return branches.map<Map<String, dynamic>>((branch) {
+            return {
+              'branchId': branch['id'],
+              'branchName': branch['name'],
+              'salonId': salon['id'],
+              'salonName': salon['name'],
+            };
+          }).toList();
         }).toList();
+
+        return branchItems;
       } else {
         throw Exception("Failed to fetch salon list");
       }
     } catch (e) {
-      debugPrint("Error fetching salon list: $e");
+      print("Error fetching salon list: $e");
       return [];
     }
   }
 
-  Future<void> _fetchOffers(int salonId) async {
+  // ✅ Offer fetch with sanitization
+  Future<void> _fetchOffers(int branchId) async {
+    debugPrint('📡 Fetching offers for branch $branchId ...');
     setState(() {
       loadingOffers = true;
       offers = [];
     });
 
-    final response = await ApiService().getSalonPackagesDealsApi(salonId);
-    if (mounted) {
-      setState(() {
-        loadingOffers = false;
-        if (response['success'] == true && response['data'] is List) {
-          // ✅ Filter only PACKAGE type
-          final allOffers = List<Map<String, dynamic>>.from(response['data']);
-          offers = allOffers
-              .where((offer) => offer['type'] == 'PACKAGE')
-              .toList();
-        } else {
-          offers = [];
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                response['message']?.toString() ?? "Failed to load offers",
-              ),
+    final response = await ApiService.getBranchPackagesDeals(branchId);
+    debugPrint('📩 Raw response: $response');
+
+    if (!mounted) return;
+
+    setState(() {
+      loadingOffers = false;
+
+      if (response['success'] == true && response['data'] is List) {
+        final List<Map<String, dynamic>> allOffers =
+            List<Map<String, dynamic>>.from(response['data']);
+
+        // ✅ FILTER + SANITIZE: keep only PACKAGE (case-insensitive)
+        offers = allOffers
+            .where((offer) =>
+                (offer['type']?.toString().toUpperCase() ?? '') == 'PACKAGE')
+            .map((offer) => _sanitizeOffer(offer))
+            .toList();
+
+        debugPrint('✅ Filtered offers count: ${offers.length}');
+        debugPrint('✅ Filtered offers: ${offers.map((e) => e['name']).toList()}');
+      } else {
+        offers = [];
+        debugPrint('❌ Failed to load offers: ${response['message']}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              response['message']?.toString() ?? "Failed to load offers",
             ),
-          );
-        }
-      });
-    }
+          ),
+        );
+      }
+    });
   }
 
-  // Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
-  //   final confirmed = await showDialog<bool>(
-  //     context: context,
-  //     builder: (ctx) => AlertDialog(
-  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-  //       title: const Text('Delete Deal'),
-  //       content: Text(
-  //         'Are you sure you want to delete "$offerName"? This action cannot be undone.',
-  //       ),
-  //       actions: [
-  //         TextButton(
-  //           onPressed: () => Navigator.pop(ctx, false),
-  //           child: Text('Cancel'),
-  //         ),
-  //         ElevatedButton(
-  //           style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
-  //           onPressed: () => Navigator.pop(ctx, true),
-  //           child: Text('Delete', style: TextStyle(color: Colors.white)),
-  //         ),
-  //       ],
-  //     ),
-  //   );
+  // ✅ Sanitize every offer before rendering
+  Map<String, dynamic> _sanitizeOffer(Map<String, dynamic> raw) {
+    final o = Map<String, dynamic>.from(raw);
+    o['name'] = o['name']?.toString() ?? '';
+    o['status'] = o['status']?.toString() ?? 'UNKNOWN';
+    o['type'] = o['type']?.toString() ?? 'N/A';
+    o['pricingMode'] = o['pricingMode']?.toString() ?? 'FIXED';
+    o['discountType'] = o['discountType']?.toString() ?? 'NONE';
+    o['validFrom'] = o['validFrom']?.toString() ?? '';
+    o['validTo'] = o['validTo']?.toString() ?? '';
+    o['terms'] = o['terms']?.toString() ?? '';
+    o['scope'] = o['scope']?.toString() ?? '';
 
-  //   if (confirmed == true) {
-  //     await _deleteOffer(offerId);
-  //   }
-  // }
+    o['price'] = num.tryParse(o['price']?.toString() ?? '0') ?? 0;
+    o['discount'] = num.tryParse(o['discount']?.toString() ?? '0') ?? 0;
+    o['discountPct'] = num.tryParse(o['discountPct']?.toString() ?? '0') ?? 0;
+    o['maxDiscount'] = num.tryParse(o['maxDiscount']?.toString() ?? '0') ?? 0;
 
-  // // ✅ Call API to delete, then refresh offers
-  // Future<void> _deleteOffer(int offerId) async {
-  //   if (selectedSalonId == null) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text('Please select a salon first')),
-  //     );
-  //     return;
-  //   }
+    o['items'] = (o['items'] is List) ? List.from(o['items']) : [];
+    o['itemSummary'] =
+        (o['itemSummary'] is Map) ? Map.from(o['itemSummary']) : {};
 
-  //   final res = await ApiService().deleteSalonOfferApi(
-  //     salonId: selectedSalonId!,
-  //     offerId: offerId,
-  //   );
+    return o;
+  }
 
-  //   if (res['success'] == true) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text('Offer deleted successfully')),
-  //     );
-  //     await _fetchOffers(selectedSalonId!); // refresh list
-  //   } else {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //         content:
-  //             Text(res['message']?.toString() ?? 'Failed to delete deal'),
-  //       ),
-  //     );
-  //   }
-  // }
   Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -154,9 +145,11 @@ class _PackageScreenState extends State<PackageScreen> {
             child: Text(translateText('Cancel')),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.starColor),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.starColor),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(translateText('Delete'), style: TextStyle(color: Colors.white)),
+            child: Text(translateText('Delete'),
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -175,10 +168,10 @@ class _PackageScreenState extends State<PackageScreen> {
       return;
     }
 
-    setState(() => _deletingIds.add(offerId)); // << start loader
+    setState(() => _deletingIds.add(offerId));
     try {
-      final res = await ApiService().deleteSalonOfferApi(
-        salonId: selectedSalonId!,
+      final res = await ApiService().deleteSalonBranchOfferApi(
+        branchId: selectedSalonId!,
         offerId: offerId,
       );
 
@@ -186,28 +179,25 @@ class _PackageScreenState extends State<PackageScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(translateText('Offer deleted successfully'))),
         );
-        await _fetchOffers(selectedSalonId!); // refresh list
+        await _fetchOffers(selectedSalonId!);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              res['message']?.toString() ?? 'Failed to delete deal',
-            ),
+            content:
+                Text(res['message']?.toString() ?? 'Failed to delete deal'),
           ),
         );
       }
     } finally {
-      if (mounted)
-        setState(() => _deletingIds.remove(offerId)); // << stop loader
+      if (mounted) setState(() => _deletingIds.remove(offerId));
     }
   }
 
-  // 👉 Navigate to edit
   Future<void> _editOffer(Map<String, dynamic> offer) async {
     if (selectedSalon == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(translateText("Please select a salon"))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText("Please select a salon"))),
+      );
       return;
     }
 
@@ -215,14 +205,12 @@ class _PackageScreenState extends State<PackageScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => AddDealsScreen(
-          salonId: selectedSalon!['salonId'],
-          salonName: selectedSalon!['salonName'],
-          source: 'DEAL', // keeping your original param
+          branchId: selectedSalon!['branchId'],
+          branchName: selectedSalon!['branchName'],
+          source: 'PACKAGE',
           isEdit: true,
           existingOffer: offer,
-          onPackageCreated: (salonId) {
-            _fetchOffers(salonId);
-          },
+          onPackageCreated: (branchId) => _fetchOffers(branchId),
         ),
       ),
     );
@@ -236,27 +224,23 @@ class _PackageScreenState extends State<PackageScreen> {
 
   @override
   Widget build(BuildContext context) {
-   return Scaffold(
+    return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        // Let the gradient show through:
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          translateText('Package'),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        title: Text(translateText('Package'),
-          style: TextStyle(color: Colors.white,fontWeight:FontWeight.bold),
-        ),
-        // Paint the gradient here:
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.starColor,        // your start color
-                AppColors.getStartedButton, // your end color
+                AppColors.starColor,
+                AppColors.getStartedButton,
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -270,7 +254,7 @@ class _PackageScreenState extends State<PackageScreen> {
           future: salonsList,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text("Error: ${snapshot.error}"));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
@@ -278,167 +262,157 @@ class _PackageScreenState extends State<PackageScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<int>(
+                    value: selectedSalonId,
                     isExpanded: true,
-                    value: null,
-                    items: const <DropdownMenuItem<int>>[],
-                    onChanged: null,
+                    items: snapshot.data!
+                        .map<DropdownMenuItem<int>>(
+                          (branch) => DropdownMenuItem(
+                            value: branch['branchId'],
+                            child: Text(
+                              "${branch['salonName']} - ${branch['branchName']}",
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) async {
+                      setState(() => selectedSalonId = value);
+                      if (value != null) {
+                        final branch = snapshot.data!
+                            .firstWhere((b) => b['branchId'] == value);
+                        selectedSalon = branch;
+                        await _fetchOffers(branch['branchId']);
+                      }
+                    },
                     decoration: InputDecoration(
-                      labelText: translateText("Salon"),
-                      labelStyle: TextStyle(
-                        color: Colors.grey.shade800,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      hintText: translateText('No salons available'),
+                      labelText: translateText('Branch'),
                       filled: true,
                       fillColor: kDropdownFill,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      disabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded),
-                    dropdownColor: Colors.white,
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Expanded(
-                    child: Center(child: Text(translateText('No salons available'))),
+                    child:
+                        Center(child: Text(translateText('No salons available'))),
                   ),
                 ],
               );
             } else {
               final salons = snapshot.data!;
-
-              // Auto-select first salon once
               if (!_didAutoSelect && salons.isNotEmpty) {
                 WidgetsBinding.instance.addPostFrameCallback((_) async {
                   if (!mounted) return;
+                  final first = salons.first;
                   setState(() {
                     _didAutoSelect = true;
-                    selectedSalonId = salons.first['id'] as int;
+                    selectedSalonId = first['branchId'] as int;
                     selectedSalon = {
-                      'salonId': salons.first['id'],
-                      'salonName': salons.first['name'],
+                      'salonId': first['salonId'],
+                      'salonName': first['salonName'],
+                      'branchId': first['branchId'],
+                      'branchName': first['branchName'],
                     };
                   });
-                  await _fetchOffers(selectedSalonId!);
+                  await _fetchOffers(first['branchId']);
                 });
               }
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Salon dropdown (filled UI)
                   DropdownButtonFormField<int>(
                     value: selectedSalonId,
                     isExpanded: true,
                     items: salons
                         .map<DropdownMenuItem<int>>(
                           (salon) => DropdownMenuItem(
-                            value: salon['id'],
+                            value: salon['branchId'],
                             child: Text(
-                              salon['name'],
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
+                              "${salon['salonName']} - ${salon['branchName']}",
+                              style: const TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
                         )
                         .toList(),
                     onChanged: (value) async {
-                      setState(() {
-                        selectedSalonId = value;
-                      });
-
+                      setState(() => selectedSalonId = value);
                       if (value != null) {
-                        final salon = salons.firstWhere(
-                          (s) => s['id'] == value,
-                        );
+                        final salon =
+                            salons.firstWhere((s) => s['branchId'] == value);
                         selectedSalon = {
-                          'salonId': salon['id'],
-                          'salonName': salon['name'],
+                          'salonId': salon['salonId'],
+                          'salonName': salon['salonName'],
+                          'branchId': salon['branchId'],
+                          'branchName': salon['branchName'],
                         };
-                        await _fetchOffers(salon['id']);
+                        await _fetchOffers(salon['branchId']);
                       }
                     },
                     decoration: InputDecoration(
-                      hintText: salons.isEmpty
-                          ? 'No salons available'
-                          : 'Select Salon',
+                      hintText:
+                          salons.isEmpty ? 'No salons available' : 'Select Branch',
                       filled: true,
                       fillColor: kDropdownFill,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                  SizedBox(height: 12),
-
-                  // Offers list
+                  const SizedBox(height: 12),
                   Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        if (selectedSalonId == null) {
-                          return Center(
-                            child: Text(translateText("Please select a salon")),
-                          );
-                        }
-                        if (loadingOffers) {
-                          return Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (offers.isEmpty) {
-                          return Center(
-                            child: Text(translateText("No packages available")),
-                          );
-                        }
-                        return ListView.builder(
-                          itemCount: offers.length,
-                          itemBuilder: (context, i) {
-                            final offer = offers[i];
-                            final offerId = (offer['id'] as num).toInt();
-                            return _OfferCard(
-                              offer: offer,
-                              rs: _rs,
-                              isDeleting: _deletingIds.contains(
-                                offerId,
-                              ), // << here
-                              onDelete: () => _confirmDeleteOffer(
-                                offerId,
-                                (offer['name'] ?? '').toString(),
-                              ),
-                              onEdit: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => AddDealsScreen(
-                                      salonId: selectedSalon!['salonId'],
-                                      salonName: selectedSalon!['salonName'],
-                                      source: 'PACKAGE',
-                                      isEdit: true,
-                                      existingOffer: offer,
-                                      onPackageCreated: (sid) =>
-                                          _fetchOffers(sid),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
+                    child: Builder(builder: (context) {
+                      if (selectedSalonId == null) {
+                        return Center(
+                          child:
+                              Text(translateText("Please select a salon")),
                         );
-                      },
-                    ),
+                      }
+                      if (loadingOffers) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (offers.isEmpty) {
+                        return Center(
+                          child:
+                              Text(translateText("No packages available")),
+                        );
+                      }
+                      return ListView.builder(
+                        itemCount: offers.length,
+                        itemBuilder: (context, i) {
+                          final offer = offers[i];
+                          final offerId =
+                              num.tryParse(offer['id']?.toString() ?? '0')
+                                      ?.toInt() ??
+                                  0;
+                          return _OfferCard(
+                            offer: offer,
+                            rs: _rs,
+                            isDeleting: _deletingIds.contains(offerId),
+                            onDelete: () =>
+                                _confirmDeleteOffer(offerId, offer['name']),
+                            onEdit: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AddDealsScreen(
+                                  branchId: selectedSalon!['branchId'],
+                                  branchName: selectedSalon!['branchName'],
+                                  source: 'PACKAGE',
+                                  isEdit: true,
+                                  existingOffer: offer,
+                                  onPackageCreated: (branchId) =>
+                                      _fetchOffers(branchId),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }),
                   ),
                 ],
               );
@@ -450,36 +424,41 @@ class _PackageScreenState extends State<PackageScreen> {
         onPressed: () {
           if (selectedSalon == null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(translateText("Please select a salon"))),
+              SnackBar(
+                  content:
+                      Text(translateText("Please select a salon"))),
             );
             return;
           }
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => AddDealsScreen(
-                salonId: selectedSalon!['salonId'],
-                salonName: selectedSalon!['salonName'],
-                source: 'PACKAGE',
-                isEdit: false, // creating a new deal
-                existingOffer: null,
-                onPackageCreated: (salonId) {
-                  _fetchOffers(salonId);
-                },
-              ),
-            ),
-          );
-        },
-        label: Text(translateText("Add Package"),
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        MaterialPageRoute(
+          builder: (context) => AddDealsScreen(
+            branchId: selectedSalon!['branchId'],
+            branchName: selectedSalon!['branchName'],
+            source: 'PACKAGE',
+            isEdit: false,
+            existingOffer: null,
+            onPackageCreated: (branchId) => _fetchOffers(branchId),
+          ),
         ),
-        icon: Icon(Icons.add, color: Colors.white),
-        backgroundColor: AppColors.starColor, // black bg, white text
+      );
+        },
+        label: Text(
+          translateText("Add Package"),
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        icon: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: AppColors.starColor,
       ),
     );
   }
 }
 
+// ✅ _OfferCard widget stays as-is (no crash after sanitization)
+
+// keep button styles and helpers as you already had them...
 class _OfferCard extends StatelessWidget {
   const _OfferCard({
     required this.offer,
@@ -497,238 +476,274 @@ class _OfferCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // --------- read from response ---------
-    final String name = (offer['name'] ?? '').toString();
-    final String status = (offer['status'] ?? '')
-        .toString(); // ACTIVE / INACTIVE
-    final String type = (offer['type'] ?? '').toString(); // PACKAGE / DEAL
-    final String pricingMode = (offer['pricingMode'] ?? '')
-        .toString(); // FIXED / DISCOUNT
-    final String discountType = (offer['discountType'] ?? 'NONE')
-        .toString(); // PERCENT / AMOUNT / NONE
-    final num? discountPct = offer['discountPct'] as num?;
-    final num? discountAmt = offer['discount'] as num?;
-    final num finalPrice = (offer['price'] ?? 0) as num;
+    try {
+      // --------- read from response safely ---------
+      final String name = offer['name']?.toString() ?? '';
+      final String status = offer['status']?.toString() ?? 'UNKNOWN';
+      final String type = offer['type']?.toString() ?? 'N/A';
+      final String pricingMode = offer['pricingMode']?.toString() ?? 'FIXED';
+      final String discountType = offer['discountType']?.toString() ?? 'NONE';
+      final String validFrom = offer['validFrom']?.toString() ?? '';
+      final String validTo = offer['validTo']?.toString() ?? '';
+      final String terms = offer['terms']?.toString() ?? '';
 
-    final Map itemSummary = (offer['itemSummary'] as Map?) ?? const {};
-    final num actualPrice = (itemSummary['totalPrice'] ?? 0) as num;
+      // Defensive numeric parsing
+      final num? discountPct = (offer['discountPct'] is num)
+          ? offer['discountPct'] as num
+          : num.tryParse(offer['discountPct']?.toString() ?? '');
+      final num? discountAmt = (offer['discount'] is num)
+          ? offer['discount'] as num
+          : num.tryParse(offer['discount']?.toString() ?? '');
+      final num finalPrice = (offer['price'] is num)
+          ? offer['price'] as num
+          : num.tryParse(offer['price']?.toString() ?? '0') ?? 0;
 
-    final List items = (offer['items'] as List?) ?? const [];
-    final String? validFrom = offer['validFrom']?.toString();
-    final String? validTo = offer['validTo']?.toString();
-    final String terms = (offer['terms'] ?? '').toString();
+      final Map<String, dynamic> itemSummary =
+          (offer['itemSummary'] is Map)
+              ? Map<String, dynamic>.from(offer['itemSummary'])
+              : {};
+      final num actualPrice =
+          (itemSummary['totalPrice'] is num) ? itemSummary['totalPrice'] as num : 0;
 
-    // --------- computed display helpers ---------
-    final bool isDiscount = pricingMode == 'DISCOUNT';
-    final num savings = _calcSavings(
-      pricingMode: pricingMode,
-      discountType: discountType,
-      actualPrice: actualPrice,
-      finalPrice: finalPrice,
-      discountAmt: discountAmt,
-      discountPct: discountPct,
-    );
+      final List items =
+          (offer['items'] is List) ? offer['items'] as List : [];
 
-    final String? discountChipText = () {
-      if (!isDiscount) return null;
-      if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
-        return '${discountPct!.toStringAsFixed(0)}% OFF';
-      }
-      if (discountType == 'AMOUNT' && (discountAmt ?? 0) > 0) {
-        return '${rs(discountAmt)} OFF';
-      }
-      return null;
-    }();
+      final bool isDiscount = pricingMode.toUpperCase() == 'DISCOUNT';
+      final num savings = _calcSavings(
+        pricingMode: pricingMode,
+        discountType: discountType,
+        actualPrice: actualPrice,
+        finalPrice: finalPrice,
+        discountAmt: discountAmt,
+        discountPct: discountPct,
+      );
 
-    return Card(
-      elevation: 1.5,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // --------- header: title + chips ---------
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8),
-                _statusChip(status),
-              ],
-            ),
-            SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                _pillChip(type), // PACKAGE / DEAL
-                _softChip(pricingMode), // FIXED / DISCOUNT
-                if (discountChipText != null) _offChip(discountChipText),
-              ],
-            ),
+      final String? discountChipText = () {
+        if (!isDiscount) return null;
+        if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
+          return '${discountPct!.toStringAsFixed(0)}% OFF';
+        }
+        if (discountType == 'AMOUNT' && (discountAmt ?? 0) > 0) {
+          return '${rs(discountAmt)} OFF';
+        }
+        return null;
+      }();
 
-            SizedBox(height: 10),
-
-            // --------- pricing block ---------
-            Row(
-              children: [
-                if (isDiscount && actualPrice > 0) ...[
-                  Text(
-                    rs(actualPrice),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                      decoration: TextDecoration.lineThrough,
-                      decorationThickness: 2,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                ],
-                Text(
-                  rs(finalPrice),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: isDiscount ? Colors.orange : Colors.black,
-                  ),
-                ),
-                const Spacer(),
-                if (savings > 0)
-                  Text(
-                    'You save ${rs(savings)}',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.green,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-              ],
-            ),
-
-            SizedBox(height: 12),
-
-            // --------- services as chips ---------
-            if (items.isNotEmpty) ...[
-              Text(translateText('Includes'),
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-              ),
-              SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: items.map((e) {
-                  final m = Map<String, dynamic>.from(e as Map);
-                  final n = (m['name'] ?? '').toString();
-                  final q = (m['qty'] ?? 1) as num;
-                  return Chip(
-                    label: Text('$n × ${q.toStringAsFixed(0)}'),
-                    backgroundColor: const Color(0xFFF3F4F6),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: const VisualDensity(
-                      horizontal: -4,
-                      vertical: -4,
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-
-            // --------- validity & terms ---------
-            if ((validFrom?.isNotEmpty ?? false) ||
-                (validTo?.isNotEmpty ?? false)) ...[
-              SizedBox(height: 10),
-              Row(
-                children: [
-                  Icon(Icons.event, size: 16, color: Colors.grey),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      _formatValidity(validFrom, validTo),
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            if (terms.isNotEmpty) ...[
-              SizedBox(height: 6),
+      // --------- build UI ---------
+      return Card(
+        elevation: 1.5,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --------- header: title + chips ---------
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(
-                    Icons.article_outlined,
-                    size: 16,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Terms: $terms',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      name.isNotEmpty ? name : 'Unnamed Offer',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  _statusChip(status),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _pillChip(type),
+                  _softChip(pricingMode),
+                  if (discountChipText != null) _offChip(discountChipText),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // --------- pricing block ---------
+           // --------- pricing block ---------
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    if (actualPrice > 0 && finalPrice < actualPrice) ...[
+      Text(
+        rs(actualPrice),
+        style: const TextStyle(
+          fontSize: 14,
+          color: Colors.grey,
+          decoration: TextDecoration.lineThrough,
+          decorationThickness: 1, // ✅ thin line
+        ),
+      ),
+      const SizedBox(height: 4),
+    ],
+    Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          rs(finalPrice),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: isDiscount ? Colors.orange : Colors.black,
+          ),
+        ),
+        const Spacer(),
+        if (actualPrice > 0 && finalPrice < actualPrice)
+          Text(
+            'You save ${rs(actualPrice - finalPrice)}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.green,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+      ],
+    ),
+  ],
+),
+
+
+              const SizedBox(height: 12),
+
+              // --------- services as chips ---------
+              if (items.isNotEmpty) ...[
+                Text(
+                  translateText('Includes'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: items.map((e) {
+                    final m = Map<String, dynamic>.from(e as Map);
+                    final n = (m['name'] ?? 'Service').toString();
+                    final q = (m['qty'] ?? 1) as num;
+                    return Chip(
+                      label: Text('$n × ${q.toStringAsFixed(0)}'),
+                      backgroundColor: const Color(0xFFF3F4F6),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity:
+                          const VisualDensity(horizontal: -4, vertical: -4),
+                    );
+                  }).toList(),
+                ),
+              ],
+
+              // --------- validity & terms ---------
+              if (validFrom.isNotEmpty || validTo.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.event, size: 16, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _formatValidity(validFrom, validTo),
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (terms.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.article_outlined,
+                          size: 16, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Terms: $terms',
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 10),
+
+              // --------- actions ---------
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton(
+                    onPressed: isDeleting ? null : onEdit,
+                    style: _blackButtonStyle,
+                    child: Text(
+                      translateText('Edit'),
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    onPressed: isDeleting ? null : onDelete,
+                    icon: isDeleting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.delete, size: 16),
+                    label: Text(
+                      isDeleting ? 'Deleting...' : 'Delete',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: _blackButtonStyle,
                   ),
                 ],
               ),
             ],
-
-            SizedBox(height: 10),
-
-            // --------- actions ---------
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                ElevatedButton(
-                  onPressed: isDeleting ? null : onEdit,
-                  style: _blackButtonStyle,
-                  child: Text(translateText('Edit'),
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                SizedBox(width: 10),
-                ElevatedButton.icon(
-                  onPressed: isDeleting ? null : onDelete,
-                  icon: isDeleting
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Icon(Icons.delete, size: 16),
-                  label: Text(
-                    isDeleting ? 'Deleting...' : 'Delete',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: _blackButtonStyle,
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e, st) {
+      print('❌ ERROR while building offer card: $e');
+      print('STACK TRACE:\n$st');
+      print('OFFER DATA:\n${offer.toString()}');
+      return Card(
+        color: Colors.red.shade50,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            'Error rendering offer: ${offer['name'] ?? 'Unknown'}\n$e',
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
   }
 
-  // ---------- tiny UI helpers ----------
-  Widget _statusChip(String status) {
-    final isActive = status.toUpperCase() == 'ACTIVE';
+  // ---------- small UI helpers ----------
+  Widget _statusChip(String? status) {
+    final s = (status ?? '').toString().toUpperCase();
+    final isActive = s == 'ACTIVE';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -736,7 +751,7 @@ class _OfferCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status.toUpperCase(),
+        s.isEmpty ? 'UNKNOWN' : s,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -798,16 +813,14 @@ class _OfferCard extends StatelessWidget {
   }
 }
 
-// keep the shared style you already use
-ButtonStyle get _blackButtonStyle =>
-    ElevatedButton.styleFrom(
-      backgroundColor: Colors.black,
+// ✅ Shared button style
+ButtonStyle get _blackButtonStyle => ElevatedButton.styleFrom(
+      backgroundColor: AppColors.starColor,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       elevation: 0,
     ).copyWith(
-      backgroundColor: MaterialStateProperty.resolveWith((_) => AppColors.starColor),
       foregroundColor: MaterialStateProperty.resolveWith(
         (states) => states.contains(MaterialState.disabled)
             ? Colors.white.withOpacity(0.6)
@@ -815,24 +828,26 @@ ButtonStyle get _blackButtonStyle =>
       ),
     );
 
-// ---------- logic helpers ----------
+// ✅ Shared logic helpers
 String _formatValidity(String? isoFrom, String? isoTo) {
-  String fmt(String iso) {
+  String fmt(String? iso) {
+    if (iso == null || iso.isEmpty) return '';
     try {
       final d = DateTime.parse(iso);
       return '${d.day.toString().padLeft(2, '0')}-'
           '${d.month.toString().padLeft(2, '0')}-'
           '${d.year}';
     } catch (_) {
-      return iso; // fall back to raw
+      return iso;
     }
   }
 
-  if ((isoFrom?.isNotEmpty ?? false) && (isoTo?.isNotEmpty ?? false)) {
-    return 'Valid: ${fmt(isoFrom!)} - ${fmt(isoTo!)}';
-  }
-  if (isoFrom?.isNotEmpty ?? false) return 'Valid from: ${fmt(isoFrom!)}';
-  if (isoTo?.isNotEmpty ?? false) return 'Valid till: ${fmt(isoTo!)}';
+  final from = fmt(isoFrom);
+  final to = fmt(isoTo);
+
+  if (from.isNotEmpty && to.isNotEmpty) return 'Valid: $from - $to';
+  if (from.isNotEmpty) return 'Valid from: $from';
+  if (to.isNotEmpty) return 'Valid till: $to';
   return '';
 }
 
@@ -845,12 +860,10 @@ num _calcSavings({
   required num? discountPct,
 }) {
   if (pricingMode != 'DISCOUNT') return 0;
-  // Prefer exact delta (actual - final) if we have actual price
   if (actualPrice > 0 && finalPrice > 0) {
     final s = actualPrice - finalPrice;
     return s > 0 ? s : 0;
   }
-  // Fallback from discount fields
   if (discountType == 'AMOUNT') return (discountAmt ?? 0);
   if (discountType == 'PERCENT' && actualPrice > 0) {
     final pct = (discountPct ?? 0).clamp(0, 100);

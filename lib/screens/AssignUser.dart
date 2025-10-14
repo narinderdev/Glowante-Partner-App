@@ -3,7 +3,8 @@ import '../utils/colors.dart';
 import 'select_services_AssignUser.dart';
 import 'package:bloc_onboarding/widgets/step_header.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
+import '../utils/colors.dart';
+import 'package:flutter/services.dart';
 
 class Branch {
   final int id;
@@ -69,9 +70,34 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
     final String joinedAt = userSalons.isNotEmpty
         ? (userSalons[0]['joinedAt'] ?? '').toString()
         : 'N/A';
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(title: Text(translateText("Assign User"))),
+   return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        // Let the gradient show through:
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        // Ensure status bar + icons look good on the gradient:
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(
+          color: Colors.white, // back button color
+        ),
+        title: Text(translateText('Assign User'),
+          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
+        ),
+        // Paint the gradient here:
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,        // your start color
+                AppColors.getStartedButton, // your end color
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

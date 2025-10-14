@@ -7,14 +7,14 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 
 class AddDealsBranchScreen extends StatefulWidget {
-  final int salonId;
+  final int branchId;
   final String salonName;
-  final Function(int salonId) onPackageCreated;
+  final Function(int branchId) onPackageCreated;
   final String source; // "DEAL" or "PACKAGE"
 
   const AddDealsBranchScreen({
     Key? key,
-    required this.salonId,
+    required this.branchId,
     required this.salonName,
     required this.onPackageCreated,
     required this.source,
@@ -314,7 +314,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
 
     final apiService = ApiService();
     final response = await apiService.createSalonBranchOffer(
-      widget.salonId,
+      widget.branchId,
       offerData,
     );
 
@@ -323,7 +323,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(translateText('Offer created successfully'))),
         );
-        widget.onPackageCreated(widget.salonId);
+        widget.onPackageCreated(widget.branchId);
         Navigator.pop(context);
       }
     } else {
@@ -339,7 +339,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
   Future<List<Map<String, dynamic>>> _hydrateFromIds(
     Map<int, int> idQty,
   ) async {
-    final resp = await ApiService().getService(salonId: widget.salonId);
+    final resp = await ApiService().getService(branchId: widget.branchId);
     final cats = (resp['data']?['categories'] ?? []) as List;
     // Flatten services
     final svcById = <int, Map<String, dynamic>>{};
@@ -425,7 +425,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
               // Deal Information
               _sectionTitle('Deal Information'),
 
-              // Text('Salon: ${widget.salonName}, Branch ID: ${widget.salonId}'),
+              // Text('Salon: ${widget.salonName}, Branch ID: ${widget.branchId}'),
               TextField(
                 controller: dealTitleController,
                 decoration: _decor(
@@ -559,7 +559,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => SelectServicesModal(
-                        salonId: widget.salonId,
+                        branchId: widget.branchId,
                         initialSelectedQty: initQty,
                       ),
                     ),

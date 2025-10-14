@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -10,17 +10,17 @@ import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class AddDealsScreen extends StatefulWidget {
-  final int salonId;
-  final String salonName;
-  final Function(int salonId) onPackageCreated;
+  final int branchId;
+  final String branchName;
+  final Function(int branchId) onPackageCreated;
   final String source; // "DEAL" or "PACKAGE"
   final bool isEdit;
   final Map<String, dynamic>? existingOffer;
 
   const AddDealsScreen({
     Key? key,
-    required this.salonId,
-    required this.salonName,
+    required this.branchId,
+    required this.branchName,
     required this.onPackageCreated,
     required this.source,
     this.isEdit = false,
@@ -198,11 +198,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     if (widget.isEdit && widget.existingOffer != null) {
       final o = widget.existingOffer!;
 
-      // Prefill title & terms
       dealTitleController.text = (o['name'] ?? '').toString();
       termsController.text = (o['terms'] ?? '').toString();
 
-      // Format valid dates
       String? fmtIn(dynamic v) {
         if (v == null) return null;
         try {
@@ -217,14 +215,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       if (vf != null) validFromController.text = vf;
       if (vt != null) validTillController.text = vt;
 
-      // Pricing mode
       final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
       pricingMode = pmRaw == 'DISCOUNT' ? 'Discount' : 'Fixed';
 
-      // Discount type
-      final dtRaw = (o['discountType'] ?? '')
-          .toString()
-          .toUpperCase(); // AMOUNT | PERCENT | NONE
+      final dtRaw = (o['discountType'] ?? '').toString().toUpperCase();
       if (pricingMode == 'Discount') {
         if (dtRaw == 'PERCENT') {
           discountType = 'Percent';
@@ -243,72 +237,90 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
         }
       } else {
-        // Fixed pricing
         final amt = (o['discount'] as num?)?.toDouble() ??
             (o['amount'] as num?)?.toDouble() ??
             0.0;
         amountOffController.text = (amt > 0 ? amt : 0.0).toStringAsFixed(2);
       }
 
-      // Items → selected
-      final items = (o['items'] as List?) ?? const [];
-      // _selectedServices = items.map<Map<String, dynamic>>((e) {
-      //   final m = Map<String, dynamic>.from(e as Map);
-      //   final id = (m['salonServiceId'] ?? m['id']) as int?;
-      //   final qty = (m['qty'] ?? 1) as int;
-      //   final name = m['name'] ?? m['displayName'] ?? 'Service';
-      //   final price = m['price'] ?? m['priceMinor'] ?? 0;
-      //   return {
-      //     'id': id ?? 0,
-      //     'name': name,
-      //     'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
-      //     'qty': qty,
-      //   };
-      // }).toList();
-      _selectedServices = items
-          .map<Map<String, dynamic>>((e) {
-            final m = Map<String, dynamic>.from(e as Map);
+      final List rawItems = (o['items'] as List?) ?? const [];
+      final Map<int, int> selectedIdQty = {};
+      _selectedServices = [];
 
-            // ✅ Correct priority order
-            final id =
-                (m['serviceId'] ?? m['salonServiceId'] ?? m['id']) as int?;
+      for (final item in rawItems) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        final int? id = _extractServiceId(map);
+        if (id == null) continue;
 
-            final qty = (m['qty'] ?? 1) as int;
-            final name = m['name'] ?? m['displayName'] ?? 'Service';
-            final price = m['price'] ?? m['priceMinor'] ?? 0;
+        final int qty = _extractQty(map);
+        selectedIdQty[id] = qty;
 
-            return {
-              'id': id ?? -1, // invalid IDs become -1, not 0
-              'name': name,
-              'price': (price is num)
-                  ? price.toInt()
-                  : int.tryParse(price.toString()) ?? 0,
-              'qty': qty,
-            };
-          })
-          .where((s) => s['id'] != -1)
-          .toList();
+        _selectedServices.add({
+          'id': id,
+          'name': _extractServiceName(map),
+          'price': _extractServicePrice(map),
+          'qty': qty,
+        });
+      }
 
-      // Prices
-      originalPriceController.text = _originalTotal().toStringAsFixed(2);
+      final Map<String, dynamic> itemSummary =
+          (o['itemSummary'] is Map) ? Map<String, dynamic>.from(o['itemSummary']) : const <String, dynamic>{};
 
-      final price = (o['price'] as num?)?.toDouble();
-      if (price != null)
-        discountedPriceController.text = price.toStringAsFixed(2);
+      final double? originalTotal =
+          _asDouble(itemSummary['totalPrice'] ?? itemSummary['total']);
+      if (originalTotal != null && originalTotal > 0) {
+        originalPriceController.text = originalTotal.toStringAsFixed(2);
+      } else {
+        originalPriceController.text = _originalTotal().toStringAsFixed(2);
+      }
 
-      // 👉 Auto-compute amountOff only for Flat or Fixed
-      final orig = double.tryParse(originalPriceController.text) ?? 0.0;
-      final disc = double.tryParse(discountedPriceController.text) ?? 0.0;
+      final double? discountedTotal = _asDouble(
+        o['price'] ??
+            o['priceMinor'] ??
+            itemSummary['totalDiscountedPrice'] ??
+            itemSummary['totalAfterDiscount'],
+      );
+      if (discountedTotal != null && discountedTotal >= 0) {
+        discountedPriceController.text = discountedTotal.toStringAsFixed(2);
+      }
 
-      if (pricingMode == 'Fixed' ||
-          (pricingMode == 'Discount' && discountType == 'Flat')) {
-        if (orig > 0 && disc >= 0) {
-          amountOffController.text = (orig - disc).toStringAsFixed(2);
+      final double originalVal =
+          double.tryParse(originalPriceController.text) ?? 0.0;
+      final double discountedVal =
+          double.tryParse(discountedPriceController.text) ?? 0.0;
+
+      if (pricingMode == 'Fixed') {
+        if (originalVal > 0) {
+          amountOffController.text =
+              (originalVal - discountedVal).clamp(0, originalVal).toStringAsFixed(2);
+        }
+      } else if (pricingMode == 'Discount' && discountType == 'Flat') {
+        final double? amt =
+            _asDouble(o['discount'] ?? o['amount'] ?? itemSummary['totalDiscount']);
+        if (amt != null && amt > 0) {
+          amountOffController.text = amt.toStringAsFixed(2);
+        } else if (originalVal > 0) {
+          amountOffController.text =
+              (originalVal - discountedVal).clamp(0, originalVal).toStringAsFixed(2);
         }
       }
-      // ❌ For Percent → keep % value from API, don’t overwrite
+
+      final bool needsHydration = _selectedServices.isEmpty ||
+          _selectedServices.any((svc) {
+            final name = (svc['name'] ?? '').toString().trim();
+            final price = (svc['price'] ?? 0) as int;
+            return name.isEmpty || price <= 0;
+          });
+
+      if (needsHydration && selectedIdQty.isNotEmpty && widget.branchId > 0) {
+        Future.microtask(
+          () => _hydrateSelectedServices(Map<int, int>.from(selectedIdQty)),
+        );
+      }
 
       setState(() {});
+      _recalcDiscounted();
     } else {
       // Fresh create → always recalc
       _recalcDiscounted();
@@ -370,7 +382,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         }
       });
 
-      // ✅ Only revalidate if errors are currently visible
+      // âœ… Only revalidate if errors are currently visible
       if (_showErrors) {
         _formKey.currentState?.validate();
       }
@@ -400,6 +412,159 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     c.selection =
         TextSelection.fromPosition(TextPosition(offset: c.text.length));
     _settingFields = false;
+  }
+
+  double? _asDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  int _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      if (parsed != null) return parsed.round();
+    }
+    return 0;
+  }
+
+  int? _extractServiceId(Map<String, dynamic> item) {
+    dynamic raw = item['branchServiceId'] ??
+        item['serviceId'] ??
+        item['salonServiceId'] ??
+        item['id'];
+    raw ??= (item['branchService'] is Map)
+        ? (item['branchService'] as Map)['id']
+        : null;
+    raw ??= (item['service'] is Map) ? (item['service'] as Map)['id'] : null;
+
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
+  }
+
+  int _extractQty(Map<String, dynamic> item) {
+    final dynamic raw = item['qty'] ?? item['quantity'] ?? 1;
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw) ?? 1;
+    return 1;
+  }
+
+  String _extractServiceName(Map<String, dynamic> item) {
+    for (final key in ['displayName', 'name', 'serviceName']) {
+      final value = item[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    if (item['service'] is Map) {
+      final service = item['service'] as Map;
+      final value = service['displayName'] ?? service['name'];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    if (item['branchService'] is Map) {
+      final branchService = item['branchService'] as Map;
+      final value = branchService['displayName'] ?? branchService['name'];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    return '';
+  }
+
+  int _extractServicePrice(Map<String, dynamic> item) {
+    for (final key in ['priceMinor', 'price', 'amount']) {
+      final price = _toInt(item[key]);
+      if (price > 0) return price;
+    }
+    if (item['service'] is Map) {
+      final service = item['service'] as Map;
+      for (final key in ['priceMinor', 'price']) {
+        final price = _toInt(service[key]);
+        if (price > 0) return price;
+      }
+    }
+    if (item['branchService'] is Map) {
+      final branchService = item['branchService'] as Map;
+      for (final key in ['priceMinor', 'price']) {
+        final price = _toInt(branchService[key]);
+        if (price > 0) return price;
+      }
+    }
+    return 0;
+  }
+
+  Future<void> _hydrateSelectedServices(Map<int, int> idQty) async {
+    if (idQty.isEmpty) return;
+    try {
+      final resp = await ApiService().getService(branchId: widget.branchId);
+      final List categories =
+          (resp['data']?['categories'] as List?) ?? const [];
+      final Map<int, Map<String, dynamic>> svcById = {};
+
+      void collect(List? list) {
+        if (list == null) return;
+        for (final item in list) {
+          if (item is Map) {
+            final map = Map<String, dynamic>.from(item);
+            final int id = _toInt(map['id']);
+            if (id > 0) {
+              svcById[id] = map;
+            }
+          }
+        }
+      }
+
+      for (final cat in categories) {
+        if (cat is Map) {
+          collect(cat['services'] as List?);
+          final subCats = cat['subCategories'] as List?;
+          if (subCats != null) {
+            for (final sub in subCats) {
+              if (sub is Map) {
+                collect(sub['services'] as List?);
+              }
+            }
+          }
+        }
+      }
+
+      if (svcById.isEmpty) return;
+
+      setState(() {
+        _selectedServices = idQty.entries.map((entry) {
+          final service = svcById[entry.key];
+          final name = service != null
+              ? (service['displayName'] ?? service['name'] ?? '').toString()
+              : '';
+          final price = service != null
+              ? _toInt(service['priceMinor'] ?? service['price'])
+              : 0;
+          return {
+            'id': entry.key,
+            'name': name,
+            'price': price,
+            'qty': entry.value,
+          };
+        }).toList();
+
+        final total = _originalTotal();
+        if (total > 0) {
+          originalPriceController.text = total.toStringAsFixed(2);
+        }
+
+        _recalcDiscounted();
+      });
+    } catch (_) {
+      // Ignore hydration failures; user can still adjust selections manually.
+    }
   }
 
   void _recalcDiscounted() {
@@ -629,8 +794,11 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         final offerId = (widget.existingOffer!['id'] as num).toInt();
         final patch = Map<String, dynamic>.from(body)
           ..removeWhere((k, v) => v == null);
-        final res =
-            await api.updateSalonOfferPatch(widget.salonId, offerId, patch);
+        final res = await api.updateSalonBranchOfferPatch(
+          widget.branchId,
+          offerId,
+          patch,
+        );
 
         if (!mounted) return;
         if (res['success'] == true) {
@@ -638,7 +806,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
             SnackBar(
                 content: Text(translateText('Offer updated successfully'))),
           );
-          widget.onPackageCreated(widget.salonId);
+          widget.onPackageCreated(widget.branchId);
           Navigator.pop(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -650,14 +818,14 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         return;
       }
 
-      final res = await api.createSalonOffer(widget.salonId, body);
+      final res = await api.createSalonBranchOffer(widget.branchId, body);
 
       if (!mounted) return;
       if (res['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(translateText('Offer created successfully'))),
         );
-        widget.onPackageCreated(widget.salonId);
+        widget.onPackageCreated(widget.branchId);
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -731,7 +899,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        // ✅ Keep default Android back button
+        // âœ… Keep default Android back button
         automaticallyImplyLeading: true,
         iconTheme:
             const IconThemeData(color: Colors.white), // back button color
@@ -917,12 +1085,12 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                         pricingMode = v ?? 'Fixed';
                         _autoSetMaxFromPercent = true;
 
-                        // ✅ Reset fields when switching pricing type
+                        // âœ… Reset fields when switching pricing type
                         amountOffController.clear();
                         maxDiscountController.clear();
                         discountedPriceController.clear();
 
-                        // ✅ Force discount type to Flat for Fixed pricing
+                        // âœ… Force discount type to Flat for Fixed pricing
                         if (pricingMode == 'Fixed') {
                           discountType = 'Flat';
                         }
@@ -952,7 +1120,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                             setState(() {
                               pricingMode = v ?? 'Discount';
                               _autoSetMaxFromPercent = true;
-                              // ✅ Reset discountType if user switches back to Fixed
+                              // âœ… Reset discountType if user switches back to Fixed
                               if (pricingMode == 'Fixed') discountType = 'Flat';
                             });
                             _recalcDiscounted();
@@ -965,7 +1133,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                       ),
                       SizedBox(width: 12),
 
-                      // 👇 Show discount type only when pricingMode == 'Discount'
+                      // ðŸ‘‡ Show discount type only when pricingMode == 'Discount'
                       if (pricingMode == 'Discount')
                         Expanded(
                           child: DropdownButtonFormField<String>(
@@ -989,7 +1157,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                                 discountType = v ?? 'Flat';
                                 _autoSetMaxFromPercent = true;
 
-                                // ✅ Reset both values when switching between Flat ↔ Percent
+                                // âœ… Reset both values when switching between Flat â†” Percent
                                 amountOffController.clear();
                                 maxDiscountController.clear();
                                 discountedPriceController.clear();
@@ -1022,7 +1190,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                       context,
                       MaterialPageRoute(
                         builder: (_) => SelectServicesModal(
-                          salonId: widget.salonId,
+                          branchId: widget.branchId,
                           initialSelectedQty: initQty,
                         ),
                       ),
@@ -1108,7 +1276,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                             ],
                           ),
                           SizedBox(height: 4),
-                          Text('Qty: $qty × ₹$price',
+                          Text('Qty: $qty Amt— ₹$price',
                               style: const TextStyle(
                                   color: Colors.black54, fontSize: 13)),
                         ],
@@ -1226,11 +1394,11 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                   textCapitalization: TextCapitalization.none,
                   inputFormatters: [
                     _SentenceCaseTextFormatter(),
-                    NoSpecialCharsFormatter(), // 🔥 prevents special characters
+                    NoSpecialCharsFormatter(), // ðŸ”¥ prevents special characters
                   ],
                   decoration: _decor(
                     label: translateText('Terms (optional)'),
-                    hint: translateText('ANY TERMS & CONDITIONS…'),
+                    hint: translateText('ANY TERMS & CONDITIONSâ€¦'),
                     prefix: Icons.article_outlined,
                   ),
                 ),

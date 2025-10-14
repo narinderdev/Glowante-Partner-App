@@ -249,21 +249,24 @@ Future<Map<String, dynamic>> updateService(
   );
 }
 
-  Future<Map<String, dynamic>> createSalonOffer({
-    required int salonId,
+  Future<Map<String, dynamic>> createSalonBranchOffer({
+    required int branchId,
     required Map<String, dynamic> offerData,
   }) {
-    return _apiService.createSalonOffer(salonId, offerData);
+    return _apiService.createSalonBranchOffer(branchId, offerData);
   }
 
-  Future<Map<String, dynamic>> fetchSalonOffers(int salonId) {
-    return _apiService.getSalonPackagesDealsApi(salonId);
+  Future<Map<String, dynamic>> fetchSalonOffers(int branchId) {
+    return ApiService.getBranchPackagesDeals(branchId);
   }
 
   Future<Map<String, dynamic>> deleteSalonOffer({
-    required int salonId,
+    required int branchId,
     required int offerId,
   }) {
-    return _apiService.deleteSalonOfferApi(salonId: salonId, offerId: offerId);
+    return _apiService.deleteSalonBranchOfferApi(
+      branchId: branchId,
+      offerId: offerId,
+    );
   }
 }

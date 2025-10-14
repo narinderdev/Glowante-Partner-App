@@ -35,11 +35,23 @@ class _TeamScreenState extends State<TeamScreen> {
         final branches = salon['branches'] as List? ?? [];
         final firstBranch = branches.isNotEmpty ? branches.first : null;
 
+        // ✅ Safely extract both salon and branch info
+        final int salonId = salon['id'];
+        final String salonName = salon['name'];
+
+        final int branchId = firstBranch != null && firstBranch['id'] != null
+            ? firstBranch['id']
+            : salonId; // fallback
+        final String branchName = firstBranch != null && firstBranch['name'] != null
+            ? firstBranch['name']
+            : salonName; // fallback
+
         return {
-          'id': salon['id'], // salon ID
-          'name': salon['name'], // salon name
-          'branchId': firstBranch?['id'], // 👈 extract branch ID
-          'branchName': firstBranch?['name'], // 👈 extract branch name
+          'id': salonId,
+          'salonId': salonId,
+          'name': salonName,
+          'branchId': branchId,
+          'branchName': branchName,
         };
       }).toList();
     } else {
@@ -51,9 +63,10 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 }
 
-  Future<List<dynamic>> getTeamMembers(int salonId) async {
+  Future<List<dynamic>> getTeamMembers(int branchId) async {
     try {
-      final response = await ApiService().getSalonUsersApi(salonId);
+     final response = await ApiService.getTeamMembers(branchId);
+
       if (response['success'] == true) {
         return response['data'] ?? [];
       } else {
@@ -140,10 +153,13 @@ class _TeamScreenState extends State<TeamScreen> {
               if (!_autoPicked && selectedSalonId == null && salons.isNotEmpty) {
                 _autoPicked = true;
                 selectedSalonId = salons.first['id'] as int;
-                selectedSalon = {
-                  'salonId': salons.first['id'],
-                  'salonName': salons.first['name'],
-                };
+               selectedSalon = {
+  'salonId': salons.first['id'],
+  'salonName': salons.first['name'],
+  'branchId': salons.first['branchId'],
+  'branchName': salons.first['branchName'],
+};
+
                 teamMembersFuture = getTeamMembers(selectedSalonId!);
               }
 
@@ -219,7 +235,7 @@ class _TeamScreenState extends State<TeamScreen> {
                       future: teamMembersFuture,
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
-                          return Center(child: CircularProgressIndicator());
+                          return Center(child: CircularProgressIndicator(color: AppColors.starColor));
                         } else if (snapshot.hasError) {
                           return Center(
                             child: Text("Error: ${snapshot.error}"),

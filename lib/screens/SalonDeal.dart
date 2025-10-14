@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../utils/api_service.dart';
 import 'Adddeals.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
-
-final kDropdownFill = Colors.grey.shade100; // ← shared color for dropdown & cards
+// ---- UI constants ----
+const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
 
 class DealScreen extends StatefulWidget {
   @override
@@ -16,16 +15,16 @@ class DealScreen extends StatefulWidget {
 
 class _DealScreenState extends State<DealScreen> {
   late Future<List<Map<String, dynamic>>> salonsList;
+  final Set<int> _deletingIds = {};
   int? selectedSalonId;
   Map<String, dynamic>? selectedSalon;
 
+  // Offers state
   bool loadingOffers = false;
   List<Map<String, dynamic>> offers = [];
 
-  bool _autoPicked = false; // ensure we only auto-pick once
-
-  // NEW: track which offers are deleting (show per-button loader)
-  final Set<int> _deletingOfferIds = <int>{};
+  // guard so we only auto-select once
+  bool _didAutoSelect = false;
 
   @override
   void initState() {
@@ -36,51 +35,99 @@ class _DealScreenState extends State<DealScreen> {
   Future<List<Map<String, dynamic>>> getSalonListApi() async {
     try {
       final response = await ApiService().getSalonListApi();
-      if (response['success'] == true) {
-        final List salons = response['data'];
-        return salons.map<Map<String, dynamic>>((salon) {
-          return {
-            'id': salon['id'],
-            'name': salon['name'],
-            'branches': salon['branches'],
-          };
+
+      if (response['success'] == true && response['data'] is List) {
+        final List data = response['data'];
+
+        // Flatten: convert each salon + branch into a unified entry
+        final List<Map<String, dynamic>> branchItems = data.expand((salon) {
+          final List branches = salon['branches'] ?? [];
+          return branches.map<Map<String, dynamic>>((branch) {
+            return {
+              'branchId': branch['id'],
+              'branchName': branch['name'],
+              'salonId': salon['id'],
+              'salonName': salon['name'],
+            };
+          }).toList();
         }).toList();
+
+        return branchItems;
       } else {
         throw Exception("Failed to fetch salon list");
       }
     } catch (e) {
-      debugPrint("Error fetching salon list: $e");
+      print("Error fetching salon list: $e");
       return [];
     }
   }
 
-  Future<void> _fetchOffers(int salonId) async {
+  // ✅ Offer fetch with sanitization
+  Future<void> _fetchOffers(int branchId) async {
+    debugPrint('📡 Fetching offers for branch $branchId ...');
     setState(() {
       loadingOffers = true;
       offers = [];
     });
 
-    final response = await ApiService().getSalonPackagesDealsApi(salonId);
-    print("Offers Response: $response");
+    final response = await ApiService.getBranchPackagesDeals(branchId);
+    debugPrint('📩 Raw response: $response');
 
     if (!mounted) return;
+
     setState(() {
       loadingOffers = false;
+
       if (response['success'] == true && response['data'] is List) {
-        final all = List<Map<String, dynamic>>.from(response['data']);
-        // ✅ Only DEALs
-        offers = all
-            .where((o) => (o['type'] ?? '').toString().toUpperCase() == 'DEAL')
+        final List<Map<String, dynamic>> allOffers =
+            List<Map<String, dynamic>>.from(response['data']);
+
+        // ✅ FILTER + SANITIZE: keep only DEAL (case-insensitive)
+        offers = allOffers
+            .where((offer) =>
+                (offer['type']?.toString().toUpperCase() ?? '') == 'DEAL')
+            .map((offer) => _sanitizeOffer(offer))
             .toList();
+
+        debugPrint('✅ Filtered offers count: ${offers.length}');
+        debugPrint('✅ Filtered offers: ${offers.map((e) => e['name']).toList()}');
       } else {
         offers = [];
+        debugPrint('❌ Failed to load offers: ${response['message']}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(
-                  response['message']?.toString() ?? "Failed to load offers")),
+            content: Text(
+              response['message']?.toString() ?? "Failed to load offers",
+            ),
+          ),
         );
       }
     });
+  }
+
+  // ✅ Sanitize every offer before rendering
+  Map<String, dynamic> _sanitizeOffer(Map<String, dynamic> raw) {
+    final o = Map<String, dynamic>.from(raw);
+    o['name'] = o['name']?.toString() ?? '';
+    o['status'] = o['status']?.toString() ?? 'UNKNOWN';
+    o['type'] = o['type']?.toString() ?? 'N/A';
+    o['pricingMode'] = o['pricingMode']?.toString() ?? 'FIXED';
+    o['discountType'] = o['discountType']?.toString() ?? 'NONE';
+    o['validFrom'] = o['validFrom']?.toString() ?? '';
+    o['validTo'] = o['validTo']?.toString() ?? '';
+    o['terms'] = o['terms']?.toString() ?? '';
+    o['scope'] = o['scope']?.toString() ?? '';
+
+    o['price'] = num.tryParse(o['price']?.toString() ?? '0') ?? 0;
+    o['discount'] = num.tryParse(o['discount']?.toString() ?? '0') ?? 0;
+    o['discountPct'] = num.tryParse(o['discountPct']?.toString() ?? '0') ?? 0;
+    o['maxDiscount'] = num.tryParse(o['maxDiscount']?.toString() ?? '0') ?? 0;
+
+    o['items'] = (o['items'] is List) ? List.from(o['items']) : [];
+    o['itemSummary'] =
+        (o['itemSummary'] is Map) ? Map.from(o['itemSummary']) : {};
+
+    return o;
   }
 
   Future<void> _confirmDeleteOffer(int offerId, String offerName) async {
@@ -98,21 +145,22 @@ class _DealScreenState extends State<DealScreen> {
             child: Text(translateText('Cancel')),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.starColor),
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(translateText('Delete')),
+            child: Text(translateText('Delete'),
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
 
     if (confirmed == true) {
-      await _deleteOfferWithLoader(offerId);
+      await _deleteOffer(offerId);
     }
   }
 
-  // NEW: delete with per-button loader
-  Future<void> _deleteOfferWithLoader(int offerId) async {
+  Future<void> _deleteOffer(int offerId) async {
     if (selectedSalonId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(translateText('Please select a salon first'))),
@@ -120,17 +168,12 @@ class _DealScreenState extends State<DealScreen> {
       return;
     }
 
-    setState(() {
-      _deletingOfferIds.add(offerId);
-    });
-
+    setState(() => _deletingIds.add(offerId));
     try {
-      final res = await ApiService().deleteSalonOfferApi(
-        salonId: selectedSalonId!,
+      final res = await ApiService().deleteSalonBranchOfferApi(
+        branchId: selectedSalonId!,
         offerId: offerId,
       );
-
-      if (!mounted) return;
 
       if (res['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -140,21 +183,16 @@ class _DealScreenState extends State<DealScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              res['message']?.toString() ?? 'Failed to delete deal',
-            ),
+            content:
+                Text(res['message']?.toString() ?? 'Failed to delete deal'),
           ),
         );
       }
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _deletingOfferIds.remove(offerId);
-      });
+      if (mounted) setState(() => _deletingIds.remove(offerId));
     }
   }
 
-  // 👉 Navigate to edit
   Future<void> _editOffer(Map<String, dynamic> offer) async {
     if (selectedSalon == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -167,14 +205,12 @@ class _DealScreenState extends State<DealScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => AddDealsScreen(
-          salonId: selectedSalon!['salonId'],
-          salonName: selectedSalon!['salonName'],
+          branchId: selectedSalon!['branchId'],
+          branchName: selectedSalon!['branchName'],
           source: 'DEAL',
           isEdit: true,
           existingOffer: offer,
-          onPackageCreated: (salonId) {
-            _fetchOffers(salonId);
-          },
+          onPackageCreated: (branchId) => _fetchOffers(branchId),
         ),
       ),
     );
@@ -191,24 +227,20 @@ class _DealScreenState extends State<DealScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        // Let the gradient show through:
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          translateText('Deal'),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        title: Text(translateText('Deals'),
-          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
-        ),
-        // Paint the gradient here:
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.starColor,        // your start color
-                AppColors.getStartedButton, // your end color
+                AppColors.starColor,
+                AppColors.getStartedButton,
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -222,191 +254,165 @@ class _DealScreenState extends State<DealScreen> {
           future: salonsList,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
+              return const Center(child: CircularProgressIndicator());
             } else if (snapshot.hasError) {
               return Center(child: Text("Error: ${snapshot.error}"));
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              // No salons at all
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<int>(
+                    value: selectedSalonId,
                     isExpanded: true,
-                    value: null,
-                    items: const <DropdownMenuItem<int>>[],
-                    onChanged: null,
+                    items: snapshot.data!
+                        .map<DropdownMenuItem<int>>(
+                          (branch) => DropdownMenuItem(
+                            value: branch['branchId'],
+                            child: Text(
+                              "${branch['salonName']} - ${branch['branchName']}",
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) async {
+                      setState(() => selectedSalonId = value);
+                      if (value != null) {
+                        final branch = snapshot.data!
+                            .firstWhere((b) => b['branchId'] == value);
+                        selectedSalon = branch;
+                        await _fetchOffers(branch['branchId']);
+                      }
+                    },
                     decoration: InputDecoration(
-                      labelText: translateText("Salon"),
-                      labelStyle: TextStyle(
-                        color: Colors.grey.shade800,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      hintText: translateText("No salons available"),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      disabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
+                      labelText: translateText('Branch'),
                       filled: true,
-                      fillColor: Colors.grey.shade100,
+                      fillColor: kDropdownFill,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded),
-                    dropdownColor: Colors.white,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   Expanded(
-                    child: Center(child: Text(translateText("No salons found"))),
+                    child:
+                        Center(child: Text(translateText('No salons available'))),
                   ),
                 ],
               );
             } else {
               final salons = snapshot.data!;
-
-              // Auto-pick first salon once
-              if (!_autoPicked && selectedSalonId == null && salons.isNotEmpty) {
-                _autoPicked = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!_didAutoSelect && salons.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) async {
                   if (!mounted) return;
+                  final first = salons.first;
                   setState(() {
-                    selectedSalonId = salons.first['id'] as int;
+                    _didAutoSelect = true;
+                    selectedSalonId = first['branchId'] as int;
                     selectedSalon = {
-                      'salonId': salons.first['id'],
-                      'salonName': salons.first['name'],
+                      'salonId': first['salonId'],
+                      'salonName': first['salonName'],
+                      'branchId': first['branchId'],
+                      'branchName': first['branchName'],
                     };
                   });
-                  _fetchOffers(selectedSalonId!);
+                  await _fetchOffers(first['branchId']);
                 });
               }
-
-              final hasAnySalon = salons.isNotEmpty;
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Styled dropdown
                   DropdownButtonFormField<int>(
+                    value: selectedSalonId,
                     isExpanded: true,
-                    value: hasAnySalon ? selectedSalonId : null,
-                    items: hasAnySalon
-                        ? salons
-                            .map<DropdownMenuItem<int>>(
-                              (salon) => DropdownMenuItem<int>(
-                                value: salon['id'] as int,
-                                child: Text(
-                                  salon['name'].toString(),
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600),
+                    items: salons
+                        .map<DropdownMenuItem<int>>(
+                          (salon) => DropdownMenuItem(
+                            value: salon['branchId'],
+                            child: Text(
+                              "${salon['salonName']} - ${salon['branchName']}",
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) async {
+                      setState(() => selectedSalonId = value);
+                      if (value != null) {
+                        final salon =
+                            salons.firstWhere((s) => s['branchId'] == value);
+                        selectedSalon = {
+                          'salonId': salon['salonId'],
+                          'salonName': salon['salonName'],
+                          'branchId': salon['branchId'],
+                          'branchName': salon['branchName'],
+                        };
+                        await _fetchOffers(salon['branchId']);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText:
+                          salons.isEmpty ? 'No salons available' : 'Select Branch',
+                      filled: true,
+                      fillColor: kDropdownFill,
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: Builder(builder: (context) {
+                      if (selectedSalonId == null) {
+                        return Center(
+                          child:
+                              Text(translateText("Please select a salon")),
+                        );
+                      }
+                      if (loadingOffers) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (offers.isEmpty) {
+                        return Center(
+                          child:
+                              Text(translateText("No deals available")),
+                        );
+                      }
+                      return ListView.builder(
+                        itemCount: offers.length,
+                        itemBuilder: (context, i) {
+                          final offer = offers[i];
+                          final offerId =
+                              num.tryParse(offer['id']?.toString() ?? '0')
+                                      ?.toInt() ??
+                                  0;
+                          return _OfferCard(
+                            offer: offer,
+                            rs: _rs,
+                            isDeleting: _deletingIds.contains(offerId),
+                            onDelete: () =>
+                                _confirmDeleteOffer(offerId, offer['name']),
+                            onEdit: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AddDealsScreen(
+                                  branchId: selectedSalon!['branchId'],
+                                  branchName: selectedSalon!['branchName'],
+                                  source: 'DEAL',
+                                  isEdit: true,
+                                  existingOffer: offer,
+                                  onPackageCreated: (branchId) =>
+                                      _fetchOffers(branchId),
                                 ),
                               ),
-                            )
-                            .toList()
-                        : const <DropdownMenuItem<int>>[],
-                    onChanged: hasAnySalon
-                        ? (value) async {
-                            setState(() => selectedSalonId = value);
-                            if (value != null) {
-                              final salon =
-                                  salons.firstWhere((s) => s['id'] == value);
-                              selectedSalon = {
-                                'salonId': salon['id'],
-                                'salonName': salon['name'],
-                              };
-
-                              debugPrint(
-                                  "Selected Salon ID: ${salon['id']} | Selected Salon Name: ${salon['name']}");
-
-                              await _fetchOffers(salon['id'] as int);
-                            }
-                          }
-                        : null,
-                    decoration: InputDecoration(
-                      labelText: translateText("Salon"),
-                      labelStyle: TextStyle(
-                        color: Colors.grey.shade800,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      hintText: hasAnySalon
-                          ? "Select salon"
-                          : "No salons available",
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade400),
-                      ),
-                      disabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                    ),
-                    icon: Icon(Icons.keyboard_arrow_down_rounded),
-                    dropdownColor: Colors.white,
-                  ),
-                  SizedBox(height: 12),
-
-                  Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        if (selectedSalonId == null) {
-                          return Center(
-                              child: Text(translateText("Please select a salon")));
-                        }
-                        if (loadingOffers) {
-                          return Center(
-                              child: CircularProgressIndicator());
-                        }
-                        if (offers.isEmpty) {
-                          return Center(child: Text(translateText("No deals available")));
-                        }
-                        return ListView.builder(
-                          itemCount: offers.length,
-                          itemBuilder: (context, i) {
-                            final offer = offers[i];
-                            final offerId = (offer['id'] as num).toInt();
-                            final isDeleting = _deletingOfferIds.contains(offerId);
-
-                            return _OfferCard(
-                              offer: offer,
-                              rs: _rs,
-                              isDeleting: isDeleting, // NEW
-                              onDelete: () => _confirmDeleteOffer(
-                                offerId,
-                                (offer['name'] ?? '').toString(),
-                              ),
-                              onEdit: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => AddDealsScreen(
-                                      salonId: selectedSalon!['salonId'],
-                                      salonName: selectedSalon!['salonName'],
-                                      source: 'DEAL',
-                                      isEdit: true,
-                                      existingOffer: offer,
-                                      onPackageCreated: (sid) =>
-                                          _fetchOffers(sid),
-                                    ),
-                                  ),
-                                );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    ),
+                            ),
+                          );
+                        },
+                      );
+                    }),
                   ),
                 ],
               );
@@ -414,102 +420,338 @@ class _DealScreenState extends State<DealScreen> {
           },
         ),
       ),
-      // FAB: black bg, white text/icon
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           if (selectedSalon == null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(translateText("Please select a salon"))),
+              SnackBar(
+                  content:
+                      Text(translateText("Please select a salon"))),
             );
             return;
           }
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddDealsScreen(
-                salonId: selectedSalon!['salonId'],
-                salonName: selectedSalon!['salonName'],
-                source: 'DEAL',
-                isEdit: false, // creating a new deal
-                existingOffer: null,
-                onPackageCreated: (salonId) {
-                  _fetchOffers(salonId);
-                },
-              ),
-            ),
-          );
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AddDealsScreen(
+            branchId: selectedSalon!['branchId'],
+            branchName: selectedSalon!['branchName'],
+            source: 'DEAL',
+            isEdit: false,
+            existingOffer: null,
+            onPackageCreated: (branchId) => _fetchOffers(branchId),
+          ),
+        ),
+      );
         },
-        label: Text(translateText("Add Deal")),
-        icon: Icon(Icons.add),
+        label: Text(
+          translateText("Add Deal"),
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        icon: const Icon(Icons.add, color: Colors.white),
         backgroundColor: AppColors.starColor,
-        foregroundColor: Colors.white,
       ),
     );
   }
 }
 
+// ✅ _OfferCard widget stays as-is (no crash after sanitization)
+
+// keep button styles and helpers as you already had them...
 class _OfferCard extends StatelessWidget {
   const _OfferCard({
     required this.offer,
     required this.rs,
     required this.onDelete,
     required this.onEdit,
-    required this.isDeleting, // NEW
+    required this.isDeleting,
   });
 
   final Map<String, dynamic> offer;
   final String Function(num? n) rs;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
-  final bool isDeleting; // NEW
+  final bool isDeleting;
 
-  String? _fmt(dynamic date) {
-    if (date == null) return null;
-    final s = date.toString();
-    if (s.isEmpty || s.toLowerCase() == 'null') return null;
+  @override
+  Widget build(BuildContext context) {
     try {
-      return DateFormat('dd-MM-yyyy').format(DateTime.parse(s));
-    } catch (_) {
-      return s;
-    }
-  }
+      // --------- read from response safely ---------
+      final String name = offer['name']?.toString() ?? '';
+      final String status = offer['status']?.toString() ?? 'UNKNOWN';
+      final String type = offer['type']?.toString() ?? 'N/A';
+      final String pricingMode = offer['pricingMode']?.toString() ?? 'FIXED';
+      final String discountType = offer['discountType']?.toString() ?? 'NONE';
+      final String validFrom = offer['validFrom']?.toString() ?? '';
+      final String validTo = offer['validTo']?.toString() ?? '';
+      final String terms = offer['terms']?.toString() ?? '';
 
-  Widget _headerBadge({
-    required String status,
-    required String pricingMode,
-    required String discountType,
-    required num? discountPct,
-    required num? discountAmt,
-  }) {
-    final hasPct = discountType == 'PERCENT' && (discountPct ?? 0) > 0;
-    final hasAmt = discountType == 'AMOUNT' && (discountAmt ?? 0) > 0;
+      // Defensive numeric parsing
+      final num? discountPct = (offer['discountPct'] is num)
+          ? offer['discountPct'] as num
+          : num.tryParse(offer['discountPct']?.toString() ?? '');
+      final num? discountAmt = (offer['discount'] is num)
+          ? offer['discount'] as num
+          : num.tryParse(offer['discount']?.toString() ?? '');
+      final num finalPrice = (offer['price'] is num)
+          ? offer['price'] as num
+          : num.tryParse(offer['price']?.toString() ?? '0') ?? 0;
 
-    if (pricingMode == 'DISCOUNT' && (hasPct || hasAmt)) {
-      final text =
-          hasPct ? "${discountPct!.toStringAsFixed(0)}% OFF" : "${rs(discountAmt)} OFF";
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.black,
-          borderRadius: BorderRadius.circular(12),
+      final Map<String, dynamic> itemSummary =
+          (offer['itemSummary'] is Map)
+              ? Map<String, dynamic>.from(offer['itemSummary'])
+              : {};
+      final num actualPrice =
+          (itemSummary['totalPrice'] is num) ? itemSummary['totalPrice'] as num : 0;
+
+      final List items =
+          (offer['items'] is List) ? offer['items'] as List : [];
+
+      final bool isDiscount = pricingMode.toUpperCase() == 'DISCOUNT';
+      final num savings = _calcSavings(
+        pricingMode: pricingMode,
+        discountType: discountType,
+        actualPrice: actualPrice,
+        finalPrice: finalPrice,
+        discountAmt: discountAmt,
+        discountPct: discountPct,
+      );
+
+      final String? discountChipText = () {
+        if (!isDiscount) return null;
+        if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
+          return '${discountPct!.toStringAsFixed(0)}% OFF';
+        }
+        if (discountType == 'AMOUNT' && (discountAmt ?? 0) > 0) {
+          return '${rs(discountAmt)} OFF';
+        }
+        return null;
+      }();
+
+      // --------- build UI ---------
+      return Card(
+        elevation: 1.5,
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --------- header: title + chips ---------
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      name.isNotEmpty ? name : 'Unnamed Offer',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _statusChip(status),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _pillChip(type),
+                  _softChip(pricingMode),
+                  if (discountChipText != null) _offChip(discountChipText),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // --------- pricing block ---------
+           // --------- pricing block ---------
+Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    if (actualPrice > 0 && finalPrice < actualPrice) ...[
+      Text(
+        rs(actualPrice),
+        style: const TextStyle(
+          fontSize: 14,
+          color: Colors.grey,
+          decoration: TextDecoration.lineThrough,
+          decorationThickness: 1, // ✅ thin line
         ),
-        child: Text(
-          text,
-          style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+      ),
+      const SizedBox(height: 4),
+    ],
+    Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          rs(finalPrice),
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: isDiscount ? Colors.orange : Colors.black,
+          ),
+        ),
+        const Spacer(),
+        if (actualPrice > 0 && finalPrice < actualPrice)
+          Text(
+            'You save ${rs(actualPrice - finalPrice)}',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.green,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+      ],
+    ),
+  ],
+),
+
+
+              const SizedBox(height: 12),
+
+              // --------- services as chips ---------
+              if (items.isNotEmpty) ...[
+                Text(
+                  translateText('Includes'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: items.map((e) {
+                    final m = Map<String, dynamic>.from(e as Map);
+                    final n = (m['name'] ?? 'Service').toString();
+                    final q = (m['qty'] ?? 1) as num;
+                    return Chip(
+                      label: Text('$n × ${q.toStringAsFixed(0)}'),
+                      backgroundColor: const Color(0xFFF3F4F6),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity:
+                          const VisualDensity(horizontal: -4, vertical: -4),
+                    );
+                  }).toList(),
+                ),
+              ],
+
+              // --------- validity & terms ---------
+              if (validFrom.isNotEmpty || validTo.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    const Icon(Icons.event, size: 16, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _formatValidity(validFrom, validTo),
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (terms.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.article_outlined,
+                          size: 16, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Terms: $terms',
+                          style:
+                              const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 10),
+
+              // --------- actions ---------
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ElevatedButton(
+                    onPressed: isDeleting ? null : onEdit,
+                    style: _blackButtonStyle,
+                    child: Text(
+                      translateText('Edit'),
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton.icon(
+                    onPressed: isDeleting ? null : onDelete,
+                    icon: isDeleting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.delete, size: 16),
+                    label: Text(
+                      isDeleting ? 'Deleting...' : 'Delete',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: _blackButtonStyle,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (e, st) {
+      print('❌ ERROR while building offer card: $e');
+      print('STACK TRACE:\n$st');
+      print('OFFER DATA:\n${offer.toString()}');
+      return Card(
+        color: Colors.red.shade50,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            'Error rendering offer: ${offer['name'] ?? 'Unknown'}\n$e',
+            style: const TextStyle(color: Colors.red),
+          ),
         ),
       );
     }
+  }
 
-    final isActive = status.toUpperCase() == 'ACTIVE';
+  // ---------- small UI helpers ----------
+  Widget _statusChip(String? status) {
+    final s = (status ?? '').toString().toUpperCase();
+    final isActive = s == 'ACTIVE';
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: isActive ? const Color(0xFFDFF5E1) : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        status.toUpperCase(),
+        s.isEmpty ? 'UNKNOWN' : s,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -519,223 +761,113 @@ class _OfferCard extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final items = (offer['items'] as List?) ?? const [];
-    final itemNames = items
-        .map((e) => (e['name'] ?? '').toString())
-        .where((s) => s.isNotEmpty)
-        .join(', ');
-
-    final itemSummary = (offer['itemSummary'] as Map?) ?? const {};
-    final totalPrice = (itemSummary['totalPrice'] ?? 0) as num;
-    final totalDuration = (itemSummary['totalDuration'] ?? 0) as num;
-
-    final pricingMode = (offer['pricingMode'] ?? '').toString(); // FIXED | DISCOUNT
-    final discountType = (offer['discountType'] ?? '').toString(); // PERCENT | AMOUNT | NONE
-    final discountPct = offer['discountPct'] as num?;
-    final discountAmt = offer['discount'] as num?;
-    final price = (offer['price'] ?? 0) as num;
-    final status = (offer['status'] ?? '').toString();
-
-    final validFrom = _fmt(offer['validFrom']);
-    final validTo = _fmt(offer['validTo']);
-    final String? terms = (offer['terms'] as String?)?.trim();
-
-    return Card(
-      elevation: 1.5,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: kDropdownFill,
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title + badge
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    (offer['name'] ?? '').toString(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style:
-                        const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ),
-                SizedBox(width: 8),
-                _headerBadge(
-                  status: status,
-                  pricingMode: pricingMode,
-                  discountType: discountType,
-                  discountPct: discountPct,
-                  discountAmt: discountAmt,
-                ),
-              ],
-            ),
-
-            if (itemNames.isNotEmpty) ...[
-              SizedBox(height: 6),
-              Text(itemNames, style: const TextStyle(fontSize: 13)),
-            ],
-
-            SizedBox(height: 8),
-
-            // Pricing section
-            if (pricingMode == 'DISCOUNT') ...[
-              Text.rich(
-                TextSpan(
-                  text: 'Actual Price: ',
-                  style: const TextStyle(fontSize: 13, color: Colors.grey),
-                  children: [
-                    TextSpan(
-                      text: rs(totalPrice),
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        decoration: TextDecoration.lineThrough,
-                        decorationThickness: 2,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 4),
-              Text(
-                "Discounted Price: ${rs(price)}",
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.orange,
-                ),
-              ),
-            ] else if (pricingMode == 'FIXED') ...[
-  Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  children: [
-    // Left side: Actual (cut) price
-    Row(
-      children: [
-        Text(
-          '₹${totalPrice.toStringAsFixed(0)}',
-          style: const TextStyle(
-            color: Colors.grey,
-            fontSize: 13,
-            decoration: TextDecoration.lineThrough,
-            decorationThickness: 2,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '₹${price.toStringAsFixed(0)}',
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.bold,
-            color: Colors.orange,
-          ),
-        ),
-      ],
-    ),
-
-    // Right side: savings text
-    if (totalPrice > price)
-      Text(
-        'You save ₹${(totalPrice - price).toStringAsFixed(0)}',
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: Colors.green,
-        ),
+  Widget _offChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.orange[400],
+        borderRadius: BorderRadius.circular(6),
       ),
-  ],
-),
-            ],
-
-            SizedBox(height: 8),
-            // Text(
-            //   "Duration: ${totalDuration.toStringAsFixed(0)} Min",
-            //   style: const TextStyle(fontSize: 13, color: Colors.black87),
-            // ),
-
-            if (validFrom != null || validTo != null) ...[
-              SizedBox(height: 4),
-              Text(
-                (validFrom != null && validTo != null)
-                    ? "Valid: $validFrom - $validTo"
-                    : (validFrom != null)
-                        ? "Valid from: $validFrom"
-                        : "Valid till: $validTo",
-                style: const TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-            ],
-
-            if (terms != null && terms.isNotEmpty) ...[
-              SizedBox(height: 4),
-              Text(
-                "Terms: $terms",
-                style: const TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-            ],
-
-            SizedBox(height: 10),
-
-            // Bottom row: Edit + delete (delete shows loader when isDeleting)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Edit -> black bg, white text
-                ElevatedButton(
-                  onPressed: isDeleting ? null : onEdit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    elevation: 0,
-                  ),
-                  child: Text(translateText("Edit"),
-                    style:
-                        TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                SizedBox(width: 10),
-
-                // Delete -> when deleting, show spinner
-                ElevatedButton.icon(
-                  onPressed: isDeleting ? null : onDelete,
-                  icon: isDeleting
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Icon(Icons.delete, size: 16),
-                  label: Text(
-                    isDeleting ? "Deleting..." : "Delete",
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    elevation: 0,
-                  ),
-                ),
-              ],
-            ),
-          ],
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
         ),
       ),
     );
   }
+
+  Widget _pillChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF1F4),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  Widget _softChip(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+}
+
+// ✅ Shared button style
+ButtonStyle get _blackButtonStyle => ElevatedButton.styleFrom(
+      backgroundColor: AppColors.starColor,
+      foregroundColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      elevation: 0,
+    ).copyWith(
+      foregroundColor: MaterialStateProperty.resolveWith(
+        (states) => states.contains(MaterialState.disabled)
+            ? Colors.white.withOpacity(0.6)
+            : Colors.white,
+      ),
+    );
+
+// ✅ Shared logic helpers
+String _formatValidity(String? isoFrom, String? isoTo) {
+  String fmt(String? iso) {
+    if (iso == null || iso.isEmpty) return '';
+    try {
+      final d = DateTime.parse(iso);
+      return '${d.day.toString().padLeft(2, '0')}-'
+          '${d.month.toString().padLeft(2, '0')}-'
+          '${d.year}';
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  final from = fmt(isoFrom);
+  final to = fmt(isoTo);
+
+  if (from.isNotEmpty && to.isNotEmpty) return 'Valid: $from - $to';
+  if (from.isNotEmpty) return 'Valid from: $from';
+  if (to.isNotEmpty) return 'Valid till: $to';
+  return '';
+}
+
+num _calcSavings({
+  required String pricingMode,
+  required String discountType,
+  required num actualPrice,
+  required num finalPrice,
+  required num? discountAmt,
+  required num? discountPct,
+}) {
+  if (pricingMode != 'DISCOUNT') return 0;
+  if (actualPrice > 0 && finalPrice > 0) {
+    final s = actualPrice - finalPrice;
+    return s > 0 ? s : 0;
+  }
+  if (discountType == 'AMOUNT') return (discountAmt ?? 0);
+  if (discountType == 'PERCENT' && actualPrice > 0) {
+    final pct = (discountPct ?? 0).clamp(0, 100);
+    return (actualPrice * (pct / 100.0));
+  }
+  return 0;
 }

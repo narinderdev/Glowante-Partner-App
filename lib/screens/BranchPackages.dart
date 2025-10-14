@@ -46,10 +46,44 @@ class _BranchPackagesScreenState extends State<BranchPackagesScreen> {
     );
 
     if (confirmed == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Offer deleted successfully'))),
-      );
-      // Optionally refresh the offers here
+      try {
+        final response = await ApiService().deleteSalonBranchOfferApi(
+          branchId: widget.branchDetails['id'] as int,
+          offerId: offerId,
+        );
+
+        if (response['success'] == true) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(translateText('Offer deleted successfully')),
+            ),
+          );
+          setState(() {
+            _offersData =
+                ApiService.getBranchPackagesDeals(widget.branchDetails['id']);
+          });
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                response['message']?.toString() ??
+                    translateText('Failed to delete package'),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              translateText('Something went wrong while deleting the package'),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -200,7 +234,7 @@ if (packages.isEmpty)
             context,
             MaterialPageRoute(
               builder: (context) => AddDealsBranchScreen(
-                salonId: widget.branchDetails['id'],
+                branchId: widget.branchDetails['id'],
                 salonName: widget.branchDetails['name'],
                 onPackageCreated: (id) {
                   setState(() {

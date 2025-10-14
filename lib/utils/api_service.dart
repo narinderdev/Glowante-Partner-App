@@ -79,8 +79,7 @@ class ApiService {
   static const String checkSendOtpEndpoint = "users/check-and-send-otp";
   static String addServiceAPI(int salonId) => "salons/$salonId/services";
 
-  // static String getServicesAPI(int salonId) => "salons/$salonId/services";
-static String getServicesAPI(int branchId) => "branches/$branchId/services";
+  static String getSalonServicesAPI(int salonId) => "salons/$salonId/services";
 
   static String addCategoryAPI(int salonId) {
     return "salons/$salonId/categories";
@@ -123,6 +122,13 @@ static String getBranchServicesAPI(int branchId) => "branches/$branchId/services
   static String deleteSalonOffer(int salonId, int offerId) {
     return "salons/$salonId/offers/$offerId";
   }
+static String updateSalonBranchOffer(int branchId, int offerId) {
+  return "branches/$branchId/offers/$offerId";
+}
+
+static String deleteSalonBranchOffer(int branchId, int offerId) {
+  return "branches/$branchId/offers/$offerId";
+}
 
   static String getSalonUser(int salonId, bool isActiveOnly) {
     return "salons/$salonId/users?activeOnly=true";
@@ -988,11 +994,19 @@ Future<bool> deleteAccountAPI() async {
   }
 
   // ---------------------- GET SERVICES ----------------------
-  Future<Map<String, dynamic>> getService({required int salonId}) async {
+  Future<Map<String, dynamic>> getService({
+    int? salonId,
+    int? branchId,
+  }) async {
+    if (salonId == null && branchId == null) {
+      throw ArgumentError('Either salonId or branchId must be provided.');
+    }
+
     final token = await getAuthToken();
-    final url = Uri.parse(
-      baseUrl + getServicesAPI(salonId),
-    ); // Direct string concatenation
+    final String path = branchId != null
+        ? getBranchServicesAPI(branchId)
+        : getSalonServicesAPI(salonId!);
+    final url = Uri.parse(baseUrl + path);
 
     print("➡️ Calling Get Service API");
     print("➡️ URL: $url");
@@ -1639,105 +1653,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     };
   }
 }
-
-  Future<Map<String, dynamic>> deleteSalonOfferApi({
-    required int salonId,
-    required int offerId,
-  }) async {
-    final uri = Uri.parse(
-      "$baseUrl${ApiService.deleteSalonOffer(salonId, offerId)}",
-    );
-
-    print("DELETE Request: $uri");
-
-    try {
-      final resp = await _sharedClient
-          .delete(
-            uri,
-            headers: const {
-              'Accept': 'application/json',
-              // Don't send Content-Type since there is no body
-            },
-          )
-          .timeout(const Duration(seconds: 25));
-
-      print("Response [${resp.statusCode}]: ${resp.body}");
-
-      final Map<String, dynamic> body = resp.body.isEmpty
-          ? {}
-          : (jsonDecode(resp.body) as Map<String, dynamic>);
-
-      if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        return {
-          'success': body['success'] ?? true,
-          'message': body['message'] ?? 'Deleted',
-          'data': body['data'],
-        };
-      } else {
-        return {
-          'success': body['success'] ?? false,
-          'message': body['message'] ?? 'Failed to delete offer',
-          'statusCode': resp.statusCode,
-          'data': body['data'],
-        };
-      }
-    } on TimeoutException {
-      print("❌ DELETE timeout");
-      return {'success': false, 'message': 'Request timed out'};
-    } catch (e) {
-      print("❌ DELETE error: $e");
-      return {'success': false, 'message': e.toString()};
-    }
-  }
-
-  Future<Map<String, dynamic>> getSalonUsersApi(
-    int salonId, {
-    bool activeOnly = true,
-  }) async {
-    final uri = Uri.parse(baseUrl + getSalonUser(salonId, activeOnly));
-
-    print("GET Request: $uri");
-
-    try {
-      final token = await getAuthToken(); // ✅ fetch token
-
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token', // ✅ use token
-      };
-
-      final resp = await _sharedClient
-          .get(uri, headers: headers)
-          .timeout(const Duration(seconds: 25));
-
-      print("Response [${resp.statusCode}]: ${resp.body}");
-
-      final Map<String, dynamic> body = resp.body.isEmpty
-          ? {}
-          : (jsonDecode(resp.body) as Map<String, dynamic>);
-
-      if (resp.statusCode >= 200 && resp.statusCode < 300) {
-        return {
-          'success': body['success'] ?? true,
-          'message': body['message'] ?? 'Success',
-          'data': body['data'] ?? [],
-        };
-      } else {
-        return {
-          'success': body['success'] ?? false,
-          'message': body['message'] ?? 'Failed to fetch salon users',
-          'statusCode': resp.statusCode,
-          'data': body['data'] ?? [],
-        };
-      }
-    } on TimeoutException {
-      print("❌ GET timeout");
-      return {'success': false, 'message': 'Request timed out', 'data': []};
-    } catch (e) {
-      print("❌ GET error: $e");
-      return {'success': false, 'message': e.toString(), 'data': []};
-    }
-  }
+  // ---------------------- CREATE SALON OFFER ----------------------
 
   Future<Map<String, dynamic>> createSalonOffer(
     int salonId,
@@ -1792,7 +1708,170 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
       return {'success': false, 'message': 'Error: $e'};
     }
   }
+  // ---------------------- UPDATE SALON OFFER (PATCH) ----------------------
+  
+Future<Map<String, dynamic>> updateSalonOfferPatch(
+  int salonId,
+  int offerId,
+  Map<String, dynamic> body,
+) async {
+  final url = Uri.parse("$baseUrl${updateSalonOffer(salonId, offerId)}");
 
+  // Keep only non-null keys (PATCH semantics)
+  final payload = Map<String, dynamic>.from(body)
+    ..removeWhere((k, v) => v == null);
+
+  print("🔹 [PATCH] Update Salon Offer → $url");
+  print("Headers: {Content-Type: application/json, Authorization: Bearer ***}");
+  print("Body: ${jsonEncode(payload)}");
+
+  try {
+    final token = await getAuthToken();
+
+    final resp = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
+
+    print("✅ Status: ${resp.statusCode}");
+    print("Response: ${resp.body}");
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      try {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {"success": true, "message": "Offer updated", "raw": resp.body};
+      }
+    }
+
+    try {
+      final m = jsonDecode(resp.body);
+      if (m is Map<String, dynamic>) return m;
+    } catch (_) {}
+
+    return {
+      "success": false,
+      "message":
+          "Failed to update offer. Status: ${resp.statusCode}. Body: ${resp.body}",
+    };
+  } catch (e, st) {
+    print("❌ Error updateSalonOfferPatch: $e");
+    print("StackTrace: $st");
+    return {"success": false, "message": e.toString()};
+  }
+}
+
+  // ---------------------- DELETE SALON OFFER ----------------------
+  Future<Map<String, dynamic>> deleteSalonOfferApi({
+    required int salonId,
+    required int offerId,
+  }) async {
+    final uri = Uri.parse(
+      "$baseUrl${ApiService.deleteSalonOffer(salonId, offerId)}",
+    );
+
+    print("DELETE Request: $uri");
+
+    try {
+      final resp = await _sharedClient
+          .delete(
+            uri,
+            headers: const {
+              'Accept': 'application/json',
+              // Don't send Content-Type since there is no body
+            },
+          )
+          .timeout(const Duration(seconds: 25));
+
+      print("Response [${resp.statusCode}]: ${resp.body}");
+
+      final Map<String, dynamic> body = resp.body.isEmpty
+          ? {}
+          : (jsonDecode(resp.body) as Map<String, dynamic>);
+
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        return {
+          'success': body['success'] ?? true,
+          'message': body['message'] ?? 'Deleted',
+          'data': body['data'],
+        };
+      } else {
+        return {
+          'success': body['success'] ?? false,
+          'message': body['message'] ?? 'Failed to delete offer',
+          'statusCode': resp.statusCode,
+          'data': body['data'],
+        };
+      }
+    } on TimeoutException {
+      print("❌ DELETE timeout");
+      return {'success': false, 'message': 'Request timed out'};
+    } catch (e) {
+      print("❌ DELETE error: $e");
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  // ---------------------- CREATE SALON BRANCH OFFER ----------------------
+  Future<Map<String, dynamic>> createSalonBranchOffer(
+    int branchId,
+    Map<String, dynamic> offerData,
+  ) async {
+    final url = Uri.parse(
+      "$baseUrl${addSalonBranchOffer(branchId)}",
+    ); // Ensure this returns the correct endpoint
+
+    // Log the full URL to check if it's correctly constructed
+    print("Request URL: $url");
+
+    // Log the request headers and the offer data being sent
+    print("Request Headers: {'Content-Type': 'application/json'}");
+    print("Request Body: ${json.encode(offerData)}");
+
+    try {
+      // Get the auth token if necessary
+      final token =
+          await getAuthToken(); // Assuming you need an authentication token
+
+      final response = await _sharedClient.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization':
+              'Bearer $token', // Use token if authentication is required
+        },
+        body: json.encode(offerData), // Sending the offer data as JSON
+      );
+
+      // Log the response status and body for debugging
+      print("Response Status: ${response.statusCode}");
+      print("Response Body: ${response.body}");
+
+      if (response.statusCode == 201) {
+        // Successfully created the offer
+        return json.decode(
+          response.body,
+        ); // Returning the response in JSON format
+      } else {
+        // Handle unsuccessful response (e.g., 400, 500)
+        return {
+          'success': false,
+          'message':
+              'Failed to create offer. Status Code: ${response.statusCode}. Response: ${response.body}',
+        };
+      }
+    } catch (e) {
+      // Catch network errors or any other issues
+      print("Error: $e");
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+  
+// ---------------------- GET BRANCH OFFERS ----------------------
   // API call method with logging
   static Future<Map<String, dynamic>> getBranchPackagesDeals(
     int branchId,
@@ -1833,6 +1912,164 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     }
   }
 
+  // ---------------------- UPDATE SALON BRANCH OFFER (PATCH) ----------------------
+  Future<Map<String, dynamic>> updateSalonBranchOfferPatch(
+  int branchId,
+  int offerId,
+  Map<String, dynamic> body,
+) async {
+  final url = Uri.parse("$baseUrl${updateSalonBranchOffer(branchId, offerId)}");
+
+  // Remove null values (PATCH semantics)
+  final payload = Map<String, dynamic>.from(body)
+    ..removeWhere((k, v) => v == null);
+
+  print("🔹 [PATCH] Update Salon Branch Offer → $url");
+  print("Headers: {Content-Type: application/json, Authorization: Bearer ***}");
+  print("Body: ${jsonEncode(payload)}");
+
+  try {
+    final token = await getAuthToken();
+
+    final resp = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
+
+    print("✅ Status: ${resp.statusCode}");
+    print("Response: ${resp.body}");
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      try {
+        return jsonDecode(resp.body) as Map<String, dynamic>;
+      } catch (_) {
+        return {"success": true, "message": "Branch offer updated", "raw": resp.body};
+      }
+    }
+
+    try {
+      final m = jsonDecode(resp.body);
+      if (m is Map<String, dynamic>) return m;
+    } catch (_) {}
+
+    return {
+      "success": false,
+      "message": "Failed to update branch offer. Status: ${resp.statusCode}. Body: ${resp.body}",
+    };
+  } catch (e, st) {
+    print("❌ Error updateSalonBranchOfferPatch: $e");
+    print("StackTrace: $st");
+    return {"success": false, "message": e.toString()};
+  }
+}
+
+  // ---------------------- DELETE SALON BRANCH OFFER ----------------------
+Future<Map<String, dynamic>> deleteSalonBranchOfferApi({
+  required int branchId,
+  required int offerId,
+}) async {
+  final uri = Uri.parse(
+    "$baseUrl${deleteSalonBranchOffer(branchId, offerId)}",
+  );
+
+  print("🗑️ DELETE Branch Offer Request: $uri");
+
+  try {
+    final token = await getAuthToken();
+
+    final resp = await _sharedClient
+        .delete(
+          uri,
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        )
+        .timeout(const Duration(seconds: 25));
+
+    print("Response [${resp.statusCode}]: ${resp.body}");
+
+    final Map<String, dynamic> body = resp.body.isEmpty
+        ? {}
+        : (jsonDecode(resp.body) as Map<String, dynamic>);
+
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
+      return {
+        'success': body['success'] ?? true,
+        'message': body['message'] ?? 'Branch offer deleted successfully',
+        'data': body['data'],
+      };
+    } else {
+      return {
+        'success': body['success'] ?? false,
+        'message': body['message'] ?? 'Failed to delete branch offer',
+        'statusCode': resp.statusCode,
+        'data': body['data'],
+      };
+    }
+  } on TimeoutException {
+    print("❌ DELETE Branch Offer timeout");
+    return {'success': false, 'message': 'Request timed out'};
+  } catch (e) {
+    print("❌ DELETE Branch Offer error: $e");
+    return {'success': false, 'message': e.toString()};
+  }
+}
+
+  // ---------------------- GET SALON USERS ----------------------
+  Future<Map<String, dynamic>> getSalonUsersApi(
+    int salonId, {
+    bool activeOnly = true,
+  }) async {
+    final uri = Uri.parse(baseUrl + getSalonUser(salonId, activeOnly));
+
+    print("GET Request: $uri");
+
+    try {
+      final token = await getAuthToken(); // ✅ fetch token
+
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token', // ✅ use token
+      };
+
+      final resp = await _sharedClient
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 25));
+
+      print("Response [${resp.statusCode}]: ${resp.body}");
+
+      final Map<String, dynamic> body = resp.body.isEmpty
+          ? {}
+          : (jsonDecode(resp.body) as Map<String, dynamic>);
+
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        return {
+          'success': body['success'] ?? true,
+          'message': body['message'] ?? 'Success',
+          'data': body['data'] ?? [],
+        };
+      } else {
+        return {
+          'success': body['success'] ?? false,
+          'message': body['message'] ?? 'Failed to fetch salon users',
+          'statusCode': resp.statusCode,
+          'data': body['data'] ?? [],
+        };
+      }
+    } on TimeoutException {
+      print("❌ GET timeout");
+      return {'success': false, 'message': 'Request timed out', 'data': []};
+    } catch (e) {
+      print("❌ GET error: $e");
+      return {'success': false, 'message': e.toString(), 'data': []};
+    }
+  }
+  
   // ---------------------- FETCH APPOINTMENTS BY DATE ----------------------
   Future<Map<String, dynamic>> fetchAppointments(
     int branchId,
@@ -1954,59 +2191,8 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     }
   }
 
-  Future<Map<String, dynamic>> createSalonBranchOffer(
-    int salonId,
-    Map<String, dynamic> offerData,
-  ) async {
-    final url = Uri.parse(
-      "$baseUrl${addSalonBranchOffer(salonId)}",
-    ); // Ensure this returns the correct endpoint
 
-    // Log the full URL to check if it's correctly constructed
-    print("Request URL: $url");
 
-    // Log the request headers and the offer data being sent
-    print("Request Headers: {'Content-Type': 'application/json'}");
-    print("Request Body: ${json.encode(offerData)}");
-
-    try {
-      // Get the auth token if necessary
-      final token =
-          await getAuthToken(); // Assuming you need an authentication token
-
-      final response = await _sharedClient.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization':
-              'Bearer $token', // Use token if authentication is required
-        },
-        body: json.encode(offerData), // Sending the offer data as JSON
-      );
-
-      // Log the response status and body for debugging
-      print("Response Status: ${response.statusCode}");
-      print("Response Body: ${response.body}");
-
-      if (response.statusCode == 201) {
-        // Successfully created the offer
-        return json.decode(
-          response.body,
-        ); // Returning the response in JSON format
-      } else {
-        // Handle unsuccessful response (e.g., 400, 500)
-        return {
-          'success': false,
-          'message':
-              'Failed to create offer. Status Code: ${response.statusCode}. Response: ${response.body}',
-        };
-      }
-    } catch (e) {
-      // Catch network errors or any other issues
-      print("Error: $e");
-      return {'success': false, 'message': 'Error: $e'};
-    }
-  }
 Future<Map<String, dynamic>> updateService({
   required int branchId,
   required int branchServiceId,
@@ -2476,61 +2662,6 @@ static Future<http.Response> updateBServicePatch(
     }
   }
   
-Future<Map<String, dynamic>> updateSalonOfferPatch(
-  int salonId,
-  int offerId,
-  Map<String, dynamic> body,
-) async {
-  final url = Uri.parse("$baseUrl${updateSalonOffer(salonId, offerId)}");
-
-  // Keep only non-null keys (PATCH semantics)
-  final payload = Map<String, dynamic>.from(body)
-    ..removeWhere((k, v) => v == null);
-
-  print("🔹 [PATCH] Update Salon Offer → $url");
-  print("Headers: {Content-Type: application/json, Authorization: Bearer ***}");
-  print("Body: ${jsonEncode(payload)}");
-
-  try {
-    final token = await getAuthToken();
-
-    final resp = await _sharedClient.patch(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode(payload),
-    );
-
-    print("✅ Status: ${resp.statusCode}");
-    print("Response: ${resp.body}");
-
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      try {
-        return jsonDecode(resp.body) as Map<String, dynamic>;
-      } catch (_) {
-        return {"success": true, "message": "Offer updated", "raw": resp.body};
-      }
-    }
-
-    try {
-      final m = jsonDecode(resp.body);
-      if (m is Map<String, dynamic>) return m;
-    } catch (_) {}
-
-    return {
-      "success": false,
-      "message":
-          "Failed to update offer. Status: ${resp.statusCode}. Body: ${resp.body}",
-    };
-  } catch (e, st) {
-    print("❌ Error updateSalonOfferPatch: $e");
-    print("StackTrace: $st");
-    return {"success": false, "message": e.toString()};
-  }
-}
-
 
   /// ---------------------- RESOLVE WALKIN NUMBER ----------------------
   Future<Map<String, dynamic>> resolveWalkinNumber(
@@ -2644,6 +2775,7 @@ Future<Map<String, dynamic>> assignUserToBranch(
     rethrow;
   }
 }
+ 
  
 
 }

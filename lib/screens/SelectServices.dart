@@ -7,7 +7,8 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 
 class SelectServicesModal extends StatefulWidget {
-  final int salonId;
+  final int? salonId;
+  final int? branchId;
 
   /// Prefill the modal with existing selections (serviceId -> qty).
   /// Pass what you have on the parent screen so reopening the modal
@@ -16,9 +17,12 @@ class SelectServicesModal extends StatefulWidget {
 
   const SelectServicesModal({
     Key? key,
-    required this.salonId,
+    this.salonId,
+    this.branchId,
     this.initialSelectedQty,
-  }) : super(key: key);
+  })  : assert(salonId != null || branchId != null,
+            'Either salonId or branchId must be provided.'),
+        super(key: key);
 
   @override
   State<SelectServicesModal> createState() => _SelectServicesModalState();
@@ -51,7 +55,10 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
 
   Future<void> _fetchServices() async {
     try {
-      final resp = await ApiService().getService(salonId: widget.salonId);
+      final resp = await ApiService().getService(
+        salonId: widget.salonId,
+        branchId: widget.branchId,
+      );
       if (resp['success'] == true) {
         setState(() {
           categories = resp['data']?['categories'] ?? [];

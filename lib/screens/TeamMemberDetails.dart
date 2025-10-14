@@ -4,7 +4,8 @@ import '../screens/AssignUser.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
+import '../utils/colors.dart';
+import 'package:flutter/services.dart';
 
 class TeamMemberDetails extends StatelessWidget {
   final Map<String, dynamic> member;
@@ -34,9 +35,11 @@ class TeamMemberDetails extends StatelessWidget {
     final String experience = member['experience']?.toString() ?? '3 years';
     final List branches = (member['userBranches'] ?? []) as List;
 final List userSalons = (member['userSalons'] ?? []) as List;
-final String joinedAt = userSalons.isNotEmpty
-    ? (userSalons[0]['joinedAt'] ?? '').toString()
+final List userBranches = (member['userBranches'] ?? []) as List;
+final String joinedAt = userBranches.isNotEmpty
+    ? (userBranches[0]['joiningDate'] ?? 'N/A').toString()
     : 'N/A';
+
     final borderColor = Colors.black.withOpacity(0.08);
     final cardRadius  = BorderRadius.circular(14);
 
@@ -206,8 +209,7 @@ final String joinedAt = userSalons.isNotEmpty
               ),
 
               SizedBox(height: 12),
-// ✅ Joined At
-_SectionCard(
+              _SectionCard(
   title: translateText('Joined At'),
   icon: Icons.calendar_today_outlined,
   borderColor: borderColor,
@@ -220,6 +222,7 @@ _SectionCard(
     ),
   ),
 ),
+
 
 SizedBox(height: 12),
               // Assigned Branches
@@ -344,32 +347,33 @@ SizedBox(height: 12),
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
     child: SizedBox(
       width: double.infinity,
-      // child: ElevatedButton(
-      //   onPressed: () {
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(
-      //         builder: (_) => AssignUserScreen(
-      //           member: member,
-      //           salons: salons, // 👈 pass salons list
-      //             salonId: salons.first['id'],
-      //         ),
-      //       ),
-      //     );
-      //   },
-      //   style: ElevatedButton.styleFrom(
-      //     backgroundColor: const Color(0xFFDD8B1F),
-      //     padding: const EdgeInsets.symmetric(vertical: 14),
-      //     shape: RoundedRectangleBorder(
-      //       borderRadius: BorderRadius.circular(12),
-      //     ),
-      //     elevation: 0,
-      //   ),
-      //   child: Text(
-      //     'Assign User',
-      //     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-      //   ),
-      // ),
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AssignUserScreen(
+                member: member,
+                salons: salons, // 👈 pass salons list
+                  salonId: salons.first['id'],
+              ),
+            ),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.starColor,
+          foregroundColor: AppColors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
+        child: Text(
+          'Assign User',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        ),
+      ),
     ),
   ),
 ),
