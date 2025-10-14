@@ -10,6 +10,7 @@ import '../utils/api_service.dart';
 
 import '../screens/web_doc_screen.dart';
 
+import '../services/auth_session_manager.dart';
 import 'login_screen.dart';
 
 import 'package:provider/provider.dart';
@@ -82,40 +83,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
-            Future<void> _handleLogout() async {
-              if (isLoggingOut) return;
+              Future<void> _handleLogout() async {
+                if (isLoggingOut) return;
 
-              setSheetState(() => isLoggingOut = true);
+                setSheetState(() => isLoggingOut = true);
 
-              final success = await apiService.logoutUserAPI();
+                final success = await apiService.logoutUserAPI();
 
               if (!mounted) return;
 
               setSheetState(() => isLoggingOut = false);
 
-              Navigator.pop(ctx);
+                Navigator.pop(ctx);
 
-              if (success) {
-                if (!mounted) return;
+                if (!success && mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        context.t('Logout request failed on the server.'),
+                      ),
+                    ),
+                  );
+                }
 
-                context.read<SalonListCubit>().clear();
-                context.read<CategoryCubit>().clear();
-
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => LoginScreen()),
-                  (route) => false,
-                );
-              } else {
-                if (!mounted) return;
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                      content:
-                          Text(context.t('Logout failed. Please try again.'))),
+                await AuthSessionManager.instance.forceLogout(
+                  reason: success ? 'user_logout' : 'user_logout_failed',
                 );
               }
-            }
 
             return Padding(
               padding: const EdgeInsets.all(20.0),

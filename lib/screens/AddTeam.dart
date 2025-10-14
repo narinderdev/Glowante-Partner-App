@@ -9,11 +9,10 @@
 // import '../utils/colors.dart';
 // import 'package:bloc_onboarding/utils/localization_helper.dart';
 
-
 // class AddTeamScreen extends StatefulWidget {
 //   // final int branchId;
 //   final int salonId;
-//     final String? salonName; 
+//     final String? salonName;
 
 //   const AddTeamScreen({
 //     super.key,
@@ -1176,7 +1175,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 class AddTeamScreen extends StatefulWidget {
   final int salonId;
   final String? salonName;
-final int? branchId;
+  final int? branchId;
   const AddTeamScreen({
     super.key,
     required this.salonId,
@@ -1197,11 +1196,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   final _emailCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _briefCtrl = TextEditingController();
-final _firstNameKey = GlobalKey<FormFieldState>();
-final _lastNameKey = GlobalKey<FormFieldState>();
-final _phoneKey = GlobalKey<FormFieldState>();
-final _emailKey = GlobalKey<FormFieldState>();
-final _addressKey = GlobalKey<FormFieldState>();
+  final _firstNameKey = GlobalKey<FormFieldState>();
+  final _lastNameKey = GlobalKey<FormFieldState>();
+  final _phoneKey = GlobalKey<FormFieldState>();
+  final _emailKey = GlobalKey<FormFieldState>();
+  final _addressKey = GlobalKey<FormFieldState>();
 
   List<Map<String, dynamic>> _allRoles = [];
   List<Map<String, dynamic>> _allSpecs = [];
@@ -1274,8 +1273,10 @@ final _addressKey = GlobalKey<FormFieldState>();
       fillColor: _fieldFill,
       prefixIcon: prefix,
       suffixIcon: suffix,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      helperText: ' ',
+      helperStyle: const TextStyle(height: 1),
+      errorStyle: const TextStyle(height: 1.1),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: _radius,
         borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
@@ -1315,7 +1316,8 @@ final _addressKey = GlobalKey<FormFieldState>();
 
   String? _validateNotEmpty(String? value, String fieldName) {
     if (!_validateNow) return null;
-    if (value == null || value.trim().isEmpty) return translateText('$fieldName is required');
+    if (value == null || value.trim().isEmpty)
+      return translateText('$fieldName is required');
     return null;
   }
 
@@ -1465,7 +1467,7 @@ final _addressKey = GlobalKey<FormFieldState>();
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title:  Text(translateText('Add Team Member'),
+        title: Text(translateText('Add Team Member'),
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -1518,108 +1520,113 @@ final _addressKey = GlobalKey<FormFieldState>();
                 // ),
                 // const SizedBox(height: 16),
 
-              Row(
-  children: [
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _reqLabel(translateText('First Name')),
-          const SizedBox(height: 6),
-        TextFormField(
-  key: _firstNameKey,
-  controller: _firstNameCtrl,
-  decoration: _decor(hint: translateText('Enter first name')),
-  validator: (v) => _validateNotEmpty(v, 'First Name'),
-  onChanged: (_) {
-    _capitalizeFirst(_firstNameCtrl);
-    setState(() => _validateNow = false);
-    _firstNameKey.currentState?.validate();
-  },
-),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _reqLabel(translateText('First Name')),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            key: _firstNameKey,
+                            controller: _firstNameCtrl,
+                            decoration:
+                                _decor(hint: translateText('Enter first name')),
+                            validator: (v) =>
+                                _validateNotEmpty(v, 'First Name'),
+                            onChanged: (_) {
+                              _capitalizeFirst(_firstNameCtrl);
+                              setState(() => _validateNow = false);
+                              _firstNameKey.currentState?.validate();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _reqLabel(translateText('Last Name')),
+                          const SizedBox(height: 6),
+                          TextFormField(
+                            key: _lastNameKey,
+                            controller: _lastNameCtrl,
+                            decoration:
+                                _decor(hint: translateText('Enter last name')),
+                            validator: (v) => _validateNotEmpty(v, 'Last Name'),
+                            onChanged: (_) {
+                              _capitalizeFirst(_lastNameCtrl);
+                              setState(() => _validateNow = false);
+                              _lastNameKey.currentState?.validate();
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
 
-        ],
-      ),
-    ),
-    const SizedBox(width: 12),
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _reqLabel(translateText('Last Name')),
-          const SizedBox(height: 6),
-          TextFormField(
-  key: _lastNameKey,
-  controller: _lastNameCtrl,
-  decoration: _decor(hint: translateText('Enter last name')),
-  validator: (v) => _validateNotEmpty(v, 'Last Name'),
-  onChanged: (_) {
-    _capitalizeFirst(_lastNameCtrl);
-    setState(() => _validateNow = false);
-    _lastNameKey.currentState?.validate();
-  },
-),
+                const SizedBox(height: 16),
 
-        ],
-      ),
-    ),
-  ],
-),
+                _reqLabel(translateText('Phone Number')),
+                TextFormField(
+                  key: _phoneKey,
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: _decor(hint: translateText('Enter phone number')),
+                  validator: (v) => _validateNotEmpty(v, 'Phone number'),
+                  onChanged: (_) {
+                    setState(() => _validateNow = false);
+                    _phoneKey.currentState?.validate();
+                  },
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
-const SizedBox(height: 16),
+                _reqLabel(translateText('Email')),
+                TextFormField(
+                  key: _emailKey,
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: _decor(hint: translateText('Email')),
+                  validator: (v) {
+                    if (!_validateNow) return null;
+                    if (v == null || v.trim().isEmpty)
+                      return translateText('Email is required');
+                    if (!_emailRegExp.hasMatch(v))
+                      return translateText('Enter a valid email');
+                    return null;
+                  },
+                  onChanged: (_) {
+                    setState(() => _validateNow = false);
+                    _emailKey.currentState?.validate();
+                  },
+                ),
+                const SizedBox(height: 16),
 
-_reqLabel(translateText('Phone Number')),
-TextFormField(
-  key: _phoneKey,
-  controller: _phoneCtrl,
-  keyboardType: TextInputType.phone,
-  decoration: _decor(hint: translateText('Enter phone number')),
-  validator: (v) => _validateNotEmpty(v, 'Phone number'),
-  onChanged: (_) {
-    setState(() => _validateNow = false);
-    _phoneKey.currentState?.validate();
-  },
-  inputFormatters: [
-    FilteringTextInputFormatter.digitsOnly,
-    LengthLimitingTextInputFormatter(10),
-  ],
-),
-const SizedBox(height: 16),
+                _reqLabel(translateText('Address')),
+                TextFormField(
+                  key: _addressKey,
+                  controller: _addressCtrl,
+                  maxLines: 3,
+                  decoration: _decor(hint: translateText('Address')),
+                  validator: (v) => _validateNotEmpty(v, 'Address'),
+                  onChanged: (_) {
+                    _capitalizeFirst(
+                        _addressCtrl); // 👈 Auto-capitalize first letter
+                    setState(() => _validateNow = false);
+                    _addressKey.currentState
+                        ?.validate(); // 👈 Revalidate only this field
+                  },
+                ),
 
-_reqLabel(translateText('Email')),
-TextFormField(
-  key: _emailKey,
-  controller: _emailCtrl,
-  keyboardType: TextInputType.emailAddress,
-  decoration: _decor(hint: translateText('Email')),
-  validator: (v) {
-    if (!_validateNow) return null;
-    if (v == null || v.trim().isEmpty) return translateText('Email is required');
-    if (!_emailRegExp.hasMatch(v)) return translateText('Enter a valid email');
-    return null;
-  },
-  onChanged: (_) {
-    setState(() => _validateNow = false);
-    _emailKey.currentState?.validate();
-  },
-),
-const SizedBox(height: 16),
-
-_reqLabel(translateText('Address')),
-TextFormField(
-  key: _addressKey,
-  controller: _addressCtrl,
-  maxLines: 3,
-  decoration: _decor(hint: translateText('Address')),
-  validator: (v) => _validateNotEmpty(v, 'Address'),
-  onChanged: (_) {
-    _capitalizeFirst(_addressCtrl); // 👈 Auto-capitalize first letter
-    setState(() => _validateNow = false);
-    _addressKey.currentState?.validate(); // 👈 Revalidate only this field
-  },
-),
-
-const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
                 // Text('Gender', style: const TextStyle(fontWeight: FontWeight.w600)),
                 // Row(
@@ -1771,11 +1778,15 @@ class _PrimaryButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.starColor,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
         child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-            : Text(text, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+            ? const CircularProgressIndicator(
+                color: Colors.white, strokeWidth: 2)
+            : Text(text,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
       ),
     );
   }

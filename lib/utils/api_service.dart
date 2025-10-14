@@ -7,13 +7,60 @@ import 'package:intl/intl.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/aws_s3_uploader.dart'; // 👈 import uploader
 import 'package:image_picker/image_picker.dart'; // 👈 add this
+import '../services/auth_session_manager.dart';
+import '../services/token_expiration_service.dart';
 import '../Viewmodels/AddCategory.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 import '../Viewmodels/AddSalonBranchRequest.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 import 'dart:async';
 
+class _AuthHttpClient extends http.BaseClient {
+  _AuthHttpClient();
+
+  final http.Client _inner = http.Client();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await _inner.send(request);
+    if (_shouldTriggerLogout(response.statusCode, request.headers)) {
+      scheduleMicrotask(_handleUnauthorized);
+    }
+    return response;
+  }
+
+  @override
+  void close() {
+    _inner.close();
+    super.close();
+  }
+
+  bool _shouldTriggerLogout(int statusCode, Map<String, String> headers) {
+    if (statusCode != 401 && statusCode != 403) return false;
+    final authHeader = headers['Authorization'] ?? headers['authorization'];
+    return authHeader != null && authHeader.trim().isNotEmpty;
+  }
+
+  void _handleUnauthorized() {
+    unawaited(_clearSessionIfTokenPresent());
+  }
+
+  Future<void> _clearSessionIfTokenPresent() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('user_token');
+    if (token == null || token.isEmpty) {
+      return;
+    }
+    await AuthSessionManager.instance
+        .forceLogout(reason: 'session_expired');
+  }
+}
+
+final http.Client _authorizedHttpClient = _AuthHttpClient();
+
 class ApiService {
+  static http.Client get _sharedClient => _authorizedHttpClient;
+
   static const String baseUrl = "https://dev-api.glowante.com/";
   // static const String baseUrl = "https://1b395936c234.ngrok-free.app/";
   static const String userLogin = "auth/login";
@@ -179,9 +226,20 @@ Future<String?> uploadImage(File file) async {
   // ---------------------- AUTH HELPERS ----------------------
 
   Future<String> getAuthToken() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('user_token');
-    return token ?? '';
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? token = prefs.getString('user_token');
+
+    if (token == null || token.isEmpty) {
+      return '';
+    }
+
+    if (TokenExpirationService.isTokenExpired(token)) {
+      await AuthSessionManager.instance
+          .forceLogout(reason: 'session_expired');
+      return '';
+    }
+
+    return token;
   }
   // Login
   Future<Map<String, dynamic>> loginUser(String phoneNumber, {String? deviceToken}) async {
@@ -199,7 +257,7 @@ Future<String?> uploadImage(File file) async {
       loginPayload['deviceToken'] = resolvedToken;
     }
 
-    final response = await http.post(
+    final response = await _sharedClient.post(
       Uri.parse(baseUrl + userLogin),
       headers: {"Content-Type": "application/json"},
       body: json.encode(loginPayload),
@@ -216,7 +274,7 @@ Future<String?> uploadImage(File file) async {
 
   // Verify OTP
   Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
-    final response = await http.post(
+    final response = await _sharedClient.post(
       Uri.parse(baseUrl + verifyOtpEndpoint),
       headers: {"Content-Type": "application/json"},
       body: json.encode({"phoneNumber": phoneNumber, "otp": otp}),
@@ -246,7 +304,7 @@ Future<String?> uploadImage(File file) async {
   try {
     final stopwatch = Stopwatch()..start();
 
-    final response = await http.post(
+    final response = await _sharedClient.post(
       url,
       headers: headers,
       body: body,
@@ -297,7 +355,7 @@ Future<String?> uploadImage(File file) async {
   print("Request Payload (Update Profile): $updatePayload");
 
   try {
-    final response = await http.post(
+    final response = await _sharedClient.post(
       Uri.parse(baseUrl + updateUserProfile),
       headers: {
         "Content-Type": "application/json",
@@ -374,7 +432,7 @@ Future<String?> uploadImage(File file) async {
 
   //   print("Payload to create salon: ${json.encode(createPayload)}");
 
-  //   final response = await http.post(
+  //   final response = await _sharedClient.post(
   //     Uri.parse(baseUrl + createSalonEndpoint),
   //     headers: {
   //       "Content-Type": "application/json",
@@ -440,7 +498,7 @@ Future<Map<String, dynamic>> createSalon(
 
   print("📦 Payload to create salon: ${json.encode(createPayload)}");
 
-  final response = await http.post(
+  final response = await _sharedClient.post(
     Uri.parse(baseUrl + createSalonEndpoint),
     headers: {
       "Content-Type": "application/json",
@@ -461,7 +519,7 @@ Future<Map<String, dynamic>> createSalon(
   Future<Map<String, dynamic>> getSalonListApi() async {
     final token = await getAuthToken();
 
-    final response = await http.get(
+    final response = await _sharedClient.get(
       Uri.parse(baseUrl + getSalonList),
       headers: {
         "Content-Type": "application/json",
@@ -488,7 +546,7 @@ print('url: ${baseUrl + getSalonList}');
 
     final url = Uri.parse(baseUrl + logoutUser);
     try {
-      final response = await http.get(
+      final response = await _sharedClient.get(
         url,
         headers: {"Authorization": "Bearer $token"},
       );
@@ -518,7 +576,7 @@ Future<bool> deleteUserAPI() async {
 
   final url = Uri.parse(baseUrl + deleteUser); // e.g. https://dev-api.glowante.com/users/delete
   try {
-    final response = await http.delete(
+    final response = await _sharedClient.delete(
       url,
       headers: {
         "Authorization": "Bearer $token",
@@ -559,7 +617,7 @@ Future<bool> deleteAccountAPI() async {
   print("🌍 Request URL: $url");
 
   try {
-    final response = await http.delete(
+    final response = await _sharedClient.delete(
       url,
       headers: {
         "Authorization": "Bearer $token",
@@ -610,7 +668,7 @@ Future<bool> deleteAccountAPI() async {
     print("➡️ Payload: ${jsonEncode(request.toJson())}");
     print("➡️ Token: $token");
 
-    final response = await http.post(
+    final response = await _sharedClient.post(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -649,7 +707,7 @@ Future<bool> deleteAccountAPI() async {
     print("➡️ Token: $token");
 
     try {
-      final response = await http.delete(
+      final response = await _sharedClient.delete(
         url,
         headers: {
           "accept": "application/json",
@@ -697,7 +755,7 @@ Future<bool> deleteAccountAPI() async {
     print("➡️ Token: $token");
 
     try {
-      final response = await http.delete(
+      final response = await _sharedClient.delete(
         url,
         headers: {
           "accept": "application/json",
@@ -745,7 +803,7 @@ Future<bool> deleteAccountAPI() async {
     print("➡️ Token: $token");
 
     try {
-      final response = await http.delete(
+      final response = await _sharedClient.delete(
         url,
         headers: {
           "accept": "application/json",
@@ -788,7 +846,7 @@ Future<bool> deleteAccountAPI() async {
     print("➡️ URL: $url");
     print("➡️ Token: $token");
 
-    final response = await http.get(
+    final response = await _sharedClient.get(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -824,7 +882,7 @@ Future<bool> deleteAccountAPI() async {
   print("Request URL: $url");
   print("Request Body: $payload");
 
-  final response = await http.patch(
+  final response = await _sharedClient.patch(
     url,
     headers: {
       'Content-Type': 'application/json',
@@ -855,7 +913,7 @@ Future<bool> deleteAccountAPI() async {
   //   print("➡️ URL: $url");
   //   print("➡️ Token: $token");
 
-  //   final response = await http.delete(
+  //   final response = await _sharedClient.delete(
   //     url,
   //     headers: {
   //       "Authorization": "Bearer $token", // ✅ only auth header
@@ -881,7 +939,7 @@ Future<bool> deleteAccountAPI() async {
     print("➡️ URL: $url");
     print("➡️ Token: $token");
 
-    final response = await http.get(
+    final response = await _sharedClient.get(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -910,7 +968,7 @@ Future<bool> deleteAccountAPI() async {
     print("➡️ URL: $url");
     print("➡️ Payload: ${jsonEncode(request.toJson())}");
 
-    final response = await http.post(
+    final response = await _sharedClient.post(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -940,7 +998,7 @@ Future<bool> deleteAccountAPI() async {
     print("➡️ URL: $url");
      print("➡️ Token: $token");
 
-    final response = await http.get(
+    final response = await _sharedClient.get(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -970,7 +1028,7 @@ Future<Map<String, dynamic>> getBranchService({required int branchId}) async {
   print("➡️ URL: $url");
   print("➡️ Token: $token");
 
-  final response = await http.get(
+  final response = await _sharedClient.get(
     url,
     headers: {
       "Content-Type": "application/json",
@@ -1002,7 +1060,7 @@ Future<Map<String, dynamic>> getBranchService({required int branchId}) async {
     print("URL: $url");
     print("Payload: $branchData");
 
-    final response = await http.post(
+    final response = await _sharedClient.post(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -1035,7 +1093,7 @@ Future<Map<String, dynamic>> getBranchService({required int branchId}) async {
     print("➡️ Token: $token");
 
     try {
-      final response = await http.get(
+      final response = await _sharedClient.get(
         url,
         headers: {
           "Content-Type": "application/json",
@@ -1088,7 +1146,7 @@ Future<Map<String, dynamic>> getBranchService({required int branchId}) async {
   //       })}",
   //     );
 
-  //     final response = await http.post(
+  //     final response = await _sharedClient.post(
   //       url,
   //       headers: {
   //         "Content-Type": "application/json",
@@ -1138,7 +1196,7 @@ Future<Map<String, dynamic>> addSubCategoryApi({
   final bodyJson = json.encode({"name": name, "sortOrder": 200});
   print("Request body: $bodyJson");
 
-  final response = await http.post(
+  final response = await _sharedClient.post(
     url,
     headers: {
       "Content-Type": "application/json",
@@ -1181,7 +1239,7 @@ Future<Map<String, dynamic>> addSubCategoryApi({
   //     print("Request Body: $requestBody");
 
   //     // Send the PATCH request
-  //     final response = await http.patch(
+  //     final response = await _sharedClient.patch(
   //       url,
   //       headers: {'Content-Type': 'application/json'},
   //       body: requestBody,
@@ -1230,7 +1288,7 @@ Future<Map<String, dynamic>> updateSubCategoryApi({
   });
   print("Request Body: $requestBody");
 
-  final response = await http.patch(
+  final response = await _sharedClient.patch(
     url,
     headers: {
       'Content-Type': 'application/json',
@@ -1259,7 +1317,7 @@ Future<Map<String, dynamic>> updateSubCategoryApi({
       print('Making GET request to: $url'); // Log the request URL
 
       // Make the GET request
-      final response = await http.get(url);
+      final response = await _sharedClient.get(url);
 
       // Log the response status and body
       print('Response Status: ${response.statusCode}');
@@ -1305,7 +1363,7 @@ Future<Map<String, dynamic>> updateSubCategoryApi({
       }
 
       // Send the request with the actual token in the Authorization header
-      final response = await http.get(
+      final response = await _sharedClient.get(
         Uri.parse(baseUrl + getRolesSpecialization),
         headers: {
           'Authorization': 'Bearer $token', // Use the actual token here
@@ -1352,7 +1410,7 @@ static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) asyn
   final body = json.encode({'phoneNumber': phoneNumber});
 
   try {
-    final response = await http.post(url, headers: headers, body: body);
+    final response = await _sharedClient.post(url, headers: headers, body: body);
 
     print('Response Status Code: ${response.statusCode}');
     print('Response Body: ${response.body}');
@@ -1421,7 +1479,7 @@ static Future<Map<String, dynamic>> checkUserAndSendOtp(String phoneNumber) asyn
       // Log the HTTP request being made
       print('Making POST request to: $url');
 
-      final response = await http.post(url, headers: headers, body: body);
+      final response = await _sharedClient.post(url, headers: headers, body: body);
 
       // Log the status code of the response
       print('Response Status Code: ${response.statusCode}');
@@ -1467,7 +1525,7 @@ Future<Map<String, dynamic>> addSalonTeamMember(
     // Log the HTTP request being made
     print('Making POST request to: $url');
 
-    final response = await http.post(url, headers: headers, body: body);
+    final response = await _sharedClient.post(url, headers: headers, body: body);
 
     // Log the status code of the response
     print('Response Status Code: ${response.statusCode}');
@@ -1517,7 +1575,7 @@ Future<Map<String, dynamic>> addSalonTeamMember(
       };
 
       // Making the GET request
-      final response = await http.get(url, headers: headers);
+      final response = await _sharedClient.get(url, headers: headers);
 
       // Log the response status code and body
       print('Response Status Code: ${response.statusCode}');
@@ -1543,7 +1601,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
   print('➡️ GET $url');
 
   try {
-    final response = await http.get(url);
+    final response = await _sharedClient.get(url);
     sw.stop();
 
     print('⬅️ ${response.statusCode} ${response.reasonPhrase} '
@@ -1593,7 +1651,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     print("DELETE Request: $uri");
 
     try {
-      final resp = await http
+      final resp = await _sharedClient
           .delete(
             uri,
             headers: const {
@@ -1648,7 +1706,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
         'Authorization': 'Bearer $token', // ✅ use token
       };
 
-      final resp = await http
+      final resp = await _sharedClient
           .get(uri, headers: headers)
           .timeout(const Duration(seconds: 25));
 
@@ -1701,7 +1759,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
       final token =
           await getAuthToken(); // Assuming you need an authentication token
 
-      final response = await http.post(
+      final response = await _sharedClient.post(
         url,
         headers: {
           'Content-Type': 'application/json',
@@ -1745,7 +1803,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     print('Request URL: $url'); // Log the request URL
 
     try {
-      final response = await http.get(url);
+      final response = await _sharedClient.get(url);
 
       print(
         'Response Status Code: ${response.statusCode}',
@@ -1795,7 +1853,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
       print("Request URL: $url");
       print("Authorization: Bearer $token");
 
-      final response = await http.get(
+      final response = await _sharedClient.get(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json', // Add content-type header
@@ -1837,7 +1895,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
       );
       print("Confirm Appointment URL: $url");
 
-      final resp = await http
+      final resp = await _sharedClient
           .post(
             url,
             headers: {
@@ -1880,7 +1938,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
     required int appointmentId,
   }) async {
     try {
-      final response = await http.post(
+      final response = await _sharedClient.post(
         Uri.parse('$baseUrl/appointments/$appointmentId/cancel'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'branchId': branchId}),
@@ -1916,7 +1974,7 @@ Future<Map<String, dynamic>> getSalonPackagesDealsApi(int salonId) async {
       final token =
           await getAuthToken(); // Assuming you need an authentication token
 
-      final response = await http.post(
+      final response = await _sharedClient.post(
         url,
         headers: {
           'Content-Type': 'application/json',
@@ -1978,7 +2036,7 @@ Future<Map<String, dynamic>> updateService({
   print('🟢 [UPDATE SERVICE] PATCH -> $url');
   print('🔸 Request Body:\n${encoder.convert(payload)}');
 
-  final response = await http.patch(
+  final response = await _sharedClient.patch(
     url,
     headers: {
       'Content-Type': 'application/json',
@@ -2037,7 +2095,7 @@ static Future<Map<String, dynamic>> startAppointment({
     })}");
     print("=========================================");
 
-    final response = await http.post(
+    final response = await _sharedClient.post(
       url,
       headers: {
         'Content-Type': 'application/json',
@@ -2144,7 +2202,7 @@ Future<Map<String, dynamic>> completeAppointment({
       if (comment != null) "comment": comment,
     })}");
   print("  Token: $token");
-    final resp = await http.post(
+    final resp = await _sharedClient.post(
       url,
       headers: {
         'Content-Type': 'application/json',
@@ -2197,7 +2255,7 @@ static Future<Map<String, dynamic>> fetchBranchRatings(int branchId) async {
       '"Authorization": "Bearer $token"'
       "}");
 
-  final response = await http.get(
+  final response = await _sharedClient.get(
     url,
     headers: {
       "Content-Type": "application/json",
@@ -2241,7 +2299,7 @@ static Future<http.Response> updateBCategoryPatch(
     print("Headers: {Authorization: Bearer $safeToken, Content-Type: application/json}");
     print("Body: ${jsonEncode(merged)}");
 
-    final res = await http.patch(
+    final res = await _sharedClient.patch(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -2280,7 +2338,7 @@ static Future<http.Response> updateBSubCategoryPatch(
     print("Headers: {Authorization: Bearer $safeToken, Content-Type: application/json}");
     print("Body: ${jsonEncode(merged)}");
 
-    final res = await http.patch(
+    final res = await _sharedClient.patch(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -2322,7 +2380,7 @@ static Future<http.Response> updateBServicePatch(
     print("Headers: {Authorization: Bearer $safeToken, Content-Type: application/json}");
     print("Body: ${jsonEncode(merged)}");
 
-    final response = await http.patch(
+    final response = await _sharedClient.patch(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -2351,7 +2409,7 @@ static Future<http.Response> updateBServicePatch(
       print("🗑 [DELETE] Category → $url");
       print("Headers: {Authorization: Bearer $token}");
 
-      final response = await http.delete(
+      final response = await _sharedClient.delete(
         url,
         headers: {"Authorization": "Bearer $token"},
       );
@@ -2377,7 +2435,7 @@ static Future<http.Response> updateBServicePatch(
       print("🗑 [DELETE] SubCategory → $url");
       print("Headers: {Authorization: Bearer $token}");
 
-      final response = await http.delete(
+      final response = await _sharedClient.delete(
         url,
         headers: {"Authorization": "Bearer $token"},
       );
@@ -2402,7 +2460,7 @@ static Future<http.Response> updateBServicePatch(
       print("🗑 [DELETE] Service → $url");
       print("Headers: {Authorization: Bearer $token}");
 
-      final response = await http.delete(
+      final response = await _sharedClient.delete(
         url,
         headers: {"Authorization": "Bearer $token"},
       );
@@ -2436,7 +2494,7 @@ Future<Map<String, dynamic>> updateSalonOfferPatch(
   try {
     final token = await getAuthToken();
 
-    final resp = await http.patch(
+    final resp = await _sharedClient.patch(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -2485,7 +2543,7 @@ Future<Map<String, dynamic>> updateSalonOfferPatch(
   print("➡️ Token: $token");
   print("➡️ Body: { countryCode: $countryCode, phoneNumber: $phoneNumber }");
 
-  final response = await http.post(
+  final response = await _sharedClient.post(
     url,
     headers: {
       "Content-Type": "application/json",
@@ -2519,7 +2577,7 @@ Future<Map<String, dynamic>> createAppointment(
   print("➡️ Payload: ${jsonEncode(payload)}");
 
   try {
-    final response = await http.post(
+    final response = await _sharedClient.post(
       url,
       headers: {
         "Content-Type": "application/json",
@@ -2564,7 +2622,7 @@ Future<Map<String, dynamic>> assignUserToBranch(
   print("➡️ Payload: ${jsonEncode(payload)}");
 
   try {
-    final response = await http.post(
+    final response = await _sharedClient.post(
       url,
       headers: {
         "Content-Type": "application/json",

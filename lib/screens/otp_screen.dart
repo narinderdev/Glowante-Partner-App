@@ -1,5 +1,7 @@
 import 'dart:async'; // Import for Timer
 import 'package:flutter/material.dart';
+import 'package:otp_autofill/otp_autofill.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:bloc_onboarding/utils/api_service.dart'; // Import ApiService for OTP verification
 import 'package:bloc_onboarding/utils/error_parser.dart';
 import 'bottom_nav.dart'; // Import BottomNav (for your 4-tab navigation)
@@ -9,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -22,14 +23,14 @@ class OtpScreen extends StatefulWidget {
 }
 
 class _OtpScreenState extends State<OtpScreen> {
-  final List<TextEditingController> otpControllers = List.generate(
-    6,
-    (_) => TextEditingController(),
-  );
+  late final List<TextEditingController> otpControllers;
   final List<FocusNode> focusNodes = List.generate(
     6,
     (_) => FocusNode(),
   ); // Create a focus node for each field
+  late final OTPInteractor _otpInteractor;
+  late final OTPTextEditController _otpTextEditController;
+  bool _isProgrammaticFill = false;
   String errorMessage = ''; // To store error message
   bool isResendingOtp = false; // Track whether OTP is being resent
   int remainingTime = 30; // Set initial time to 30 seconds
@@ -44,8 +45,38 @@ class _OtpScreenState extends State<OtpScreen> {
   @override
   void initState() {
     super.initState();
+    otpControllers = List<TextEditingController>.generate(
+      6,
+      (_) => TextEditingController(),
+    );
+
+    _otpInteractor = OTPInteractor();
+    _otpTextEditController = OTPTextEditController(
+      codeLength: 6,
+      otpInteractor: _otpInteractor,
+      onCodeReceive: (code) {
+        _fillFromCode(code);
+      },
+    )..addListener(() {
+        if (_isProgrammaticFill) return;
+        final text = _otpTextEditController.text;
+        if (text.length > 1) {
+          _fillFromCode(text);
+        }
+      });
+
+    // Replace the first controller with OTP-aware controller
+    otpControllers.first.dispose();
+    otpControllers[0] = _otpTextEditController;
+
     // Start the countdown timer immediately when the screen is initialized
     _startCountdown();
+
+    if (widget.otp.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _fillFromCode(widget.otp);
+      });
+    }
   }
 
   Future<void> _verifyOtp() async {
@@ -126,42 +157,108 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
-void _handleOtpInput(String value, int index) {
-  if (value.isNotEmpty) {
-    otpControllers[index].text = value;
-    // Move to next box if not last
-    if (index < 5) {
-      FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+  void _fillFromCode(String code) {
+    final digitsOnly = code.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) return;
+
+    final limited = digitsOnly.length > otpControllers.length
+        ? digitsOnly.substring(0, otpControllers.length)
+        : digitsOnly;
+
+    _isProgrammaticFill = true;
+    for (int i = 0; i < otpControllers.length; i++) {
+      if (i < limited.length) {
+        otpControllers[i].text = limited[i];
+        otpControllers[i].selection = const TextSelection.collapsed(offset: 1);
+      } else {
+        otpControllers[i].clear();
+      }
     }
-  } else {
-    // On delete, clear current and move focus to previous
-    otpControllers[index].clear();
-    if (index > 0) {
-      FocusScope.of(context).requestFocus(focusNodes[index - 1]);
-      otpControllers[index - 1].selection = TextSelection.fromPosition(
-        TextPosition(offset: otpControllers[index - 1].text.length),
-      );
+    _isProgrammaticFill = false;
+
+    setState(() {
+      isContinueButtonEnabled = limited.length == otpControllers.length;
+    });
+
+    if (limited.length >= otpControllers.length) {
+      FocusScope.of(context).unfocus();
+    } else {
+      final nextIndex = limited.length;
+      FocusScope.of(context).requestFocus(focusNodes[nextIndex]);
     }
   }
 
-  // Enable button if all fields are filled
-  bool allFilled = otpControllers.every((controller) => controller.text.isNotEmpty);
-  setState(() {
-    isContinueButtonEnabled = allFilled;
-  });
-}
+  void _handleOtpInput(String value, int index) {
+    if (_isProgrammaticFill) return;
+
+    final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length > 1) {
+      _fillFromCode(digitsOnly);
+      return;
+    }
+
+    if (digitsOnly.isEmpty) {
+      _isProgrammaticFill = true;
+      otpControllers[index].clear();
+      _isProgrammaticFill = false;
+      if (index > 0) {
+        FocusScope.of(context).requestFocus(focusNodes[index - 1]);
+        otpControllers[index - 1].selection = TextSelection.fromPosition(
+          TextPosition(offset: otpControllers[index - 1].text.length),
+        );
+      }
+    } else {
+      _isProgrammaticFill = true;
+      otpControllers[index].text = digitsOnly;
+      otpControllers[index].selection =
+          TextSelection.collapsed(offset: digitsOnly.length);
+      _isProgrammaticFill = false;
+
+      if (index < otpControllers.length - 1) {
+        FocusScope.of(context).requestFocus(focusNodes[index + 1]);
+      } else {
+        FocusScope.of(context).unfocus();
+      }
+    }
+
+    setState(() {
+      isContinueButtonEnabled =
+          otpControllers.every((controller) => controller.text.isNotEmpty);
+      if (digitsOnly.isNotEmpty) {
+        errorMessage = '';
+      }
+    });
+  }
 
   Future<void> _resendOtp() async {
     setState(() {
-      isResendingOtp = true; // Set loading state
+      isResendingOtp = true;
     });
+
     try {
       final response = await apiService.resendOtp(widget.phoneNumber);
+
       if (response['success'] == true) {
+        _isProgrammaticFill = true;
+        for (var controller in otpControllers) {
+          controller.clear();
+        }
+        _isProgrammaticFill = false;
+
+        FocusScope.of(context).requestFocus(focusNodes[0]);
+
         setState(() {
-          errorMessage = translateText('OTP has been resent successfully');
+          errorMessage = '';
+          isContinueButtonEnabled = false;
         });
-        // Start the countdown timer after OTP is resent
+
+        Fluttertoast.showToast(
+          msg: translateText('OTP has been resent successfully'),
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 2,
+        );
+
         _startCountdown();
       } else {
         setState(() {
@@ -173,11 +270,14 @@ void _handleOtpInput(String value, int index) {
       }
     } catch (e) {
       setState(() {
-        errorMessage = extractErrorMessage(e, fallback: 'Failed to resend OTP');
+        errorMessage = extractErrorMessage(
+          e,
+          fallback: 'Failed to resend OTP',
+        );
       });
     } finally {
       setState(() {
-        isResendingOtp = false; // Reset loading state
+        isResendingOtp = false;
       });
     }
   }
@@ -225,6 +325,9 @@ void _handleOtpInput(String value, int index) {
     for (var focusNode in focusNodes) {
       focusNode.dispose();
     }
+    for (final controller in otpControllers) {
+      controller.dispose();
+    }
     _timer?.cancel(); // Cancel the timer when disposing
     super.dispose();
   }
@@ -232,32 +335,36 @@ void _handleOtpInput(String value, int index) {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            systemOverlayStyle: SystemUiOverlayStyle.light,
-            iconTheme: const IconThemeData(color: Colors.white),
-            title: Text(
-              translateText('Otp Verification'),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.starColor,
-                    AppColors.getStartedButton,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        automaticallyImplyLeading: false, // disable default
+        leading: BackButton(
+          color: Colors.white, // white arrow
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => LoginScreen()),
+            );
+          },
+        ),
+        // No title text
+        title: null,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.starColor,
+                AppColors.getStartedButton,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
+        ),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20),
@@ -266,7 +373,8 @@ void _handleOtpInput(String value, int index) {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               SizedBox(height: 20),
-              Text(translateText("OTP Verification"),
+              Text(
+                translateText("OTP Verification"),
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 10),
@@ -275,64 +383,65 @@ void _handleOtpInput(String value, int index) {
                 style: TextStyle(fontSize: 16),
               ),
               SizedBox(height: 30),
-RawKeyboardListener(
-  focusNode: FocusNode(), // listener for the whole row
-  onKey: (event) {
-    if (event is RawKeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.backspace) {
-      // find the currently focused field
-      int index =
-          focusNodes.indexWhere((node) => node.hasFocus);
-      if (index != -1) {
-        if (otpControllers[index].text.isNotEmpty) {
-          otpControllers[index].clear();
-        } else if (index > 0) {
-          FocusScope.of(context).requestFocus(focusNodes[index - 1]);
-          otpControllers[index - 1].clear();
-        }
-      }
-    }
-  },
-  child: Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: List.generate(6, (index) {
-      return Container(
-        width: 40,
-        height: 50,
-        margin: EdgeInsets.symmetric(horizontal: 5),
-        child: TextField(
-          controller: otpControllers[index],
-          focusNode: focusNodes[index],
-          keyboardType: TextInputType.number,
-          textAlign: TextAlign.center,
-          maxLength: 1,
-          decoration: InputDecoration(
-            counterText: "",
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          onChanged: (value) {
-            if (value.isNotEmpty) {
-              // move to next empty
-              int nextIndex =
-                  otpControllers.indexWhere((c) => c.text.isEmpty);
-              if (nextIndex != -1 && nextIndex < 6) {
-                FocusScope.of(context).requestFocus(focusNodes[nextIndex]);
-              } else {
-                FocusScope.of(context).unfocus();
-              }
-            }
-            setState(() {
-              isContinueButtonEnabled =
-                  otpControllers.every((c) => c.text.isNotEmpty);
-            });
-          },
-        ),
-      );
-    }),
-  ),
-),
+              RawKeyboardListener(
+                focusNode:
+                    FocusNode(), // Provide a focus node for keyboard listener
+                onKey: (event) {
+                  if (event is RawKeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.backspace) {
+                    int index = focusNodes.indexWhere((node) => node.hasFocus);
+                    if (index != -1) {
+                      if (otpControllers[index].text.isNotEmpty) {
+                        otpControllers[index].clear();
+                      } else if (index > 0) {
+                        otpControllers[index - 1].clear();
+                        FocusScope.of(context)
+                            .requestFocus(focusNodes[index - 1]);
+                      }
+                    }
+
+                    // Recalculate after backspace clears
+                    Future.microtask(() {
+                      setState(() {
+                        isContinueButtonEnabled = otpControllers
+                            .every((controller) => controller.text.isNotEmpty);
+                      });
+                    });
+                  }
+                },
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(6, (index) {
+                    return Container(
+                      width: 40,
+                      height: 50,
+                      margin: const EdgeInsets.symmetric(horizontal: 5),
+                      child: TextField(
+                        controller: otpControllers[index],
+                        focusNode: focusNodes[index],
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        maxLength: 1,
+                        maxLengthEnforcement: MaxLengthEnforcement.none,
+                        autofillHints: index == 0
+                            ? const [AutofillHints.oneTimeCode]
+                            : null,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
+                        decoration: InputDecoration(
+                          counterText: "",
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onChanged: (value) => _handleOtpInput(value, index),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+
               if (errorMessage.isNotEmpty) ...[
                 SizedBox(height: 10),
                 Text(errorMessage, style: TextStyle(color: Colors.red)),
@@ -340,9 +449,8 @@ RawKeyboardListener(
               SizedBox(height: 20),
               // Continue Button
               ElevatedButton(
-                onPressed: isContinueButtonEnabled && !isLoading
-                    ? _verifyOtp
-                    : null,
+                onPressed:
+                    isContinueButtonEnabled && !isLoading ? _verifyOtp : null,
                 style: ElevatedButton.styleFrom(
                   minimumSize: Size(double.infinity, 50),
                   backgroundColor: isContinueButtonEnabled && !isLoading
@@ -353,8 +461,9 @@ RawKeyboardListener(
                   ),
                 ),
                 child: isLoading
-                    ? CircularProgressIndicator(color: Colors.white)
-                    : Text(translateText("Continue"), style: TextStyle(color: Colors.white)),
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(translateText("Continue"),
+                        style: TextStyle(color: Colors.white)),
               ),
               SizedBox(height: 20),
               // Resend OTP
@@ -364,10 +473,11 @@ RawKeyboardListener(
                   isResendingOtp
                       ? "Resending..."
                       : (remainingTime > 0
-                            ? "Resend OTP in $remainingTime sec"
-                            : "Resend OTP"),
+                          ? "Resend OTP in $remainingTime sec"
+                          : "Resend OTP"),
                   style: TextStyle(
-                    color: remainingTime > 0 ? Colors.grey : AppColors.starColor,
+                    color:
+                        remainingTime > 0 ? Colors.grey : AppColors.starColor,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

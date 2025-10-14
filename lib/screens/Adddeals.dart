@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +8,6 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
 
 class AddDealsScreen extends StatefulWidget {
   final int salonId;
@@ -31,6 +30,7 @@ class AddDealsScreen extends StatefulWidget {
   @override
   State<AddDealsScreen> createState() => _AddDealsScreenState();
 }
+
 class _SentenceCaseTextFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -47,7 +47,6 @@ class _SentenceCaseTextFormatter extends TextInputFormatter {
     );
   }
 }
-
 
 class _AddDealsScreenState extends State<AddDealsScreen> {
   // ----------------- FORM -----------------
@@ -69,9 +68,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   final validTillController = TextEditingController();
   final originalPriceController = TextEditingController();
   final discountedPriceController = TextEditingController();
-  final amountOffController = TextEditingController();   // flat or percent
+  final amountOffController = TextEditingController(); // flat or percent
   final maxDiscountController = TextEditingController(); // percent only
-  final termsController = TextEditingController();       // optional
+  final termsController = TextEditingController(); // optional
 
   // ----------------- UI STATE -----------------
   String pricingMode = 'Fixed'; // Fixed | Discount
@@ -96,7 +95,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   @override
   void initState() {
     super.initState();
-_showErrors = false;
+    _showErrors = false;
     // live recompute
     amountOffController.addListener(() {
       if (_settingFields) return;
@@ -196,118 +195,126 @@ _showErrors = false;
 // }
 //   }
 
-if (widget.isEdit && widget.existingOffer != null) {
-  final o = widget.existingOffer!;
+    if (widget.isEdit && widget.existingOffer != null) {
+      final o = widget.existingOffer!;
 
-  // Prefill title & terms
-  dealTitleController.text = (o['name'] ?? '').toString();
-  termsController.text = (o['terms'] ?? '').toString();
+      // Prefill title & terms
+      dealTitleController.text = (o['name'] ?? '').toString();
+      termsController.text = (o['terms'] ?? '').toString();
 
-  // Format valid dates
-  String? fmtIn(dynamic v) {
-    if (v == null) return null;
-    try {
-      return DateFormat('dd-MM-yyyy').format(DateTime.parse(v.toString()));
-    } catch (_) {
-      return null;
-    }
-  }
-
-  final vf = fmtIn(o['validFrom']);
-  final vt = fmtIn(o['validTo']);
-  if (vf != null) validFromController.text = vf;
-  if (vt != null) validTillController.text = vt;
-
-  // Pricing mode
-  final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
-  pricingMode = pmRaw == 'DISCOUNT' ? 'Discount' : 'Fixed';
-
-  // Discount type
-  final dtRaw = (o['discountType'] ?? '').toString().toUpperCase(); // AMOUNT | PERCENT | NONE
-  if (pricingMode == 'Discount') {
-    if (dtRaw == 'PERCENT') {
-      discountType = 'Percent';
-      final pct = (o['discountPct'] as num?)?.toDouble() ?? 0.0;
-      if (pct > 0) amountOffController.text = pct.toStringAsFixed(0);
-
-      final maxD = (o['maxDiscount'] as num?)?.toDouble();
-      if (maxD != null && maxD > 0) {
-        maxDiscountController.text = maxD.toStringAsFixed(2);
+      // Format valid dates
+      String? fmtIn(dynamic v) {
+        if (v == null) return null;
+        try {
+          return DateFormat('dd-MM-yyyy').format(DateTime.parse(v.toString()));
+        } catch (_) {
+          return null;
+        }
       }
+
+      final vf = fmtIn(o['validFrom']);
+      final vt = fmtIn(o['validTo']);
+      if (vf != null) validFromController.text = vf;
+      if (vt != null) validTillController.text = vt;
+
+      // Pricing mode
+      final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
+      pricingMode = pmRaw == 'DISCOUNT' ? 'Discount' : 'Fixed';
+
+      // Discount type
+      final dtRaw = (o['discountType'] ?? '')
+          .toString()
+          .toUpperCase(); // AMOUNT | PERCENT | NONE
+      if (pricingMode == 'Discount') {
+        if (dtRaw == 'PERCENT') {
+          discountType = 'Percent';
+          final pct = (o['discountPct'] as num?)?.toDouble() ?? 0.0;
+          if (pct > 0) amountOffController.text = pct.toStringAsFixed(0);
+
+          final maxD = (o['maxDiscount'] as num?)?.toDouble();
+          if (maxD != null && maxD > 0) {
+            maxDiscountController.text = maxD.toStringAsFixed(2);
+          }
+        } else {
+          discountType = 'Flat';
+          final amt = (o['discount'] as num?)?.toDouble() ??
+              (o['amount'] as num?)?.toDouble() ??
+              0.0;
+          if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
+        }
+      } else {
+        // Fixed pricing
+        final amt = (o['discount'] as num?)?.toDouble() ??
+            (o['amount'] as num?)?.toDouble() ??
+            0.0;
+        amountOffController.text = (amt > 0 ? amt : 0.0).toStringAsFixed(2);
+      }
+
+      // Items → selected
+      final items = (o['items'] as List?) ?? const [];
+      // _selectedServices = items.map<Map<String, dynamic>>((e) {
+      //   final m = Map<String, dynamic>.from(e as Map);
+      //   final id = (m['salonServiceId'] ?? m['id']) as int?;
+      //   final qty = (m['qty'] ?? 1) as int;
+      //   final name = m['name'] ?? m['displayName'] ?? 'Service';
+      //   final price = m['price'] ?? m['priceMinor'] ?? 0;
+      //   return {
+      //     'id': id ?? 0,
+      //     'name': name,
+      //     'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
+      //     'qty': qty,
+      //   };
+      // }).toList();
+      _selectedServices = items
+          .map<Map<String, dynamic>>((e) {
+            final m = Map<String, dynamic>.from(e as Map);
+
+            // ✅ Correct priority order
+            final id =
+                (m['serviceId'] ?? m['salonServiceId'] ?? m['id']) as int?;
+
+            final qty = (m['qty'] ?? 1) as int;
+            final name = m['name'] ?? m['displayName'] ?? 'Service';
+            final price = m['price'] ?? m['priceMinor'] ?? 0;
+
+            return {
+              'id': id ?? -1, // invalid IDs become -1, not 0
+              'name': name,
+              'price': (price is num)
+                  ? price.toInt()
+                  : int.tryParse(price.toString()) ?? 0,
+              'qty': qty,
+            };
+          })
+          .where((s) => s['id'] != -1)
+          .toList();
+
+      // Prices
+      originalPriceController.text = _originalTotal().toStringAsFixed(2);
+
+      final price = (o['price'] as num?)?.toDouble();
+      if (price != null)
+        discountedPriceController.text = price.toStringAsFixed(2);
+
+      // 👉 Auto-compute amountOff only for Flat or Fixed
+      final orig = double.tryParse(originalPriceController.text) ?? 0.0;
+      final disc = double.tryParse(discountedPriceController.text) ?? 0.0;
+
+      if (pricingMode == 'Fixed' ||
+          (pricingMode == 'Discount' && discountType == 'Flat')) {
+        if (orig > 0 && disc >= 0) {
+          amountOffController.text = (orig - disc).toStringAsFixed(2);
+        }
+      }
+      // ❌ For Percent → keep % value from API, don’t overwrite
+
+      setState(() {});
     } else {
-      discountType = 'Flat';
-      final amt = (o['discount'] as num?)?.toDouble()
-          ?? (o['amount'] as num?)?.toDouble()
-          ?? 0.0;
-      if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
-    }
-  } else {
-    // Fixed pricing
-    final amt = (o['discount'] as num?)?.toDouble()
-        ?? (o['amount'] as num?)?.toDouble()
-        ?? 0.0;
-    amountOffController.text =
-        (amt > 0 ? amt : 0.0).toStringAsFixed(2);
-  }
-
-  // Items → selected
-  final items = (o['items'] as List?) ?? const [];
-  // _selectedServices = items.map<Map<String, dynamic>>((e) {
-  //   final m = Map<String, dynamic>.from(e as Map);
-  //   final id = (m['salonServiceId'] ?? m['id']) as int?;
-  //   final qty = (m['qty'] ?? 1) as int;
-  //   final name = m['name'] ?? m['displayName'] ?? 'Service';
-  //   final price = m['price'] ?? m['priceMinor'] ?? 0;
-  //   return {
-  //     'id': id ?? 0,
-  //     'name': name,
-  //     'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
-  //     'qty': qty,
-  //   };
-  // }).toList();
-_selectedServices = items.map<Map<String, dynamic>>((e) {
-  final m = Map<String, dynamic>.from(e as Map);
-
-  // ✅ Correct priority order
-  final id = (m['serviceId'] ?? m['salonServiceId'] ?? m['id']) as int?;
-
-  final qty = (m['qty'] ?? 1) as int;
-  final name = m['name'] ?? m['displayName'] ?? 'Service';
-  final price = m['price'] ?? m['priceMinor'] ?? 0;
-
-  return {
-    'id': id ?? -1, // invalid IDs become -1, not 0
-    'name': name,
-    'price': (price is num)
-        ? price.toInt()
-        : int.tryParse(price.toString()) ?? 0,
-    'qty': qty,
-  };
-}).where((s) => s['id'] != -1).toList();
-
-  // Prices
-  originalPriceController.text = _originalTotal().toStringAsFixed(2);
-
-  final price = (o['price'] as num?)?.toDouble();
-  if (price != null) discountedPriceController.text = price.toStringAsFixed(2);
-
-  // 👉 Auto-compute amountOff only for Flat or Fixed
-  final orig = double.tryParse(originalPriceController.text) ?? 0.0;
-  final disc = double.tryParse(discountedPriceController.text) ?? 0.0;
-
-  if (pricingMode == 'Fixed' || (pricingMode == 'Discount' && discountType == 'Flat')) {
-    if (orig > 0 && disc >= 0) {
-      amountOffController.text = (orig - disc).toStringAsFixed(2);
+      // Fresh create → always recalc
+      _recalcDiscounted();
     }
   }
-  // ❌ For Percent → keep % value from API, don’t overwrite
 
-  setState(() {});
-} else {
-  // Fresh create → always recalc
-  _recalcDiscounted();
-}
-  }
   @override
   void dispose() {
     dealTitleController.dispose();
@@ -334,7 +341,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
     }
   }
 
-  Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
+  Future<void> _pickDate(TextEditingController c,
+      {required bool isFrom}) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
@@ -352,22 +360,21 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
         child: child!,
       ),
     );
-   if (picked != null) {
-  setState(() {
-    c.text = _formatDate(picked);
-    if (isFrom) {
-      _sValidFrom = true;
-    } else {
-      _sValidTill = true;
+    if (picked != null) {
+      setState(() {
+        c.text = _formatDate(picked);
+        if (isFrom) {
+          _sValidFrom = true;
+        } else {
+          _sValidTill = true;
+        }
+      });
+
+      // ✅ Only revalidate if errors are currently visible
+      if (_showErrors) {
+        _formKey.currentState?.validate();
+      }
     }
-  });
-
-  // ✅ Only revalidate if errors are currently visible
-  if (_showErrors) {
-    _formKey.currentState?.validate();
-  }
-}
-
   }
 
   double _originalTotal() {
@@ -390,7 +397,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
   void _setTextSafe(TextEditingController c, String v) {
     _settingFields = true;
     c.text = v;
-    c.selection = TextSelection.fromPosition(TextPosition(offset: c.text.length));
+    c.selection =
+        TextSelection.fromPosition(TextPosition(offset: c.text.length));
     _settingFields = false;
   }
 
@@ -443,7 +451,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
     if (_sValidFrom) return null;
     final x = (v ?? '').trim();
     if (x.isEmpty) return translateText('Valid From is required.');
-    if (_parseUiDate(x) == null) return translateText('Enter a valid start date.');
+    if (_parseUiDate(x) == null)
+      return translateText('Enter a valid start date.');
     return null;
   }
 
@@ -462,7 +471,9 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
 
   String? _vServices() {
     if (_sServices) return null;
-    return _selectedServices.isEmpty ? translateText('Select at least one service') : null;
+    return _selectedServices.isEmpty
+        ? translateText('Select at least one service')
+        : null;
   }
 
   String? _vAmountOff(String? v) {
@@ -470,14 +481,17 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
     final x = (v ?? '').trim();
     if (pricingMode == 'Fixed') {
       final a = _parseCurrency(x);
-      if (a == null || a <= 0) return translateText('Enter a valid amount off.');
+      if (a == null || a <= 0)
+        return translateText('Enter a valid amount off.');
     } else {
       if (discountType == 'Flat') {
         final a = _parseCurrency(x);
-        if (a == null || a <= 0) return translateText('Enter a valid discount amount.');
+        if (a == null || a <= 0)
+          return translateText('Enter a valid discount amount.');
       } else {
         final p = double.tryParse(x);
-        if (p == null || p <= 0) return translateText('Enter a valid percentage off.');
+        if (p == null || p <= 0)
+          return translateText('Enter a valid percentage off.');
         if (p > 100) return translateText('Percentage off cannot exceed 100.');
       }
     }
@@ -488,7 +502,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
     if (_sMaxDiscount) return null;
     if (pricingMode == 'Discount' && discountType == 'Percent') {
       final m = _parseCurrency(v ?? '');
-      if (m == null || m <= 0) return translateText('Enter the maximum discount amount.');
+      if (m == null || m <= 0)
+        return translateText('Enter the maximum discount amount.');
     }
     return null;
   }
@@ -496,7 +511,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
   String? _vDiscounted() {
     if (_sDiscounted) return null;
     final d = _parseCurrency(discountedPriceController.text);
-    if (d == null || d <= 0) return translateText('Discounted price must be greater than 0.');
+    if (d == null || d <= 0)
+      return translateText('Discounted price must be greater than 0.');
     return null;
   }
 
@@ -517,7 +533,9 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
               .toList(),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(translateText('OK'))),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(translateText('OK'))),
         ],
       ),
     );
@@ -533,8 +551,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
     // make inline visible and stop suppressing
     setState(() {
       _showErrors = true;
-      _sTitle = _sValidFrom = _sValidTill = _sServices =
-          _sAmountOff = _sMaxDiscount = _sDiscounted = false;
+      _sTitle = _sValidFrom = _sValidTill =
+          _sServices = _sAmountOff = _sMaxDiscount = _sDiscounted = false;
     });
 
     await _afterBuild();
@@ -566,11 +584,11 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
     if (!await _validateFormAndShowAlert()) return;
 
     _recalcDiscounted();
-  String capitalizeFirst(String value) =>
-      value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
+    String capitalizeFirst(String value) =>
+        value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
 
     final body = <String, dynamic>{
-        'name': capitalizeFirst(dealTitleController.text.trim()),
+      'name': capitalizeFirst(dealTitleController.text.trim()),
       'type': widget.source, // "DEAL" | "PACKAGE"
       'status': 'ACTIVE',
       'validFrom': _toIsoDate(validFromController.text),
@@ -597,7 +615,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
         body['amount'] = _parseCurrency(amountOffController.text) ?? 0;
         body['discount'] = body['amount'];
       } else {
-        body['discountPct'] = int.tryParse(amountOffController.text.trim()) ?? 0;
+        body['discountPct'] =
+            int.tryParse(amountOffController.text.trim()) ?? 0;
         body['maxDiscount'] = _parseCurrency(maxDiscountController.text) ?? 0;
       }
     }
@@ -608,19 +627,24 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
 
       if (widget.isEdit && (widget.existingOffer?['id'] != null)) {
         final offerId = (widget.existingOffer!['id'] as num).toInt();
-        final patch = Map<String, dynamic>.from(body)..removeWhere((k, v) => v == null);
-        final res = await api.updateSalonOfferPatch(widget.salonId, offerId, patch);
+        final patch = Map<String, dynamic>.from(body)
+          ..removeWhere((k, v) => v == null);
+        final res =
+            await api.updateSalonOfferPatch(widget.salonId, offerId, patch);
 
         if (!mounted) return;
         if (res['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Offer updated successfully'))),
+            SnackBar(
+                content: Text(translateText('Offer updated successfully'))),
           );
           widget.onPackageCreated(widget.salonId);
           Navigator.pop(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message']?.toString() ?? 'Failed to update offer')),
+            SnackBar(
+                content: Text(
+                    res['message']?.toString() ?? 'Failed to update offer')),
           );
         }
         return;
@@ -637,7 +661,9 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['message']?.toString() ?? 'Failed to create offer')),
+          SnackBar(
+              content:
+                  Text(res['message']?.toString() ?? 'Failed to create offer')),
         );
       }
     } finally {
@@ -658,6 +684,9 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
       prefixIcon: prefix == null ? null : Icon(prefix, color: _fg),
       suffixIcon: suffix,
       filled: false,
+      helperText: ' ',
+      helperStyle: const TextStyle(height: 1),
+      errorStyle: const TextStyle(height: 1.1),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(borderRadius: _radius),
       enabledBorder: OutlineInputBorder(
@@ -682,14 +711,14 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
 
   Widget _err(String text) => Padding(
         padding: const EdgeInsets.only(top: 6),
-        child: Text(text, style: const TextStyle(color: Colors.red, fontSize: 12)),
+        child:
+            Text(text, style: const TextStyle(color: Colors.red, fontSize: 12)),
       );
 
   @override
   Widget build(BuildContext context) {
     final showDiscountRow = pricingMode == 'Discount';
-    final showFlatField =
-        (pricingMode == 'Fixed') ||
+    final showFlatField = (pricingMode == 'Fixed') ||
         (pricingMode == 'Discount' && discountType == 'Flat');
     final showPercentField =
         pricingMode == 'Discount' && discountType == 'Percent';
@@ -699,23 +728,27 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        // Let the gradient show through:
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
+        // ✅ Keep default Android back button
+        automaticallyImplyLeading: true,
+        iconTheme:
+            const IconThemeData(color: Colors.white), // back button color
+        title: Text(
+          widget.source.toUpperCase() == 'PACKAGE'
+              ? translateText('Create Package')
+              : translateText('Create Deal'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        title: Text(translateText('Create Offers'),
-          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
-        ),
-        // Paint the gradient here:
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                AppColors.starColor,        // your start color
+                AppColors.starColor, // your start color
                 AppColors.getStartedButton, // your end color
               ],
               begin: Alignment.topLeft,
@@ -736,14 +769,18 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
 
                 TextFormField(
                   controller: dealTitleController,
-                  textCapitalization: TextCapitalization.none, // caps keyboard
-                  inputFormatters:  [_SentenceCaseTextFormatter()], // force UPPER
+                  textCapitalization: TextCapitalization.none,
+                  inputFormatters: [_SentenceCaseTextFormatter()],
                   autovalidateMode: _showErrors
                       ? AutovalidateMode.always
                       : AutovalidateMode.disabled,
                   decoration: _decor(
-                    label: translateText('Package Title').trim() + ' *',
-                    hint: translateText("E.G. MEN'S GROOMING PACKAGE"),
+                    label: widget.source.toUpperCase() == 'PACKAGE'
+                        ? '${translateText('Package Title')} *'
+                        : '${translateText('Deal Title')} *',
+                    hint: widget.source.toUpperCase() == 'PACKAGE'
+                        ? translateText("E.G. MEN'S GROOMING PACKAGE")
+                        : translateText("E.G. FESTIVE DEAL"),
                   ),
                   validator: _vTitle,
                   onChanged: (_) {
@@ -753,52 +790,107 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
 
                 SizedBox(height: 14),
 
-                Row(
+                // Row(
+                //   children: [
+                //     Expanded(
+                //       child: TextFormField(
+                //         controller: validFromController,
+                //         readOnly: true,
+                //         autovalidateMode: _showErrors
+                //             ? AutovalidateMode.onUserInteraction
+                //             : AutovalidateMode.disabled,
+                //         decoration: _decor(
+                //           label: '${translateText('Valid From')} *',
+                //           hint: 'dd-MM-yyyy',
+                //           prefix: Icons.calendar_today_outlined,
+                //           suffix: IconButton(
+                //             icon: Icon(Icons.date_range, color: Colors.black),
+                //             onPressed: () => _pickDate(validFromController, isFrom: true),
+                //           ),
+                //         ),
+                //         validator: _vValidFrom,
+                //         onTap: () => _pickDate(validFromController, isFrom: true),
+                //       ),
+                //     ),
+                //     SizedBox(width: 12),
+                //     Expanded(
+                //       child: TextFormField(
+                //         controller: validTillController,
+                //         readOnly: true,
+                //         autovalidateMode: _showErrors
+                //             ? AutovalidateMode.onUserInteraction
+                //             : AutovalidateMode.disabled,
+                //         decoration: _decor(
+                //           label: '${translateText('Valid Till')} *',
+                //           hint: 'dd-MM-yyyy',
+                //           prefix: Icons.calendar_today_outlined,
+                //           suffix: IconButton(
+                //             icon: Icon(Icons.date_range, color: Colors.black),
+                //             onPressed: () => _pickDate(validTillController, isFrom: false),
+                //           ),
+                //         ),
+                //         validator: _vValidTill,
+                //         onTap: () => _pickDate(validTillController, isFrom: false),
+                //       ),
+                //     ),
+                //   ],
+                // ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: validFromController,
-                        readOnly: true,
-                        autovalidateMode: _showErrors
-                            ? AutovalidateMode.onUserInteraction
-                            : AutovalidateMode.disabled,
-                        decoration: _decor(
-                          label: '${translateText('Valid From')} *',
-                          hint: 'dd-MM-yyyy',
-                          prefix: Icons.calendar_today_outlined,
-                          suffix: IconButton(
-                            icon: Icon(Icons.date_range, color: Colors.black),
-                            onPressed: () => _pickDate(validFromController, isFrom: true),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: validFromController,
+                            readOnly: true,
+                            autovalidateMode: _showErrors
+                                ? AutovalidateMode.onUserInteraction
+                                : AutovalidateMode.disabled,
+                            decoration: _decor(
+                              label: '${translateText('Valid From')} *',
+                              hint: 'dd-MM-yyyy',
+                              prefix: Icons.calendar_today_outlined,
+                              suffix: IconButton(
+                                icon: const Icon(Icons.date_range,
+                                    color: Colors.black),
+                                onPressed: () => _pickDate(validFromController,
+                                    isFrom: true),
+                              ),
+                            ),
+                            validator: _vValidFrom,
+                            onTap: () =>
+                                _pickDate(validFromController, isFrom: true),
                           ),
                         ),
-                        validator: _vValidFrom,
-                        onTap: () => _pickDate(validFromController, isFrom: true),
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: validTillController,
-                        readOnly: true,
-                        autovalidateMode: _showErrors
-                            ? AutovalidateMode.onUserInteraction
-                            : AutovalidateMode.disabled,
-                        decoration: _decor(
-                          label: '${translateText('Valid Till')} *',
-                          hint: 'dd-MM-yyyy',
-                          prefix: Icons.calendar_today_outlined,
-                          suffix: IconButton(
-                            icon: Icon(Icons.date_range, color: Colors.black),
-                            onPressed: () => _pickDate(validTillController, isFrom: false),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            controller: validTillController,
+                            readOnly: true,
+                            autovalidateMode: _showErrors
+                                ? AutovalidateMode.onUserInteraction
+                                : AutovalidateMode.disabled,
+                            decoration: _decor(
+                              label: '${translateText('Valid Till')} *',
+                              hint: 'dd-MM-yyyy',
+                              prefix: Icons.calendar_today_outlined,
+                              suffix: IconButton(
+                                icon: const Icon(Icons.date_range,
+                                    color: Colors.black),
+                                onPressed: () => _pickDate(validTillController,
+                                    isFrom: false),
+                              ),
+                            ),
+                            validator: _vValidTill,
+                            onTap: () =>
+                                _pickDate(validTillController, isFrom: false),
                           ),
                         ),
-                        validator: _vValidTill,
-                        onTap: () => _pickDate(validTillController, isFrom: false),
-                      ),
+                      ],
                     ),
                   ],
                 ),
-
                 SizedBox(height: 18),
 
                 _section(translateText('Pricing Option')),
@@ -810,7 +902,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
                         ? AutovalidateMode.onUserInteraction
                         : AutovalidateMode.disabled,
                     items: pricingModes
-                        .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
+                        .map((e) => DropdownMenuItem(
+                            value: e, child: Text(translateText(e))))
                         .toList(),
                     // onChanged: (v) {
                     //   setState(() {
@@ -819,99 +912,104 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
                     //   });
                     //   _recalcDiscounted();
                     // },
-  onChanged: (v) {
-  setState(() {
-    pricingMode = v ?? 'Fixed';
-    _autoSetMaxFromPercent = true;
+                    onChanged: (v) {
+                      setState(() {
+                        pricingMode = v ?? 'Fixed';
+                        _autoSetMaxFromPercent = true;
 
-    // ✅ Reset fields when switching pricing type
-    amountOffController.clear();
-    maxDiscountController.clear();
-    discountedPriceController.clear();
+                        // ✅ Reset fields when switching pricing type
+                        amountOffController.clear();
+                        maxDiscountController.clear();
+                        discountedPriceController.clear();
 
-    // ✅ Force discount type to Flat for Fixed pricing
-    if (pricingMode == 'Fixed') {
-      discountType = 'Flat';
-    }
-  });
+                        // ✅ Force discount type to Flat for Fixed pricing
+                        if (pricingMode == 'Fixed') {
+                          discountType = 'Flat';
+                        }
+                      });
 
-  _recalcDiscounted();
-},
+                      _recalcDiscounted();
+                    },
 
-                   decoration: _decor(label: '${translateText('Pricing Option')} *', prefix: Icons.local_offer_outlined),
+                    decoration: _decor(
+                        label: '${translateText('Pricing Option')} *',
+                        prefix: Icons.local_offer_outlined),
                   ),
                 ] else ...[
-  Row(
-    children: [
-      Expanded(
-        child: DropdownButtonFormField<String>(
-          value: pricingMode,
-          autovalidateMode: _showErrors
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
-          items: pricingModes
-              .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
-              .toList(),
-          onChanged: (v) {
-            setState(() {
-              pricingMode = v ?? 'Discount';
-              _autoSetMaxFromPercent = true;
-              // ✅ Reset discountType if user switches back to Fixed
-              if (pricingMode == 'Fixed') discountType = 'Flat';
-            });
-            _recalcDiscounted();
-          },
-          decoration: _decor(
-            label: '${translateText('Pricing Option')} *',
-            prefix: Icons.sell_outlined,
-          ),
-        ),
-      ),
-      SizedBox(width: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: pricingMode,
+                          autovalidateMode: _showErrors
+                              ? AutovalidateMode.onUserInteraction
+                              : AutovalidateMode.disabled,
+                          items: pricingModes
+                              .map((e) => DropdownMenuItem(
+                                  value: e, child: Text(translateText(e))))
+                              .toList(),
+                          onChanged: (v) {
+                            setState(() {
+                              pricingMode = v ?? 'Discount';
+                              _autoSetMaxFromPercent = true;
+                              // ✅ Reset discountType if user switches back to Fixed
+                              if (pricingMode == 'Fixed') discountType = 'Flat';
+                            });
+                            _recalcDiscounted();
+                          },
+                          decoration: _decor(
+                            label: '${translateText('Pricing Option')} *',
+                            prefix: Icons.sell_outlined,
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 12),
 
-      // 👇 Show discount type only when pricingMode == 'Discount'
-      if (pricingMode == 'Discount')
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            value: discountType,
-            autovalidateMode: _showErrors
-                ? AutovalidateMode.onUserInteraction
-                : AutovalidateMode.disabled,
-            items: discountTypes
-                .map((e) => DropdownMenuItem(value: e, child: Text(translateText(e))))
-                .toList(),
-            // onChanged: (v) {
-            //   setState(() {
-            //     discountType = v ?? 'Flat';
-            //     _autoSetMaxFromPercent = true;
-            //   });
-            //   _recalcDiscounted();
-            // },
-            onChanged: (v) {
-  setState(() {
-    discountType = v ?? 'Flat';
-    _autoSetMaxFromPercent = true;
+                      // 👇 Show discount type only when pricingMode == 'Discount'
+                      if (pricingMode == 'Discount')
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: discountType,
+                            autovalidateMode: _showErrors
+                                ? AutovalidateMode.onUserInteraction
+                                : AutovalidateMode.disabled,
+                            items: discountTypes
+                                .map((e) => DropdownMenuItem(
+                                    value: e, child: Text(translateText(e))))
+                                .toList(),
+                            // onChanged: (v) {
+                            //   setState(() {
+                            //     discountType = v ?? 'Flat';
+                            //     _autoSetMaxFromPercent = true;
+                            //   });
+                            //   _recalcDiscounted();
+                            // },
+                            onChanged: (v) {
+                              setState(() {
+                                discountType = v ?? 'Flat';
+                                _autoSetMaxFromPercent = true;
 
-    // ✅ Reset both values when switching between Flat ↔ Percent
-    amountOffController.clear();
-    maxDiscountController.clear();
-    discountedPriceController.clear();
-  });
+                                // ✅ Reset both values when switching between Flat ↔ Percent
+                                amountOffController.clear();
+                                maxDiscountController.clear();
+                                discountedPriceController.clear();
+                              });
 
-  _recalcDiscounted();
-},
+                              _recalcDiscounted();
+                            },
 
-            decoration: _decor(label: translateText('Discount Type *'), prefix: Icons.sell_outlined),
-          ),
-        ),
-    ],
-  ),
-],
-
+                            decoration: _decor(
+                                label: translateText('Discount Type *'),
+                                prefix: Icons.sell_outlined),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
 
                 SizedBox(height: 18),
 
-               _section(translateText('Select Services')),
+                _section(translateText('Select Services')),
 
                 InkWell(
                   onTap: () async {
@@ -934,7 +1032,8 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
                     if (result is List) {
                       setState(() {
                         _selectedServices = result.cast<Map<String, dynamic>>();
-                        originalPriceController.text = _originalTotal().toStringAsFixed(2);
+                        originalPriceController.text =
+                            _originalTotal().toStringAsFixed(2);
                         _sServices = true;
                         _sDiscounted = true;
                       });
@@ -968,14 +1067,16 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
                   FormField<List<Map<String, dynamic>>>(
                     autovalidateMode: AutovalidateMode.always,
                     validator: (_) => _vServices(),
-                    builder: (state) =>
-                        state.hasError ? _err(state.errorText!) : SizedBox.shrink(),
+                    builder: (state) => state.hasError
+                        ? _err(state.errorText!)
+                        : SizedBox.shrink(),
                   ),
 
                 if (_selectedServices.isNotEmpty) ...[
                   SizedBox(height: 12),
                   Text(translateText('Selected Services'),
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                      style:
+                          TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                   SizedBox(height: 6),
                   ..._selectedServices.map((s) {
                     final name = (s['name'] ?? '').toString();
@@ -997,16 +1098,19 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
                               Expanded(
                                 child: Text(name,
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.w600, fontSize: 14)),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14)),
                               ),
                               Text('₹$price',
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.w700, fontSize: 14)),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14)),
                             ],
                           ),
                           SizedBox(height: 4),
                           Text('Qty: $qty × ₹$price',
-                              style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                              style: const TextStyle(
+                                  color: Colors.black54, fontSize: 13)),
                         ],
                       ),
                     );
@@ -1017,118 +1121,119 @@ _selectedServices = items.map<Map<String, dynamic>>((e) {
 
                 // Discount Inputs
                 if (showFlatField) ...[
-  TextFormField(
-    controller: amountOffController,
-    keyboardType: TextInputType.number,
-    autovalidateMode: _showErrors
-        ? AutovalidateMode.onUserInteraction
-        : AutovalidateMode.disabled,
-    decoration: _decor(
-      label: translateText('Amount Off (₹) *'),
-      hint: translateText('e.g. 200'),
-      prefix: Icons.currency_rupee,
-    ),
-    validator: _vAmountOff,
-    onChanged: (_) {
-      if (!_sAmountOff) setState(() => _sAmountOff = true);
-    },
-  ),
-  SizedBox(height: 14),
-],
+                  TextFormField(
+                    controller: amountOffController,
+                    keyboardType: TextInputType.number,
+                    autovalidateMode: _showErrors
+                        ? AutovalidateMode.onUserInteraction
+                        : AutovalidateMode.disabled,
+                    decoration: _decor(
+                      label: translateText('Amount Off (₹) *'),
+                      hint: translateText('e.g. 200'),
+                      prefix: Icons.currency_rupee,
+                    ),
+                    validator: _vAmountOff,
+                    onChanged: (_) {
+                      if (!_sAmountOff) setState(() => _sAmountOff = true);
+                    },
+                  ),
+                  SizedBox(height: 14),
+                ],
 
-if (showPercentField) ...[
-  Row(
-    children: [
-      Expanded(
-        child: TextFormField(
-          controller: amountOffController,
-          keyboardType: TextInputType.number,
-          autovalidateMode: _showErrors
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
-          decoration: _decor(
-            label: translateText('Percentage Off (%) *'),
-            hint: translateText('e.g. 20'),
-            prefix: Icons.percent,
-          ),
-          validator: _vAmountOff,
-          onChanged: (_) {
-            if (!_sAmountOff) setState(() => _sAmountOff = true);
-          },
-        ),
-      ),
-      SizedBox(width: 12),
-      Expanded(
-        child: TextFormField(
-          controller: maxDiscountController,
-          keyboardType: TextInputType.number,
-          autovalidateMode: _showErrors
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
-          decoration: _decor(
-            label: translateText('Max Discount (₹) *'),
-            hint: translateText('auto from %'),
-            prefix: Icons.currency_rupee,
-          ),
-          validator: _vMaxDiscount,
-          onChanged: (_) {
-            if (!_sMaxDiscount) setState(() => _sMaxDiscount = true);
-          },
-        ),
-      ),
-    ],
-  ),
-  SizedBox(height: 14),
-],
+                if (showPercentField) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: amountOffController,
+                          keyboardType: TextInputType.number,
+                          autovalidateMode: _showErrors
+                              ? AutovalidateMode.onUserInteraction
+                              : AutovalidateMode.disabled,
+                          decoration: _decor(
+                            label: translateText('Percentage Off (%) *'),
+                            hint: translateText('e.g. 20'),
+                            prefix: Icons.percent,
+                          ),
+                          validator: _vAmountOff,
+                          onChanged: (_) {
+                            if (!_sAmountOff)
+                              setState(() => _sAmountOff = true);
+                          },
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: maxDiscountController,
+                          keyboardType: TextInputType.number,
+                          autovalidateMode: _showErrors
+                              ? AutovalidateMode.onUserInteraction
+                              : AutovalidateMode.disabled,
+                          decoration: _decor(
+                            label: translateText('Max Discount (₹) *'),
+                            hint: translateText('auto from %'),
+                            prefix: Icons.currency_rupee,
+                          ),
+                          validator: _vMaxDiscount,
+                          onChanged: (_) {
+                            if (!_sMaxDiscount)
+                              setState(() => _sMaxDiscount = true);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 14),
+                ],
 
-Row(
-  children: [
-    Expanded(
-      child: TextFormField(
-        controller: originalPriceController,
-        readOnly: true,
-        decoration: _decor(
-          label: translateText('Original Price *'),
-          hint: translateText('auto from services'),
-          prefix: Icons.currency_rupee,
-        ),
-      ),
-    ),
-    SizedBox(width: 12),
-    Expanded(
-      child: TextFormField(
-        controller: discountedPriceController,
-        readOnly: true,
-        autovalidateMode: _showErrors
-            ? AutovalidateMode.always
-            : AutovalidateMode.disabled,
-        decoration: _decor(
-          label: translateText('Discounted Price *'),
-          hint: translateText('auto calculated'),
-          prefix: Icons.currency_rupee,
-        ),
-        validator: (_) => _vDiscounted(),
-      ),
-    ),
-  ],
-),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: originalPriceController,
+                        readOnly: true,
+                        decoration: _decor(
+                          label: translateText('Original Price *'),
+                          hint: translateText('auto from services'),
+                          prefix: Icons.currency_rupee,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: discountedPriceController,
+                        readOnly: true,
+                        autovalidateMode: _showErrors
+                            ? AutovalidateMode.always
+                            : AutovalidateMode.disabled,
+                        decoration: _decor(
+                          label: translateText('Discounted Price *'),
+                          hint: translateText('auto calculated'),
+                          prefix: Icons.currency_rupee,
+                        ),
+                        validator: (_) => _vDiscounted(),
+                      ),
+                    ),
+                  ],
+                ),
 
-SizedBox(height: 14),
+                SizedBox(height: 14),
 
-TextFormField(
-  controller: termsController,
-  textCapitalization: TextCapitalization.none,
-  inputFormatters: [
-    _SentenceCaseTextFormatter(),
-    NoSpecialCharsFormatter(), // 🔥 prevents special characters
-  ],
-  decoration: _decor(
-    label: translateText('Terms (optional)'),
-    hint: translateText('ANY TERMS & CONDITIONS…'),
-    prefix: Icons.article_outlined,
-  ),
-),
-
+                TextFormField(
+                  controller: termsController,
+                  textCapitalization: TextCapitalization.none,
+                  inputFormatters: [
+                    _SentenceCaseTextFormatter(),
+                    NoSpecialCharsFormatter(), // 🔥 prevents special characters
+                  ],
+                  decoration: _decor(
+                    label: translateText('Terms (optional)'),
+                    hint: translateText('ANY TERMS & CONDITIONS…'),
+                    prefix: Icons.article_outlined,
+                  ),
+                ),
 
                 SizedBox(height: 22),
 
@@ -1169,18 +1274,19 @@ TextFormField(
     );
   }
 }
+
 /// Blocks special characters in "Terms" field
 class NoSpecialCharsFormatter extends TextInputFormatter {
   // Allow letters, digits, spaces, commas, periods, and basic punctuation
   final RegExp _allowed = RegExp(r"[a-zA-Z0-9\s,.\-']");
-
 
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    final filtered = newValue.text.split('').where((ch) => _allowed.hasMatch(ch)).join();
+    final filtered =
+        newValue.text.split('').where((ch) => _allowed.hasMatch(ch)).join();
     return newValue.copyWith(
       text: filtered,
       selection: TextSelection.collapsed(offset: filtered.length),

@@ -11,11 +11,14 @@ dependencies:
   flutter_bloc: ^8.0.1
   cupertino_icons: ^1.0.8
   geolocator: ^9.0.0
+  country_code_picker: ^3.4.1
   geocoding: ^2.0.0
   shared_preferences: ^2.0.15
   flutter_google_places_sdk: ^0.4.2+1
   flutter_dotenv: ^5.1.0
   image_picker: ^1.1.2
+  otp_autofill: ^4.1.0
+  fluttertoast: ^9.0.0
   http: ^1.5.0
   firebase_core: ^3.6.0
   firebase_messaging: ^15.0.4

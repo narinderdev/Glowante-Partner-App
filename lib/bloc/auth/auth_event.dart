@@ -1,4 +1,3 @@
-// auth_event.dart
 abstract class AuthEvent {}
 
 class AuthLoginEvent extends AuthEvent {
@@ -7,4 +6,3 @@ class AuthLoginEvent extends AuthEvent {
 
   AuthLoginEvent({required this.phoneNumber, this.deviceToken});
 }
-

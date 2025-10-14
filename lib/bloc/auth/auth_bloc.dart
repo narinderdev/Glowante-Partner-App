@@ -8,52 +8,34 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final ApiService apiService;
 
   AuthBloc(this.apiService) : super(AuthInitial()) {
-    on<AuthLoginEvent>((event, emit) async {
-      emit(AuthLoading()); // Show loading state
+   on<AuthLoginEvent>((event, emit) async {
+  emit(AuthLoading());
+  try {
+    final response = await apiService.loginUser(
+      event.phoneNumber,
+      deviceToken: event.deviceToken,
+    );
 
-      try {
-        // Make the API call to log in
-        final response = await apiService.loginUser(
-          event.phoneNumber,
-          deviceToken: event.deviceToken,
-        );
-        print("Response: $response"); // Log the response
+    if (response['success'] == true) {
+      final phoneNumber = response['data']['phoneNumber'];
+      final otp = response['data']['otp'];
 
-        // Ensure the response is structured correctly
-        if (response['success'] == true) {
-          print("Login successful: ${response['data']}");
-
-          final phoneNumber = response['data']['phoneNumber'];
-          final otp = response['data']['otp'];
-
-          // Check if phoneNumber and otp are valid
-          if (phoneNumber != null && otp != null) {
-            // Emit AuthLoginSuccess with the response data
-            print(
-              "Emitting AuthLoginSuccess with phoneNumber: $phoneNumber and OTP: $otp",
-            );
-            emit(AuthLoginSuccess({'phoneNumber': phoneNumber, 'otp': otp}));
-          } else {
-            // Log if phoneNumber or otp are missing
-            print("Error: Missing phoneNumber or otp in response data");
-            emit(AuthError("Login failed: Missing phoneNumber or otp"));
-          }
-        } else {
-          // Handle case where response['success'] is false
-          final errorMessage = extractMessage(
-            response,
-            fallback: 'Login failed',
-          );
-          print("Login failed: $errorMessage");
-          emit(AuthError(errorMessage));
-        }
-      } catch (e, stacktrace) {
-        // Log the exception and stacktrace for better debugging
-        print("Error during login: $e");
-        print("Stacktrace: $stacktrace");
-        final errorMessage = extractErrorMessage(e, fallback: 'Login failed');
-        emit(AuthError(errorMessage));
+      if (phoneNumber != null && otp != null) {
+        emit(AuthLoginSuccess({'phoneNumber': phoneNumber, 'otp': otp}));
+      } else {
+        emit(AuthError("Login failed: Missing phoneNumber or otp"));
       }
-    });
+    } else {
+      final errorMessage = extractMessage(response, fallback: 'Login failed');
+      emit(AuthError(errorMessage));
+    }
+  } catch (e, stacktrace) {
+    print("Error during login: $e");
+    print("Stacktrace: $stacktrace");
+    final errorMessage = extractErrorMessage(e, fallback: 'Login failed');
+    emit(AuthError(errorMessage));
+  }
+});
+
   }
 }

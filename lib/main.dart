@@ -23,6 +23,10 @@ import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import 'package:bloc_onboarding/repositories/branch_repository.dart';
 import './Viewmodels/BranchViewModel.dart';
 import 'services/push_notification_service.dart';
+import 'services/auth_session_manager.dart';
+import 'services/navigation_service.dart';
+import 'services/token_expiration_service.dart';
+import 'screens/login_screen.dart';
 
 Future<void> main() async {
   await runZonedGuarded<Future<void>>(() async {
@@ -54,14 +58,69 @@ Future<void> main() async {
     NetworkManager.initialize();
     startupLogger.log('[Startup] Network listener initialised');
 
+    AuthSessionManager.instance.registerOnLogoutCallback(
+      (String? reason) async {
+        NavigatorState? navigator;
+        while (navigator == null) {
+          navigator = appNavigatorKey.currentState;
+          if (navigator == null) {
+            await Future.delayed(const Duration(milliseconds: 16));
+          }
+        }
+
+        final BuildContext? currentContext = appNavigatorKey.currentContext;
+        if (currentContext != null && currentContext.mounted) {
+          currentContext.read<SalonListCubit>().clear();
+          currentContext.read<CategoryCubit>().clear();
+        }
+
+        navigator.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => LoginScreen()),
+          (route) => false,
+        );
+
+        if (reason == 'session_expired') {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final BuildContext? newContext = appNavigatorKey.currentContext;
+            if (newContext != null && newContext.mounted) {
+              ScaffoldMessenger.of(newContext).showSnackBar(
+                const SnackBar(
+                  content: Text('Session expired. Please sign in again.'),
+                ),
+              );
+            }
+          });
+        }
+      },
+    );
+
     runApp(const MyApp());
   }, (error, stack) {
     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
   });
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      TokenExpirationService.instance.start();
+    });
+  }
+
+  @override
+  void dispose() {
+    TokenExpirationService.instance.stop();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +150,7 @@ class MyApp extends StatelessWidget {
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
+          navigatorKey: appNavigatorKey,
           locale: langListener.currentLocale,
           supportedLocales: const [
             Locale('en'),

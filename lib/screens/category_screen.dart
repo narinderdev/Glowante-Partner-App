@@ -46,6 +46,8 @@ class _CategoryScreenState extends State<CategoryScreen> {
   final Map<int, bool> _expandedSubcategories = {};
   int? _selectedSalonId;
   Map<String, dynamic>? _selectedSalon;
+  final ScrollController _catalogScrollController = ScrollController();
+  double? _pendingScrollOffset;
 
   @override
   void initState() {
@@ -62,6 +64,33 @@ class _CategoryScreenState extends State<CategoryScreen> {
         });
       }
     });
+  }
+
+  void _rememberScrollPosition() {
+    if (_catalogScrollController.hasClients) {
+      _pendingScrollOffset = _catalogScrollController.offset;
+    }
+  }
+
+  void _restoreScrollPosition() {
+    if (_pendingScrollOffset == null) return;
+    final targetOffset = _pendingScrollOffset!;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_catalogScrollController.hasClients) return;
+      final position = _catalogScrollController.position;
+      final clamped = targetOffset.clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      );
+      _catalogScrollController.jumpTo((clamped as num).toDouble());
+    });
+    _pendingScrollOffset = null;
+  }
+
+  @override
+  void dispose() {
+    _catalogScrollController.dispose();
+    super.dispose();
   }
 
   // ---------- SALON HANDLING ----------
@@ -144,21 +173,26 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) =>  _ConfirmDialog(
-       
-title: translateText('Delete Category'),
-message: translateText('Are you sure you want to delete this category?'),
+      builder: (dialogContext) => _ConfirmDialog(
+        title: translateText('Delete Category'),
+        message:
+            translateText('Are you sure you want to delete this category?'),
         confirmColor: Colors.black,
       ),
     );
 
     if (!mounted || confirmed != true) return;
 
+    _rememberScrollPosition();
     final salonId = _selectedSalon!['salonId'] as int;
-    context.read<CategoryCubit>().deleteCategory(
-          salonId,
-          category['id'] as int,
-        );
+    try {
+      await context.read<CategoryCubit>().deleteCategory(
+            salonId,
+            category['id'] as int,
+          );
+    } finally {
+      _restoreScrollPosition();
+    }
   }
 
   // ---------- CONFIRM DELETE SUBCATEGORY ----------
@@ -169,20 +203,26 @@ message: translateText('Are you sure you want to delete this category?'),
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) =>  _ConfirmDialog(
-       title: translateText('Delete Subcategory'),
-message: translateText('Are you sure you want to delete this subcategory?'),
+      builder: (dialogContext) => _ConfirmDialog(
+        title: translateText('Delete Subcategory'),
+        message:
+            translateText('Are you sure you want to delete this subcategory?'),
         confirmColor: Colors.black,
       ),
     );
 
     if (!mounted || confirmed != true) return;
 
+    _rememberScrollPosition();
     final salonId = _selectedSalon!['salonId'] as int;
-    context.read<CategoryCubit>().deleteSubCategory(
-          salonId,
-          subCategory['id'] as int,
-        );
+    try {
+      await context.read<CategoryCubit>().deleteSubCategory(
+            salonId,
+            subCategory['id'] as int,
+          );
+    } finally {
+      _restoreScrollPosition();
+    }
   }
 
   // ---------- EDIT SERVICE ----------
@@ -210,18 +250,22 @@ message: translateText('Are you sure you want to delete this subcategory?'),
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) =>  _ConfirmDialog(
-     title: translateText('Delete Service'),
-message: translateText('Are you sure you want to delete this service?'),
-
+      builder: (dialogContext) => _ConfirmDialog(
+        title: translateText('Delete Service'),
+        message: translateText('Are you sure you want to delete this service?'),
         confirmColor: Colors.black,
       ),
     );
 
     if (!mounted || confirmed != true) return;
 
+    _rememberScrollPosition();
     final salonId = _selectedSalon!['salonId'] as int;
-    context.read<CategoryCubit>().deleteService(salonId, serviceId);
+    try {
+      await context.read<CategoryCubit>().deleteService(salonId, serviceId);
+    } finally {
+      _restoreScrollPosition();
+    }
   }
 
   // ---------- OPEN ADD SERVICE SCREEN ----------
@@ -248,7 +292,7 @@ message: translateText('Are you sure you want to delete this service?'),
     }
   }
 
-void _autoPickFirstSalon(SalonListState state) {
+  void _autoPickFirstSalon(SalonListState state) {
     if (_selectedSalon != null) return;
     if (state.salons.isEmpty) return;
 
@@ -349,14 +393,16 @@ void _autoPickFirstSalon(SalonListState state) {
       displacement: 32,
       onRefresh: _refreshData,
       child: ListView(
+        controller: _catalogScrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
         children: [
           if (_selectedSalon == null) ...[
-             _EmptyState(
+            _EmptyState(
               icon: Icons.store_mall_directory_outlined,
               title: translateText('Choose a salon'),
-    subtitle: translateText('Pick a salon above to start managing its catalogue.'),
+              subtitle: translateText(
+                  'Pick a salon above to start managing its catalogue.'),
             ),
           ] else ...[
             if (catState.isLoading && catState.categories.isEmpty)
@@ -369,7 +415,8 @@ void _autoPickFirstSalon(SalonListState state) {
               )
             else ...[
               if (catState.isLoading)
-               _InlineProgress(message: translateText('Refreshing catalogue...')),
+                _InlineProgress(
+                    message: translateText('Refreshing catalogue...')),
               _CategoryList(
                 categories: catState.categories,
                 onAddSubcategory: _openSubcategorySheet,
@@ -1043,7 +1090,8 @@ class _SubcategoryTile extends StatelessWidget {
             if (services.isEmpty)
               Padding(
                 padding: EdgeInsets.only(top: 12),
-                child: _NoDataPill(message: translateText('No services added yet')),
+                child: _NoDataPill(
+                    message: translateText('No services added yet')),
               )
             else
               Column(
@@ -1468,67 +1516,58 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
     super.dispose();
   }
 
-  void _validate(String v) {
+  String? _validateName(String v) {
     final t = v.trim();
-    String? err;
     if (t.isEmpty) {
-      err = translateText('Name is required');
-    } else {
-      final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
-      if (first != null && first != first.toUpperCase()) {
-        err = 'Name must start with a capital letter';
-      }
+      return translateText('Name is required');
     }
-    if (err != errorText) setState(() => errorText = err);
+    final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
+    if (first != null && first != first.toUpperCase()) {
+      return 'Name must start with a capital letter';
+    }
+    return null;
   }
 
   Future<void> _submit() async {
-  final t = nameController.text.trim();
+    final t = nameController.text.trim();
 
-  // ✅ 1. Validate input
-  if (t.isEmpty) {
-    setState(() => errorText = translateText('Name is required'));
-    return;
-  }
-
-  final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
-  if (first != null && first != first.toUpperCase()) {
-    setState(() => errorText = 'Name must start with a capital letter');
-    return;
-  }
-
-  setState(() => errorText = null);
-  setState(() => isSaving = true);
-
-  try {
-    // ✅ 2. Prepare request using updated model
-    final req = AddCategoryRequest(
-      displayName: t,
-      description: descriptionController.text.trim(),
-      isActive: true,
-      sortOrder: 100, // you can make this dynamic if needed
-    );
-
-    // ✅ 3. Use correct Cubit function
-    final cubit = context.read<CategoryCubit>();
-
-    if (isEdit) {
-      final categoryId = widget.category!['id'] as int;
-      await cubit.updateCategory(widget.salonId, categoryId, req);
-    } else {
-      await cubit.addCategory(widget.salonId, req);
+    // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ 1. Validate input
+    final validationError = _validateName(t);
+    if (validationError != null) {
+      setState(() => errorText = validationError);
+      return;
     }
 
-    if (!mounted) return;
-    Navigator.of(context).pop();
+    setState(() => isSaving = true);
 
-  } catch (_) {
-    if (!mounted) return;
-    setState(() => errorText = 'Failed to save. Please try again.');
-  } finally {
-    if (mounted) setState(() => isSaving = false);
+    try {
+      // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ 2. Prepare request using updated model
+      final req = AddCategoryRequest(
+        displayName: t,
+        description: descriptionController.text.trim(),
+        isActive: true,
+        sortOrder: 100, // you can make this dynamic if needed
+      );
+
+      // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ 3. Use correct Cubit function
+      final cubit = context.read<CategoryCubit>();
+
+      if (isEdit) {
+        final categoryId = widget.category!['id'] as int;
+        await cubit.updateCategory(widget.salonId, categoryId, req);
+      } else {
+        await cubit.addCategory(widget.salonId, req);
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => errorText = 'Failed to save. Please try again.');
+    } finally {
+      if (mounted) setState(() => isSaving = false);
+    }
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -1536,12 +1575,12 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: _BottomSheetScaffold(
-      title: isEdit
-    ? translateText('Edit Category')
-    : translateText('Add Category'),
-        initial: 0.30, // was 0.55
-        min: 0.10, // was 0.35
-        max: 0.30, // was 0.90
+        title: isEdit
+            ? translateText('Edit Category')
+            : translateText('Add Category'),
+        initial: 0.55,
+        min: 0.35,
+        max: 0.9,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1549,13 +1588,16 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
               controller: nameController,
               textCapitalization: TextCapitalization.words,
               inputFormatters: const [FirstLetterUpperFormatter()],
+              onChanged: (_) {
+                if (errorText != null) setState(() => errorText = null);
+              },
               decoration: InputDecoration(
                 labelText: translateText('Category Name'),
                 border: OutlineInputBorder(),
               ),
             ),
             SizedBox(height: 12),
-            // Optional description input ΓÇô keep if you need it in UI
+            // Optional description input ÃƒÅ½Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¡ÃƒÆ’Ã‚Â´ keep if you need it in UI
             // TextField(
             //   controller: descriptionController,
             //   maxLines: 2,
@@ -1598,11 +1640,11 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-               label: Text(
-  isEdit
-      ? translateText('Update Category')
-      : translateText('Add Category'),
-),
+                label: Text(
+                  isEdit
+                      ? translateText('Update Category')
+                      : translateText('Add Category'),
+                ),
               ),
             ),
           ],
@@ -1650,34 +1692,26 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
     super.dispose();
   }
 
-  void _validate(String v) {
+  String? _validateName(String v) {
     final t = v.trim();
-    String? err;
     if (t.isEmpty) {
-      err = translateText('Name is required');
-    } else {
-      final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
-      if (first != null && first != first.toUpperCase()) {
-        err = 'Name must start with a capital letter';
-      }
+      return translateText('Name is required');
     }
-    if (err != errorText) setState(() => errorText = err);
+    final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
+    if (first != null && first != first.toUpperCase()) {
+      return 'Name must start with a capital letter';
+    }
+    return null;
   }
 
   Future<void> _submit() async {
     final t = controller.text.trim();
 
-    // validate only when pressing the button
-    if (t.isEmpty) {
-      setState(() => errorText = translateText('Name is required'));
+    final validationError = _validateName(t);
+    if (validationError != null) {
+      setState(() => errorText = validationError);
       return;
     }
-    final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
-    if (first != null && first != first.toUpperCase()) {
-      setState(() => errorText = 'Name must start with a capital letter');
-      return;
-    }
-    setState(() => errorText = null);
 
     setState(() => isSaving = true);
     try {
@@ -1705,12 +1739,12 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: _BottomSheetScaffold(
-     title: isEdit
-    ? translateText('Edit Subcategory')
-    : translateText('Add Subcategory'),
-        initial: 0.30, // was 0.55
-        min: 0.10, // was 0.35
-        max: 0.30, // was 0.90
+        title: isEdit
+            ? translateText('Edit Subcategory')
+            : translateText('Add Subcategory'),
+        initial: 0.55,
+        min: 0.35,
+        max: 0.9,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1718,6 +1752,9 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
               controller: controller,
               textCapitalization: TextCapitalization.words,
               inputFormatters: const [FirstLetterUpperFormatter()],
+              onChanged: (_) {
+                if (errorText != null) setState(() => errorText = null);
+              },
               decoration: InputDecoration(
                 labelText: translateText('Subcategory Name'),
                 border: OutlineInputBorder(),
@@ -1756,11 +1793,11 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-            label: Text(
-  isEdit
-      ? translateText('Update Subcategory')
-      : translateText('Add Subcategory'),
-),
+                label: Text(
+                  isEdit
+                      ? translateText('Update Subcategory')
+                      : translateText('Add Subcategory'),
+                ),
               ),
             ),
           ],
@@ -1891,8 +1928,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 //                         setState(() => errorText = 'Name must start with an uppercase letter');
 //                         return;
 //                       }
-//                       setState(() => errorText = null);
-
+//
 //                       FocusScope.of(context).unfocus();
 
 //                       setState(() => isSaving = true);
@@ -2018,13 +2054,13 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
   @override
   Widget build(BuildContext context) {
     return _BottomSheetScaffold(
-     title: translateText('Edit Service'),
+      title: translateText('Edit Service'),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Name
           _LabeledField(
-         label: translateText('Service Name'),
+            label: translateText('Service Name'),
             controller: nameController,
             textCapitalization: TextCapitalization.words,
           ),
@@ -2042,7 +2078,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
 
           // Description (optional)
           _LabeledField(
-           label: translateText('Description'),
+            label: translateText('Description'),
             controller: descriptionController,
             maxLines: 1,
             textCapitalization: TextCapitalization.sentences,

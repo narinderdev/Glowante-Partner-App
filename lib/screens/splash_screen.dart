@@ -5,6 +5,8 @@ import 'package:bloc_onboarding/screens/bottom_nav.dart';
 import 'package:provider/provider.dart';
 import '../services/language_listener.dart';
 import '../services/translations.dart';
+import '../services/auth_session_manager.dart';
+import '../services/token_expiration_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -55,25 +57,33 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   // 👇 NEW: check login status
-  Future<void> _checkLoginStatus() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('user_token');
-
-    if (token != null && token.isNotEmpty) {
-      // ✅ Already logged in → go to BottomNav
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 0)),
-      );
-    } else {
-      // ❌ Not logged in → go to Onboarding
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => OnboardingScreen()),
-      );
-    }
-  }
-
+  Future<void> _checkLoginStatus() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString("user_token");
+
+    if (token != null && token.isNotEmpty) {
+      if (TokenExpirationService.isTokenExpired(token)) {
+        await AuthSessionManager.instance
+            .forceLogout(reason: "session_expired");
+        return;
+      }
+
+      if (!mounted) return;
+      // ✅ Already logged in → go to BottomNav
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 0)),
+      );
+    } else {
+      if (!mounted) return;
+      // ❌ Not logged in → go to Onboarding
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => OnboardingScreen()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
