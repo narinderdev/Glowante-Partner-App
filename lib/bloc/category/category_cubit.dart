@@ -25,11 +25,11 @@ class CategoryCubit extends Cubit<CategoryState> {
     emit(const CategoryState());
   }
 
-  Future<bool> loadCategories(int salonId, {bool silent = false}) async {
+  Future<bool> loadCategories(int branchId, {bool silent = false}) async {
     emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
 
     try {
-      final response = await _repository.fetchSalonCatalog(salonId);
+      final response = await _repository.fetchSalonCatalog(branchId);
       if (response['success'] != true) {
         throw Exception(response['message'] ?? 'Failed to load categories');
       }
@@ -101,7 +101,7 @@ Future<void> updateCategory(
     await _performMutation(
       branchId,
       () => _repository.addSubCategory(
-        salonId: branchId,
+        branchId: branchId,
         categoryId: categoryId,
         displayName: name,
       ),
@@ -181,32 +181,33 @@ Future<void> updateSubCategory(
     );
   }
 
-  Future<void> updateService(
-    int salonId,
-    int serviceId,
-    Map<String, dynamic> body,
-  ) async {
-    emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
+ Future<void> updateService(
+  int branchId,
+  int serviceId,
+  Map<String, dynamic> body,
+) async {
+  emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
 
-    try {
-      await _repository.updateService(salonId, serviceId, body);
-      await loadCategories(salonId);
+  try {
+    await _repository.updateService(branchId, serviceId, body);
+    await loadCategories(branchId);
 
-      emit(
-        state.copyWith(
-          status: CategoryStatus.actionSuccess,
-          message: 'Service updated successfully',
-        ),
-      );
-    } catch (error) {
-      emit(
-        state.copyWith(
-          status: CategoryStatus.actionFailure,
-          message: _extractErrorMessage(error),
-        ),
-      );
-    }
+    emit(
+      state.copyWith(
+        status: CategoryStatus.actionSuccess,
+        message: 'Service updated successfully',
+      ),
+    );
+  } catch (error) {
+    emit(
+      state.copyWith(
+        status: CategoryStatus.actionFailure,
+        message: _extractErrorMessage(error),
+      ),
+    );
   }
+}
+
 
   void clearMessage() {
     if (!state.hasMessage) return;
@@ -253,7 +254,7 @@ Future<void> updateSubCategory(
   //   }
   // }
   Future<void> _performMutation(
-    int salonId,
+    int branchId,
     Future<Map<String, dynamic>> Function() action, {
     required String fallbackMessage,
   }) async {
@@ -277,7 +278,7 @@ Future<void> updateSubCategory(
       ));
 
       // Then refresh silently
-      await loadCategories(salonId, silent: true);
+      await loadCategories(branchId, silent: true);
     } catch (error) {
       emit(
         state.copyWith(

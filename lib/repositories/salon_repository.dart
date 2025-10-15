@@ -1,19 +1,11 @@
 import 'dart:io';
-
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-
-import 'package:flutter/foundation.dart';
-
-import 'package:http/http.dart' as http;
-
 import 'dart:convert';
-
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../utils/api_service.dart';
-
 import '../Viewmodels/AddCategory.dart';
-
 import '../Viewmodels/AddSalonBranchRequest.dart';
-
 import '../Viewmodels/AddSalonServiceRequest.dart';
 
 class SalonRepository {
@@ -22,6 +14,9 @@ class SalonRepository {
 
   final ApiService _apiService;
 
+  // ------------------------------------------------------------
+  // 1️⃣ Fetch all salons
+  // ------------------------------------------------------------
   Future<List<Map<String, dynamic>>> fetchSalons() async {
     final response = await _apiService.getSalonListApi();
 
@@ -30,10 +25,12 @@ class SalonRepository {
     }
 
     final List items = response['data'] ?? [];
-
     return items.cast<Map<String, dynamic>>();
   }
 
+  // ------------------------------------------------------------
+  // 2️⃣ Create salon
+  // ------------------------------------------------------------
   Future<Map<String, dynamic>> createSalon({
     required String name,
     required String phone,
@@ -53,9 +50,7 @@ class SalonRepository {
     String? imageUrl;
     if (images.isNotEmpty) {
       final urls = await _apiService.uploadMultipleImages(images);
-      if (urls.isNotEmpty) {
-        imageUrl = urls.first;
-      }
+      if (urls.isNotEmpty) imageUrl = urls.first;
     }
 
     final body = <String, dynamic>{
@@ -76,7 +71,6 @@ class SalonRepository {
         'postalCode': pincode,
         'latitude': latitude,
         'longitude': longitude,
-        
       },
       'selectedCategoryCodes': selectedCategoryCodes,
     };
@@ -115,50 +109,58 @@ class SalonRepository {
     return decoded;
   }
 
+  // ------------------------------------------------------------
+  // 3️⃣ Add branch under a salon
+  // ------------------------------------------------------------
   Future<Map<String, dynamic>> addBranch({
-  required int salonId,
-  required String name,
-  required String phone,
-  required String startTime,
-  required String endTime,
-  required String description,
-  required Map<String, dynamic> address,
-  required double latitude,
-  required double longitude,
-  List<File> images = const [],
-  List<String> selectedCategoryCodes = const [], // ✅ add this
-}) async {
-  String imageUrl = '';
+    required int salonId,
+    required String name,
+    required String phone,
+    required String startTime,
+    required String endTime,
+    required String description,
+    required Map<String, dynamic> address,
+    required double latitude,
+    required double longitude,
+    List<File> images = const [],
+    List<String> selectedCategoryCodes = const [],
+  }) async {
+    String imageUrl = '';
 
-  if (images.isNotEmpty) {
-    final urls = await _apiService.uploadMultipleImages(images);
-    if (urls.isNotEmpty) imageUrl = urls.first;
+    if (images.isNotEmpty) {
+      final urls = await _apiService.uploadMultipleImages(images);
+      if (urls.isNotEmpty) imageUrl = urls.first;
+    }
+
+    final body = <String, dynamic>{
+      'name': name,
+      'startTime': startTime,
+      'endTime': endTime,
+      'phone': phone,
+      'description': description,
+      'image_url': imageUrl,
+      'address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+      'selectedCategoryCodes': selectedCategoryCodes,
+    };
+
+    debugPrint('➡️ Creating Branch for Salon ID: $salonId');
+    debugPrint('➡️ Payload: $body');
+
+    return _apiService.addSalonBranch(salonId, body);
   }
 
-  final body = <String, dynamic>{
-    'name': name,
-    'startTime': startTime,
-    'endTime': endTime,
-    'phone': phone,
-    'description': description,
-    'image_url': imageUrl,
-    'address': address,
-    'latitude': latitude,
-    'longitude': longitude,
-    'selectedCategoryCodes': selectedCategoryCodes, // ✅ add to payload
-  };
-
-  debugPrint('URL: ${ApiService.baseUrl}salons/$salonId/branches/add');
-  debugPrint('Payload: $body');
-
-  return _apiService.addSalonBranch(salonId, body);
-}
-
-
-  Future<Map<String, dynamic>> fetchSalonCatalog(int salonId) {
-    return _apiService.getService(salonId: salonId);
+  // ------------------------------------------------------------
+  // 4️⃣ Fetch Branch Catalog (categories & services)
+  // ------------------------------------------------------------
+  Future<Map<String, dynamic>> fetchSalonCatalog(int branchId) {
+    return _apiService.getService(branchId: branchId);
   }
 
+  // ------------------------------------------------------------
+  // 5️⃣ Category CRUD
+  // ------------------------------------------------------------
   Future<Map<String, dynamic>> addCategory({
     required int branchId,
     required AddCategoryRequest request,
@@ -167,17 +169,16 @@ class SalonRepository {
   }
 
   Future<Map<String, dynamic>> updateCategory({
-  required int branchId,
-  required int branchCategoryId,
-  required AddCategoryRequest request,
-}) {
-  return _apiService.updateCategory(
-    branchId: branchId,
-    branchCategoryId: branchCategoryId,
-    request: request,
-  );
-}
-
+    required int branchId,
+    required int branchCategoryId,
+    required AddCategoryRequest request,
+  }) {
+    return _apiService.updateCategory(
+      branchId: branchId,
+      branchCategoryId: branchCategoryId,
+      request: request,
+    );
+  }
 
   Future<Map<String, dynamic>> deleteCategory({
     required int branchId,
@@ -189,35 +190,36 @@ class SalonRepository {
     );
   }
 
- Future<Map<String, dynamic>> addSubCategory({
-  required int salonId,
-  required int categoryId,
-  required String displayName,
-}) {
-  return _apiService.addSubCategoryApi(
-    salonId: salonId,
-    categoryId: categoryId,
-    displayName: displayName, // ✅ match API and Cubit
-  );
-}
-
+  // ------------------------------------------------------------
+  // 6️⃣ SubCategory CRUD
+  // ------------------------------------------------------------
+  Future<Map<String, dynamic>> addSubCategory({
+    required int branchId,
+    required int categoryId,
+    required String displayName,
+  }) {
+    return _apiService.addSubCategoryApi(
+      branchId: branchId,
+      categoryId: categoryId,
+      displayName: displayName,
+    );
+  }
 
   Future<Map<String, dynamic>> updateSubCategory({
-  required int branchId,
-  required int subCategoryId,
-  required String displayName,
-  required int sortOrder,
-  required bool isActive,
-}) {
-  return _apiService.updateSubCategoryApi(
-    branchId: branchId,
-    subCategoryId: subCategoryId,
-    displayName: displayName,
-    sortOrder: sortOrder,
-    isActive: isActive,
-  );
-}
-
+    required int branchId,
+    required int subCategoryId,
+    required String displayName,
+    required int sortOrder,
+    required bool isActive,
+  }) {
+    return _apiService.updateSubCategoryApi(
+      branchId: branchId,
+      subCategoryId: subCategoryId,
+      displayName: displayName,
+      sortOrder: sortOrder,
+      isActive: isActive,
+    );
+  }
 
   Future<Map<String, dynamic>> deleteSubCategory({
     required int branchId,
@@ -229,13 +231,9 @@ class SalonRepository {
     );
   }
 
-  Future<Map<String, dynamic>> deleteService({
-    required int branchId,
-    required int serviceId,
-  }) {
-    return _apiService.deleteServiceApi(branchId: branchId, serviceId: serviceId);
-  }
-
+  // ------------------------------------------------------------
+  // 7️⃣ Service CRUD
+  // ------------------------------------------------------------
   Future<Map<String, dynamic>> addService({
     required int branchId,
     required AddSalonServiceRequest request,
@@ -243,18 +241,31 @@ class SalonRepository {
     return _apiService.addService(branchId: branchId, request: request);
   }
 
-Future<Map<String, dynamic>> updateService(
-  int branchId,
-  int branchServiceId,
-  Map<String, dynamic> body,
-) {
-  return _apiService.updateService(
-    branchId: branchId,
-    branchServiceId: branchServiceId,
-    body: body,
-  );
-}
+  Future<Map<String, dynamic>> updateService(
+    int branchId,
+    int branchServiceId,
+    Map<String, dynamic> body,
+  ) {
+    return _apiService.updateService(
+      branchId: branchId,
+      branchServiceId: branchServiceId,
+      body: body,
+    );
+  }
 
+  Future<Map<String, dynamic>> deleteService({
+    required int branchId,
+    required int serviceId,
+  }) {
+    return _apiService.deleteServiceApi(
+      branchId: branchId,
+      serviceId: serviceId,
+    );
+  }
+
+  // ------------------------------------------------------------
+  // 8️⃣ Offers / Deals
+  // ------------------------------------------------------------
   Future<Map<String, dynamic>> createSalonBranchOffer({
     required int branchId,
     required Map<String, dynamic> offerData,

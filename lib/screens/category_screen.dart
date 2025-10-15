@@ -94,37 +94,71 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   // ---------- SALON HANDLING ----------
-  void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
-    if (value == null) return;
+  // void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
+  //   if (value == null) return;
 
-    Map<String, dynamic>? selected;
-    for (final salon in salons) {
-      final dynamic rawId = salon['id'];
-      final int? salonId =
-          rawId is int ? rawId : int.tryParse(rawId.toString());
-      if (salonId == value) {
-        selected = Map<String, dynamic>.from(salon as Map);
+  //   Map<String, dynamic>? selected;
+  //   for (final salon in salons) {
+  //     final dynamic rawId = salon['id'];
+  //     final int? salonId =
+  //         rawId is int ? rawId : int.tryParse(rawId.toString());
+  //     if (salonId == value) {
+  //       selected = Map<String, dynamic>.from(salon as Map);
+  //       break;
+  //     }
+  //   }
+
+  //   if (selected == null) return;
+
+  //   final int salonId = value;
+  //   setState(() {
+  //     _selectedSalonId = salonId;
+  //     _selectedSalon = {
+  //       'salonId': salonId,
+  //       'salonName': selected?['name'],
+  //     };
+  //     _expandedSubcategories.clear();
+  //   });
+
+  //   context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
+  //   final categoryCubit = context.read<CategoryCubit>();
+  //   categoryCubit.resetCategories();
+  //   categoryCubit.loadCategories(salonId);
+  // }
+void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
+  if (value == null) return;
+
+  Map<String, dynamic>? selectedSalon;
+  Map<String, dynamic>? selectedBranch;
+
+  for (final salon in salons) {
+    for (final branch in salon['branches'] ?? []) {
+      if (branch['id'] == value) {
+        selectedSalon = salon;
+        selectedBranch = branch;
         break;
       }
     }
-
-    if (selected == null) return;
-
-    final int salonId = value;
-    setState(() {
-      _selectedSalonId = salonId;
-      _selectedSalon = {
-        'salonId': salonId,
-        'salonName': selected?['name'],
-      };
-      _expandedSubcategories.clear();
-    });
-
-    context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
-    final categoryCubit = context.read<CategoryCubit>();
-    categoryCubit.resetCategories();
-    categoryCubit.loadCategories(salonId);
+    if (selectedBranch != null) break;
   }
+
+  if (selectedBranch == null) return;
+
+  setState(() {
+    _selectedSalonId = value;
+    _selectedSalon = {
+      'salonId': selectedSalon!['id'],
+      'salonName': selectedSalon['name'],
+      'branchId': selectedBranch!['id'],       // ✅ Fixed with non-null assertion
+      'branchName': selectedBranch!['name'],   // ✅ Fixed with non-null assertion
+    };
+  });
+
+  context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
+  final categoryCubit = context.read<CategoryCubit>();
+  categoryCubit.resetCategories();
+  categoryCubit.loadCategories(selectedBranch!['id']); // ✅ same here
+}
 
 // ---------- ADD / EDIT CATEGORY ----------
   Future<void> _showAddCategorySheet({Map<String, dynamic>? category}) async {
@@ -133,16 +167,18 @@ class _CategoryScreenState extends State<CategoryScreen> {
       return;
     }
 
-    final salonId = _selectedSalon!['salonId'] as int;
+final int branchId = _selectedSalon?['branchId'] as int? ?? _selectedSalon!['salonId'] as int;
+
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _EditCategorySheet(
-        category: category,
-        salonId: salonId, // sheet will call the cubit & show loader
-      ),
+     builder: (sheetContext) => _EditCategorySheet(
+  category: category,
+  branchId: _selectedSalon?['branchId'] as int? ?? _selectedSalon!['salonId'] as int,
+),
+
     );
   }
 
@@ -153,7 +189,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }) async {
     if (_selectedSalon == null) return;
 
-    final salonId = _selectedSalon!['salonId'] as int;
+    final branchId = _selectedSalon!['branchId'] as int;
 
     await showModalBottomSheet<void>(
       context: context,
@@ -161,7 +197,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _EditSubcategorySheet(
         subCategory: subCategory,
-        salonId: salonId, // sheet will call the cubit & show loader
+        branchId: branchId, // sheet will call the cubit & show loader
         categoryId: categoryId, // needed for add
       ),
     );
@@ -184,10 +220,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
     if (!mounted || confirmed != true) return;
 
     _rememberScrollPosition();
-    final salonId = _selectedSalon!['salonId'] as int;
+   final branchId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteCategory(
-            salonId,
+            branchId,
             category['id'] as int,
           );
     } finally {
@@ -214,10 +250,10 @@ class _CategoryScreenState extends State<CategoryScreen> {
     if (!mounted || confirmed != true) return;
 
     _rememberScrollPosition();
-    final salonId = _selectedSalon!['salonId'] as int;
+  final branchId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteSubCategory(
-            salonId,
+            branchId,
             subCategory['id'] as int,
           );
     } finally {
@@ -236,12 +272,12 @@ class _CategoryScreenState extends State<CategoryScreen> {
 
     if (!mounted || result == null) return;
 
-    final salonId = _selectedSalon!['salonId'] as int;
-    context.read<CategoryCubit>().updateService(
-          salonId,
-          result['serviceId'] as int,
-          result['payload'] as Map<String, dynamic>,
-        );
+ final branchId = _selectedSalon?['branchId'] as int? ?? _selectedSalon!['salonId'] as int;
+context.read<CategoryCubit>().updateService(
+  branchId,
+  result['serviceId'] as int,
+  result['payload'] as Map<String, dynamic>,
+);
   }
 
   // ---------- CONFIRM DELETE SERVICE ----------
@@ -260,7 +296,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
     if (!mounted || confirmed != true) return;
 
     _rememberScrollPosition();
-    final salonId = _selectedSalon!['salonId'] as int;
+    final salonId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteService(salonId, serviceId);
     } finally {
@@ -279,7 +315,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => AddServices(
-          salonId: _selectedSalon!['salonId'] as int,
+          branchId: _selectedSalon!['branchId'] as int,
           selectedCategory: category,
           categories: categories,
         ),
@@ -498,49 +534,96 @@ class _HeaderSection extends StatelessWidget {
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
 
-    final List<DropdownMenuItem<int>> salonItems = <DropdownMenuItem<int>>[];
-    for (final salon in salons) {
-      final dynamic rawId = salon['id'];
-      final int? salonId =
-          rawId is int ? rawId : int.tryParse(rawId.toString());
-      if (salonId == null) continue;
-      final String salonTitle =
-          salon['name']?.toString().trim().isNotEmpty == true
-              ? salon['name'].toString()
-              : 'Salon';
-      salonItems.add(
-        DropdownMenuItem<int>(
-          value: salonId,
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.storefront,
-                  color: AppColors.starColor,
-                  size: 18,
-                ),
+    // final List<DropdownMenuItem<int>> salonItems = <DropdownMenuItem<int>>[];
+    // for (final salon in salons) {
+    //   final dynamic rawId = salon['id'];
+    //   final int? salonId =
+    //       rawId is int ? rawId : int.tryParse(rawId.toString());
+    //   if (salonId == null) continue;
+    //   final String salonTitle =
+    //       salon['name']?.toString().trim().isNotEmpty == true
+    //           ? salon['name'].toString()
+    //           : 'Salon';
+    //   salonItems.add(
+    //     DropdownMenuItem<int>(
+    //       value: salonId,
+    //       child: Row(
+    //         children: [
+    //           Container(
+    //             padding: const EdgeInsets.all(8),
+    //             decoration: BoxDecoration(
+    //               color: Colors.grey.shade200,
+    //               borderRadius: BorderRadius.circular(8),
+    //             ),
+    //             child: Icon(
+    //               Icons.storefront,
+    //               color: AppColors.starColor,
+    //               size: 18,
+    //             ),
+    //           ),
+    //           const SizedBox(width: 12),
+    //           Expanded(
+    //             child: Text(
+    //               salonTitle,
+    //               style: textTheme.bodyMedium?.copyWith(
+    //                 fontWeight: FontWeight.w600,
+    //                 color: Colors.black,
+    //               ),
+    //               overflow: TextOverflow.ellipsis,
+    //             ),
+    //           ),
+    //         ],
+    //       ),
+    //     ),
+    //   );
+    // }
+final List<DropdownMenuItem<int>> salonItems = <DropdownMenuItem<int>>[];
+
+for (final salon in salons) {
+  final String salonName = salon['name'] ?? 'Salon';
+  final List branches = salon['branches'] ?? [];
+
+  for (final branch in branches) {
+    final int? branchId = branch['id'];
+    if (branchId == null) continue;
+
+    final String branchName = branch['name'] ?? 'Branch';
+    final String city = branch['address']?['city'] ?? '';
+
+    salonItems.add(
+      DropdownMenuItem<int>(
+        value: branchId,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  salonTitle,
-                  style: textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+              child: const Icon(
+                Icons.storefront,
+                color: AppColors.starColor,
+                size: 18,
               ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                "$branchName${city.isNotEmpty ? ' ($city)' : ''}",
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
+}
 
     final bool hasSelection = salonItems.any(
       (item) => item.value == selectedSalonId,
@@ -1479,13 +1562,14 @@ class _ConfirmDialog extends StatelessWidget {
 /* =======================  SHEET WIDGETS  ======================= */
 /* Category: inline error + loader + API here */
 class _EditCategorySheet extends StatefulWidget {
-  const _EditCategorySheet({this.category, required this.salonId});
+  const _EditCategorySheet({this.category, required this.branchId});
   final Map<String, dynamic>? category;
-  final int salonId;
+  final int branchId;
 
   @override
   State<_EditCategorySheet> createState() => _EditCategorySheetState();
 }
+
 
 class _EditCategorySheetState extends State<_EditCategorySheet> {
   late final TextEditingController nameController;
@@ -1552,12 +1636,13 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
       // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ 3. Use correct Cubit function
       final cubit = context.read<CategoryCubit>();
 
-      if (isEdit) {
-        final categoryId = widget.category!['id'] as int;
-        await cubit.updateCategory(widget.salonId, categoryId, req);
-      } else {
-        await cubit.addCategory(widget.salonId, req);
-      }
+     if (isEdit) {
+  final categoryId = widget.category!['id'] as int;
+  await cubit.updateCategory(widget.branchId, categoryId, req);
+} else {
+  await cubit.addCategory(widget.branchId, req);
+}
+
 
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -1658,11 +1743,11 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
 class _EditSubcategorySheet extends StatefulWidget {
   const _EditSubcategorySheet({
     this.subCategory,
-    required this.salonId,
+       required this.branchId,
     required this.categoryId,
   });
   final Map<String, dynamic>? subCategory;
-  final int salonId;
+   final int branchId;
   final int categoryId;
 
   @override
@@ -1719,9 +1804,10 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 
       if (isEdit) {
         final subCategoryId = widget.subCategory!['id'] as int;
-        await cubit.updateSubCategory(widget.salonId, subCategoryId, t);
+        await cubit.updateSubCategory(widget.branchId, subCategoryId, t);
       } else {
-        await cubit.addSubCategory(widget.salonId, widget.categoryId, t);
+       await cubit.addSubCategory(widget.branchId, widget.categoryId, t);
+
       }
       if (!mounted) return;
       Navigator.of(context).pop();

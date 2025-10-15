@@ -708,12 +708,12 @@ import '../bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class AddServices extends StatefulWidget {
-  final int salonId;
+  final int branchId;
   final Map<String, dynamic>? selectedCategory;
   final List<dynamic>? categories;
 
   const AddServices({
-    required this.salonId,
+    required this.branchId,
     this.selectedCategory,
     this.categories,
   });
@@ -867,12 +867,12 @@ class _AddServicesState extends State<AddServices> {
         isActive: true,
       );
 
-      await ApiService().addService(branchId: widget.salonId, request: request);
+      await ApiService().addService(branchId: widget.branchId, request: request);
 
       if (!mounted) return;
 
       try {
-        await context.read<CategoryCubit>().loadCategories(widget.salonId);
+        await context.read<CategoryCubit>().loadCategories(widget.branchId);
       } catch (_) {}
 
       ScaffoldMessenger.of(context).showSnackBar(

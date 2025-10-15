@@ -324,45 +324,39 @@ class _DealScreenState extends State<DealScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DropdownButtonFormField<int>(
-                    value: selectedSalonId,
-                    isExpanded: true,
-                    items: salons
-                        .map<DropdownMenuItem<int>>(
-                          (salon) => DropdownMenuItem(
-                            value: salon['branchId'],
-                            child: Text(
-                              "${salon['salonName']}",
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) async {
-                      setState(() => selectedSalonId = value);
-                      if (value != null) {
-                        final salon =
-                            salons.firstWhere((s) => s['branchId'] == value);
-                        selectedSalon = {
-                          'salonId': salon['salonId'],
-                          'salonName': salon['salonName'],
-                          'branchId': salon['branchId'],
-                          'branchName': salon['branchName'],
-                        };
-                        await _fetchOffers(salon['branchId']);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      hintText:
-                          salons.isEmpty ? 'No salons available' : 'Select Branch',
-                      filled: true,
-                      fillColor: kDropdownFill,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
+                    DropdownButtonFormField<int>(
+  value: selectedSalonId,
+  isExpanded: true,
+  items: salons.map<DropdownMenuItem<int>>((salon) {
+    return DropdownMenuItem(
+      value: salon['branchId'] as int,
+      child: Text(
+        "${salon['branchName']}", // 👈 show both
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }).toList(),
+  onChanged: (value) async {
+    setState(() => selectedSalonId = value);
+    if (value != null) {
+      final selected = salons.firstWhere((s) => s['branchId'] == value);
+      selectedSalon = {
+        'salonId': selected['salonId'],
+        'salonName': selected['salonName'],
+        'branchId': selected['branchId'],
+        'branchName': selected['branchName'],
+      };
+      await _fetchOffers(selected['branchId']);
+    }
+  },
+  decoration: InputDecoration(
+    labelText: translateText('Branch'),
+    filled: true,
+    fillColor: kDropdownFill,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+  ),
+),
                   const SizedBox(height: 12),
                   Expanded(
                     child: Builder(builder: (context) {

@@ -172,9 +172,10 @@ static String updateBranchSubCategory(int branchId, int branchSubCategoryId) {
 static String updateBranchService(int branchId, int branchServiceId) {
   return "branches/$branchId/services/$branchServiceId";
 }
-  static String deleteBranchCategory(int branchId, int branchCategoryId) {
+static String deleteBranchCategory(int branchId, int branchCategoryId) {
   return "branches/$branchId/services/category/$branchCategoryId";
 }
+
 
 static String deleteBranchSubCategory(int branchId, int branchSubCategoryId) {
   return "branches/$branchId/services/subCategory/$branchSubCategoryId";
@@ -661,85 +662,64 @@ Future<bool> deleteAccountAPI() async {
     }
   }
 
-  Future<Map<String, dynamic>> addCategory({
-    required int branchId,
-    required AddCategoryRequest request,
-  }) async {
-    final token = await getAuthToken(); // 🔑 fetch saved token
-    final url = Uri.parse(baseUrl + "branches/$branchId/categories");
+ Future<Map<String, dynamic>> addCategory({
+  required int branchId,
+  required AddCategoryRequest request,
+}) async {
+  final token = await getAuthToken(); // 🔑 fetch saved token
+  final url = Uri.parse(baseUrl + "branches/$branchId/categories");
 
-    // 🔹 Debug print before API call
-    print("➡️ Calling Add Category API");
-    print("➡️ URL: $url");
-    print("➡️ Payload: ${jsonEncode(request.toJson())}");
-    print("➡️ Token: $token");
+  print("➡️ Calling Add Category API");
+  print("➡️ URL: $url");
+  print("➡️ Payload: ${jsonEncode(request.toJson())}");
+  print("➡️ Token: $token");
 
-    final response = await _sharedClient.post(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token", // 👈 add token here
-      },
-      body: jsonEncode(request.toJson()),
-    );
+  final response = await _sharedClient.post(
+    url,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+    body: jsonEncode(request.toJson()),
+  );
 
-    print("⬅️ Status Code: ${response.statusCode}");
-    print("⬅️ Response Body: ${response.body}");
+  print("⬅️ Status Code: ${response.statusCode}");
+  print("⬅️ Response Body: ${response.body}");
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception("Failed to add category: ${response.body}");
-    }
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return jsonDecode(response.body);
+  } else {
+    throw Exception("Failed to add category: ${response.body}");
   }
+}
+
 
   // ---------------------- DELETE CATEGORY ----------------------
-  Future<Map<String, dynamic>> deleteCategoryApi({
-    required int branchId,
-    required int CategoryId,
-  }) async {
-    final token = await getAuthToken();
+ Future<Map<String, dynamic>> deleteCategoryApi({
+  required int branchId,
+  required int CategoryId,
+}) async {
+  final token = await getAuthToken();
+  final url = Uri.parse(baseUrl + "branches/$branchId/services/category/$CategoryId");
 
-    if (token.isEmpty) {
-      return {"success": false, "message": "Auth token missing"};
-    }
+  print("➡️ Calling Delete Category API");
+  print("➡️ URL: $url");
 
-    final url = Uri.parse(
-      "${baseUrl}branches/$branchId/services/category/$CategoryId",
-    );
+  final response = await _sharedClient.delete(
+    url,
+    headers: {'Authorization': 'Bearer $token'},
+  );
 
-    print("➡️ Calling Delete Category API");
-    print("➡️ URL: $url");
-    print("➡️ Token: $token");
+  print("⬅️ Status Code: ${response.statusCode}");
+  print("⬅️ Response Body: ${response.body}");
 
-    try {
-      final response = await _sharedClient.delete(
-        url,
-        headers: {
-          "accept": "application/json",
-          "Authorization": "Bearer $token",
-        },
-      );
-
-      print("⬅️ Status Code: ${response.statusCode}");
-      print("⬅️ Response Body: ${response.body}");
-
-      final body = response.body.isNotEmpty ? jsonDecode(response.body) : {};
-
-      if (response.statusCode == 200 || response.statusCode == 204) {
-        return {"success": true, "message": "Category deleted successfully"};
-      } else {
-        return {
-          "success": false,
-          "message": body['message'] ?? "Failed to delete category",
-          "statusCode": response.statusCode,
-        };
-      }
-    } catch (e) {
-      print("❌ Error deleting category: $e");
-      return {"success": false, "message": e.toString()};
-    }
+  if (response.statusCode == 200 || response.statusCode == 204) {
+    return {"success": true, "message": "Category deleted successfully"};
+  } else {
+    throw Exception("Failed to delete category: ${response.body}");
   }
+}
+
 
   // ---------------------- DELETE SUBCATEGORY ----------------------
   Future<Map<String, dynamic>> deleteSubCategoryApi({
@@ -871,7 +851,7 @@ Future<bool> deleteAccountAPI() async {
   }
 
   // ---------------------- UPDATE CATEGORY ----------------------
-  Future<Map<String, dynamic>> updateCategory({
+ Future<Map<String, dynamic>> updateCategory({
   required int branchId,
   required int branchCategoryId,
   required AddCategoryRequest request,
@@ -882,11 +862,12 @@ Future<bool> deleteAccountAPI() async {
     throw Exception('{"message":["Authentication required"]}');
   }
 
-  final url = Uri.parse(baseUrl + updateCategoryAPI(branchId, branchCategoryId));
+  final url = Uri.parse(baseUrl + "branches/$branchId/categories/$branchCategoryId");
 
   final payload = request.toJson();
-  print("Request URL: $url");
-  print("Request Body: $payload");
+  print("➡️ Calling Update Category API");
+  print("➡️ URL: $url");
+  print("➡️ Payload: $payload");
 
   final response = await _sharedClient.patch(
     url,
@@ -897,8 +878,8 @@ Future<bool> deleteAccountAPI() async {
     body: jsonEncode(payload),
   );
 
-  print("Response Status Code: ${response.statusCode}");
-  print("Response Body: ${response.body}");
+  print("⬅️ Status Code: ${response.statusCode}");
+  print("⬅️ Response Body: ${response.body}");
 
   if (response.statusCode == 200 || response.statusCode == 201) {
     return jsonDecode(response.body) as Map<String, dynamic>;
@@ -906,6 +887,7 @@ Future<bool> deleteAccountAPI() async {
 
   throw Exception('Failed to update category: ${response.body}');
 }
+
 
   // ---------------------- DELETE CATEGORY ----------------------
   // Future<Map<String, dynamic>> deleteCategory({
@@ -1190,12 +1172,12 @@ Future<Map<String, dynamic>> getBranchService({required int branchId}) async {
   //   }
   // }
 Future<Map<String, dynamic>> addSubCategoryApi({
-  required int salonId,
+  required int branchId,
   required int categoryId,
   required String displayName,
 }) async {
   final url = Uri.parse(
-    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$salonId/categories/$categoryId/subcategories',
+    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/categories/$categoryId/subcategories',
   );
   print('Sending request to URL: $url');
 

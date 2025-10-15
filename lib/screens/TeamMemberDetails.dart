@@ -9,8 +9,8 @@ import 'package:flutter/services.dart';
 
 class TeamMemberDetails extends StatelessWidget {
   final Map<String, dynamic> member;
- final List<Map<String, dynamic>> salons; // 👈 new
-  const TeamMemberDetails({Key? key, required this.member,  required this.salons,}) : super(key: key);
+final List<Map<String, dynamic>>? salons;// 👈 new
+  const TeamMemberDetails({Key? key, required this.member,   this.salons,}) : super(key: key);
 
   String _initials(String first, String last) {
     final f = first.isNotEmpty ? first[0] : '';
@@ -276,66 +276,6 @@ SizedBox(height: 12),
           ),
   ),
 ),
-// _SectionCard(
-//   title: 'Assigned Branches',
-//   icon: Icons.apartment_outlined,
-//   borderColor: borderColor,
-//   radius: cardRadius,
-//   child: Column(
-//     crossAxisAlignment: CrossAxisAlignment.start,
-//     children: salons.expand((salon) {
-//       final salonId = salon['id'] ?? '';
-//       final salonName = salon['name'] ?? '';
-//       final branches = salon['branches'] as List? ?? [];
-
-//       return branches.map((branch) {
-//         final branchId = branch['id'] ?? '';
-//         final branchName = branch['name'] ?? '';
-//         final address = branch['address'] ?? {};
-//         final addrText =
-//             "${address['line1'] ?? ''}, ${address['city'] }";
-
-//         return InkWell(
-//           onTap: () {
-//             // 👉 You can handle tap if you want to open branch details
-//             print("Tapped SalonId: $salonId | BranchId: $branchId");
-//           },
-//           borderRadius: BorderRadius.circular(8),
-//           child: Padding(
-//             padding: const EdgeInsets.symmetric(vertical: 6),
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 // Salon and Branch info
-//                 Text(
-//                   "Salon: $salonName (ID: $salonId)",
-//                   style: const TextStyle(
-//                       fontWeight: FontWeight.w600, fontSize: 14),
-//                 ),
-//                 SizedBox(height: 2),
-//                 Row(
-//                   children: [
-//                     Icon(Icons.location_on_outlined,
-//                         size: 18, color: Colors.black54),
-//                     SizedBox(width: 6),
-//                     Expanded(
-//                       child: Text(
-//                         "Branch: $branchName (ID: $branchId)\n$addrText",
-//                         style: const TextStyle(fontSize: 13),
-//                         overflow: TextOverflow.ellipsis,
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ],
-//             ),
-//           ),
-//         );
-//       });
-//     }).toList(),
-//   ),
-// ),
-
 
             ],
           ),
@@ -347,33 +287,6 @@ SizedBox(height: 12),
     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
     child: SizedBox(
       width: double.infinity,
-      // child: ElevatedButton(
-      //   onPressed: () {
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(
-      //         builder: (_) => AssignUserScreen(
-      //           member: member,
-      //           salons: salons, // 👈 pass salons list
-      //             salonId: salons.first['id'],
-      //         ),
-      //       ),
-      //     );
-      //   },
-      //   style: ElevatedButton.styleFrom(
-      //     backgroundColor: AppColors.starColor,
-      //     foregroundColor: AppColors.white,
-      //     padding: const EdgeInsets.symmetric(vertical: 14),
-      //     shape: RoundedRectangleBorder(
-      //       borderRadius: BorderRadius.circular(12),
-      //     ),
-      //     elevation: 0,
-      //   ),
-      //   child: Text(
-      //     'Assign User',
-      //     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-      //   ),
-      // ),
     ),
   ),
 ),
