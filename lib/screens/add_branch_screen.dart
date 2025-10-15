@@ -9,7 +9,42 @@ import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'add_location_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../utils/colors.dart';
 
+enum _BranchField { name, phone, startTime, endTime, description }
+
+class _CapitalizeFirstLetterFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.isEmpty) {
+      return newValue;
+    }
+
+    final buffer = StringBuffer();
+    var madeUppercase = false;
+
+    for (final rune in text.runes) {
+      final char = String.fromCharCode(rune);
+      if (!madeUppercase && char.trim().isNotEmpty) {
+        buffer.write(char.toUpperCase());
+        madeUppercase = true;
+      } else {
+        buffer.write(char);
+      }
+    }
+
+    final capitalized = buffer.toString();
+    if (capitalized == text) {
+      return newValue;
+    }
+
+    return newValue.copyWith(text: capitalized, selection: newValue.selection);
+  }
+}
 
 class AddBranchScreen extends StatefulWidget {
   const AddBranchScreen({super.key, required this.salonId});
@@ -28,6 +63,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   final _endTimeController = TextEditingController();
   final _descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  final Map<_BranchField, bool> _fieldValidationVisibility = {
+    for (final field in _BranchField.values) field: false,
+  };
 
   @override
   void initState() {
@@ -54,13 +92,30 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     context.read<AddBranchCubit>().setImages(images);
   }
 
-  Future<void> _selectTime(TextEditingController controller) async {
+  void _resetFieldError(_BranchField field) {
+    if (!mounted) {
+      return;
+    }
+    if (!(_fieldValidationVisibility[field] ?? false)) {
+      return;
+    }
+    setState(() {
+      _fieldValidationVisibility[field] = false;
+    });
+    _formKey.currentState?.validate();
+  }
+
+  Future<void> _selectTime(
+    _BranchField field,
+    TextEditingController controller,
+  ) async {
     final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
     );
     if (picked != null) {
       controller.text = picked.format(context);
+      _resetFieldError(field);
     }
   }
 
@@ -79,49 +134,62 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     if (!mounted || result == null) return;
     context.read<AddBranchCubit>().updateAddress(
-      BranchAddress(
-        buildingName: result['buildingName'] as String? ?? '',
-        city: result['city'] as String? ?? '',
-        pincode: result['pincode'] as String? ?? '',
-        state: result['state'] as String? ?? '',
-        latitude: (result['latitude'] as num?)?.toDouble() ?? 0,
-        longitude: (result['longitude'] as num?)?.toDouble() ?? 0,
-      ),
-    );
+          BranchAddress(
+            buildingName: result['buildingName'] as String? ?? '',
+            city: result['city'] as String? ?? '',
+            pincode: result['pincode'] as String? ?? '',
+            state: result['state'] as String? ?? '',
+            latitude: (result['latitude'] as num?)?.toDouble() ?? 0,
+            longitude: (result['longitude'] as num?)?.toDouble() ?? 0,
+          ),
+        );
   }
 
   void _submit(AddBranchState state) {
     final form = _formKey.currentState;
-    if (form == null || !form.validate()) {
+    if (form == null) {
+      return;
+    }
+
+    setState(() {
+      for (final key in _fieldValidationVisibility.keys) {
+        _fieldValidationVisibility[key] = true;
+      }
+    });
+
+    final isValid = form.validate();
+    if (!isValid) {
       return;
     }
 
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select start and end time.'))),
+        SnackBar(
+            content: Text(translateText('Please select start and end time.'))),
       );
       return;
     }
 
     context.read<AddBranchCubit>().submit(
-      AddBranchFormData(
-        name: _branchNameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        startTime: _startTimeController.text.trim(),
-        endTime: _endTimeController.text.trim(),
-        description: _descriptionController.text.trim(),
-      ),
-    );
+          AddBranchFormData(
+            name: _branchNameController.text.trim(),
+            phone: _phoneController.text.trim(),
+            startTime: _startTimeController.text.trim(),
+            endTime: _endTimeController.text.trim(),
+            description: _descriptionController.text.trim(),
+          ),
+        );
   }
 
   @override
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
-        return BlocConsumer<AddBranchCubit, AddBranchState>(
+    return BlocConsumer<AddBranchCubit, AddBranchState>(
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
         if (state.savedPhone != null) {
           _phoneController.text = state.savedPhone!;
+          _resetFieldError(_BranchField.phone);
         }
 
         if (state.status == BranchFormStatus.failure &&
@@ -143,21 +211,30 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         final address = state.address;
 
         return Scaffold(
-          backgroundColor: AppColors.white,
-         appBar: AppBar(
-    backgroundColor: AppColors.grey, // AppBar background
-    // centerTitle: true, // center the title
-    iconTheme: const IconThemeData(
-      color: AppColors.black, // back button color
-    ),
-    title: Text(translateText('Add Branch'),
-      style: TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 20,
-        color: AppColors.black, // title text color
-      ),
-    ),
-  ),
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            systemOverlayStyle: SystemUiOverlayStyle.light,
+            iconTheme: const IconThemeData(color: Colors.white),
+            title: Text(
+              translateText('Add Branch'),
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            flexibleSpace: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.starColor,
+                    AppColors.getStartedButton,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+          ),
           body: Stack(
             children: [
               SingleChildScrollView(
@@ -168,110 +245,157 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildTextField(
+                        field: _BranchField.name,
                         controller: _branchNameController,
                         label: 'Branch Name *',
                         hint: 'Enter branch name',
-                      ),
-               _buildTextField(
-  controller: _phoneController,
-  label: 'Phone Number *',
-  hint: 'Enter phone number',
-  maxLength: 10,
-  enabled: false,
-  keyboardType: TextInputType.number,
-  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-),
-
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTimePickerField(
-                              controller: _startTimeController,
-                              label: 'Start Time *',
-                              onTap: () => _selectTime(_startTimeController),
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTimePickerField(
-                              controller: _endTimeController,
-                              label: 'End Time *',
-                              onTap: () => _selectTime(_endTimeController),
-                            ),
-                          ),
+                        inputFormatters: [
+                          _CapitalizeFirstLetterFormatter(),
                         ],
                       ),
-                      SizedBox(height: 20),
-                Text(translateText('Branch Address'),
-  style: Theme.of(context).textTheme.titleMedium,
-),
-SizedBox(height: 8),
-// ✅ Case: No address -> show bordered box with "Add Location"
-if (address == null)
-  InkWell(
-    onTap: () => _chooseLocation(state),
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.darkGrey, width: 1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Text(translateText("Add Location"),
-          style: TextStyle(
-            color: AppColors.black,
-            fontWeight: FontWeight.bold,
-          ),
+                      _buildTextField(
+                        field: _BranchField.phone,
+                        controller: _phoneController,
+                        label: 'Phone Number *',
+                        hint: 'Enter phone number',
+                        maxLength: 10,
+                        enabled: false,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                      ),
+     IntrinsicHeight(
+  child: Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(
+        child: Column(
+          children: [
+            _buildTimePickerField(
+              field: _BranchField.startTime,
+              controller: _startTimeController,
+              label: 'Start Time *',
+              onTap: () => _selectTime(
+                _BranchField.startTime,
+                _startTimeController,
+              ),
+            ),
+          ],
         ),
       ),
-    ),
-  )
-else
-  // ✅ Case: Address exists -> your existing design
-  InkWell(
-    onTap: () => _chooseLocation(state),
-    child: Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.darkGrey),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  address.buildingName,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 4),
-                Text('${address.city}, ${address.state}'),
-                Text('Pincode: ${address.pincode}'),
-              ],
+      SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          children: [
+            _buildTimePickerField(
+              field: _BranchField.endTime,
+              controller: _endTimeController,
+              label: 'End Time *',
+              onTap: () => _selectTime(
+                _BranchField.endTime,
+                _endTimeController,
+              ),
             ),
-          ),
-          Icon(Icons.edit, color: AppColors.darkGrey),
-        ],
+          ],
+        ),
       ),
-    ),
+    ],
   ),
+),
+                      SizedBox(height: 20),
+                      Text(
+                        translateText('Branch Address'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      SizedBox(height: 8),
+// ✅ Case: No address -> show bordered box with "Add Location"
+                      if (address == null)
+                        InkWell(
+                          onTap: () => _chooseLocation(state),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                  color: AppColors.darkGrey, width: 1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    translateText("Add Location"),
+                                    style: const TextStyle(
+                                      color: AppColors.black,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    '*',
+                                    style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        // ✅ Case: Address exists -> your existing design
+                        InkWell(
+                          onTap: () => _chooseLocation(state),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: AppColors.darkGrey),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        address.buildingName,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text('${address.city}, ${address.state}'),
+                                      Text('Pincode: ${address.pincode}'),
+                                    ],
+                                  ),
+                                ),
+                                Icon(Icons.edit, color: AppColors.darkGrey),
+                              ],
+                            ),
+                          ),
+                        ),
 
                       SizedBox(height: 20),
                       _buildTextField(
+                        field: _BranchField.description,
                         controller: _descriptionController,
                         label: 'Description *',
                         hint: 'Enter description',
                         maxLines: 1,
+                        inputFormatters: [
+                          _CapitalizeFirstLetterFormatter(),
+                        ],
                       ),
-                      
+
                       SizedBox(height: 20),
-                      Text(translateText('Branch Images(Optional)'),
+                      Text(
+                        translateText('Branch Images(Optional)'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       SizedBox(height: 8),
@@ -300,7 +424,7 @@ else
                               ),
                               child: Icon(
                                 Icons.add,
-                                color:  AppColors.darkGrey,
+                                color: AppColors.darkGrey,
                               ),
                             ),
                           ),
@@ -311,11 +435,10 @@ else
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: state.isSubmitting
-                              ? null
-                              : () => _submit(state),
+                          onPressed:
+                              state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.black,
+                            backgroundColor: AppColors.starColor,
                             foregroundColor: AppColors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
@@ -350,74 +473,168 @@ else
       },
     );
   }
-Widget _buildTextField({
-  required TextEditingController controller,
-  required String label,
-  required String hint,
-  int maxLines = 1,
-  int? maxLength,
-  bool enabled = true,
-  TextCapitalization textCapitalization = TextCapitalization.sentences,
-  TextInputType keyboardType = TextInputType.text,
-  List<TextInputFormatter>? inputFormatters,
-}) {
-  final localizedLabel = translateText(label);
-  final localizedHint = translateText(hint);
-  final sanitizedField = localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
-  final fieldForMessage = sanitizedField.isEmpty ? localizedLabel : sanitizedField;
+// Widget _buildTextField({
+//   required TextEditingController controller,
+//   required String label,
+//   required String hint,
+//   int maxLines = 1,
+//   int? maxLength,
+//   bool enabled = true,
+//   TextCapitalization textCapitalization = TextCapitalization.sentences,
+//   TextInputType keyboardType = TextInputType.text,
+//   List<TextInputFormatter>? inputFormatters,
+// }) {
+//   final localizedLabel = translateText(label);
+//   final localizedHint = translateText(hint);
+//   final sanitizedField = localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
+//   final fieldForMessage = sanitizedField.isEmpty ? localizedLabel : sanitizedField;
 
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      maxLength: maxLength,
-      enabled: enabled,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-      textCapitalization: textCapitalization,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return translateText('{field} is required', params: {'field': fieldForMessage});
-        }
-        return null;
-      },
-      decoration: InputDecoration(
-        counterText: '',
-        labelText: localizedLabel,
-        hintText: localizedHint,
-        labelStyle: const TextStyle(color: AppColors.darkGrey),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 2),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        errorStyle: const TextStyle(
-          color: Colors.red,
+//   return Padding(
+//     padding: const EdgeInsets.symmetric(vertical: 10),
+//     child: TextFormField(
+//       controller: controller,
+//       maxLines: maxLines,
+//       maxLength: maxLength,
+//       enabled: enabled,
+//       keyboardType: keyboardType,
+//       inputFormatters: inputFormatters,
+//       textCapitalization: textCapitalization,
+//       autovalidateMode: AutovalidateMode.onUserInteraction,
+//       validator: (value) {
+//         if (value == null || value.trim().isEmpty) {
+//           return translateText('{field} is required', params: {'field': fieldForMessage});
+//         }
+//         return null;
+//       },
+//       decoration: InputDecoration(
+//         counterText: '',
+//         labelText: localizedLabel,
+//         hintText: localizedHint,
+//         labelStyle: const TextStyle(color: AppColors.darkGrey),
+//         border: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         focusedBorder: OutlineInputBorder(
+//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 2),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         enabledBorder: OutlineInputBorder(
+//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         errorBorder: OutlineInputBorder(
+//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         focusedErrorBorder: OutlineInputBorder(
+//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         errorStyle: const TextStyle(
+//           color: Colors.red,
+//         ),
+//       ),
+//     ),
+//   );
+// }
+  Widget _buildTextField({
+    required _BranchField field,
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    int maxLines = 1,
+    int? maxLength,
+    bool enabled = true,
+    TextCapitalization textCapitalization = TextCapitalization.sentences,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+    ValueChanged<String>? onChanged,
+  }) {
+    final localizedLabel = translateText(label);
+    final localizedHint = translateText(hint);
+
+    // if label has '*', we show red star and also require validation
+    final isRequired = localizedLabel.contains('*');
+
+    final sanitizedField =
+        localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
+    final fieldForMessage =
+        sanitizedField.isEmpty ? localizedLabel : sanitizedField;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        maxLength: maxLength,
+        enabled: enabled,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
+        textCapitalization: textCapitalization,
+        autovalidateMode: AutovalidateMode.disabled,
+        onChanged: (value) {
+          _resetFieldError(field);
+          onChanged?.call(value);
+        },
+        validator: (value) {
+          if (!(_fieldValidationVisibility[field] ?? false)) {
+            return null;
+          }
+          if (isRequired && (value == null || value.trim().isEmpty)) {
+            return translateText('{field} is required',
+                params: {'field': fieldForMessage});
+          }
+          return null;
+        },
+        decoration: InputDecoration(
+          counterText: '',
+          // ⬇️ use `label:` so we can color the star red
+          label: _requiredLabel(localizedLabel, required: isRequired),
+          hintText: localizedHint,
+          labelStyle: const TextStyle(color: AppColors.darkGrey),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          errorStyle: const TextStyle(color: Colors.red),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-
+  Widget _requiredLabel(String text, {bool required = true}) {
+    final t = translateText(text).replaceAll('*', '').trim(); // keep clean text
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(color: AppColors.darkGrey, fontSize: 16),
+        children: [
+          TextSpan(text: t),
+          if (required) const TextSpan(text: ' '),
+          if (required)
+            const TextSpan(
+              text: '*',
+              style: TextStyle(color: Colors.red),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildTimePickerField({
+    required _BranchField field,
     required TextEditingController controller,
     required String label,
     required VoidCallback onTap,
@@ -426,6 +643,7 @@ Widget _buildTextField({
       onTap: onTap,
       child: AbsorbPointer(
         child: _buildTextField(
+          field: field,
           controller: controller,
           label: label,
           hint: 'Select time',

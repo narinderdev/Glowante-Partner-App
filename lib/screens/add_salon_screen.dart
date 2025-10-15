@@ -430,7 +430,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                       ),
                       SizedBox(height: 20),
                       Text(
-                        translateText('Salon Images'),
+                        translateText('Salon Images(Optional)'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       SizedBox(height: 8),

@@ -763,9 +763,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       'terms': termsController.text.trim().isEmpty
           ? null
           : termsController.text.trim(),
-      'items': _selectedServices
-          .map((s) => {'serviceId': s['id'], 'qty': s['qty']})
-          .toList(),
+'items': _selectedServices
+    .map((s) => {'branchServiceId': s['id'], 'qty': s['qty']})
+    .toList(),
+
     };
 
     if (pricingMode == 'Fixed') {

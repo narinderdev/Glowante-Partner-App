@@ -21,7 +21,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   late Map<String, List<Map<String, String>>> weeklySchedule;
   late Map<String, List<Map<String, String>>>
       mondaySchedule; // For tracking Monday's schedule separately
-bool _isSubmitting = false;
+  bool _isSubmitting = false;
+  bool _useSalonHours = false;
 
   @override
   void initState() {
@@ -42,8 +43,8 @@ bool _isSubmitting = false;
   void addSlot(String day) {
     setState(() {
       weeklySchedule[day]?.add({
-        'start': '09:00 AM',
-        'end': '05:00 PM',
+        'start': '08:00 AM',
+        'end': '08:00 PM',
       });
     });
   }
@@ -160,16 +161,25 @@ Future<void> _addTeamMember() async {
 
   try {
     // Gather schedule data
-    List<Map<String, String>> scheduleData = [];
-    for (var day in weeklySchedule.keys) {
-      for (var slot in weeklySchedule[day]!) {
+  List<Map<String, String>> scheduleData = [];
+if (!_useSalonHours) {
+  weeklySchedule.forEach((day, slots) {
+    for (var slot in slots) {
+      final start = slot['start']?.trim();
+      final end = slot['end']?.trim();
+
+      // Only include if both start and end times are set manually
+      if (start != null && end != null && start.isNotEmpty && end.isNotEmpty) {
         scheduleData.add({
           'day': day.toLowerCase(),
-          'startTime': slot['start'] ?? '09:00 AM',
-          'endTime': slot['end'] ?? '05:00 PM',
+          'startTime': start,
+          'endTime': end,
         });
       }
     }
+  });
+}
+
 
     // Prepare payload
     final dynamic rawJoiningDate = widget.formData['joiningDate'];
@@ -196,6 +206,7 @@ Future<void> _addTeamMember() async {
       "roles": List<String>.from(rawRoles.map((e) => e.toString())),
       "specialities": List<String>.from(rawSpecs.map((e) => e.toString())),
       "schedules": scheduleData,
+      "useSalonHours": _useSalonHours,
       "otp": widget.formData['otp']?.toString(),
     };
 
@@ -273,15 +284,38 @@ Future<void> _addTeamMember() async {
       formattedJoiningDate = joiningDate;
     }
 
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.pop(context);
-        return false; // Prevent the default back action
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('Add Timeslots'),
+   return WillPopScope(
+  onWillPop: () async {
+    Navigator.pop(context);
+    return false; // Prevent the default back action
+  },
+  child: Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
+      iconTheme: const IconThemeData(color: Colors.white),
+      title: Text(
+        translateText('Add TimeSlots'),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
         ),
+      ),
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.starColor,
+              AppColors.getStartedButton,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+      ),
+    ),
         body: SingleChildScrollView(
           // Wrap the entire body in SingleChildScrollView for scrolling
           child: Padding(
@@ -296,13 +330,42 @@ Future<void> _addTeamMember() async {
                     fontWeight: FontWeight.bold, // Added font weight
                   ),
                 ),
-                SizedBox(height: 16),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _useSalonHours,
+                  onChanged: (value) {
+                    setState(() {
+                      _useSalonHours = value ?? false;
+                    });
+                  },
+                  title: const Text('Use salon open & close time'),
+                  subtitle: const Text(
+                    'Apply the salon\'s operating hours instead of defining custom time slots.',
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                if (_useSalonHours)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Salon operating hours will be used for this team member. Uncheck to set custom slots.',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ),
+                if (!_useSalonHours) ...[
+                  const SizedBox(height: 16),
 
-                // Display Monday's working hours and slots as a card
-                Container(
-                  width: double
-                      .infinity, // Ensure consistent width across all cards
-                  child: Card(
+                  // Display Monday's working hours and slots as a card
+                  Container(
+                    width:
+                        double.infinity, // Ensure consistent width across all cards
+                    child: Card(
                     elevation: 5,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -351,7 +414,7 @@ Future<void> _addTeamMember() async {
                                             child: Text(
                                               weeklySchedule['Monday']![i]
                                                       ['start'] ??
-                                                  '09:00 AM',
+                                                  '08:00 AM',
                                               style: TextStyle(fontSize: 16),
                                             ),
                                           ),
@@ -378,7 +441,7 @@ Future<void> _addTeamMember() async {
                                             child: Text(
                                               weeklySchedule['Monday']![i]
                                                       ['end'] ??
-                                                  '05:00 PM',
+                                                  '08:00 PM',
                                               style: TextStyle(fontSize: 16),
                                             ),
                                           ),
@@ -413,7 +476,7 @@ Future<void> _addTeamMember() async {
                     child: Text('Copy Monday schedule to all days'),
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
 
                 // Display each day's working hours and slots
                 for (var day in weeklySchedule.keys)
@@ -478,7 +541,7 @@ Future<void> _addTeamMember() async {
                                                     child: Text(
                                                       weeklySchedule[day]![i]
                                                               ['start'] ??
-                                                          '09:00 AM',
+                                                          '08:00 AM',
                                                       style: TextStyle(
                                                           fontSize: 16),
                                                     ),
@@ -509,7 +572,7 @@ Future<void> _addTeamMember() async {
                                                     child: Text(
                                                       weeklySchedule[day]![i]
                                                               ['end'] ??
-                                                          '05:00 PM',
+                                                          '08:00 PM',
                                                       style: TextStyle(
                                                           fontSize: 16),
                                                     ),
@@ -537,38 +600,40 @@ Future<void> _addTeamMember() async {
                             ),
                           ),
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                       ],
                     ),
+                ],
               Padding(
-  padding: const EdgeInsets.symmetric(vertical: 16),
-  child: ElevatedButton(
-    onPressed: _isSubmitting ? null : () async {
-      await _addTeamMember();
-    },
-    style: ElevatedButton.styleFrom(
-      minimumSize: const Size(double.infinity, 50),
-      backgroundColor: AppColors.starColor,
-      foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(6), // smaller curve
-      ),
-    ),
-    child: _isSubmitting
-        ? const SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2.5,
-            ),
-          )
-        : const Text(
-            'Add Team Member',
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-          ),
-  ),
-),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : () async {
+                    await _addTeamMember();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6), // smaller curve
+                    ),
+                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text(
+                          'Add Team Member',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                ),
+              ),
 
               ],
             ),
