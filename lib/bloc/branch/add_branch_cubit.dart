@@ -1,5 +1,4 @@
 ﻿import 'dart:io';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,6 +28,9 @@ class AddBranchCubit extends Cubit<AddBranchState> {
 
   final int salonId;
   final SalonRepository _repository;
+
+  // ✅ Add this line to expose repository publicly
+  SalonRepository get repository => _repository;
 
   Future<void> loadSavedPhone() async {
     emit(state.copyWith(status: BranchFormStatus.loading));

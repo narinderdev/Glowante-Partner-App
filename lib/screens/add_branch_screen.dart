@@ -10,6 +10,9 @@ import 'add_location_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/colors.dart';
+import 'AddSalonServices.dart';
+import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
+import 'package:bloc_onboarding/repositories/salon_repository.dart';
 
 enum _BranchField { name, phone, startTime, endTime, description }
 
@@ -70,6 +73,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   @override
   void initState() {
     super.initState();
+      _startTimeController.text = "08:00 AM";
+  _endTimeController.text = "08:00 PM";
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AddBranchCubit>().loadSavedPhone();
     });
@@ -106,18 +111,25 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   }
 
   Future<void> _selectTime(
-    _BranchField field,
-    TextEditingController controller,
-  ) async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-    );
-    if (picked != null) {
-      controller.text = picked.format(context);
-      _resetFieldError(field);
-    }
+  _BranchField field,
+  TextEditingController controller,
+) async {
+  // ⏰ Determine default time (based on field)
+  final defaultTime = field == _BranchField.startTime
+      ? const TimeOfDay(hour: 8, minute: 0)
+      : const TimeOfDay(hour: 20, minute: 0);
+
+  final picked = await showTimePicker(
+    context: context,
+    initialTime: defaultTime, // ✅ start with 8:00 or 20:00
+  );
+
+  if (picked != null) {
+    controller.text = picked.format(context);
+    _resetFieldError(field);
   }
+}
+
 
   Future<void> _chooseLocation(AddBranchState state) async {
     final result = await Navigator.push<Map<String, dynamic>?>(
@@ -145,41 +157,105 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         );
   }
 
-  void _submit(AddBranchState state) {
-    final form = _formKey.currentState;
-    if (form == null) {
-      return;
+  // void _submit(AddBranchState state) {
+  //   final form = _formKey.currentState;
+  //   if (form == null) {
+  //     return;
+  //   }
+
+  //   setState(() {
+  //     for (final key in _fieldValidationVisibility.keys) {
+  //       _fieldValidationVisibility[key] = true;
+  //     }
+  //   });
+
+  //   final isValid = form.validate();
+  //   if (!isValid) {
+  //     return;
+  //   }
+
+  //   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //           content: Text(translateText('Please select start and end time.'))),
+  //     );
+  //     return;
+  //   }
+
+  //   context.read<AddBranchCubit>().submit(
+  //         AddBranchFormData(
+  //           name: _branchNameController.text.trim(),
+  //           phone: _phoneController.text.trim(),
+  //           startTime: _startTimeController.text.trim(),
+  //           endTime: _endTimeController.text.trim(),
+  //           description: _descriptionController.text.trim(),
+  //         ),
+  //       );
+  // }
+void _submit(AddBranchState state) {
+  final form = _formKey.currentState;
+  if (form == null) return;
+
+  setState(() {
+    for (final key in _fieldValidationVisibility.keys) {
+      _fieldValidationVisibility[key] = true;
     }
+  });
 
-    setState(() {
-      for (final key in _fieldValidationVisibility.keys) {
-        _fieldValidationVisibility[key] = true;
-      }
-    });
+  final isValid = form.validate();
+  if (!isValid) return;
 
-    final isValid = form.validate();
-    if (!isValid) {
-      return;
-    }
-
-    if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(translateText('Please select start and end time.'))),
-      );
-      return;
-    }
-
-    context.read<AddBranchCubit>().submit(
-          AddBranchFormData(
-            name: _branchNameController.text.trim(),
-            phone: _phoneController.text.trim(),
-            startTime: _startTimeController.text.trim(),
-            endTime: _endTimeController.text.trim(),
-            description: _descriptionController.text.trim(),
-          ),
-        );
+  if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(translateText('Please select start and end time.')),
+      ),
+    );
+    return;
   }
+
+  if (state.address == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(translateText('Please choose a branch location.')),
+      ),
+    );
+    return;
+  }
+
+  // ✅ Create the form data object
+  final branchFormData = AddBranchFormData(
+    name: _branchNameController.text.trim(),
+    phone: _phoneController.text.trim(),
+    startTime: _startTimeController.text.trim(),
+    endTime: _endTimeController.text.trim(),
+    description: _descriptionController.text.trim(),
+  );
+
+  // ✅ Navigate to AddSalonServices instead of calling API
+ Navigator.push(
+  context,
+  MaterialPageRoute(
+    builder: (_) => MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => AddSalonCubit(SalonRepository()),
+        ),
+        BlocProvider.value(
+          value: context.read<AddBranchCubit>(),
+        ),
+      ],
+      child: AddSalonServices(
+        branchFormData: branchFormData,
+        branchAddress: state.address!,
+        branchImages: state.images,
+         salonId: widget.salonId,
+      ),
+    ),
+  ),
+);
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -453,7 +529,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : Text(translateText('Add Branch')),
+                              : Text(translateText('Next')),
                         ),
                       ),
                     ],
@@ -473,70 +549,6 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       },
     );
   }
-// Widget _buildTextField({
-//   required TextEditingController controller,
-//   required String label,
-//   required String hint,
-//   int maxLines = 1,
-//   int? maxLength,
-//   bool enabled = true,
-//   TextCapitalization textCapitalization = TextCapitalization.sentences,
-//   TextInputType keyboardType = TextInputType.text,
-//   List<TextInputFormatter>? inputFormatters,
-// }) {
-//   final localizedLabel = translateText(label);
-//   final localizedHint = translateText(hint);
-//   final sanitizedField = localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
-//   final fieldForMessage = sanitizedField.isEmpty ? localizedLabel : sanitizedField;
-
-//   return Padding(
-//     padding: const EdgeInsets.symmetric(vertical: 10),
-//     child: TextFormField(
-//       controller: controller,
-//       maxLines: maxLines,
-//       maxLength: maxLength,
-//       enabled: enabled,
-//       keyboardType: keyboardType,
-//       inputFormatters: inputFormatters,
-//       textCapitalization: textCapitalization,
-//       autovalidateMode: AutovalidateMode.onUserInteraction,
-//       validator: (value) {
-//         if (value == null || value.trim().isEmpty) {
-//           return translateText('{field} is required', params: {'field': fieldForMessage});
-//         }
-//         return null;
-//       },
-//       decoration: InputDecoration(
-//         counterText: '',
-//         labelText: localizedLabel,
-//         hintText: localizedHint,
-//         labelStyle: const TextStyle(color: AppColors.darkGrey),
-//         border: OutlineInputBorder(
-//           borderRadius: BorderRadius.circular(8),
-//         ),
-//         focusedBorder: OutlineInputBorder(
-//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 2),
-//           borderRadius: BorderRadius.circular(8),
-//         ),
-//         enabledBorder: OutlineInputBorder(
-//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-//           borderRadius: BorderRadius.circular(8),
-//         ),
-//         errorBorder: OutlineInputBorder(
-//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-//           borderRadius: BorderRadius.circular(8),
-//         ),
-//         focusedErrorBorder: OutlineInputBorder(
-//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-//           borderRadius: BorderRadius.circular(8),
-//         ),
-//         errorStyle: const TextStyle(
-//           color: Colors.red,
-//         ),
-//       ),
-//     ),
-//   );
-// }
   Widget _buildTextField({
     required _BranchField field,
     required TextEditingController controller,

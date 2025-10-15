@@ -556,7 +556,7 @@ class _HeaderSection extends StatelessWidget {
     );
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
       decoration: BoxDecoration(
         gradient: headerGradient,
       ),
@@ -576,7 +576,7 @@ class _HeaderSection extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    // const SizedBox(height: 4),
                     Text(
                       selectedName ??
                           translateText('Select a salon to get started'),
@@ -591,7 +591,7 @@ class _HeaderSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 4),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -626,7 +626,7 @@ class _HeaderSection extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                // const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(14),

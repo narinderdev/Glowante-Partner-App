@@ -164,6 +164,7 @@ void removeImage(File image) {
         latitude: address.latitude,
         longitude: address.longitude,
         serviceCodes: state.selectedServiceCodes,
+        selectedCategoryCodes: state.selectedServiceCodes,
       );
 
       emit(state.copyWith(

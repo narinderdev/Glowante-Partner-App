@@ -626,6 +626,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoading = true);
+     searchLocationController.clear();
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return;
@@ -699,37 +700,146 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     }
   }
 
-  void _showOverlay() {
-    _removeOverlay();
-    overlayEntry = OverlayEntry(
-      builder: (context) => CompositedTransformFollower(
+  // void _showOverlay() {
+  //   _removeOverlay();
+  //   overlayEntry = OverlayEntry(
+  //     builder: (context) => CompositedTransformFollower(
+  //       link: _searchFieldLink,
+  //       offset: const Offset(0, 62),
+  //       child: Material(
+  //         elevation: 6,
+  //         borderRadius: BorderRadius.circular(10),
+  //         child: ConstrainedBox(
+  //           constraints: const BoxConstraints(maxHeight: 250),
+  //           child: ListView(
+  //             padding: EdgeInsets.zero,
+  //             children: predictions.map((p) {
+  //               final text = p.fullText ?? '';
+  //               return ListTile(
+  //                 title: Text(text),
+  //                 onTap: () async {
+  //                   await _onPredictionSelected(p.placeId);
+  //                   searchLocationController.clear(); // ✅ clear after selection
+  //                   _removeOverlay();
+  //                 },
+  //               );
+  //             }).toList(),
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  //   Overlay.of(context)?.insert(overlayEntry!);
+//   // }
+// void _showOverlay() {
+//   _removeOverlay();
+
+//   final screenWidth = MediaQuery.of(context).size.width;
+//   final overlay = Overlay.of(context);
+//   if (overlay == null) return;
+
+//   overlayEntry = OverlayEntry(
+//     builder: (context) => Positioned(
+//       width: screenWidth * 1, // ✅ half screen width
+//       child: CompositedTransformFollower(
+//         link: _searchFieldLink,
+//         showWhenUnlinked: false,
+//         offset: const Offset(0, 60), // small gap under text field
+//         child: Material(
+//           elevation: 6,
+//           borderRadius: BorderRadius.circular(10),
+//           clipBehavior: Clip.hardEdge, // ensures rounded corners clip children
+//           child: ConstrainedBox(
+//             constraints: const BoxConstraints(
+//               maxHeight: 250, // ✅ fixed maximum height
+//             ),
+//             child: ListView.builder(
+//               padding: EdgeInsets.zero,
+//               shrinkWrap: true,
+//               itemCount: predictions.length,
+//               itemBuilder: (context, index) {
+//                 final p = predictions[index];
+//                 return ListTile(
+//                   dense: true,
+//                   contentPadding:
+//                       const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+//                   title: Text(
+//                     p.fullText ?? '',
+//                     style: const TextStyle(fontSize: 14),
+//                   ),
+//                   onTap: () async {
+//                     await _onPredictionSelected(p.placeId);
+//                     searchLocationController.clear();
+//                     _removeOverlay();
+//                   },
+//                 );
+//               },
+//             ),
+//           ),
+//         ),
+//       ),
+//     ),
+//   );
+
+//   overlay.insert(overlayEntry!);
+// }
+void _showOverlay() {
+  _removeOverlay();
+
+  final screenWidth = MediaQuery.of(context).size.width;
+  final overlay = Overlay.of(context);
+  if (overlay == null) return;
+
+  overlayEntry = OverlayEntry(
+    builder: (context) => Positioned(
+      left: 16, // ✅ margin from left edge
+      right: 16, // ✅ equal margin from right edge
+      child: CompositedTransformFollower(
         link: _searchFieldLink,
-        offset: const Offset(0, 62),
+        showWhenUnlinked: false,
+        offset: const Offset(0, 60), // small vertical gap below TextField
         child: Material(
           elevation: 6,
           borderRadius: BorderRadius.circular(10),
+          clipBehavior: Clip.hardEdge,
+          color: Colors.white,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 250),
-            child: ListView(
+            child: ListView.separated(
               padding: EdgeInsets.zero,
-              children: predictions.map((p) {
-                final text = p.fullText ?? '';
+              shrinkWrap: true,
+              itemCount: predictions.length,
+              separatorBuilder: (_, __) => const Divider(
+                height: 1,
+                color: Color(0xFFE0E0E0),
+              ),
+              itemBuilder: (context, index) {
+                final p = predictions[index];
                 return ListTile(
-                  title: Text(text),
+                  dense: true,
+                  visualDensity: const VisualDensity(vertical: -1),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  title: Text(
+                    p.fullText ?? '',
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  ),
                   onTap: () async {
                     await _onPredictionSelected(p.placeId);
-                    searchLocationController.clear(); // ✅ clear after selection
+                    searchLocationController.clear();
                     _removeOverlay();
                   },
                 );
-              }).toList(),
+              },
             ),
           ),
         ),
       ),
-    );
-    Overlay.of(context)?.insert(overlayEntry!);
-  }
+    ),
+  );
+
+  overlay.insert(overlayEntry!);
+}
 
   void _removeOverlay() {
     overlayEntry?.remove();
@@ -815,21 +925,48 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 10),
-                  CompositedTransformTarget(
-                    link: _searchFieldLink,
-                    child: TextFormField(
-                      controller: searchLocationController,
-                      focusNode: _searchFocus,
-                      decoration: InputDecoration(
-                        labelText: translateText('Search Location'),
-                        hintText: translateText('Search for a location'),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onChanged: (val) => _getPredictions(val),
-                    ),
-                  ),
+               CompositedTransformTarget(
+  link: _searchFieldLink,
+  child: TextFormField(
+    controller: searchLocationController,
+    focusNode: _searchFocus,
+    decoration: InputDecoration(
+      labelText: translateText('Search Location'),
+      hintText: translateText('Search for a location'),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+
+      // ✅ clear (X) icon on the right
+      suffixIcon: searchLocationController.text.isNotEmpty
+          ? IconButton(
+              icon: const Icon(Icons.close, color: Colors.grey),
+              splashRadius: 18,
+              onPressed: () {
+                FocusScope.of(context).unfocus(); // hide keyboard
+                searchLocationController.clear();
+                setState(() {
+                  predictions.clear(); // clear search results
+                });
+                _removeOverlay(); // remove dropdown overlay
+              },
+            )
+          : null,
+    ),
+
+    onChanged: (val) async {
+      setState(() {}); // rebuild to show/hide clear icon dynamically
+      if (val.trim().isEmpty) {
+        // ✅ if empty, instantly clear predictions & hide overlay
+        _removeOverlay();
+        setState(() => predictions.clear());
+        return;
+      }
+      await _getPredictions(val);
+    },
+  ),
+),
+
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _getCurrentLocation,

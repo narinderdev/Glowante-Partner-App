@@ -75,11 +75,11 @@ class ApiService {
   static const String serviceCatalog = "service-catalog";
   static const String getBranchServices = "salon-service/catalog";
   static const String addSubCategory =
-      "/salons/{salonId}/categories/{categoryId}/subcategories";
+      "/branches/{branchId}/categories/{categoryId}/subcategories";
   static const String checkSendOtpEndpoint = "users/check-and-send-otp";
-  static String addServiceAPI(int salonId) => "salons/$salonId/services";
+  static String addServiceAPI(int branchId)=> "branches/$branchId/services";
 
-  static String getSalonServicesAPI(int salonId) => "salons/$salonId/services";
+  static String getSalonServicesAPI(int branchId) => "branches/$branchId/services";
 
   static String addCategoryAPI(int salonId) {
     return "salons/$salonId/categories";
@@ -115,8 +115,8 @@ static String getBranchServicesAPI(int branchId) => "branches/$branchId/services
     return "salons/$salonId/offers";
   }
 
-  static String getSalonPackagesDeals(int salonId) {
-    return "salons/$salonId/offers";
+  static String getSalonPackagesDeals(int branchId) {
+    return "branches/$branchId/offers";
   }
 
   static String deleteSalonOffer(int salonId, int offerId) {
@@ -662,11 +662,11 @@ Future<bool> deleteAccountAPI() async {
   }
 
   Future<Map<String, dynamic>> addCategory({
-    required int salonId,
+    required int branchId,
     required AddCategoryRequest request,
   }) async {
     final token = await getAuthToken(); // 🔑 fetch saved token
-    final url = Uri.parse(baseUrl + "salons/$salonId/categories");
+    final url = Uri.parse(baseUrl + "branches/$branchId/categories");
 
     // 🔹 Debug print before API call
     print("➡️ Calling Add Category API");
@@ -964,11 +964,11 @@ Future<bool> deleteAccountAPI() async {
   }
 
   Future<Map<String, dynamic>> addService({
-    required int salonId,
+    required int branchId,
     required AddSalonServiceRequest request,
   }) async {
     final token = await getAuthToken();
-    final url = Uri.parse(baseUrl + addServiceAPI(salonId));
+    final url = Uri.parse(baseUrl + addServiceAPI(branchId));
 
     print("➡️ Calling Add Service API");
     print("➡️ URL: $url");
@@ -1192,42 +1192,37 @@ Future<Map<String, dynamic>> getBranchService({required int branchId}) async {
 Future<Map<String, dynamic>> addSubCategoryApi({
   required int salonId,
   required int categoryId,
-  required String name,
+  required String displayName,
 }) async {
   final url = Uri.parse(
-    '$baseUrl${addSubCategory.replaceFirst(RegExp(r'^/'), '')}'
-      .replaceAll("{salonId}", salonId.toString())
-      .replaceAll("{categoryId}", categoryId.toString()),
+    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$salonId/categories/$categoryId/subcategories',
   );
+  print('Sending request to URL: $url');
 
   final token = await getAuthToken();
-  if (token.isEmpty) {
-    // Throw JSON so your Cubit’s _extractErrorMessage can show a nice SnackBar
-    throw Exception('{"message":["Authentication required"]}');
-  }
-
-  print("Sending request to URL: $url");
-  final bodyJson = json.encode({"name": name, "sortOrder": 200});
-  print("Request body: $bodyJson");
+  final requestBody = jsonEncode({
+    'displayName': displayName,
+    'sortOrder': 200, // ✅ integer
+  });
+  print('Request body: $requestBody');
 
   final response = await _sharedClient.post(
     url,
     headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer $token",
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
     },
-    body: bodyJson,
+    body: requestBody,
   );
 
-  print("Response status: ${response.statusCode}");
-  print("Response body: ${response.body}");
+  print('Response status: ${response.statusCode}');
+  print('Response body: ${response.body}');
 
   if (response.statusCode == 200 || response.statusCode == 201) {
-    return json.decode(response.body) as Map<String, dynamic>;
+    return jsonDecode(response.body);
+  } else {
+    throw Exception(response.body);
   }
-
-  // Surface backend validation verbatim (e.g. {"message":["Name must start with an uppercase letter"], ...})
-  throw Exception(response.body.isNotEmpty ? response.body : 'Failed to create subcategory');
 }
 
   // ---------------------- UPDATE SUBCATEGORY ----------------------

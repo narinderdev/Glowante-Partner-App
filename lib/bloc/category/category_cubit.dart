@@ -63,10 +63,10 @@ class CategoryCubit extends Cubit<CategoryState> {
     }
   }
 
-  Future<void> addCategory(int salonId, AddCategoryRequest request) async {
+  Future<void> addCategory(int branchId, AddCategoryRequest request) async {
     await _performMutation(
-      salonId,
-      () => _repository.addCategory(salonId: salonId, request: request),
+      branchId,
+      () => _repository.addCategory(branchId: branchId, request: request),
       fallbackMessage: 'Category added successfully',
     );
   }
@@ -97,13 +97,13 @@ Future<void> updateCategory(
     );
   }
 
-  Future<void> addSubCategory(int salonId, int categoryId, String name) async {
+  Future<void> addSubCategory(int branchId, int categoryId, String name) async {
     await _performMutation(
-      salonId,
+      branchId,
       () => _repository.addSubCategory(
-        salonId: salonId,
+        salonId: branchId,
         categoryId: categoryId,
-        name: name,
+        displayName: name,
       ),
       fallbackMessage: 'Subcategory added successfully',
     );
