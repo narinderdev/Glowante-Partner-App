@@ -31,83 +31,87 @@ class SalonRepository {
   // ------------------------------------------------------------
   // 2️⃣ Create salon
   // ------------------------------------------------------------
-  Future<Map<String, dynamic>> createSalon({
-    required String name,
-    required String phone,
-    required String startTime,
-    required String endTime,
-    required String description,
-    required String buildingName,
-    required String city,
-    required String pincode,
-    required String state,
-    required double latitude,
-    required double longitude,
-    required List<String> serviceCodes,
-    List<String> selectedCategoryCodes = const [],
-    List<File> images = const [],
-  }) async {
-    String? imageUrl;
-    if (images.isNotEmpty) {
-      final urls = await _apiService.uploadMultipleImages(images);
-      if (urls.isNotEmpty) imageUrl = urls.first;
-    }
-
-    final body = <String, dynamic>{
-      'name': name,
-      'phone': phone,
-      'startTime': startTime,
-      'endTime': endTime,
-      'description': description,
-      'image_url': imageUrl,
-      'address': {
-        'line1': '$buildingName, $city'.trim(),
-        'line2': pincode.isNotEmpty ? '$pincode, ' : '',
-        'village': '',
-        'district': '',
-        'city': city,
-        'state': state,
-        'country': 'India',
-        'postalCode': pincode,
-        'latitude': latitude,
-        'longitude': longitude,
-      },
-      'selectedCategoryCodes': selectedCategoryCodes,
-    };
-
-    final encoder = const JsonEncoder.withIndent('  ');
-    final payloadLog = encoder.convert(body);
-    debugPrint('[SalonRepository] createSalon payload ->\n$payloadLog');
-    FirebaseCrashlytics.instance
-        .log('[SalonRepository] createSalon payload -> $payloadLog');
-
-    final endpoint =
-        Uri.parse(ApiService.baseUrl + ApiService.createSalonEndpoint);
-    final token = await _apiService.getAuthToken();
-    final response = await http.post(
-      endpoint,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(body),
-    );
-
-    debugPrint(
-        '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
-    FirebaseCrashlytics.instance.log(
-        '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
-
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw HttpException(
-        'createSalon failed (${response.statusCode}): ${response.body}',
-        uri: endpoint,
-      );
-    }
-
-    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-    return decoded;
+Future<Map<String, dynamic>> createSalon({
+  required String name,
+  required String phone,
+  required String startTime,
+  required String endTime,
+  required String description,
+  required String buildingName,
+  required String city,
+  required String pincode,
+  required String state,
+  required double latitude,
+  required double longitude,
+  required List<String> serviceCodes,
+  List<String> selectedCategoryCodes = const [],
+  List<File> images = const [],
+  String? imageUrl, // ✅ new optional parameter
+}) async {
+  // ✅ If imageUrl is not passed but local files exist, upload them
+  if ((imageUrl == null || imageUrl.isEmpty) && images.isNotEmpty) {
+    final urls = await _apiService.uploadMultipleImages(images);
+    if (urls.isNotEmpty) imageUrl = urls.first;
   }
+
+  final body = <String, dynamic>{
+    'name': name,
+    'phone': phone,
+    'startTime': startTime,
+    'endTime': endTime,
+    'description': description,
+    'image_url': imageUrl, // ✅ now correctly included
+    'address': {
+      'line1': '$buildingName, $city'.trim(),
+      'line2': pincode.isNotEmpty ? '$pincode, ' : '',
+      'village': '',
+      'district': '',
+      'city': city,
+      'state': state,
+      'country': 'India',
+      'postalCode': pincode,
+      'latitude': latitude,
+      'longitude': longitude,
+    },
+    'selectedCategoryCodes': selectedCategoryCodes,
+  };
+
+  // 🔍 Debug Log
+  final encoder = const JsonEncoder.withIndent('  ');
+  final payloadLog = encoder.convert(body);
+  debugPrint('[SalonRepository] createSalon payload ->\n$payloadLog');
+  FirebaseCrashlytics.instance
+      .log('[SalonRepository] createSalon payload -> $payloadLog');
+
+  final endpoint =
+      Uri.parse(ApiService.baseUrl + ApiService.createSalonEndpoint);
+  final token = await _apiService.getAuthToken();
+
+  final response = await http.post(
+    endpoint,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode(body),
+  );
+
+  debugPrint(
+      '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
+  FirebaseCrashlytics.instance.log(
+      '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
+
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw HttpException(
+      'createSalon failed (${response.statusCode}): ${response.body}',
+      uri: endpoint,
+    );
+  }
+
+  final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+  return decoded;
+}
+
 
   // ------------------------------------------------------------
   // 3️⃣ Add branch under a salon
@@ -119,6 +123,7 @@ class SalonRepository {
     required String startTime,
     required String endTime,
     required String description,
+    
     required Map<String, dynamic> address,
     required double latitude,
     required double longitude,

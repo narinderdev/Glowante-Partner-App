@@ -414,10 +414,17 @@ context.read<CategoryCubit>().updateService(
           : FloatingActionButton.extended(
               heroTag: 'catalogueFab',
               onPressed: () => _showAddCategorySheet(),
-              icon: Icon(Icons.add_rounded),
-              label: Text(translateText('New Category')),
+              icon: Icon(Icons.add_rounded, size: 18,),
+              label: Text(translateText('New Category'),style: const TextStyle(
+            fontSize: 13, // 🔹 smaller font
+            fontWeight: FontWeight.w600,
+          ),),
               backgroundColor: AppColors.starColor,
               foregroundColor: AppColors.white,
+              extendedPadding: const EdgeInsets.symmetric(
+          horizontal: 10, // 🔹 reduces width
+          vertical: 0,    // 🔹 reduces height
+        ),
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
@@ -431,7 +438,7 @@ context.read<CategoryCubit>().updateService(
       child: ListView(
         controller: _catalogScrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 140),
+        padding: const EdgeInsets.fromLTRB(12, 24, 12, 140),
         children: [
           if (_selectedSalon == null) ...[
             _EmptyState(
@@ -698,6 +705,7 @@ for (final salon in salons) {
                       style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: Colors.black,
+                        fontSize: 16,
                       ),
                     ),
                     const Spacer(),
@@ -924,7 +932,7 @@ class _CategoryList extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade200,
                         shape: BoxShape.circle,
@@ -941,6 +949,7 @@ class _CategoryList extends StatelessWidget {
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: AppColors.starColor,
+                          fontSize: 14,
                         ),
                       ),
                     ),
@@ -1115,7 +1124,7 @@ class _SubcategoryTile extends StatelessWidget {
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           key: ValueKey(subCategory['id']),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16,),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           initiallyExpanded: isExpanded,
           onExpansionChanged: (value) {
@@ -1131,6 +1140,7 @@ class _SubcategoryTile extends StatelessWidget {
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                   color: AppColors.getStartedButton,
+                  fontSize: 14,
                 ),
               ),
               if (services.isNotEmpty) ...[

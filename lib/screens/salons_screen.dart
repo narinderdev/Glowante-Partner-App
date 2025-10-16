@@ -272,69 +272,85 @@ class _SalonsScreenState extends State<SalonsScreen> {
           );
         },
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(right: 4, bottom: 8),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, animation) {
-                final offsetAnimation = Tween<Offset>(
-                  begin: const Offset(0, 0.2),
-                  end: Offset.zero,
-                ).animate(animation);
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: offsetAnimation,
-                    child: child,
-                  ),
-                );
-              },
-              child: fabExpanded
-                  ? _FabActionPanel(
-                      key: const ValueKey('fab-panel'),
-                      onTeam: () {
-                        setState(() => fabExpanded = false);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => TeamScreen()),
-                        );
-                      },
-                      onDeals: () {
-                        setState(() => fabExpanded = false);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => DealScreen()),
-                        );
-                      },
-                      onPackages: () {
-                        setState(() => fabExpanded = false);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => PackageScreen()),
-                        );
-                      },
-                    )
-                  : SizedBox.shrink(key: ValueKey('fab-empty')),
-            ),
-            SizedBox(height: 10),
-            FloatingActionButton.extended(
-              backgroundColor: Colors.white,
-              foregroundColor: AppColors.starColor,
-              icon: Icon(fabExpanded ? Icons.close : Icons.menu_rounded),
-              label: Text(
-                translateText(fabExpanded ? 'Close' : 'Quick actions'),
+     floatingActionButton: Transform.translate(
+  offset: const Offset(0, 16), // moves it 16px down
+  child: Padding(
+    padding: const EdgeInsets.only(right: 4, bottom: 2),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          transitionBuilder: (child, animation) {
+            final offsetAnimation = Tween<Offset>(
+              begin: const Offset(0, 0.2),
+              end: Offset.zero,
+            ).animate(animation);
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: offsetAnimation,
+                child: child,
               ),
-              onPressed: () {
-                setState(() => fabExpanded = !fabExpanded);
-              },
-            ),
-          ],
+            );
+          },
+          child: fabExpanded
+              ? _FabActionPanel(
+                  key: const ValueKey('fab-panel'),
+                  onTeam: () {
+                    setState(() => fabExpanded = false);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => TeamScreen()),
+                    );
+                  },
+                  onDeals: () {
+                    setState(() => fabExpanded = false);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => DealScreen()),
+                    );
+                  },
+                  onPackages: () {
+                    setState(() => fabExpanded = false);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => PackageScreen()),
+                    );
+                  },
+                )
+              : const SizedBox.shrink(key: ValueKey('fab-empty')),
         ),
-      ),
+        const SizedBox(height: 10),
+        FloatingActionButton.extended(
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.starColor,
+          icon: Icon(
+            fabExpanded ? Icons.close : Icons.menu_rounded,
+            size: 20,
+          ),
+          label: Text(
+            translateText(fabExpanded ? 'Close' : 'Quick actions'),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          onPressed: () {
+            setState(() => fabExpanded = !fabExpanded);
+          },
+          extendedPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 6,
+          ),
+          elevation: 3,
+        ),
+      ],
+    ),
+  ),
+),
+
     );
   }
 }
@@ -1381,317 +1397,6 @@ class _SalonCard extends StatelessWidget {
     );
   }
 }
-// class _SalonCard extends StatelessWidget {
-//   _SalonCard({
-//     required this.salon,
-//     required this.salonId,
-//     required this.onAddBranch,
-//     required this.onOpenBranch,
-//   });
-
-//   final Map<String, dynamic> salon;
-//   final int salonId;
-//   final VoidCallback onAddBranch;
-//   final Future<void> Function(int branchId) onOpenBranch;
-
-//   int _parseId(dynamic value) {
-//     if (value is int) return value;
-//     if (value is String) return int.tryParse(value) ?? 0;
-//     return 0;
-//   }
-
-//   String _cleanText(dynamic value) {
-//     if (value == null) return '';
-//     final text = value.toString();
-//     if (text.isEmpty || text.toLowerCase() == 'null') return '';
-//     return text;
-//   }
-
-//   Widget _buildAvatar(String? imageUrl) {
-//     return ClipRRect(
-//       borderRadius: BorderRadius.circular(16),
-//       child: imageUrl != null && imageUrl.isNotEmpty
-//           ? Image.network(imageUrl, width: 66, height: 66, fit: BoxFit.cover)
-//           : Image.asset(
-//               'assets/images/salonImage.png',
-//               width: 66,
-//               height: 66,
-//               fit: BoxFit.cover,
-//             ),
-//     );
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final theme = Theme.of(context);
-//     final accentColor = AppColors.starColor;
-//     final branches =
-//         (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-
-//     final effectiveSalonId = salonId != 0 ? salonId : _parseId(salon['id']);
-//     final rawName = _cleanText(salon['name']);
-//     final salonName = rawName.isEmpty ? 'Unnamed Salon' : rawName;
-//     final rawTagline = _cleanText(salon['tagline']);
-//     final rawDescription = _cleanText(salon['description']);
-//     final tagline = rawTagline.isNotEmpty ? rawTagline : rawDescription;
-//     final rawImage = _cleanText(salon['imageUrl']);
-//     String? imageUrl = rawImage.isEmpty ? null : rawImage;
-
-//     if (imageUrl == null) {
-//       for (final branch in branches) {
-//         final branchImage = _cleanText(branch['imageUrl']);
-//         if (branchImage.isNotEmpty) {
-//           imageUrl = branchImage;
-//           break;
-//         }
-//       }
-//     }
-
-//     // chips
-//     final int additionalBranches =
-//         branches.length > 1 ? branches.length - 1 : 0;
-
-//     final borderColor = accentColor.withOpacity(0.18);
-
-//     return Container(
-//       margin: const EdgeInsets.only(bottom: 16),
-//       decoration: BoxDecoration(
-//         color: Colors.white,
-//         borderRadius: BorderRadius.circular(26),
-//         border: Border.all(color: borderColor, width: 1.1),
-//         boxShadow: const [
-//           BoxShadow(
-//             color: Color(0x12000000),
-//             blurRadius: 20,
-//             offset: Offset(0, 12),
-//           ),
-//         ],
-//       ),
-//       child: Padding(
-//         padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-//         child: Row(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             _buildAvatar(imageUrl),
-//             SizedBox(width: 16),
-//             Expanded(
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     salonName,
-//                     style: theme.textTheme.titleMedium?.copyWith(
-//                           fontWeight: FontWeight.w700,
-//                           color: const Color(0xFF263238),
-//                         ) ??
-//                         const TextStyle(
-//                           fontSize: 18,
-//                           fontWeight: FontWeight.w700,
-//                           color: Color(0xFF263238),
-//                         ),
-//                   ),
-//                   SizedBox(height: 8),
-//                   // Wrap(
-//                   //   spacing: 8,
-//                   //   runSpacing: 6,
-//                   //   children: [
-//                   //     if (additionalBranches > 0)
-//                   //       _MetricChip(
-//                   //         icon: Icons.storefront_rounded,
-//                   //         label:
-//                   //             "$additionalBranches ${additionalBranches == 1 ? 'branch' : 'branches'}",
-//                   //         accentColor: AppColors.starColor,
-//                   //         useAccent: true,
-//                   //       ),
-//                   //     if (effectiveSalonId != 0)
-//                   //       _MetricChip(
-//                   //         icon: Icons.confirmation_number_outlined,
-//                   //         label: 'Salon ID #$effectiveSalonId',
-//                   //         accentColor: AppColors.starColor,
-//                   //       ),
-//                   //   ],
-//                   // ),
-// // Wrap(
-// //   spacing: 8,
-// //   runSpacing: 6,
-// //   children: [
-// //     if (branches.isNotEmpty)
-// //       Builder(
-// //         builder: (context) {
-// //           final address =
-// //               (branches.first['address'] as Map<String, dynamic>?) ?? {};
-// //           final city = (address['city'] ?? '').toString().trim();
-// //           final state = (address['state'] ?? '').toString().trim();
-// //           final label = [
-// //             if (city.isNotEmpty) city,
-// //             if (state.isNotEmpty) state,
-// //           ].join(', ');
-
-// //           return _MetricChip(
-// //             icon: Icons.location_on_outlined,
-// //             label: label.isNotEmpty ? label : 'No address',
-// //             accentColor: AppColors.starColor,
-// //           );
-// //         },
-// //       ),
-// //   ],
-// // ),
-// // Wrap(
-// //   spacing: 8,
-// //   runSpacing: 6,
-// //   children: [
-// //     if (branches.isNotEmpty)
-// //       Builder(
-// //         builder: (context) {
-// //           final firstBranch = branches.first;
-// //           final address =
-// //               (firstBranch['address'] as Map<String, dynamic>?) ?? {};
-
-// //           final city = (address['city'] ?? '').toString().trim();
-// //           final state = (address['state'] ?? '').toString().trim();
-// //           final label = [
-// //             if (city.isNotEmpty) city,
-// //             if (state.isNotEmpty) state,
-// //           ].join(', ');
-
-// //           // 🟢 Extract phone from branch
-// //           final phone = (firstBranch['phone'] ??
-// //                   firstBranch['phoneNumber'] ??
-// //                   firstBranch['contactNumber'] ??
-// //                   '')
-// //               .toString()
-// //               .trim();
-
-// //           final chips = <Widget>[];
-
-// //           // 🏙️ Address chip
-// //           chips.add(
-// //             _MetricChip(
-// //               icon: Icons.location_on_outlined,
-// //               label: label.isNotEmpty ? label : 'No address',
-// //               accentColor: AppColors.starColor,
-// //             ),
-// //           );
-
-// //           // ☎️ Phone chip (only if available)
-// //           if (phone.isNotEmpty) {
-// //             chips.add(
-// //               _MetricChip(
-// //                 icon: Icons.phone_outlined,
-// //                 label: phone,
-// //                 accentColor: AppColors.starColor,
-// //               ),
-// //             );
-// //           }
-
-// //           return Wrap(spacing: 8, runSpacing: 6, children: chips);
-// //         },
-// //       ),
-// //   ],
-// // ),
-// Column(
-//   crossAxisAlignment: CrossAxisAlignment.start,
-//   children: [
-//     if (branches.isNotEmpty)
-//       Builder(
-//         builder: (context) {
-//           final firstBranch = branches.first;
-//           final address =
-//               (firstBranch['address'] as Map<String, dynamic>?) ?? {};
-
-//           final city = (address['city'] ?? '').toString().trim();
-//           final state = (address['state'] ?? '').toString().trim();
-//           final phone = (firstBranch['phone'] ??
-//                   firstBranch['phoneNumber'] ??
-//                   firstBranch['contactNumber'] ??
-//                   '')
-//               .toString()
-//               .trim();
-
-//           // Build clean address label
-//           final addressLabel =
-//               [city, state].where((e) => e.isNotEmpty).join(', ');
-
-//           return Container(
-//             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-//             decoration: BoxDecoration(
-//               color: AppColors.starColor.withOpacity(0.08),
-//               border: Border.all(color: AppColors.starColor.withOpacity(0.25)),
-//               borderRadius: BorderRadius.circular(14),
-//             ),
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 if (addressLabel.isNotEmpty)
-//                   Row(
-//                     children: [
-//                       const Icon(Icons.location_on_outlined,
-//                           size: 16, color: AppColors.starColor),
-//                       const SizedBox(width: 6),
-//                       Expanded(
-//                         child: Text(
-//                           addressLabel,
-//                           style: const TextStyle(
-//                             fontSize: 13,
-//                             fontWeight: FontWeight.w600,
-//                             color: AppColors.starColor,
-//                           ),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 if (phone.isNotEmpty) ...[
-//                   const SizedBox(height: 6),
-//                   Row(
-//                     children: [
-//                       const Icon(Icons.phone_outlined,
-//                           size: 16, color: AppColors.starColor),
-//                       const SizedBox(width: 6),
-//                       Expanded(
-//                         child: Text(
-//                           phone,
-//                           style: const TextStyle(
-//                             fontSize: 13,
-//                             fontWeight: FontWeight.w600,
-//                             color: AppColors.starColor,
-//                           ),
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                 ],
-//               ],
-//             ),
-//           );
-//         },
-//       ),
-//   ],
-// ),
-
-//                   if (tagline.isNotEmpty) ...[
-//                     SizedBox(height: 10),
-//                     Text(
-//                       tagline,
-//                       maxLines: 2,
-//                       overflow: TextOverflow.ellipsis,
-//                       style: theme.textTheme.bodySmall?.copyWith(
-//                             color: const Color(0xFF607D8B),
-//                           ) ??
-//                           const TextStyle(
-//                             fontSize: 12,
-//                             color: Color(0xFF607D8B),
-//                           ),
-//                     ),
-//                   ],
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
 
 class _BranchTile extends StatefulWidget {
   const _BranchTile({
@@ -1872,44 +1577,45 @@ class _BranchTileState extends State<_BranchTile> {
                 ),
             ],
           ),
-          if (chips.isNotEmpty) ...[
-            SizedBox(height: 10),
-            Wrap(spacing: 8, runSpacing: 6, children: chips),
-          ],
-          SizedBox(height: 14),
-          if (!widget.hideViewButton) // ?? only show for non-main branches
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: isLoading ? null : _handleTap,
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.starColor,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side:
-                        BorderSide(color: AppColors.starColor.withOpacity(0.6)),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      translateText('View Branch'),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.starColor,
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Icon(Icons.arrow_forward_rounded,
-                        size: 18, color: AppColors.starColor),
-                  ],
-                ),
-              ),
-            ),
+          // if (chips.isNotEmpty) ...[
+          //   SizedBox(height: 10),
+          //   Wrap(spacing: 8, runSpacing: 6, children: chips),
+          // ],
+          // SizedBox(height: 14),
+          // if (!widget.hideViewButton) // ?? only show for non-main branches
+          //   Align(
+          //     alignment: Alignment.centerRight,
+          //     child: TextButton(
+          //       onPressed: isLoading ? null : _handleTap,
+          //       style: TextButton.styleFrom(
+          //         backgroundColor: Colors.white,
+          //         foregroundColor: AppColors.starColor,
+          //         padding:
+          //             const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          //         shape: RoundedRectangleBorder(
+          //           borderRadius: BorderRadius.circular(16),
+          //           side:
+          //               BorderSide(color: AppColors.starColor.withOpacity(0.6)),
+          //         ),
+          //       ),
+          //       child: 
+          //       Row(
+          //         mainAxisSize: MainAxisSize.min,
+          //         children: [
+          //           Text(
+          //             translateText('View Branch'),
+          //             style: TextStyle(
+          //               fontWeight: FontWeight.w600,
+          //               color: AppColors.starColor,
+          //             ),
+          //           ),
+          //           SizedBox(width: 6),
+          //           Icon(Icons.arrow_forward_rounded,
+          //               size: 18, color: AppColors.starColor),
+          //         ],
+          //       ),
+          //     ),
+          //   ),
         ],
       ),
     );

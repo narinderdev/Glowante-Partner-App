@@ -11,6 +11,7 @@ import 'add_location_screen.dart';
 import '../screens/bottom_nav.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'AddSalonServices.dart';
+import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 
 class AddSalonScreen extends StatefulWidget {
   const AddSalonScreen({
@@ -20,6 +21,7 @@ class AddSalonScreen extends StatefulWidget {
     this.fullPhoneNumber,
     this.firstName,
     this.lastName,
+     this.imageUrl,
     this.email,
     this.isProceedFrom,
     this.buildingName,
@@ -35,6 +37,7 @@ class AddSalonScreen extends StatefulWidget {
   final String? fullPhoneNumber;
   final String? firstName;
   final String? lastName;
+  final String? imageUrl;
   final String? email;
   final String? isProceedFrom;
   final String? buildingName;
@@ -159,58 +162,113 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         );
   }
 
+  // Future<void> _submit(AddSalonState state) async {
+  //   final form = _formKey.currentState;
+  //   if (form == null || !form.validate()) {
+  //     return;
+  //   }
+
+  //   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //           content: Text(translateText('Please select start and end time.'))),
+  //     );
+  //     return;
+  //   }
+  //   String _capitalizeWords(String value) {
+  //     return value
+  //         .split(' ')
+  //         .map((word) =>
+  //             word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
+  //         .join(' ');
+  //   }
+
+  //   if (state.address == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //           content: Text(translateText('Please add the salon location.'))),
+  //     );
+  //     return;
+  //   }
+
+  //   final formData = AddSalonFormData(
+  //     name: _capitalizeWords(_salonNameController.text.trim()),
+  //     phone: _phoneController.text.trim(),
+  //     startTime: _startTimeController.text.trim(),
+  //     endTime: _endTimeController.text.trim(),
+  //     description: _capitalizeWords(_descriptionController.text.trim()),
+  //   );
+
+  //   final cubit = context.read<AddSalonCubit>();
+
+  //   await Navigator.push<void>(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (_) => BlocProvider.value(
+  //         value: cubit,
+  //         child: AddSalonServices(
+  //           initialCodes: state.selectedServiceCodes,
+  //           formData: formData,
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
   Future<void> _submit(AddSalonState state) async {
-    final form = _formKey.currentState;
-    if (form == null || !form.validate()) {
-      return;
-    }
+  final form = _formKey.currentState;
+  if (form == null || !form.validate()) return;
 
-    if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(translateText('Please select start and end time.'))),
-      );
-      return;
-    }
-    String _capitalizeWords(String value) {
-      return value
-          .split(' ')
-          .map((word) =>
-              word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
-          .join(' ');
-    }
-
-    if (state.address == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(translateText('Please add the salon location.'))),
-      );
-      return;
-    }
-
-    final formData = AddSalonFormData(
-      name: _capitalizeWords(_salonNameController.text.trim()),
-      phone: _phoneController.text.trim(),
-      startTime: _startTimeController.text.trim(),
-      endTime: _endTimeController.text.trim(),
-      description: _capitalizeWords(_descriptionController.text.trim()),
+  if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(translateText('Please select start and end time.'))),
     );
+    return;
+  }
 
-    final cubit = context.read<AddSalonCubit>();
+  if (state.address == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(translateText('Please add the salon location.'))),
+    );
+    return;
+  }
 
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: cubit,
-          child: AddSalonServices(
-            initialCodes: state.selectedServiceCodes,
-            formData: formData,
-          ),
+  final cubit = context.read<AddSalonCubit>();
+  final images = cubit.state.images;
+
+  String? imageUrl;
+
+  // ✅ Upload first image if exists
+  if (images.isNotEmpty) {
+    print("⏫ Uploading image to AWS S3...");
+    imageUrl = await AwsS3Uploader().uploadImage(
+      XFile(images.first.path),
+    );
+    print("✅ Uploaded Image URL: $imageUrl");
+  }
+
+  final formData = AddSalonFormData(
+    name: _salonNameController.text.trim(),
+    phone: _phoneController.text.trim(),
+    startTime: _startTimeController.text.trim(),
+    endTime: _endTimeController.text.trim(),
+    description: _descriptionController.text.trim(),
+    imageUrl: imageUrl, // ✅ added here
+  );
+
+  await Navigator.push<void>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => BlocProvider.value(
+        value: cubit,
+        child: AddSalonServices(
+          initialCodes: state.selectedServiceCodes,
+          formData: formData,
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {

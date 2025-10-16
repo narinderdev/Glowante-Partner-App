@@ -14,6 +14,7 @@ class AddSalonFormData {
     required this.startTime,
     required this.endTime,
     required this.description,
+     this.imageUrl,
   });
 
   final String name;
@@ -21,6 +22,7 @@ class AddSalonFormData {
   final String startTime;
   final String endTime;
   final String description;
+   final String? imageUrl;
 }
 
 class AddSalonCubit extends Cubit<AddSalonState> {
@@ -157,6 +159,7 @@ void removeImage(File image) {
         startTime: formData.startTime,
         endTime: formData.endTime,
         description: formData.description,
+        imageUrl: formData.imageUrl,
         buildingName: address.buildingName,
         city: address.city,
         pincode: address.pincode,
