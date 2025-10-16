@@ -132,6 +132,15 @@ void removeImage(File image) {
   //     );
   //   }
   // }
+ void setSubmitting(bool submitting) {
+  emit(state.copyWith(
+    status: submitting
+        ? AddSalonStatus.submitting
+        : AddSalonStatus.ready,
+  ));
+}
+
+
   Future<void> submit(AddSalonFormData formData) async {
     final address = state.address;
     if (address == null) {

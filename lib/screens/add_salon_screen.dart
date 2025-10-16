@@ -214,7 +214,62 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   //     ),
   //   );
   // }
-  Future<void> _submit(AddSalonState state) async {
+//   Future<void> _submit(AddSalonState state) async {
+//   final form = _formKey.currentState;
+//   if (form == null || !form.validate()) return;
+
+//   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(content: Text(translateText('Please select start and end time.'))),
+//     );
+//     return;
+//   }
+
+//   if (state.address == null) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(content: Text(translateText('Please add the salon location.'))),
+//     );
+//     return;
+//   }
+
+//   final cubit = context.read<AddSalonCubit>();
+//   final images = cubit.state.images;
+
+//   String? imageUrl;
+
+//   // ✅ Upload first image if exists
+//   if (images.isNotEmpty) {
+//     print("⏫ Uploading image to AWS S3...");
+//     imageUrl = await AwsS3Uploader().uploadImage(
+//       XFile(images.first.path),
+//     );
+//     print("✅ Uploaded Image URL: $imageUrl");
+//   }
+
+//   final formData = AddSalonFormData(
+//     name: _salonNameController.text.trim(),
+//     phone: _phoneController.text.trim(),
+//     startTime: _startTimeController.text.trim(),
+//     endTime: _endTimeController.text.trim(),
+//     description: _descriptionController.text.trim(),
+//     imageUrl: imageUrl, // ✅ added here
+//   );
+
+//   await Navigator.push<void>(
+//     context,
+//     MaterialPageRoute(
+//       builder: (_) => BlocProvider.value(
+//         value: cubit,
+//         child: AddSalonServices(
+//           initialCodes: state.selectedServiceCodes,
+//           formData: formData,
+//         ),
+//       ),
+//     ),
+//   );
+// }
+
+Future<void> _submit(AddSalonState state) async {
   final form = _formKey.currentState;
   if (form == null || !form.validate()) return;
 
@@ -233,42 +288,41 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   }
 
   final cubit = context.read<AddSalonCubit>();
-  final images = cubit.state.images;
+  cubit.setSubmitting(true); // ✅ show loader in button
 
-  String? imageUrl;
+  try {
+    final images = cubit.state.images;
+    String? imageUrl;
 
-  // ✅ Upload first image if exists
-  if (images.isNotEmpty) {
-    print("⏫ Uploading image to AWS S3...");
-    imageUrl = await AwsS3Uploader().uploadImage(
-      XFile(images.first.path),
+    if (images.isNotEmpty) {
+      imageUrl = await AwsS3Uploader().uploadImage(XFile(images.first.path));
+    }
+
+    final formData = AddSalonFormData(
+      name: _salonNameController.text.trim(),
+      phone: _phoneController.text.trim(),
+      startTime: _startTimeController.text.trim(),
+      endTime: _endTimeController.text.trim(),
+      description: _descriptionController.text.trim(),
+      imageUrl: imageUrl,
     );
-    print("✅ Uploaded Image URL: $imageUrl");
-  }
 
-  final formData = AddSalonFormData(
-    name: _salonNameController.text.trim(),
-    phone: _phoneController.text.trim(),
-    startTime: _startTimeController.text.trim(),
-    endTime: _endTimeController.text.trim(),
-    description: _descriptionController.text.trim(),
-    imageUrl: imageUrl, // ✅ added here
-  );
-
-  await Navigator.push<void>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => BlocProvider.value(
-        value: cubit,
-        child: AddSalonServices(
-          initialCodes: state.selectedServiceCodes,
-          formData: formData,
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BlocProvider.value(
+          value: cubit,
+          child: AddSalonServices(
+            initialCodes: state.selectedServiceCodes,
+            formData: formData,
+          ),
         ),
       ),
-    ),
-  );
+    );
+  } finally {
+    cubit.setSubmitting(false); // ✅ hide loader when done
+  }
 }
-
 
   @override
   Widget build(BuildContext context) {
