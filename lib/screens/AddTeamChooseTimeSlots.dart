@@ -6,6 +6,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
+import 'AddTeamSelectServices.dart';
 
 class AddTeamChooseTimeSlot extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -155,31 +156,34 @@ void copyMondayScheduleToAll() {
           day, index, timeType, formattedTime); // Update the selected time
     }
   }
+String _capitalize(String? value) {
+  if (value == null || value.isEmpty) return '';
+  return value[0].toUpperCase() + value.substring(1).toLowerCase();
+}
 
 Future<void> _addTeamMember() async {
   setState(() => _isSubmitting = true); // show loader
 
   try {
     // Gather schedule data
-  List<Map<String, String>> scheduleData = [];
-if (!_useSalonHours) {
-  weeklySchedule.forEach((day, slots) {
-    for (var slot in slots) {
-      final start = slot['start']?.trim();
-      final end = slot['end']?.trim();
+    final List<Map<String, String>> scheduleData = [];
+    if (!_useSalonHours) {
+      weeklySchedule.forEach((day, slots) {
+        for (final slot in slots) {
+          final start = slot['start']?.trim();
+          final end = slot['end']?.trim();
 
-      // Only include if both start and end times are set manually
-      if (start != null && end != null && start.isNotEmpty && end.isNotEmpty) {
-        scheduleData.add({
-          'day': day.toLowerCase(),
-          'startTime': start,
-          'endTime': end,
-        });
-      }
+          // Only include if both start and end times are set manually
+          if (start != null && end != null && start.isNotEmpty && end.isNotEmpty) {
+            scheduleData.add({
+              'day': day.toLowerCase(),
+              'startTime': start,
+              'endTime': end,
+            });
+          }
+        }
+      });
     }
-  });
-}
-
 
     // Prepare payload
     final dynamic rawJoiningDate = widget.formData['joiningDate'];
@@ -197,9 +201,9 @@ if (!_useSalonHours) {
 
     Map<String, dynamic> teamMemberData = {
       "phoneNumber": widget.formData['phoneNumber'],
-      "firstName": widget.formData['firstName'],
-      "lastName": widget.formData['lastName'],
-      "email": widget.formData['email'],
+      "firstName": _capitalize(widget.formData['firstName']),
+      "lastName": _capitalize(widget.formData['lastName']),
+      "email": widget.formData['email']?.toString().toLowerCase(),
       "gender": (widget.formData['gender'] ?? '').toString().toLowerCase(),
       "joiningDate": formattedJoiningDate,
       "info": widget.formData['brief'],
@@ -235,6 +239,79 @@ if (!_useSalonHours) {
     _showErrorDialog('An unexpected error occurred.');
   } finally {
     if (mounted) setState(() => _isSubmitting = false); // hide loader
+  }
+}
+
+Future<void> _goToSelectServices() async {
+  // show loader
+  setState(() => _isSubmitting = true);
+
+  try {
+    // Build schedules just like before
+    final List<Map<String, String>> scheduleData = [];
+    if (!_useSalonHours) {
+      weeklySchedule.forEach((day, slots) {
+        for (final slot in slots) {
+          final start = slot['start']?.trim();
+          final end = slot['end']?.trim();
+          if (start != null && end != null && start.isNotEmpty && end.isNotEmpty) {
+            scheduleData.add({
+              'day': day.toLowerCase(),
+              'startTime': start,
+              'endTime': end,
+            });
+          }
+        }
+      });
+    }
+
+    // Format joining date like before
+    final dynamic rawJoiningDate = widget.formData['joiningDate'];
+    String? formattedJoiningDate;
+    if (rawJoiningDate is DateTime) {
+      formattedJoiningDate = DateFormat('yyyy-MM-dd').format(rawJoiningDate);
+    } else if (rawJoiningDate is String && rawJoiningDate.isNotEmpty) {
+      formattedJoiningDate = rawJoiningDate;
+    }
+
+    final List<dynamic> rawRoles = widget.formData['roles'] as List? ?? const [];
+    final List<dynamic> rawSpecs =
+        (widget.formData['specialities'] ?? widget.formData['specializations']) as List? ?? const [];
+
+    // Build the same payload you used for the API
+    final Map<String, dynamic> teamMemberData = {
+      "phoneNumber": widget.formData['phoneNumber'],
+      "firstName": widget.formData['firstName'],
+      "lastName": widget.formData['lastName'],
+      "email": widget.formData['email'],
+      "gender": (widget.formData['gender'] ?? '').toString().toLowerCase(),
+      "joiningDate": formattedJoiningDate,
+      "info": widget.formData['brief'],
+      "roles": List<String>.from(rawRoles.map((e) => e.toString())),
+      "specialities": List<String>.from(rawSpecs.map((e) => e.toString())),
+      "schedules": scheduleData,
+      "useSalonHours": _useSalonHours,
+      "otp": widget.formData['otp']?.toString(),
+      "branchId": widget.formData['branchId'],
+      // If you also need to pass the original form data (e.g., image file), include it:
+      "profileImage": widget.formData['profileImage'],
+      // Add anything else your next screen needs…
+    };
+
+    if (!mounted) return;
+
+    // Navigate to the services selection screen with the payload
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddTeamSelectServices(teamMemberData: teamMemberData),
+      ),
+    );
+  } catch (e) {
+    // optional: surface a toast/dialog
+    _showErrorDialog('Something went wrong while preparing data.');
+  } finally {
+    if (mounted) setState(() => _isSubmitting = false);
   }
 }
 
@@ -607,32 +684,24 @@ if (!_useSalonHours) {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : () async {
-                    await _addTeamMember();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6), // smaller curve
-                    ),
-                  ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : const Text(
-                          'Add Team Member',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 16),
-                        ),
-                ),
+  onPressed: _isSubmitting ? null : () async {
+    await _goToSelectServices(); // 🔁 was _addTeamMember()
+  },
+  style: ElevatedButton.styleFrom(
+    minimumSize: const Size(double.infinity, 50),
+    backgroundColor: AppColors.starColor,
+    foregroundColor: Colors.white,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+  ),
+  child: _isSubmitting
+      ? const SizedBox(
+          width: 22, height: 22,
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+        )
+      : const Text('Next', // 🔁 changed label
+          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+        ),
+),
               ),
 
               ],

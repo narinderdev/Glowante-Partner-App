@@ -234,8 +234,8 @@ class _TeamScreenState extends State<TeamScreen> {
                                     children: [
                                       Image.asset(
                                         'assets/images/image.png',
-                                        height: 60,
-                                        width: 60,
+                                        height: 40,
+                                        width: 40,
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) => SizedBox(
                                           height: 110,

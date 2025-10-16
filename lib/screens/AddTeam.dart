@@ -62,10 +62,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   }
 
   // exact string requested
-  String? _vPhoneVerified() {
-    if (_suppressVerifyError) return null;
-    return _phoneVerified ? null : translateText('Please verify phone number');
-  }
+  // String? _vPhoneVerified() {
+  //   if (_suppressVerifyError) return null;
+  //   return _phoneVerified ? null : translateText('Please verify phone number');
+  // }
 
   String? _vFirstName(String? v) {
     if (_suppressFirstNameError) return null;
@@ -119,11 +119,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         : null;
   }
 
-  String? _vOtp(String? v) {
-    if (_suppressOtpError) return null;
-    final x = (v ?? '').trim();
-    return x.isEmpty ? translateText('OTP is required.') : null;
-  }
+  // String? _vOtp(String? v) {
+  //   if (_suppressOtpError) return null;
+  //   final x = (v ?? '').trim();
+  //   return x.isEmpty ? translateText('OTP is required.') : null;
+  // }
 
   // Data for roles/specializations
   List<Map<String, dynamic>> _allRoles = [];
@@ -484,7 +484,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           children: errors
               .map((m) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
-                    child: Text('â€¢ $m'),
+                    child: Text('• $m'),
                   ))
               .toList(),
         ),
@@ -533,7 +533,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
     // Collect same messages for Alert using shared helpers
     push(_vPhone(_phoneCtrl.text));
-    push(_vPhoneVerified()); // verify state
+    // push(_vPhoneVerified()); // verify state
     push(_vFirstName(_firstNameCtrl.text));
     push(_vLastName(_lastNameCtrl.text));
     push(_vEmail(_emailCtrl.text));
@@ -541,7 +541,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     push(_vRoles());
     push(_vSpecs());
     push(_vJoiningDate());
-    push(_vOtp(_otpCtrl.text));
+    // push(_vOtp(_otpCtrl.text));
     // Brief excluded by requirement
 
     if (errors.isNotEmpty) {
@@ -620,7 +620,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 12),
 
-                    _reqLabel('Verify Phone Number'),
+                    _reqLabel('Phone Number'),
                     SizedBox(height: 8),
                     Row(
                       children: [
@@ -635,7 +635,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                 : AutovalidateMode.disabled,
                             textCapitalization: TextCapitalization.none,
                             decoration: _decor(
-                              hint: 'Verify phone number',
+                              hint: 'Phone number',
                               prefix: Icon(Icons.search),
                             ),
                             validator:
@@ -657,35 +657,35 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           ),
                         ),
                         SizedBox(width: 10),
-                        SizedBox(
-                          width: 110,
-                          height: 48,
-                          child: _PrimaryButton(
-                            text: _isVerifying
-                                ? 'Verifying...'
-                                : (_phoneVerified ? 'Verified' : 'Verify'),
-                            enabled: !_phoneVerified && !_isVerifying,
-                            isLoading: _isVerifying, // loader in button
-                            onPressed: (_phoneVerified || _isVerifying)
-                                ? null
-                                : () async {
-                                    // Suppress all inline errors after verify tap
-                                    setState(() {
-                                      _suppressPhoneError = true;
-                                      _suppressVerifyError = true;
-                                      _suppressFirstNameError = true;
-                                      _suppressLastNameError = true;
-                                      _suppressEmailError = true;
-                                      _suppressOtpError = true;
-                                      _suppressGenderError = true;
-                                      _suppressRolesError = true;
-                                      _suppressSpecsError = true;
-                                      _suppressDateError = true;
-                                    });
-                                    await _handleVerifyPhoneNumber();
-                                  },
-                          ),
-                        ),
+                        // SizedBox(
+                        //   width: 110,
+                        //   height: 48,
+                        //   child: _PrimaryButton(
+                        //     text: _isVerifying
+                        //         ? 'Verifying...'
+                        //         : (_phoneVerified ? 'Verified' : 'Verify'),
+                        //     enabled: !_phoneVerified && !_isVerifying,
+                        //     isLoading: _isVerifying, // loader in button
+                        //     onPressed: (_phoneVerified || _isVerifying)
+                        //         ? null
+                        //         : () async {
+                        //             // Suppress all inline errors after verify tap
+                        //             setState(() {
+                        //               _suppressPhoneError = true;
+                        //               _suppressVerifyError = true;
+                        //               _suppressFirstNameError = true;
+                        //               _suppressLastNameError = true;
+                        //               _suppressEmailError = true;
+                        //               _suppressOtpError = true;
+                        //               _suppressGenderError = true;
+                        //               _suppressRolesError = true;
+                        //               _suppressSpecsError = true;
+                        //               _suppressDateError = true;
+                        //             });
+                        //             await _handleVerifyPhoneNumber();
+                        //           },
+                        //   ),
+                        // ),
                       ],
                     ),
 
@@ -705,7 +705,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     else if (_showGlobalErrors)
                       FormField<bool>(
                         autovalidateMode: AutovalidateMode.always,
-                        validator: (_) => _vPhoneVerified(),
+                        // validator: (_) => _vPhoneVerified(),
                         builder: (state) => state.hasError
                             ? Padding(
                                 padding: const EdgeInsets.only(top: 6),
@@ -802,31 +802,31 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 16),
 
-                    Text(
-                      translateText('OTP'),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    TextFormField(
-                      enabled: false,
-                      controller: _otpCtrl,
-                      keyboardType: TextInputType.number,
-                      autovalidateMode: _showGlobalErrors
-                          ? AutovalidateMode.onUserInteraction
-                          : AutovalidateMode.disabled,
-                      decoration: _decor(hint: translateText('Enter otp')),
-                      validator: _vOtp,
-                      onChanged: (_) {
-                        if (!_suppressOtpError) {
-                          setState(() => _suppressOtpError = true);
-                        }
-                      },
-                    ),
+                    // Text(
+                    //   translateText('OTP'),
+                    //   style: TextStyle(
+                    //     fontSize: 14,
+                    //     fontWeight: FontWeight.w600,
+                    //   ),
+                    // ),
+                    // SizedBox(height: 8),
+                    // TextFormField(
+                    //   enabled: false,
+                    //   controller: _otpCtrl,
+                    //   keyboardType: TextInputType.number,
+                    //   autovalidateMode: _showGlobalErrors
+                    //       ? AutovalidateMode.onUserInteraction
+                    //       : AutovalidateMode.disabled,
+                    //   decoration: _decor(hint: translateText('Enter otp')),
+                    //   validator: _vOtp,
+                    //   onChanged: (_) {
+                    //     if (!_suppressOtpError) {
+                    //       setState(() => _suppressOtpError = true);
+                    //     }
+                    //   },
+                    // ),
 
-                    SizedBox(height: 16),
+                    // SizedBox(height: 16),
 
                     Text(
                       translateText('Gender'),
@@ -1027,7 +1027,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           "specializations": List<String>.from(_selectedSpecs),
                           "specialities": List<String>.from(_selectedSpecs),
                           "profileImage": imageUrl,
-                          "otp": _otpCtrl.text.trim(),
+                          // "otp": _otpCtrl.text.trim(),
                         };
 
                         print('Sending to Choose time slots: $payload');
