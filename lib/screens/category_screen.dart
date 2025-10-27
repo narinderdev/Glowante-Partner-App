@@ -1748,7 +1748,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
           children: [
             TextField(
               controller: nameController,
-              textCapitalization: TextCapitalization.words,
+              textCapitalization: TextCapitalization.none,
               inputFormatters: const [FirstLetterUpperFormatter()],
               onChanged: (_) {
                 if (errorText != null) setState(() => errorText = null);

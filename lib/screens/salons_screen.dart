@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderBox;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
@@ -18,13 +19,15 @@ class SalonsScreen extends StatefulWidget {
   const SalonsScreen({super.key});
 
   @override
-  State<SalonsScreen> createState() => _SalonsScreenState();
+  SalonsScreenState createState() => SalonsScreenState();
 }
 
-class _SalonsScreenState extends State<SalonsScreen> {
+class SalonsScreenState extends State<SalonsScreen> {
   bool fabExpanded = false;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  final GlobalKey _fabKey = GlobalKey();
+  final GlobalKey _fabPanelKey = GlobalKey();
 
   // @override
   // void initState() {
@@ -54,6 +57,7 @@ class _SalonsScreenState extends State<SalonsScreen> {
   void _handleSearchChanged(String value) {
     setState(() {
       _searchQuery = value.trim().toLowerCase();
+      if (fabExpanded) fabExpanded = false;
     });
   }
 
@@ -63,6 +67,25 @@ class _SalonsScreenState extends State<SalonsScreen> {
     }
     _searchController.clear();
     _handleSearchChanged('');
+  }
+
+  void _collapseFab() {
+    if (!fabExpanded) return;
+    setState(() => fabExpanded = false);
+  }
+
+  void collapseQuickActions() => _collapseFab();
+
+  bool _isPointerInside(GlobalKey key, Offset globalPosition) {
+    final context = key.currentContext;
+    if (context == null) return false;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox) return false;
+    final local = renderObject.globalToLocal(globalPosition);
+    return local.dx >= 0 &&
+        local.dx <= renderObject.size.width &&
+        local.dy >= 0 &&
+        local.dy <= renderObject.size.height;
   }
 
   List<Map<String, dynamic>> _applySearch(List<Map<String, dynamic>> salons) {
@@ -110,6 +133,7 @@ class _SalonsScreenState extends State<SalonsScreen> {
   }
 
   Future<void> _goToAddSalon() async {
+    _collapseFab();
     final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -184,93 +208,104 @@ class _SalonsScreenState extends State<SalonsScreen> {
         onAddSalon: _goToAddSalon,
         searchController: _searchController,
         onSearchChanged: _handleSearchChanged,
+        onSearchTap: _collapseFab,
+        onHeaderTap: _collapseFab,
       ),
-      body: BlocBuilder<SalonListCubit, SalonListState>(
-        builder: (context, state) {
-          final salons = _applySearch(state.salons);
-
-          return RefreshIndicator(
-            onRefresh: _refreshSalons,
-            color: (AppColors.starColor),
-            displacement: 32,
-            child: CustomScrollView(
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-                    child: _SalonsOverview(
-                      totalSalons: state.salons.length,
-                      visibleSalons: salons.length,
-                      isLoading: state.isLoading,
-                    ),
-                  ),
-                ),
-                if (state.isLoading && state.salons.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (state.hasError && state.salons.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _ErrorView(
-                      message: state.errorMessage ?? 'Failed to load salons',
-                      onRetry: _refreshSalons,
-                    ),
-                  )
-                else if (salons.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: _EmptySalonsView(
-                      hasSearchQuery: _searchQuery.isNotEmpty,
-                      onAddSalon: _goToAddSalon,
-                      onClearSearch: _clearSearch,
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final salon = salons[index];
-                        final dynamic rawId = salon['id'];
-                        final salonId = _resolveId(rawId, index);
-                        final isExpanded = state.expandedSalonId == salonId;
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index == salons.length - 1 ? 0 : 16,
-                          ),
-                          child: _SalonCard(
-                            salon: salon,
-                            salonId: salonId,
-                            isExpanded: isExpanded,
-                            onToggle: () => context
-                                .read<SalonListCubit>()
-                                .toggleExpanded(salonId),
-                            onAddBranch: () => _goToAddBranch(salonId),
-                            onOpenBranch: (branchId) => _openBranchDetail(
-                              salonId: salonId,
-                              branchId: branchId,
-                            ),
-                          ),
-                        );
-                      }, childCount: salons.length),
-                    ),
-                  ),
-                if (state.isLoading && state.salons.isNotEmpty)
-                  const SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: 24),
-                      child: _InlineLoadingBanner(),
-                    ),
-                  ),
-              ],
-            ),
-          );
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (event) {
+          if (!fabExpanded) return;
+          if (_isPointerInside(_fabKey, event.position)) return;
+          if (_isPointerInside(_fabPanelKey, event.position)) return;
+          _collapseFab();
         },
+        child: BlocBuilder<SalonListCubit, SalonListState>(
+          builder: (context, state) {
+            final salons = _applySearch(state.salons);
+
+            return RefreshIndicator(
+              onRefresh: _refreshSalons,
+              color: (AppColors.starColor),
+              displacement: 32,
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                      child: _SalonsOverview(
+                        totalSalons: state.salons.length,
+                        visibleSalons: salons.length,
+                        isLoading: state.isLoading,
+                      ),
+                    ),
+                  ),
+                  if (state.isLoading && state.salons.isEmpty)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (state.hasError && state.salons.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _ErrorView(
+                        message: state.errorMessage ?? 'Failed to load salons',
+                        onRetry: _refreshSalons,
+                      ),
+                    )
+                  else if (salons.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _EmptySalonsView(
+                        hasSearchQuery: _searchQuery.isNotEmpty,
+                        onAddSalon: _goToAddSalon,
+                        onClearSearch: _clearSearch,
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate((context, index) {
+                          final salon = salons[index];
+                          final dynamic rawId = salon['id'];
+                          final salonId = _resolveId(rawId, index);
+                          final isExpanded = state.expandedSalonId == salonId;
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              bottom: index == salons.length - 1 ? 0 : 16,
+                            ),
+                            child: _SalonCard(
+                              salon: salon,
+                              salonId: salonId,
+                              isExpanded: isExpanded,
+                              onToggle: () => context
+                                  .read<SalonListCubit>()
+                                  .toggleExpanded(salonId),
+                              onAddBranch: () => _goToAddBranch(salonId),
+                              onOpenBranch: (branchId) => _openBranchDetail(
+                                salonId: salonId,
+                                branchId: branchId,
+                              ),
+                            ),
+                          );
+                        }, childCount: salons.length),
+                      ),
+                    ),
+                  if (state.isLoading && state.salons.isNotEmpty)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: 24),
+                        child: _InlineLoadingBanner(),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
      floatingActionButton: Transform.translate(
   offset: const Offset(0, 16), // moves it 16px down
@@ -296,34 +331,38 @@ class _SalonsScreenState extends State<SalonsScreen> {
             );
           },
           child: fabExpanded
-              ? _FabActionPanel(
+              ? KeyedSubtree(
                   key: const ValueKey('fab-panel'),
-                  onTeam: () {
-                    setState(() => fabExpanded = false);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => TeamScreen()),
-                    );
-                  },
-                  onDeals: () {
-                    setState(() => fabExpanded = false);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => DealScreen()),
-                    );
-                  },
-                  onPackages: () {
-                    setState(() => fabExpanded = false);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => PackageScreen()),
-                    );
-                  },
+                  child: _FabActionPanel(
+                    key: _fabPanelKey,
+                    onTeam: () {
+                      _collapseFab();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => TeamScreen()),
+                      );
+                    },
+                    onDeals: () {
+                      _collapseFab();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => DealScreen()),
+                      );
+                    },
+                    onPackages: () {
+                      _collapseFab();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => PackageScreen()),
+                      );
+                    },
+                  ),
                 )
               : const SizedBox.shrink(key: ValueKey('fab-empty')),
         ),
         const SizedBox(height: 10),
         FloatingActionButton.extended(
+          key: _fabKey,
           backgroundColor: Colors.white,
           foregroundColor: AppColors.starColor,
           icon: Icon(
@@ -360,11 +399,15 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onAddSalon,
     required this.searchController,
     required this.onSearchChanged,
+    required this.onSearchTap,
+    this.onHeaderTap,
   });
 
   final VoidCallback onAddSalon;
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback onSearchTap;
+  final VoidCallback? onHeaderTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(176);
@@ -390,92 +433,97 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
       ),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          translateText('My Salons'),
-                          style: theme.textTheme.headlineSmall?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ) ??
-                              const TextStyle(
-                                color: Colors.white,
-                                fontSize: 22,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                        // SizedBox(height: 4),
-                        // Text(translateText('Stay on top of every branch and booking'),
-                        //   style:
-                        //       theme.textTheme.bodySmall?.copyWith(
-                        //         color: Colors.white70,
-                        //       ) ??
-                        //       const TextStyle(
-                        //         color: Colors.white70,
-                        //         fontSize: 12,
-                        //       ),
-                        // ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: onAddSalon,
-                    style: ElevatedButton.styleFrom(
-                      elevation: 0,
-                      backgroundColor: AppColors.lightGrey,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(24), // ? rounded corners
-                      ),
-                    ).copyWith(
-                      side: MaterialStateProperty.all(
-                        const BorderSide(
-                          color: AppColors.grey, // ? border color
-                          width: 1,
-                          style: BorderStyle.solid,
-                        ),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onHeaderTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            translateText('My Salons'),
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ) ??
+                                const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          // SizedBox(height: 4),
+                          // Text(translateText('Stay on top of every branch and booking'),
+                          //   style:
+                          //       theme.textTheme.bodySmall?.copyWith(
+                          //         color: Colors.white70,
+                          //       ) ??
+                          //       const TextStyle(
+                          //         color: Colors.white70,
+                          //         fontSize: 12,
+                          //       ),
+                          // ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset(
-                          "assets/images/plusIcn.png", // ? your custom plus icon
-                          width: 18,
-                          height: 18,
+                    ElevatedButton(
+                      onPressed: onAddSalon,
+                      style: ElevatedButton.styleFrom(
+                        elevation: 0,
+                        backgroundColor: AppColors.lightGrey,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.circular(24), // ? rounded corners
                         ),
-                        SizedBox(width: 6),
-                        Text(
-                          translateText('Add Salon'),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.grey, // ? matches other buttons
+                      ).copyWith(
+                        side: MaterialStateProperty.all(
+                          const BorderSide(
+                            color: AppColors.grey, // ? border color
+                            width: 1,
+                            style: BorderStyle.solid,
                           ),
                         ),
-                      ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Image.asset(
+                            "assets/images/plusIcn.png", // ? your custom plus icon
+                            width: 18,
+                            height: 18,
+                          ),
+                          SizedBox(width: 6),
+                          Text(
+                            translateText('Add Salon'),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.grey, // ? matches other buttons
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 10),
-              _AppBarSearchField(
-                controller: searchController,
-                onChanged: onSearchChanged,
-              ),
-            ],
+                  ],
+                ),
+                SizedBox(height: 10),
+                _AppBarSearchField(
+                  controller: searchController,
+                  onChanged: onSearchChanged,
+                  onTap: onSearchTap,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -484,10 +532,15 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class _AppBarSearchField extends StatelessWidget {
-  const _AppBarSearchField({required this.controller, required this.onChanged});
+  const _AppBarSearchField({
+    required this.controller,
+    required this.onChanged,
+    required this.onTap,
+  });
 
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -548,6 +601,7 @@ class _AppBarSearchField extends StatelessWidget {
           return TextField(
             controller: controller,
             onChanged: onChanged,
+            onTap: onTap,
             textInputAction: TextInputAction.search,
             style: const TextStyle(
               fontWeight: FontWeight.w500,

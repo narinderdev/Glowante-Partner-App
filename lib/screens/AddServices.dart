@@ -3,7 +3,6 @@
 // import 'package:flutter/services.dart';
 // import 'package:bloc_onboarding/utils/api_service.dart';
 // import 'dart:convert';
-// import 'dart:math' as math;
 // import '../utils/colors.dart';
 // import '../Viewmodels/AddSalonServiceRequest.dart';
 // import '../bloc/category/category_cubit.dart';
@@ -45,7 +44,6 @@
 //       final transformed = _toTitleCase(newValue.text);
 //       final selection = newValue.selection;
 //       final offset =
-//           math.min(transformed.length, math.max(0, selection.baseOffset));
 
 //       return TextEditingValue(
 //         text: transformed,
@@ -701,7 +699,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/api_service.dart';
 import 'dart:convert';
-import 'dart:math' as math;
 import '../utils/colors.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 import '../bloc/category/category_cubit.dart';
@@ -722,33 +719,26 @@ class AddServices extends StatefulWidget {
   State<AddServices> createState() => _AddServicesState();
 }
 
-class TitleCaseInputFormatter extends TextInputFormatter {
-  const TitleCaseInputFormatter();
-
-  String _toTitleCase(String input) {
-    if (input.isEmpty) return input;
-    final parts = input.split(' ');
-    final mapped = parts.map((p) {
-      if (p.isEmpty) return p;
-      return p[0].toUpperCase() + p.substring(1);
-    }).toList();
-    return mapped.join(' ');
-  }
+class FirstLetterUpperFormatter extends TextInputFormatter {
+  const FirstLetterUpperFormatter();
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.length >= oldValue.text.length) {
-      final transformed = _toTitleCase(newValue.text);
-      final selection = newValue.selection;
-      final offset =
-          math.min(transformed.length, math.max(0, selection.baseOffset));
-      return TextEditingValue(
-        text: transformed,
-        selection: TextSelection.collapsed(offset: offset),
-      );
-    }
-    return newValue;
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.isEmpty) return newValue;
+
+    final match = RegExp(r'[A-Za-z]').firstMatch(text);
+    if (match == null) return newValue;
+
+    final index = match.start;
+    final upper = text[index].toUpperCase();
+    if (text[index] == upper) return newValue;
+
+    final updated = text.replaceRange(index, index + 1, upper);
+    return newValue.copyWith(text: updated);
   }
 }
 
@@ -993,8 +983,8 @@ class _AddServicesState extends State<AddServices> {
                     focusNode: _nameFocus,
                     autofocus: true,
                     textInputAction: TextInputAction.next,
-                    textCapitalization: TextCapitalization.words,
-                    inputFormatters: const [TitleCaseInputFormatter()],
+                    textCapitalization: TextCapitalization.none,
+                    inputFormatters: const [FirstLetterUpperFormatter()],
                     decoration: _inputDecoration(
                       hint: translateText("Add a service name"),
                       icon: Icons.badge_outlined,

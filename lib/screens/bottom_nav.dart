@@ -22,6 +22,7 @@ class BottomNav extends StatefulWidget {
 class _BottomNavState extends State<BottomNav> {
   late int _currentIndex;
   late final List<Widget> _screens;
+  late final GlobalKey<SalonsScreenState> _salonsScreenKey;
   StreamSubscription<BookingNotificationPayload>? _navPushSub;
 
   @override
@@ -29,24 +30,26 @@ class _BottomNavState extends State<BottomNav> {
     super.initState();
     _currentIndex = widget.tabIndex.clamp(0, 3);
 
-    _screens = const [
-      BookingsScreen(),
-      SalonsScreen(),
-      CategoryScreen(),
-      ProfileScreen(),
+    _salonsScreenKey = GlobalKey<SalonsScreenState>();
+
+    _screens = [
+      const BookingsScreen(),
+      SalonsScreen(key: _salonsScreenKey),
+      const CategoryScreen(),
+      const ProfileScreen(),
     ];
 
     final pendingNotification =
         PushNotificationService.instance.pendingNavigationEvent;
     if (pendingNotification != null && pendingNotification.wasTapped) {
-      _currentIndex = 0;
+      _setCurrentIndex(0, animate: false);
     }
 
     _navPushSub =
         PushNotificationService.instance.bookingNotifications.listen((payload) {
       if (!payload.wasTapped || !mounted) return;
       if (_currentIndex == 0) return;
-      setState(() => _currentIndex = 0);
+      _setCurrentIndex(0);
     });
   }
 
@@ -54,9 +57,7 @@ class _BottomNavState extends State<BottomNav> {
   void didUpdateWidget(covariant BottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.tabIndex != widget.tabIndex) {
-      setState(() {
-        _currentIndex = widget.tabIndex.clamp(0, _screens.length - 1);
-      });
+      _setCurrentIndex(widget.tabIndex.clamp(0, _screens.length - 1));
     }
   }
 
@@ -64,6 +65,27 @@ class _BottomNavState extends State<BottomNav> {
   void dispose() {
     _navPushSub?.cancel();
     super.dispose();
+  }
+
+  void _setCurrentIndex(int index, {bool animate = true}) {
+    if (_currentIndex == index && animate) {
+      if (index == 1) {
+        _salonsScreenKey.currentState?.collapseQuickActions();
+      }
+      return;
+    }
+
+    if (_currentIndex == 1) {
+      _salonsScreenKey.currentState?.collapseQuickActions();
+    }
+
+    if (mounted) {
+      setState(() {
+        _currentIndex = index;
+      });
+    } else {
+      _currentIndex = index;
+    }
   }
 
   @override
@@ -106,10 +128,7 @@ class _BottomNavState extends State<BottomNav> {
           child: _FloatingNavBar(
             destinations: _destinations,
             currentIndex: _currentIndex,
-            onSelect: (index) {
-              if (_currentIndex == index) return;
-              setState(() => _currentIndex = index);
-            },
+            onSelect: (index) => _setCurrentIndex(index),
           ),
         ),
       ),
