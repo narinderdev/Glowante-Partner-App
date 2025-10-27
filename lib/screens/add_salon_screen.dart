@@ -13,6 +13,30 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'AddSalonServices.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 
+class _FirstLetterUpperFormatter extends TextInputFormatter {
+  const _FirstLetterUpperFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final text = newValue.text;
+    if (text.isEmpty) return newValue;
+
+    final regExp = RegExp(r'[A-Za-z]');
+    final match = regExp.firstMatch(text);
+    if (match == null) return newValue;
+
+    final index = match.start;
+    final upper = text[index].toUpperCase();
+    if (text[index] == upper) return newValue;
+
+    final updated = text.replaceRange(index, index + 1, upper);
+    return newValue.copyWith(text: updated);
+  }
+}
+
 class AddSalonScreen extends StatefulWidget {
   const AddSalonScreen({
     super.key,
@@ -403,10 +427,10 @@ Future<void> _submit(AddSalonState state) async {
                     children: [
                       _buildTextField(
                         controller: _salonNameController,
-                        textCapitalization: TextCapitalization.words,
+                        textCapitalization: TextCapitalization.none,
                         label: 'Salon Name *',
                         hint: 'Enter your salon name',
-                         forceCapitalize: true,
+                        inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
                       _buildTextField(
                         controller: _phoneController,
@@ -533,12 +557,12 @@ Future<void> _submit(AddSalonState state) async {
                       SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
-                        textCapitalization: TextCapitalization.words,
+                        textCapitalization: TextCapitalization.none,
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
                         maxLines: 1,
-                         forceCapitalize: true,
-                         maxWords: 250, 
+                        maxWords: 250,
+                        inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
                       SizedBox(height: 20),
                       Text(

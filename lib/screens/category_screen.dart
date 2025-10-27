@@ -49,6 +49,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
   final ScrollController _catalogScrollController = ScrollController();
   double? _pendingScrollOffset;
 
+  int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return int.tryParse(value.toString());
+  }
+
   @override
   void initState() {
     super.initState();
@@ -58,9 +65,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
       if (salonCubit.state.salons.isEmpty) {
         salonCubit.loadSalons();
       } else if (salonCubit.state.selectedSalon != null) {
+        final Map<String, dynamic> selectedSalon =
+            Map<String, dynamic>.from(salonCubit.state.selectedSalon!);
+        final int? branchId = _asInt(selectedSalon['branchId']);
+        final int? salonId = _asInt(selectedSalon['salonId']);
         setState(() {
-          _selectedSalon = salonCubit.state.selectedSalon;
-          _selectedSalonId = _selectedSalon!['salonId'] as int?;
+          _selectedSalon = selectedSalon;
+          _selectedSalonId = branchId ?? salonId;
         });
       }
     });
@@ -144,20 +155,27 @@ void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
 
   if (selectedBranch == null) return;
 
+  final Map<String, dynamic> branch = Map<String, dynamic>.from(selectedBranch);
+  final Map<String, dynamic> salon = Map<String, dynamic>.from(selectedSalon!);
+  final int? branchIdFromMap = _asInt(branch['id']);
+  final int? salonId = _asInt(salon['id']);
+  final int? effectiveBranchId = branchIdFromMap ?? value;
+  if (effectiveBranchId == null || salonId == null) return;
+
   setState(() {
-    _selectedSalonId = value;
+    _selectedSalonId = effectiveBranchId;
     _selectedSalon = {
-      'salonId': selectedSalon!['id'],
-      'salonName': selectedSalon['name'],
-      'branchId': selectedBranch!['id'],       // ✅ Fixed with non-null assertion
-      'branchName': selectedBranch!['name'],   // ✅ Fixed with non-null assertion
+      'salonId': salonId,
+      'salonName': salon['name'],
+      'branchId': effectiveBranchId,
+      'branchName': branch['name'],
     };
   });
 
   context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
   final categoryCubit = context.read<CategoryCubit>();
   categoryCubit.resetCategories();
-  categoryCubit.loadCategories(selectedBranch!['id']); // ✅ same here
+  categoryCubit.loadCategories(effectiveBranchId);
 }
 
 // ---------- ADD / EDIT CATEGORY ----------
@@ -167,18 +185,21 @@ void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
       return;
     }
 
-final int branchId = _selectedSalon?['branchId'] as int? ?? _selectedSalon!['salonId'] as int;
-
+    final int? branchId =
+        _asInt(_selectedSalon?['branchId']) ?? _asInt(_selectedSalon?['salonId']);
+    if (branchId == null) {
+      _toast('Missing branch information.');
+      return;
+    }
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-     builder: (sheetContext) => _EditCategorySheet(
-  category: category,
-  branchId: _selectedSalon?['branchId'] as int? ?? _selectedSalon!['salonId'] as int,
-),
-
+      builder: (sheetContext) => _EditCategorySheet(
+        category: category,
+        branchId: branchId,
+      ),
     );
   }
 
@@ -332,17 +353,58 @@ context.read<CategoryCubit>().updateService(
     if (_selectedSalon != null) return;
     if (state.salons.isEmpty) return;
 
-    final Map<String, dynamic> salon =
-        Map<String, dynamic>.from(state.salons.first as Map);
-    final dynamic rawId = salon['id'];
-    final int? salonId = rawId is int ? rawId : int.tryParse(rawId.toString());
-    if (salonId == null) return;
+    Map<String, dynamic>? firstSalonWithBranch;
+    Map<String, dynamic>? firstBranch;
+
+    for (final rawSalon in state.salons) {
+      final salon = Map<String, dynamic>.from(rawSalon);
+      final branches = salon['branches'];
+      if (branches is List && branches.isNotEmpty) {
+        final branch = branches.first;
+        if (branch is Map) {
+          firstSalonWithBranch = salon;
+          firstBranch = Map<String, dynamic>.from(branch);
+          break;
+        }
+      }
+      firstSalonWithBranch ??= salon; // fallback if no salon has branches
+    }
+
+    if (firstBranch != null && firstSalonWithBranch != null) {
+      final Map<String, dynamic> branch = firstBranch;
+      final Map<String, dynamic> salon = firstSalonWithBranch;
+      final int? branchId = _asInt(branch['id']);
+      final int? salonId = _asInt(salon['id']);
+      if (branchId == null || salonId == null) return;
+
+      setState(() {
+        _selectedSalonId = branchId;
+        _selectedSalon = {
+          'salonId': salonId,
+          'salonName': salon['name'],
+          'branchId': branchId,
+          'branchName': branch['name'],
+        };
+        _expandedSubcategories.clear();
+      });
+
+      context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
+      final categoryCubit = context.read<CategoryCubit>();
+      categoryCubit.resetCategories();
+      categoryCubit.loadCategories(branchId);
+      return;
+    }
+
+    final Map<String, dynamic> fallbackSalon =
+        Map<String, dynamic>.from(state.salons.first);
+    final int? fallbackSalonId = _asInt(fallbackSalon['id']);
+    if (fallbackSalonId == null) return;
 
     setState(() {
-      _selectedSalonId = salonId;
+      _selectedSalonId = fallbackSalonId;
       _selectedSalon = {
-        'salonId': salonId,
-        'salonName': salon['name'],
+        'salonId': fallbackSalonId,
+        'salonName': fallbackSalon['name'],
       };
       _expandedSubcategories.clear();
     });
@@ -350,7 +412,7 @@ context.read<CategoryCubit>().updateService(
     context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
     final categoryCubit = context.read<CategoryCubit>();
     categoryCubit.resetCategories();
-    categoryCubit.loadCategories(salonId);
+    categoryCubit.loadCategories(fallbackSalonId);
   }
 
 // ---------- UI ----------
@@ -490,8 +552,13 @@ context.read<CategoryCubit>().updateService(
 
   Future<void> _refreshData() async {
     if (_selectedSalon != null) {
-      final salonId = _selectedSalon!['salonId'] as int;
-      context.read<CategoryCubit>().loadCategories(salonId);
+      final int? loadId =
+          _asInt(_selectedSalon?['branchId']) ?? _asInt(_selectedSalon?['salonId']);
+      if (loadId != null) {
+        context.read<CategoryCubit>().loadCategories(loadId);
+      } else {
+        context.read<SalonListCubit>().loadSalons();
+      }
     } else {
       context.read<SalonListCubit>().loadSalons();
     }
@@ -1846,7 +1913,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
           children: [
             TextField(
               controller: controller,
-              textCapitalization: TextCapitalization.words,
+              textCapitalization: TextCapitalization.none,
               inputFormatters: const [FirstLetterUpperFormatter()],
               onChanged: (_) {
                 if (errorText != null) setState(() => errorText = null);

@@ -14,9 +14,8 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
-  final String otp; // Added OTP field
 
-  OtpScreen({required this.phoneNumber, required this.otp});
+  const OtpScreen({super.key, required this.phoneNumber});
 
   @override
   _OtpScreenState createState() => _OtpScreenState();
@@ -38,6 +37,7 @@ class _OtpScreenState extends State<OtpScreen> {
   bool isContinueButtonEnabled =
       false; // Track if the Continue button should be enabled
   bool isLoading = false; // Track loading state for button
+  bool _autoSubmitScheduled = false;
 
   // API service instance
   final ApiService apiService = ApiService();
@@ -72,14 +72,30 @@ class _OtpScreenState extends State<OtpScreen> {
     // Start the countdown timer immediately when the screen is initialized
     _startCountdown();
 
-    if (widget.otp.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _fillFromCode(widget.otp);
-      });
-    }
+  }
+
+  void _maybeSubmitOtp() {
+    if (!mounted || isLoading || _autoSubmitScheduled) return;
+    final String otp = otpControllers.map((c) => c.text).join();
+    final bool allFilled =
+        otp.length == otpControllers.length && otpControllers.every((c) => c.text.isNotEmpty);
+    if (!allFilled) return;
+    _autoSubmitScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final String latestOtp = otpControllers.map((c) => c.text).join();
+      final bool stillFilled = latestOtp.length == otpControllers.length &&
+          otpControllers.every((c) => c.text.isNotEmpty);
+      if (!stillFilled || isLoading) {
+        _autoSubmitScheduled = false;
+        return;
+      }
+      _verifyOtp();
+    });
   }
 
   Future<void> _verifyOtp() async {
+    _autoSubmitScheduled = false;
     String otp = otpControllers.map((controller) => controller.text).join();
     if (otp.length < 6) {
       setState(() {
@@ -108,8 +124,28 @@ class _OtpScreenState extends State<OtpScreen> {
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_token', token);
           await prefs.setString('phone_number', widget.phoneNumber);
-          if (firstName != null) await prefs.setString('first_name', firstName);
-          if (lastName != null) await prefs.setString('last_name', lastName);
+          final bool hasFirstName =
+              firstName != null && firstName.trim().isNotEmpty;
+          final bool hasLastName =
+              lastName != null && lastName.trim().isNotEmpty;
+
+          if (hasFirstName) {
+            await prefs.setString('first_name', firstName);
+            await prefs.setString('firstName', firstName);
+          } else {
+            await prefs.remove('first_name');
+            await prefs.remove('firstName');
+          }
+          if (hasLastName) {
+            await prefs.setString('last_name', lastName);
+            await prefs.setString('lastName', lastName);
+          } else {
+            await prefs.remove('last_name');
+            await prefs.remove('lastName');
+          }
+          final bool hasFullName = hasFirstName && hasLastName;
+          await prefs.setBool('profile_complete', hasFullName);
+          await prefs.setBool('profile_pending', !hasFullName);
 
           print("Token saved: $token");
           print("Phone saved: ${widget.phoneNumber}");
@@ -117,10 +153,10 @@ class _OtpScreenState extends State<OtpScreen> {
           print("Last Name saved: $lastName");
 
           // Navigate
-          if (firstName != null && firstName.isNotEmpty) {
+          if (hasFullName) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 0)),
+              MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 1)),
             );
           } else {
             Navigator.pushReplacement(
@@ -186,6 +222,8 @@ class _OtpScreenState extends State<OtpScreen> {
       final nextIndex = limited.length;
       FocusScope.of(context).requestFocus(focusNodes[nextIndex]);
     }
+
+    _maybeSubmitOtp();
   }
 
   void _handleOtpInput(String value, int index) {
@@ -228,6 +266,8 @@ class _OtpScreenState extends State<OtpScreen> {
         errorMessage = '';
       }
     });
+
+    _maybeSubmitOtp();
   }
 
   Future<void> _resendOtp() async {
@@ -462,7 +502,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
                 child: isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(translateText("Continue"),
+                    : Text(translateText("Login"),
                         style: TextStyle(color: Colors.white)),
               ),
               SizedBox(height: 20),

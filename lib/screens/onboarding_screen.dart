@@ -39,7 +39,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   double imageScale = 1.0;
   double floatOffset = 0;
   bool animate = true;
-
+bool _isPressed = false;
   @override
   void initState() {
     super.initState();
@@ -128,34 +128,110 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               child: AnimatedOpacity(
                                 duration: const Duration(milliseconds: 800),
                                 opacity: animate ? 1 : 0,
+                                // child: SizedBox(
+                                //   width: double.infinity,
+                                //   child: ElevatedButton(
+                                //     onPressed: () {
+                                //       UserDefaultsManager.onboardingStatus(true);
+                                //       Navigator.pushReplacement(
+                                //         context,
+                                //         MaterialPageRoute(
+                                //           builder: (context) =>  LoginScreen(),
+                                //         ),
+                                //       );
+                                //     },
+                                //     style: ElevatedButton.styleFrom(
+                                //       backgroundColor: AppColors.starColor,
+                                //       shape: RoundedRectangleBorder(
+                                //         borderRadius: BorderRadius.circular(12),
+                                //       ),
+                                //       padding: const EdgeInsets.symmetric(vertical: 14),
+                                //     ),
+                                //     child: Text(translateText("Get Started"),
+                                //       style: TextStyle(
+                                //         color: Colors.white,
+                                //         fontSize: 18,
+                                //         fontWeight: FontWeight.bold,
+                                //       ),
+                                //     ),
+                                //   ),
+                                // ),
                                 child: SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: () {
-                                      UserDefaultsManager.onboardingStatus(true);
-                                      Navigator.pushReplacement(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) =>  LoginScreen(),
-                                        ),
-                                      );
-                                    },
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.starColor,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
-                                    ),
-                                    child: Text(translateText("Get Started"),
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
+  width: double.infinity,
+  child:
+  ElevatedButton(
+  onPressed: () async {
+    setState(() => _isPressed = true);
+    await Future.delayed(const Duration(milliseconds: 150)); // show darker shade briefly
+    setState(() => _isPressed = false);
+
+    // Navigate after showing feedback
+    UserDefaultsManager.onboardingStatus(true);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>  LoginScreen(),
+      ),
+    );
+  },
+  style: ElevatedButton.styleFrom(
+    backgroundColor: _isPressed
+        ? AppColors.starColor.withOpacity(0.8) // darker on click
+        : AppColors.starColor,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    ),
+    padding: const EdgeInsets.symmetric(vertical: 14),
+  ),
+  child: Text(
+    translateText("Get Started"),
+    style: const TextStyle(
+      color: Colors.white,
+      fontSize: 18,
+      fontWeight: FontWeight.bold,
+    ),
+  ),
+),
+  // ElevatedButton(
+  //   onPressed: () {
+  //     UserDefaultsManager.onboardingStatus(true);
+  //     Navigator.pushReplacement(
+  //       context,
+  //       MaterialPageRoute(
+  //         builder: (context) => LoginScreen(),
+  //       ),
+  //     );
+  //   },
+  //   style: ButtonStyle(
+  //     backgroundColor: MaterialStateProperty.resolveWith<Color>(
+  //       (Set<MaterialState> states) {
+  //         if (states.contains(MaterialState.pressed)) {
+  //           // Darker when pressed
+  //           return AppColors.starColor.withOpacity(0.8);
+  //         }
+  //         return AppColors.starColor;
+  //       },
+  //     ),
+  //     shape: MaterialStateProperty.all(
+  //       RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.circular(12),
+  //       ),
+  //     ),
+  //     padding: MaterialStateProperty.all(
+  //       const EdgeInsets.symmetric(vertical: 14),
+  //     ),
+  //   ),
+  //   child: Text(
+  //     translateText("Get Started"),
+  //     style: const TextStyle(
+  //       color: Colors.white,
+  //       fontSize: 18,
+  //       fontWeight: FontWeight.bold,
+  //     ),
+  //   ),
+  // ),
+),
+
                               ),
                             ),
                           SizedBox(height: 25),

@@ -33,7 +33,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   bool isLoading = false; // Flag to show loader while updating profile
 
   // API service instance
-  final ApiService apiService = ApiService();
+ final ApiService apiService = ApiService();
 
   // Function to update user profile
   Future<void> _updateProfile() async {
@@ -77,7 +77,7 @@ String email = emailController.text.trim();
       isLoading = true;
     });
 
-    try {
+ try {
       final response = await apiService.updateUserProfileDetails(
         firstName,
         lastName,
@@ -88,6 +88,10 @@ String email = emailController.text.trim();
     await prefs.setString('firstName', firstName);
     await prefs.setString('lastName', lastName);
     await prefs.setString('email', email);
+    await prefs.setString('first_name', firstName);
+    await prefs.setString('last_name', lastName);
+    await prefs.setBool('profile_complete', true);
+    await prefs.setBool('profile_pending', false);
     print('Saved firstName: $firstName');
   print('Saved lastName: $lastName');
   print('Saved email: $email');

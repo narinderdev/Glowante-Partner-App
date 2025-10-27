@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/screens/onboarding_screen.dart';
 import 'package:bloc_onboarding/screens/bottom_nav.dart';
+import 'package:bloc_onboarding/screens/UpdateProfileScreen.dart';
 import 'package:provider/provider.dart';
 import '../services/language_listener.dart';
 import '../services/translations.dart';
@@ -68,13 +69,33 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
-      if (!mounted) return;
-      // ✅ Already logged in → go to BottomNav
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 0)),
-      );
-    } else {
+      final bool storedFlag = prefs.getBool('profile_complete') ?? false;
+      final String? storedFirstName =
+          prefs.getString('first_name') ?? prefs.getString('firstName');
+      final String? storedLastName =
+          prefs.getString('last_name') ?? prefs.getString('lastName');
+      final bool derivedComplete = (storedFirstName?.trim().isNotEmpty ?? false) &&
+          (storedLastName?.trim().isNotEmpty ?? false);
+      final bool profileComplete = storedFlag || derivedComplete;
+
+      if (!mounted) return;
+      if (profileComplete) {
+        await prefs.setBool('profile_complete', true);
+        await prefs.setBool('profile_pending', false);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 1)),
+        );
+      } else {
+        await prefs.setBool('profile_pending', true);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => UpdateUserProfileScreen(token: token),
+          ),
+        );
+      }
+    } else {
       if (!mounted) return;
       // ❌ Not logged in → go to Onboarding
       Navigator.pushReplacement(

@@ -28,6 +28,8 @@ class AuthSessionManager {
     'email',
     'salon_name',
     'salon_address',
+    'profile_complete',
+    'profile_pending',
   ];
 
   /// Registers a callback that will be triggered once logout cleanup finishes.

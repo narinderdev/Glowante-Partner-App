@@ -252,14 +252,17 @@ if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
               BlocListener<AuthBloc, AuthState>(
                 listener: (context, state) {
                   if (state is AuthLoginSuccess) {
-                    final phoneNumber = state.response['phoneNumber'];
-                    final otp = state.response['otp'];
+                    final dynamic rawPhone = state.response['phoneNumber'];
+                    final String phoneNumber = (rawPhone is String && rawPhone.isNotEmpty)
+                        ? rawPhone
+                        : phoneController.text.trim();
                     setState(() => _isLoading = false);
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
                         builder: (_) => OtpScreen(
-                            phoneNumber: phoneNumber, otp: otp ?? ''),
+                          phoneNumber: phoneNumber,
+                        ),
                       ),
                     );
                   }

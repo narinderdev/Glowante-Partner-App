@@ -16,36 +16,27 @@ import 'package:bloc_onboarding/repositories/salon_repository.dart';
 
 enum _BranchField { name, phone, startTime, endTime, description }
 
-class _CapitalizeFirstLetterFormatter extends TextInputFormatter {
+class _FirstLetterUpperFormatter extends TextInputFormatter {
+  const _FirstLetterUpperFormatter();
+
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
     final text = newValue.text;
-    if (text.isEmpty) {
-      return newValue;
-    }
+    if (text.isEmpty) return newValue;
 
-    final buffer = StringBuffer();
-    var madeUppercase = false;
+    final regExp = RegExp(r'[A-Za-z]');
+    final match = regExp.firstMatch(text);
+    if (match == null) return newValue;
 
-    for (final rune in text.runes) {
-      final char = String.fromCharCode(rune);
-      if (!madeUppercase && char.trim().isNotEmpty) {
-        buffer.write(char.toUpperCase());
-        madeUppercase = true;
-      } else {
-        buffer.write(char);
-      }
-    }
+    final index = match.start;
+    final upper = text[index].toUpperCase();
+    if (text[index] == upper) return newValue;
 
-    final capitalized = buffer.toString();
-    if (capitalized == text) {
-      return newValue;
-    }
-
-    return newValue.copyWith(text: capitalized, selection: newValue.selection);
+    final updated = text.replaceRange(index, index + 1, upper);
+    return newValue.copyWith(text: updated);
   }
 }
 
@@ -325,9 +316,8 @@ void _submit(AddBranchState state) {
                         controller: _branchNameController,
                         label: 'Branch Name *',
                         hint: 'Enter branch name',
-                        inputFormatters: [
-                          _CapitalizeFirstLetterFormatter(),
-                        ],
+                        textCapitalization: TextCapitalization.none,
+                        inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
                       _buildTextField(
                         field: _BranchField.phone,
@@ -464,9 +454,8 @@ void _submit(AddBranchState state) {
                         label: 'Description *',
                         hint: 'Enter description',
                         maxLines: 1,
-                        inputFormatters: [
-                          _CapitalizeFirstLetterFormatter(),
-                        ],
+                        textCapitalization: TextCapitalization.none,
+                        inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
 
                       SizedBox(height: 20),
