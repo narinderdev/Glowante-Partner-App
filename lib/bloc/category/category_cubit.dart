@@ -145,7 +145,7 @@ Future<void> updateSubCategory(
   int branchId,
   int subCategoryId,
   String displayName, {
-  int sortOrder = 0,
+  int sortOrder = 200,
   bool isActive = true,
 }) async {
   await _performMutation(
