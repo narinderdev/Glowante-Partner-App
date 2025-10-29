@@ -129,8 +129,8 @@ class _BookingsScreenState extends State<BookingsScreen> {
     return '';
   }
 int get _totalColumns {
-  if (teamMembers.isEmpty) return 5;              // always show 5
-  return teamMembers.length < 5 ? 5 : teamMembers.length; 
+  if (teamMembers.isEmpty) return 3;              // always show 5
+  return teamMembers.length < 3 ? 3 : teamMembers.length; 
 }
 
   List<_BranchOption> _computeBranchOptions() {

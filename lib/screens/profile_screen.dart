@@ -73,6 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   // ---------------------- LOGOUT ----------------------
 
   void _showLogoutModal(BuildContext context) {
+    FocusScope.of(context).unfocus();
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -178,12 +179,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      if (mounted) FocusScope.of(context).unfocus();
+    });
   }
 
   // ---------------------- DELETE ACCOUNT ----------------------
 
   void _showDeleteAccountDialog(BuildContext context) {
+    FocusScope.of(context).unfocus();
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -268,7 +272,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      if (mounted) FocusScope.of(context).unfocus();
+    });
   }
 
   @override
