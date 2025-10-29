@@ -107,24 +107,29 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final building = widget.buildingName?.trim() ?? '';
+      final city = widget.city?.trim() ?? '';
+      final pincode = widget.pincode?.trim() ?? '';
+      final stateVal = widget.state?.trim() ?? '';
       final latitude = widget.latitude;
       final longitude = widget.longitude;
-      if (widget.buildingName != null &&
-          widget.city != null &&
-          widget.pincode != null &&
-          widget.state != null &&
-          latitude != null &&
-          longitude != null) {
+      final bool hasCoordinates =
+          latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0);
+      if (building.isNotEmpty &&
+          city.isNotEmpty &&
+          pincode.isNotEmpty &&
+          stateVal.isNotEmpty &&
+          hasCoordinates) {
         context.read<AddSalonCubit>().updateAddress(
-              AddSalonAddress(
-                buildingName: widget.buildingName ?? '',
-                city: widget.city ?? '',
-                pincode: widget.pincode ?? '',
-                state: widget.state ?? '',
-                latitude: latitude,
-                longitude: longitude,
-              ),
-            );
+          AddSalonAddress(
+            buildingName: building,
+            city: city,
+            pincode: pincode,
+            state: stateVal,
+            latitude: latitude!,
+            longitude: longitude!,
+          ),
+        );
       }
       context.read<AddSalonCubit>().loadSavedPhone(
             initialPhone: widget.phoneNumber,
@@ -147,6 +152,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     if (!mounted || files == null) return;
     final images = files.map((file) => File(file.path)).toList();
     context.read<AddSalonCubit>().setImages(images);
+  }
+
+  bool _isAddressComplete(AddSalonAddress? address) {
+    if (address == null) return false;
+    final hasEmptyFields = address.buildingName.trim().isEmpty ||
+        address.city.trim().isEmpty ||
+        address.pincode.trim().isEmpty ||
+        address.state.trim().isEmpty;
+    final hasValidCoordinates =
+        address.latitude != 0.0 || address.longitude != 0.0;
+    return !hasEmptyFields && hasValidCoordinates;
   }
 
   Future<void> _selectTime(TextEditingController controller) async {
@@ -304,7 +320,8 @@ Future<void> _submit(AddSalonState state) async {
     return;
   }
 
-  if (state.address == null) {
+  final address = state.address;
+  if (!_isAddressComplete(address)) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(translateText('Please add the salon location.'))),
     );

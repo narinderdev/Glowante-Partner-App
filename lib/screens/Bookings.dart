@@ -1,4 +1,4 @@
-﻿// Md is deleting from here now
+// Md is deleting from here now
 import 'dart:async';
 import 'dart:convert'; // NEW
 import 'package:flutter/gestures.dart';
@@ -29,6 +29,19 @@ class BookingsScreen extends StatefulWidget {
 // top-level constants (outside any class)
 const String _kSalonsCacheKey = 'salons_cache_v1';
 String _branchCacheKey(int id) => 'branch_cache_v1_$id';
+final List<String> _defaultTimeSlots = _generateDefaultTimeSlots();
+
+List<String> _generateDefaultTimeSlots() {
+  final List<String> slots = [];
+  final formatter = DateFormat('h:mm a');
+  DateTime current = DateTime(0, 1, 1, 8, 0);
+  final DateTime end = DateTime(0, 1, 1, 20, 0);
+  while (current.isBefore(end)) {
+    slots.add(formatter.format(current));
+    current = current.add(const Duration(minutes: 15));
+  }
+  return slots;
+}
 
 class _BranchOption {
   const _BranchOption({
@@ -223,7 +236,7 @@ void initState() {
 
   _bootstrap();        // your existing bootstrap
   getSalonListApi();   // load salons
-  _loadCachedSelectionAndFetch(); // 🔹 new helper
+  _loadCachedSelectionAndFetch(); // ?? new helper
 
   // scroll sync setup...
   _timeColumnVController.addListener(() {
@@ -614,7 +627,7 @@ Future<void> getSalonListApi() async {
       _processQueuedBookingNotificationIfAny();
       await _saveSalonsToCache();
 
-      // 👇 Restore cached branch + fetch appointments automatically
+      // ?? Restore cached branch + fetch appointments automatically
       await _loadCachedSelectionAndFetch();
 
     } else {
@@ -791,11 +804,11 @@ Future<void> getSalonListApi() async {
     });
     return idx;
   }
-List<Widget> _buildBackgroundGrid() {
+List<Widget> _buildBackgroundGrid(int slotCount) {
   final List<Widget> widgets = [];
 
   // Horizontal row backgrounds
-  for (int r = 0; r < timeSlots.length; r++) {
+  for (int r = 0; r < slotCount; r++) {
     widgets.add(
       Positioned(
         top: r * _rowHeight,
@@ -1063,7 +1076,7 @@ void _openAppointmentModal({
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
 
-                    // ✅ Header
+                    // ? Header
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1095,7 +1108,7 @@ void _openAppointmentModal({
     color: status == 'PENDING'
         ? Colors.blue.withOpacity(0.1)
         : status == 'CONFIRMED'
-            ? Colors.pink.withOpacity(0.2)   // ✅ pink background
+            ? Colors.pink.withOpacity(0.2)   // ? pink background
             : status == 'IN_PROGRESS'
                 ? Colors.orange.withOpacity(0.2)
                 : Colors.grey.withOpacity(0.2),
@@ -1109,7 +1122,7 @@ void _openAppointmentModal({
       color: status == 'PENDING'
           ? Colors.blue
           : status == 'CONFIRMED'
-              ? Colors.black   // ✅ force black text
+              ? Colors.black   // ? force black text
               : status == 'IN_PROGRESS'
                   ? Colors.black
                   : Colors.black54,
@@ -1122,17 +1135,17 @@ void _openAppointmentModal({
 
                     const Divider(height: 12, thickness: 0.8, color: Color(0xFFE0E0E0)),
 
-                    // ✅ Time + price
+                    // ? Time + price
                     Text(timeRange, style: const TextStyle(color: Colors.black54)),
                     if (priceTotal != null) ...[
                       SizedBox(height: 4),
-                      Text('Total Price: ₹$priceTotal',
+                      Text('Total Price: ?$priceTotal',
                           style: const TextStyle(color: Colors.black87)),
                     ],
 
                     SizedBox(height: 12),
 
-                    // ✅ Assigned To
+                    // ? Assigned To
                     Text(translateText("Assigned To"),
                         style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
                     SizedBox(height: 4),
@@ -1147,7 +1160,7 @@ void _openAppointmentModal({
 
                     SizedBox(height: 12),
 
-                    // ✅ Services list
+                    // ? Services list
                     Expanded(
                       child: ListView.separated(
                         itemCount: items.length,
@@ -1158,7 +1171,7 @@ void _openAppointmentModal({
                               (it['service']?.toString() ?? 'Service');
                           final int? priceMinor = it['priceMinor'] as int?;
                           final String priceText =
-                              priceMinor != null ? '₹$priceMinor' : '';
+                              priceMinor != null ? '?$priceMinor' : '';
                           final String range = _fmtTimeRange(
                             it['start'] as DateTime,
                             it['end'] as DateTime,
@@ -1182,7 +1195,7 @@ void _openAppointmentModal({
                       ),
                     ),
 
-                    // ✅ Action buttons
+                    // ? Action buttons
                     SizedBox(height: 12),
                     _buildActionButton(status, apptIds, setSheetState),
                   ],
@@ -1290,7 +1303,7 @@ String _buildStylistName(List<Map<String, dynamic>> items) {
           ? services.first
           : 'Service';
       final int? priceTotal = seg['priceTotal'] as int?;
-      final String priceText = priceTotal != null ? '₹$priceTotal' : '';
+      final String priceText = priceTotal != null ? '?$priceTotal' : '';
       final String timeRange = _fmtTimeRange(s, e);
 
       final List<Map<String, dynamic>> segItems =
@@ -1695,7 +1708,7 @@ final String stylist = staffNames.isEmpty
     ? 'N/A'
     : staffNames.length == 1
         ? staffNames.first
-        : staffNames.join(', '); // 👈 show all instead of just "Multiple"
+        : staffNames.join(', '); // ?? show all instead of just "Multiple"
 
 
             int _toInt(dynamic value) {
@@ -1751,11 +1764,11 @@ final String timeStr = (start != null && end != null)
             );
             final String singleServicePrice =
                 !hasMultipleServices && singleServicePriceMinor > 0
-                ? '₹$singleServicePriceMinor'
+                ? '?$singleServicePriceMinor'
                 : '';
             final String totalPrice =
                 hasMultipleServices && aggregatedPriceMinor > 0
-                ? '₹$aggregatedPriceMinor'
+                ? '?$aggregatedPriceMinor'
                 : '';
 
             Future<void> onConfirm() async {
@@ -1832,7 +1845,7 @@ Future<void> onStartJob() async {
     selectedFillColor: Colors.white,
     inactiveFillColor: Colors.white,
 
-    // 👇 Dynamic colors based on hasError
+    // ?? Dynamic colors based on hasError
     activeColor: hasError ? Colors.red : AppColors.starColor,
     selectedColor: hasError ? Colors.red : AppColors.starColor,
     inactiveColor: hasError ? Colors.red : AppColors.starColor,
@@ -1848,7 +1861,7 @@ Future<void> onStartJob() async {
 ),
 
 
-                  // 👇 Inline error under OTP field
+                  // ?? Inline error under OTP field
                   if (errorMessage.isNotEmpty) ...[
                     SizedBox(height: 8),
                     Text(
@@ -1903,7 +1916,7 @@ Future<void> onStartJob() async {
                         setDialogState(() => isSubmitting = false);
 
                         if (!success) {
-                          // ❌ Show inline error
+                          // ? Show inline error
                           setDialogState(() {
                             errorMessage = message;
                              hasError = true;
@@ -1911,7 +1924,7 @@ Future<void> onStartJob() async {
                           return;
                         }
 
-                        // ✅ Success
+                        // ? Success
                         Navigator.pop(dialogCtx);
                         final newStatus = _normalizeStatus(
                           resp['data']?['status'] ?? 'IN_PROGRESS',
@@ -2074,7 +2087,7 @@ Future<void> onCompleteJob() async {
             : statusUpper == 'IN_PROGRESS'
                 ? AppColors.inProgressStatus
                 : statusUpper == 'COMPLETED'
-                    ? Colors.green.shade100   // ✅ light green bg
+                    ? Colors.green.shade100   // ? light green bg
                     : Colors.grey.shade300,
     borderRadius: BorderRadius.circular(12),
   ),
@@ -2089,7 +2102,7 @@ Future<void> onCompleteJob() async {
               : statusUpper == 'IN_PROGRESS'
                   ?  Colors.black
                   : statusUpper == 'COMPLETED'
-                      ? Colors.black   // ✅ black text
+                      ? Colors.black   // ? black text
                       : Colors.black54,
     ),
   ),
@@ -2100,7 +2113,7 @@ Future<void> onCompleteJob() async {
 SizedBox(height: 12),
 
     // Row: Date + Time
-    const Divider( // 👈 thin line between items
+    const Divider( // ?? thin line between items
       height: 12,
       thickness: 0.8,
       color: Color(0xFFE0E0E0), // light grey
@@ -2230,7 +2243,7 @@ SizedBox(height: 12),
     ),
   ],
 ),
-const Divider( // 👈 thin line between items
+const Divider( // ?? thin line between items
       height: 12,
       thickness: 0.8,
       color: Color(0xFFE0E0E0), // light grey
@@ -2276,7 +2289,7 @@ const Divider( // 👈 thin line between items
                                     serviceItem['branchService']?['priceMinor'],
                                   );
                                   final String itemPrice = itemPriceMinor > 0
-                                      ? '₹$itemPriceMinor'
+                                      ? '?$itemPriceMinor'
                                       : '';
                                   final bool isSelected = identical(
                                     serviceItem,
@@ -2346,7 +2359,7 @@ const Divider( // 👈 thin line between items
                                         ),
                                       )
                                     : Text(translateText('Accept'), style: TextStyle(
-      color: Colors.white,   // 👈 force white text
+      color: Colors.white,   // ?? force white text
       fontWeight: FontWeight.w600,),),
                               ),
                             ),
@@ -2533,17 +2546,17 @@ Future<void> onBranchChanged(
   });
 
   try {
-    // 🔹 Step 1: Fetch team members
+    // ?? Step 1: Fetch team members
     await getTeamMembers(branchId);
 
-    // 🔹 Step 2: Save branch cache
+    // ?? Step 2: Save branch cache
     await _saveBranchCache(branchId);
 
-    // 🔹 Step 3: Always fetch bookings for current date
-    print('[Bookings] calling getBookingsByDate → branch=$branchId, date=$selectedDate');
+    // ?? Step 3: Always fetch bookings for current date
+    print('[Bookings] calling getBookingsByDate ? branch=$branchId, date=$selectedDate');
     await getBookingsByDate(branchId, selectedDate);
 
-    // 🔹 Step 4: Process any queued notifications
+    // ?? Step 4: Process any queued notifications
     _processQueuedBookingNotificationIfAny();
 
     print('[Bookings] processed queued payload after branch change.');
@@ -2668,6 +2681,14 @@ Future<void> onBranchChanged(
     final branchHint = branchOptions.isEmpty
         ? context.t('Add a salon to get started')
         : context.t('Pick a salon to view bookings');
+    final bool hasSalons = branchOptions.isNotEmpty;
+    final List<String> displayTimeSlots =
+        timeSlots.isEmpty ? _defaultTimeSlots : timeSlots;
+    final bool hasTeamMembers = teamMembers.isNotEmpty;
+    final bool hasSlots = timeSlots.isNotEmpty;
+    final String primaryEmptyMessage = translateText(
+      hasSalons ? 'Add team members to start' : 'Add a salon and team members',
+    );
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -2830,7 +2851,7 @@ Future<void> onBranchChanged(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-  DateFormat('dd MMM').format(date), // 👈 gives "30 Sep", "01 Oct"
+  DateFormat('dd MMM').format(date), // ?? gives "30 Sep", "01 Oct"
   style: TextStyle(
     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
     color: isSelected ? Colors.white : Colors.black,
@@ -2858,7 +2879,7 @@ Future<void> onBranchChanged(
       width: 20,
       height: 20,
       colorFilter: const ColorFilter.mode(
-        Colors.black, // 👈 ensures visible
+        Colors.black, // ?? ensures visible
         BlendMode.srcIn,
       ),
     ),
@@ -2908,11 +2929,11 @@ Future<void> onBranchChanged(
                               child:Row(
   children: List.generate(_totalColumns, (index) {
     if (index >= teamMembers.length) {
-      // 👇 Placeholder staff cell
+      // ?? Placeholder staff cell
       return _buildEmptyStaffCell(index == _totalColumns - 1);
     }
 
-    // 👇 Your existing team member cell
+    // ?? Your existing team member cell
     final m = teamMembers[index];
     final fn = (m['firstName'] ?? '').toString();
     final ln = (m['lastName'] ?? '').toString();
@@ -2984,9 +3005,7 @@ Future<void> onBranchChanged(
                             // Time labels column (synced vertically)
                             SizedBox(
                               width: 100,
-                              child: timeSlots.isEmpty
-                                  ? SizedBox()
-                                  : NotificationListener<ScrollNotification>(
+                              child: NotificationListener<ScrollNotification>(
                                       onNotification: (notif) {
                                         if (notif.metrics.axis ==
                                             Axis.vertical) {
@@ -3009,9 +3028,9 @@ Future<void> onBranchChanged(
                                         controller: _timeColumnVController,
                                         primary: false,
                                         physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.zero,            // 👈 ensure no extra top space
+          padding: EdgeInsets.zero,            // ?? ensure no extra top space
           itemExtent: _rowHeight,
-          itemCount: timeSlots.length,
+          itemCount: displayTimeSlots.length,
                                         itemBuilder: (context, i) {
                                           return Container(
                                             alignment: Alignment.centerLeft,
@@ -3032,7 +3051,7 @@ Future<void> onBranchChanged(
                                               ),
                                             ),
                                             child: Text(
-                                              timeSlots[i],
+                                              displayTimeSlots[i],
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 12,
@@ -3053,14 +3072,9 @@ Future<void> onBranchChanged(
                                 physics: const ClampingScrollPhysics(),
                                 child: SizedBox(
                                    width: _totalColumns * _colWidth,
-                                  child: timeSlots.isEmpty
-                                      ? Center(
-                                          child: Text(translateText('No time slots available'),
-                                          ),
-                                        )
-                                      : NotificationListener<
-                                          ScrollNotification
-                                        >(
+                                  child: NotificationListener<
+                                      ScrollNotification
+                                    >(
                                           onNotification: (notif) {
                                             if (notif.metrics.axis ==
                                                 Axis.vertical) {
@@ -3091,14 +3105,91 @@ Future<void> onBranchChanged(
                                                 const ClampingScrollPhysics(),
                                             child: SizedBox(
                                               width: _totalColumns * _colWidth,
-                                              height:
-                                                  timeSlots.length * _rowHeight,
+                                              height: displayTimeSlots.length *
+                                                  _rowHeight,
                                               child: Stack(
                                                 children: [
                                                   // Background grid
-                                                  ..._buildBackgroundGrid(),
+                                                  ..._buildBackgroundGrid(
+                                                    displayTimeSlots.length,
+                                                  ),
                                                   // Booking overlays
                                                   ..._buildBookingBlocks(),
+                                                  if (!hasTeamMembers)
+                                                    Positioned(
+                                                      top: _rowHeight * 4.5,
+                                                      left: 24,
+                                                      right: 24,
+                                                      child: IgnorePointer(
+                                                        child: Container(
+                                                          alignment: Alignment.center,
+                                                          padding: const EdgeInsets.symmetric(
+                                                            horizontal: 16,
+                                                            vertical: 12,
+                                                          ),
+                                                          decoration: BoxDecoration(
+                                                            color: Colors.white.withOpacity(0.92),
+                                                            borderRadius: BorderRadius.circular(12),
+                                                            border: Border.all(
+                                                              color: Colors.grey.shade300,
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            primaryEmptyMessage,
+                                                            style: const TextStyle(
+                                                              fontWeight: FontWeight.w600,
+                                                              color: Colors.black54,
+                                                            ),
+                                                            textAlign: TextAlign.center,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                  else if (!hasSlots)
+                                                    Positioned.fill(
+                                                      child: IgnorePointer(
+                                                        child: Center(
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets
+                                                                    .symmetric(
+                                                              horizontal: 16,
+                                                              vertical: 12,
+                                                            ),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: Colors
+                                                                  .white
+                                                                  .withOpacity(
+                                                                      0.92),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          12),
+                                                              border:
+                                                                  Border.all(
+                                                                color:
+                                                                    Colors.grey
+                                                                        .shade300,
+                                                              ),
+                                                            ),
+                                                            child: Text(
+                                                              translateText(
+                                                                'No time slots available',
+                                                              ),
+                                                              style:
+                                                                  const TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                color: Colors
+                                                                    .black54,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
                                                 ],
                                               ),
                                             ),
@@ -3126,7 +3217,7 @@ Future<void> onBranchChanged(
         ],
       ),
    floatingActionButton: FloatingActionButton.extended(
-  heroTag: 'add_booking_fab', // ✅ unique tag
+  heroTag: 'add_booking_fab', // ? unique tag
   onPressed: () async {
     if (selectedBranchId == null || selectedSalonId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3269,8 +3360,8 @@ final location = city.isNotEmpty ? '$line1, $city' : line1;
           TextSpan(
            text: ', $location',
             style: TextStyle(
-              color: Colors.grey,      // 👈 grey color
-              fontWeight: FontWeight.normal, // 👈 not bold
+              color: Colors.grey,      // ?? grey color
+              fontWeight: FontWeight.normal, // ?? not bold
               fontSize: titleStyle.fontSize, // match sizing
             ),
           ),
@@ -3341,7 +3432,7 @@ final location = city.isNotEmpty ? '$line1, $city' : line1;
         ),
       ],
     ),
-    const Divider( // 👈 thin line between items
+    const Divider( // ?? thin line between items
       height: 12,
       thickness: 0.8,
       color: Color(0xFFE0E0E0), // light grey
@@ -3369,3 +3460,6 @@ Widget _buildEmptyStaffCell(bool isLast) {
     alignment: Alignment.center,
   );
 }
+
+
+
