@@ -734,15 +734,15 @@ for (final salon in salons) {
                       ),
                     ),
                     // const SizedBox(height: 4),
-                    Text(
-                      selectedName ??
-                          translateText('Select a salon to get started'),
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: Colors.white70,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    // Text(
+                    //   selectedName ??
+                    //       translateText('Select a salon to get started'),
+                    //   style: textTheme.bodyMedium?.copyWith(
+                    //     color: Colors.white70,
+                    //   ),
+                    //   maxLines: 1,
+                    //   overflow: TextOverflow.ellipsis,
+                    // ),
                   ],
                 ),
               ),
