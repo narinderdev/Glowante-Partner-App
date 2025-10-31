@@ -1303,7 +1303,7 @@ String _buildStylistName(List<Map<String, dynamic>> items) {
           ? services.first
           : 'Service';
       final int? priceTotal = seg['priceTotal'] as int?;
-      final String priceText = priceTotal != null ? '?$priceTotal' : '';
+      final String priceText = priceTotal != null ? '₹$priceTotal' : '';
       final String timeRange = _fmtTimeRange(s, e);
 
       final List<Map<String, dynamic>> segItems =
@@ -1768,7 +1768,7 @@ final String timeStr = (start != null && end != null)
                 : '';
             final String totalPrice =
                 hasMultipleServices && aggregatedPriceMinor > 0
-                ? '?$aggregatedPriceMinor'
+                ? '₹$aggregatedPriceMinor'
                 : '';
 
             Future<void> onConfirm() async {
