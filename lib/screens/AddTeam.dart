@@ -992,10 +992,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       focusNode: _brieftFocus,
                       controller: _briefCtrl,
                       maxLines: 4,
+                      maxLength: 100,
+                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
                       textCapitalization: TextCapitalization.sentences,
                       decoration: _decor(
                         hint: 'Enter a brief about this member',
-                      ).copyWith(contentPadding: const EdgeInsets.all(14)),
+                      ).copyWith(
+                        contentPadding: const EdgeInsets.all(14),
+                        counterText: '',
+                      ),
                       validator: (_) => null, // Brief excluded
                     ),
 
