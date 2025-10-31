@@ -181,7 +181,7 @@ class _TeamScreenState extends State<TeamScreen> {
                       });
                     },
                     decoration: InputDecoration(
-                      labelText: translateText("Branch"),
+                      labelText: translateText("Salon"),
                       labelStyle: TextStyle(
                         color: Colors.grey.shade800,
                         fontWeight: FontWeight.w700,

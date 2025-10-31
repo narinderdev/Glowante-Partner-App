@@ -350,7 +350,7 @@ class _DealScreenState extends State<DealScreen> {
     }
   },
   decoration: InputDecoration(
-    labelText: translateText('Branch'),
+    labelText: translateText('Salon'),
     filled: true,
     fillColor: kDropdownFill,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

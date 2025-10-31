@@ -1,4 +1,4 @@
-// Md is deleting from here now
+﻿// Md is deleting from here now
 import 'dart:async';
 import 'dart:convert'; // NEW
 import 'package:flutter/gestures.dart';
@@ -1139,7 +1139,7 @@ void _openAppointmentModal({
                     Text(timeRange, style: const TextStyle(color: Colors.black54)),
                     if (priceTotal != null) ...[
                       SizedBox(height: 4),
-                      Text('Total Price: ?$priceTotal',
+                      Text('Total Price: ₹ $priceTotal',
                           style: const TextStyle(color: Colors.black87)),
                     ],
 
