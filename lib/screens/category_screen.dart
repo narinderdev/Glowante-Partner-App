@@ -1576,6 +1576,9 @@ class _LabeledField extends StatelessWidget {
     this.maxLines = 1,
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
+    this.maxLength,
+    this.inputFormatters,
+    this.hideCounter = true,
   });
 
   final String label;
@@ -1583,6 +1586,9 @@ class _LabeledField extends StatelessWidget {
   final int maxLines;
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
+  final bool hideCounter;
 
   @override
   Widget build(BuildContext context) {
@@ -1591,6 +1597,8 @@ class _LabeledField extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: '',
         border: OutlineInputBorder(),
@@ -1600,6 +1608,7 @@ class _LabeledField extends StatelessWidget {
           horizontal: 12,
           vertical: 12,
         ),
+        counterText: maxLength != null && hideCounter ? '' : null,
       ),
     );
   }
@@ -1749,14 +1758,19 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
             TextField(
               controller: nameController,
               textCapitalization: TextCapitalization.none,
-              inputFormatters: const [FirstLetterUpperFormatter()],
+              maxLength: 100,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              inputFormatters: const [
+                FirstLetterUpperFormatter(),
+                LengthLimitingTextInputFormatter(100),
+              ],
               onChanged: (_) {
                 if (errorText != null) setState(() => errorText = null);
               },
               decoration: InputDecoration(
                 labelText: translateText('Category Name'),
                 border: OutlineInputBorder(),
-              ),
+              ).copyWith(counterText: ''),
             ),
             SizedBox(height: 12),
             // Optional description input ÃƒÅ½Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¡ÃƒÆ’Ã‚Â´ keep if you need it in UI
@@ -1914,14 +1928,19 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
             TextField(
               controller: controller,
               textCapitalization: TextCapitalization.none,
-              inputFormatters: const [FirstLetterUpperFormatter()],
+              maxLength: 100,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              inputFormatters: const [
+                FirstLetterUpperFormatter(),
+                LengthLimitingTextInputFormatter(100),
+              ],
               onChanged: (_) {
                 if (errorText != null) setState(() => errorText = null);
               },
               decoration: InputDecoration(
                 labelText: translateText('Subcategory Name'),
                 border: OutlineInputBorder(),
-              ),
+              ).copyWith(counterText: ''),
             ),
             if (errorText != null) ...[
               SizedBox(height: 8),
@@ -2195,14 +2214,28 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
 
     if (priceTxt.isEmpty) {
       pErr = 'Price is required';
-    } else if (int.tryParse(priceTxt) == null) {
-      pErr = 'Enter a valid number';
+    } else {
+      final priceVal = int.tryParse(priceTxt);
+      if (priceVal == null) {
+        pErr = 'Enter a valid number';
+      } else if (priceVal <= 0) {
+        pErr = 'Price must be greater than 0';
+      } else if (priceTxt.length > 6) {
+        pErr = 'Price cannot exceed 6 digits';
+      }
     }
 
     if (durationTxt.isEmpty) {
       dErr = 'Duration is required';
-    } else if (int.tryParse(durationTxt) == null) {
-      dErr = 'Enter a valid number';
+    } else {
+      final durationVal = int.tryParse(durationTxt);
+      if (durationVal == null) {
+        dErr = 'Enter a valid number';
+      } else if (durationVal <= 0) {
+        dErr = 'Duration must be greater than 0';
+      } else if (durationTxt.length > 4) {
+        dErr = 'Duration cannot exceed 4 digits';
+      }
     }
 
     setState(() {
@@ -2226,6 +2259,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             label: translateText('Service Name'),
             controller: nameController,
             textCapitalization: TextCapitalization.words,
+            maxLength: 100,
           ),
           if (nameError != null) ...[
             SizedBox(height: 4),
@@ -2245,6 +2279,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             controller: descriptionController,
             maxLines: 1,
             textCapitalization: TextCapitalization.sentences,
+            maxLength: 100,
           ),
           SizedBox(height: 12),
 
@@ -2253,6 +2288,8 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             label: translateText('Duration (minutes)'),
             controller: durationController,
             keyboardType: TextInputType.number,
+            maxLength: 4,
+            inputFormatters: const [FilteringTextInputFormatter.digitsOnly],
           ),
           if (durationError != null) ...[
             SizedBox(height: 4),
@@ -2271,6 +2308,8 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             label: translateText('Price (in ₹)'),
             controller: priceController,
             keyboardType: TextInputType.number,
+            maxLength: 6,
+            inputFormatters: const [FilteringTextInputFormatter.digitsOnly],
           ),
           if (priceError != null) ...[
             SizedBox(height: 4),

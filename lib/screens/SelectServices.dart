@@ -262,7 +262,7 @@ Widget _buildCategory(Map<String, dynamic> cat) {
     elevation: 0,
     automaticallyImplyLeading: false,
     iconTheme: const IconThemeData(color: Colors.white),
-    title: Text(translateText('Select Services'),
+    title: Text(translateText('Select Service'),
       style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
     ),
     actions: [

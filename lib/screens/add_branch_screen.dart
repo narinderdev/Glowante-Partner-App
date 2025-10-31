@@ -454,6 +454,7 @@ void _submit(AddBranchState state) {
                         label: 'Description *',
                         hint: 'Enter description',
                         maxLines: 1,
+                        maxLength: 100,
                         textCapitalization: TextCapitalization.none,
                         inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),

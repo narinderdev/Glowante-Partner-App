@@ -582,7 +582,7 @@ Future<void> _submit(AddSalonState state) async {
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
                         maxLines: 1,
-                        maxWords: 250,
+                        maxLength: 100,
                         inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
                       SizedBox(height: 20),
