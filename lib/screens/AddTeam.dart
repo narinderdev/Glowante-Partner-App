@@ -1031,7 +1031,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         };
 
                         print('Sending to Choose time slots: $payload');
-                        Navigator.push(
+                        final refresh = await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => AddTeamChooseTimeSlot(
@@ -1044,6 +1044,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             ),
                           ),
                         );
+                        if (refresh == true && mounted) {
+                          Navigator.pop(context, true);
+                        }
                       },
                     ),
                   ],

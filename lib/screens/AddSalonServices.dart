@@ -470,6 +470,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
   late List<String> _selectedCodes;
   bool _isLoading = true;
   bool _isSubmitting = false;
+  final Map<String, ImageProvider> _imageProviders = {};
 
   @override
   void initState() {
@@ -495,18 +496,28 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         final data = (body['data'] as List<dynamic>?) ?? <dynamic>[];
 
-        // Precache service images
+        final Map<String, ImageProvider> providers = {};
         for (final service in data) {
           final imageUrl = (service['image_url'] ?? '') as String;
-          if (imageUrl.isNotEmpty && mounted) {
-            precacheImage(CachedNetworkImageProvider(imageUrl), context);
-          }
+          if (imageUrl.isEmpty) continue;
+          providers.putIfAbsent(
+            imageUrl,
+            () => CachedNetworkImageProvider(imageUrl),
+          );
         }
 
+        if (!mounted) return;
         setState(() {
           _services = data;
+          _imageProviders.addAll(providers);
           _isLoading = false;
         });
+
+        for (final provider in providers.values) {
+          if (mounted) {
+            precacheImage(provider, context);
+          }
+        }
       } else {
         throw Exception('Failed to fetch service catalog: ${response.body}');
       }
@@ -647,30 +658,24 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                           child: imageUrl.isEmpty
                                               ? const Icon(
                                                   Icons.image_not_supported)
-                                              : CachedNetworkImage(
-                                                  imageUrl: imageUrl,
-                                                  fit: BoxFit.cover,
-                                                  fadeInDuration:
-                                                      const Duration(
-                                                          milliseconds: 300),
-                                                  memCacheWidth: 200,
-                                                  memCacheHeight: 200,
-                                                  placeholder:
-                                                      (context, url) =>
-                                                          const Center(
-                                                    child: SizedBox(
-                                                      width: 20,
-                                                      height: 20,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        strokeWidth: 1.8,
+                                              : Image(
+                                                  image: _imageProviders
+                                                      .putIfAbsent(
+                                                        imageUrl,
+                                                        () =>
+                                                            CachedNetworkImageProvider(
+                                                                imageUrl),
                                                       ),
-                                                    ),
+                                                  fit: BoxFit.cover,
+                                                  gaplessPlayback: true,
+                                                  filterQuality:
+                                                      FilterQuality.high,
+                                                  errorBuilder:
+                                                      (_, __, ___) =>
+                                                          const Icon(
+                                                    Icons
+                                                        .image_not_supported,
                                                   ),
-                                                  errorWidget: (context, url,
-                                                          error) =>
-                                                      const Icon(Icons
-                                                          .image_not_supported),
                                                 ),
                                         ),
                                       ),

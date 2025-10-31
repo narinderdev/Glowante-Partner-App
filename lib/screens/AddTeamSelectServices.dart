@@ -341,7 +341,6 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
-import 'SalonTeams.dart';
 import 'package:intl/intl.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
@@ -677,14 +676,7 @@ Future<void> _submit() async {
     if (!mounted) return;
 
     if (response['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Team member added successfully')),
-      );
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => TeamScreen()),
-        (route) => false,
-      );
+      Navigator.pop(context, true);
     } else {
       _showError(response['message']?.toString() ?? 'Failed to add team member');
     }

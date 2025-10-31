@@ -968,6 +968,27 @@ void _showOverlay() {
 ),
 
                   const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Divider(color: Colors.grey.shade300, thickness: 1),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          translateText('Or'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.darkGrey,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(color: Colors.grey.shade300, thickness: 1),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _getCurrentLocation,
                     style: ElevatedButton.styleFrom(
@@ -989,41 +1010,57 @@ void _showOverlay() {
                   ),
                   const SizedBox(height: 20),
 
-                  _buildTextField(
-                    controller: buildingNameController,
-                    label: 'Building Name and Flat No',
-                    hint: 'Enter building name and flat number',
-                  ),
-                  _buildTextField(
-                    controller: cityController,
-                    label: 'City',
-                    hint: 'Enter city',
-                    regex: RegExp(r'^[a-zA-Z\s.-]+$'),
-                    enabled: !_cityLocked,
-                  ),
-                  _buildTextField(
-                    controller: pincodeController,
-                    label: 'Pincode',
-                    hint: 'Enter pincode',
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    regex: RegExp(r'^\d{6}$'),
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    enabled: !_pincodeLocked,
-                  ),
-                  _buildTextField(
-                    controller: stateController,
-                    label: 'State',
-                    hint: 'Enter state',
-                    regex: RegExp(r'^[a-zA-Z\s.-]+$'),
-                    enabled: !_stateLocked,
-                  ),
-                  _buildTextField(
-                    controller: completeAddressController,
-                    label: 'Complete Address',
-                    hint: 'Full address will appear here',
-                    enabled: false,
-                    isRequired: false,
+                  Card(
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 12,
+                      ),
+                      child: Column(
+                        children: [
+                          _buildTextField(
+                            controller: buildingNameController,
+                            label: 'Building Name and Flat No',
+                            hint: 'Enter building name and flat number',
+                          ),
+                          _buildTextField(
+                            controller: cityController,
+                            label: 'City',
+                            hint: 'Enter city',
+                            regex: RegExp(r'^[a-zA-Z\s.-]+$'),
+                            enabled: !_cityLocked,
+                          ),
+                          _buildTextField(
+                            controller: pincodeController,
+                            label: 'Pincode',
+                            hint: 'Enter pincode',
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            regex: RegExp(r'^\d{6}$'),
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                            enabled: !_pincodeLocked,
+                          ),
+                          _buildTextField(
+                            controller: stateController,
+                            label: 'State',
+                            hint: 'Enter state',
+                            regex: RegExp(r'^[a-zA-Z\s.-]+$'),
+                            enabled: !_stateLocked,
+                          ),
+                          _buildTextField(
+                            controller: completeAddressController,
+                            label: 'Complete Address',
+                            hint: 'Full address will appear here',
+                            enabled: false,
+                            isRequired: false,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
 
                   const SizedBox(height: 20),

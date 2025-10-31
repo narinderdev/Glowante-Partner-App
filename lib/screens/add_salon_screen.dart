@@ -97,13 +97,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       _phoneController.text = phone;
     }
 
-    final names = [widget.firstName, widget.lastName]
-        .whereType<String>()
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
-    if (names.isNotEmpty) {
-      _salonNameController.text = names.join(' ');
+    final proceedContext = widget.isProceedFrom?.toLowerCase().trim();
+    final shouldPrefillSalonName = proceedContext != 'onboarding';
+    if (shouldPrefillSalonName) {
+      final names = [widget.firstName, widget.lastName]
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList();
+      if (names.isNotEmpty) {
+        _salonNameController.text = names.join(' ');
+      }
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

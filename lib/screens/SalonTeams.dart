@@ -329,6 +329,9 @@ class _TeamScreenState extends State<TeamScreen> {
               setState(() {
                 teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!); // ✅ refresh by branch
               });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(translateText("Team member added successfully"))),
+              );
             }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(

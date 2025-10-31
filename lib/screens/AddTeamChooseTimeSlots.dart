@@ -301,12 +301,18 @@ Future<void> _goToSelectServices() async {
     if (!mounted) return;
 
     // Navigate to the services selection screen with the payload
-    Navigator.push(
+    final refresh = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => AddTeamSelectServices(teamMemberData: teamMemberData),
       ),
     );
+
+    if (!mounted) return;
+    if (refresh == true) {
+      Navigator.pop(context, true);
+      return;
+    }
   } catch (e) {
     // optional: surface a toast/dialog
     _showErrorDialog('Something went wrong while preparing data.');
