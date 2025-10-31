@@ -149,36 +149,32 @@ int get _totalColumns {
   List<_BranchOption> _computeBranchOptions() {
     final options = <_BranchOption>[];
     final seenSalonIds = <int>{};
+    final seenBranchIds = <int>{};
     for (final salon in salons) {
       final salonId = _asInt(salon['id']);
       if (salonId == null || !seenSalonIds.add(salonId)) continue;
       final salonName = (salon['name'] ?? '').toString();
       final branches = salon['branches'];
-      Map<String, dynamic>? branch;
-      if (branches is List) {
-        for (final branchEntry in branches) {
-          if (branchEntry is Map && branchEntry.isNotEmpty) {
-            branch = Map<String, dynamic>.from(branchEntry);
-            break;
-          }
-        }
-      }
-      if (branch == null) {
+      if (branches is! List || branches.isEmpty) {
         continue;
       }
-      final branchId = _asInt(branch['id']);
-      if (branchId == null) continue;
-      final branchName = (branch['name'] ?? '').toString();
-      options.add(
-        _BranchOption(
-          salonId: salonId,
-          salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
-          branchId: branchId,
-          branchName: branchName.isEmpty ? 'Branch #$branchId' : branchName,
-          addressSummary: _branchAddressSummary(branch),
-          branch: branch,
-        ),
-      );
+      for (final branchEntry in branches) {
+        if (branchEntry is! Map || branchEntry.isEmpty) continue;
+        final branch = Map<String, dynamic>.from(branchEntry);
+        final branchId = _asInt(branch['id']);
+        if (branchId == null || !seenBranchIds.add(branchId)) continue;
+        final branchName = (branch['name'] ?? '').toString();
+        options.add(
+          _BranchOption(
+            salonId: salonId,
+            salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
+            branchId: branchId,
+            branchName: branchName.isEmpty ? 'Branch #$branchId' : branchName,
+            addressSummary: _branchAddressSummary(branch),
+            branch: branch,
+          ),
+        );
+      }
     }
     return options;
   }
@@ -2679,8 +2675,8 @@ Future<void> onBranchChanged(
         ? selectedBranchId
         : null;
     final branchHint = branchOptions.isEmpty
-        ? context.t('Add a salon to get started')
-        : context.t('Pick a salon to view bookings');
+        ? context.t('Add a salon or branch to get started')
+        : context.t('Pick a salon & branch to view bookings');
     final bool hasSalons = branchOptions.isNotEmpty;
     final List<String> displayTimeSlots =
         timeSlots.isEmpty ? _defaultTimeSlots : timeSlots;
@@ -2702,7 +2698,7 @@ Future<void> onBranchChanged(
                   value: selectedBranchValue,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: translateText('Salon'),
+                    labelText: translateText('Salon & Branch'),
                     hintText: branchHint,
                     filled: true,
                     fillColor: Colors.white,
@@ -3306,11 +3302,20 @@ class _BranchDropdownOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // final location = option.addressSummary.trim();
-final address = option.branch['address'] as Map<String, dynamic>? ?? {};
-final line1 = (address['line1'] ?? '').toString().trim();
-final city = (address['city'] ?? '').toString().trim();
-final location = city.isNotEmpty ? '$line1, $city' : line1;
+    final address = option.branch['address'] as Map<String, dynamic>? ?? {};
+    final line1 = (address['line1'] ?? '').toString().trim();
+    final city = (address['city'] ?? '').toString().trim();
+    final location = city.isNotEmpty ? '$line1, $city' : line1;
+
+    final salonLabel = option.salonName.trim().isEmpty
+        ? option.branchName
+        : option.salonName.trim();
+    final branchLabel = option.branchName.trim();
+    final hasDistinctBranch = branchLabel.isNotEmpty &&
+        branchLabel.toLowerCase() != salonLabel.toLowerCase();
+    final compactTitle = hasDistinctBranch
+        ? '$salonLabel • $branchLabel'
+        : salonLabel;
 
     final titleStyle =
         theme.textTheme.titleMedium?.copyWith(
@@ -3324,6 +3329,18 @@ final location = city.isNotEmpty ? '$line1, $city' : line1;
           color: Colors.black87,
         );
 
+    final branchStyle =
+        theme.textTheme.bodyMedium?.copyWith(
+          fontSize: compact ? 12 : 13,
+          color: Colors.blueGrey.shade600,
+          fontWeight: FontWeight.w500,
+        ) ??
+        TextStyle(
+          fontSize: compact ? 12 : 13,
+          color: Colors.blueGrey.shade600,
+          fontWeight: FontWeight.w500,
+        );
+
     final locationStyle =
         theme.textTheme.bodySmall?.copyWith(
           fontSize: compact ? 12 : 13,
@@ -3333,112 +3350,126 @@ final location = city.isNotEmpty ? '$line1, $city' : line1;
 
     final bool showIcon = !compact;
     final bool showLocation = location.isNotEmpty;
-    final displayName = option.salonName.isEmpty
-        ? option.branchName
-        : option.salonName;
 
-   if (compact) {
-  return Row(
-    children: [
-      Icon(
-        Icons.location_on_outlined,
-        size: 16,
-        color: Colors.blueGrey.shade400,
-      ),
-      SizedBox(width: 4),
-    Expanded(
-  child: RichText(
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-    text: TextSpan(
-      children: [
-        TextSpan(
-          text: displayName,
-          style: titleStyle, // whatever your main style is (bold, black, etc.)
-        ),
-        if (location.isNotEmpty) ...[// keeps the dot separator
-          TextSpan(
-           text: ', $location',
-            style: TextStyle(
-              color: Colors.grey,      // ?? grey color
-              fontWeight: FontWeight.normal, // ?? not bold
-              fontSize: titleStyle.fontSize, // match sizing
-            ),
+    if (compact) {
+      return Row(
+        children: [
+          Icon(
+            Icons.location_on_outlined,
+            size: 16,
+            color: Colors.blueGrey.shade400,
           ),
-        ],
-      ],
-    ),
-  ),
-),
-
-    ],
-  );
-}
-    return Column(
-  children: [
-    Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showIcon) ...[
-          Container(
-            height: 40,
-            width: 40,
-            decoration: BoxDecoration(
-              color: AppColors.starColor.withOpacity(0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.storefront_rounded,
-              color: AppColors.starColor,
-              size: 22,
-            ),
-          ),
-          SizedBox(width: 12),
-        ],
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                displayName,
-                style: titleStyle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (showLocation) ...[
-                SizedBox(height: 2),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 16,
-                      color: Colors.blueGrey.shade400,
+          SizedBox(width: 4),
+          Expanded(
+            child: RichText(
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: compactTitle,
+                    style: titleStyle,
+                  ),
+                  if (showLocation)
+                    TextSpan(
+                      text: ' • $location',
+                      style: locationStyle,
                     ),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        location,
-                        style: locationStyle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showIcon) ...[
+              Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.starColor.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.storefront_rounded,
+                  color: AppColors.starColor,
+                  size: 22,
+                ),
+              ),
+              SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.max,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    salonLabel,
+                    style: titleStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (hasDistinctBranch) ...[
+                    SizedBox(height: 2),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.apartment_rounded,
+                          size: 16,
+                          color: Colors.blueGrey.shade400,
+                        ),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            branchLabel,
+                            style: branchStyle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-              ],
-            ],
-          ),
+                  if (showLocation) ...[
+                    SizedBox(height: hasDistinctBranch ? 4 : 2),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 16,
+                          color: Colors.blueGrey.shade400,
+                        ),
+                        SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            location,
+                            style: locationStyle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        const Divider(
+          height: 12,
+          thickness: 0.8,
+          color: Color(0xFFE0E0E0),
         ),
       ],
-    ),
-    const Divider( // ?? thin line between items
-      height: 12,
-      thickness: 0.8,
-      color: Color(0xFFE0E0E0), // light grey
-    ),
-  ],
-);
+    );
 
   }
 }
@@ -3460,6 +3491,3 @@ Widget _buildEmptyStaffCell(bool isLast) {
     alignment: Alignment.center,
   );
 }
-
-
-
