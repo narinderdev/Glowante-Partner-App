@@ -339,35 +339,69 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _emailFocus.unfocus();
     _brieftFocus.unfocus();
   }
-  Future<void> _pickJoiningDate() async {
-    _dismissKeyboard();
-    final now = DateTime.now();
-    final res = await showDatePicker(
-      context: context,
-      firstDate: DateTime(now.year - 5),
-      lastDate: DateTime(now.year + 5),
-      initialDate: _joiningDate ?? now,
-      builder: (ctx, child) {
-        return Theme(
-          data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.black,
-              onPrimary: Colors.white,
-              onSurface: Colors.black87,
-            ),
+  // Future<void> _pickJoiningDate() async {
+  //   _dismissKeyboard();
+  //   final now = DateTime.now();
+  //   final res = await showDatePicker(
+  //     context: context,
+  //     firstDate: DateTime(now.year - 5),
+  //     lastDate: DateTime(now.year + 5),
+  //     initialDate: _joiningDate ?? now,
+  //     builder: (ctx, child) {
+  //       return Theme(
+  //         data: Theme.of(ctx).copyWith(
+  //           colorScheme: const ColorScheme.light(
+  //             primary: Colors.black,
+  //             onPrimary: Colors.white,
+  //             onSurface: Colors.black87,
+  //           ),
+  //         ),
+  //         child: child!,
+  //       );
+  //     },
+  //   );
+  //   _dismissKeyboard();
+  //   if (res != null) {
+  //     setState(() {
+  //       _joiningDate = res;
+  //       _suppressDateError = true; // hide inline error after selection
+  //     });
+  //   }
+  // }
+Future<void> _pickJoiningDate() async {
+  _dismissKeyboard();
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day); // strip time
+
+  final res = await showDatePicker(
+    context: context,
+    firstDate: today, // ✅ cannot pick any date before today
+    lastDate: DateTime(now.year + 5),
+    initialDate: _joiningDate != null && _joiningDate!.isAfter(today)
+        ? _joiningDate!
+        : today, // ✅ default to today if past or null
+    builder: (ctx, child) {
+      return Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Colors.black,
+            onPrimary: Colors.white,
+            onSurface: Colors.black87,
           ),
-          child: child!,
-        );
-      },
-    );
-    _dismissKeyboard();
-    if (res != null) {
-      setState(() {
-        _joiningDate = res;
-        _suppressDateError = true; // hide inline error after selection
-      });
-    }
+        ),
+        child: child!,
+      );
+    },
+  );
+
+  _dismissKeyboard();
+  if (res != null) {
+    setState(() {
+      _joiningDate = res;
+      _suppressDateError = true; // hide inline error after selection
+    });
   }
+}
 
   Future<void> _openMultiSelect({
     required String title,

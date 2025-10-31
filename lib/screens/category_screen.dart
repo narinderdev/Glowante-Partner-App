@@ -1732,88 +1732,200 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: _BottomSheetScaffold(
-        title: isEdit
-            ? translateText('Edit Category')
-            : translateText('Add Category'),
-        initial: 0.55,
-        min: 0.35,
-        max: 0.9,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              textCapitalization: TextCapitalization.none,
-              inputFormatters: const [FirstLetterUpperFormatter()],
-              onChanged: (_) {
-                if (errorText != null) setState(() => errorText = null);
-              },
-              decoration: InputDecoration(
-                labelText: translateText('Category Name'),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            SizedBox(height: 12),
-            // Optional description input ÃƒÅ½Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¡ÃƒÆ’Ã‚Â´ keep if you need it in UI
-            // TextField(
-            //   controller: descriptionController,
-            //   maxLines: 2,
-            //   textCapitalization: TextCapitalization.sentences,
-            //   decoration: InputDecoration(
-            //     labelText: translateText('Description (optional)'),
-            //     border: OutlineInputBorder(),
-            //   ),
-            // ),
-            if (errorText != null) ...[
-              SizedBox(height: 2),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  errorText!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-            SizedBox(height: 6),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: isSaving
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Icon(Icons.check_rounded),
-                onPressed: isSaving ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.starColor,
-                  foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                label: Text(
-                  isEdit
-                      ? translateText('Update Category')
-                      : translateText('Add Category'),
-                ),
+  // Widget build(BuildContext context) {
+  //   return Padding(
+  //     padding:
+  //         EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+  //     child: _BottomSheetScaffold(
+  //       title: isEdit
+  //           ? translateText('Edit Category')
+  //           : translateText('Add Category'),
+  //       initial: 0.55,
+  //       min: 0.35,
+  //       max: 0.9,
+  //       child: Column(
+  //         mainAxisSize: MainAxisSize.min,
+  //         children: [
+  //           TextField(
+  //             controller: nameController,
+  //             textCapitalization: TextCapitalization.none,
+  //             inputFormatters: const [FirstLetterUpperFormatter()],
+  //             onChanged: (_) {
+  //               if (errorText != null) setState(() => errorText = null);
+  //             },
+  //             decoration: InputDecoration(
+  //               labelText: translateText('Category Name'),
+  //               border: OutlineInputBorder(),
+  //             ),
+  //           ),
+  //           SizedBox(height: 12),
+  //           // Optional description input ÃƒÅ½Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¡ÃƒÆ’Ã‚Â´ keep if you need it in UI
+  //           // TextField(
+  //           //   controller: descriptionController,
+  //           //   maxLines: 2,
+  //           //   textCapitalization: TextCapitalization.sentences,
+  //           //   decoration: InputDecoration(
+  //           //     labelText: translateText('Description (optional)'),
+  //           //     border: OutlineInputBorder(),
+  //           //   ),
+  //           // ),
+  //           if (errorText != null) ...[
+  //             SizedBox(height: 2),
+  //             Align(
+  //               alignment: Alignment.centerLeft,
+  //               child: Text(
+  //                 errorText!,
+  //                 style: const TextStyle(color: Colors.red),
+  //               ),
+  //             ),
+  //           ],
+  //           SizedBox(height: 6),
+  //           SizedBox(
+  //             width: double.infinity,
+  //             child: ElevatedButton.icon(
+  //               icon: isSaving
+  //                   ? SizedBox(
+  //                       width: 18,
+  //                       height: 18,
+  //                       child: CircularProgressIndicator(
+  //                         strokeWidth: 2,
+  //                         color: Colors.white,
+  //                       ),
+  //                     )
+  //                   : Icon(Icons.check_rounded),
+  //               onPressed: isSaving ? null : _submit,
+  //               style: ElevatedButton.styleFrom(
+  //                 backgroundColor: AppColors.starColor,
+  //                 foregroundColor: AppColors.white,
+  //                 padding: const EdgeInsets.symmetric(vertical: 14),
+  //                 shape: RoundedRectangleBorder(
+  //                   borderRadius: BorderRadius.circular(12),
+  //                 ),
+  //               ),
+  //               label: Text(
+  //                 isEdit
+  //                     ? translateText('Update Category')
+  //                     : translateText('Add Category'),
+  //               ),
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+  @override
+Widget build(BuildContext context) {
+  return Padding(
+    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    child: _BottomSheetScaffold(
+      title: isEdit
+          ? translateText('Edit Category')
+          : translateText('Add Category'),
+      initial: 0.55,
+      min: 0.35,
+      max: 0.9,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ✅ Category Name Field with 50-char limit + live counter
+          Stack(
+  alignment: Alignment.bottomRight,
+  children: [
+    TextField(
+      controller: nameController,
+      textCapitalization: TextCapitalization.none,
+      inputFormatters: [
+        const FirstLetterUpperFormatter(),
+        LengthLimitingTextInputFormatter(50), // ✅ no 'const' here
+      ],
+      onChanged: (_) {
+        if (errorText != null) setState(() => errorText = null);
+        setState(() {}); // update counter
+      },
+      decoration: InputDecoration(
+        labelText: translateText('Category Name'),
+        border: const OutlineInputBorder(),
+        counterText: '',
+      ),
+    ),
+    Padding(
+      padding: const EdgeInsets.only(right: 12, bottom: 8),
+      child: Text(
+        '${nameController.text.length}/50',
+        style: TextStyle(
+          fontSize: 12,
+          color: nameController.text.length >= 50
+              ? Colors.red
+              : Colors.grey,
+        ),
+      ),
+    ),
+  ],
+),
+
+
+          const SizedBox(height: 12),
+
+          // Optional description input (keep commented if not needed)
+          // TextField(
+          //   controller: descriptionController,
+          //   maxLines: 2,
+          //   textCapitalization: TextCapitalization.sentences,
+          //   decoration: InputDecoration(
+          //     labelText: translateText('Description (optional)'),
+          //     border: OutlineInputBorder(),
+          //   ),
+          // ),
+
+          if (errorText != null) ...[
+            const SizedBox(height: 2),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                errorText!,
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
-        ),
+
+          const SizedBox(height: 6),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.check_rounded),
+              onPressed: isSaving ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              label: Text(
+                isEdit
+                    ? translateText('Update Category')
+                    : translateText('Add Category'),
+              ),
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 }
 
 /* Subcategory: inline error + loader + API here */
@@ -1897,77 +2009,176 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: _BottomSheetScaffold(
-        title: isEdit
-            ? translateText('Edit Subcategory')
-            : translateText('Add Subcategory'),
-        initial: 0.55,
-        min: 0.35,
-        max: 0.9,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              textCapitalization: TextCapitalization.none,
-              inputFormatters: const [FirstLetterUpperFormatter()],
-              onChanged: (_) {
-                if (errorText != null) setState(() => errorText = null);
-              },
-              decoration: InputDecoration(
-                labelText: translateText('Subcategory Name'),
-                border: OutlineInputBorder(),
+  // Widget build(BuildContext context) {
+  //   return Padding(
+  //     padding:
+  //         EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+  //     child: _BottomSheetScaffold(
+  //       title: isEdit
+  //           ? translateText('Edit Subcategory')
+  //           : translateText('Add Subcategory'),
+  //       initial: 0.55,
+  //       min: 0.35,
+  //       max: 0.9,
+  //       child: Column(
+  //         mainAxisSize: MainAxisSize.min,
+  //         children: [
+  //           TextField(
+  //             controller: controller,
+  //             textCapitalization: TextCapitalization.none,
+  //             inputFormatters: const [FirstLetterUpperFormatter()],
+  //             onChanged: (_) {
+  //               if (errorText != null) setState(() => errorText = null);
+  //             },
+  //             decoration: InputDecoration(
+  //               labelText: translateText('Subcategory Name'),
+  //               border: OutlineInputBorder(),
+  //             ),
+  //           ),
+  //           if (errorText != null) ...[
+  //             SizedBox(height: 8),
+  //             Align(
+  //               alignment: Alignment.centerLeft,
+  //               child: Text(
+  //                 errorText!,
+  //                 style: const TextStyle(color: Colors.red),
+  //               ),
+  //             ),
+  //           ],
+  //           SizedBox(height: 6),
+  //           SizedBox(
+  //             width: double.infinity,
+  //             child: ElevatedButton.icon(
+  //               icon: isSaving
+  //                   ? SizedBox(
+  //                       width: 18,
+  //                       height: 18,
+  //                       child: CircularProgressIndicator(
+  //                         strokeWidth: 2,
+  //                         color: Colors.white,
+  //                       ),
+  //                     )
+  //                   : Icon(Icons.check_rounded),
+  //               onPressed: isSaving ? null : _submit,
+  //               style: ElevatedButton.styleFrom(
+  //                 backgroundColor: AppColors.starColor,
+  //                 foregroundColor: Colors.white,
+  //                 padding: const EdgeInsets.symmetric(vertical: 14),
+  //                 shape: RoundedRectangleBorder(
+  //                   borderRadius: BorderRadius.circular(12),
+  //                 ),
+  //               ),
+  //               label: Text(
+  //                 isEdit
+  //                     ? translateText('Update Subcategory')
+  //                     : translateText('Add Subcategory'),
+  //               ),
+  //             ),
+  //           ),
+  //         ],
+  //       ),
+  //     ),
+  //   );
+  // }
+  @override
+Widget build(BuildContext context) {
+  return Padding(
+    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+    child: _BottomSheetScaffold(
+      title: isEdit
+          ? translateText('Edit Subcategory')
+          : translateText('Add Subcategory'),
+      initial: 0.55,
+      min: 0.35,
+      max: 0.9,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ✅ Subcategory Name field with live counter + 50-char limit
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              TextField(
+                controller: controller,
+                textCapitalization: TextCapitalization.none,
+                inputFormatters: [
+                  const FirstLetterUpperFormatter(),
+                  LengthLimitingTextInputFormatter(50), // ✅ no const here
+                ],
+                onChanged: (_) {
+                  if (errorText != null) setState(() => errorText = null);
+                  setState(() {}); // ✅ refresh live counter
+                },
+                decoration: InputDecoration(
+                  labelText: translateText('Subcategory Name'),
+                  border: const OutlineInputBorder(),
+                  counterText: '', // ✅ hide default counter
+                ),
               ),
-            ),
-            if (errorText != null) ...[
-              SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
+              // ✅ Live character counter bottom-right
+              Padding(
+                padding: const EdgeInsets.only(right: 12, bottom: 8),
                 child: Text(
-                  errorText!,
-                  style: const TextStyle(color: Colors.red),
+                  '${controller.text.length}/50',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: controller.text.length >= 50
+                        ? Colors.red
+                        : Colors.grey,
+                  ),
                 ),
               ),
             ],
-            SizedBox(height: 6),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: isSaving
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Icon(Icons.check_rounded),
-                onPressed: isSaving ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.starColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                label: Text(
-                  isEdit
-                      ? translateText('Update Subcategory')
-                      : translateText('Add Subcategory'),
-                ),
+          ),
+
+          if (errorText != null) ...[
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                errorText!,
+                style: const TextStyle(color: Colors.red),
               ),
             ),
           ],
-        ),
+
+          const SizedBox(height: 6),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.check_rounded),
+              onPressed: isSaving ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              label: Text(
+                isEdit
+                    ? translateText('Update Subcategory')
+                    : translateText('Add Subcategory'),
+              ),
+            ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
 }
 
 /* Service editor: inline error (no toast). Parent still performs API. */
@@ -2214,151 +2425,338 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
     return nErr == null && pErr == null && dErr == null;
   }
 
+  // @override
+  // Widget build(BuildContext context) {
+  //   return _BottomSheetScaffold(
+  //     title: translateText('Edit Service'),
+  //     child: Column(
+  //       mainAxisSize: MainAxisSize.min,
+  //       children: [
+  //         // Name
+  //         _LabeledField(
+  //           label: translateText('Service Name'),
+  //           controller: nameController,
+  //           textCapitalization: TextCapitalization.words,
+  //         ),
+  //         if (nameError != null) ...[
+  //           SizedBox(height: 4),
+  //           Align(
+  //             alignment: Alignment.centerLeft,
+  //             child: Text(
+  //               nameError!,
+  //               style: const TextStyle(color: Colors.black),
+  //             ),
+  //           ),
+  //         ],
+  //         SizedBox(height: 12),
+
+  //         // Description (optional)
+  //         _LabeledField(
+  //           label: translateText('Description'),
+  //           controller: descriptionController,
+  //           maxLines: 1,
+  //           textCapitalization: TextCapitalization.sentences,
+  //         ),
+  //         SizedBox(height: 12),
+
+  //         // Duration
+  //         _LabeledField(
+  //           label: translateText('Duration (minutes)'),
+  //           controller: durationController,
+  //           keyboardType: TextInputType.number,
+  //         ),
+  //         if (durationError != null) ...[
+  //           SizedBox(height: 4),
+  //           Align(
+  //             alignment: Alignment.centerLeft,
+  //             child: Text(
+  //               durationError!,
+  //               style: const TextStyle(color: Colors.black),
+  //             ),
+  //           ),
+  //         ],
+  //         SizedBox(height: 12),
+
+  //         // Price
+  //         _LabeledField(
+  //           label: translateText('Price (in ₹)'),
+  //           controller: priceController,
+  //           keyboardType: TextInputType.number,
+  //         ),
+  //         if (priceError != null) ...[
+  //           SizedBox(height: 4),
+  //           Align(
+  //             alignment: Alignment.centerLeft,
+  //             child: Text(
+  //               priceError!,
+  //               style: const TextStyle(color: Colors.black),
+  //             ),
+  //           ),
+  //         ],
+  //         SizedBox(height: 8),
+
+  //                         // Active switch
+  //               //           ValueListenableBuilder<bool>(
+  //               //             valueListenable: isActive,
+  //               //             builder: (context, value, _) {
+  //               //               return SwitchListTile(
+  //               //   value: value,
+  //               //   onChanged: (nv) => isActive.value = nv,
+  //               //   title: const Text('Active'),
+  //               //   thumbColor: MaterialStateProperty.resolveWith((states) =>
+  //               //     states.contains(MaterialState.selected) ? AppColors.starColor : null),
+  //               //   trackColor: MaterialStateProperty.resolveWith((states) =>
+  //               //     states.contains(MaterialState.selected) ? AppColors.starColor.withOpacity(0.35) : null),
+  //               //   contentPadding: EdgeInsets.zero,
+  //               // );
+  //               //             },
+  //               //           ),
+
+  //         SizedBox(height: 6),
+
+  //         // Submit button
+  //         SizedBox(
+  //           width: double.infinity,
+  //           child: ElevatedButton.icon(
+  //             icon: isSaving
+  //                 ? SizedBox(
+  //                     width: 18,
+  //                     height: 18,
+  //                     child: CircularProgressIndicator(
+  //                       strokeWidth: 2,
+  //                       color: Colors.white,
+  //                     ),
+  //                   )
+  //                 : Icon(Icons.save_rounded),
+  //             onPressed: isSaving
+  //                 ? null
+  //                 : () async {
+  //                     // validate only on click
+  //                     if (!_validate()) return;
+
+  //                     FocusScope.of(context).unfocus();
+  //                     setState(() => isSaving = true);
+  //                     try {
+  //                       final payload = {
+  //                         'name': nameController.text.trim(),
+  //                         'description': descriptionController.text.trim(),
+  //                         'defaultDurationMin': int.tryParse(
+  //                           durationController.text.trim(),
+  //                         ),
+  //                         'defaultPriceMinor': int.tryParse(
+  //                           priceController.text.trim(),
+  //                         ),
+  //                         'isActive': isActive.value,
+  //                       }..removeWhere((k, v) => v == null);
+
+  //                       Navigator.of(context).pop(<String, dynamic>{
+  //                         'serviceId': widget.service['id'] as int,
+  //                         'payload': payload,
+  //                       });
+  //                     } finally {
+  //                       if (mounted) setState(() => isSaving = false);
+  //                     }
+  //                   },
+  //             style: ElevatedButton.styleFrom(
+  //               backgroundColor: AppColors.starColor,
+  //               foregroundColor: AppColors.white,
+  //               padding: const EdgeInsets.symmetric(vertical: 14),
+  //               shape: RoundedRectangleBorder(
+  //                 borderRadius: BorderRadius.circular(12),
+  //               ),
+  //             ),
+  //             label: Text(translateText('Update Service')),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
   @override
-  Widget build(BuildContext context) {
-    return _BottomSheetScaffold(
-      title: translateText('Edit Service'),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Name
-          _LabeledField(
-            label: translateText('Service Name'),
-            controller: nameController,
-            textCapitalization: TextCapitalization.words,
-          ),
-          if (nameError != null) ...[
-            SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                nameError!,
-                style: const TextStyle(color: Colors.black),
+Widget build(BuildContext context) {
+  return _BottomSheetScaffold(
+    title: translateText('Edit Service'),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ✅ Service Name (max 50 chars + live counter)
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            TextField(
+              controller: nameController,
+              textCapitalization: TextCapitalization.words,
+              inputFormatters: [LengthLimitingTextInputFormatter(50)],
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: translateText('Service Name'),
+                border: const OutlineInputBorder(),
+                counterText: '',
               ),
             ),
-          ],
-          SizedBox(height: 12),
-
-          // Description (optional)
-          _LabeledField(
-            label: translateText('Description'),
-            controller: descriptionController,
-            maxLines: 1,
-            textCapitalization: TextCapitalization.sentences,
-          ),
-          SizedBox(height: 12),
-
-          // Duration
-          _LabeledField(
-            label: translateText('Duration (minutes)'),
-            controller: durationController,
-            keyboardType: TextInputType.number,
-          ),
-          if (durationError != null) ...[
-            SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
+            Padding(
+              padding: const EdgeInsets.only(right: 12, bottom: 8),
               child: Text(
-                durationError!,
-                style: const TextStyle(color: Colors.black),
-              ),
-            ),
-          ],
-          SizedBox(height: 12),
-
-          // Price
-          _LabeledField(
-            label: translateText('Price (in ₹)'),
-            controller: priceController,
-            keyboardType: TextInputType.number,
-          ),
-          if (priceError != null) ...[
-            SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                priceError!,
-                style: const TextStyle(color: Colors.black),
-              ),
-            ),
-          ],
-          SizedBox(height: 8),
-
-          // Active switch
-//           ValueListenableBuilder<bool>(
-//             valueListenable: isActive,
-//             builder: (context, value, _) {
-//               return SwitchListTile(
-//   value: value,
-//   onChanged: (nv) => isActive.value = nv,
-//   title: const Text('Active'),
-//   thumbColor: MaterialStateProperty.resolveWith((states) =>
-//     states.contains(MaterialState.selected) ? AppColors.starColor : null),
-//   trackColor: MaterialStateProperty.resolveWith((states) =>
-//     states.contains(MaterialState.selected) ? AppColors.starColor.withOpacity(0.35) : null),
-//   contentPadding: EdgeInsets.zero,
-// );
-//             },
-//           ),
-
-          SizedBox(height: 6),
-
-          // Submit button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: isSaving
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Icon(Icons.save_rounded),
-              onPressed: isSaving
-                  ? null
-                  : () async {
-                      // validate only on click
-                      if (!_validate()) return;
-
-                      FocusScope.of(context).unfocus();
-                      setState(() => isSaving = true);
-                      try {
-                        final payload = {
-                          'name': nameController.text.trim(),
-                          'description': descriptionController.text.trim(),
-                          'defaultDurationMin': int.tryParse(
-                            durationController.text.trim(),
-                          ),
-                          'defaultPriceMinor': int.tryParse(
-                            priceController.text.trim(),
-                          ),
-                          'isActive': isActive.value,
-                        }..removeWhere((k, v) => v == null);
-
-                        Navigator.of(context).pop(<String, dynamic>{
-                          'serviceId': widget.service['id'] as int,
-                          'payload': payload,
-                        });
-                      } finally {
-                        if (mounted) setState(() => isSaving = false);
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                '${nameController.text.length}/50',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: nameController.text.length >= 50
+                      ? Colors.red
+                      : Colors.grey,
                 ),
               ),
-              label: Text(translateText('Update Service')),
+            ),
+          ],
+        ),
+        if (nameError != null) ...[
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              nameError!,
+              style: const TextStyle(color: Colors.black),
             ),
           ),
         ],
-      ),
-    );
-  }
+        const SizedBox(height: 12),
+
+        // ✅ Description (max 50 chars + live counter)
+        Stack(
+          alignment: Alignment.bottomRight,
+          children: [
+            TextField(
+              controller: descriptionController,
+              maxLines: 1,
+              textCapitalization: TextCapitalization.sentences,
+              inputFormatters: [LengthLimitingTextInputFormatter(50)],
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: translateText('Description'),
+                border: const OutlineInputBorder(),
+                counterText: '',
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(right: 12, bottom: 8),
+              child: Text(
+                '${descriptionController.text.length}/50',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: descriptionController.text.length >= 50
+                      ? Colors.red
+                      : Colors.grey,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ✅ Duration (max 4 digits)
+        TextField(
+          controller: durationController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(4),
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: translateText('Duration (minutes)'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        if (durationError != null) ...[
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              durationError!,
+              style: const TextStyle(color: Colors.black),
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+
+        // ✅ Price (max 6 digits)
+        TextField(
+          controller: priceController,
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            LengthLimitingTextInputFormatter(6),
+            FilteringTextInputFormatter.digitsOnly,
+          ],
+          decoration: InputDecoration(
+            labelText: translateText('Price (in ₹)'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        if (priceError != null) ...[
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              priceError!,
+              style: const TextStyle(color: Colors.black),
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
+
+        const SizedBox(height: 6),
+
+        // ✅ Submit button (unchanged)
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            icon: isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.save_rounded),
+            onPressed: isSaving
+                ? null
+                : () async {
+                    if (!_validate()) return;
+                    FocusScope.of(context).unfocus();
+                    setState(() => isSaving = true);
+                    try {
+                      final payload = {
+                        'name': nameController.text.trim(),
+                        'description': descriptionController.text.trim(),
+                        'defaultDurationMin':
+                            int.tryParse(durationController.text.trim()),
+                        'defaultPriceMinor':
+                            int.tryParse(priceController.text.trim()),
+                        'isActive': isActive.value,
+                      }..removeWhere((k, v) => v == null);
+
+                      Navigator.of(context).pop(<String, dynamic>{
+                        'serviceId': widget.service['id'] as int,
+                        'payload': payload,
+                      });
+                    } finally {
+                      if (mounted) setState(() => isSaving = false);
+                    }
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.starColor,
+              foregroundColor: AppColors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            label: Text(translateText('Update Service')),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 }

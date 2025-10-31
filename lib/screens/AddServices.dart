@@ -937,40 +937,232 @@ class _AddServicesState extends State<AddServices> {
 
   // ------------------- Build UI -------------------
   @override
-  Widget build(BuildContext context) {
-    final categoryItems =
-        buildCategoryAndSubcategoryKeyItems(widget.categories ?? []);
+  // Widget build(BuildContext context) {
+  //   final categoryItems =
+  //       buildCategoryAndSubcategoryKeyItems(widget.categories ?? []);
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          translateText('Add Service'),
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
+  //   return Scaffold(
+  //     backgroundColor: Colors.white,
+  //     appBar: AppBar(
+  //       backgroundColor: Colors.transparent,
+  //       elevation: 0,
+  //       systemOverlayStyle: SystemUiOverlayStyle.light,
+  //       iconTheme: const IconThemeData(color: Colors.white),
+  //       title: Text(
+  //         translateText('Add Service'),
+  //         style: const TextStyle(
+  //             color: Colors.white, fontWeight: FontWeight.bold),
+  //       ),
+  //       flexibleSpace: Container(
+  //         decoration: BoxDecoration(
+  //           gradient: LinearGradient(
+  //             colors: [AppColors.starColor, AppColors.getStartedButton],
+  //             begin: Alignment.topLeft,
+  //             end: Alignment.bottomRight,
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //     body: Form(
+  //       key: _formKey,
+  //       autovalidateMode: _autoValidate
+  //           ? AutovalidateMode.onUserInteraction
+  //           : AutovalidateMode.disabled,
+  //       child: SingleChildScrollView(
+  //         padding: const EdgeInsets.all(16),
+  //         child: Column(children: [
+  //           _SectionCard(
+  //             title: "",
+  //             child: Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 _FieldLabel(translateText("Service Name *")),
+  //                 const SizedBox(height: 6),
+  //                 TextFormField(
+  //                   controller: nameController,
+  //                   focusNode: _nameFocus,
+  //                   autofocus: true,
+  //                   textInputAction: TextInputAction.next,
+  //                   textCapitalization: TextCapitalization.none,
+  //                   inputFormatters: const [FirstLetterUpperFormatter()],
+  //                   decoration: _inputDecoration(
+  //                     hint: translateText("Add a service name"),
+  //                     icon: Icons.badge_outlined,
+  //                   ),
+  //                   validator: _validateLabel,
+  //                 ),
+  //                 const SizedBox(height: 16),
+  //                 _FieldLabel(translateText("Description (Optional)")),
+  //                 const SizedBox(height: 6),
+  //                 TextFormField(
+  //                   controller: descController,
+  //                   maxLines: 2,
+  //                   textCapitalization: TextCapitalization.sentences,
+  //                   decoration: _inputDecoration(
+  //                     hint: translateText("Add a short description"),
+  //                     icon: Icons.description_outlined,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //           const SizedBox(height: 16),
+  //           _SectionCard(
+  //             title: "",
+  //             child: Row(
+  //               children: [
+  //                 Expanded(
+  //                   child: Column(
+  //                     crossAxisAlignment: CrossAxisAlignment.start,
+  //                     children: [
+  //                       _FieldLabel(translateText("Category *")),
+  //                       const SizedBox(height: 6),
+  //                       DropdownButtonFormField<String>(
+  //                         isExpanded: true,
+  //                         value: _validateSelectedCategoryKey(
+  //                             selectedCategoryKey, categoryItems),
+  //                         hint: Text(translateText("Select Category")),
+  //                         items: categoryItems,
+  //                         onChanged: (key) {
+  //                           if (key == null) return;
+  //                           setState(() {
+  //                             selectedCategoryKey = key;
+  //                             selectedService = null;
+  //                             if (key.startsWith('cat:')) {
+  //                               final id = int.parse(key.substring(4));
+  //                               selectedCategoryType = 'category';
+  //                               selectedCategory = findCategoryById(
+  //                                   widget.categories ?? [], id);
+  //                             } else {
+  //                               final id = int.parse(key.substring(4));
+  //                               selectedCategoryType = 'subCategory';
+  //                               selectedCategory = findSubcategoryById(
+  //                                   widget.categories ?? [], id);
+  //                             }
+  //                           });
+  //                         },
+  //                         decoration: _inputDecoration(),
+  //                         validator: (_) =>
+  //                             _validateCategory(selectedCategory),
+  //                       ),
+  //                     ],
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //           const SizedBox(height: 16),
+  //           _SectionCard(
+  //             title: "",
+  //             child: Row(
+  //               children: [
+  //                 Expanded(
+  //                   child: TextFormField(
+  //                     controller: priceController,
+  //                     keyboardType: TextInputType.number,
+  //                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+  //                     decoration: _inputDecoration(
+  //                       label: translateText("Price *"),
+  //                       icon: Icons.currency_rupee,
+  //                     ),
+  //                     validator: _validatePrice,
+  //                   ),
+  //                 ),
+  //                 const SizedBox(width: 12),
+  //                 Expanded(
+  //                   child: TextFormField(
+  //                     controller: durationController,
+  //                     keyboardType: TextInputType.number,
+  //                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+  //                     decoration: _inputDecoration(
+  //                       label: translateText("Duration (min) *"),
+  //                       icon: Icons.timer_outlined,
+  //                     ),
+  //                     validator: _validateDuration,
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //           const SizedBox(height: 24),
+  //           SizedBox(
+  //             width: double.infinity,
+  //             child: ElevatedButton.icon(
+  //               icon: _isLoading
+  //                   ? const SizedBox(
+  //                       height: 18,
+  //                       width: 18,
+  //                       child: CircularProgressIndicator(
+  //                           strokeWidth: 2, color: Colors.white),
+  //                     )
+  //                   :  Icon(Icons.add_task_outlined, color: Colors.white),
+  //               label: Text(
+  //                 _isLoading
+  //                     ? translateText('Adding...')
+  //                     : translateText('Add Service'),
+  //                 style: const TextStyle(fontSize: 16, color: Colors.white),
+  //               ),
+  //               style: ElevatedButton.styleFrom(
+  //                 backgroundColor: AppColors.starColor,
+  //                 padding: const EdgeInsets.symmetric(vertical: 14),
+  //                 shape: RoundedRectangleBorder(
+  //                     borderRadius: BorderRadius.circular(12)),
+  //               ),
+  //               onPressed: _isLoading
+  //                   ? null
+  //                   : () async {
+  //                       if (!_autoValidate) {
+  //                         setState(() => _autoValidate = true);
+  //                       }
+  //                       final valid = _formKey.currentState!.validate();
+  //                       if (!valid) return;
+  //                       await _addService();
+  //                     },
+  //             ),
+  //           ),
+  //         ]),
+  //       ),
+  //     ),
+  //   );
+  // }
+  @override
+Widget build(BuildContext context) {
+  final categoryItems =
+      buildCategoryAndSubcategoryKeyItems(widget.categories ?? []);
+
+  return Scaffold(
+    backgroundColor: Colors.white,
+    appBar: AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
+      iconTheme: const IconThemeData(color: Colors.white),
+      title: Text(
+        translateText('Add Service'),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
         ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.starColor, AppColors.getStartedButton],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+      ),
+      flexibleSpace: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [AppColors.starColor, AppColors.getStartedButton],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
         ),
       ),
-      body: Form(
-        key: _formKey,
-        autovalidateMode: _autoValidate
-            ? AutovalidateMode.onUserInteraction
-            : AutovalidateMode.disabled,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(children: [
+    ),
+    body: Form(
+      key: _formKey,
+      autovalidateMode: _autoValidate
+          ? AutovalidateMode.onUserInteraction
+          : AutovalidateMode.disabled,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
             _SectionCard(
               title: "",
               child: Column(
@@ -978,80 +1170,122 @@ class _AddServicesState extends State<AddServices> {
                 children: [
                   _FieldLabel(translateText("Service Name *")),
                   const SizedBox(height: 6),
-                  TextFormField(
-                    controller: nameController,
-                    focusNode: _nameFocus,
-                    autofocus: true,
-                    textInputAction: TextInputAction.next,
-                    textCapitalization: TextCapitalization.none,
-                    inputFormatters: const [FirstLetterUpperFormatter()],
-                    decoration: _inputDecoration(
-                      hint: translateText("Add a service name"),
-                      icon: Icons.badge_outlined,
-                    ),
-                    validator: _validateLabel,
+                  // ✅ Service Name (max 50 chars + counter)
+                  Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      TextFormField(
+                        controller: nameController,
+                        focusNode: _nameFocus,
+                        autofocus: true,
+                        textInputAction: TextInputAction.next,
+                        textCapitalization: TextCapitalization.none,
+                        inputFormatters: [
+                          const FirstLetterUpperFormatter(),
+                          LengthLimitingTextInputFormatter(50),
+                        ],
+                        onChanged: (_) => setState(() {}),
+                        decoration: _inputDecoration(
+                          hint: translateText("Add a service name"),
+                          icon: Icons.badge_outlined,
+                        ).copyWith(counterText: ''),
+                        validator: _validateLabel,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 12, bottom: 8),
+                        child: Text(
+                          '${nameController.text.length}/50',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: nameController.text.length >= 50
+                                ? Colors.red
+                                : Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+
                   const SizedBox(height: 16),
                   _FieldLabel(translateText("Description (Optional)")),
                   const SizedBox(height: 6),
-                  TextFormField(
-                    controller: descController,
-                    maxLines: 2,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: _inputDecoration(
-                      hint: translateText("Add a short description"),
-                      icon: Icons.description_outlined,
-                    ),
+                  // ✅ Description (max 50 chars + counter)
+                  Stack(
+                    alignment: Alignment.bottomRight,
+                    children: [
+                      TextFormField(
+                        controller: descController,
+                        maxLines: 2,
+                        textCapitalization: TextCapitalization.sentences,
+                        inputFormatters: [LengthLimitingTextInputFormatter(50)],
+                        onChanged: (_) => setState(() {}),
+                        decoration: _inputDecoration(
+                          hint: translateText("Add a short description"),
+                          icon: Icons.description_outlined,
+                        ).copyWith(counterText: ''),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 12, bottom: 8),
+                        child: Text(
+                          '${descController.text.length}/50',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: descController.text.length >= 50
+                                ? Colors.red
+                                : Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+
             const SizedBox(height: 16),
+
+            // ✅ Category Section (unchanged)
             _SectionCard(
               title: "",
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _FieldLabel(translateText("Category *")),
-                        const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          value: _validateSelectedCategoryKey(
-                              selectedCategoryKey, categoryItems),
-                          hint: Text(translateText("Select Category")),
-                          items: categoryItems,
-                          onChanged: (key) {
-                            if (key == null) return;
-                            setState(() {
-                              selectedCategoryKey = key;
-                              selectedService = null;
-                              if (key.startsWith('cat:')) {
-                                final id = int.parse(key.substring(4));
-                                selectedCategoryType = 'category';
-                                selectedCategory = findCategoryById(
-                                    widget.categories ?? [], id);
-                              } else {
-                                final id = int.parse(key.substring(4));
-                                selectedCategoryType = 'subCategory';
-                                selectedCategory = findSubcategoryById(
-                                    widget.categories ?? [], id);
-                              }
-                            });
-                          },
-                          decoration: _inputDecoration(),
-                          validator: (_) =>
-                              _validateCategory(selectedCategory),
-                        ),
-                      ],
-                    ),
+                  _FieldLabel(translateText("Category *")),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    value: _validateSelectedCategoryKey(
+                        selectedCategoryKey, categoryItems),
+                    hint: Text(translateText("Select Category")),
+                    items: categoryItems,
+                    onChanged: (key) {
+                      if (key == null) return;
+                      setState(() {
+                        selectedCategoryKey = key;
+                        selectedService = null;
+                        if (key.startsWith('cat:')) {
+                          final id = int.parse(key.substring(4));
+                          selectedCategoryType = 'category';
+                          selectedCategory =
+                              findCategoryById(widget.categories ?? [], id);
+                        } else {
+                          final id = int.parse(key.substring(4));
+                          selectedCategoryType = 'subCategory';
+                          selectedCategory =
+                              findSubcategoryById(widget.categories ?? [], id);
+                        }
+                      });
+                    },
+                    decoration: _inputDecoration(),
+                    validator: (_) => _validateCategory(selectedCategory),
                   ),
                 ],
               ),
             ),
+
             const SizedBox(height: 16),
+
+            // ✅ Price + Duration with limits
             _SectionCard(
               title: "",
               child: Row(
@@ -1060,7 +1294,10 @@ class _AddServicesState extends State<AddServices> {
                     child: TextFormField(
                       controller: priceController,
                       keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(6), // ✅ 6 digits max
+                      ],
                       decoration: _inputDecoration(
                         label: translateText("Price *"),
                         icon: Icons.currency_rupee,
@@ -1073,7 +1310,10 @@ class _AddServicesState extends State<AddServices> {
                     child: TextFormField(
                       controller: durationController,
                       keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4), // ✅ 4 digits max
+                      ],
                       decoration: _inputDecoration(
                         label: translateText("Duration (min) *"),
                         icon: Icons.timer_outlined,
@@ -1084,7 +1324,10 @@ class _AddServicesState extends State<AddServices> {
                 ],
               ),
             ),
+
             const SizedBox(height: 24),
+
+            // ✅ Submit button (unchanged)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -1095,7 +1338,7 @@ class _AddServicesState extends State<AddServices> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    :  Icon(Icons.add_task_outlined, color: Colors.white),
+                    : const Icon(Icons.add_task_outlined, color: Colors.white),
                 label: Text(
                   _isLoading
                       ? translateText('Adding...')
@@ -1106,7 +1349,8 @@ class _AddServicesState extends State<AddServices> {
                   backgroundColor: AppColors.starColor,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 onPressed: _isLoading
                     ? null
@@ -1120,11 +1364,13 @@ class _AddServicesState extends State<AddServices> {
                       },
               ),
             ),
-          ]),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 }
 
 // ------------------- Helper UI -------------------

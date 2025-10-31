@@ -353,41 +353,85 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     }
   }
 
-  Future<void> _pickDate(TextEditingController c,
-      {required bool isFrom}) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 5),
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: Colors.black,
-            onPrimary: Colors.white,
-            onSurface: Colors.black87,
-          ),
-        ),
-        child: child!,
-      ),
-    );
-    if (picked != null) {
-      setState(() {
-        c.text = _formatDate(picked);
-        if (isFrom) {
-          _sValidFrom = true;
-        } else {
-          _sValidTill = true;
-        }
-      });
+  // Future<void> _pickDate(TextEditingController c,
+  //     {required bool isFrom}) async {
+  //   final now = DateTime.now();
+  //   final picked = await showDatePicker(
+  //     context: context,
+  //     initialDate: now,
+  //     firstDate: DateTime(now.year - 1),
+  //     lastDate: DateTime(now.year + 5),
+  //     builder: (ctx, child) => Theme(
+  //       data: Theme.of(ctx).copyWith(
+  //         colorScheme: const ColorScheme.light(
+  //           primary: Colors.black,
+  //           onPrimary: Colors.white,
+  //           onSurface: Colors.black87,
+  //         ),
+  //       ),
+  //       child: child!,
+  //     ),
+  //   );
+  //   if (picked != null) {
+  //     setState(() {
+  //       c.text = _formatDate(picked);
+  //       if (isFrom) {
+  //         _sValidFrom = true;
+  //       } else {
+  //         _sValidTill = true;
+  //       }
+  //     });
 
-      // âœ… Only revalidate if errors are currently visible
-      if (_showErrors) {
-        _formKey.currentState?.validate();
+  //     // âœ… Only revalidate if errors are currently visible
+  //     if (_showErrors) {
+  //       _formKey.currentState?.validate();
+  //     }
+  //   }
+  // }
+Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
+  final now = DateTime.now();
+  final DateTime? fromDate = _parseUiDate(validFromController.text);
+
+  // If selecting Valid From → cannot pick a past date.
+  // If selecting Valid Till → cannot pick a date before today or before Valid From.
+  final firstDate = isFrom
+      ? DateTime(now.year, now.month, now.day) // today onward only
+      : (fromDate != null && fromDate.isAfter(now)
+          ? fromDate
+          : DateTime(now.year, now.month, now.day));
+
+  final picked = await showDatePicker(
+    context: context,
+    initialDate: now.isBefore(firstDate) ? firstDate : now,
+    firstDate: firstDate,
+    lastDate: DateTime(now.year + 5),
+    builder: (ctx, child) => Theme(
+      data: Theme.of(ctx).copyWith(
+        colorScheme: const ColorScheme.light(
+          primary: Colors.black,
+          onPrimary: Colors.white,
+          onSurface: Colors.black87,
+        ),
+      ),
+      child: child!,
+    ),
+  );
+
+  if (picked != null) {
+    setState(() {
+      c.text = _formatDate(picked);
+      if (isFrom) {
+        _sValidFrom = true;
+      } else {
+        _sValidTill = true;
       }
+    });
+
+    if (_showErrors) {
+      _formKey.currentState?.validate();
     }
   }
+}
 
   double _originalTotal() {
     double sum = 0;
@@ -936,26 +980,64 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
               children: [
                 _section(translateText('Deal Information')),
 
+                // TextFormField(
+                //   controller: dealTitleController,
+                //   textCapitalization: TextCapitalization.none,
+                //   inputFormatters: [_SentenceCaseTextFormatter()],
+                //   autovalidateMode: _showErrors
+                //       ? AutovalidateMode.always
+                //       : AutovalidateMode.disabled,
+                //   decoration: _decor(
+                //     label: widget.source.toUpperCase() == 'PACKAGE'
+                //         ? '${translateText('Package Title')} *'
+                //         : '${translateText('Deal Title')} *',
+                //     hint: widget.source.toUpperCase() == 'PACKAGE'
+                //         ? translateText("E.G. MEN'S GROOMING PACKAGE")
+                //         : translateText("E.G. FESTIVE DEAL"),
+                //   ),
+                //   validator: _vTitle,
+                //   onChanged: (_) {
+                //     if (!_sTitle) setState(() => _sTitle = true);
+                //   },
+                // ),
                 TextFormField(
-                  controller: dealTitleController,
-                  textCapitalization: TextCapitalization.none,
-                  inputFormatters: [_SentenceCaseTextFormatter()],
-                  autovalidateMode: _showErrors
-                      ? AutovalidateMode.always
-                      : AutovalidateMode.disabled,
-                  decoration: _decor(
-                    label: widget.source.toUpperCase() == 'PACKAGE'
-                        ? '${translateText('Package Title')} *'
-                        : '${translateText('Deal Title')} *',
-                    hint: widget.source.toUpperCase() == 'PACKAGE'
-                        ? translateText("E.G. MEN'S GROOMING PACKAGE")
-                        : translateText("E.G. FESTIVE DEAL"),
-                  ),
-                  validator: _vTitle,
-                  onChanged: (_) {
-                    if (!_sTitle) setState(() => _sTitle = true);
-                  },
-                ),
+  controller: dealTitleController,
+  textCapitalization: TextCapitalization.none,
+  inputFormatters: [
+    _SentenceCaseTextFormatter(),
+    LengthLimitingTextInputFormatter(50), // ✅ Max 50 chars
+  ],
+  autovalidateMode: _showErrors
+      ? AutovalidateMode.always
+      : AutovalidateMode.disabled,
+  decoration: _decor(
+    label: widget.source.toUpperCase() == 'PACKAGE'
+        ? '${translateText('Package Title')} *'
+        : '${translateText('Deal Title')} *',
+    hint: widget.source.toUpperCase() == 'PACKAGE'
+        ? translateText("E.G. MEN'S GROOMING PACKAGE")
+        : translateText("E.G. FESTIVE DEAL"),
+    // ✅ Add live counter
+    suffix: Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Text(
+        '${dealTitleController.text.length}/50',
+        style: TextStyle(
+          fontSize: 12,
+          color: dealTitleController.text.length >= 50
+              ? Colors.red
+              : Colors.grey,
+        ),
+      ),
+    ),
+  ),
+  validator: _vTitle,
+  onChanged: (_) {
+    if (!_sTitle) setState(() => _sTitle = true);
+    setState(() {}); // ✅ Refresh counter live
+  },
+),
+
 
                 SizedBox(height: 14),
 
@@ -1392,19 +1474,42 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
                 SizedBox(height: 14),
 
-                TextFormField(
-                  controller: termsController,
-                  textCapitalization: TextCapitalization.none,
-                  inputFormatters: [
-                    _SentenceCaseTextFormatter(),
-                    NoSpecialCharsFormatter(), // ðŸ”¥ prevents special characters
-                  ],
-                  decoration: _decor(
-                    label: translateText('Terms (optional)'),
-                    hint: translateText('ANY TERMS & CONDITIONSâ€¦'),
-                    prefix: Icons.article_outlined,
-                  ),
-                ),
+                // TextFormField(
+                //   controller: termsController,
+                //   textCapitalization: TextCapitalization.none,
+                //   inputFormatters: [
+                //     _SentenceCaseTextFormatter(),
+                //     NoSpecialCharsFormatter(), // ðŸ”¥ prevents special characters
+                //   ],
+                //   decoration: _decor(
+                //     label: translateText('Terms (optional)'),
+                //     hint: translateText('ANY TERMS & CONDITIONSâ€¦'),
+                //     prefix: Icons.article_outlined,
+                //   ),
+                // ),
+TextFormField(
+  controller: termsController,
+  textCapitalization: TextCapitalization.none,
+  inputFormatters: [
+    _SentenceCaseTextFormatter(),
+    NoSpecialCharsFormatter(),
+    LengthLimitingTextInputFormatter(50), // ✅ Limit to 50 characters
+  ],
+  decoration: _decor(
+    label: translateText('Terms (optional)'),
+    hint: translateText('ANY TERMS & CONDITIONS...'),
+    prefix: Icons.article_outlined,
+    // ✅ Show live character count
+    suffix: Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Text(
+        '${termsController.text.length}/50',
+        style: const TextStyle(fontSize: 12, color: Colors.grey),
+      ),
+    ),
+  ),
+  onChanged: (_) => setState(() {}), // ✅ Refresh counter as user types
+),
 
                 SizedBox(height: 22),
 

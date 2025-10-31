@@ -1171,7 +1171,7 @@ void _openAppointmentModal({
                               (it['service']?.toString() ?? 'Service');
                           final int? priceMinor = it['priceMinor'] as int?;
                           final String priceText =
-                              priceMinor != null ? '?$priceMinor' : '';
+                              priceMinor != null ? '₹$priceMinor' : '';
                           final String range = _fmtTimeRange(
                             it['start'] as DateTime,
                             it['end'] as DateTime,
