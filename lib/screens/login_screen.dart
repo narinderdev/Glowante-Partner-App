@@ -20,6 +20,9 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isContinueEnabled = false;
   String _countryCode = '+91';
   String? _errorMessage;
+  String? _lastSnackMessage;
+  DateTime? _lastSnackTime;
+  static const Duration _snackCooldown = Duration(seconds: 2);
   @override
   void initState() {
     super.initState();
@@ -268,9 +271,19 @@ if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
                   }
                   if (state is AuthError) {
                     setState(() => _isLoading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(state.message)),
-                    );
+                    final now = DateTime.now();
+                    final bool shouldShow = _lastSnackMessage != state.message ||
+                        _lastSnackTime == null ||
+                        now.difference(_lastSnackTime!) > _snackCooldown;
+                    if (shouldShow) {
+                      ScaffoldMessenger.of(context)
+                        ..hideCurrentSnackBar()
+                        ..showSnackBar(
+                          SnackBar(content: Text(state.message)),
+                        );
+                      _lastSnackMessage = state.message;
+                      _lastSnackTime = now;
+                    }
                   }
                 },
                 child: ElevatedButton(
