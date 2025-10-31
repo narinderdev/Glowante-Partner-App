@@ -36,7 +36,7 @@ class _AuthHttpClient extends http.BaseClient {
   }
 
   bool _shouldTriggerLogout(int statusCode, Map<String, String> headers) {
-    if (statusCode != 401 && statusCode != 403) return false;
+    if (statusCode != 401) return false;
     final authHeader = headers['Authorization'] ?? headers['authorization'];
     return authHeader != null && authHeader.trim().isNotEmpty;
   }
