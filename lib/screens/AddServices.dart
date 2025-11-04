@@ -1179,7 +1179,8 @@ Widget build(BuildContext context) {
                         focusNode: _nameFocus,
                         autofocus: true,
                         textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.none,
+                       keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
                         inputFormatters: [
                           const FirstLetterUpperFormatter(),
                           LengthLimitingTextInputFormatter(50),
@@ -1216,7 +1217,8 @@ Widget build(BuildContext context) {
                       TextFormField(
                         controller: descController,
                         maxLines: 2,
-                        textCapitalization: TextCapitalization.sentences,
+                       keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
                         inputFormatters: [LengthLimitingTextInputFormatter(50)],
                         onChanged: (_) => setState(() {}),
                         decoration: _inputDecoration(

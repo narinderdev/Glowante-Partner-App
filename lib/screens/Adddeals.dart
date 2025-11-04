@@ -1002,7 +1002,8 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
                 // ),
                 TextFormField(
   controller: dealTitleController,
-  textCapitalization: TextCapitalization.none,
+  keyboardType: TextInputType.text,                // 👈 text keyboard
+ textCapitalization: TextCapitalization.sentences,
   inputFormatters: [
     _SentenceCaseTextFormatter(),
     LengthLimitingTextInputFormatter(50), // ✅ Max 50 chars
@@ -1489,7 +1490,8 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
                 // ),
 TextFormField(
   controller: termsController,
-  textCapitalization: TextCapitalization.none,
+   keyboardType: TextInputType.text,                    // 👈 text keyboard
+ textCapitalization: TextCapitalization.sentences,
   inputFormatters: [
     _SentenceCaseTextFormatter(),
     NoSpecialCharsFormatter(),

@@ -22,15 +22,15 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<OnboardingPage> pages = [
     OnboardingPage(
-      title: "Discover and book luxurious salon experiences near you",
+      title: "Build your brand. Grow your salon. Inspire confidence",
       imageAsset: "assets/images/on_boarding_1.png",
     ),
     OnboardingPage(
-      title: "Discover and book luxurious salon experiences near you",
+      title: "Every great salon starts with a bold vision — make yours shine",
       imageAsset: "assets/images/on_boarding_2.png",
     ),
     OnboardingPage(
-      title: "Get started on your journey to a better you – beauty, wellness, and more",
+      title: "From passion to profit — empowering your beauty business to thrive",
       imageAsset: "assets/images/on_boarding_3.png",
     ),
   ];

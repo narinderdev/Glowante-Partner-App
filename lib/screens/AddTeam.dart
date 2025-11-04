@@ -767,7 +767,8 @@ Future<void> _pickJoiningDate() async {
             TextFormField(
               focusNode: _firstNameFocus,
               controller: _firstNameCtrl,
-              textCapitalization: TextCapitalization.words,
+             keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
               autovalidateMode: _showGlobalErrors
                   ? AutovalidateMode.onUserInteraction
                   : AutovalidateMode.disabled,
@@ -792,7 +793,8 @@ Future<void> _pickJoiningDate() async {
             TextFormField(
               focusNode: _lastNameFocus,
               controller: _lastNameCtrl,
-              textCapitalization: TextCapitalization.words,
+          keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
               autovalidateMode: _showGlobalErrors
                   ? AutovalidateMode.onUserInteraction
                   : AutovalidateMode.disabled,
@@ -1028,7 +1030,8 @@ Future<void> _pickJoiningDate() async {
                       maxLines: 4,
                       maxLength: 100,
                       maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                      textCapitalization: TextCapitalization.sentences,
+                     keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
                       decoration: _decor(
                         hint: 'Enter a brief about this member',
                       ).copyWith(

@@ -448,7 +448,8 @@ Future<void> _submit(AddSalonState state) async {
                     children: [
                       _buildTextField(
                         controller: _salonNameController,
-                        textCapitalization: TextCapitalization.none,
+                     keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
                         label: 'Salon Name *',
                         hint: 'Enter your salon name',
                         inputFormatters: const [_FirstLetterUpperFormatter()],
@@ -578,7 +579,8 @@ Future<void> _submit(AddSalonState state) async {
                       SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
-                        textCapitalization: TextCapitalization.none,
+                      keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
                         maxLines: 1,

@@ -316,7 +316,8 @@ void _submit(AddBranchState state) {
                         controller: _branchNameController,
                         label: 'Branch Name *',
                         hint: 'Enter branch name',
-                        textCapitalization: TextCapitalization.none,
+                       keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
                         inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
                       _buildTextField(
@@ -455,7 +456,8 @@ void _submit(AddBranchState state) {
                         hint: 'Enter description',
                         maxLines: 1,
                         maxLength: 100,
-                        textCapitalization: TextCapitalization.none,
+                       keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
                         inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
 

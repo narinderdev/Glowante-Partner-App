@@ -888,7 +888,8 @@ _FieldLabel(translateText('First Name *')),
          // First Name
 TextFormField(
   controller: _clientfNameCtrl,
-  textCapitalization: TextCapitalization.words,
+ keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
   decoration: _inputDecoration(translateText('First name')).copyWith(
     errorText: _firstNameError,
   ),
@@ -932,7 +933,8 @@ _FieldLabel(translateText('Last Name *')),
          // Last Name
 TextFormField(
   controller: _clientlNameCtrl,
-  textCapitalization: TextCapitalization.words,
+keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
   decoration: _inputDecoration(translateText('Last name')).copyWith(
     errorText: _lastNameError,
   ),

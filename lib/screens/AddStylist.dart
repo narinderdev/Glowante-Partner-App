@@ -561,7 +561,8 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                               SizedBox(height: 8),
                               TextFormField(
   controller: _firstNameCtrl,
-  textCapitalization: TextCapitalization.words, // helps user type caps
+keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, // helps user type caps
   decoration: _decor(hint: 'Enter first name'),
   autovalidateMode: AutovalidateMode.onUserInteraction,
   validator: (v) {
@@ -586,7 +587,8 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                               SizedBox(height: 8),
                               TextFormField(
   controller: _lastNameCtrl,
-  textCapitalization: TextCapitalization.words,
+keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences, 
   decoration: _decor(hint: 'Enter last name'),
   autovalidateMode: AutovalidateMode.onUserInteraction,
   validator: (v) {
