@@ -155,35 +155,35 @@ class _LoginScreenState extends State<LoginScreen> {
 Row(
   children: [
     // 🌍 Flag (outside input)
-Container(
-  height: 48, // same as input
-  width: 90,  // ✅ slightly wider for proper flag + arrow space
-  padding: const EdgeInsets.symmetric(horizontal: 6), // add breathing space
-  decoration: BoxDecoration(
-    border: Border.all(color: Colors.grey.shade400),
-    borderRadius: BorderRadius.circular(8),
-    color: Colors.white, // ensure flag background matches screen
-  ),
-  child: Center(
-    child: CountryCodePicker(
-      onChanged: (code) {
-        setState(() {
-          _countryCode = code.dialCode ?? '+91';
-        });
-      },
-      initialSelection: 'IN', // 🇮🇳 default
-      favorite: const ['+91', 'IN'],
-      showFlag: true,
-      showFlagDialog: true,
-      showDropDownButton: true, // ✅ shows arrow next to flag
-      hideMainText: true, // hide "+91" (we show inside input)
-      alignLeft: false,
-      flagWidth: 28, // ✅ larger, crisp flag
-      padding: EdgeInsets.zero,
-      textStyle: const TextStyle(fontSize: 15, color: Colors.black),
-    ),
-  ),
-),
+// Container(
+//   height: 48, // same as input
+//   width: 90,  // ✅ slightly wider for proper flag + arrow space
+//   padding: const EdgeInsets.symmetric(horizontal: 6), // add breathing space
+//   decoration: BoxDecoration(
+//     border: Border.all(color: Colors.grey.shade400),
+//     borderRadius: BorderRadius.circular(8),
+//     color: Colors.white, // ensure flag background matches screen
+//   ),
+//   child: Center(
+//     child: CountryCodePicker(
+//       onChanged: (code) {
+//         setState(() {
+//           _countryCode = code.dialCode ?? '+91';
+//         });
+//       },
+//       initialSelection: 'IN', // 🇮🇳 default
+//       favorite: const ['+91', 'IN'],
+//       showFlag: true,
+//       showFlagDialog: true,
+//       showDropDownButton: true, // ✅ shows arrow next to flag
+//       hideMainText: true, // hide "+91" (we show inside input)
+//       alignLeft: false,
+//       flagWidth: 28, // ✅ larger, crisp flag
+//       padding: EdgeInsets.zero,
+//       textStyle: const TextStyle(fontSize: 15, color: Colors.black),
+//     ),
+//   ),
+// ),
 
 
 

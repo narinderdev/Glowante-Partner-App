@@ -93,6 +93,20 @@ class _OtpScreenState extends State<OtpScreen> {
       _verifyOtp();
     });
   }
+void _clearOtpAndFocus() {
+  _isProgrammaticFill = true;
+  for (final c in otpControllers) c.clear();
+  _isProgrammaticFill = false;
+
+  setState(() {
+    isContinueButtonEnabled = false;
+  });
+
+  // focus first box
+  if (focusNodes.isNotEmpty) {
+    FocusScope.of(context).requestFocus(focusNodes[0]);
+  }
+}
 
   Future<void> _verifyOtp() async {
     _autoSubmitScheduled = false;
@@ -178,6 +192,7 @@ class _OtpScreenState extends State<OtpScreen> {
             fallback: 'Invalid or expired OTP',
           );
         });
+        _clearOtpAndFocus();
       }
     } catch (e) {
       setState(() {
@@ -186,6 +201,7 @@ class _OtpScreenState extends State<OtpScreen> {
           fallback: 'Invalid or expired OTP',
         );
       });
+       _clearOtpAndFocus();   
     } finally {
       setState(() {
         isLoading = false;
@@ -451,34 +467,83 @@ class _OtpScreenState extends State<OtpScreen> {
                 },
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  // children: List.generate(6, (index) {
+                  //   return Container(
+                  //     width: 40,
+                  //     height: 50,
+                  //     margin: const EdgeInsets.symmetric(horizontal: 5),
+                  //     child: TextField(
+                  //       controller: otpControllers[index],
+                  //       focusNode: focusNodes[index],
+                  //       keyboardType: TextInputType.number,
+                  //       textAlign: TextAlign.center,
+                  //       maxLength: 1,
+                  //       maxLengthEnforcement: MaxLengthEnforcement.none,
+                  //       autofillHints: index == 0
+                  //           ? const [AutofillHints.oneTimeCode]
+                  //           : null,
+                  //       inputFormatters: [
+                  //         FilteringTextInputFormatter.digitsOnly
+                  //       ],
+                  //       decoration: InputDecoration(
+                  //         counterText: "",
+                  //         border: OutlineInputBorder(
+                  //           borderRadius: BorderRadius.circular(8),
+                  //         ),
+                  //       ),
+                  //       onChanged: (value) => _handleOtpInput(value, index),
+                  //     ),
+                  //   );
+                  // }),
                   children: List.generate(6, (index) {
-                    return Container(
-                      width: 40,
-                      height: 50,
-                      margin: const EdgeInsets.symmetric(horizontal: 5),
-                      child: TextField(
-                        controller: otpControllers[index],
-                        focusNode: focusNodes[index],
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        maxLength: 1,
-                        maxLengthEnforcement: MaxLengthEnforcement.none,
-                        autofillHints: index == 0
-                            ? const [AutofillHints.oneTimeCode]
-                            : null,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
-                        ],
-                        decoration: InputDecoration(
-                          counterText: "",
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onChanged: (value) => _handleOtpInput(value, index),
-                      ),
-                    );
-                  }),
+  final bool filled = otpControllers[index].text.isNotEmpty;
+  final bool focused = focusNodes[index].hasFocus;
+
+  return AnimatedContainer(
+    duration: const Duration(milliseconds: 150),
+    width: 44,
+    height: 54,
+    margin: const EdgeInsets.symmetric(horizontal: 5),
+    decoration: BoxDecoration(
+      color: filled ? AppColors.getStartedButton : Colors.white,                 // 👈 fill
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(
+        color: focused
+            ? AppColors.getStartedButton                                   // focus ring
+            : (filled ? AppColors.getStartedButton : Colors.grey.shade400),
+        width: focused ? 2 : 1.2,
+      ),
+      boxShadow: focused
+          ? [BoxShadow(color: AppColors.getStartedButton.withOpacity(.25), blurRadius: 6)]
+          : null,
+    ),
+    alignment: Alignment.center,
+    child: TextField(
+      controller: otpControllers[index],
+      focusNode: focusNodes[index],
+      keyboardType: TextInputType.number,
+      textAlign: TextAlign.center,
+      maxLength: 1,
+      maxLengthEnforcement: MaxLengthEnforcement.none,
+      autofillHints: index == 0 ? const [AutofillHints.oneTimeCode] : null,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: filled ? Colors.white : Colors.black,                      // 👈 white digit
+      ),
+      cursorColor: filled ? Colors.white : Colors.black,                  // 👈 white cursor
+      decoration: const InputDecoration(
+        counterText: "",
+        border: InputBorder.none,                                         // we draw border ourselves
+        isCollapsed: true,
+        contentPadding: EdgeInsets.zero,
+      ),
+      onChanged: (value) => _handleOtpInput(value, index),
+    ),
+  );
+}),
+
                 ),
               ),
 
