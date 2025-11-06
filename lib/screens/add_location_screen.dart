@@ -626,20 +626,75 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoading = true);
-     searchLocationController.clear();
+    searchLocationController.clear();
     try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) return;
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                translateText(
+                    'Turn on location services to use your current location'),
+              ),
+            ),
+          );
+        }
+        await Geolocator.openLocationSettings();
+        return;
+      }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.unableToDetermine) {
         permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied ||
-            permission == LocationPermission.deniedForever) return;
+      }
+
+      if (permission == LocationPermission.denied) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                translateText(
+                    'Allow location access to autofill your address details'),
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        final openSettings = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(translateText('Allow location access')),
+            content: Text(
+              translateText(
+                  'Enable location permissions in Settings to use your current location.'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(translateText('Cancel')),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(translateText('Open Settings')),
+              ),
+            ],
+          ),
+        );
+        if (openSettings == true) {
+          await Geolocator.openAppSettings();
+        }
+        return;
       }
 
       final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+        desiredAccuracy: LocationAccuracy.high,
+      );
       await _getAddressFromCoordinates(pos.latitude, pos.longitude);
     } catch (e) {
       debugPrint("Location error: $e");
@@ -653,20 +708,38 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       final placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isEmpty) return;
       final place = placemarks.first;
+      final parts = <String?>[
+        place.name,
+        place.subLocality,
+        place.locality,
+        place.administrativeArea,
+        place.country,
+        place.postalCode,
+      ];
+      final formattedAddress = parts
+          .where((value) => value != null && value!.trim().isNotEmpty)
+          .map((value) => value!.trim())
+          .join(', ');
+
+      _removeOverlay();
+
       setState(() {
         buildingNameController.text = place.name ?? '';
         cityController.text = place.locality ?? '';
         stateController.text = place.administrativeArea ?? '';
         pincodeController.text = place.postalCode ?? '';
+        searchLocationController.text = formattedAddress;
+        completeAddressController.text = formattedAddress;
         latitude = lat;
         longitude = lng;
 
-        // Lock only the filled fields
         _buildingLocked = buildingNameController.text.isNotEmpty;
         _cityLocked = cityController.text.isNotEmpty;
         _stateLocked = stateController.text.isNotEmpty;
         _pincodeLocked = pincodeController.text.isNotEmpty;
       });
+
+      _updateCompleteAddress();
     } catch (e) {
       debugPrint("Error fetching address: $e");
     }
