@@ -2693,7 +2693,7 @@ Future<void> onBranchChanged(
             children: [
               SizedBox(height: 30),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
                 child: DropdownButtonFormField<int>(
                   value: selectedBranchValue,
                   isExpanded: true,
@@ -2886,315 +2886,341 @@ Future<void> onBranchChanged(
               SizedBox(height: 16),
               Expanded(
                 child: Container(
-                  color: const Color(0xFFF7F4F1),
+                 color: Colors.white,
+
                   child: Column(
                     children: [
                       // Header row: Time + horizontally scrollable member headers
-                      Row(
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 60,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            alignment: Alignment.centerLeft,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 100,
+                              height: 60,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              alignment: Alignment.centerLeft,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(12),
+                                ),
+                                border: Border(
+                                  top: BorderSide(color: Colors.grey.shade300),
+                                  left: BorderSide(color: Colors.grey.shade300),
+                                  right: BorderSide(color: Colors.grey.shade300),
+                                  bottom: BorderSide(color: Colors.grey.shade300),
+                                ),
                               ),
-                              border: Border(
-                                top: BorderSide(color: Colors.grey.shade300),
-                                left: BorderSide(color: Colors.grey.shade300),
-                                right: BorderSide(color: Colors.grey.shade300),
-                                bottom: BorderSide(color: Colors.grey.shade300),
+                              child: Text(
+                                translateText('Time'),
+                                style: TextStyle(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                            child: Text(translateText('Time'),
-                              style: TextStyle(
-                                color: Colors.black87,
-                                fontWeight: FontWeight.w700,
+                            Expanded(
+                              child: SingleChildScrollView(
+                                controller: _headerHController,
+                                scrollDirection: Axis.horizontal,
+                                primary: false,
+                                physics: const ClampingScrollPhysics(),
+                                child: Row(
+                                  children: List.generate(_totalColumns, (index) {
+                                    if (index >= teamMembers.length) {
+                                      // Placeholder staff cell
+                                      return _buildEmptyStaffCell(
+                                        index == _totalColumns - 1,
+                                      );
+                                    }
+
+                                    final m = teamMembers[index];
+                                    final fn = (m['firstName'] ?? '').toString();
+                                    final ln = (m['lastName'] ?? '').toString();
+                                    final rawName = ('$fn $ln').trim();
+                                    final displayName =
+                                        rawName.isEmpty ? 'Staff' : rawName;
+                                    final trimmedName = displayName.trim();
+                                    final String initial = trimmedName.isEmpty
+                                        ? 'S'
+                                        : trimmedName[0].toUpperCase();
+                                    final isLast = index == _totalColumns - 1;
+
+                                    return Container(
+                                      width: _colWidth,
+                                      height: 60,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: isLast
+                                            ? const BorderRadius.only(
+                                                topRight: Radius.circular(12),
+                                              )
+                                            : null,
+                                        border: Border(
+                                          top: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                          right: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                          bottom: BorderSide(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            height: 32,
+                                            width: 32,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: AppColors.starColor,
+                                                width: 2,
+                                              ),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: Text(
+                                              initial,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.starColor,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(width: 10),
+                                          Expanded(
+                                            child: Text(
+                                              displayName,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.starColor,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              controller: _headerHController,
-                              scrollDirection: Axis.horizontal,
-                              primary: false,
-                              physics: const ClampingScrollPhysics(),
-                              child:Row(
-  children: List.generate(_totalColumns, (index) {
-    if (index >= teamMembers.length) {
-      // ?? Placeholder staff cell
-      return _buildEmptyStaffCell(index == _totalColumns - 1);
-    }
-
-    // ?? Your existing team member cell
-    final m = teamMembers[index];
-    final fn = (m['firstName'] ?? '').toString();
-    final ln = (m['lastName'] ?? '').toString();
-    final rawName = ('$fn $ln').trim();
-    final displayName = rawName.isEmpty ? 'Staff' : rawName;
-    final trimmedName = displayName.trim();
-    final String initial =
-        trimmedName.isEmpty ? 'S' : trimmedName[0].toUpperCase();
-    final isLast = index == _totalColumns - 1;
-
-    return Container(
-      width: _colWidth,
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: isLast
-            ? const BorderRadius.only(topRight: Radius.circular(12))
-            : null,
-        border: Border(
-          top: BorderSide(color: Colors.grey.shade300),
-          right: BorderSide(color: Colors.grey.shade300),
-          bottom: BorderSide(color: Colors.grey.shade300),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            height: 32,
-            width: 32,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.starColor, width: 2),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initial,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                color: AppColors.starColor,
-              ),
-            ),
-          ),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              displayName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: AppColors.starColor,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }),
-),
-
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       // Body: left time column synced with grid rows on the right
                       Expanded(
-                        child: Row(
-                          children: [
-                            // Time labels column (synced vertically)
-                            SizedBox(
-                              width: 100,
-                              child: NotificationListener<ScrollNotification>(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            children: [
+                              // Time labels column (synced vertically)
+                              SizedBox(
+                                width: 100,
+                                child: NotificationListener<ScrollNotification>(
+                                  onNotification: (notif) {
+                                    if (notif.metrics.axis == Axis.vertical) {
+                                      if (!_syncingV &&
+                                          _gridVController.hasClients) {
+                                        _syncingV = true;
+                                        final off =
+                                            _timeColumnVController.offset;
+                                        if ((_gridVController.offset - off)
+                                                .abs() >
+                                            0.5) {
+                                          _gridVController.jumpTo(off);
+                                        }
+                                        _syncingV = false;
+                                      }
+                                    }
+                                    return false;
+                                  },
+                                  child: ListView.builder(
+                                    controller: _timeColumnVController,
+                                    primary: false,
+                                    physics: const ClampingScrollPhysics(),
+                                    padding: EdgeInsets.zero,
+                                    itemExtent: _rowHeight,
+                                    itemCount: displayTimeSlots.length,
+                                    itemBuilder: (context, i) {
+                                      return Container(
+                                        alignment: Alignment.centerLeft,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: i % 2 == 0
+                                              ? Colors.white
+                                              : const Color(0xFFF0F0F0),
+                                          border: Border(
+                                            right: BorderSide(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                            bottom: BorderSide(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          displayTimeSlots[i],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                              // Grid body (scrolls both ways)
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  controller: _gridHController,
+                                  scrollDirection: Axis.horizontal,
+                                  primary: false,
+                                  physics: const ClampingScrollPhysics(),
+                                  child: SizedBox(
+                                    width: _totalColumns * _colWidth,
+                                    child: NotificationListener<ScrollNotification>(
                                       onNotification: (notif) {
                                         if (notif.metrics.axis ==
                                             Axis.vertical) {
                                           if (!_syncingV &&
-                                              _gridVController.hasClients) {
+                                              _timeColumnVController
+                                                  .hasClients) {
                                             _syncingV = true;
                                             final off =
-                                                _timeColumnVController.offset;
-                                            if ((_gridVController.offset - off)
+                                                _gridVController.offset;
+                                            if ((_timeColumnVController.offset -
+                                                        off)
                                                     .abs() >
                                                 0.5) {
-                                              _gridVController.jumpTo(off);
+                                              _timeColumnVController.jumpTo(
+                                                off,
+                                              );
                                             }
                                             _syncingV = false;
                                           }
                                         }
                                         return false;
                                       },
-                                      child: ListView.builder(
-                                        controller: _timeColumnVController,
+                                      child: SingleChildScrollView(
+                                        controller: _gridVController,
                                         primary: false,
                                         physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.zero,            // ?? ensure no extra top space
-          itemExtent: _rowHeight,
-          itemCount: displayTimeSlots.length,
-                                        itemBuilder: (context, i) {
-                                          return Container(
-                                            alignment: Alignment.centerLeft,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: i % 2 == 0
-                                                  ? Colors.white
-                                                  : const Color(0xFFF0F0F0),
-                                              border: Border(
-                                                right: BorderSide(
-                                                  color: Colors.grey.shade300,
-                                                ),
-                                                bottom: BorderSide(
-                                                  color: Colors.grey.shade300,
-                                                ),
+                                        child: SizedBox(
+                                          width: _totalColumns * _colWidth,
+                                          height: displayTimeSlots.length *
+                                              _rowHeight,
+                                          child: Stack(
+                                            children: [
+                                              // Background grid
+                                              ..._buildBackgroundGrid(
+                                                displayTimeSlots.length,
                                               ),
-                                            ),
-                                            child: Text(
-                                              displayTimeSlots[i],
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 12,
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                            ),
-
-                            // Grid body (scrolls both ways)
-                            Expanded(
-                              child: SingleChildScrollView(
-                                controller: _gridHController,
-                                scrollDirection: Axis.horizontal,
-                                primary: false,
-                                physics: const ClampingScrollPhysics(),
-                                child: SizedBox(
-                                   width: _totalColumns * _colWidth,
-                                  child: NotificationListener<
-                                      ScrollNotification
-                                    >(
-                                          onNotification: (notif) {
-                                            if (notif.metrics.axis ==
-                                                Axis.vertical) {
-                                              if (!_syncingV &&
-                                                  _timeColumnVController
-                                                      .hasClients) {
-                                                _syncingV = true;
-                                                final off =
-                                                    _gridVController.offset;
-                                                if ((_timeColumnVController
-                                                                .offset -
-                                                            off)
-                                                        .abs() >
-                                                    0.5) {
-                                                  _timeColumnVController.jumpTo(
-                                                    off,
-                                                  );
-                                                }
-                                                _syncingV = false;
-                                              }
-                                            }
-                                            return false;
-                                          },
-                                          child: SingleChildScrollView(
-                                            controller: _gridVController,
-                                            primary: false,
-                                            physics:
-                                                const ClampingScrollPhysics(),
-                                            child: SizedBox(
-                                              width: _totalColumns * _colWidth,
-                                              height: displayTimeSlots.length *
-                                                  _rowHeight,
-                                              child: Stack(
-                                                children: [
-                                                  // Background grid
-                                                  ..._buildBackgroundGrid(
-                                                    displayTimeSlots.length,
-                                                  ),
-                                                  // Booking overlays
-                                                  ..._buildBookingBlocks(),
-                                                  if (!hasTeamMembers)
-                                                    Positioned(
-                                                      top: _rowHeight * 4.5,
-                                                      left: 24,
-                                                      right: 24,
-                                                      child: IgnorePointer(
-                                                        child: Container(
-                                                          alignment: Alignment.center,
-                                                          padding: const EdgeInsets.symmetric(
-                                                            horizontal: 16,
-                                                            vertical: 12,
-                                                          ),
-                                                          decoration: BoxDecoration(
-                                                            color: Colors.white.withOpacity(0.92),
-                                                            borderRadius: BorderRadius.circular(12),
-                                                            border: Border.all(
-                                                              color: Colors.grey.shade300,
-                                                            ),
-                                                          ),
-                                                          child: Text(
-                                                            primaryEmptyMessage,
-                                                            style: const TextStyle(
-                                                              fontWeight: FontWeight.w600,
-                                                              color: Colors.black54,
-                                                            ),
-                                                            textAlign: TextAlign.center,
-                                                          ),
+                                              // Booking overlays
+                                              ..._buildBookingBlocks(),
+                                              if (!hasTeamMembers)
+                                                Positioned(
+                                                  top: _rowHeight * 4.5,
+                                                  left: 24,
+                                                  right: 24,
+                                                  child: IgnorePointer(
+                                                    child: Container(
+                                                      alignment:
+                                                          Alignment.center,
+                                                      padding:
+                                                          const EdgeInsets
+                                                              .symmetric(
+                                                        horizontal: 16,
+                                                        vertical: 12,
+                                                      ),
+                                                      decoration:
+                                                          BoxDecoration(
+                                                        color: Colors.white
+                                                            .withOpacity(
+                                                                0.92),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
+                                                        border: Border.all(
+                                                          color: Colors
+                                                              .grey.shade300,
                                                         ),
                                                       ),
-                                                    )
-                                                  else if (!hasSlots)
-                                                    Positioned.fill(
-                                                      child: IgnorePointer(
-                                                        child: Center(
-                                                          child: Container(
-                                                            padding:
-                                                                const EdgeInsets
-                                                                    .symmetric(
-                                                              horizontal: 16,
-                                                              vertical: 12,
-                                                            ),
-                                                            decoration:
-                                                                BoxDecoration(
-                                                              color: Colors
-                                                                  .white
-                                                                  .withOpacity(
-                                                                      0.92),
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          12),
-                                                              border:
-                                                                  Border.all(
-                                                                color:
-                                                                    Colors.grey
-                                                                        .shade300,
-                                                              ),
-                                                            ),
-                                                            child: Text(
-                                                              translateText(
-                                                                'No time slots available',
-                                                              ),
-                                                              style:
-                                                                  const TextStyle(
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                color: Colors
-                                                                    .black54,
-                                                              ),
-                                                            ),
+                                                      child: Text(
+                                                        primaryEmptyMessage,
+                                                        style:
+                                                            const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color:
+                                                              Colors.black54,
+                                                        ),
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                )
+                                              else if (!hasSlots)
+                                                Positioned.fill(
+                                                  child: IgnorePointer(
+                                                    child: Center(
+                                                      child: Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                          horizontal: 16,
+                                                          vertical: 12,
+                                                        ),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: Colors.white
+                                                              .withOpacity(
+                                                                  0.92),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(12),
+                                                          border: Border.all(
+                                                            color: Colors
+                                                                .grey.shade300,
+                                                          ),
+                                                        ),
+                                                        child: Text(
+                                                          translateText(
+                                                            'No time slots available',
+                                                          ),
+                                                          style:
+                                                              const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: Colors
+                                                                .black54,
                                                           ),
                                                         ),
                                                       ),
                                                     ),
-                                                ],
-                                              ),
-                                            ),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
                                         ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],

@@ -57,8 +57,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   final _endTimeController = TextEditingController();
   final _descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  bool _submitted = false;
   final Map<_BranchField, bool> _fieldValidationVisibility = {
     for (final field in _BranchField.values) field: false,
+    
   };
 
   @override
@@ -184,6 +186,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   //       );
   // }
 void _submit(AddBranchState state) {
+    setState(() => _submitted = true);
   final form = _formKey.currentState;
   if (form == null) return;
 
@@ -311,15 +314,17 @@ void _submit(AddBranchState state) {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildTextField(
-                        field: _BranchField.name,
-                        controller: _branchNameController,
-                        label: 'Branch Name *',
-                        hint: 'Enter branch name',
-                       keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-                        inputFormatters: const [_FirstLetterUpperFormatter()],
-                      ),
+                    _buildTextField(
+  field: _BranchField.name,
+  controller: _branchNameController,
+  label: 'Branch Name *',
+  hint: 'Enter branch name',
+  keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences,
+  maxLength: 30, // ✅ required for counter
+  inputFormatters: const [_FirstLetterUpperFormatter()],
+),
+
                       _buildTextField(
                         field: _BranchField.phone,
                         controller: _phoneController,
@@ -455,7 +460,7 @@ void _submit(AddBranchState state) {
                         label: 'Description *',
                         hint: 'Enter description',
                         maxLines: 1,
-                        maxLength: 100,
+                        maxLength: 50,
                        keyboardType: TextInputType.text,
   textCapitalization: TextCapitalization.sentences, 
                         inputFormatters: const [_FirstLetterUpperFormatter()],
@@ -564,6 +569,9 @@ void _submit(AddBranchState state) {
         localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
     final fieldForMessage =
         sanitizedField.isEmpty ? localizedLabel : sanitizedField;
+controller.addListener(() {
+  setState(() {}); // ✅ Always rebuild on typing
+});
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -575,7 +583,9 @@ void _submit(AddBranchState state) {
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
         textCapitalization: textCapitalization,
-        autovalidateMode: AutovalidateMode.disabled,
+     autovalidateMode: _submitted
+          ? AutovalidateMode.always
+          : AutovalidateMode.disabled,
         onChanged: (value) {
           _resetFieldError(field);
           onChanged?.call(value);
@@ -590,31 +600,57 @@ void _submit(AddBranchState state) {
           }
           return null;
         },
-        decoration: InputDecoration(
-          counterText: '',
-          // ⬇️ use `label:` so we can color the star red
-          label: _requiredLabel(localizedLabel, required: isRequired),
-          hintText: localizedHint,
-          labelStyle: const TextStyle(color: AppColors.darkGrey),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          focusedBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 2),
-            borderRadius: BorderRadius.circular(8),
+       decoration: InputDecoration(
+  // ✅ Inline counter (optional: remove counterText if using suffix)
+counterText: '',
+  // ✅ Inline character counter inside the field (shows bottom-right)
+  suffixIcon: (maxLength != null)
+    ? Padding(
+        padding: const EdgeInsets.only(right: 10, top: 14),
+        child: Text(
+          '${controller.text.length}/$maxLength',
+          style: TextStyle(
+            fontSize: 12,
+            color: controller.text.length >= (maxLength ?? 0)
+                ? Colors.red
+                : Colors.grey,
           ),
-          enabledBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          errorStyle: const TextStyle(color: Colors.red),
         ),
+      )
+    : null,
+
+
+  // ✅ Label with required star
+  label: _requiredLabel(localizedLabel, required: isRequired),
+
+  hintText: localizedHint,
+  labelStyle: const TextStyle(color: AppColors.darkGrey),
+
+  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+  focusedBorder: OutlineInputBorder(
+    borderSide: const BorderSide(color: AppColors.darkGrey, width: 2),
+    borderRadius: BorderRadius.circular(8),
+  ),
+  enabledBorder: OutlineInputBorder(
+    borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+    borderRadius: BorderRadius.circular(8),
+  ),
+  errorBorder: OutlineInputBorder(
+    borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+    borderRadius: BorderRadius.circular(8),
+  ),
+  focusedErrorBorder: OutlineInputBorder(
+    borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+    borderRadius: BorderRadius.circular(8),
+  ),
+
+  // ✅ Clean, readable error text
+  errorStyle: const TextStyle(
+    color: Colors.red,
+    fontSize: 13,
+  ),
+),
+
       ),
     );
   }

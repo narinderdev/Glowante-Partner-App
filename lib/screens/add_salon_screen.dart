@@ -83,6 +83,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final _endTimeController = TextEditingController();
   final _phoneController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+bool _submitted = false;
 
   @override
   void initState() {
@@ -312,11 +313,19 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 //     ),
 //   );
 // }
-
 Future<void> _submit(AddSalonState state) async {
-  final form = _formKey.currentState;
-  if (form == null || !form.validate()) return;
+  // ✅ Enable form validation display
+  setState(() => _submitted = true);
 
+  final form = _formKey.currentState;
+
+  // ✅ Trigger full validation once
+  if (form == null || !form.validate()) {
+    // Just return — the errors will now appear automatically in the fields
+    return;
+  }
+
+  // ✅ Time validation
   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(translateText('Please select start and end time.'))),
@@ -324,6 +333,7 @@ Future<void> _submit(AddSalonState state) async {
     return;
   }
 
+  // ✅ Address validation
   final address = state.address;
   if (!_isAddressComplete(address)) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -333,12 +343,13 @@ Future<void> _submit(AddSalonState state) async {
   }
 
   final cubit = context.read<AddSalonCubit>();
-  cubit.setSubmitting(true); // ✅ show loader in button
+  cubit.setSubmitting(true); // ✅ Show loader in button
 
   try {
     final images = cubit.state.images;
     String? imageUrl;
 
+    // ✅ Upload first image if available
     if (images.isNotEmpty) {
       imageUrl = await AwsS3Uploader().uploadImage(XFile(images.first.path));
     }
@@ -352,6 +363,7 @@ Future<void> _submit(AddSalonState state) async {
       imageUrl: imageUrl,
     );
 
+    // ✅ Navigate to next screen
     await Navigator.push<void>(
       context,
       MaterialPageRoute(
@@ -365,9 +377,10 @@ Future<void> _submit(AddSalonState state) async {
       ),
     );
   } finally {
-    cubit.setSubmitting(false); // ✅ hide loader when done
+    cubit.setSubmitting(false); // ✅ Hide loader when done
   }
 }
+
 
   @override
   Widget build(BuildContext context) {
@@ -452,6 +465,7 @@ Future<void> _submit(AddSalonState state) async {
   textCapitalization: TextCapitalization.sentences, 
                         label: 'Salon Name *',
                         hint: 'Enter your salon name',
+                        maxLength: 50,
                         inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
                       _buildTextField(
@@ -584,7 +598,7 @@ Future<void> _submit(AddSalonState state) async {
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
                         maxLines: 1,
-                        maxLength: 100,
+                        maxLength: 50,
                         inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
                       SizedBox(height: 20),
@@ -762,7 +776,10 @@ final String cleanLabel = localizedLabel.trim();
       }
     });
   }
-
+// ✅ Live UI refresh to remove validation error when user types
+controller.addListener(() {
+  setState(() {}); // ✅ Always rebuild on typing
+});
   return Padding(
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: TextFormField(
@@ -773,7 +790,11 @@ final String cleanLabel = localizedLabel.trim();
       textCapitalization: textCapitalization,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
+   autovalidateMode: _submitted
+    ? AutovalidateMode.always // show validation after submit
+    : AutovalidateMode.disabled, // before submit, stay silent
+
+
       validator: (value) {
   final text = value?.trim() ?? '';
 
@@ -801,9 +822,22 @@ final String cleanLabel = localizedLabel.trim();
 
   return null;
 },
-
       decoration: InputDecoration(
         counterText: '',
+      suffixIcon: (maxLength != null)
+    ? Padding(
+        padding: const EdgeInsets.only(right: 10, top: 14),
+        child: Text(
+          '${controller.text.length}/$maxLength',
+          style: TextStyle(
+            fontSize: 12,
+            color: controller.text.length >= (maxLength ?? 0)
+                ? Colors.red // 🔴 turns red at limit
+                : Colors.grey,
+          ),
+        ),
+      )
+    : null,
         hintText: localizedHint,
         label: RichText(
           text: TextSpan(
