@@ -452,6 +452,7 @@ class AddSalonServices extends StatefulWidget {
     this.branchAddress,
     this.branchImages = const [],
     this.salonId,
+    this.branchImageUrl,
   });
 
   final AddSalonFormData? formData;
@@ -460,6 +461,7 @@ class AddSalonServices extends StatefulWidget {
   final List<File> branchImages;
   final List<String> initialCodes;
   final int? salonId;
+  final String? branchImageUrl;
 
   @override
   State<AddSalonServices> createState() => _AddSalonServicesState();
@@ -798,6 +800,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           latitude: address.latitude,
           longitude: address.longitude,
           images: images,
+          imageUrl: branch.imageUrl ?? widget.branchImageUrl,
           selectedCategoryCodes: _selectedCodes, // ✅ FIXED
         );
 

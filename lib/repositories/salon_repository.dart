@@ -224,12 +224,13 @@ Future<Map<String, dynamic>> createSalon({
     required double longitude,
     List<File> images = const [],
     List<String> selectedCategoryCodes = const [],
+    String? imageUrl,
   }) async {
-    String imageUrl = '';
+    String resolvedImageUrl = imageUrl?.trim() ?? '';
 
-    if (images.isNotEmpty) {
+    if (resolvedImageUrl.isEmpty && images.isNotEmpty) {
       final urls = await _apiService.uploadMultipleImages(images);
-      if (urls.isNotEmpty) imageUrl = urls.first;
+      if (urls.isNotEmpty) resolvedImageUrl = urls.first;
     }
 
     final body = <String, dynamic>{
@@ -238,7 +239,7 @@ Future<Map<String, dynamic>> createSalon({
       'endTime': endTime,
       'phone': phone,
       'description': description,
-      'image_url': imageUrl,
+      'image_url': resolvedImageUrl,
       'address': address,
       'latitude': latitude,
       'longitude': longitude,

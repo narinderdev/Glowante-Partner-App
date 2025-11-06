@@ -13,6 +13,7 @@ class AddBranchFormData {
     required this.startTime,
     required this.endTime,
     required this.description,
+    this.imageUrl,
   });
 
   final String name;
@@ -20,6 +21,7 @@ class AddBranchFormData {
   final String startTime;
   final String endTime;
   final String description;
+  final String? imageUrl;
 }
 
 class AddBranchCubit extends Cubit<AddBranchState> {
@@ -99,6 +101,7 @@ class AddBranchCubit extends Cubit<AddBranchState> {
         latitude: address.latitude,
         longitude: address.longitude,
         images: state.images,
+        imageUrl: formData.imageUrl,
       );
 
       emit(

@@ -694,10 +694,8 @@
 // }
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
-import '../utils/colors.dart';
 import '../services/language_listener.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'add_location_screen.dart';
@@ -707,6 +705,7 @@ import '../utils/colors.dart';
 import 'AddSalonServices.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/repositories/salon_repository.dart';
+import '../utils/aws_s3_uploader.dart';
 
 enum _BranchField { name, phone, startTime, endTime, description }
 
@@ -752,6 +751,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   final _descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
+  bool _isNextLoading = false;
   final Map<_BranchField, bool> _fieldValidationVisibility = {
     for (final field in _BranchField.values) field: false,
   };
@@ -778,7 +778,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
   Future<void> _pickImages() async {
     final files = await _picker.pickMultiImage();
-    if (!mounted || files == null) return;
+    if (!mounted) return;
+    if (files.isEmpty) return;
     final images = files.map((file) => File(file.path)).toList();
     context.read<AddBranchCubit>().setImages(images);
   }
@@ -806,6 +807,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     );
 
     if (picked != null) {
+      if (!mounted) return;
       controller.text = picked.format(context);
       _resetFieldError(field);
     }
@@ -820,10 +822,16 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   }
 
   Future<void> _chooseLocation(AddBranchState state) async {
+    final existing = state.address;
+    final branchCubit = context.read<AddBranchCubit>();
     final result = await Navigator.push<Map<String, dynamic>?>(
       context,
       MaterialPageRoute(
-        builder: (_) => const AddLocationScreen(), // no legacy params needed
+        builder: (_) => AddLocationScreen(
+          initialCompleteAddress: existing?.buildingName,
+          initialScoFlatHouse: existing?.city,
+          initialStreetSectorArea: existing?.pincode,
+        ), // no legacy params needed
       ),
     );
 
@@ -837,7 +845,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final longitude         = (result['longitude'] as num?)?.toDouble() ?? 0;
 
     // 🟢 Store completeAddress into buildingName (back-compat with existing model)
-    context.read<AddBranchCubit>().updateAddress(
+    branchCubit.updateAddress(
       BranchAddress(
         buildingName: completeAddress, // complete address here
         city: scoFlatHouse,            // optional mapping to keep the value
@@ -849,10 +857,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     );
   }
 
-  void _submit(AddBranchState state) {
+  Future<void> _submit(AddBranchState state) async {
     setState(() => _submitted = true);
     final form = _formKey.currentState;
     if (form == null) return;
+
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     setState(() {
       for (final key in _fieldValidationVisibility.keys) {
@@ -864,7 +874,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (!isValid) return;
 
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(translateText('Please select start and end time.')),
         ),
@@ -874,12 +884,44 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     // 🟢 Require address completeness based on new flow
     if (!_isAddressComplete(state.address)) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(translateText('Please choose a branch location.')),
         ),
       );
       return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    final images = state.images;
+    String? imageUrl;
+
+    if (images.isNotEmpty) {
+      setState(() => _isNextLoading = true);
+      try {
+        final result = await AwsS3Uploader()
+            .uploadImageResult(XFile(images.first.path))
+            .timeout(const Duration(seconds: 45), onTimeout: () => null);
+        imageUrl = result?.cdnUrl ?? result?.publicUrl;
+      } catch (error, stack) {
+        debugPrint('❌ Branch image upload failed: $error');
+        debugPrintStack(stackTrace: stack);
+        if (mounted) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                translateText(
+                    'Unable to upload branch image right now. We will retry on submit.'),
+              ),
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isNextLoading = false);
+        }
+      }
     }
 
     final branchFormData = AddBranchFormData(
@@ -888,9 +930,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       startTime: _startTimeController.text.trim(),
       endTime: _endTimeController.text.trim(),
       description: _descriptionController.text.trim(),
+      imageUrl: imageUrl,
     );
 
-    Navigator.push(
+    if (!mounted) return;
+
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => MultiBlocProvider(
@@ -905,8 +950,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           child: AddSalonServices(
             branchFormData: branchFormData,
             branchAddress: state.address!,
-            branchImages: state.images,
+            branchImages: images,
             salonId: widget.salonId,
+            branchImageUrl: imageUrl,
           ),
         ),
       ),
@@ -1183,7 +1229,9 @@ if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: state.isSubmitting ? null : () => _submit(state),
+                          onPressed: (state.isSubmitting || _isNextLoading)
+                              ? null
+                              : () => _submit(state),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.starColor,
                             foregroundColor: AppColors.white,
@@ -1191,7 +1239,7 @@ if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: state.isSubmitting
+                          child: (state.isSubmitting || _isNextLoading)
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
@@ -1282,7 +1330,7 @@ if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
                     '${controller.text.length}/$maxLength',
                     style: TextStyle(
                       fontSize: 12,
-                      color: controller.text.length >= (maxLength ?? 0)
+                      color: controller.text.length >= maxLength
                           ? Colors.red
                           : Colors.grey,
                     ),
