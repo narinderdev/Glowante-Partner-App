@@ -1,3 +1,910 @@
+// import 'dart:io';
+// import '../utils/colors.dart';
+// import '../services/language_listener.dart';
+// import 'package:flutter/material.dart';
+// import 'package:provider/provider.dart';
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import 'package:image_picker/image_picker.dart';
+// import 'package:flutter/services.dart';
+// import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
+// import 'add_location_screen.dart';
+// import '../screens/bottom_nav.dart';
+// import 'package:bloc_onboarding/utils/localization_helper.dart';
+// import 'AddSalonServices.dart';
+// import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
+
+// class _FirstLetterUpperFormatter extends TextInputFormatter {
+//   const _FirstLetterUpperFormatter();
+
+//   @override
+//   TextEditingValue formatEditUpdate(
+//     TextEditingValue oldValue,
+//     TextEditingValue newValue,
+//   ) {
+//     final text = newValue.text;
+//     if (text.isEmpty) return newValue;
+
+//     final regExp = RegExp(r'[A-Za-z]');
+//     final match = regExp.firstMatch(text);
+//     if (match == null) return newValue;
+
+//     final index = match.start;
+//     final upper = text[index].toUpperCase();
+//     if (text[index] == upper) return newValue;
+
+//     final updated = text.replaceRange(index, index + 1, upper);
+//     return newValue.copyWith(text: updated);
+//   }
+// }
+
+// class AddSalonScreen extends StatefulWidget {
+//   const AddSalonScreen({
+//     super.key,
+//     this.id,
+//     this.phoneNumber,
+//     this.fullPhoneNumber,
+//     this.firstName,
+//     this.lastName,
+//      this.imageUrl,
+//     this.email,
+//     this.isProceedFrom,
+//     this.buildingName,
+//     this.city,
+//     this.pincode,
+//     this.state,
+//     this.latitude,
+//     this.longitude,
+//   });
+
+//   final String? id;
+//   final String? phoneNumber;
+//   final String? fullPhoneNumber;
+//   final String? firstName;
+//   final String? lastName;
+//   final String? imageUrl;
+//   final String? email;
+//   final String? isProceedFrom;
+//   final String? buildingName;
+//   final String? city;
+//   final String? pincode;
+//   final String? state;
+//   final double? latitude;
+//   final double? longitude;
+
+//   @override
+//   State<AddSalonScreen> createState() => _AddSalonScreenState();
+// }
+
+// class _AddSalonScreenState extends State<AddSalonScreen> {
+//   final _formKey = GlobalKey<FormState>();
+//   final _salonNameController = TextEditingController();
+//   final _descriptionController = TextEditingController();
+//   final _startTimeController = TextEditingController();
+//   final _endTimeController = TextEditingController();
+//   final _phoneController = TextEditingController();
+//   final ImagePicker _picker = ImagePicker();
+// bool _submitted = false;
+
+//   @override
+//   void initState() {
+//     super.initState();
+
+//     // Set default start and end time
+//     _startTimeController.text = "08:00 AM";
+//     _endTimeController.text = "08:00 PM";
+
+//     final phone = widget.phoneNumber;
+//     if (phone != null && phone.isNotEmpty) {
+//       _phoneController.text = phone;
+//     }
+
+//     final proceedContext = widget.isProceedFrom?.toLowerCase().trim();
+//     final shouldPrefillSalonName = proceedContext != 'onboarding';
+//     if (shouldPrefillSalonName) {
+//       final names = [widget.firstName, widget.lastName]
+//           .whereType<String>()
+//           .map((value) => value.trim())
+//           .where((value) => value.isNotEmpty)
+//           .toList();
+//       if (names.isNotEmpty) {
+//         _salonNameController.text = names.join(' ');
+//       }
+//     }
+
+//     WidgetsBinding.instance.addPostFrameCallback((_) {
+//       final building = widget.buildingName?.trim() ?? '';
+//       final city = widget.city?.trim() ?? '';
+//       final pincode = widget.pincode?.trim() ?? '';
+//       final stateVal = widget.state?.trim() ?? '';
+//       final latitude = widget.latitude;
+//       final longitude = widget.longitude;
+//       final bool hasCoordinates =
+//           latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0);
+//       if (building.isNotEmpty &&
+//           city.isNotEmpty &&
+//           pincode.isNotEmpty &&
+//           stateVal.isNotEmpty &&
+//           hasCoordinates) {
+//         context.read<AddSalonCubit>().updateAddress(
+//           AddSalonAddress(
+//             buildingName: building,
+//             city: city,
+//             pincode: pincode,
+//             state: stateVal,
+//             latitude: latitude!,
+//             longitude: longitude!,
+//           ),
+//         );
+//       }
+//       context.read<AddSalonCubit>().loadSavedPhone(
+//             initialPhone: widget.phoneNumber,
+//           );
+//     });
+//   }
+
+//   @override
+//   void dispose() {
+//     _salonNameController.dispose();
+//     _descriptionController.dispose();
+//     _startTimeController.dispose();
+//     _endTimeController.dispose();
+//     _phoneController.dispose();
+//     super.dispose();
+//   }
+
+//   Future<void> _pickImages() async {
+//     final files = await _picker.pickMultiImage();
+//     if (!mounted || files == null) return;
+//     final images = files.map((file) => File(file.path)).toList();
+//     context.read<AddSalonCubit>().setImages(images);
+//   }
+
+//   bool _isAddressComplete(AddSalonAddress? address) {
+//     if (address == null) return false;
+//     final hasEmptyFields = address.buildingName.trim().isEmpty ||
+//         address.city.trim().isEmpty ||
+//         address.pincode.trim().isEmpty ||
+//         address.state.trim().isEmpty;
+//     final hasValidCoordinates =
+//         address.latitude != 0.0 || address.longitude != 0.0;
+//     return !hasEmptyFields && hasValidCoordinates;
+//   }
+
+//   Future<void> _selectTime(TextEditingController controller) async {
+//     final picked = await showTimePicker(
+//       context: context,
+//       initialTime: TimeOfDay.now(),
+//     );
+//     if (picked != null) {
+//       final formatted = picked.format(context);
+//       controller.text = formatted;
+//     }
+//   }
+
+//   Future<void> _chooseLocation(AddSalonState state) async {
+//     final result = await Navigator.push<Map<String, dynamic>?>(
+//       context,
+//       MaterialPageRoute(
+//         builder: (_) => AddLocationScreen(
+//           buildingName: state.address?.buildingName ?? '',
+//           city: state.address?.city ?? '',
+//           pincode: state.address?.pincode ?? '',
+//           state: state.address?.state ?? '',
+//         ),
+//       ),
+//     );
+
+//     if (!mounted || result == null) return;
+//     context.read<AddSalonCubit>().updateAddress(
+//           AddSalonAddress(
+//             buildingName: result['buildingName'] as String? ?? '',
+//             city: result['city'] as String? ?? '',
+//             pincode: result['pincode'] as String? ?? '',
+//             state: result['state'] as String? ?? '',
+//             latitude: (result['latitude'] as num?)?.toDouble() ?? 0,
+//             longitude: (result['longitude'] as num?)?.toDouble() ?? 0,
+//           ),
+//         );
+//   }
+
+//   // Future<void> _submit(AddSalonState state) async {
+//   //   final form = _formKey.currentState;
+//   //   if (form == null || !form.validate()) {
+//   //     return;
+//   //   }
+
+//   //   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+//   //     ScaffoldMessenger.of(context).showSnackBar(
+//   //       SnackBar(
+//   //           content: Text(translateText('Please select start and end time.'))),
+//   //     );
+//   //     return;
+//   //   }
+//   //   String _capitalizeWords(String value) {
+//   //     return value
+//   //         .split(' ')
+//   //         .map((word) =>
+//   //             word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
+//   //         .join(' ');
+//   //   }
+
+//   //   if (state.address == null) {
+//   //     ScaffoldMessenger.of(context).showSnackBar(
+//   //       SnackBar(
+//   //           content: Text(translateText('Please add the salon location.'))),
+//   //     );
+//   //     return;
+//   //   }
+
+//   //   final formData = AddSalonFormData(
+//   //     name: _capitalizeWords(_salonNameController.text.trim()),
+//   //     phone: _phoneController.text.trim(),
+//   //     startTime: _startTimeController.text.trim(),
+//   //     endTime: _endTimeController.text.trim(),
+//   //     description: _capitalizeWords(_descriptionController.text.trim()),
+//   //   );
+
+//   //   final cubit = context.read<AddSalonCubit>();
+
+//   //   await Navigator.push<void>(
+//   //     context,
+//   //     MaterialPageRoute(
+//   //       builder: (_) => BlocProvider.value(
+//   //         value: cubit,
+//   //         child: AddSalonServices(
+//   //           initialCodes: state.selectedServiceCodes,
+//   //           formData: formData,
+//   //         ),
+//   //       ),
+//   //     ),
+//   //   );
+//   // }
+// //   Future<void> _submit(AddSalonState state) async {
+// //   final form = _formKey.currentState;
+// //   if (form == null || !form.validate()) return;
+
+// //   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+// //     ScaffoldMessenger.of(context).showSnackBar(
+// //       SnackBar(content: Text(translateText('Please select start and end time.'))),
+// //     );
+// //     return;
+// //   }
+
+// //   if (state.address == null) {
+// //     ScaffoldMessenger.of(context).showSnackBar(
+// //       SnackBar(content: Text(translateText('Please add the salon location.'))),
+// //     );
+// //     return;
+// //   }
+
+// //   final cubit = context.read<AddSalonCubit>();
+// //   final images = cubit.state.images;
+
+// //   String? imageUrl;
+
+// //   // ✅ Upload first image if exists
+// //   if (images.isNotEmpty) {
+// //     print("⏫ Uploading image to AWS S3...");
+// //     imageUrl = await AwsS3Uploader().uploadImage(
+// //       XFile(images.first.path),
+// //     );
+// //     print("✅ Uploaded Image URL: $imageUrl");
+// //   }
+
+// //   final formData = AddSalonFormData(
+// //     name: _salonNameController.text.trim(),
+// //     phone: _phoneController.text.trim(),
+// //     startTime: _startTimeController.text.trim(),
+// //     endTime: _endTimeController.text.trim(),
+// //     description: _descriptionController.text.trim(),
+// //     imageUrl: imageUrl, // ✅ added here
+// //   );
+
+// //   await Navigator.push<void>(
+// //     context,
+// //     MaterialPageRoute(
+// //       builder: (_) => BlocProvider.value(
+// //         value: cubit,
+// //         child: AddSalonServices(
+// //           initialCodes: state.selectedServiceCodes,
+// //           formData: formData,
+// //         ),
+// //       ),
+// //     ),
+// //   );
+// // }
+// Future<void> _submit(AddSalonState state) async {
+//   // ✅ Enable form validation display
+//   setState(() => _submitted = true);
+
+//   final form = _formKey.currentState;
+
+//   // ✅ Trigger full validation once
+//   if (form == null || !form.validate()) {
+//     // Just return — the errors will now appear automatically in the fields
+//     return;
+//   }
+
+//   // ✅ Time validation
+//   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(content: Text(translateText('Please select start and end time.'))),
+//     );
+//     return;
+//   }
+
+//   // ✅ Address validation
+//   final address = state.address;
+//   if (!_isAddressComplete(address)) {
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       SnackBar(content: Text(translateText('Please add the salon location.'))),
+//     );
+//     return;
+//   }
+
+//   final cubit = context.read<AddSalonCubit>();
+//   cubit.setSubmitting(true); // ✅ Show loader in button
+
+//   try {
+//     final images = cubit.state.images;
+//     String? imageUrl;
+
+//     // ✅ Upload first image if available
+//     if (images.isNotEmpty) {
+//       imageUrl = await AwsS3Uploader().uploadImage(XFile(images.first.path));
+//     }
+
+//     final formData = AddSalonFormData(
+//       name: _salonNameController.text.trim(),
+//       phone: _phoneController.text.trim(),
+//       startTime: _startTimeController.text.trim(),
+//       endTime: _endTimeController.text.trim(),
+//       description: _descriptionController.text.trim(),
+//       imageUrl: imageUrl,
+//     );
+
+//     // ✅ Navigate to next screen
+//     await Navigator.push<void>(
+//       context,
+//       MaterialPageRoute(
+//         builder: (_) => BlocProvider.value(
+//           value: cubit,
+//           child: AddSalonServices(
+//             initialCodes: state.selectedServiceCodes,
+//             formData: formData,
+//           ),
+//         ),
+//       ),
+//     );
+//   } finally {
+//     cubit.setSubmitting(false); // ✅ Hide loader when done
+//   }
+// }
+
+
+//   @override
+//   Widget build(BuildContext context) {
+//     context.watch<LanguageListener>();
+//     return BlocConsumer<AddSalonCubit, AddSalonState>(
+//       listenWhen: (previous, current) => previous.status != current.status,
+//       listener: (context, state) {
+//         if (state.savedPhone != null && _phoneController.text.isEmpty) {
+//           _phoneController.text = state.savedPhone!;
+//         }
+
+//         final isCurrent = ModalRoute.of(context)?.isCurrent ?? false;
+
+//         if (state.status == AddSalonStatus.failure &&
+//             state.errorMessage != null &&
+//             isCurrent) {
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             SnackBar(content: Text(state.errorMessage!)),
+//           );
+//         }
+
+//         if (state.status == AddSalonStatus.success && isCurrent) {
+//           ScaffoldMessenger.of(context).showSnackBar(
+//             SnackBar(content: Text(translateText('Salon added successfully'))),
+//           );
+//           Navigator.pushReplacement(
+//             context,
+//             MaterialPageRoute(
+//               builder: (context) => BottomNav(tabIndex: 1),
+//             ),
+//           );
+//         }
+//       },
+//       builder: (context, state) {
+//         final images = state.images;
+//         final address = state.address;
+
+//         return Scaffold(
+//           backgroundColor: Colors.white,
+//           appBar: AppBar(
+//             // Let the gradient show through:
+//             backgroundColor: Colors.transparent,
+//             elevation: 0,
+//             // Ensure status bar + icons look good on the gradient:
+//             systemOverlayStyle: SystemUiOverlayStyle.light,
+//             iconTheme: const IconThemeData(
+//               color: Colors.white, // back button color
+//             ),
+//             title: Text(
+//               translateText('Add Salon'),
+//               style: TextStyle(
+//                 color: Colors.white,
+//                 fontWeight: FontWeight.bold,
+//               ),
+//             ),
+//             // Paint the gradient here:
+//             flexibleSpace: Container(
+//               decoration: BoxDecoration(
+//                 gradient: LinearGradient(
+//                   colors: [
+//                     AppColors.starColor, // your start color
+//                     AppColors.getStartedButton, // your end color
+//                   ],
+//                   begin: Alignment.topLeft,
+//                   end: Alignment.bottomRight,
+//                 ),
+//               ),
+//             ),
+//           ),
+//           body: Stack(
+//             children: [
+//               SingleChildScrollView(
+//                 padding: const EdgeInsets.all(16),
+//                 child: Form(
+//                   key: _formKey,
+//                   child: Column(
+//                     crossAxisAlignment: CrossAxisAlignment.start,
+//                     children: [
+//                       _buildTextField(
+//                         controller: _salonNameController,
+//                      keyboardType: TextInputType.text,
+//   textCapitalization: TextCapitalization.sentences, 
+//                         label: 'Salon Name *',
+//                         hint: 'Enter your salon name',
+//                         maxLength: 50,
+//                         inputFormatters: const [_FirstLetterUpperFormatter()],
+//                       ),
+//                       _buildTextField(
+//                         controller: _phoneController,
+//                         label: 'Phone Number *',
+//                         maxLength: 10,
+//                         hint: 'Enter phone number',
+//                         enabled: true,
+//                         keyboardType:
+//                             TextInputType.phone, // ✅ phone-optimized keyboard
+//                         inputFormatters: [
+//                           FilteringTextInputFormatter.digitsOnly
+//                         ], // ✅ digits only
+//                       ),
+//                       Row(
+//                         children: [
+//                           Expanded(
+//                             child: _buildTimePickerField(
+//                               controller: _startTimeController,
+//                               label: 'Start Time *',
+//                               onTap: () => _selectTime(_startTimeController),
+//                             ),
+//                           ),
+//                           SizedBox(width: 12),
+//                           Expanded(
+//                             child: _buildTimePickerField(
+//                               controller: _endTimeController,
+//                               label: 'End Time *',
+//                               onTap: () => _selectTime(_endTimeController),
+//                             ),
+//                           ),
+//                         ],
+//                       ),
+//                       SizedBox(height: 20),
+//                       Text(
+//                         translateText('Salon Address'),
+//                         style: Theme.of(context).textTheme.titleMedium,
+//                       ),
+//                       SizedBox(height: 8),
+//                       InkWell(
+//                         onTap: () => _chooseLocation(state),
+//                         child: Container(
+//                           width: double.infinity,
+//                           padding: const EdgeInsets.symmetric(
+//                               horizontal: 16, vertical: 12),
+//                           decoration: BoxDecoration(
+//                             borderRadius: BorderRadius.circular(8),
+//                             border:
+//                                 Border.all(color: AppColors.darkGrey, width: 1),
+//                           ),
+//                           child: (address == null ||
+//                                   (address?.buildingName?.isEmpty ?? true) ||
+//                                   (address?.city?.isEmpty ?? true) ||
+//                                   (address?.state?.isEmpty ?? true) ||
+//                                   (address?.pincode?.isEmpty ??
+//                                       true)) // Using null-aware operators
+//                               ? Row(
+//                                   mainAxisAlignment: MainAxisAlignment.center,
+//                                   children: [
+//                                     RichText(
+//   text: TextSpan(
+//     children: [
+//       TextSpan(
+//         text: translateText('Add Location'),
+//         style: const TextStyle(
+//           color: AppColors.black,
+//           fontWeight: FontWeight.w500,
+//           fontSize: 16,
+//         ),
+//       ),
+//       const TextSpan(
+//         text: ' *',
+//         style: TextStyle(
+//           color: Colors.red,
+//           fontWeight: FontWeight.bold,
+//           fontSize: 16,
+//         ),
+//       ),
+//     ],
+//   ),
+// ),
+
+//                                   ],
+//                                 )
+//                               : Row(
+//                                   crossAxisAlignment: CrossAxisAlignment.start,
+//                                   children: [
+//                                     Expanded(
+//                                       child: Column(
+//                                         crossAxisAlignment:
+//                                             CrossAxisAlignment.start,
+//                                         mainAxisSize: MainAxisSize.min,
+//                                         children: [
+//                                           Text(
+//                                             address?.buildingName ?? '',
+//                                             style: const TextStyle(
+//                                               fontWeight: FontWeight.bold,
+//                                               color: AppColors.darkGrey,
+//                                             ),
+//                                           ),
+//                                           if ((address?.city?.isNotEmpty ??
+//                                                   false) &&
+//                                               (address?.state?.isNotEmpty ??
+//                                                   false))
+//                                             Text(
+//                                               '${address?.city}, ${address?.state}',
+//                                               style: const TextStyle(
+//                                                   color: AppColors.darkGrey),
+//                                             ),
+//                                           if (address?.pincode?.isNotEmpty ??
+//                                               false)
+//                                             Text(
+//                                               'Pincode: ${address?.pincode}',
+//                                               style: const TextStyle(
+//                                                   color: AppColors.darkGrey),
+//                                             ),
+//                                         ],
+//                                       ),
+//                                     ),
+//                                     Icon(Icons.edit, color: AppColors.darkGrey),
+//                                   ],
+//                                 ),
+//                         ),
+//                       ),
+//                       SizedBox(height: 20),
+//                       _buildTextField(
+//                         controller: _descriptionController,
+//                       keyboardType: TextInputType.text,
+//   textCapitalization: TextCapitalization.sentences, 
+//                         label: 'Description *',
+//                         hint: 'Enter a description about your salon',
+//                         maxLines: 1,
+//                         maxLength: 50,
+//                         inputFormatters: const [_FirstLetterUpperFormatter()],
+//                       ),
+//                       SizedBox(height: 20),
+//                       Text(
+//                         translateText('Salon Images(Optional)'),
+//                         style: Theme.of(context).textTheme.titleMedium,
+//                       ),
+//                       SizedBox(height: 8),
+//                       Wrap(
+//                         spacing: 8,
+//                         runSpacing: 8,
+//                         children: [
+//                           // for (final image in images)
+//                           //   ClipRRect(
+//                           //     borderRadius: BorderRadius.circular(8),
+//                           //     child: Image.file(
+//                           //       image,
+//                           //       width: 80,
+//                           //       height: 80,
+//                           //       fit: BoxFit.cover,
+//                           //     ),
+//                           //   ),
+//                           for (final image in images)
+//   Stack(
+//     clipBehavior: Clip.none,
+//     children: [
+//       ClipRRect(
+//         borderRadius: BorderRadius.circular(8),
+//         child: Image.file(
+//           image,
+//           width: 80,
+//           height: 80,
+//           fit: BoxFit.cover,
+//         ),
+//       ),
+//       // ❌ Remove button
+//       Positioned(
+//         top: -6,
+//         right: -6,
+//         child: GestureDetector(
+//           onTap: () {
+//             setState(() {
+//               context.read<AddSalonCubit>().removeImage(image);
+//             });
+//           },
+//           child: Container(
+//             decoration: const BoxDecoration(
+//               color: Colors.black54,
+//               shape: BoxShape.circle,
+//             ),
+//             padding: const EdgeInsets.all(3),
+//             child: const Icon(
+//               Icons.close,
+//               color: Colors.white,
+//               size: 14,
+//             ),
+//           ),
+//         ),
+//       ),
+//     ],
+//   ),
+
+//                           GestureDetector(
+//                             onTap: _pickImages,
+//                             child: Container(
+//                               width: 80,
+//                               height: 80,
+//                               decoration: BoxDecoration(
+//                                 borderRadius: BorderRadius.circular(8),
+//                                 border: Border.all(color: AppColors.darkGrey),
+//                               ),
+//                               child: Icon(
+//                                 Icons.add,
+//                                 color: AppColors.darkGrey,
+//                               ),
+//                             ),
+//                           ),
+//                         ],
+//                       ),
+//                       SizedBox(height: 32),
+//                       SizedBox(
+//                         width: double.infinity,
+//                         height: 48,
+//                         child: ElevatedButton(
+//                           onPressed:
+//                               state.isSubmitting ? null : () => _submit(state),
+//                           style: ElevatedButton.styleFrom(
+//                             backgroundColor: AppColors.starColor,
+//                             foregroundColor: AppColors.white,
+//                             shape: RoundedRectangleBorder(
+//                               borderRadius: BorderRadius.circular(10),
+//                             ),
+//                           ),
+//                           child: state.isSubmitting
+//                               ? SizedBox(
+//                                   width: 20,
+//                                   height: 20,
+//                                   child: CircularProgressIndicator(
+//                                     strokeWidth: 2,
+//                                     color: Colors.white,
+//                                   ),
+//                                 )
+//                               : Text(translateText('Next')),
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+//                 ),
+//               ),
+//               if (state.status == AddSalonStatus.loading)
+//                 const ColoredBox(
+//                   color: Colors.black54,
+//                   child: Center(
+//                     child: CircularProgressIndicator(color: Colors.white),
+//                   ),
+//                 ),
+//             ],
+//           ),
+//         );
+//       },
+//     );
+//   }
+
+//   Widget _buildTextField({
+//   required TextEditingController controller,
+//   required String label,
+//   required String hint,
+//   int maxLines = 1,
+//   int? maxLength,
+//   bool enabled = true,
+//   TextCapitalization textCapitalization = TextCapitalization.none,
+//   TextInputType keyboardType = TextInputType.text,
+//   List<TextInputFormatter>? inputFormatters,
+//   bool forceCapitalize = false,
+//   int? maxWords,
+// }) {
+// // ✅ Localize the label and hint
+// // ✅ Clean label text before translation (remove * and any spaces around it)
+// final normalizedLabel = label.replaceAll('*', '').trim();
+// final normalizedHint = hint.trim();
+
+// // ✅ Try translating the cleaned label and hint
+// final translatedLabel = translateText(normalizedLabel);
+// final translatedHint = translateText(normalizedHint);
+
+// // ✅ Fallback to original English if translation not found
+// final localizedLabel =
+//     translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+// final localizedHint =
+//     translatedHint != normalizedHint ? translatedHint : normalizedHint;
+
+// // ✅ Detect if original label contained '*' (even with space before/after)
+// final bool hasAsterisk = label.contains('*');
+
+// // ✅ Clean label text for error messages
+// final String cleanLabel = localizedLabel.trim();
+
+
+//   // ✅ Optional capitalization listener
+//   if (forceCapitalize) {
+//     controller.addListener(() {
+//       final text = controller.text;
+//       final capitalized = text
+//           .split(' ')
+//           .map((word) => word.isNotEmpty
+//               ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+//               : '')
+//           .join(' ');
+//       if (text != capitalized) {
+//         final cursor = controller.selection;
+//         controller.value = TextEditingValue(
+//           text: capitalized,
+//           selection: cursor,
+//         );
+//       }
+//     });
+//   }
+// // ✅ Live UI refresh to remove validation error when user types
+// controller.addListener(() {
+//   setState(() {}); // ✅ Always rebuild on typing
+// });
+//   return Padding(
+//     padding: const EdgeInsets.symmetric(vertical: 10),
+//     child: TextFormField(
+//       controller: controller,
+//       maxLines: maxLines,
+//       maxLength: maxLength,
+//       enabled: enabled,
+//       textCapitalization: textCapitalization,
+//       keyboardType: keyboardType,
+//       inputFormatters: inputFormatters,
+//    autovalidateMode: _submitted
+//     ? AutovalidateMode.always // show validation after submit
+//     : AutovalidateMode.disabled, // before submit, stay silent
+
+
+//       validator: (value) {
+//   final text = value?.trim() ?? '';
+
+//   // ✅ Required field validation with placeholder translation
+//   if (text.isEmpty) {
+//     return translateText('{field} is required').replaceAll('{field}', cleanLabel);
+//   }
+
+//   // ✅ Phone number validation
+//   if (label.toLowerCase().contains('phone') ||
+//       label.toLowerCase().contains('mobile')) {
+//     if (text.length != 10) {
+//       return translateText('Phone number must be 10 digits');
+//     }
+//     if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
+//       return translateText('Invalid phone number');
+//     }
+//   }
+
+//   // ✅ Word count validation
+//   if (maxWords != null &&
+//       text.split(RegExp(r'\s+')).length > maxWords) {
+//     return translateText('Maximum $maxWords words allowed');
+//   }
+
+//   return null;
+// },
+//       decoration: InputDecoration(
+//         counterText: '',
+//       suffixIcon: (maxLength != null)
+//     ? Padding(
+//         padding: const EdgeInsets.only(right: 10, top: 14),
+//         child: Text(
+//           '${controller.text.length}/$maxLength',
+//           style: TextStyle(
+//             fontSize: 12,
+//             color: controller.text.length >= (maxLength ?? 0)
+//                 ? Colors.red // 🔴 turns red at limit
+//                 : Colors.grey,
+//           ),
+//         ),
+//       )
+//     : null,
+//         hintText: localizedHint,
+//         label: RichText(
+//           text: TextSpan(
+//             text: cleanLabel,
+//             style: const TextStyle(
+//               color: AppColors.darkGrey,
+//               fontSize: 16,
+//               fontWeight: FontWeight.w500,
+//             ),
+//             children: hasAsterisk
+//                 ? const [
+//                     TextSpan(
+//                       text: ' *',
+//                       style: TextStyle(
+//                         color: Colors.red,
+//                         fontWeight: FontWeight.bold,
+//                       ),
+//                     ),
+//                   ]
+//                 : null,
+//           ),
+//         ),
+//         border: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         focusedBorder: OutlineInputBorder(
+//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         enabledBorder: OutlineInputBorder(
+//           borderSide: const BorderSide(color: Colors.grey, width: 1),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         errorBorder: OutlineInputBorder(
+//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         focusedErrorBorder: OutlineInputBorder(
+//           borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+//           borderRadius: BorderRadius.circular(8),
+//         ),
+//         errorStyle: const TextStyle(
+//           color: AppColors.red,
+//         ),
+//       ),
+//     ),
+//   );
+// }
+
+
+//   Widget _buildTimePickerField({
+//     required TextEditingController controller,
+//     required String label,
+//     required VoidCallback onTap,
+//   }) {
+//     return GestureDetector(
+//       onTap: onTap,
+//       child: AbsorbPointer(
+//         child: _buildTextField(
+//           controller: controller,
+//           label: label,
+//           hint: 'Select time',
+//         ),
+//       ),
+//     );
+//   }
+// }
 import 'dart:io';
 import '../utils/colors.dart';
 import '../services/language_listener.dart';
@@ -45,9 +952,11 @@ class AddSalonScreen extends StatefulWidget {
     this.fullPhoneNumber,
     this.firstName,
     this.lastName,
-     this.imageUrl,
+    this.imageUrl,
     this.email,
     this.isProceedFrom,
+
+    // legacy inputs – safe to keep for back-compat
     this.buildingName,
     this.city,
     this.pincode,
@@ -64,6 +973,8 @@ class AddSalonScreen extends StatefulWidget {
   final String? imageUrl;
   final String? email;
   final String? isProceedFrom;
+
+  // legacy inputs (we’ll continue mapping completeAddress into buildingName)
   final String? buildingName;
   final String? city;
   final String? pincode;
@@ -83,13 +994,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final _endTimeController = TextEditingController();
   final _phoneController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
-bool _submitted = false;
+  bool _submitted = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Set default start and end time
     _startTimeController.text = "08:00 AM";
     _endTimeController.text = "08:00 PM";
 
@@ -112,30 +1022,28 @@ bool _submitted = false;
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final building = widget.buildingName?.trim() ?? '';
-      final city = widget.city?.trim() ?? '';
-      final pincode = widget.pincode?.trim() ?? '';
-      final stateVal = widget.state?.trim() ?? '';
+      // 🟢 CHANGED: treat legacy buildingName as a completeAddress holder
+      final completeAddress = widget.buildingName?.trim() ?? '';
+
       final latitude = widget.latitude;
       final longitude = widget.longitude;
       final bool hasCoordinates =
           latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0);
-      if (building.isNotEmpty &&
-          city.isNotEmpty &&
-          pincode.isNotEmpty &&
-          stateVal.isNotEmpty &&
-          hasCoordinates) {
+
+      if (completeAddress.isNotEmpty && hasCoordinates) {
         context.read<AddSalonCubit>().updateAddress(
           AddSalonAddress(
-            buildingName: building,
-            city: city,
-            pincode: pincode,
-            state: stateVal,
+            // We store completeAddress in buildingName for back-compat
+            buildingName: completeAddress,
+            city: '',         // not used now
+            pincode: '',      // not used now
+            state: '',        // not used now
             latitude: latitude!,
             longitude: longitude!,
           ),
         );
       }
+
       context.read<AddSalonCubit>().loadSavedPhone(
             initialPhone: widget.phoneNumber,
           );
@@ -159,15 +1067,14 @@ bool _submitted = false;
     context.read<AddSalonCubit>().setImages(images);
   }
 
+  // 🟢 CHANGED: Now “complete” means we have a completeAddress (in buildingName) and coordinates
   bool _isAddressComplete(AddSalonAddress? address) {
     if (address == null) return false;
-    final hasEmptyFields = address.buildingName.trim().isEmpty ||
-        address.city.trim().isEmpty ||
-        address.pincode.trim().isEmpty ||
-        address.state.trim().isEmpty;
-    final hasValidCoordinates =
-        address.latitude != 0.0 || address.longitude != 0.0;
-    return !hasEmptyFields && hasValidCoordinates;
+
+    final hasCompleteAddress = address.buildingName.trim().isNotEmpty; // completeAddress stored here
+    final hasValidCoordinates = address.latitude != 0.0 || address.longitude != 0.0;
+
+    return hasCompleteAddress && hasValidCoordinates;
   }
 
   Future<void> _selectTime(TextEditingController controller) async {
@@ -181,206 +1088,140 @@ bool _submitted = false;
     }
   }
 
-  Future<void> _chooseLocation(AddSalonState state) async {
-    final result = await Navigator.push<Map<String, dynamic>?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddLocationScreen(
-          buildingName: state.address?.buildingName ?? '',
-          city: state.address?.city ?? '',
-          pincode: state.address?.pincode ?? '',
-          state: state.address?.state ?? '',
-        ),
-      ),
-    );
-
-    if (!mounted || result == null) return;
-    context.read<AddSalonCubit>().updateAddress(
-          AddSalonAddress(
-            buildingName: result['buildingName'] as String? ?? '',
-            city: result['city'] as String? ?? '',
-            pincode: result['pincode'] as String? ?? '',
-            state: result['state'] as String? ?? '',
-            latitude: (result['latitude'] as num?)?.toDouble() ?? 0,
-            longitude: (result['longitude'] as num?)?.toDouble() ?? 0,
-          ),
-        );
-  }
-
-  // Future<void> _submit(AddSalonState state) async {
-  //   final form = _formKey.currentState;
-  //   if (form == null || !form.validate()) {
-  //     return;
-  //   }
-
-  //   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //           content: Text(translateText('Please select start and end time.'))),
-  //     );
-  //     return;
-  //   }
-  //   String _capitalizeWords(String value) {
-  //     return value
-  //         .split(' ')
-  //         .map((word) =>
-  //             word.isNotEmpty ? word[0].toUpperCase() + word.substring(1) : '')
-  //         .join(' ');
-  //   }
-
-  //   if (state.address == null) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(
-  //           content: Text(translateText('Please add the salon location.'))),
-  //     );
-  //     return;
-  //   }
-
-  //   final formData = AddSalonFormData(
-  //     name: _capitalizeWords(_salonNameController.text.trim()),
-  //     phone: _phoneController.text.trim(),
-  //     startTime: _startTimeController.text.trim(),
-  //     endTime: _endTimeController.text.trim(),
-  //     description: _capitalizeWords(_descriptionController.text.trim()),
-  //   );
-
-  //   final cubit = context.read<AddSalonCubit>();
-
-  //   await Navigator.push<void>(
+  // Future<void> _chooseLocation(AddSalonState state) async {
+  //   final result = await Navigator.push<Map<String, dynamic>?>(
   //     context,
   //     MaterialPageRoute(
-  //       builder: (_) => BlocProvider.value(
-  //         value: cubit,
-  //         child: AddSalonServices(
-  //           initialCodes: state.selectedServiceCodes,
-  //           formData: formData,
-  //         ),
+  //       builder: (_) => const AddLocationScreen(
+  //         // we can pass initialCompleteAddress if we later extend state to carry it,
+  //         // current AddLocationScreen accepts legacy params too, but they’re unused.
   //       ),
   //     ),
   //   );
+
+  //   if (!mounted || result == null) return;
+
+  //   // 🟢 CHANGED: Read new keys from AddLocationScreen
+  //   final completeAddress   = (result['completeAddress'] as String?)?.trim() ?? '';
+  //   final scoFlatHouse      = (result['scoFlatHouse'] as String?)?.trim() ?? '';
+  //   final streetSectorArea  = (result['streetSectorArea'] as String?)?.trim() ?? '';
+  //   final latitude          = (result['latitude'] as num?)?.toDouble() ?? 0;
+  //   final longitude         = (result['longitude'] as num?)?.toDouble() ?? 0;
+
+  //   // For now, keep using AddSalonAddress but store the full address
+  //   // in buildingName (back-compat with existing Cubit/Model).
+  //   // If you want, I can extend the model to add dedicated fields.
+  //   context.read<AddSalonCubit>().updateAddress(
+  //     AddSalonAddress(
+  //       buildingName: completeAddress, // 🟢 store full address here
+  //       city: scoFlatHouse,            // optional mapping (so you don’t lose it)
+  //       pincode: streetSectorArea,     // optional mapping (so you don’t lose it)
+  //       state: '',                     // not used in new flow
+  //       latitude: latitude,
+  //       longitude: longitude,
+  //     ),
+  //   );
   // }
-//   Future<void> _submit(AddSalonState state) async {
-//   final form = _formKey.currentState;
-//   if (form == null || !form.validate()) return;
+  Future<void> _chooseLocation(AddSalonState state) async {
+  final addr = state.address;
 
-//   if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       SnackBar(content: Text(translateText('Please select start and end time.'))),
-//     );
-//     return;
-//   }
-
-//   if (state.address == null) {
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       SnackBar(content: Text(translateText('Please add the salon location.'))),
-//     );
-//     return;
-//   }
-
-//   final cubit = context.read<AddSalonCubit>();
-//   final images = cubit.state.images;
-
-//   String? imageUrl;
-
-//   // ✅ Upload first image if exists
-//   if (images.isNotEmpty) {
-//     print("⏫ Uploading image to AWS S3...");
-//     imageUrl = await AwsS3Uploader().uploadImage(
-//       XFile(images.first.path),
-//     );
-//     print("✅ Uploaded Image URL: $imageUrl");
-//   }
-
-//   final formData = AddSalonFormData(
-//     name: _salonNameController.text.trim(),
-//     phone: _phoneController.text.trim(),
-//     startTime: _startTimeController.text.trim(),
-//     endTime: _endTimeController.text.trim(),
-//     description: _descriptionController.text.trim(),
-//     imageUrl: imageUrl, // ✅ added here
-//   );
-
-//   await Navigator.push<void>(
-//     context,
-//     MaterialPageRoute(
-//       builder: (_) => BlocProvider.value(
-//         value: cubit,
-//         child: AddSalonServices(
-//           initialCodes: state.selectedServiceCodes,
-//           formData: formData,
-//         ),
-//       ),
-//     ),
-//   );
-// }
-Future<void> _submit(AddSalonState state) async {
-  // ✅ Enable form validation display
-  setState(() => _submitted = true);
-
-  final form = _formKey.currentState;
-
-  // ✅ Trigger full validation once
-  if (form == null || !form.validate()) {
-    // Just return — the errors will now appear automatically in the fields
-    return;
-  }
-
-  // ✅ Time validation
-  if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(translateText('Please select start and end time.'))),
-    );
-    return;
-  }
-
-  // ✅ Address validation
-  final address = state.address;
-  if (!_isAddressComplete(address)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(translateText('Please add the salon location.'))),
-    );
-    return;
-  }
-
-  final cubit = context.read<AddSalonCubit>();
-  cubit.setSubmitting(true); // ✅ Show loader in button
-
-  try {
-    final images = cubit.state.images;
-    String? imageUrl;
-
-    // ✅ Upload first image if available
-    if (images.isNotEmpty) {
-      imageUrl = await AwsS3Uploader().uploadImage(XFile(images.first.path));
-    }
-
-    final formData = AddSalonFormData(
-      name: _salonNameController.text.trim(),
-      phone: _phoneController.text.trim(),
-      startTime: _startTimeController.text.trim(),
-      endTime: _endTimeController.text.trim(),
-      description: _descriptionController.text.trim(),
-      imageUrl: imageUrl,
-    );
-
-    // ✅ Navigate to next screen
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: cubit,
-          child: AddSalonServices(
-            initialCodes: state.selectedServiceCodes,
-            formData: formData,
-          ),
-        ),
+  final result = await Navigator.push<Map<String, dynamic>?>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => AddLocationScreen(
+        // If your AddLocationScreen supports these:
+        initialCompleteAddress: addr?.buildingName,   // complete address (line1)
+        initialScoFlatHouse: addr?.city,              // 🟢 we repurposed 'city' to store SCO/Flat/House
+        initialStreetSectorArea: addr?.pincode,       // 🟢 we repurposed 'pincode' to store Street/Sector/Area
       ),
-    );
-  } finally {
-    cubit.setSubmitting(false); // ✅ Hide loader when done
-  }
+    ),
+  );
+
+  if (!mounted || result == null) return;
+
+  final completeAddress  = (result['completeAddress'] as String?)?.trim() ?? '';
+  final scoFlatHouse     = (result['scoFlatHouse'] as String?)?.trim() ?? '';
+  final streetSectorArea = (result['streetSectorArea'] as String?)?.trim() ?? '';
+  final latitude         = (result['latitude'] as num?)?.toDouble() ?? 0;
+  final longitude        = (result['longitude'] as num?)?.toDouble() ?? 0;
+
+  context.read<AddSalonCubit>().updateAddress(
+    AddSalonAddress(
+      buildingName: completeAddress, // line1
+      city: scoFlatHouse,            // line2 part A (SCO/Flat/House)
+      pincode: streetSectorArea,     // line2 part B (Street/Sector/Area)
+      state: '',                     // unused in the new flow
+      latitude: latitude,
+      longitude: longitude,
+    ),
+  );
 }
 
+
+  Future<void> _submit(AddSalonState state) async {
+    setState(() => _submitted = true);
+
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+
+    if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Please select start and end time.'))),
+      );
+      return;
+    }
+
+    // 🟢 CHANGED: use new completeness check
+    final address = state.address;
+    if (!_isAddressComplete(address)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Please add the salon location.'))),
+      );
+      return;
+    }
+
+    final cubit = context.read<AddSalonCubit>();
+    cubit.setSubmitting(true);
+
+    try {
+      final images = cubit.state.images;
+    String? imageUrl;
+if (images.isNotEmpty) {
+  final res = await AwsS3Uploader()
+      .uploadImageResult(XFile(images.first.path))
+      .timeout(const Duration(seconds: 45), onTimeout: () => null);
+
+  // Prefer CDN if provided, else use origin/public
+  imageUrl = res?.cdnUrl ?? res?.publicUrl;
+}
+
+      final formData = AddSalonFormData(
+        name: _salonNameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        startTime: _startTimeController.text.trim(),
+        endTime: _endTimeController.text.trim(),
+        description: _descriptionController.text.trim(),
+        imageUrl: imageUrl,
+      );
+
+      await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: cubit,
+            child: AddSalonServices(
+              initialCodes: state.selectedServiceCodes,
+              formData: formData,
+            ),
+          ),
+        ),
+      );
+    } finally {
+      cubit.setSubmitting(false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -421,28 +1262,23 @@ Future<void> _submit(AddSalonState state) async {
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
-            // Let the gradient show through:
             backgroundColor: Colors.transparent,
             elevation: 0,
-            // Ensure status bar + icons look good on the gradient:
             systemOverlayStyle: SystemUiOverlayStyle.light,
-            iconTheme: const IconThemeData(
-              color: Colors.white, // back button color
-            ),
+            iconTheme: const IconThemeData(color: Colors.white),
             title: Text(
               translateText('Add Salon'),
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            // Paint the gradient here:
             flexibleSpace: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    AppColors.starColor, // your start color
-                    AppColors.getStartedButton, // your end color
+                    AppColors.starColor,
+                    AppColors.getStartedButton,
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -461,8 +1297,8 @@ Future<void> _submit(AddSalonState state) async {
                     children: [
                       _buildTextField(
                         controller: _salonNameController,
-                     keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.sentences,
                         label: 'Salon Name *',
                         hint: 'Enter your salon name',
                         maxLength: 50,
@@ -474,11 +1310,8 @@ Future<void> _submit(AddSalonState state) async {
                         maxLength: 10,
                         hint: 'Enter phone number',
                         enabled: true,
-                        keyboardType:
-                            TextInputType.phone, // ✅ phone-optimized keyboard
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
-                        ], // ✅ digits only
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       ),
                       Row(
                         children: [
@@ -489,7 +1322,7 @@ Future<void> _submit(AddSalonState state) async {
                               onTap: () => _selectTime(_startTimeController),
                             ),
                           ),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: _buildTimePickerField(
                               controller: _endTimeController,
@@ -499,55 +1332,48 @@ Future<void> _submit(AddSalonState state) async {
                           ),
                         ],
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                       Text(
                         translateText('Salon Address'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       InkWell(
                         onTap: () => _chooseLocation(state),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            border:
-                                Border.all(color: AppColors.darkGrey, width: 1),
+                            border: Border.all(color: AppColors.darkGrey, width: 1),
                           ),
                           child: (address == null ||
-                                  (address?.buildingName?.isEmpty ?? true) ||
-                                  (address?.city?.isEmpty ?? true) ||
-                                  (address?.state?.isEmpty ?? true) ||
-                                  (address?.pincode?.isEmpty ??
-                                      true)) // Using null-aware operators
+                                  address.buildingName.trim().isEmpty) // 🟢 CHANGED: only check completeAddress holder
                               ? Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     RichText(
-  text: TextSpan(
-    children: [
-      TextSpan(
-        text: translateText('Add Location'),
-        style: const TextStyle(
-          color: AppColors.black,
-          fontWeight: FontWeight.w500,
-          fontSize: 16,
-        ),
-      ),
-      const TextSpan(
-        text: ' *',
-        style: TextStyle(
-          color: Colors.red,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-      ),
-    ],
-  ),
-),
-
+                                      text: TextSpan(
+                                        children: [
+                                          TextSpan(
+                                            text: translateText('Add Location'),
+                                            style: const TextStyle(
+                                              color: AppColors.black,
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                          const TextSpan(
+                                            text: ' *',
+                                            style: TextStyle(
+                                              color: Colors.red,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ],
                                 )
                               : Row(
@@ -555,112 +1381,99 @@ Future<void> _submit(AddSalonState state) async {
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
-                                            address?.buildingName ?? '',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.darkGrey,
-                                            ),
-                                          ),
-                                          if ((address?.city?.isNotEmpty ??
-                                                  false) &&
-                                              (address?.state?.isNotEmpty ??
-                                                  false))
-                                            Text(
-                                              '${address?.city}, ${address?.state}',
-                                              style: const TextStyle(
-                                                  color: AppColors.darkGrey),
-                                            ),
-                                          if (address?.pincode?.isNotEmpty ??
-                                              false)
-                                            Text(
-                                              'Pincode: ${address?.pincode}',
-                                              style: const TextStyle(
-                                                  color: AppColors.darkGrey),
-                                            ),
+                                          // 🟢 CHANGED: show complete address (stored in buildingName)
+                                         // Line 1: Complete address (from buildingName)
+Text(
+  address.buildingName,
+  style: const TextStyle(
+    fontWeight: FontWeight.bold,
+    color: AppColors.darkGrey,
+  ),
+),
+
+// Line 2: Optional fields if present (we stored them in city & pincode)
+if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
+  Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Text(
+      [
+        address.city.trim(),         // SCO / Flat / House
+        address.pincode.trim(),      // Street / Sector / Area
+      ].where((s) => s.isNotEmpty).join(', '),
+      style: const TextStyle(color: AppColors.darkGrey),
+    ),
+  ),
+
                                         ],
                                       ),
                                     ),
-                                    Icon(Icons.edit, color: AppColors.darkGrey),
+                                    const Icon(Icons.edit, color: AppColors.darkGrey),
                                   ],
                                 ),
                         ),
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                       _buildTextField(
                         controller: _descriptionController,
-                      keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.sentences,
                         label: 'Description *',
                         hint: 'Enter a description about your salon',
                         maxLines: 1,
                         maxLength: 50,
                         inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                       Text(
                         translateText('Salon Images(Optional)'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      SizedBox(height: 8),
+                      const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          // for (final image in images)
-                          //   ClipRRect(
-                          //     borderRadius: BorderRadius.circular(8),
-                          //     child: Image.file(
-                          //       image,
-                          //       width: 80,
-                          //       height: 80,
-                          //       fit: BoxFit.cover,
-                          //     ),
-                          //   ),
                           for (final image in images)
-  Stack(
-    clipBehavior: Clip.none,
-    children: [
-      ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.file(
-          image,
-          width: 80,
-          height: 80,
-          fit: BoxFit.cover,
-        ),
-      ),
-      // ❌ Remove button
-      Positioned(
-        top: -6,
-        right: -6,
-        child: GestureDetector(
-          onTap: () {
-            setState(() {
-              context.read<AddSalonCubit>().removeImage(image);
-            });
-          },
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.black54,
-              shape: BoxShape.circle,
-            ),
-            padding: const EdgeInsets.all(3),
-            child: const Icon(
-              Icons.close,
-              color: Colors.white,
-              size: 14,
-            ),
-          ),
-        ),
-      ),
-    ],
-  ),
-
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    image,
+                                    width: 80,
+                                    height: 80,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  top: -6,
+                                  right: -6,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        context.read<AddSalonCubit>().removeImage(image);
+                                      });
+                                    },
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black54,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      padding: const EdgeInsets.all(3),
+                                      child: const Icon(
+                                        Icons.close,
+                                        color: Colors.white,
+                                        size: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           GestureDetector(
                             onTap: _pickImages,
                             child: Container(
@@ -670,7 +1483,7 @@ Future<void> _submit(AddSalonState state) async {
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: AppColors.darkGrey),
                               ),
-                              child: Icon(
+                              child: const Icon(
                                 Icons.add,
                                 color: AppColors.darkGrey,
                               ),
@@ -678,13 +1491,12 @@ Future<void> _submit(AddSalonState state) async {
                           ),
                         ],
                       ),
-                      SizedBox(height: 32),
+                      const SizedBox(height: 32),
                       SizedBox(
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed:
-                              state.isSubmitting ? null : () => _submit(state),
+                          onPressed: state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.starColor,
                             foregroundColor: AppColors.white,
@@ -693,7 +1505,7 @@ Future<void> _submit(AddSalonState state) async {
                             ),
                           ),
                           child: state.isSubmitting
-                              ? SizedBox(
+                              ? const SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
@@ -723,170 +1535,156 @@ Future<void> _submit(AddSalonState state) async {
   }
 
   Widget _buildTextField({
-  required TextEditingController controller,
-  required String label,
-  required String hint,
-  int maxLines = 1,
-  int? maxLength,
-  bool enabled = true,
-  TextCapitalization textCapitalization = TextCapitalization.none,
-  TextInputType keyboardType = TextInputType.text,
-  List<TextInputFormatter>? inputFormatters,
-  bool forceCapitalize = false,
-  int? maxWords,
-}) {
-// ✅ Localize the label and hint
-// ✅ Clean label text before translation (remove * and any spaces around it)
-final normalizedLabel = label.replaceAll('*', '').trim();
-final normalizedHint = hint.trim();
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    int maxLines = 1,
+    int? maxLength,
+    bool enabled = true,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
+    bool forceCapitalize = false,
+    int? maxWords,
+  }) {
+    final normalizedLabel = label.replaceAll('*', '').trim();
+    final normalizedHint = hint.trim();
 
-// ✅ Try translating the cleaned label and hint
-final translatedLabel = translateText(normalizedLabel);
-final translatedHint = translateText(normalizedHint);
+    final translatedLabel = translateText(normalizedLabel);
+    final translatedHint = translateText(normalizedHint);
 
-// ✅ Fallback to original English if translation not found
-final localizedLabel =
-    translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
-final localizedHint =
-    translatedHint != normalizedHint ? translatedHint : normalizedHint;
+    final localizedLabel =
+        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+    final localizedHint =
+        translatedHint != normalizedHint ? translatedHint : normalizedHint;
 
-// ✅ Detect if original label contained '*' (even with space before/after)
-final bool hasAsterisk = label.contains('*');
+    final bool hasAsterisk = label.contains('*');
+    final String cleanLabel = localizedLabel.trim();
 
-// ✅ Clean label text for error messages
-final String cleanLabel = localizedLabel.trim();
+    if (forceCapitalize) {
+      controller.addListener(() {
+        final text = controller.text;
+        final capitalized = text
+            .split(' ')
+            .map((word) => word.isNotEmpty
+                ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+                : '')
+            .join(' ');
+        if (text != capitalized) {
+          final cursor = controller.selection;
+          controller.value = TextEditingValue(
+            text: capitalized,
+            selection: cursor,
+          );
+        }
+      });
+    }
 
-
-  // ✅ Optional capitalization listener
-  if (forceCapitalize) {
     controller.addListener(() {
-      final text = controller.text;
-      final capitalized = text
-          .split(' ')
-          .map((word) => word.isNotEmpty
-              ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
-              : '')
-          .join(' ');
-      if (text != capitalized) {
-        final cursor = controller.selection;
-        controller.value = TextEditingValue(
-          text: capitalized,
-          selection: cursor,
-        );
-      }
+      setState(() {});
     });
-  }
-// ✅ Live UI refresh to remove validation error when user types
-controller.addListener(() {
-  setState(() {}); // ✅ Always rebuild on typing
-});
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: TextFormField(
-      controller: controller,
-      maxLines: maxLines,
-      maxLength: maxLength,
-      enabled: enabled,
-      textCapitalization: textCapitalization,
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
-   autovalidateMode: _submitted
-    ? AutovalidateMode.always // show validation after submit
-    : AutovalidateMode.disabled, // before submit, stay silent
 
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: TextFormField(
+        controller: controller,
+        maxLines: maxLines,
+        maxLength: maxLength,
+        enabled: enabled,
+        textCapitalization: textCapitalization,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
+        autovalidateMode: _submitted
+            ? AutovalidateMode.always
+            : AutovalidateMode.disabled,
+        validator: (value) {
+          final text = value?.trim() ?? '';
 
-      validator: (value) {
-  final text = value?.trim() ?? '';
+          if (text.isEmpty) {
+            return translateText('{field} is required').replaceAll('{field}', cleanLabel);
+          }
 
-  // ✅ Required field validation with placeholder translation
-  if (text.isEmpty) {
-    return translateText('{field} is required').replaceAll('{field}', cleanLabel);
-  }
+          if (label.toLowerCase().contains('phone') ||
+              label.toLowerCase().contains('mobile')) {
+            if (text.length != 10) {
+              return translateText('Phone number must be 10 digits');
+            }
+            if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
+              return translateText('Invalid phone number');
+            }
+          }
 
-  // ✅ Phone number validation
-  if (label.toLowerCase().contains('phone') ||
-      label.toLowerCase().contains('mobile')) {
-    if (text.length != 10) {
-      return translateText('Phone number must be 10 digits');
-    }
-    if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
-      return translateText('Invalid phone number');
-    }
-  }
+          if (maxWords != null &&
+              text.split(RegExp(r'\s+')).length > maxWords) {
+            return translateText('Maximum $maxWords words allowed');
+          }
 
-  // ✅ Word count validation
-  if (maxWords != null &&
-      text.split(RegExp(r'\s+')).length > maxWords) {
-    return translateText('Maximum $maxWords words allowed');
-  }
-
-  return null;
-},
-      decoration: InputDecoration(
-        counterText: '',
-      suffixIcon: (maxLength != null)
-    ? Padding(
-        padding: const EdgeInsets.only(right: 10, top: 14),
-        child: Text(
-          '${controller.text.length}/$maxLength',
-          style: TextStyle(
-            fontSize: 12,
-            color: controller.text.length >= (maxLength ?? 0)
-                ? Colors.red // 🔴 turns red at limit
-                : Colors.grey,
-          ),
-        ),
-      )
-    : null,
-        hintText: localizedHint,
-        label: RichText(
-          text: TextSpan(
-            text: cleanLabel,
-            style: const TextStyle(
-              color: AppColors.darkGrey,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-            children: hasAsterisk
-                ? const [
-                    TextSpan(
-                      text: ' *',
-                      style: TextStyle(
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
+          return null;
+        },
+        decoration: InputDecoration(
+          counterText: '',
+          suffixIcon: (maxLength != null)
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 10, top: 14),
+                  child: Text(
+                    '${controller.text.length}/$maxLength',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: controller.text.length >= (maxLength ?? 0)
+                          ? Colors.red
+                          : Colors.grey,
                     ),
-                  ]
-                : null,
+                  ),
+                )
+              : null,
+          hintText: localizedHint,
+          label: RichText(
+            text: TextSpan(
+              text: cleanLabel,
+              style: const TextStyle(
+                color: AppColors.darkGrey,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+              children: hasAsterisk
+                  ? const [
+                      TextSpan(
+                        text: ' *',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ]
+                  : null,
+            ),
           ),
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: Colors.grey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        errorStyle: const TextStyle(
-          color: AppColors.red,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: Colors.grey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          errorStyle: const TextStyle(
+            color: AppColors.red,
+          ),
         ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 
   Widget _buildTimePickerField({
     required TextEditingController controller,
