@@ -602,7 +602,8 @@ class _AppBarSearchField extends StatelessWidget {
             controller: controller,
             onChanged: onChanged,
             onTap: onTap,
-            textInputAction: TextInputAction.search,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => FocusScope.of(context).unfocus(),
             style: const TextStyle(
               fontWeight: FontWeight.w500,
               color: Color(0xFF37474F),
