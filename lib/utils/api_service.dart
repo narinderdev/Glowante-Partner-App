@@ -484,7 +484,7 @@ Future<Map<String, dynamic>> createSalon(
     "startTime": formattedStartTime,
     "endTime": formattedEndTime,
     "description": description,
-    "image_url": imageUrl, // 👈 matches backend field name
+    "imageUrl": imageUrl, // 👈 matches backend field name
     "address": {
       "line1": buildingName,
       "line2": "",

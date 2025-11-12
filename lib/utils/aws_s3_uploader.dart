@@ -198,6 +198,7 @@ class AwsS3Uploader {
             headers: {
               'Content-Type': contentType,
               // ⚠️ Do NOT add x-amz-acl unless the signature expects it
+           'x-amz-acl': 'public-read',
             },
             body: bytes,
           )

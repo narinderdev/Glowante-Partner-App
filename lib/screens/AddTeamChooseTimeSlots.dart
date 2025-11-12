@@ -294,12 +294,16 @@ Future<void> _goToSelectServices() async {
       "otp": widget.formData['otp']?.toString(),
       "branchId": widget.formData['branchId'],
       // If you also need to pass the original form data (e.g., image file), include it:
-      "profileImage": widget.formData['profileImage'],
+     "profilePictureUrl": widget.formData['profilePictureUrl'],
+
       // Add anything else your next screen needs…
     };
 
     if (!mounted) return;
-
+print('==================== TEAM MEMBER PAYLOAD SENT TO SELECT SERVICES ====================');
+teamMemberData.forEach((key, value) {
+  print('$key: $value');
+});
     // Navigate to the services selection screen with the payload
     final refresh = await Navigator.push(
       context,

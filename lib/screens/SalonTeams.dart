@@ -232,21 +232,45 @@ class _TeamScreenState extends State<TeamScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      Image.asset(
-                                        'assets/images/image.png',
-                                        height: 40,
-                                        width: 40,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => SizedBox(
-                                          height: 110,
-                                          child: Center(child: Icon(Icons.person, size: 48, color: Colors.grey)),
-                                        ),
-                                      ),
+                                      // Image.asset(
+                                      //   'assets/images/image.png',
+                                      //   height: 40,
+                                      //   width: 40,
+                                      //   fit: BoxFit.cover,
+                                      //   errorBuilder: (_, __, ___) => SizedBox(
+                                      //     height: 110,
+                                      //     child: Center(child: Icon(Icons.person, size: 48, color: Colors.grey)),
+                                      //   ),
+                                      // ),
+                                     ClipRRect(
+  // borderRadius: BorderRadius.circular(15),
+  child: (m['profilePictureUrl'] != null &&
+          m['profilePictureUrl'].toString().isNotEmpty)
+      ? Image.network(
+          m['profilePictureUrl'],
+          height: 40,
+          width: 40,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Image.asset(
+            'assets/images/image.png',
+            height: 40,
+            width: 40,
+            fit: BoxFit.cover,
+          ),
+        )
+      : Image.asset(
+          'assets/images/image.png',
+          height: 40,
+          width: 40,
+          fit: BoxFit.cover,
+        ),
+),
+
                                       const SizedBox(height: 8),
                                       Text(
                                         "${m['firstName']} ${m['lastName'] ?? ''}",
                                         textAlign: TextAlign.center,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 8),
                                       ),
                                       const SizedBox(height: 6),
                                       Text(

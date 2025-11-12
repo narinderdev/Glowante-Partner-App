@@ -345,6 +345,7 @@ import 'package:intl/intl.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'dart:convert';
 
 class AddTeamSelectServices extends StatefulWidget {
   final Map<String, dynamic> teamMemberData;
@@ -502,6 +503,7 @@ Map<String, dynamic> _buildPayloadForApi(
     'specialities': specs,
     'schedules': schedules,
     'branchServiceIds': branchServiceIds,
+    'profilePictureUrl': base['profilePictureUrl'],
     'allowOnlineBooking': base['allowOnlineBooking'] ?? false,
   };
 
@@ -667,8 +669,13 @@ Future<void> _submit() async {
       _selectedServiceIds, // List<int>
     );
 
-    // Branch id comes from teamMemberData, but DO NOT send in body
     final int branchId = (widget.teamMemberData['branchId'] as int?) ?? 0;
+ print('==================== ADD TEAM MEMBER PAYLOAD ====================');
+    print('Branch ID => $branchId');
+    final encoder = JsonEncoder.withIndent('  ');
+    print(encoder.convert(payload));
+    print(encoder.convert(payload));
+    print('=================================================================');
 
     // POST to /branches/{branchId}/add-user
     final response = await ApiService().addTeamMember(branchId, payload);

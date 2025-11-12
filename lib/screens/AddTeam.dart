@@ -9,6 +9,7 @@ import '../utils/api_service.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 
 class AddTeamScreen extends StatefulWidget {
   final int branchId;
@@ -199,26 +200,71 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     }
   }
 
+  // Future<void> _pickImage() async {
+  //   final picker = ImagePicker();
+  //   final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
+  //   if (picked == null) return;
+
+  //   setState(() {
+  //     _cameraImage = File(picked.path);
+  //   });
+
+  //   imageUrl = await _uploadImageToS3(_cameraImage!);
+  // }
+
+  // Future<String?> _uploadImageToS3(File image) async {
+  //   try {
+  //     return await ApiService().uploadImage(image);
+  //   } catch (e) {
+  //     debugPrint('Image upload error: $e');
+  //     return null;
+  //   }
+  // }
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+  final picker = ImagePicker();
+  final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
+  if (picked == null) return;
 
+  setState(() {
+    _cameraImage = File(picked.path);
+  });
+
+  // show temporary feedback
+  _toast('Uploading image...');
+
+  final uploaded = await AwsS3Uploader().uploadImageResult(picked, folder: 'uploads/team');
+  if (uploaded != null) {
     setState(() {
-      _cameraImage = File(picked.path);
+      imageUrl = uploaded.cdnUrl ?? uploaded.publicUrl;
     });
-
-    imageUrl = await _uploadImageToS3(_cameraImage!);
+    _toast('Image uploaded successfully');
+  } else {
+    _toast('❌ Failed to upload image');
   }
+}
 
-  Future<String?> _uploadImageToS3(File image) async {
-    try {
-      return await ApiService().uploadImage(image);
-    } catch (e) {
-      debugPrint('Image upload error: $e');
+Future<String?> _uploadImageToS3(File image) async {
+  try {
+    final xFile = XFile(image.path);
+    final result = await AwsS3Uploader().uploadImageResult(
+      xFile,
+      folder: 'uploads/team', // optional subfolder for team avatars
+    );
+
+    if (result == null) {
+      debugPrint('❌ Upload failed');
       return null;
     }
+
+    // prefer cdnUrl if available
+    final url = result.cdnUrl ?? result.publicUrl;
+    debugPrint('✅ Uploaded profile image URL: $url');
+    return url;
+  } catch (e) {
+    debugPrint('Image upload error: $e');
+    return null;
   }
+}
 
   InputDecoration _decor({
     String? hint,
@@ -1068,7 +1114,7 @@ Future<void> _pickJoiningDate() async {
                           "roles": List<String>.from(_selectedRoles),
                           "specializations": List<String>.from(_selectedSpecs),
                           "specialities": List<String>.from(_selectedSpecs),
-                          "profileImage": imageUrl,
+                          "profilePictureUrl": imageUrl,
                           // "otp": _otpCtrl.text.trim(),
                         };
 
@@ -1200,635 +1246,3 @@ class _PrimaryButton extends StatelessWidget {
     );
   }
 }
-// import 'dart:io';
-// import 'package:flutter/material.dart';
-// import 'package:flutter/services.dart';
-// import 'package:image_picker/image_picker.dart';
-// import '../screens/AddTeamSelectServices.dart';
-// import '../utils/api_service.dart';
-// import '../utils/colors.dart';
-// import 'package:bloc_onboarding/utils/localization_helper.dart';
-
-// class AddTeamScreen extends StatefulWidget {
-//   final int salonId;
-//   final String? salonName;
-//   final int? branchId;
-//   const AddTeamScreen({
-//     super.key,
-//     required this.salonId,
-//     this.salonName,
-//     this.branchId,
-//   });
-
-//   @override
-//   State<AddTeamScreen> createState() => _AddTeamScreenState();
-// }
-
-// class _AddTeamScreenState extends State<AddTeamScreen> {
-//   final _formKey = GlobalKey<FormState>();
-
-//   final _phoneCtrl = TextEditingController();
-//   final _firstNameCtrl = TextEditingController();
-//   final _lastNameCtrl = TextEditingController();
-//   final _emailCtrl = TextEditingController();
-//   final _addressCtrl = TextEditingController();
-//   final _briefCtrl = TextEditingController();
-//   final _firstNameKey = GlobalKey<FormFieldState>();
-//   final _lastNameKey = GlobalKey<FormFieldState>();
-//   final _phoneKey = GlobalKey<FormFieldState>();
-//   final _emailKey = GlobalKey<FormFieldState>();
-//   final _addressKey = GlobalKey<FormFieldState>();
-
-//   List<Map<String, dynamic>> _allRoles = [];
-//   List<Map<String, dynamic>> _allSpecs = [];
-
-//   DateTime? _joiningDate;
-//   String _gender = '';
-//   final List<String> _selectedRoles = [];
-//   final List<String> _selectedSpecs = [];
-//   File? _cameraImage;
-//   String? imageUrl;
-
-//   bool _isSubmitting = false;
-//   bool _validateNow = false;
-
-//   final Color _fieldFill = Colors.grey.shade100;
-//   final BorderRadius _radius = BorderRadius.circular(12);
-//   final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _fetchRolesAndSpecializations();
-//   }
-
-//   @override
-//   void dispose() {
-//     _phoneCtrl.dispose();
-//     _firstNameCtrl.dispose();
-//     _lastNameCtrl.dispose();
-//     _emailCtrl.dispose();
-//     _addressCtrl.dispose();
-//     _briefCtrl.dispose();
-//     super.dispose();
-//   }
-
-//   Future<void> _fetchRolesAndSpecializations() async {
-//     try {
-//       final data = await ApiService().getRolesAndSpecializations();
-//       setState(() {
-//         _allRoles = List<Map<String, dynamic>>.from(data['roles'] ?? const []);
-//         _allSpecs =
-//             List<Map<String, dynamic>>.from(data['specialities'] ?? const []);
-//       });
-//     } catch (e) {
-//       debugPrint('Error fetching roles/specs: $e');
-//     }
-//   }
-
-//   Future<void> _pickImage() async {
-//     final picker = ImagePicker();
-//     final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
-//     if (picked == null) return;
-//     setState(() => _cameraImage = File(picked.path));
-//     imageUrl = await _uploadImageToS3(_cameraImage!);
-//   }
-
-//   Future<String?> _uploadImageToS3(File image) async {
-//     try {
-//       return await ApiService().uploadImage(image);
-//     } catch (e) {
-//       debugPrint('Image upload error: $e');
-//       return null;
-//     }
-//   }
-
-//   InputDecoration _decor({String? hint, Widget? prefix, Widget? suffix}) {
-//     return InputDecoration(
-//       hintText: hint,
-//       filled: true,
-//       fillColor: _fieldFill,
-//       prefixIcon: prefix,
-//       suffixIcon: suffix,
-//       helperText: ' ',
-//       helperStyle: const TextStyle(height: 1),
-//       errorStyle: const TextStyle(height: 1.1),
-//       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-//       border: OutlineInputBorder(
-//         borderRadius: _radius,
-//         borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
-//       ),
-//       focusedBorder: OutlineInputBorder(
-//         borderRadius: _radius,
-//         borderSide: const BorderSide(color: Colors.black, width: 1.5),
-//       ),
-//     );
-//   }
-
-//   Widget _reqLabel(String text) => RichText(
-//         text: TextSpan(
-//           text: text,
-//           style: const TextStyle(
-//               fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w600),
-//           children: const [
-//             TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-//           ],
-//         ),
-//       );
-
-//   void _capitalizeFirst(TextEditingController controller) {
-//     final text = controller.text;
-//     if (text.isNotEmpty) {
-//       final newText =
-//           text[0].toUpperCase() + (text.length > 1 ? text.substring(1) : '');
-//       if (newText != text) {
-//         final pos = controller.selection;
-//         controller.value = controller.value.copyWith(
-//           text: newText,
-//           selection: pos,
-//         );
-//       }
-//     }
-//   }
-
-//   String? _validateNotEmpty(String? value, String fieldName) {
-//     if (!_validateNow) return null;
-//     if (value == null || value.trim().isEmpty)
-//       return translateText('$fieldName is required');
-//     return null;
-//   }
-
-//   Future<void> _openMultiSelect({
-//     required String title,
-//     required List<Map<String, dynamic>> source,
-//     required List<String> target,
-//   }) async {
-//     final temp = [...target];
-//     await showModalBottomSheet(
-//       context: context,
-//       isScrollControlled: true,
-//       shape: const RoundedRectangleBorder(
-//         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-//       ),
-//       builder: (ctx) {
-//         return StatefulBuilder(
-//           builder: (ctx, setModalState) {
-//             return Padding(
-//               padding: EdgeInsets.only(
-//                 left: 16,
-//                 right: 16,
-//                 top: 10,
-//                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-//               ),
-//               child: Column(
-//                 mainAxisSize: MainAxisSize.min,
-//                 children: [
-//                   Container(
-//                     width: 44,
-//                     height: 4,
-//                     margin: const EdgeInsets.only(bottom: 12),
-//                     decoration: BoxDecoration(
-//                       color: Colors.black12,
-//                       borderRadius: BorderRadius.circular(2),
-//                     ),
-//                   ),
-//                   Text(title,
-//                       style: const TextStyle(
-//                           fontSize: 16, fontWeight: FontWeight.w700)),
-//                   const SizedBox(height: 8),
-//                   Flexible(
-//                     child: ListView.separated(
-//                       shrinkWrap: true,
-//                       itemCount: source.length,
-//                       separatorBuilder: (_, __) => const Divider(height: 1),
-//                       itemBuilder: (_, i) {
-//                         final item = source[i];
-//                         final name =
-//                             (item['label'] ?? item['name'] ?? '').toString();
-//                         final checked = temp.contains(name);
-//                         return CheckboxListTile(
-//                           value: checked,
-//                           onChanged: (v) {
-//                             if (v == true && !temp.contains(name)) {
-//                               temp.add(name);
-//                             } else if (v == false) {
-//                               temp.remove(name);
-//                             }
-//                             setModalState(() {});
-//                           },
-//                           title: Text(name),
-//                           controlAffinity: ListTileControlAffinity.leading,
-//                           dense: true,
-//                         );
-//                       },
-//                     ),
-//                   ),
-//                   const SizedBox(height: 12),
-//                   ElevatedButton(
-//                     onPressed: () {
-//                       setState(() {
-//                         target
-//                           ..clear()
-//                           ..addAll(temp);
-//                       });
-//                       Navigator.pop(ctx);
-//                     },
-//                     style: ElevatedButton.styleFrom(
-//                       backgroundColor: AppColors.starColor,
-//                       foregroundColor: Colors.white,
-//                       shape: RoundedRectangleBorder(
-//                         borderRadius: BorderRadius.circular(12),
-//                       ),
-//                     ),
-//                     child: const Text('Done'),
-//                   ),
-//                 ],
-//               ),
-//             );
-//           },
-//         );
-//       },
-//     );
-//   }
-
-//   Future<void> _submit() async {
-//     setState(() => _validateNow = true);
-//     if (!_formKey.currentState!.validate()) return;
-
-//     final payload = {
-//       // "countryCode": "+91",
-//       "salonId": widget.salonId,
-//       "branchId": widget.branchId,
-//       "firstName": _firstNameCtrl.text.trim(),
-//       "lastName": _lastNameCtrl.text.trim(),
-//       "phoneNumber": _phoneCtrl.text.trim(),
-//       "email": _emailCtrl.text.trim(),
-//       "address": _addressCtrl.text.trim(),
-//       // "joinedAt": _joiningDate == null
-//       //     ? null
-//       //     : "${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}",
-//       // "roles": _selectedRoles,
-//       // "specialities": _selectedSpecs,
-//       // "profileImage": imageUrl,
-//       // "gender": _gender,
-//       // "brief": _briefCtrl.text.trim(),
-//     };
-
-//     print('ðŸš€ Sending to next screen:');
-//     print(payload);
-
-//     Navigator.push(
-//       context,
-//       MaterialPageRoute(
-//         builder: (_) => AddTeamSelectServices(
-//           salonId: widget.salonId,
-//           teamPayload: payload,
-//         ),
-//       ),
-//     );
-//   }
-
-//   Future<void> _pickJoiningDate() async {
-//     final now = DateTime.now();
-//     final res = await showDatePicker(
-//       context: context,
-//       firstDate: DateTime(now.year - 5),
-//       lastDate: DateTime(now.year + 5),
-//       initialDate: _joiningDate ?? now,
-//     );
-//     if (res != null) setState(() => _joiningDate = res);
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       backgroundColor: Colors.white,
-//       appBar: AppBar(
-//         title: Text(translateText('Add Team Member'),
-//             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-//         backgroundColor: Colors.transparent,
-//         elevation: 0,
-//         systemOverlayStyle: SystemUiOverlayStyle.light,
-//         iconTheme: const IconThemeData(color: Colors.white),
-//         flexibleSpace: Container(
-//           decoration: BoxDecoration(
-//             gradient: LinearGradient(
-//               colors: [AppColors.starColor, AppColors.getStartedButton],
-//               begin: Alignment.topLeft,
-//               end: Alignment.bottomRight,
-//             ),
-//           ),
-//         ),
-//       ),
-//       body: SafeArea(
-//         child: Form(
-//           key: _formKey,
-//           child: SingleChildScrollView(
-//             padding: const EdgeInsets.all(16),
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 // Avatar
-//                 // Center(
-//                 //   child: GestureDetector(
-//                 //     onTap: _pickImage,
-//                 //     child: CircleAvatar(
-//                 //       radius: 40,
-//                 //       backgroundColor: Colors.grey[300],
-//                 //       child: _cameraImage == null
-//                 //           ? const Icon(Icons.camera_alt, size: 30)
-//                 //           : ClipRRect(
-//                 //               borderRadius: BorderRadius.circular(40),
-//                 //               child: Image.file(_cameraImage!,
-//                 //                   fit: BoxFit.cover, width: 80, height: 80),
-//                 //             ),
-//                 //     ),
-//                 //   ),
-//                 // ),
-//                 // const SizedBox(height: 16),
-
-//                 // Branch info
-//                 // Text(
-//                 //   'Branch ID: ${widget.salonId}',
-//                 //   style: const TextStyle(
-//                 //       fontSize: 14,
-//                 //       fontWeight: FontWeight.w600,
-//                 //       color: Colors.grey),
-//                 // ),
-//                 // const SizedBox(height: 16),
-
-//                 Row(
-//                   children: [
-//                     Expanded(
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           _reqLabel(translateText('First Name')),
-//                           const SizedBox(height: 6),
-//                           TextFormField(
-//                             key: _firstNameKey,
-//                             controller: _firstNameCtrl,
-//                             decoration:
-//                                 _decor(hint: translateText('Enter first name')),
-//                             validator: (v) =>
-//                                 _validateNotEmpty(v, 'First Name'),
-//                             onChanged: (_) {
-//                               _capitalizeFirst(_firstNameCtrl);
-//                               setState(() => _validateNow = false);
-//                               _firstNameKey.currentState?.validate();
-//                             },
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                     const SizedBox(width: 12),
-//                     Expanded(
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         children: [
-//                           _reqLabel(translateText('Last Name')),
-//                           const SizedBox(height: 6),
-//                           TextFormField(
-//                             key: _lastNameKey,
-//                             controller: _lastNameCtrl,
-//                             decoration:
-//                                 _decor(hint: translateText('Enter last name')),
-//                             validator: (v) => _validateNotEmpty(v, 'Last Name'),
-//                             onChanged: (_) {
-//                               _capitalizeFirst(_lastNameCtrl);
-//                               setState(() => _validateNow = false);
-//                               _lastNameKey.currentState?.validate();
-//                             },
-//                           ),
-//                         ],
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-
-//                 const SizedBox(height: 16),
-
-//                 _reqLabel(translateText('Phone Number')),
-//                 TextFormField(
-//                   key: _phoneKey,
-//                   controller: _phoneCtrl,
-//                   keyboardType: TextInputType.phone,
-//                   decoration: _decor(hint: translateText('Enter phone number')),
-//                   validator: (v) => _validateNotEmpty(v, 'Phone number'),
-//                   onChanged: (_) {
-//                     setState(() => _validateNow = false);
-//                     _phoneKey.currentState?.validate();
-//                   },
-//                   inputFormatters: [
-//                     FilteringTextInputFormatter.digitsOnly,
-//                     LengthLimitingTextInputFormatter(10),
-//                   ],
-//                 ),
-//                 const SizedBox(height: 16),
-
-//                 _reqLabel(translateText('Email')),
-//                 TextFormField(
-//                   key: _emailKey,
-//                   controller: _emailCtrl,
-//                   keyboardType: TextInputType.emailAddress,
-//                   decoration: _decor(hint: translateText('Email')),
-//                   validator: (v) {
-//                     if (!_validateNow) return null;
-//                     if (v == null || v.trim().isEmpty)
-//                       return translateText('Email is required');
-//                     if (!_emailRegExp.hasMatch(v))
-//                       return translateText('Enter a valid email');
-//                     return null;
-//                   },
-//                   onChanged: (_) {
-//                     setState(() => _validateNow = false);
-//                     _emailKey.currentState?.validate();
-//                   },
-//                 ),
-//                 const SizedBox(height: 16),
-
-//                 _reqLabel(translateText('Address')),
-//                 TextFormField(
-//                   key: _addressKey,
-//                   controller: _addressCtrl,
-//                   maxLines: 3,
-//                   decoration: _decor(hint: translateText('Address')),
-//                   validator: (v) => _validateNotEmpty(v, 'Address'),
-//                   onChanged: (_) {
-//                     _capitalizeFirst(
-//                         _addressCtrl); // ðŸ‘ˆ Auto-capitalize first letter
-//                     setState(() => _validateNow = false);
-//                     _addressKey.currentState
-//                         ?.validate(); // ðŸ‘ˆ Revalidate only this field
-//                   },
-//                 ),
-
-//                 const SizedBox(height: 16),
-
-//                 // Text('Gender', style: const TextStyle(fontWeight: FontWeight.w600)),
-//                 // Row(
-//                 //   children: [
-//                 //     Radio<String>(
-//                 //         value: 'Male',
-//                 //         groupValue: _gender,
-//                 //         onChanged: (v) => setState(() => _gender = v ?? '')),
-//                 //     const Text('Male'),
-//                 //     Radio<String>(
-//                 //         value: 'Female',
-//                 //         groupValue: _gender,
-//                 //         onChanged: (v) => setState(() => _gender = v ?? '')),
-//                 //     const Text('Female'),
-//                 //     Radio<String>(
-//                 //         value: 'Other',
-//                 //         groupValue: _gender,
-//                 //         onChanged: (v) => setState(() => _gender = v ?? '')),
-//                 //     const Text('Other'),
-//                 //   ],
-//                 // ),
-//                 // const SizedBox(height: 16),
-
-//                 // _reqLabel('Roles'),
-//                 // _PickField(
-//                 //   hint: 'Select Roles',
-//                 //   values: _selectedRoles,
-//                 //   onTap: () => _openMultiSelect(
-//                 //     title: 'Select Roles',
-//                 //     source: _allRoles,
-//                 //     target: _selectedRoles,
-//                 //   ),
-//                 // ),
-//                 // const SizedBox(height: 16),
-
-//                 // _reqLabel('Specializations'),
-//                 // _PickField(
-//                 //   hint: 'Select Specializations',
-//                 //   values: _selectedSpecs,
-//                 //   onTap: () => _openMultiSelect(
-//                 //     title: 'Select Specializations',
-//                 //     source: _allSpecs,
-//                 //     target: _selectedSpecs,
-//                 //   ),
-//                 // ),
-//                 // const SizedBox(height: 16),
-
-//                 // _reqLabel('Joining Date'),
-//                 // GestureDetector(
-//                 //   onTap: _pickJoiningDate,
-//                 //   child: AbsorbPointer(
-//                 //     child: TextFormField(
-//                 //       readOnly: true,
-//                 //       decoration: _decor(
-//                 //         hint: _joiningDate == null
-//                 //             ? 'Select joining date'
-//                 //             : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-//                 //         prefix: const Icon(Icons.calendar_today_outlined),
-//                 //       ),
-//                 //       validator: (_) {
-//                 //         if (!_validateNow) return null;
-//                 //         if (_joiningDate == null) return 'Joining date is required';
-//                 //         return null;
-//                 //       },
-//                 //     ),
-//                 //   ),
-//                 // ),
-//                 // const SizedBox(height: 16),
-
-//                 // TextFormField(
-//                 //   controller: _briefCtrl,
-//                 //   maxLines: 4,
-//                 //   decoration: _decor(hint: 'Brief About Member'),
-//                 //   onChanged: (_) {
-//                 //     _capitalizeFirst(_briefCtrl);
-//                 //     setState(() => _validateNow = false);
-//                 //   },
-//                 // ),
-//                 // const SizedBox(height: 24),
-
-//                 _PrimaryButton(
-//                   text: translateText('Next'),
-//                   onPressed: _isSubmitting ? null : _submit,
-//                   isLoading: _isSubmitting,
-//                 ),
-//                 const SizedBox(height: 24),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// class _PickField extends StatelessWidget {
-//   final String hint;
-//   final List<String> values;
-//   final VoidCallback onTap;
-
-//   const _PickField({
-//     required this.hint,
-//     required this.values,
-//     required this.onTap,
-//   });
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final text = values.isEmpty ? hint : values.join(', ');
-//     return GestureDetector(
-//       onTap: onTap,
-//       child: AbsorbPointer(
-//         child: TextFormField(
-//           readOnly: true,
-//           decoration: InputDecoration(
-//             hintText: text,
-//             filled: true,
-//             fillColor: Colors.grey.shade100,
-//             suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
-//             border: OutlineInputBorder(
-//               borderRadius: BorderRadius.circular(12),
-//               borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// class _PrimaryButton extends StatelessWidget {
-//   final String text;
-//   final VoidCallback? onPressed;
-//   final bool isLoading;
-
-//   const _PrimaryButton({
-//     required this.text,
-//     required this.onPressed,
-//     this.isLoading = false,
-//   });
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return SizedBox(
-//       width: double.infinity,
-//       height: 50,
-//       child: ElevatedButton(
-//         onPressed: isLoading ? null : onPressed,
-//         style: ElevatedButton.styleFrom(
-//           backgroundColor: AppColors.starColor,
-//           foregroundColor: Colors.white,
-//           shape:
-//               RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-//         ),
-//         child: isLoading
-//             ? const CircularProgressIndicator(
-//                 color: Colors.white, strokeWidth: 2)
-//             : Text(text,
-//                 style:
-//                     const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-//       ),
-//     );
-//   }
-// }
-
-
-
-

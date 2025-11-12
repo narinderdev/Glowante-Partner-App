@@ -1100,15 +1100,28 @@ class _SalonCard extends StatelessWidget {
     final rawImage = _cleanText(salon['imageUrl']);
     var imageUrl = rawImage.isEmpty ? null : rawImage;
 
-    if (imageUrl == null) {
-      for (final branch in branches) {
-        final branchImage = _cleanText(branch['imageUrl']);
-        if (branchImage.isNotEmpty) {
-          imageUrl = branchImage;
-          break;
-        }
+    // if (imageUrl == null) {
+    //   for (final branch in branches) {
+    //     final branchImage = _cleanText(branch['imageUrl']);
+    //     if (branchImage.isNotEmpty) {
+    //       imageUrl = branchImage;
+    //       break;
+    //     }
+    //   }
+    // }
+if (imageUrl == null) {
+  for (final branch in branches) {
+    final branchName = _cleanText(branch['name']).toLowerCase();
+    final salonNameLower = salonName.toLowerCase();
+    if (branchName == salonNameLower) {
+      final branchImage = _cleanText(branch['imageUrl']);
+      if (branchImage.isNotEmpty) {
+        imageUrl = branchImage;
+        break;
       }
     }
+  }
+}
 
     final borderColor = accentColor.withOpacity(0.18);
     String _norm(String s) => s.trim().toLowerCase();
@@ -1552,18 +1565,20 @@ class _BranchTileState extends State<_BranchTile> {
         children: [
           Row(
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.white, // ? white background
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: accentColor.withOpacity(0.6)), // optional border
-                ),
-                child: Icon(Icons.storefront_rounded,
-                    color: accentColor), // ? star color icon
-              ),
+              // Container(
+              //   width: 38,
+              //   height: 38,
+              //   decoration: BoxDecoration(
+              //     color: Colors.white, // ? white background
+              //     borderRadius: BorderRadius.circular(12),
+              //     border: Border.all(
+              //         color: accentColor.withOpacity(0.6)), // optional border
+              //   ),
+              //   child: Icon(Icons.storefront_rounded,
+              //       color: accentColor), // ? star color icon
+              // ),
+              _buildBranchAvatar(branch['imageUrl']?.toString(), accentColor),
+
               SizedBox(width: 12),
               // Expanded(
               //   child: Column(
@@ -1821,4 +1836,32 @@ class _ErrorView extends StatelessWidget {
       ),
     );
   }
+}
+Widget _buildBranchAvatar(String? imageUrl, Color accentColor) {
+  final hasImage = imageUrl != null && imageUrl.trim().isNotEmpty;
+  return ClipRRect(
+    borderRadius: BorderRadius.circular(12),
+    child: hasImage
+        ? Image.network(
+            imageUrl!,
+            width: 38,
+            height: 38,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _iconPlaceholder(accentColor),
+          )
+        : _iconPlaceholder(accentColor),
+  );
+}
+
+Widget _iconPlaceholder(Color accentColor) {
+  return Container(
+    width: 38,
+    height: 38,
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: accentColor.withOpacity(0.6)),
+    ),
+    child: Icon(Icons.storefront_rounded, color: accentColor),
+  );
 }

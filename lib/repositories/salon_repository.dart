@@ -159,7 +159,7 @@ Future<Map<String, dynamic>> createSalon({
     'startTime': startTime,
     'endTime': endTime,
     'description': description,
-    'image_url': imageUrl,
+    'imageUrl': imageUrl,
     'address': {
       'line1': completeAddress,
       'line2': line2,       // optional extras land here
@@ -239,7 +239,7 @@ Future<Map<String, dynamic>> createSalon({
       'endTime': endTime,
       'phone': phone,
       'description': description,
-      'image_url': resolvedImageUrl,
+      'imageUrl': resolvedImageUrl,
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
