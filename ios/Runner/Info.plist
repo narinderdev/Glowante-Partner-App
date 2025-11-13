@@ -28,8 +28,8 @@
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>We use your location in the background to keep salon services accurate.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>We use your location to show nearby salons and improve booking accuracy.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>We use your location to keep salon services accurate.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UIBackgroundModes</key>
@@ -54,5 +54,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app requires access to your photo library to upload images of salons, branches, and team members.</string>
 </dict>
 </plist>
