@@ -700,7 +700,7 @@ Future<void> _pickJoiningDate() async {
 
                     SizedBox(height: 12),
 
-                    _reqLabel('Phone Number'),
+                    _reqLabel(translateText('Phone Number')),
                     SizedBox(height: 8),
                     Row(
                       children: [
@@ -715,7 +715,7 @@ Future<void> _pickJoiningDate() async {
                                 : AutovalidateMode.disabled,
                             textCapitalization: TextCapitalization.none,
                             decoration: _decor(
-                              hint: 'Phone number',
+                              hint: translateText('Phone Number'),
                               prefix: Icon(Icons.search),
                             ),
                             validator:
@@ -1079,7 +1079,7 @@ Future<void> _pickJoiningDate() async {
                      keyboardType: TextInputType.text,
   textCapitalization: TextCapitalization.sentences, 
                       decoration: _decor(
-                        hint: 'Enter a brief about this member',
+                        hint: translateText('Enter a brief about this member'),
                       ).copyWith(
                         contentPadding: const EdgeInsets.all(14),
                         counterText: '',

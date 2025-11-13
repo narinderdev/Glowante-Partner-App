@@ -744,18 +744,23 @@ Future<void> _submit() async {
           : Column(
               children: [
                 // Summary
-                if (fullName.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Assign services to $fullName',
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
+          if (fullName.isNotEmpty)
+  Padding(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        // translateText('Assign services to') + ' $fullName', // Only translate the static part
+        translateText('Assign services'), // Only translate the static part
+        style: const TextStyle(
+          fontSize: 16, 
+          fontWeight: FontWeight.w600
+        ),
+      ),
+    ),
+  ),
+
+
 
                 // Select All
                 Card(
@@ -763,7 +768,7 @@ Future<void> _submit() async {
                   child: CheckboxListTile(
                     value: _allSelected,
                     onChanged: _toggleAll,
-                    title: const Text('Select All Services'),
+                    title:  Text(translateText('Select All Services')),
                     controlAffinity: ListTileControlAffinity.trailing,
                   ),
                 ),
@@ -801,8 +806,7 @@ bottomNavigationBar: SafeArea(
                 strokeWidth: 2.5,
               ),
             )
-          : const Text(
-              'Add Team Member',
+          :  Text(translateText('Add Team Member'),  
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,

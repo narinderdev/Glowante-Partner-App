@@ -411,7 +411,7 @@ teamMemberData.forEach((key, value) {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Set Weekly Working Hours',
+                  translateText('Set Weekly Working Hours'),
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold, // Added font weight
@@ -425,10 +425,11 @@ teamMemberData.forEach((key, value) {
                       _useSalonHours = value ?? false;
                     });
                   },
-                  title: const Text('Use salon open & close time'),
-                  subtitle: const Text(
-                    'Apply the salon\'s operating hours instead of defining custom time slots.',
-                  ),
+               title: Text(translateText('Use salon open & close time')),
+subtitle: Text(
+  translateText('Apply the salon\'s operating hours instead of defining custom time slots.'),
+),
+
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
                 if (_useSalonHours)
@@ -461,22 +462,22 @@ teamMemberData.forEach((key, value) {
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Monday',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600, // Added font weight
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          // Display slots for Monday
-                          if (weeklySchedule['Monday']!.isEmpty)
-                            Text('No time slots added'),
-                          for (var i = 0;
-                              i < weeklySchedule['Monday']!.length;
-                              i++)
-                            Row(
+                       children: [
+  Text(
+    translateText('Monday'),
+    style: TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w600, // Added font weight
+    ),
+  ),
+  SizedBox(height: 8),
+  // Display message if Monday has no time slots
+  if (weeklySchedule[translateText('Monday')]?.isEmpty ?? true)
+    Text(translateText('No time slots added')),
+
+  // Display slots for Monday
+  for (var i = 0; i < (weeklySchedule[translateText('Monday')]?.length ?? 0); i++)
+     Row(
                               children: [
                                 // Time Slot
                                 Expanded(
@@ -547,7 +548,7 @@ teamMemberData.forEach((key, value) {
                           // Add Slot button for Monday
                           ElevatedButton(
                             onPressed: () => addSlot('Monday'),
-                            child: Text('+ Add Slot'),
+                            child: Text(translateText('+ Add Slot')),
                           ),
                         ],
                       ),
@@ -560,7 +561,7 @@ teamMemberData.forEach((key, value) {
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: ElevatedButton(
                     onPressed: copyMondayScheduleToAll,
-                    child: Text('Copy Monday schedule to all days'),
+                    child: Text(translateText('Copy Monday schedule to all days')),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -596,7 +597,7 @@ teamMemberData.forEach((key, value) {
                                   SizedBox(height: 8),
                                   // Display slots for each day
                                   if (weeklySchedule[day]!.isEmpty)
-                                    Text('No time slots added'),
+                                    Text(translateText('No time slots added')),
                                   for (var i = 0;
                                       i < weeklySchedule[day]!.length;
                                       i++)
@@ -680,7 +681,7 @@ teamMemberData.forEach((key, value) {
                                   // Add Slot button
                                   ElevatedButton(
                                     onPressed: () => addSlot(day),
-                                    child: Text('+ Add Slot'),
+                                    child: Text(translateText('+ Add Slot')),
                                   ),
                                 ],
                               ),
@@ -703,15 +704,17 @@ teamMemberData.forEach((key, value) {
     foregroundColor: Colors.white,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
   ),
-  child: _isSubmitting
-      ? const SizedBox(
-          width: 22, height: 22,
-          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-        )
-      : const Text('Next', // 🔁 changed label
-          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-        ),
+ child: _isSubmitting
+    ? const SizedBox(
+        width: 22, height: 22,
+        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+      )
+    : Text(
+        translateText('Next'), // 🔁 changed label
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+      ),
 ),
+
               ),
 
               ],

@@ -1027,8 +1027,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       _buildTextField(
                         field: _BranchField.name,
                         controller: _branchNameController,
-                        label: 'Branch Name *',
-                        hint: 'Enter branch name',
+                        label:translateText('Branch Name *'),
+                        hint: translateText('Enter Branch Name'),
                         keyboardType: TextInputType.text,
                         textCapitalization: TextCapitalization.sentences,
                         maxLength: 30,
@@ -1037,8 +1037,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       _buildTextField(
                         field: _BranchField.phone,
                         controller: _phoneController,
-                        label: 'Phone Number *',
-                        hint: 'Enter phone number',
+                        label: translateText('Phone Number *'),
+                        hint: translateText('Enter phone number'),
                         maxLength: 10,
                         enabled: false,
                         keyboardType: TextInputType.number,
@@ -1178,8 +1178,8 @@ if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
                       _buildTextField(
                         field: _BranchField.description,
                         controller: _descriptionController,
-                        label: 'Description *',
-                        hint: 'Enter description',
+                        label: translateText('Description *'),
+                        hint: translateText('Enter description'),
                         maxLines: 1,
                         maxLength: 50,
                         keyboardType: TextInputType.text,

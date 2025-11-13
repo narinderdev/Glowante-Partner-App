@@ -1842,7 +1842,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                           // Optional fields first
                           _buildTextField(
                             controller: scoFlatHouseController,
-                            label: 'SCO No / Flat No / House No',
+                            label: translateText('SCO No / Flat No / House No'),
                             hint: 'Enter SCO/Flat/House No (optional)',
                             isRequired: false,
                             maxLength: 60,

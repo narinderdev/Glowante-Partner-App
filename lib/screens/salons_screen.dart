@@ -1241,7 +1241,7 @@ if (imageUrl == null) {
         _MetricChip(
           icon: Icons.storefront_rounded,
           label:
-              "$additionalBranches ${additionalBranches == 1 ? 'branch' : 'branches'}",
+              "$additionalBranches ${additionalBranches == 1 ? translateText('branch') : translateText('branches')}",
           accentColor: accentColor,
           useAccent: true,
         ),
