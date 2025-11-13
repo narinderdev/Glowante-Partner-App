@@ -711,6 +711,15 @@ for (final salon in salons) {
                     //   maxLines: 1,
                     //   overflow: TextOverflow.ellipsis,
                     // ),
+                    // Text(
+                    //   selectedName ??
+                    //       translateText('Select a salon to get started'),
+                    //   style: textTheme.bodyMedium?.copyWith(
+                    //     color: Colors.white70,
+                    //   ),
+                    //   maxLines: 1,
+                    //   overflow: TextOverflow.ellipsis,
+                    // ),
                   ],
                 ),
               ),
@@ -1544,6 +1553,9 @@ class _LabeledField extends StatelessWidget {
     this.maxLines = 1,
     this.keyboardType,
     this.textCapitalization = TextCapitalization.none,
+    this.maxLength,
+    this.inputFormatters,
+    this.hideCounter = true,
   });
 
   final String label;
@@ -1551,6 +1563,9 @@ class _LabeledField extends StatelessWidget {
   final int maxLines;
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
+  final int? maxLength;
+  final List<TextInputFormatter>? inputFormatters;
+  final bool hideCounter;
 
   @override
   Widget build(BuildContext context) {
@@ -1559,6 +1574,8 @@ class _LabeledField extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: '',
         border: OutlineInputBorder(),
@@ -1568,6 +1585,7 @@ class _LabeledField extends StatelessWidget {
           horizontal: 12,
           vertical: 12,
         ),
+        counterText: maxLength != null && hideCounter ? '' : null,
       ),
     );
   }
@@ -1697,106 +1715,88 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
     }
   }
   @override
-Widget build(BuildContext context) {
-  return Padding(
-    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-    child: _BottomSheetScaffold(
-      title: isEdit
-          ? translateText('Edit Category')
-          : translateText('Add Category'),
-      initial: 0.55,
-      min: 0.35,
-      max: 0.9,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ✅ Category Name Field with 50-char limit + live counter
-          Stack(
-  alignment: Alignment.bottomRight,
-  children: [
-    TextField(
-      controller: nameController,
-           keyboardType: TextInputType.text,
-      textCapitalization: TextCapitalization.sentences,
-      inputFormatters: [
-        const FirstLetterUpperFormatter(),
-        LengthLimitingTextInputFormatter(50), // ✅ no 'const' here
-      ],
-      onChanged: (_) {
-        if (errorText != null) setState(() => errorText = null);
-        setState(() {}); // update counter
-      },
-      decoration: InputDecoration(
-        labelText: translateText('Category Name'),
-        border: const OutlineInputBorder(),
-        counterText: '',
-      ),
-    ),
-    Padding(
-      padding: const EdgeInsets.only(right: 12, bottom: 8),
-      child: Text(
-        '${nameController.text.length}/50',
-        style: TextStyle(
-          fontSize: 12,
-          color: nameController.text.length >= 50
-              ? Colors.red
-              : Colors.grey,
-        ),
-      ),
-    ),
-  ],
-),
-
-
-          const SizedBox(height: 12),
-          if (errorText != null) ...[
-            const SizedBox(height: 2),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                errorText!,
-                style: const TextStyle(color: Colors.red),
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: _BottomSheetScaffold(
+        title: isEdit
+            ? translateText('Edit Category')
+            : translateText('Add Category'),
+        initial: 0.55,
+        min: 0.35,
+        max: 0.9,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              textCapitalization: TextCapitalization.none,
+              inputFormatters: const [FirstLetterUpperFormatter()],
+              onChanged: (_) {
+                if (errorText != null) setState(() => errorText = null);
+              },
+              decoration: InputDecoration(
+                labelText: translateText('Category Name'),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 12),
+            // Optional description input ÃƒÅ½Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¡ÃƒÆ’Ã‚Â´ keep if you need it in UI
+            // TextField(
+            //   controller: descriptionController,
+            //   maxLines: 2,
+            //   textCapitalization: TextCapitalization.sentences,
+            //   decoration: InputDecoration(
+            //     labelText: translateText('Description (optional)'),
+            //     border: OutlineInputBorder(),
+            //   ),
+            // ),
+            if (errorText != null) ...[
+              SizedBox(height: 2),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  errorText!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+            SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: isSaving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(Icons.check_rounded),
+                onPressed: isSaving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: AppColors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                label: Text(
+                  isEdit
+                      ? translateText('Update Category')
+                      : translateText('Add Category'),
+                ),
               ),
             ),
           ],
-
-          const SizedBox(height: 6),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.check_rounded),
-              onPressed: isSaving ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: AppColors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              label: Text(
-                isEdit
-                    ? translateText('Update Category')
-                    : translateText('Add Category'),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 }
 
 /* Subcategory: inline error + loader + API here */
@@ -1880,107 +1880,241 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return Padding(
-    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-    child: _BottomSheetScaffold(
-      title: isEdit
-          ? translateText('Edit Subcategory')
-          : translateText('Add Subcategory'),
-      initial: 0.55,
-      min: 0.35,
-      max: 0.9,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ✅ Subcategory Name field with live counter + 50-char limit
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              TextField(
-                controller: controller,
-                keyboardType: TextInputType.text,
-      textCapitalization: TextCapitalization.sentences,
-       inputFormatters: [
-                  const FirstLetterUpperFormatter(),
-                  LengthLimitingTextInputFormatter(50), // ✅ no const here
-                ],
-                onChanged: (_) {
-                  if (errorText != null) setState(() => errorText = null);
-                  setState(() {}); // ✅ refresh live counter
-                },
-                decoration: InputDecoration(
-                  labelText: translateText('Subcategory Name'),
-                  border: const OutlineInputBorder(),
-                  counterText: '', // ✅ hide default counter
-                ),
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: _BottomSheetScaffold(
+        title: isEdit
+            ? translateText('Edit Subcategory')
+            : translateText('Add Subcategory'),
+        initial: 0.55,
+        min: 0.35,
+        max: 0.9,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              textCapitalization: TextCapitalization.none,
+              inputFormatters: const [FirstLetterUpperFormatter()],
+              onChanged: (_) {
+                if (errorText != null) setState(() => errorText = null);
+              },
+              decoration: InputDecoration(
+                labelText: translateText('Subcategory Name'),
+                border: OutlineInputBorder(),
               ),
-              // ✅ Live character counter bottom-right
-              Padding(
-                padding: const EdgeInsets.only(right: 12, bottom: 8),
+            ),
+            if (errorText != null) ...[
+              SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
                 child: Text(
-                  '${controller.text.length}/50',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: controller.text.length >= 50
-                        ? Colors.red
-                        : Colors.grey,
-                  ),
+                  errorText!,
+                  style: const TextStyle(color: Colors.red),
                 ),
               ),
             ],
-          ),
-
-          if (errorText != null) ...[
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                errorText!,
-                style: const TextStyle(color: Colors.red),
+            SizedBox(height: 6),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: isSaving
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(Icons.check_rounded),
+                onPressed: isSaving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                label: Text(
+                  isEdit
+                      ? translateText('Update Subcategory')
+                      : translateText('Add Subcategory'),
+                ),
               ),
             ),
           ],
-
-          const SizedBox(height: 6),
-
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              icon: isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.check_rounded),
-              onPressed: isSaving ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              label: Text(
-                isEdit
-                    ? translateText('Update Subcategory')
-                    : translateText('Add Subcategory'),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-}
+/* Service editor: inline error (no toast). Parent still performs API. */
+// class _EditServiceSheet extends StatefulWidget {
+//   const _EditServiceSheet({required this.service});
+//   final Map<String, dynamic> service;
 
+//   @override
+//   State<_EditServiceSheet> createState() => _EditServiceSheetState();
+// }
+
+// class _EditServiceSheetState extends State<_EditServiceSheet> {
+//   late final TextEditingController nameController;
+//   late final TextEditingController descriptionController;
+//   late final TextEditingController durationController;
+//   late final TextEditingController priceController;
+//   late final ValueNotifier<bool> isActive;
+
+//   String? errorText;
+//   bool isSaving = false; // visual spinner while we pop with payload
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     final s = widget.service;
+//     nameController = TextEditingController(
+//       text: s['displayName'] ?? s['name'] ?? '',
+//     );
+//     descriptionController = TextEditingController(text: s['description'] ?? '');
+//     durationController = TextEditingController(
+//       text: (s['durationMin'] ?? s['defaultDurationMin'])?.toString() ?? '',
+//     );
+//     priceController = TextEditingController(
+//       text: (s['priceMinor'] ?? s['defaultPriceMinor'])?.toString() ?? '',
+//     );
+//     isActive = ValueNotifier<bool>(s['isActive'] ?? true);
+//   }
+
+//   @override
+//   void dispose() {
+//     nameController.dispose();
+//     descriptionController.dispose();
+//     durationController.dispose();
+//     priceController.dispose();
+//     isActive.dispose();
+//     super.dispose();
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return _BottomSheetScaffold(
+//       title: 'Edit Service',
+//       child: Column(
+//         mainAxisSize: MainAxisSize.min,
+//         children: [
+//           _LabeledField(
+//             label: 'Service Name',
+//             controller: nameController,
+//             textCapitalization: TextCapitalization.words,
+//           ),
+//           SizedBox(height: 12),
+//           _LabeledField(
+//             label: 'Description',
+//             controller: descriptionController,
+//             maxLines: 1,
+//             textCapitalization: TextCapitalization.sentences,
+//           ),
+//           SizedBox(height: 12),
+//           _LabeledField(
+//             label: 'Duration (minutes)',
+//             controller: durationController,
+//             keyboardType: TextInputType.number,
+//           ),
+//           SizedBox(height: 12),
+//           _LabeledField(
+//             label: 'Price (minor units)',
+//             controller: priceController,
+//             keyboardType: TextInputType.number,
+//           ),
+//           SizedBox(height: 8),
+//           ValueListenableBuilder<bool>(
+//             valueListenable: isActive,
+//             builder: (context, value, _) {
+//               return SwitchListTile(
+//                 value: value,
+//                 onChanged: (nv) => isActive.value = nv,
+//                 title: const Text('Active'),
+//                 contentPadding: EdgeInsets.zero,
+//               );
+//             },
+//           ),
+//           if (errorText != null) ...[
+//             SizedBox(height: 2),
+//             Align(
+//               alignment: Alignment.centerLeft,
+//               child: Text(
+//                 errorText!,
+//                 style: const TextStyle(color: Colors.black,),
+//               ),
+//             ),
+//           ],
+//           SizedBox(height: 6),
+//           SizedBox(
+//             width: double.infinity,
+//             child: ElevatedButton.icon(
+//               icon: isSaving
+//                   ? SizedBox(
+//                       width: 18, height: 18,
+//                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+//                     )
+//                   : Icon(Icons.save_rounded),
+//               onPressed: isSaving
+//                   ? null
+//                   : () async {
+//                       final name = nameController.text.trim();
+//                       if (name.isEmpty) {
+//                         setState(() => errorText = translateText('Name is required'));
+//                         return;
+//                       }
+//                       if (!RegExp(r'^[A-Z]').hasMatch(name)) {
+//                         setState(() => errorText = 'Name must start with an uppercase letter');
+//                         return;
+//                       }
+//
+//                       FocusScope.of(context).unfocus();
+
+//                       setState(() => isSaving = true);
+//                       try {
+//                         final payload = {
+//                           'name': name,
+//                           'description': descriptionController.text.trim(),
+//                           'defaultDurationMin': int.tryParse(
+//                             durationController.text.trim(),
+//                           ),
+//                           'defaultPriceMinor': int.tryParse(
+//                             priceController.text.trim(),
+//                           ),
+//                           'isActive': isActive.value,
+//                         }..removeWhere((k, v) => v == null);
+
+//                         Navigator.of(context).pop(<String, dynamic>{
+//                           'serviceId': widget.service['id'] as int,
+//                           'payload': payload,
+//                         });
+//                       } finally {
+//                         if (mounted) setState(() => isSaving = false);
+//                       }
+//                     },
+//               style: ElevatedButton.styleFrom(
+//                 backgroundColor: Colors.black,
+//                 foregroundColor: Colors.white,
+//                 padding: const EdgeInsets.symmetric(vertical: 14),
+//                 shape: RoundedRectangleBorder(
+//                   borderRadius: BorderRadius.circular(12),
+//                 ),
+//               ),
+//               label: const Text('Update Service'),
+//             ),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
 /* Service editor: field-level errors for name/price/duration */
 class _EditServiceSheet extends StatefulWidget {
   const _EditServiceSheet({required this.service});
@@ -2044,14 +2178,28 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
 
     if (priceTxt.isEmpty) {
       pErr = 'Price is required';
-    } else if (int.tryParse(priceTxt) == null) {
-      pErr = 'Enter a valid number';
+    } else {
+      final priceVal = int.tryParse(priceTxt);
+      if (priceVal == null) {
+        pErr = 'Enter a valid number';
+      } else if (priceVal <= 0) {
+        pErr = 'Price must be greater than 0';
+      } else if (priceTxt.length > 6) {
+        pErr = 'Price cannot exceed 6 digits';
+      }
     }
 
     if (durationTxt.isEmpty) {
       dErr = 'Duration is required';
-    } else if (int.tryParse(durationTxt) == null) {
-      dErr = 'Enter a valid number';
+    } else {
+      final durationVal = int.tryParse(durationTxt);
+      if (durationVal == null) {
+        dErr = 'Enter a valid number';
+      } else if (durationVal <= 0) {
+        dErr = 'Duration must be greater than 0';
+      } else if (durationTxt.length > 4) {
+        dErr = 'Duration cannot exceed 4 digits';
+      }
     }
 
     setState(() {
@@ -2063,136 +2211,74 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
     return nErr == null && pErr == null && dErr == null;
   }
   @override
-Widget build(BuildContext context) {
-  return _BottomSheetScaffold(
-    title: translateText('Edit Service'),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ✅ Service Name (max 50 chars + live counter)
-        Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            TextField(
-              controller: nameController,
-             keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-              inputFormatters: [LengthLimitingTextInputFormatter(50)],
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: translateText('Service Name'),
-                border: const OutlineInputBorder(),
-                counterText: '',
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 12, bottom: 8),
+  Widget build(BuildContext context) {
+    return _BottomSheetScaffold(
+      title: translateText('Edit Service'),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Name
+          _LabeledField(
+            label: translateText('Service Name'),
+            controller: nameController,
+            textCapitalization: TextCapitalization.words,
+          ),
+          if (nameError != null) ...[
+            SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
               child: Text(
-                '${nameController.text.length}/50',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: nameController.text.length >= 50
-                      ? Colors.red
-                      : Colors.grey,
-                ),
+                nameError!,
+                style: const TextStyle(color: Colors.black),
               ),
             ),
           ],
-        ),
-        if (nameError != null) ...[
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              nameError!,
-              style: const TextStyle(color: Colors.black),
-            ),
-          ),
-        ],
-        const SizedBox(height: 12),
+          SizedBox(height: 12),
 
-        // ✅ Description (max 50 chars + live counter)
-        Stack(
-          alignment: Alignment.bottomRight,
-          children: [
-            TextField(
-              controller: descriptionController,
-              maxLines: 1,
-             keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-              inputFormatters: [LengthLimitingTextInputFormatter(50)],
-              onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                labelText: translateText('Description'),
-                border: const OutlineInputBorder(),
-                counterText: '',
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 12, bottom: 8),
+          // Description (optional)
+          _LabeledField(
+            label: translateText('Description'),
+            controller: descriptionController,
+            maxLines: 1,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          SizedBox(height: 12),
+
+          // Duration
+          _LabeledField(
+            label: translateText('Duration (minutes)'),
+            controller: durationController,
+            keyboardType: TextInputType.number,
+          ),
+          if (durationError != null) ...[
+            SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
               child: Text(
-                '${descriptionController.text.length}/50',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: descriptionController.text.length >= 50
-                      ? Colors.red
-                      : Colors.grey,
-                ),
+                durationError!,
+                style: const TextStyle(color: Colors.black),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
+          SizedBox(height: 12),
 
-        // ✅ Duration (max 4 digits)
-        TextField(
-          controller: durationController,
-          keyboardType: TextInputType.number,
-          inputFormatters: [
-            LengthLimitingTextInputFormatter(4),
-            FilteringTextInputFormatter.digitsOnly,
-          ],
-          decoration: InputDecoration(
-            labelText: translateText('Duration (minutes)'),
-            border: const OutlineInputBorder(),
+          // Price
+          _LabeledField(
+            label: translateText('Price (in ₹)'),
+            controller: priceController,
+            keyboardType: TextInputType.number,
           ),
-        ),
-        if (durationError != null) ...[
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              durationError!,
-              style: const TextStyle(color: Colors.black),
+          if (priceError != null) ...[
+            SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                priceError!,
+                style: const TextStyle(color: Colors.black),
+              ),
             ),
-          ),
-        ],
-        const SizedBox(height: 12),
-
-        // ✅ Price (max 6 digits)
-        TextField(
-          controller: priceController,
-          keyboardType: TextInputType.number,
-          inputFormatters: [
-            LengthLimitingTextInputFormatter(6),
-            FilteringTextInputFormatter.digitsOnly,
           ],
-          decoration: InputDecoration(
-            labelText: translateText('Price (in ₹)'),
-            border: const OutlineInputBorder(),
-          ),
-        ),
-        if (priceError != null) ...[
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              priceError!,
-              style: const TextStyle(color: Colors.black),
-            ),
-          ),
-        ],
-        const SizedBox(height: 8),
+          SizedBox(height: 8),
 
         const SizedBox(height: 6),
 
@@ -2252,3 +2338,4 @@ Widget build(BuildContext context) {
 }
 
 }
+
