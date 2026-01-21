@@ -935,8 +935,15 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
         (pricingMode == 'Discount' && discountType == 'Flat');
     final showPercentField =
         pricingMode == 'Discount' && discountType == 'Percent';
-
-    final buttonLabel = widget.isEdit ? 'Update Package' : 'Submit';
+    final isPackage = widget.source.toUpperCase() == 'PACKAGE';
+    final titleKey = widget.isEdit
+        ? (isPackage ? 'Update Package' : 'Update Deal')
+        : (isPackage ? 'Create Package' : 'Create Deal');
+    final buttonLabel = widget.isEdit
+        ? (isPackage
+            ? translateText('Update Package')
+            : translateText('Update Deal'))
+        : translateText('Submit');
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -949,9 +956,7 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
         iconTheme:
             const IconThemeData(color: Colors.white), // back button color
         title: Text(
-          widget.source.toUpperCase() == 'PACKAGE'
-              ? translateText('Create Package')
-              : translateText('Create Deal'),
+          translateText(titleKey),
           style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,

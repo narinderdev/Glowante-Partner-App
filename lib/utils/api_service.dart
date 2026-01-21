@@ -61,7 +61,7 @@ final http.Client _authorizedHttpClient = _AuthHttpClient();
 class ApiService {
   static http.Client get _sharedClient => _authorizedHttpClient;
 
-  static const String baseUrl = "https://dev-api.glowante.com/";
+  static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
   // static const String baseUrl = "https://08f4da78e99f.ngrok-free.app/";
   static const String userLogin = "auth/login";
