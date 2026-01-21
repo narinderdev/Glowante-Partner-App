@@ -2675,8 +2675,8 @@ Future<void> onBranchChanged(
         ? selectedBranchId
         : null;
     final branchHint = branchOptions.isEmpty
-        ? context.t('Add a salon or branch to get started')
-        : context.t('Pick a salon & branch to view bookings');
+        ? context.t('No branches available')
+        : context.t('Select Branch');
     final bool hasSalons = branchOptions.isNotEmpty;
     final List<String> displayTimeSlots =
         timeSlots.isEmpty ? _defaultTimeSlots : timeSlots;
@@ -2698,7 +2698,7 @@ Future<void> onBranchChanged(
                   value: selectedBranchValue,
                   isExpanded: true,
                   decoration: InputDecoration(
-                    labelText: translateText('Salon & Branch'),
+                    labelText: translateText('Branch'),
                     hintText: branchHint,
                     filled: true,
                     fillColor: Colors.white,
@@ -3333,15 +3333,9 @@ class _BranchDropdownOption extends StatelessWidget {
     final city = (address['city'] ?? '').toString().trim();
     final location = city.isNotEmpty ? '$line1, $city' : line1;
 
-    final salonLabel = option.salonName.trim().isEmpty
-        ? option.branchName
-        : option.salonName.trim();
     final branchLabel = option.branchName.trim();
-    final hasDistinctBranch = branchLabel.isNotEmpty &&
-        branchLabel.toLowerCase() != salonLabel.toLowerCase();
-    final compactTitle = hasDistinctBranch
-        ? '$salonLabel • $branchLabel'
-        : salonLabel;
+    final displayTitle =
+        branchLabel.isEmpty ? 'Branch #${option.branchId}' : branchLabel;
 
     final titleStyle =
         theme.textTheme.titleMedium?.copyWith(
@@ -3355,18 +3349,6 @@ class _BranchDropdownOption extends StatelessWidget {
           color: Colors.black87,
         );
 
-    final branchStyle =
-        theme.textTheme.bodyMedium?.copyWith(
-          fontSize: compact ? 12 : 13,
-          color: Colors.blueGrey.shade600,
-          fontWeight: FontWeight.w500,
-        ) ??
-        TextStyle(
-          fontSize: compact ? 12 : 13,
-          color: Colors.blueGrey.shade600,
-          fontWeight: FontWeight.w500,
-        );
-
     final locationStyle =
         theme.textTheme.bodySmall?.copyWith(
           fontSize: compact ? 12 : 13,
@@ -3378,34 +3360,11 @@ class _BranchDropdownOption extends StatelessWidget {
     final bool showLocation = location.isNotEmpty;
 
     if (compact) {
-      return Row(
-        children: [
-          Icon(
-            Icons.location_on_outlined,
-            size: 16,
-            color: Colors.blueGrey.shade400,
-          ),
-          SizedBox(width: 4),
-          Expanded(
-            child: RichText(
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: compactTitle,
-                    style: titleStyle,
-                  ),
-                  if (showLocation)
-                    TextSpan(
-                      text: ' • $location',
-                      style: locationStyle,
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      return Text(
+        displayTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: titleStyle,
       );
     }
 
@@ -3436,35 +3395,13 @@ class _BranchDropdownOption extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    salonLabel,
+                    displayTitle,
                     style: titleStyle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (hasDistinctBranch) ...[
-                    SizedBox(height: 2),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.apartment_rounded,
-                          size: 16,
-                          color: Colors.blueGrey.shade400,
-                        ),
-                        SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            branchLabel,
-                            style: branchStyle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
                   if (showLocation) ...[
-                    SizedBox(height: hasDistinctBranch ? 4 : 2),
+                    SizedBox(height: 2),
                     Row(
                       children: [
                         Icon(

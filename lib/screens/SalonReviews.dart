@@ -16,7 +16,10 @@ class SalonReviews extends StatefulWidget {
 }
 
 class _SalonReviewsState extends State<SalonReviews> {
+  List<Map<String, dynamic>> _salons = [];
   bool loading = true;
+  bool _loadingSalons = true;
+  String? _salonError;
   List<Map<String, dynamic>> appointmentReviews = [];
   double overallRating = 0;
   int totalReviews = 0;
@@ -29,7 +32,109 @@ class _SalonReviewsState extends State<SalonReviews> {
   @override
   void initState() {
     super.initState();
+    _loadSalons();
     _resolveBranchId();
+  }
+  List<Map<String, dynamic>> _normalizeSalonsList(Iterable<dynamic> raw) {
+    final result = <Map<String, dynamic>>[];
+    for (final entry in raw) {
+      if (entry is Map) {
+        final map = Map<String, dynamic>.from(entry);
+        final rawBranches = (map['branches'] as List?) ?? const [];
+        final branches = <Map<String, dynamic>>[];
+        for (final branch in rawBranches) {
+          if (branch is Map) {
+            branches.add(Map<String, dynamic>.from(branch));
+          }
+        }
+        map['branches'] = branches;
+        result.add(map);
+      }
+    }
+    return result;
+  }
+
+  String _branchAddressSummary(Map<String, dynamic> branch) {
+    final address = branch['address'];
+    if (address is Map) {
+      final map = Map<String, dynamic>.from(address);
+      final line1 = map['line1']?.toString().trim();
+      if (line1 != null && line1.isNotEmpty) {
+        return line1;
+      }
+    }
+    return '';
+  }
+
+  List<_BranchOption> _computeBranchOptions() {
+    final options = <_BranchOption>[];
+    final seenBranchIds = <int>{};
+    for (final salon in _salons) {
+      final salonId = salon['id'];
+      if (salonId is! int) continue;
+      final salonName = (salon['name'] ?? '').toString();
+      final branches = salon['branches'];
+      if (branches is! List || branches.isEmpty) {
+        continue;
+      }
+      for (final branchEntry in branches) {
+        if (branchEntry is! Map || branchEntry.isEmpty) continue;
+        final branch = Map<String, dynamic>.from(branchEntry);
+        final branchId = branch['id'];
+        if (branchId is! int || !seenBranchIds.add(branchId)) continue;
+        final branchName = (branch['name'] ?? '').toString();
+        options.add(
+          _BranchOption(
+            salonId: salonId,
+            salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
+            branchId: branchId,
+            branchName:
+                branchName.isEmpty ? 'Branch #$branchId' : branchName,
+            addressSummary: _branchAddressSummary(branch),
+            branch: branch,
+          ),
+        );
+      }
+    }
+    return options;
+  }
+
+  Future<void> _loadSalons() async {
+    if (mounted) {
+      setState(() {
+        _loadingSalons = true;
+        _salonError = null;
+      });
+    }
+    try {
+      final response = await ApiService().getSalonListApi();
+      if (response['success'] == true) {
+        final data = (response['data'] as List?)?.toList() ?? const [];
+        final normalized = _normalizeSalonsList(data);
+        if (!mounted) return;
+        setState(() {
+          _salons = normalized;
+          _loadingSalons = false;
+          _salonError = null;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _salons = [];
+          _loadingSalons = false;
+          _salonError = (response['message'] ??
+                  translateText('Failed to reach server'))
+              .toString();
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _salons = [];
+        _loadingSalons = false;
+        _salonError = e.toString();
+      });
+    }
   }
 
   Future<void> _resolveBranchId() async {
@@ -60,6 +165,20 @@ class _SalonReviewsState extends State<SalonReviews> {
     });
 
     await fetchReviews(id);
+  }
+
+  Future<void> _onBranchSelected(_BranchOption option) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('selected_branch_id', option.branchId);
+    await prefs.setInt('selected_salon_id', option.salonId);
+
+    if (!mounted) return;
+    setState(() {
+      _branchId = option.branchId;
+      loading = true;
+      _error = null;
+    });
+    await fetchReviews(option.branchId);
   }
 
   Future<void> fetchReviews(int branchId) async {
@@ -195,296 +314,396 @@ class _SalonReviewsState extends State<SalonReviews> {
           ),
         ),
       ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : (_branchId == null)
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Text(
-                      context.t('Select a branch to view reviews'),
-                      textAlign: TextAlign.center,
+      body: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final branchOptions = _computeBranchOptions();
+    _BranchOption? selectedOption;
+    for (final option in branchOptions) {
+      if (option.branchId == _branchId) {
+        selectedOption = option;
+        break;
+      }
+    }
+
+    final branchHint = _loadingSalons
+        ? context.t('Loading...')
+        : (branchOptions.isEmpty
+            ? context.t('No branches available')
+            : context.t('Select Branch'));
+    final List<DropdownMenuItem<int>> branchItems = branchOptions
+        .map(
+          (option) => DropdownMenuItem<int>(
+            value: option.branchId,
+            child: _BranchDropdownOption(option: option),
+          ),
+        )
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      translateText('Choose Branch'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                        fontSize: 16,
+                      ),
                     ),
+                    const Spacer(),
+                    if (_loadingSalons)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                  ],
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade300),
+                    color: Colors.grey.shade100,
                   ),
-                )
-              : (_error != null)
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              context.t('Failed to reach server'),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _error!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          ],
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      value: selectedOption?.branchId,
+                      isExpanded: true,
+                      icon: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: AppColors.starColor,
+                      ),
+                      dropdownColor: Colors.white,
+                      items: branchItems,
+                      selectedItemBuilder: branchItems.isNotEmpty
+                          ? (context) => branchOptions
+                              .map(
+                                (option) => Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: _BranchDropdownOption(
+                                    option: option,
+                                    compact: true,
+                                  ),
+                                ),
+                              )
+                              .toList()
+                          : null,
+                      onChanged: _loadingSalons || branchOptions.isEmpty
+                          ? null
+                          : (newValue) {
+                              if (newValue == null) return;
+                              final option = branchOptions.firstWhere(
+                                (element) => element.branchId == newValue,
+                              );
+                              _onBranchSelected(option);
+                            },
+                      hint: Text(
+                        branchOptions.isEmpty
+                            ? translateText('No branches available')
+                            : branchHint,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
                         ),
                       ),
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (totalReviews > 0) ...[
-                            Row(
-                              children: [
-                                Text(
-                                  overallRating.toStringAsFixed(1),
-                                  style: const TextStyle(
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    buildStars(overallRating.round()),
-                                    Text("($totalReviews Reviews)",
-                                        style:
-                                            TextStyle(color: Colors.grey[600])),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-                          ],
-                          appointmentReviews.isEmpty
-                              ? Text(
-                                  translateText("No reviews yet."),
-                                  style: const TextStyle(color: Colors.grey),
-                                )
-                              : Column(
-                                  // children: appointmentReviews.map((appt) {
-                                  //   return Card(
-                                  //     color: Colors.white,
-                                  //     margin: const EdgeInsets.only(bottom: 15),
-                                  //     child: Padding(
-                                  //       padding: const EdgeInsets.all(12),
-                                  //       child: Column(
-                                  //         crossAxisAlignment:
-                                  //             CrossAxisAlignment.start,
-                                  //         children: [
-                                  //           Text(
-                                  //             translateText(
-                                  //                 "Appointment Details"),
-                                  //             style: const TextStyle(
-                                  //                 fontWeight: FontWeight.bold,
-                                  //                 fontSize: 16),
-                                  //           ),
-                                  //           Text("${appt["client"]}"),
-                                  //           Text(
-                                  //               "Start: ${dateFormat.format(appt["startAt"])}"),
-                                  //           Text(
-                                  //               "End: ${dateFormat.format(appt["endAt"])}"),
-                                  //           const SizedBox(height: 10),
-
-                                  //           // 🏢 Branch review
-                                  //           if (appt["branchReview"] !=
-                                  //               null) ...[
-                                  //             Text(
-                                  //               translateText(
-                                  //                   "🏢 Review given for you"),
-                                  //               style: const TextStyle(
-                                  //                   fontWeight:
-                                  //                       FontWeight.w600),
-                                  //             ),
-                                  //             Row(
-                                  //               children: [
-                                  //                 buildStars(appt["branchReview"]
-                                  //                     ["rating"]),
-                                  //                 const SizedBox(width: 5),
-                                  //                 Text(
-                                  //                     "${appt["branchReview"]["rating"]}"),
-                                  //               ],
-                                  //             ),
-                                  //             if ((appt["branchReview"]
-                                  //                         ["comment"] ??
-                                  //                     "")
-                                  //                 .isNotEmpty)
-                                  //               Text(appt["branchReview"]
-                                  //                   ["comment"]),
-                                  //             // Text(
-                                  //             //     "Reviewer: ${appt["branchReview"]["reviewer"]}"),
-                                  //             // Text(
-                                  //             //     "Created At: ${dateFormat.format(appt["branchReview"]["date"])}"),
-                                  //             const Divider(),
-                                  //           ],
-
-                                  //           // 🙍 Client review
-                                  //           // if (appt["clientReview"] !=
-                                  //           //     null) ...[
-                                  //             // Text(
-                                  //             //   translateText(
-                                  //             //       "Review given by you"),
-                                  //             //   style: const TextStyle(
-                                  //             //       fontWeight:
-                                  //             //           FontWeight.w600),
-                                  //             // ),
-                                  //             // Row(
-                                  //             //   children: [
-                                  //             //     buildStars(appt["clientReview"]
-                                  //             //         ["rating"]),
-                                  //             //     const SizedBox(width: 5),
-                                  //             //     Text(
-                                  //             //         "${appt["clientReview"]["rating"]}"),
-                                  //             //   ],
-                                  //             // ),
-                                  //             // if ((appt["clientReview"]
-                                  //             //             ["comment"] ??
-                                  //             //         "")
-                                  //             //     .isNotEmpty)
-                                  //             //   Text(appt["clientReview"]
-                                  //             //       ["comment"]),
-                                  //             // Text(
-                                  //             //     "Recorded By: ${appt["clientReview"]["reviewer"]}"),
-                                  //             // Text(
-                                  //             //     "Target User: ${appt["clientReview"]["target"]}"),
-                                  //             // Text(
-                                  //             //     "Created At: ${dateFormat.format(appt["clientReview"]["date"])}"),
-                                  //             // const Divider(),
-                                  //           // ],
-
-                                  //           // 👩‍🎨 Professional reviews
-                                  //           if ((appt["professionalReviews"]
-                                  //                   as List)
-                                  //               .isNotEmpty) ...[
-                                  //             Text(
-                                  //               translateText(
-                                  //                   "Your professional"),
-                                  //               style: const TextStyle(
-                                  //                   fontWeight:
-                                  //                       FontWeight.w600),
-                                  //             ),
-                                  //             ...(appt["professionalReviews"]
-                                  //                     as List<
-                                  //                         Map<String, dynamic>>)
-                                  //                 .map((r) => Padding(
-                                  //                       padding:
-                                  //                           const EdgeInsets
-                                  //                               .only(top: 8),
-                                  //                       child: Column(
-                                  //                         crossAxisAlignment:
-                                  //                             CrossAxisAlignment
-                                  //                                 .start,
-                                  //                         children: [
-                                  //                           Text(
-                                  //                             "${r["professional"]}",
-                                  //                             style: const TextStyle(
-                                  //                                 fontWeight:
-                                  //                                     FontWeight
-                                  //                                         .bold),
-                                  //                           ),
-                                  //                           Row(
-                                  //                             children: [
-                                  //                               buildStars(
-                                  //                                   r["rating"]),
-                                  //                               const SizedBox(
-                                  //                                   width: 5),
-                                  //                               Text(
-                                  //                                   "${r["rating"]}"),
-                                  //                             ],
-                                  //                           ),
-                                  //                           if ((r["comment"] ??
-                                  //                                   "")
-                                  //                               .isNotEmpty)
-                                  //                             Text(r["comment"]),
-                                  //                           // Text(
-                                  //                           //     "Created At: ${dateFormat.format(r["date"])}"),
-                                  //                         ],
-                                  //                       ),
-                                  //                     ))
-                                  //           ]
-                                  //         ],
-                                  //       ),
-                                  //     ),
-                                  //   );
-                                  // }).toList(),
-                                  children: appointmentReviews
-      .where((appt) => appt["branchReview"] != null) // ✅ Only show cards with branchReview
-      .map((appt) {
-    return Card(
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 15),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              translateText("Appointment Details"),
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            Text("${appt["client"]}"),
-            Text("Start: ${dateFormat.format(appt["startAt"])}"),
-            Text("End: ${dateFormat.format(appt["endAt"])}"),
-            const SizedBox(height: 10),
+          ),
+        ),
+        if (_salonError != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Text(
+              _salonError!,
+              style: TextStyle(color: Colors.red.shade600, fontSize: 12),
+            ),
+          ),
+        if (selectedOption != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '- ${translateText('Salon')}: ${selectedOption.salonName}',
+                ),
+                Text(
+                  '- ${translateText('Branch')}: ${selectedOption.branchName}',
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 12),
+        Expanded(child: _buildReviewsContent(context)),
+      ],
+    );
+  }
 
-            // 🏢 Branch review
-            if (appt["branchReview"] != null) ...[
+  Widget _buildReviewsContent(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_branchId == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            context.t('Select a branch to view reviews'),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Text(
-                translateText("🏢 Review given for you"),
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                context.t('Failed to reach server'),
+                textAlign: TextAlign.center,
               ),
-              Row(
-                children: [
-                  buildStars(appt["branchReview"]["rating"]),
-                  const SizedBox(width: 5),
-                  Text("${appt["branchReview"]["rating"]}"),
-                ],
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.grey),
               ),
-              if ((appt["branchReview"]["comment"] ?? "").isNotEmpty)
-                Text(appt["branchReview"]["comment"]),
-              const Divider(),
             ],
+          ),
+        ),
+      );
+    }
 
-            // 👩‍🎨 Professional reviews
-            if ((appt["professionalReviews"] as List).isNotEmpty) ...[
-              Text(
-                translateText("Your professional"),
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              ...(appt["professionalReviews"] as List<Map<String, dynamic>>)
-                  .map((r) => Padding(
-                        padding: const EdgeInsets.only(top: 8),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (totalReviews > 0) ...[
+            Row(
+              children: [
+                Text(
+                  overallRating.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    buildStars(overallRating.round()),
+                    Text(
+                      '($totalReviews Reviews)',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+          ],
+          appointmentReviews.isEmpty
+              ? Text(
+                  translateText('No reviews yet.'),
+                  style: const TextStyle(color: Colors.grey),
+                )
+              : Column(
+                  children: appointmentReviews
+                      .where((appt) => appt['branchReview'] != null)
+                      .map((appt) {
+                    return Card(
+                      color: Colors.white,
+                      margin: const EdgeInsets.only(bottom: 15),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "${r["professional"]}",
+                              translateText('Appointment Details'),
                               style: const TextStyle(
-                                  fontWeight: FontWeight.bold),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
-                            Row(
-                              children: [
-                                buildStars(r["rating"]),
-                                const SizedBox(width: 5),
-                                Text("${r["rating"]}"),
-                              ],
-                            ),
-                            if ((r["comment"] ?? "").isNotEmpty)
-                              Text(r["comment"]),
+                            Text('${appt["client"]}'),
+                            Text('Start: ${dateFormat.format(appt["startAt"])}'),
+                            Text('End: ${dateFormat.format(appt["endAt"])}'),
+                            const SizedBox(height: 10),
+                            if (appt['branchReview'] != null) ...[
+                              Text(
+                                translateText('🏢 Review given for you'),
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              Row(
+                                children: [
+                                  buildStars(appt['branchReview']['rating']),
+                                  const SizedBox(width: 5),
+                                  Text('${appt["branchReview"]["rating"]}'),
+                                ],
+                              ),
+                              if ((appt['branchReview']['comment'] ?? '')
+                                  .isNotEmpty)
+                                Text(appt['branchReview']['comment']),
+                              const Divider(),
+                            ],
+                            if ((appt['professionalReviews'] as List).isNotEmpty)
+                              ...((appt['professionalReviews'] as List<Map<String, dynamic>>)
+                                  .map((r) => Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '${r["professional"]}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Row(
+                                              children: [
+                                                buildStars(r['rating']),
+                                                const SizedBox(width: 5),
+                                                Text('${r["rating"]}'),
+                                              ],
+                                            ),
+                                            if ((r['comment'] ?? '').isNotEmpty)
+                                              Text(r['comment']),
+                                          ],
+                                        ),
+                                      ))),
                           ],
                         ),
-                      ))
-            ]
-          ],
-        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ],
       ),
     );
-  }).toList(),
-                                )
-                        ],
-                      ),
-                    ),
+  }
+}
+
+class _BranchOption {
+  const _BranchOption({
+    required this.salonId,
+    required this.salonName,
+    required this.branchId,
+    required this.branchName,
+    required this.addressSummary,
+    required this.branch,
+  });
+
+  final int salonId;
+  final String salonName;
+  final int branchId;
+  final String branchName;
+  final String addressSummary;
+  final Map<String, dynamic> branch;
+}
+
+class _BranchDropdownOption extends StatelessWidget {
+  const _BranchDropdownOption({required this.option, this.compact = false});
+
+  final _BranchOption option;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final branchLabel = option.branchName.trim();
+    final address = option.addressSummary.trim();
+    final displayTitle =
+        branchLabel.isEmpty ? 'Branch #${option.branchId}' : branchLabel;
+
+    if (compact) {
+      return Text(
+        displayTitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Colors.black87,
+            ) ??
+            const TextStyle(fontWeight: FontWeight.w600),
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(
+            Icons.storefront,
+            color: AppColors.starColor,
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ) ??
+                    const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              if (address.isNotEmpty)
+                Text(
+                  address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.blueGrey.shade500,
+                      ) ??
+                      const TextStyle(color: Colors.blueGrey),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
