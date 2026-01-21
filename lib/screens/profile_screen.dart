@@ -386,7 +386,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       MaterialPageRoute(
                         builder: (_) => WebDocScreen(
                           title: translateText('Privacy Policy'),
-                          url: 'https://dev.glowante.com/privacy-policy',
+                          url: 'https://glowante.com/privacy-policy',
                         ),
                       ),
                     );
@@ -403,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       MaterialPageRoute(
                         builder: (_) => WebDocScreen(
                           title: translateText('Terms & Conditions'),
-                          url: 'https://dev.glowante.com/terms-of-services',
+                          url: 'https://glowante.com/terms-of-services',
                         ),
                       ),
                     );
