@@ -291,112 +291,103 @@ class _SalonAboutState extends State<SalonAbout> {
         )
         .toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      translateText('Choose Branch'),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                        fontSize: 16,
-                      ),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Row(
+                children: [
+                  Text(
+                    translateText('Choose Branch'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                      fontSize: 16,
                     ),
-                    const Spacer(),
-                    if (_loadingSalons)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                  ],
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade300),
-                    color: Colors.grey.shade100,
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<int>(
-                      value: selectedOption?.branchId,
-                      isExpanded: true,
-                      itemHeight: 60,
-                      icon: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.starColor,
-                      ),
-                      dropdownColor: Colors.white,
-                      items: branchItems,
-                      selectedItemBuilder: branchItems.isNotEmpty
-                          ? (context) => menuOptions
-                              .map(
-                                (option) => Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: _BranchDropdownOption(
-                                    option: option,
-                                    compact: true,
-                                  ),
+                  const Spacer(),
+                  if (_loadingSalons)
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                ],
+              ),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.shade300),
+                  color: Colors.grey.shade100,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: selectedOption?.branchId,
+                    isExpanded: true,
+                    itemHeight: 60,
+                    icon: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: AppColors.starColor,
+                    ),
+                    dropdownColor: Colors.white,
+                    items: branchItems,
+                    selectedItemBuilder: branchItems.isNotEmpty
+                        ? (context) => menuOptions
+                            .map(
+                              (option) => Align(
+                                alignment: Alignment.centerLeft,
+                                child: _BranchDropdownOption(
+                                  option: option,
+                                  compact: true,
                                 ),
-                              )
-                              .toList()
-                          : null,
-                      onChanged: _loadingSalons || branchOptions.isEmpty
-                          ? null
-                          : (newValue) {
-                              if (newValue == null) return;
-                              final option = branchOptions.firstWhere(
-                                (element) => element.branchId == newValue,
-                              );
-                              _onBranchSelected(option);
-                            },
-                      hint: Text(
-                        branchOptions.isEmpty
-                            ? translateText('No branches available')
-                            : branchHint,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                        ),
+                              ),
+                            )
+                            .toList()
+                        : null,
+                    onChanged: _loadingSalons || branchOptions.isEmpty
+                        ? null
+                        : (newValue) {
+                            if (newValue == null) return;
+                            final option = branchOptions.firstWhere(
+                              (element) => element.branchId == newValue,
+                            );
+                            _onBranchSelected(option);
+                          },
+                    hint: Text(
+                      branchOptions.isEmpty
+                          ? translateText('No branches available')
+                          : branchHint,
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
                       ),
                     ),
                   ),
                 ),
-              ],
+              ),
+                ],
+              ),
             ),
-          ),
+            if (_salonError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  _salonError!,
+                  style: TextStyle(color: Colors.red.shade600, fontSize: 12),
+                ),
+              ),
+            const SizedBox(height: 12),
+            Expanded(child: _buildDetailsContent(context)),
+          ],
         ),
-        if (_salonError != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text(
-              _salonError!,
-              style: TextStyle(color: Colors.red.shade600, fontSize: 12),
-            ),
-          ),
-        const SizedBox(height: 12),
-        Expanded(child: _buildDetailsContent(context)),
-      ],
+      ),
     );
   }
 
