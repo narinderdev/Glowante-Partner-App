@@ -378,21 +378,6 @@ class _SalonAboutState extends State<SalonAbout> {
               style: TextStyle(color: Colors.red.shade600, fontSize: 12),
             ),
           ),
-        if (selectedOption != null)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '- ${translateText('Salon')}: ${selectedOption.salonName}',
-                ),
-                Text(
-                  '- ${translateText('Branch')}: ${selectedOption.branchName}',
-                ),
-              ],
-            ),
-          ),
         const SizedBox(height: 12),
         Expanded(child: _buildDetailsContent(context)),
       ],
