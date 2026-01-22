@@ -27,7 +27,7 @@ class _SalonReviewsState extends State<SalonReviews> {
   int? _branchId; // ✅ Added
   String? _error; // ✅ Added
 
-  final dateFormat = DateFormat("dd MMM yyyy, HH:mm 'UTC'");
+  final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
 
   @override
   void initState() {
@@ -191,8 +191,8 @@ class _SalonReviewsState extends State<SalonReviews> {
         List<int> allRatings = [];
 
         for (var appt in appointments) {
-          final start = DateTime.parse(appt["startAt"]).toUtc();
-          final end = DateTime.parse(appt["endAt"]).toUtc();
+          final start = DateTime.parse(appt["startAt"]).toLocal();
+          final end = DateTime.parse(appt["endAt"]).toLocal();
 
           Map<String, dynamic> apptData = {
             "appointmentId": appt["appointmentId"].toString(),
@@ -214,7 +214,7 @@ class _SalonReviewsState extends State<SalonReviews> {
               "comment": r["comment"],
               "reviewer":
                   "${r["reviewer"]?["firstName"] ?? ""} ${r["reviewer"]?["lastName"] ?? ""}",
-              "date": DateTime.parse(r["createdAt"]).toUtc(),
+              "date": DateTime.parse(r["createdAt"]).toLocal(),
             };
           }
 
@@ -228,7 +228,7 @@ class _SalonReviewsState extends State<SalonReviews> {
                   "${r["recordedBy"]?["firstName"] ?? ""} ${r["recordedBy"]?["lastName"] ?? ""}",
               "target":
                   "${r["targetUser"]?["firstName"] ?? ""} ${r["targetUser"]?["lastName"] ?? ""}",
-              "date": DateTime.parse(r["createdAt"]).toUtc(),
+              "date": DateTime.parse(r["createdAt"]).toLocal(),
             };
           }
 
@@ -240,7 +240,7 @@ class _SalonReviewsState extends State<SalonReviews> {
                     "${r["professional"]?["firstName"] ?? "Unknown"} ${r["professional"]?["lastName"] ?? ""}",
                 "rating": r["rating"],
                 "comment": r["comment"],
-                "date": DateTime.parse(r["createdAt"]).toUtc(),
+                "date": DateTime.parse(r["createdAt"]).toLocal(),
               });
             }
           }
@@ -295,7 +295,7 @@ class _SalonReviewsState extends State<SalonReviews> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF2F2F2),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -327,17 +327,32 @@ class _SalonReviewsState extends State<SalonReviews> {
         break;
       }
     }
+    final List<_BranchOption> menuOptions = selectedOption == null
+        ? List<_BranchOption>.from(branchOptions)
+        : [
+            selectedOption,
+            ...branchOptions.where(
+              (option) => option.branchId != selectedOption!.branchId,
+            ),
+          ];
 
     final branchHint = _loadingSalons
         ? context.t('Loading...')
         : (branchOptions.isEmpty
             ? context.t('No branches available')
             : context.t('Select Branch'));
-    final List<DropdownMenuItem<int>> branchItems = branchOptions
+    final List<DropdownMenuItem<int>> branchItems = menuOptions
         .map(
           (option) => DropdownMenuItem<int>(
             value: option.branchId,
-            child: _BranchDropdownOption(option: option),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              color: option.branchId == selectedOption?.branchId
+                  ? const Color(0xFFE0E0E0)
+                  : Colors.transparent,
+              child: _BranchDropdownOption(option: option),
+            ),
           ),
         )
         .toList();
@@ -393,6 +408,7 @@ class _SalonReviewsState extends State<SalonReviews> {
                     child: DropdownButton<int>(
                       value: selectedOption?.branchId,
                       isExpanded: true,
+                      itemHeight: 72,
                       icon: Icon(
                         Icons.keyboard_arrow_down_rounded,
                         color: AppColors.starColor,
@@ -400,7 +416,7 @@ class _SalonReviewsState extends State<SalonReviews> {
                       dropdownColor: Colors.white,
                       items: branchItems,
                       selectedItemBuilder: branchItems.isNotEmpty
-                          ? (context) => branchOptions
+                          ? (context) => menuOptions
                               .map(
                                 (option) => Align(
                                   alignment: Alignment.centerLeft,

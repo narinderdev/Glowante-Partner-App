@@ -228,7 +228,7 @@ class _SalonAboutState extends State<SalonAbout> {
   Widget build(BuildContext context) {
     context.t(''); // register for language changes
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF2F2F2),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -261,17 +261,32 @@ class _SalonAboutState extends State<SalonAbout> {
         break;
       }
     }
+    final List<_BranchOption> menuOptions = selectedOption == null
+        ? List<_BranchOption>.from(branchOptions)
+        : [
+            selectedOption,
+            ...branchOptions.where(
+              (option) => option.branchId != selectedOption!.branchId,
+            ),
+          ];
 
     final branchHint = _loadingSalons
         ? context.t('Loading...')
         : (branchOptions.isEmpty
             ? context.t('No branches available')
             : context.t('Select Branch'));
-    final List<DropdownMenuItem<int>> branchItems = branchOptions
+    final List<DropdownMenuItem<int>> branchItems = menuOptions
         .map(
           (option) => DropdownMenuItem<int>(
             value: option.branchId,
-            child: _BranchDropdownOption(option: option),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+              color: option.branchId == selectedOption?.branchId
+                  ? const Color(0xFFE0E0E0)
+                  : Colors.transparent,
+              child: _BranchDropdownOption(option: option),
+            ),
           ),
         )
         .toList();
@@ -327,6 +342,7 @@ class _SalonAboutState extends State<SalonAbout> {
                     child: DropdownButton<int>(
                       value: selectedOption?.branchId,
                       isExpanded: true,
+                      itemHeight: 60,
                       icon: Icon(
                         Icons.keyboard_arrow_down_rounded,
                         color: AppColors.starColor,
@@ -334,7 +350,7 @@ class _SalonAboutState extends State<SalonAbout> {
                       dropdownColor: Colors.white,
                       items: branchItems,
                       selectedItemBuilder: branchItems.isNotEmpty
-                          ? (context) => branchOptions
+                          ? (context) => menuOptions
                               .map(
                                 (option) => Align(
                                   alignment: Alignment.centerLeft,
