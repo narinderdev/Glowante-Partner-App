@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:provider/provider.dart';
@@ -64,6 +65,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   DateTime _weekAnchor = DateTime.now();
   int? _userId;
   bool _isLoading = true;
+  bool _loadingDate = false;
   String? _errorMessage;
   bool _syncingV = false;
   bool _syncingH = false;
@@ -867,7 +869,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     setState(() {
       _selectedDate = normalizedDate;
       _weekAnchor = normalizedDate;
-      _isLoading = true;
+      _loadingDate = true;
       _errorMessage = null;
     });
 
@@ -906,7 +908,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _dayStart = schedule.dayStart;
       _dayEnd = schedule.dayEnd;
       _errorMessage = errorMessage;
-      _isLoading = false;
+      _loadingDate = false;
     });
   }
 
@@ -1769,65 +1771,105 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       color: Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.keyboard_double_arrow_left,
-                      color: Colors.black,
+                    child: SvgPicture.asset(
+                      'assets/images/icons/previous.svg',
+                      width: 20,
+                      height: 20,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.black,
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                 ),
                 Flexible(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: List.generate(7, (index) {
-                        final date = DateTime(
-                          _weekAnchor.year,
-                          _weekAnchor.month,
-                          _weekAnchor.day,
-                        ).add(Duration(days: index));
-                        final isSelected = _isSameDay(date, _selectedDate);
-                        final now = DateTime.now();
-                        final isToday = _isSameDay(
-                          date,
-                          DateTime(now.year, now.month, now.day),
-                        );
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IgnorePointer(
+                        ignoring: _loadingDate,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: List.generate(7, (index) {
+                              final date = DateTime(
+                                _weekAnchor.year,
+                                _weekAnchor.month,
+                                _weekAnchor.day,
+                              ).add(Duration(days: index));
+                              final isSelected =
+                                  _isSameDay(date, _selectedDate);
+                              final now = DateTime.now();
+                              final isToday = _isSameDay(
+                                date,
+                                DateTime(now.year, now.month, now.day),
+                              );
 
-                        final bgColor = isSelected
-                            ? Colors.black
-                            : (isToday
-                                ? Colors.blue.withOpacity(0.10)
-                                : Colors.grey.shade200);
-                        final textColor = isSelected
-                            ? Colors.white
-                            : (isToday ? Colors.blue : Colors.black);
+                              final bgColor = isSelected
+                                  ? Colors.black
+                                  : (isToday
+                                      ? Colors.blue.withValues(alpha: 0.10)
+                                      : Colors.grey.shade200);
+                              final textColor = isSelected
+                                  ? Colors.white
+                                  : (isToday ? Colors.blue : Colors.black);
 
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: GestureDetector(
-                            onTap: () => _setSelectedDate(date),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8,
-                                horizontal: 16,
-                              ),
-                              decoration: BoxDecoration(
-                                color: bgColor,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                DateFormat('dd MMM').format(date),
-                                style: TextStyle(
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                  color: textColor,
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                                child: GestureDetector(
+                                  onTap: () => _setSelectedDate(date),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 8,
+                                      horizontal: 16,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: bgColor,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      DateFormat('dd MMM').format(date),
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                  ),
                                 ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                      if (_loadingDate)
+                        IgnorePointer(
+                          child: Container(
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.92),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(7),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                                color: AppColors.starColor,
                               ),
                             ),
                           ),
-                        );
-                      }),
-                    ),
+                        ),
+                    ],
                   ),
                 ),
                 IconButton(
@@ -1838,9 +1880,14 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       color: Colors.grey.shade200,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.keyboard_double_arrow_right,
-                      color: Colors.black,
+                    child: SvgPicture.asset(
+                      'assets/images/icons/next.svg',
+                      width: 20,
+                      height: 20,
+                      colorFilter: const ColorFilter.mode(
+                        Colors.black,
+                        BlendMode.srcIn,
+                      ),
                     ),
                   ),
                 ),
