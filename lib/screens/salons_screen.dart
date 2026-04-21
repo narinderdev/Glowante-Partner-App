@@ -16,7 +16,12 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class SalonsScreen extends StatefulWidget {
-  const SalonsScreen({super.key});
+  const SalonsScreen({
+    super.key,
+    this.readOnly = false,
+  });
+
+  final bool readOnly;
 
   @override
   SalonsScreenState createState() => SalonsScreenState();
@@ -206,6 +211,7 @@ class SalonsScreenState extends State<SalonsScreen> {
       backgroundColor: const Color(0xFFF5F5F7),
       appBar: _SalonsAppBar(
         onAddSalon: _goToAddSalon,
+        readOnly: widget.readOnly,
         searchController: _searchController,
         onSearchChanged: _handleSearchChanged,
         onSearchTap: _collapseFab,
@@ -239,6 +245,9 @@ class SalonsScreenState extends State<SalonsScreen> {
                         totalSalons: state.salons.length,
                         visibleSalons: salons.length,
                         isLoading: state.isLoading,
+                        title: widget.readOnly
+                            ? translateText('Salons')
+                            : translateText('My Salons'),
                       ),
                     ),
                   ),
@@ -261,6 +270,7 @@ class SalonsScreenState extends State<SalonsScreen> {
                       child: _EmptySalonsView(
                         hasSearchQuery: _searchQuery.isNotEmpty,
                         onAddSalon: _goToAddSalon,
+                        readOnly: widget.readOnly,
                         onClearSearch: _clearSearch,
                       ),
                     )
@@ -284,7 +294,9 @@ class SalonsScreenState extends State<SalonsScreen> {
                               onToggle: () => context
                                   .read<SalonListCubit>()
                                   .toggleExpanded(salonId),
-                              onAddBranch: () => _goToAddBranch(salonId),
+                              onAddBranch: widget.readOnly
+                                  ? null
+                                  : () => _goToAddBranch(salonId),
                               onOpenBranch: (branchId) => _openBranchDetail(
                                 salonId: salonId,
                                 branchId: branchId,
@@ -307,89 +319,93 @@ class SalonsScreenState extends State<SalonsScreen> {
           },
         ),
       ),
-     floatingActionButton: Transform.translate(
-  offset: const Offset(0, 16), // moves it 16px down
-  child: Padding(
-    padding: const EdgeInsets.only(right: 4, bottom: 2),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 220),
-          transitionBuilder: (child, animation) {
-            final offsetAnimation = Tween<Offset>(
-              begin: const Offset(0, 0.2),
-              end: Offset.zero,
-            ).animate(animation);
-            return FadeTransition(
-              opacity: animation,
-              child: SlideTransition(
-                position: offsetAnimation,
-                child: child,
+      floatingActionButton: widget.readOnly
+          ? null
+          : Transform.translate(
+              offset: const Offset(0, 16), // moves it 16px down
+              child: Padding(
+                padding: const EdgeInsets.only(right: 4, bottom: 2),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      transitionBuilder: (child, animation) {
+                        final offsetAnimation = Tween<Offset>(
+                          begin: const Offset(0, 0.2),
+                          end: Offset.zero,
+                        ).animate(animation);
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: offsetAnimation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: fabExpanded
+                          ? KeyedSubtree(
+                              key: const ValueKey('fab-panel'),
+                              child: _FabActionPanel(
+                                key: _fabPanelKey,
+                                onTeam: () {
+                                  _collapseFab();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => TeamScreen()),
+                                  );
+                                },
+                                onDeals: () {
+                                  _collapseFab();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => DealScreen()),
+                                  );
+                                },
+                                onPackages: () {
+                                  _collapseFab();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) => PackageScreen()),
+                                  );
+                                },
+                              ),
+                            )
+                          : const SizedBox.shrink(key: ValueKey('fab-empty')),
+                    ),
+                    const SizedBox(height: 10),
+                    FloatingActionButton.extended(
+                      key: _fabKey,
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.starColor,
+                      icon: Icon(
+                        fabExpanded ? Icons.close : Icons.menu_rounded,
+                        size: 20,
+                      ),
+                      label: Text(
+                        translateText(fabExpanded ? 'Close' : 'Quick actions'),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      onPressed: () {
+                        setState(() => fabExpanded = !fabExpanded);
+                      },
+                      extendedPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      elevation: 3,
+                    ),
+                  ],
+                ),
               ),
-            );
-          },
-          child: fabExpanded
-              ? KeyedSubtree(
-                  key: const ValueKey('fab-panel'),
-                  child: _FabActionPanel(
-                    key: _fabPanelKey,
-                    onTeam: () {
-                      _collapseFab();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => TeamScreen()),
-                      );
-                    },
-                    onDeals: () {
-                      _collapseFab();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => DealScreen()),
-                      );
-                    },
-                    onPackages: () {
-                      _collapseFab();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => PackageScreen()),
-                      );
-                    },
-                  ),
-                )
-              : const SizedBox.shrink(key: ValueKey('fab-empty')),
-        ),
-        const SizedBox(height: 10),
-        FloatingActionButton.extended(
-          key: _fabKey,
-          backgroundColor: Colors.white,
-          foregroundColor: AppColors.starColor,
-          icon: Icon(
-            fabExpanded ? Icons.close : Icons.menu_rounded,
-            size: 20,
-          ),
-          label: Text(
-            translateText(fabExpanded ? 'Close' : 'Quick actions'),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
             ),
-          ),
-          onPressed: () {
-            setState(() => fabExpanded = !fabExpanded);
-          },
-          extendedPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 6,
-          ),
-          elevation: 3,
-        ),
-      ],
-    ),
-  ),
-),
-
     );
   }
 }
@@ -397,6 +413,7 @@ class SalonsScreenState extends State<SalonsScreen> {
 class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _SalonsAppBar({
     required this.onAddSalon,
+    required this.readOnly,
     required this.searchController,
     required this.onSearchChanged,
     required this.onSearchTap,
@@ -404,6 +421,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   final VoidCallback onAddSalon;
+  final bool readOnly;
   final TextEditingController searchController;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchTap;
@@ -450,7 +468,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            translateText('My Salons'),
+                            translateText(readOnly ? 'Salons' : 'My Salons'),
                             style: theme.textTheme.headlineSmall?.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w700,
@@ -475,45 +493,47 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                         ],
                       ),
                     ),
-                    ElevatedButton(
-                      onPressed: onAddSalon,
-                      style: ElevatedButton.styleFrom(
-                        elevation: 0,
-                        backgroundColor: AppColors.lightGrey,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius:
-                              BorderRadius.circular(24), // ? rounded corners
-                        ),
-                      ).copyWith(
-                        side: MaterialStateProperty.all(
-                          const BorderSide(
-                            color: AppColors.grey, // ? border color
-                            width: 1,
-                            style: BorderStyle.solid,
+                    if (!readOnly)
+                      ElevatedButton(
+                        onPressed: onAddSalon,
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: AppColors.lightGrey,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(24), // ? rounded corners
                           ),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Image.asset(
-                            "assets/images/plusIcn.png", // ? your custom plus icon
-                            width: 18,
-                            height: 18,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            translateText('Add Salon'),
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.grey, // ? matches other buttons
+                        ).copyWith(
+                          side: MaterialStateProperty.all(
+                            const BorderSide(
+                              color: AppColors.grey, // ? border color
+                              width: 1,
+                              style: BorderStyle.solid,
                             ),
                           ),
-                        ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Image.asset(
+                              "assets/images/plusIcn.png", // ? your custom plus icon
+                              width: 18,
+                              height: 18,
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              translateText('Add Salon'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color:
+                                    AppColors.grey, // ? matches other buttons
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                   ],
                 ),
                 SizedBox(height: 10),
@@ -642,11 +662,13 @@ class _SalonsOverview extends StatelessWidget {
     required this.totalSalons,
     required this.visibleSalons,
     required this.isLoading,
+    required this.title,
   });
 
   final int totalSalons;
   final int visibleSalons;
   final bool isLoading;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -660,7 +682,7 @@ class _SalonsOverview extends StatelessWidget {
             Expanded(
               child: _OverviewCard(
                 icon: Icons.store_mall_directory_outlined,
-                label: translateText('Total salons'),
+                label: title,
                 value: totalSalons.toString(),
                 highlightAccent: true,
               ),
@@ -859,11 +881,13 @@ class _EmptySalonsView extends StatelessWidget {
   const _EmptySalonsView({
     required this.hasSearchQuery,
     required this.onAddSalon,
+    required this.readOnly,
     this.onClearSearch,
   });
 
   final bool hasSearchQuery;
   final VoidCallback onAddSalon;
+  final bool readOnly;
   final VoidCallback? onClearSearch;
 
   @override
@@ -871,10 +895,14 @@ class _EmptySalonsView extends StatelessWidget {
     final theme = Theme.of(context);
     final title = hasSearchQuery
         ? 'No salons match your search'
-        : 'Create your first salon experience';
+        : (readOnly
+            ? 'No salons available'
+            : 'Create your first salon experience');
     final subtitle = hasSearchQuery
         ? 'Try adjusting filters or check the spelling to discover more results.'
-        : 'Add a salon to start managing branches, services, and teams together.';
+        : (readOnly
+            ? 'Your assigned salons will appear here.'
+            : 'Add a salon to start managing branches, services, and teams together.');
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -942,7 +970,7 @@ class _EmptySalonsView extends StatelessWidget {
                 ),
               ),
             ),
-          ] else ...[
+          ] else if (!readOnly) ...[
             SizedBox(height: 24),
             ElevatedButton(
               onPressed: onAddSalon,
@@ -1040,7 +1068,7 @@ class _SalonCard extends StatelessWidget {
     required this.salonId,
     required this.isExpanded,
     required this.onToggle,
-    required this.onAddBranch,
+    this.onAddBranch,
     required this.onOpenBranch,
   });
 
@@ -1048,7 +1076,7 @@ class _SalonCard extends StatelessWidget {
   final int salonId;
   final bool isExpanded;
   final VoidCallback onToggle;
-  final VoidCallback onAddBranch;
+  final VoidCallback? onAddBranch;
   final Future<void> Function(int branchId) onOpenBranch;
 
   int _parseId(dynamic value) {
@@ -1109,19 +1137,19 @@ class _SalonCard extends StatelessWidget {
     //     }
     //   }
     // }
-if (imageUrl == null) {
-  for (final branch in branches) {
-    final branchName = _cleanText(branch['name']).toLowerCase();
-    final salonNameLower = salonName.toLowerCase();
-    if (branchName == salonNameLower) {
-      final branchImage = _cleanText(branch['imageUrl']);
-      if (branchImage.isNotEmpty) {
-        imageUrl = branchImage;
-        break;
+    if (imageUrl == null) {
+      for (final branch in branches) {
+        final branchName = _cleanText(branch['name']).toLowerCase();
+        final salonNameLower = salonName.toLowerCase();
+        if (branchName == salonNameLower) {
+          final branchImage = _cleanText(branch['imageUrl']);
+          if (branchImage.isNotEmpty) {
+            imageUrl = branchImage;
+            break;
+          }
+        }
       }
     }
-  }
-}
 
     final borderColor = accentColor.withOpacity(0.18);
     String _norm(String s) => s.trim().toLowerCase();
@@ -1352,7 +1380,8 @@ if (imageUrl == null) {
                 : Column(
                     children: [
                       // 0 branches OR single (main) ? only CTA
-                      if (branches.isEmpty || onlyMainBranch) ...[
+                      if ((branches.isEmpty || onlyMainBranch) &&
+                          onAddBranch != null) ...[
                         Align(
                           alignment: Alignment.centerRight,
                           child: Container(
@@ -1411,51 +1440,53 @@ if (imageUrl == null) {
                           );
                         }).toList(),
 
-                        SizedBox(height: 18),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Container(
-                            margin: const EdgeInsets.only(
-                                right: 16, bottom: 16), // ? space
-                            child: OutlinedButton(
-                              onPressed: onAddBranch,
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: AppColors.white,
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 8),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      24), // ? rounded corners
-                                ),
-                                side: const BorderSide(
-                                  color: AppColors
-                                      .grey, // ? consistent border color
-                                  width: 0.5,
-                                  style: BorderStyle.solid,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Image.asset(
-                                    "assets/images/plusIcn.png", // ? custom plus icon
-                                    width: 18,
-                                    height: 18,
+                        if (onAddBranch != null) ...[
+                          SizedBox(height: 18),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Container(
+                              margin: const EdgeInsets.only(
+                                  right: 16, bottom: 16), // ? space
+                              child: OutlinedButton(
+                                onPressed: onAddBranch,
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: AppColors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        24), // ? rounded corners
                                   ),
-                                  SizedBox(width: 6),
-                                  const Text(
-                                    'Add Branch',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors
-                                          .grey, // ? same as Add Booking
+                                  side: const BorderSide(
+                                    color: AppColors
+                                        .grey, // ? consistent border color
+                                    width: 0.5,
+                                    style: BorderStyle.solid,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Image.asset(
+                                      "assets/images/plusIcn.png", // ? custom plus icon
+                                      width: 18,
+                                      height: 18,
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: 6),
+                                    const Text(
+                                      'Add Branch',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors
+                                            .grey, // ? same as Add Booking
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ],
                   ),
@@ -1668,7 +1699,7 @@ class _BranchTileState extends State<_BranchTile> {
           //               BorderSide(color: AppColors.starColor.withOpacity(0.6)),
           //         ),
           //       ),
-          //       child: 
+          //       child:
           //       Row(
           //         mainAxisSize: MainAxisSize.min,
           //         children: [
@@ -1837,6 +1868,7 @@ class _ErrorView extends StatelessWidget {
     );
   }
 }
+
 Widget _buildBranchAvatar(String? imageUrl, Color accentColor) {
   final hasImage = imageUrl != null && imageUrl.trim().isNotEmpty;
   return ClipRRect(

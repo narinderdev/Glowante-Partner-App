@@ -1,17 +1,19 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../services/language_listener.dart';
-import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../services/push_notification_service.dart';
 import '../utils/colors.dart';
-import 'Bookings.dart';
-import 'category_screen.dart';
-import 'profile_screen.dart';
-import 'salons_screen.dart';
+import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'stylist_bookings_screen.dart';
+import 'stylist_inventory_screen.dart';
+import 'stylist_profile_screen.dart';
+import 'stylist_services_screen.dart';
 
-class BottomNav extends StatefulWidget {
-  const BottomNav({
+class StylistBottomNav extends StatefulWidget {
+  const StylistBottomNav({
     super.key,
     this.tabIndex = 0,
   });
@@ -19,50 +21,56 @@ class BottomNav extends StatefulWidget {
   final int tabIndex;
 
   @override
-  State<BottomNav> createState() => _BottomNavState();
+  State<StylistBottomNav> createState() => _StylistBottomNavState();
 }
 
-class _BottomNavState extends State<BottomNav> {
+class _StylistBottomNavState extends State<StylistBottomNav> {
   late int _currentIndex;
-  late final List<Widget> _screens;
-  late final GlobalKey<SalonsScreenState> _salonsScreenKey;
+  int _servicesRefreshSignal = 0;
+  int _inventoryRefreshSignal = 0;
   StreamSubscription<BookingNotificationPayload>? _navPushSub;
 
   @override
   void initState() {
     super.initState();
-    _salonsScreenKey = GlobalKey<SalonsScreenState>();
-    _screens = [
-      const BookingsScreen(),
-      SalonsScreen(key: _salonsScreenKey),
-      const CategoryScreen(),
-      const ProfileScreen(),
-    ];
-    _currentIndex = widget.tabIndex.clamp(0, _screens.length - 1);
+    final screenCount = _buildScreens().length;
+    _currentIndex = widget.tabIndex.clamp(0, screenCount - 1);
     debugPrint(
-      '[HomeReach] Owner home shell initialized with tabIndex=$_currentIndex',
+      '[HomeReach] Stylist home shell initialized with tabIndex=$_currentIndex',
     );
 
     final pendingNotification =
         PushNotificationService.instance.pendingNavigationEvent;
     if (pendingNotification != null && pendingNotification.wasTapped) {
-      _setCurrentIndex(0, animate: false);
+      _currentIndex = 0;
     }
 
     _navPushSub =
         PushNotificationService.instance.bookingNotifications.listen((payload) {
-      if (!payload.wasTapped || !mounted) return;
-      if (_currentIndex == 0) return;
-      _setCurrentIndex(0);
+      if (!payload.wasTapped || !mounted || _currentIndex == 0) return;
+      setState(() {
+        _currentIndex = 0;
+      });
     });
   }
 
   @override
-  void didUpdateWidget(covariant BottomNav oldWidget) {
+  void didUpdateWidget(covariant StylistBottomNav oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.tabIndex != widget.tabIndex) {
-      _setCurrentIndex(widget.tabIndex.clamp(0, _screens.length - 1));
+      setState(() {
+        _currentIndex = widget.tabIndex.clamp(0, _buildScreens().length - 1);
+      });
     }
+  }
+
+  List<Widget> _buildScreens() {
+    return [
+      const StylistBookingsScreen(),
+      StylistServicesScreen(refreshSignal: _servicesRefreshSignal),
+      StylistInventoryScreen(refreshSignal: _inventoryRefreshSignal),
+      const StylistProfileScreen(),
+    ];
   }
 
   @override
@@ -71,33 +79,10 @@ class _BottomNavState extends State<BottomNav> {
     super.dispose();
   }
 
-  void _setCurrentIndex(int index, {bool animate = true}) {
-    if (_currentIndex == index && animate) {
-      if (index == 1) {
-        _salonsScreenKey.currentState?.collapseQuickActions();
-      }
-      return;
-    }
-
-    if (_currentIndex == 1) {
-      _salonsScreenKey.currentState?.collapseQuickActions();
-    }
-
-    if (mounted) {
-      setState(() {
-        _currentIndex = index;
-      });
-    } else {
-      _currentIndex = index;
-    }
-    debugPrint('[HomeReach] Owner home shell active tab=$_currentIndex');
-  }
-
   @override
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
 
-    // Build destinations dynamically based on current language
     final destinations = [
       _Destination(
         iconPath: 'assets/images/bookings.png',
@@ -105,14 +90,14 @@ class _BottomNavState extends State<BottomNav> {
         label: context.t('Bookings'),
       ),
       _Destination(
-        iconPath: 'assets/images/salon.png',
-        activeIconPath: 'assets/images/salon1.png',
-        label: context.t('Salons'),
-      ),
-      _Destination(
         iconPath: 'assets/images/service.png',
         activeIconPath: 'assets/images/service1.png',
-        label: context.t('Catalog'),
+        label: context.t('Services'),
+      ),
+      _Destination(
+        icon: Icons.inventory_2_outlined,
+        activeIcon: Icons.inventory_2_rounded,
+        label: context.t('Inventory'),
       ),
       _Destination(
         iconPath: 'assets/images/user.png',
@@ -122,18 +107,28 @@ class _BottomNavState extends State<BottomNav> {
     ];
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _buildScreens()),
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
-          child: _FloatingNavBar(
+          child: _StylistFloatingNavBar(
             destinations: destinations,
             currentIndex: _currentIndex,
-            onSelect: (index) => _setCurrentIndex(index),
+            onSelect: (index) {
+              setState(() {
+                if (index == 1) {
+                  _servicesRefreshSignal++;
+                }
+                if (index == 2) {
+                  _inventoryRefreshSignal++;
+                }
+                _currentIndex = index;
+              });
+              debugPrint(
+                '[HomeReach] Stylist home shell active tab=$_currentIndex',
+              );
+            },
           ),
         ),
       ),
@@ -141,8 +136,8 @@ class _BottomNavState extends State<BottomNav> {
   }
 }
 
-class _FloatingNavBar extends StatelessWidget {
-  const _FloatingNavBar({
+class _StylistFloatingNavBar extends StatelessWidget {
+  const _StylistFloatingNavBar({
     required this.destinations,
     required this.currentIndex,
     required this.onSelect,
@@ -154,8 +149,7 @@ class _FloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final Color primary = theme.colorScheme.primary;
+    final primary = Theme.of(context).colorScheme.primary;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -180,7 +174,7 @@ class _FloatingNavBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           for (int i = 0; i < destinations.length; i++)
-            _NavButton(
+            _StylistNavButton(
               destination: destinations[i],
               isActive: currentIndex == i,
               onTap: () => onSelect(i),
@@ -191,8 +185,8 @@ class _FloatingNavBar extends StatelessWidget {
   }
 }
 
-class _NavButton extends StatelessWidget {
-  const _NavButton({
+class _StylistNavButton extends StatelessWidget {
+  const _StylistNavButton({
     required this.destination,
     required this.isActive,
     required this.onTap,
@@ -219,11 +213,25 @@ class _NavButton extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset(
-                isActive ? destination.activeIconPath : destination.iconPath,
-                width: 24,
-                height: 24,
-              ),
+              if (destination.iconPath != null &&
+                  destination.activeIconPath != null)
+                Image.asset(
+                  isActive
+                      ? destination.activeIconPath!
+                      : destination.iconPath!,
+                  width: 24,
+                  height: 24,
+                )
+              else
+                Icon(
+                  isActive
+                      ? (destination.activeIcon ?? destination.icon)
+                      : (destination.icon ?? destination.activeIcon),
+                  size: 24,
+                  color: isActive
+                      ? AppColors.starColor
+                      : AppColors.darkGrey.withOpacity(0.6),
+                ),
               const SizedBox(height: 4),
               AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 200),
@@ -247,12 +255,16 @@ class _NavButton extends StatelessWidget {
 
 class _Destination {
   _Destination({
-    required this.iconPath,
-    required this.activeIconPath,
+    this.iconPath,
+    this.activeIconPath,
+    this.icon,
+    this.activeIcon,
     required this.label,
   });
 
-  final String iconPath;
-  final String activeIconPath;
+  final String? iconPath;
+  final String? activeIconPath;
+  final IconData? icon;
+  final IconData? activeIcon;
   final String label;
 }

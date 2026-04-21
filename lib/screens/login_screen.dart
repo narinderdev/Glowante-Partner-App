@@ -38,53 +38,53 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handlePhoneChanged() {
     final phone = phoneController.text.trim();
-    final bool isValid = RegExp(r'^\d{10}$').hasMatch(phone);
+    final bool isValid = RegExp(r'^[6-9]\d{9}$').hasMatch(phone) &&
+        !RegExp(r'^0+$').hasMatch(phone);
     if (isValid != _isContinueEnabled) {
       setState(() => _isContinueEnabled = isValid);
     }
   }
 
- Future<void> _submit() async {
-  if (_isLoading) return;
+  Future<void> _submit() async {
+    if (_isLoading) return;
 
-  final phoneNumber = phoneController.text.trim();
+    final phoneNumber = phoneController.text.trim();
 
-  // ✅ Validation checks
-  if (phoneNumber.isEmpty ||
-      phoneNumber.length != 10 ||
-      phoneNumber.startsWith('0') ||
-      RegExp(r'^0+$').hasMatch(phoneNumber)) {
+    // ✅ Validation checks
+    if (phoneNumber.isEmpty ||
+        phoneNumber.length != 10 ||
+        !RegExp(r'^[6-9]\d{9}$').hasMatch(phoneNumber) ||
+        RegExp(r'^0+$').hasMatch(phoneNumber)) {
+      setState(() {
+        _errorMessage =
+            translateText('Please enter a valid 10-digit mobile number');
+      });
+      return;
+    }
+
+    // ✅ clear error if valid
     setState(() {
-      _errorMessage = translateText('Please enter a valid 10-digit mobile number');
+      _errorMessage = null;
     });
-    return;
+
+    FocusScope.of(context).unfocus();
+    setState(() => _isLoading = true);
+
+    String? deviceToken;
+    try {
+      deviceToken = await PushNotificationService.instance.getToken();
+      print('FCM Device Token: $deviceToken');
+    } catch (error) {
+      debugPrint('Unable to fetch FCM token: $error');
+    }
+
+    context.read<AuthBloc>().add(
+          AuthLoginEvent(
+            phoneNumber: phoneNumber,
+            deviceToken: deviceToken,
+          ),
+        );
   }
-
-  // ✅ clear error if valid
-  setState(() {
-    _errorMessage = null;
-  });
-
-  FocusScope.of(context).unfocus();
-  setState(() => _isLoading = true);
-
-  String? deviceToken;
-  try {
-    deviceToken = await PushNotificationService.instance.getToken();
-    print('FCM Device Token: $deviceToken');
-  } catch (error) {
-    debugPrint('Unable to fetch FCM token: $error');
-  }
-
-  context.read<AuthBloc>().add(
-    AuthLoginEvent(
-      phoneNumber: phoneNumber,
-      deviceToken: deviceToken,
-    ),
-  );
-}
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -151,10 +151,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 6),
 
               // 🌍 Phone field with country code picker
-             // 📱 Country flag outside, code inside the input field
-Row(
-  children: [
-    // 🌍 Flag (outside input)
+              // 📱 Country flag outside, code inside the input field
+              Row(
+                children: [
+                  // 🌍 Flag (outside input)
 // Container(
 //   height: 48, // same as input
 //   width: 90,  // ✅ slightly wider for proper flag + arrow space
@@ -185,80 +185,78 @@ Row(
 //   ),
 // ),
 
+                  const SizedBox(width: 8),
 
-
-    const SizedBox(width: 8),
-
-    // 📞 TextField with code prefix inside
-    Expanded(
-      child: SizedBox(
-        height: 48,
-        child: TextField(
-          controller: phoneController,
-          keyboardType: TextInputType.phone,
-          style: const TextStyle(fontSize: 15),
-          decoration: InputDecoration(
-            prefixIcon: Padding(
-              padding: const EdgeInsets.only(left: 12, right: 8),
-              child: Text(
-                _countryCode,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black,
-                ),
+                  // 📞 TextField with code prefix inside
+                  Expanded(
+                    child: SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: phoneController,
+                        keyboardType: TextInputType.phone,
+                        style: const TextStyle(fontSize: 15),
+                        decoration: InputDecoration(
+                          prefixIcon: Padding(
+                            padding: const EdgeInsets.only(left: 12, right: 8),
+                            child: Text(
+                              _countryCode,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                          prefixIconConstraints:
+                              const BoxConstraints(minWidth: 0, minHeight: 0),
+                          hintText: translateText('Enter mobile number'),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(
+                                color: AppColors.starColor,
+                                width: 1.3), // highlight border when focused
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 14),
+                          counterText: '',
+                          errorText: phoneController.text.length > 10
+                              ? 'Phone number cannot be more than 10 digits'
+                              : null,
+                        ),
+                        maxLength: 10,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            prefixIconConstraints:
-                const BoxConstraints(minWidth: 0, minHeight: 0),
-            hintText: translateText('Enter mobile number'),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(
-                  color: AppColors.starColor,
-                  width: 1.3), // highlight border when focused
-              borderRadius: BorderRadius.circular(8),
-            ),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            counterText: '',
-            errorText: phoneController.text.length > 10
-                ? 'Phone number cannot be more than 10 digits'
-                : null,
-          ),
-          maxLength: 10,
-        ),
-      ),
-    ),
-  ],
-),
-
 
               const SizedBox(height: 10),
 // 🔴 Inline error message above Continue button
-if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
-  Text(
-    _errorMessage!,
-    style: const TextStyle(
-      color: Colors.red,
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-    ),
-    textAlign: TextAlign.center,
-  ),
-  const SizedBox(height: 10),
-],
+              if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
+                Text(
+                  _errorMessage!,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+              ],
 
               // 🔘 Continue button
               BlocListener<AuthBloc, AuthState>(
                 listener: (context, state) {
                   if (state is AuthLoginSuccess) {
                     final dynamic rawPhone = state.response['phoneNumber'];
-                    final String phoneNumber = (rawPhone is String && rawPhone.isNotEmpty)
-                        ? rawPhone
-                        : phoneController.text.trim();
+                    final String phoneNumber =
+                        (rawPhone is String && rawPhone.isNotEmpty)
+                            ? rawPhone
+                            : phoneController.text.trim();
                     setState(() => _isLoading = false);
                     Navigator.pushReplacement(
                       context,
@@ -272,9 +270,10 @@ if (_errorMessage != null && _errorMessage!.isNotEmpty) ...[
                   if (state is AuthError) {
                     setState(() => _isLoading = false);
                     final now = DateTime.now();
-                    final bool shouldShow = _lastSnackMessage != state.message ||
-                        _lastSnackTime == null ||
-                        now.difference(_lastSnackTime!) > _snackCooldown;
+                    final bool shouldShow =
+                        _lastSnackMessage != state.message ||
+                            _lastSnackTime == null ||
+                            now.difference(_lastSnackTime!) > _snackCooldown;
                     if (shouldShow) {
                       ScaffoldMessenger.of(context)
                         ..hideCurrentSnackBar()

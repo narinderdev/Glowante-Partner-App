@@ -8,13 +8,18 @@ import 'package:bloc_onboarding/repositories/salon_repository.dart'; // Import S
 import '../utils/colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
+import 'stylist_bottom_nav.dart';
 
 class UpdateUserProfileScreen extends StatefulWidget {
   final String token; // Token passed from OTP verification screen
+  final bool isStylist;
 
   // Constructor to accept the token
-  UpdateUserProfileScreen({required this.token});
+  UpdateUserProfileScreen({
+    super.key,
+    required this.token,
+    this.isStylist = false,
+  });
 
   @override
   _UpdateUserProfileScreenState createState() =>
@@ -25,15 +30,15 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   final TextEditingController firstNameController = TextEditingController();
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
-  
+
   String firstNameError = '';
   String lastNameError = '';
   String emailError = '';
-  
+
   bool isLoading = false; // Flag to show loader while updating profile
 
   // API service instance
- final ApiService apiService = ApiService();
+  final ApiService apiService = ApiService();
 
   // Function to update user profile
 //   Future<void> _updateProfile() async {
@@ -69,7 +74,6 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
 //   setState(() => emailError = 'Enter a valid email');
 //   isValid = false;
 // }
-
 
 //     if (!isValid) return; // Don't proceed if validation fails
 
@@ -143,112 +147,126 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
 //       });
 //     }
 //   }
-Future<void> _updateProfile() async {
-  String firstName = _capitalizeFirstLetter(firstNameController.text.trim());
-  String lastName = _capitalizeFirstLetter(lastNameController.text.trim());
-  String email = emailController.text.trim();
+  Future<void> _updateProfile() async {
+    String firstName = _capitalizeFirstLetter(firstNameController.text.trim());
+    String lastName = _capitalizeFirstLetter(lastNameController.text.trim());
+    String email = emailController.text.trim();
 
-  // Reset errors
-  setState(() {
-    firstNameError = '';
-    lastNameError = '';
-    emailError = '';
-  });
+    // Reset errors
+    setState(() {
+      firstNameError = '';
+      lastNameError = '';
+      emailError = '';
+    });
 
-  // Validate input
-  bool isValid = true;
+    // Validate input
+    bool isValid = true;
 
-  // ✅ First name validation
-  if (firstName.isEmpty) {
-    setState(() => firstNameError = translateText('First Name is required'));
-    isValid = false;
-  } else if (firstName.length < 2) {
-    setState(() => firstNameError = translateText('First Name must be at least 2 characters'));
-    isValid = false;
-  }
-
-  // ✅ Last name validation
-  if (lastName.isEmpty) {
-    setState(() => lastNameError = translateText('Last Name is required'));
-    isValid = false;
-  } else if (lastName.length < 2) {
-    setState(() => lastNameError = translateText('Last Name must be at least 2 characters'));
-    isValid = false;
-  }
-
-  // ✅ Email validation
-  if (email.isEmpty) {
-    setState(() => emailError = translateText('Email is required'));
-    isValid = false;
-  } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-    setState(() => emailError = translateText('Enter a valid email'));
-    isValid = false;
-  }
-
-  if (!isValid) return;
-
-  setState(() => isLoading = true);
-
-  try {
-    final response = await apiService.updateUserProfileDetails(
-      firstName,
-      lastName,
-      email,
-      widget.token,
-    );
-
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setString('firstName', firstName);
-    await prefs.setString('lastName', lastName);
-    await prefs.setString('email', email);
-    await prefs.setString('first_name', firstName);
-    await prefs.setString('last_name', lastName);
-    await prefs.setBool('profile_complete', true);
-    await prefs.setBool('profile_pending', false);
-
-    if (response['success'] == true) {
-      var userData = response['data'];
-      double? latitude = userData['latitude'] ?? 0.0;
-      double? longitude = userData['longitude'] ?? 0.0;
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => BlocProvider(
-            create: (context) => AddSalonCubit(context.read<SalonRepository>()),
-            child: AddSalonScreen(
-              id: userData['id'].toString(),
-              phoneNumber: userData['phoneNumber'],
-              fullPhoneNumber: userData['fullPhoneNumber'],
-              firstName: userData['firstName'] ?? '',
-              lastName: userData['lastName'] ?? '',
-              email: userData['email'] ?? '',
-              isProceedFrom: "onboarding",
-              buildingName: userData['buildingName'] ?? '',
-              city: userData['city'] ?? '',
-              pincode: userData['pincode'] ?? '',
-              state: userData['state'] ?? '',
-              latitude: latitude,
-              longitude: longitude,
-            ),
-          ),
-        ),
-      );
-    } else {
-      List<String> errorMessages = List<String>.from(response['message'] ?? []);
-      _showErrorDialog(errorMessages);
+    // ✅ First name validation
+    if (firstName.isEmpty) {
+      setState(() => firstNameError = translateText('First Name is required'));
+      isValid = false;
+    } else if (firstName.length < 2) {
+      setState(() => firstNameError =
+          translateText('First Name must be at least 2 characters'));
+      isValid = false;
     }
-  } catch (e) {
-    setState(() => emailError = 'Error updating profile: $e');
-  } finally {
-    setState(() => isLoading = false);
-  }
-}
 
-String _capitalizeFirstLetter(String value) {
-  if (value.isEmpty) return value;
-  return value[0].toUpperCase() + value.substring(1);
-}
+    // ✅ Last name validation
+    if (lastName.isEmpty) {
+      setState(() => lastNameError = translateText('Last Name is required'));
+      isValid = false;
+    } else if (lastName.length < 2) {
+      setState(() => lastNameError =
+          translateText('Last Name must be at least 2 characters'));
+      isValid = false;
+    }
+
+    // ✅ Email validation
+    if (email.isEmpty) {
+      setState(() => emailError = translateText('Email is required'));
+      isValid = false;
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() => emailError = translateText('Enter a valid email'));
+      isValid = false;
+    }
+
+    if (!isValid) return;
+
+    setState(() => isLoading = true);
+
+    try {
+      final response = await apiService.updateUserProfileDetails(
+        firstName,
+        lastName,
+        email,
+        widget.token,
+      );
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('firstName', firstName);
+      await prefs.setString('lastName', lastName);
+      await prefs.setString('email', email);
+      await prefs.setString('first_name', firstName);
+      await prefs.setString('last_name', lastName);
+      await prefs.setBool('profile_complete', true);
+      await prefs.setBool('profile_pending', false);
+
+      if (response['success'] == true) {
+        var userData = response['data'];
+        double? latitude = userData['latitude'] ?? 0.0;
+        double? longitude = userData['longitude'] ?? 0.0;
+
+        if (widget.isStylist) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const StylistBottomNav(tabIndex: 0),
+            ),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BlocProvider(
+                create: (context) =>
+                    AddSalonCubit(context.read<SalonRepository>()),
+                child: AddSalonScreen(
+                  id: userData['id'].toString(),
+                  phoneNumber: userData['phoneNumber'],
+                  fullPhoneNumber: userData['fullPhoneNumber'],
+                  firstName: userData['firstName'] ?? '',
+                  lastName: userData['lastName'] ?? '',
+                  email: userData['email'] ?? '',
+                  isProceedFrom: "onboarding",
+                  buildingName: userData['buildingName'] ?? '',
+                  city: userData['city'] ?? '',
+                  pincode: userData['pincode'] ?? '',
+                  state: userData['state'] ?? '',
+                  latitude: latitude,
+                  longitude: longitude,
+                ),
+              ),
+            ),
+          );
+        }
+      } else {
+        List<String> errorMessages =
+            List<String>.from(response['message'] ?? []);
+        _showErrorDialog(errorMessages);
+      }
+    } catch (e) {
+      setState(() => emailError = 'Error updating profile: $e');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  String _capitalizeFirstLetter(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
+  }
+
   // Function to show the error messages in an alert dialog
   void _showErrorDialog(List<String> errorMessages) {
     showDialog(
@@ -259,7 +277,8 @@ String _capitalizeFirstLetter(String value) {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: errorMessages
-                .map((error) => Text(error, style: TextStyle(color: Colors.red)))
+                .map(
+                    (error) => Text(error, style: TextStyle(color: Colors.red)))
                 .toList(),
           ),
           actions: [
@@ -283,7 +302,8 @@ String _capitalizeFirstLetter(String value) {
         backgroundColor: Colors.transparent,
         elevation: 0,
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: Text(translateText('Create Profile'),
+        title: Text(
+          translateText('Create Profile'),
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         flexibleSpace: Container(
@@ -296,7 +316,8 @@ String _capitalizeFirstLetter(String value) {
           ),
         ),
       ),
-      body: SingleChildScrollView(  // Wrapping the body in a SingleChildScrollView
+      body: SingleChildScrollView(
+        // Wrapping the body in a SingleChildScrollView
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 30.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,13 +336,16 @@ String _capitalizeFirstLetter(String value) {
               'lastName',
               lastNameError,
             ),
-            _buildTextField(emailController, 'Email', 'Enter your email', 'email', emailError),
+            _buildTextField(emailController, 'Email', 'Enter your email',
+                'email', emailError),
             SizedBox(height: 30),
             ElevatedButton(
-              onPressed: isLoading ? null : _updateProfile, // Disable button while loading
+              onPressed: isLoading
+                  ? null
+                  : _updateProfile, // Disable button while loading
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-    AppColors.starColor, // Use backgroundColor instead of primary
+                backgroundColor: AppColors
+                    .starColor, // Use backgroundColor instead of primary
                 minimumSize: Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -331,7 +355,8 @@ String _capitalizeFirstLetter(String value) {
                   ? CircularProgressIndicator(
                       color: Colors.white,
                     ) // Show loader when loading
-                  : Text(translateText('Create Profile'),
+                  : Text(
+                      translateText('Create Profile'),
                       style: TextStyle(color: Colors.white),
                     ),
             ),
@@ -340,120 +365,121 @@ String _capitalizeFirstLetter(String value) {
       ),
     );
   }
+
 // Custom method to build text fields with consistent stylingWidget
-Widget _buildTextField(
-  TextEditingController controller,
-  String label,
-  String hint,
-  String fieldType,
-  String fieldError,
-) {
-  final bool isNameField = fieldType == 'firstName' || fieldType == 'lastName';
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    String hint,
+    String fieldType,
+    String fieldError,
+  ) {
+    final bool isNameField =
+        fieldType == 'firstName' || fieldType == 'lastName';
 
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ValueListenableBuilder<TextEditingValue>(
-          valueListenable: controller,
-          builder: (context, value, _) {
-            final text = value.text;
-            return TextField(
-              controller: controller,
-              textInputAction: TextInputAction.next,
-              onChanged: (_) {
-                setState(() {
-                  if (fieldType == 'firstName') firstNameError = '';
-                  if (fieldType == 'lastName') lastNameError = '';
-                  if (fieldType == 'email') emailError = '';
-                });
-              },
-              keyboardType: fieldType == 'email'
-                  ? TextInputType.emailAddress
-                  : TextInputType.text,
-              inputFormatters: [
-                if (fieldType == 'email')
-                  FilteringTextInputFormatter.deny(RegExp(r'\s')),
-                if (isNameField)
-                  FilteringTextInputFormatter.allow(RegExp('[a-zA-Z ]')),
-                if (isNameField) LengthLimitingTextInputFormatter(50),
-              ],
-              textCapitalization: isNameField
-                  ? TextCapitalization.words
-                  : TextCapitalization.none,
-              // decoration: InputDecoration(
-              //   labelText: label,
-              //   hintText: hint,
-              //   counterText: '',
-              //   suffixIcon: isNameField && text.isNotEmpty
-              //       ? Padding(
-              //           padding: const EdgeInsets.only(right: 10, top: 14),
-              //           child: Text(
-              //             '${text.length}/30',
-              //             style: TextStyle(
-              //               fontSize: 12,
-              //               color: text.length >= 30
-              //                   ? Colors.red
-              //                   : Colors.grey,
-              //             ),
-              //           ),
-              //         )
-              //       : null,
-              //   border: OutlineInputBorder(
-              //     borderRadius: BorderRadius.circular(8),
-              //     borderSide: const BorderSide(color: Colors.black),
-              //   ),
-              //   focusedBorder: OutlineInputBorder(
-              //     borderRadius: BorderRadius.circular(8),
-              //     borderSide:
-              //         const BorderSide(color: Colors.black, width: 2),
-              //   ),
-              // ),
-              decoration: InputDecoration(
-  labelText: label,
-  hintText: hint,
-  counterText: '',
-  
-  // ✅ Always show counter, even when empty
-  suffixIcon: isNameField
-      ? Padding(
-          padding: const EdgeInsets.only(right: 10, top: 14),
-          child: Text(
-            '${text.length}/50',
-            style: TextStyle(
-              fontSize: 12,
-              color: text.length >= 50 ? Colors.red : Colors.grey,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              final text = value.text;
+              return TextField(
+                controller: controller,
+                textInputAction: TextInputAction.next,
+                onChanged: (_) {
+                  setState(() {
+                    if (fieldType == 'firstName') firstNameError = '';
+                    if (fieldType == 'lastName') lastNameError = '';
+                    if (fieldType == 'email') emailError = '';
+                  });
+                },
+                keyboardType: fieldType == 'email'
+                    ? TextInputType.emailAddress
+                    : TextInputType.text,
+                inputFormatters: [
+                  if (fieldType == 'email')
+                    FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                  if (isNameField)
+                    FilteringTextInputFormatter.allow(RegExp('[a-zA-Z ]')),
+                  if (isNameField) LengthLimitingTextInputFormatter(50),
+                ],
+                textCapitalization: isNameField
+                    ? TextCapitalization.words
+                    : TextCapitalization.none,
+                // decoration: InputDecoration(
+                //   labelText: label,
+                //   hintText: hint,
+                //   counterText: '',
+                //   suffixIcon: isNameField && text.isNotEmpty
+                //       ? Padding(
+                //           padding: const EdgeInsets.only(right: 10, top: 14),
+                //           child: Text(
+                //             '${text.length}/30',
+                //             style: TextStyle(
+                //               fontSize: 12,
+                //               color: text.length >= 30
+                //                   ? Colors.red
+                //                   : Colors.grey,
+                //             ),
+                //           ),
+                //         )
+                //       : null,
+                //   border: OutlineInputBorder(
+                //     borderRadius: BorderRadius.circular(8),
+                //     borderSide: const BorderSide(color: Colors.black),
+                //   ),
+                //   focusedBorder: OutlineInputBorder(
+                //     borderRadius: BorderRadius.circular(8),
+                //     borderSide:
+                //         const BorderSide(color: Colors.black, width: 2),
+                //   ),
+                // ),
+                decoration: InputDecoration(
+                  labelText: label,
+                  hintText: hint,
+                  counterText: '',
+
+                  // ✅ Always show counter, even when empty
+                  suffixIcon: isNameField
+                      ? Padding(
+                          padding: const EdgeInsets.only(right: 10, top: 14),
+                          child: Text(
+                            '${text.length}/50',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color:
+                                  text.length >= 50 ? Colors.red : Colors.grey,
+                            ),
+                          ),
+                        )
+                      : null,
+
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide:
+                        const BorderSide(color: AppColors.getStartedButton),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                        color: AppColors.getStartedButton, width: 2),
+                  ),
+                ),
+              );
+            },
+          ),
+          if (fieldError.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              fieldError,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
             ),
-          ),
-        )
-      : null,
-  
-  border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(8),
-    borderSide: const BorderSide(color: AppColors.getStartedButton),
-  ),
-  focusedBorder: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(8),
-    borderSide: const BorderSide(color: AppColors.getStartedButton, width: 2),
-  ),
-),
-
-            );
-          },
-        ),
-        if (fieldError.isNotEmpty) ...[
-          const SizedBox(height: 5),
-          Text(
-            fieldError,
-            style:
-                const TextStyle(color: Colors.red, fontSize: 12),
-          ),
+          ],
         ],
-      ],
-    ),
-  );
-}
-
-
+      ),
+    );
+  }
 }

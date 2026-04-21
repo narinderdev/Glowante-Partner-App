@@ -1,4 +1,4 @@
-﻿// Md is deleting from here now
+// Md is deleting from here now
 import 'dart:async';
 import 'dart:convert'; // NEW
 import 'package:flutter/gestures.dart';
@@ -17,15 +17,20 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
-
 class BookingsScreen extends StatefulWidget {
-  const BookingsScreen({super.key});
+  const BookingsScreen({
+    super.key,
+    this.isStylist = false,
+  });
+
+  final bool isStylist;
 
   @override
   _BookingsScreenState createState() => _BookingsScreenState();
 }
- const double _colWidth = 140;
-  const double _rowHeight = 44.0;
+
+const double _colWidth = 140;
+const double _rowHeight = 44.0;
 // top-level constants (outside any class)
 const String _kSalonsCacheKey = 'salons_cache_v1';
 String _branchCacheKey(int id) => 'branch_cache_v1_$id';
@@ -141,10 +146,11 @@ class _BookingsScreenState extends State<BookingsScreen> {
     }
     return '';
   }
-int get _totalColumns {
-  if (teamMembers.isEmpty) return 3;              // always show 5
-  return teamMembers.length < 3 ? 3 : teamMembers.length; 
-}
+
+  int get _totalColumns {
+    if (teamMembers.isEmpty) return 3; // always show 5
+    return teamMembers.length < 3 ? 3 : teamMembers.length;
+  }
 
   List<_BranchOption> _computeBranchOptions() {
     final options = <_BranchOption>[];
@@ -207,89 +213,90 @@ int get _totalColumns {
       firstOption.branch,
     );
   }
-@override
-void initState() {
-  super.initState();
 
-  _bookingPushSub = PushNotificationService.instance.bookingNotifications
-      .listen((payload) {
-    unawaited(_handleBookingNotification(payload));
-  });
+  @override
+  void initState() {
+    super.initState();
 
-  final pendingNotification =
-      PushNotificationService.instance.takePendingNavigationEvent();
-  if (pendingNotification != null) {
+    _bookingPushSub =
+        PushNotificationService.instance.bookingNotifications.listen((payload) {
+      unawaited(_handleBookingNotification(payload));
+    });
+
+    final pendingNotification =
+        PushNotificationService.instance.takePendingNavigationEvent();
+    if (pendingNotification != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_handleBookingNotification(pendingNotification));
+      });
+    }
+
+    _weekAnchor = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+    );
+
+    _bootstrap(); // your existing bootstrap
+    getSalonListApi(); // load salons
+    _loadCachedSelectionAndFetch(); // ?? new helper
+
+    // scroll sync setup...
+    _timeColumnVController.addListener(() {
+      if (_syncingV) return;
+      _syncingV = true;
+      if (_gridVController.hasClients) {
+        final off = _timeColumnVController.offset;
+        if ((_gridVController.offset - off).abs() > 0.5) {
+          _gridVController.jumpTo(off);
+        }
+      }
+      _syncingV = false;
+    });
+    _gridVController.addListener(() {
+      if (_syncingV) return;
+      _syncingV = true;
+      if (_timeColumnVController.hasClients) {
+        final off = _gridVController.offset;
+        if ((_timeColumnVController.offset - off).abs() > 0.5) {
+          _timeColumnVController.jumpTo(off);
+        }
+      }
+      _syncingV = false;
+    });
+
+    _headerHController.addListener(() {
+      if (_syncingH) return;
+      _syncingH = true;
+      if (_gridHController.hasClients) {
+        final off = _headerHController.offset;
+        if ((_gridHController.offset - off).abs() > 0.5) {
+          _gridHController.jumpTo(off);
+        }
+      }
+      _syncingH = false;
+    });
+    _gridHController.addListener(() {
+      if (_syncingH) return;
+      _syncingH = true;
+      if (_headerHController.hasClients) {
+        final off = _gridHController.offset;
+        if ((_headerHController.offset - off).abs() > 0.5) {
+          _headerHController.jumpTo(off);
+        }
+      }
+      _syncingH = false;
+    });
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_handleBookingNotification(pendingNotification));
+      if (_timeColumnVController.hasClients && _gridVController.hasClients) {
+        _gridVController.jumpTo(_timeColumnVController.offset);
+      }
+      if (_headerHController.hasClients && _gridHController.hasClients) {
+        _gridHController.jumpTo(_headerHController.offset);
+      }
     });
   }
-
-  _weekAnchor = DateTime(
-    selectedDate.year,
-    selectedDate.month,
-    selectedDate.day,
-  );
-
-  _bootstrap();        // your existing bootstrap
-  getSalonListApi();   // load salons
-  _loadCachedSelectionAndFetch(); // ?? new helper
-
-  // scroll sync setup...
-  _timeColumnVController.addListener(() {
-    if (_syncingV) return;
-    _syncingV = true;
-    if (_gridVController.hasClients) {
-      final off = _timeColumnVController.offset;
-      if ((_gridVController.offset - off).abs() > 0.5) {
-        _gridVController.jumpTo(off);
-      }
-    }
-    _syncingV = false;
-  });
-  _gridVController.addListener(() {
-    if (_syncingV) return;
-    _syncingV = true;
-    if (_timeColumnVController.hasClients) {
-      final off = _gridVController.offset;
-      if ((_timeColumnVController.offset - off).abs() > 0.5) {
-        _timeColumnVController.jumpTo(off);
-      }
-    }
-    _syncingV = false;
-  });
-
-  _headerHController.addListener(() {
-    if (_syncingH) return;
-    _syncingH = true;
-    if (_gridHController.hasClients) {
-      final off = _headerHController.offset;
-      if ((_gridHController.offset - off).abs() > 0.5) {
-        _gridHController.jumpTo(off);
-      }
-    }
-    _syncingH = false;
-  });
-  _gridHController.addListener(() {
-    if (_syncingH) return;
-    _syncingH = true;
-    if (_headerHController.hasClients) {
-      final off = _gridHController.offset;
-      if ((_headerHController.offset - off).abs() > 0.5) {
-        _headerHController.jumpTo(off);
-      }
-    }
-    _syncingH = false;
-  });
-
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (_timeColumnVController.hasClients && _gridVController.hasClients) {
-      _gridVController.jumpTo(_timeColumnVController.offset);
-    }
-    if (_headerHController.hasClients && _gridHController.hasClients) {
-      _gridHController.jumpTo(_headerHController.offset);
-    }
-  });
-}
 
   // @override
   // void initState() {
@@ -379,36 +386,40 @@ void initState() {
     final onlyDate = DateTime(d.year, d.month, d.day);
     return onlyDate.subtract(Duration(days: diff));
   }
-Future<void> _loadCachedSelectionAndFetch() async {
-  final prefs = await SharedPreferences.getInstance();
-  final cachedBranchId = prefs.getInt('selected_branch_id');
-  final cachedSalonId = prefs.getInt('selected_salon_id');
 
-  if (cachedBranchId != null && cachedSalonId != null) {
-    // get branch data (from salon list or API)
-    final branchData = await _loadBranchData(cachedBranchId);
+  Future<void> _loadCachedSelectionAndFetch() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cachedBranchId = prefs.getInt('selected_branch_id');
+    final cachedSalonId = prefs.getInt('selected_salon_id');
 
-    if (branchData != null) {
-      print('[Bookings] Restoring cached branch=$cachedBranchId salon=$cachedSalonId');
-      await onBranchChanged(cachedBranchId, cachedSalonId, branchData);
+    if (cachedBranchId != null && cachedSalonId != null) {
+      // get branch data (from salon list or API)
+      final branchData = _loadBranchData(cachedBranchId);
+
+      if (branchData != null) {
+        print(
+            '[Bookings] Restoring cached branch=$cachedBranchId salon=$cachedSalonId');
+        await onBranchChanged(cachedBranchId, cachedSalonId, branchData);
+      } else {
+        print(
+            '[Bookings] No branchData found for cached branch=$cachedBranchId');
+      }
     } else {
-      print('[Bookings] No branchData found for cached branch=$cachedBranchId');
+      print('[Bookings] No cached branch selection found.');
     }
-  } else {
-    print('[Bookings] No cached branch selection found.');
   }
-}
-Map<String, dynamic>? _loadBranchData(int branchId) {
-  for (final salon in salons) {
-    final branches = salon['branches'] as List? ?? [];
-    for (final branch in branches) {
-      if (branch is Map && branch['id'] == branchId) {
-        return Map<String, dynamic>.from(branch);
+
+  Map<String, dynamic>? _loadBranchData(int branchId) {
+    for (final salon in salons) {
+      final branches = salon['branches'] as List? ?? [];
+      for (final branch in branches) {
+        if (branch is Map && branch['id'] == branchId) {
+          return Map<String, dynamic>.from(branch);
+        }
       }
     }
+    return null;
   }
-  return null;
-}
 
   void changeWeek(bool isNext) {
     setState(() {
@@ -602,44 +613,44 @@ Map<String, dynamic>? _loadBranchData(int branchId) {
   //   }
   // }
 
-Future<void> getSalonListApi() async {
-  try {
-    final response = await ApiService().getSalonListApi();
-    if (response['success'] == true) {
-      final data = (response['data'] as List?)?.toList() ?? <dynamic>[];
-      final normalized = _normalizeSalonsList(data);
+  Future<void> getSalonListApi() async {
+    try {
+      final response = await ApiService().getSalonListApi();
+      if (response['success'] == true) {
+        final data = (response['data'] as List?)?.toList() ?? <dynamic>[];
+        final normalized = _normalizeSalonsList(data);
 
-      if (!mounted) {
-        salons = normalized;
-        return;
+        if (!mounted) {
+          salons = normalized;
+          return;
+        }
+
+        setState(() {
+          salons = normalized;
+          isLoading = false;
+        });
+
+        _ensureBranchSelection();
+        _processQueuedBookingNotificationIfAny();
+        await _saveSalonsToCache();
+
+        // ?? Restore cached branch + fetch appointments automatically
+        await _loadCachedSelectionAndFetch();
+      } else {
+        throw Exception("Failed to fetch salon list");
       }
-
-      setState(() {
-        salons = normalized;
-        isLoading = false;
-      });
-
-      _ensureBranchSelection();
-      _processQueuedBookingNotificationIfAny();
-      await _saveSalonsToCache();
-
-      // ?? Restore cached branch + fetch appointments automatically
-      await _loadCachedSelectionAndFetch();
-
-    } else {
-      throw Exception("Failed to fetch salon list");
-    }
-  } catch (e) {
-    print("Error fetching salon list: $e");
-    if (mounted) {
-      setState(() {
-        isLoading = false;
-      });
-      _ensureBranchSelection();
-      _processQueuedBookingNotificationIfAny();
+    } catch (e) {
+      print("Error fetching salon list: $e");
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        _ensureBranchSelection();
+        _processQueuedBookingNotificationIfAny();
+      }
     }
   }
-}
+
   List<String> generateTimeSlots(String startTime, String endTime) {
     List<String> timeSlots = [];
 
@@ -651,8 +662,8 @@ Future<void> getSalonListApi() async {
     DateTime effectiveEnd = end.subtract(const Duration(minutes: 15));
 
     // Add time slots up to and including effectiveEnd
-    while (start.isBefore(effectiveEnd) ||
-        start.isAtSameMomentAs(effectiveEnd)) {
+    while (
+        start.isBefore(effectiveEnd) || start.isAtSameMomentAs(effectiveEnd)) {
       timeSlots.add(DateFormat("h:mm a").format(start));
       start = start.add(const Duration(minutes: 15));
     }
@@ -667,15 +678,20 @@ Future<void> getSalonListApi() async {
       ).format(date); // Format date
       ApiService apiService = ApiService();
 
-      final response = await apiService.fetchAppointments(
-        branchId,
-        formattedDate,
-      );
+      final response = widget.isStylist
+          ? await apiService.fetchMyAppointments(branchId)
+          : await apiService.fetchAppointments(
+              branchId,
+              formattedDate,
+            );
 
       if (response != null &&
           response['success'] == true &&
           response['data'] != null) {
         List<dynamic> appointments = response['data'];
+        if (widget.isStylist) {
+          appointments = _filterAppointmentsForDate(appointments, date);
+        }
 
         // Try to fetch branch working hours from the payload (fallback-safe)
         String startTime = _branchStartTimeStr ?? '08:00:00';
@@ -715,6 +731,34 @@ Future<void> getSalonListApi() async {
     } catch (e) {
       print('Error fetching bookings: $e');
     }
+  }
+
+  List<dynamic> _filterAppointmentsForDate(
+      List<dynamic> appointments, DateTime date) {
+    bool matchesDate(Map<String, dynamic> appointment) {
+      final DateTime? bookingStart =
+          _parseLocal(appointment['startAt']?.toString());
+      if (bookingStart != null && isSameDay(bookingStart, date)) {
+        return true;
+      }
+
+      final items = (appointment['items'] as List?) ?? const [];
+      for (final rawItem in items) {
+        if (rawItem is! Map) continue;
+        final item = Map<String, dynamic>.from(rawItem);
+        final DateTime? itemStart = _parseLocal(item['startAt']?.toString());
+        if (itemStart != null && isSameDay(itemStart, date)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    return appointments
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .where(matchesDate)
+        .toList();
   }
 
   // Count status by items (so counts match blocks in grid)
@@ -776,20 +820,18 @@ Future<void> getSalonListApi() async {
   }
 
   // Safely parse ISO string to local DateTime
- DateTime? _parseLocal(String? iso) {
-  if (iso == null) return null;
-  try {
-    return DateTime.parse(iso).toLocal(); // force IST/local
-  } catch (_) {
-    return null;
+  DateTime? _parseLocal(String? iso) {
+    if (iso == null) return null;
+    try {
+      return DateTime.parse(iso).toLocal(); // force IST/local
+    } catch (_) {
+      return null;
+    }
   }
-}
-
 
   // Find staff column index for a booking item by matching user id
   int _findMemberColumnForItem(Map<String, dynamic> item) {
-    final dynamic userId =
-        item['assignedUserBranch']?['user']?['id'] ??
+    final dynamic userId = item['assignedUserBranch']?['user']?['id'] ??
         item['assignedUserBranch']?['userId'] ??
         item['user']?['id'] ??
         item['userId'];
@@ -800,43 +842,43 @@ Future<void> getSalonListApi() async {
     });
     return idx;
   }
-List<Widget> _buildBackgroundGrid(int slotCount) {
-  final List<Widget> widgets = [];
 
-  // Horizontal row backgrounds
-  for (int r = 0; r < slotCount; r++) {
-    widgets.add(
-      Positioned(
-        top: r * _rowHeight,
-        left: 0,
-        right: 0,
-        height: _rowHeight,
-        child: Container(
-          decoration: BoxDecoration(
-            color: r % 2 == 0 ? Colors.white : const Color(0xFFF9F9F9),
-            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+  List<Widget> _buildBackgroundGrid(int slotCount) {
+    final List<Widget> widgets = [];
+
+    // Horizontal row backgrounds
+    for (int r = 0; r < slotCount; r++) {
+      widgets.add(
+        Positioned(
+          top: r * _rowHeight,
+          left: 0,
+          right: 0,
+          height: _rowHeight,
+          child: Container(
+            decoration: BoxDecoration(
+              color: r % 2 == 0 ? Colors.white : const Color(0xFFF9F9F9),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }
+
+    // Vertical column separators
+    for (int c = 1; c < _totalColumns; c++) {
+      widgets.add(
+        Positioned(
+          top: 0,
+          bottom: 0,
+          left: c * _colWidth - 1,
+          width: 1,
+          child: Container(color: Colors.grey.shade300),
+        ),
+      );
+    }
+
+    return widgets;
   }
-
-  // Vertical column separators
-for (int c = 1; c < _totalColumns; c++) {
-  widgets.add(
-    Positioned(
-      top: 0,
-      bottom: 0,
-      left: c * _colWidth - 1,
-      width: 1,
-      child: Container(color: Colors.grey.shade300),
-    ),
-  );
-}
-
-
-  return widgets;
-}
 
   String _fmtTimeRange(DateTime s, DateTime e) {
     final f = DateFormat('h:mma');
@@ -883,8 +925,7 @@ for (int c = 1; c < _totalColumns; c++) {
         final int col = _findMemberColumnForItem(item);
         if (col < 0) continue;
 
-        final staffUserId =
-            item['assignedUserBranch']?['user']?['id'] ??
+        final staffUserId = item['assignedUserBranch']?['user']?['id'] ??
             item['assignedUserBranch']?['userId'] ??
             item['user']?['id'] ??
             item['userId'];
@@ -1030,236 +1071,248 @@ for (int c = 1; c < _totalColumns; c++) {
     return segments;
   }
 
-void _openAppointmentModal({
-  required Map<String, dynamic> bookingOrSeg,
-  required List<Map<String, dynamic>> items,
-}) {
-  final String status = _normalizeStatus(bookingOrSeg['status']);
-  final String customerName = bookingOrSeg['customerName'] as String? ?? 'Customer';
-  final int? priceTotal = bookingOrSeg['priceTotal'] as int?;
-  final String timeRange = _fmtTimeRange(
-    bookingOrSeg['start'] as DateTime,
-    bookingOrSeg['end'] as DateTime,
-  );
+  void _openAppointmentModal({
+    required Map<String, dynamic> bookingOrSeg,
+    required List<Map<String, dynamic>> items,
+  }) {
+    final String status = _normalizeStatus(bookingOrSeg['status']);
+    final String customerName =
+        bookingOrSeg['customerName'] as String? ?? 'Customer';
+    final int? priceTotal = bookingOrSeg['priceTotal'] as int?;
+    final String timeRange = _fmtTimeRange(
+      bookingOrSeg['start'] as DateTime,
+      bookingOrSeg['end'] as DateTime,
+    );
 
-  final List<int> apptIds = items
-      .map((it) => it['appointmentId'] as int?)
-      .whereType<int>()
-      .toSet()
-      .toList()
-    ..sort();
+    final List<int> apptIds = items
+        .map((it) => it['appointmentId'] as int?)
+        .whereType<int>()
+        .toSet()
+        .toList()
+      ..sort();
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (_, setSheetState) {
-          return FractionallySizedBox(
-            heightFactor: 0.60,
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-
-                    // ? Header
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                customerName,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (_, setSheetState) {
+            return FractionallySizedBox(
+              heightFactor: 0.60,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ? Header
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  customerName,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
+                                SizedBox(height: 2),
+                                Text(
+                                  translateText("Customer"),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: status == 'PENDING'
+                                  ? Colors.blue.withOpacity(0.1)
+                                  : status == 'CONFIRMED'
+                                      ? Colors.pink
+                                          .withOpacity(0.2) // ? pink background
+                                      : status == 'IN_PROGRESS'
+                                          ? Colors.orange.withOpacity(0.2)
+                                          : Colors.grey.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: status == 'PENDING'
+                                    ? Colors.blue
+                                    : status == 'CONFIRMED'
+                                        ? Colors.black // ? force black text
+                                        : status == 'IN_PROGRESS'
+                                            ? Colors.black
+                                            : Colors.black54,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const Divider(
+                          height: 12, thickness: 0.8, color: Color(0xFFE0E0E0)),
+
+                      // ? Time + price
+                      Text(timeRange,
+                          style: const TextStyle(color: Colors.black54)),
+                      if (priceTotal != null) ...[
+                        SizedBox(height: 4),
+                        Text('Total Price: ₹ $priceTotal',
+                            style: const TextStyle(color: Colors.black87)),
+                      ],
+
+                      SizedBox(height: 12),
+
+                      // ? Assigned To
+                      Text(translateText("Assigned To"),
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black54)),
+                      SizedBox(height: 4),
+                      Text(
+                        _buildStylistName(items), // <-- helper inline below
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+
+                      SizedBox(height: 12),
+
+                      // ? Services list
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, i) {
+                            final it = items[i];
+                            final String name =
+                                (it['service']?.toString() ?? 'Service');
+                            final int? priceMinor = it['priceMinor'] as int?;
+                            final String priceText =
+                                priceMinor != null ? '₹$priceMinor' : '';
+                            final String range = _fmtTimeRange(
+                              it['start'] as DateTime,
+                              it['end'] as DateTime,
+                            );
+
+                            return ListTile(
+                              dense: true,
+                              title: Text(
+                                name,
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              SizedBox(height: 2),
-                              Text(translateText("Customer"),
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
+                              subtitle: Text(range),
+                              trailing: priceText.isNotEmpty
+                                  ? Text(priceText,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600))
+                                  : null,
+                            );
+                          },
                         ),
-                      Container(
-  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-  decoration: BoxDecoration(
-    color: status == 'PENDING'
-        ? Colors.blue.withOpacity(0.1)
-        : status == 'CONFIRMED'
-            ? Colors.pink.withOpacity(0.2)   // ? pink background
-            : status == 'IN_PROGRESS'
-                ? Colors.orange.withOpacity(0.2)
-                : Colors.grey.withOpacity(0.2),
-    borderRadius: BorderRadius.circular(20),
-  ),
-  child: Text(
-    status,
-    style: TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.w600,
-      color: status == 'PENDING'
-          ? Colors.blue
-          : status == 'CONFIRMED'
-              ? Colors.black   // ? force black text
-              : status == 'IN_PROGRESS'
-                  ? Colors.black
-                  : Colors.black54,
-    ),
-  ),
-),
+                      ),
 
-                      ],
-                    ),
-
-                    const Divider(height: 12, thickness: 0.8, color: Color(0xFFE0E0E0)),
-
-                    // ? Time + price
-                    Text(timeRange, style: const TextStyle(color: Colors.black54)),
-                    if (priceTotal != null) ...[
-                      SizedBox(height: 4),
-                      Text('Total Price: ₹ $priceTotal',
-                          style: const TextStyle(color: Colors.black87)),
+                      // ? Action buttons
+                      SizedBox(height: 12),
+                      _buildActionButton(status, apptIds, setSheetState),
                     ],
-
-                    SizedBox(height: 12),
-
-                    // ? Assigned To
-                    Text(translateText("Assigned To"),
-                        style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
-                    SizedBox(height: 4),
-                    Text(
-                      _buildStylistName(items), // <-- helper inline below
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
-                    ),
-
-                    SizedBox(height: 12),
-
-                    // ? Services list
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: items.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, i) {
-                          final it = items[i];
-                          final String name =
-                              (it['service']?.toString() ?? 'Service');
-                          final int? priceMinor = it['priceMinor'] as int?;
-                          final String priceText =
-                              priceMinor != null ? '₹$priceMinor' : '';
-                          final String range = _fmtTimeRange(
-                            it['start'] as DateTime,
-                            it['end'] as DateTime,
-                          );
-
-                          return ListTile(
-                            dense: true,
-                            title: Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(range),
-                            trailing: priceText.isNotEmpty
-                                ? Text(priceText,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600))
-                                : null,
-                          );
-                        },
-                      ),
-                    ),
-
-                    // ? Action buttons
-                    SizedBox(height: 12),
-                    _buildActionButton(status, apptIds, setSheetState),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-Widget _buildActionButton(String status, List<int> apptIds, void Function(void Function()) setSheetState) {
-  if (status == 'PENDING') {
-    return ElevatedButton(
-      onPressed: () {
-        // handle confirm here
+            );
+          },
+        );
       },
-      child: Text(translateText('Confirm')),
-    );
-  } else if (status == 'CONFIRMED') {
-    return ElevatedButton(
-      onPressed: () {
-        // handle start job here
-      },
-      child: Text(translateText('Start Job')),
-    );
-  } else if (status == 'IN_PROGRESS') {
-    return ElevatedButton(
-      onPressed: () {
-        // handle complete here
-      },
-      child: Text(translateText('Complete Job')),
-    );
-  } else {
-    return ElevatedButton(
-      onPressed: null,
-      child: Text(status),
     );
   }
-}
+
+  Widget _buildActionButton(String status, List<int> apptIds,
+      void Function(void Function()) setSheetState) {
+    if (status == 'PENDING') {
+      return ElevatedButton(
+        onPressed: () {
+          // handle confirm here
+        },
+        child: Text(translateText('Confirm')),
+      );
+    } else if (status == 'CONFIRMED') {
+      return ElevatedButton(
+        onPressed: () {
+          // handle start job here
+        },
+        child: Text(translateText('Start Job')),
+      );
+    } else if (status == 'IN_PROGRESS') {
+      return ElevatedButton(
+        onPressed: () {
+          // handle complete here
+        },
+        child: Text(translateText('Complete Job')),
+      );
+    } else {
+      return ElevatedButton(
+        onPressed: null,
+        child: Text(status),
+      );
+    }
+  }
 
 // Helper inline just for stylist
-String _buildStylistName(List<Map<String, dynamic>> items) {
-  String _formatUserName(dynamic rawUser) {
-    if (rawUser is Map<String, dynamic>) {
-      final first = rawUser['firstName']?.toString() ?? '';
-      final last = rawUser['lastName']?.toString() ?? '';
-      final full = '$first $last'.trim();
-      if (full.isNotEmpty) return full;
-      final fallback = rawUser['name']?.toString();
-      if (fallback != null && fallback.isNotEmpty) return fallback;
+  String _buildStylistName(List<Map<String, dynamic>> items) {
+    String _formatUserName(dynamic rawUser) {
+      if (rawUser is Map<String, dynamic>) {
+        final first = rawUser['firstName']?.toString() ?? '';
+        final last = rawUser['lastName']?.toString() ?? '';
+        final full = '$first $last'.trim();
+        if (full.isNotEmpty) return full;
+        final fallback = rawUser['name']?.toString();
+        if (fallback != null && fallback.isNotEmpty) return fallback;
+      }
+      return translateText('N/A');
     }
-    return translateText('N/A');
+
+    final stylistNames = items
+        .map((it) {
+          final aub = it['assignedUserBranch'] as Map<String, dynamic>?;
+          final rawUser = aub?['user'] ?? it['user'];
+          return _formatUserName(rawUser);
+        })
+        .where((n) => n != 'N/A')
+        .toSet()
+        .toList();
+
+    return stylistNames.isEmpty
+        ? 'N/A'
+        : stylistNames.length == 1
+            ? stylistNames.first
+            : stylistNames.join(', ');
   }
-
-  final stylistNames = items.map((it) {
-    final aub = it['assignedUserBranch'] as Map<String, dynamic>?;
-    final rawUser = aub?['user'] ?? it['user'];
-    return _formatUserName(rawUser);
-  }).where((n) => n != 'N/A').toSet().toList();
-
-  return stylistNames.isEmpty
-      ? 'N/A'
-      : stylistNames.length == 1
-          ? stylistNames.first
-          : stylistNames.join(', ');
-}
 
   List<Widget> _buildBookingBlocks() {
     if (bookings.isEmpty || timeSlots.isEmpty) return const <Widget>[];
@@ -1295,9 +1348,8 @@ String _buildStylistName(List<Map<String, dynamic>> items) {
       final String customerName = seg['customerName'] as String? ?? 'Customer';
       final List<String> services = List<String>.from(seg['services'] as List);
       final int moreCount = (services.length > 1) ? services.length - 1 : 0;
-      final String headService = services.isNotEmpty
-          ? services.first
-          : 'Service';
+      final String headService =
+          services.isNotEmpty ? services.first : 'Service';
       final int? priceTotal = seg['priceTotal'] as int?;
       final String priceText = priceTotal != null ? '₹$priceTotal' : '';
       final String timeRange = _fmtTimeRange(s, e);
@@ -1316,10 +1368,11 @@ String _buildStylistName(List<Map<String, dynamic>> items) {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () {
-               if (segItems.isNotEmpty) {
-  final b = segItems.first['booking'] as Map<String, dynamic>;
-  _openAppointmentSheet(b, null); // pass null for multi-service blocks
-}
+                if (segItems.isNotEmpty) {
+                  final b = segItems.first['booking'] as Map<String, dynamic>;
+                  _openAppointmentSheet(
+                      b, null); // pass null for multi-service blocks
+                }
               },
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -1405,219 +1458,226 @@ String _buildStylistName(List<Map<String, dynamic>> items) {
 
     return blocks;
   }
-Future<Map<String, dynamic>?> _getFeedbackFromUser(
-  BuildContext context,
-  String customerName,
-  List<Map<String, dynamic>> services,
-) async {
-  int rating = 0;
-  final commentCtrl = TextEditingController();
 
-  return await showModalBottomSheet<Map<String, dynamic>>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (c) {
-      return StatefulBuilder(
-        builder: (c, setFBState) {
-          final bottomInset = MediaQuery.of(c).viewInsets.bottom;
-          final canSubmit = rating > 0 && commentCtrl.text.trim().isNotEmpty;
+  Future<Map<String, dynamic>?> _getFeedbackFromUser(
+    BuildContext context,
+    String customerName,
+    List<Map<String, dynamic>> services,
+  ) async {
+    int rating = 0;
+    final commentCtrl = TextEditingController();
 
-          Widget _star(int i) => IconButton(
-                icon: Icon(
-                  i <= rating ? Icons.star : Icons.star_border,
-                  color: AppColors.starColor,
-                  size: 32,
-                ),
-                onPressed: () => setFBState(() => rating = i),
-              );
-
-          return FractionallySizedBox(
-            heightFactor: 0.75, // Taller like your screenshot
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: 16,
-                      right: 16,
-                      top: 24,
-                      bottom: 16 + bottomInset,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header: Avatar + Name + Subtitle
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: AppColors.lightGray,
-                              child: Text(
-                                customerName.isNotEmpty
-                                    ? customerName[0]
-                                    : "?",
-                                style: const TextStyle(
-                                  color: AppColors.starColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  customerName,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color:AppColors.starColor,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                Text(translateText("Customer Review"),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.starColor,
-                                  ),
-                                ),
-                              ],
-                            )
-                          ],
-                        ),
-
-                        SizedBox(height: 20),
-
-                        // Rating stars
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(5, (i) => _star(i + 1)),
-                        ),
-
-                        SizedBox(height: 16),
-
-                        // Comment input
-                        Text(translateText("Add detailed review"),
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        SizedBox(height: 6),
-                        TextField(
-                          controller: commentCtrl,
-                          maxLines: 1,
-                          onChanged: (_) => setFBState(() {}),
-                          decoration: InputDecoration(
-                            hintText: translateText("Share your experience with this customer..."),
-                            filled: true,
-                            fillColor: Color(0xFFF9FAFB),
-                            border: OutlineInputBorder(
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(8)),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-
-                        SizedBox(height: 20),
-
-                        // Services list
-                        Text(translateText("Services Provided"),
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        SizedBox(height: 8),
-                        Expanded(
-                          child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: services.length,
-                            itemBuilder: (_, i) {
-                              final s = services[i];
-                              return Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 6),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(s["name"] ?? "-"),
-                                    Text(
-                                      s["time"] ?? "-",
-                                      style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.black54),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-
-                        SizedBox(height: 20),
-
-                        // Submit button
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: canSubmit
-                                ? () {
-                                    Navigator.pop<Map<String, dynamic>>(c, {
-                                      "rating": rating,
-                                      "comment": commentCtrl.text.trim(),
-                                    });
-                                  }
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.starColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: Text(translateText("Submit Review"),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                 Positioned(
-      top: -50,
-      left: 0,
-      right: 0,
-      child: Center(
-        child: GestureDetector(
-          onTap: () => Navigator.of(c).pop(),
-          child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: const BoxDecoration(
-              color: Colors.black,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.close, color: Colors.white, size: 22),
-          ),
-        ),
+    return await showModalBottomSheet<Map<String, dynamic>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-    ),
-                ],
+      builder: (c) {
+        return StatefulBuilder(
+          builder: (c, setFBState) {
+            final bottomInset = MediaQuery.of(c).viewInsets.bottom;
+            final canSubmit = rating > 0 && commentCtrl.text.trim().isNotEmpty;
+
+            Widget _star(int i) => IconButton(
+                  icon: Icon(
+                    i <= rating ? Icons.star : Icons.star_border,
+                    color: AppColors.starColor,
+                    size: 32,
+                  ),
+                  onPressed: () => setFBState(() => rating = i),
+                );
+
+            return FractionallySizedBox(
+              heightFactor: 0.75, // Taller like your screenshot
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.only(
+                        left: 16,
+                        right: 16,
+                        top: 24,
+                        bottom: 16 + bottomInset,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header: Avatar + Name + Subtitle
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: AppColors.lightGray,
+                                child: Text(
+                                  customerName.isNotEmpty
+                                      ? customerName[0]
+                                      : "?",
+                                  style: const TextStyle(
+                                    color: AppColors.starColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    customerName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      color: AppColors.starColor,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Text(
+                                    translateText("Customer Review"),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.starColor,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            ],
+                          ),
+
+                          SizedBox(height: 20),
+
+                          // Rating stars
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(5, (i) => _star(i + 1)),
+                          ),
+
+                          SizedBox(height: 16),
+
+                          // Comment input
+                          Text(
+                            translateText("Add detailed review"),
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          SizedBox(height: 6),
+                          TextField(
+                            controller: commentCtrl,
+                            maxLines: 1,
+                            onChanged: (_) => setFBState(() {}),
+                            decoration: InputDecoration(
+                              hintText: translateText(
+                                  "Share your experience with this customer..."),
+                              filled: true,
+                              fillColor: Color(0xFFF9FAFB),
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(8)),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(height: 20),
+
+                          // Services list
+                          Text(
+                            translateText("Services Provided"),
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          SizedBox(height: 8),
+                          Expanded(
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: services.length,
+                              itemBuilder: (_, i) {
+                                final s = services[i];
+                                return Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 6),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(s["name"] ?? "-"),
+                                      Text(
+                                        s["time"] ?? "-",
+                                        style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.black54),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                          SizedBox(height: 20),
+
+                          // Submit button
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: canSubmit
+                                  ? () {
+                                      Navigator.pop<Map<String, dynamic>>(c, {
+                                        "rating": rating,
+                                        "comment": commentCtrl.text.trim(),
+                                      });
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.starColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              child: Text(
+                                translateText("Submit Review"),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      top: -50,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () => Navigator.of(c).pop(),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: const BoxDecoration(
+                              color: Colors.black,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.close,
+                                color: Colors.white, size: 22),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _openAppointmentSheet(
     Map<String, dynamic> booking,
@@ -1629,11 +1689,11 @@ Future<Map<String, dynamic>?> _getFeedbackFromUser(
     bool loadingCancel = false;
     bool loadingStart = false;
     bool loadingComplete = false;
-final customer = booking['user'] as Map<String, dynamic>?;
-final customerName = [
-  customer?['firstName']?.toString() ?? '',
-  customer?['lastName']?.toString() ?? '',
-].where((s) => s.isNotEmpty).join(' ').trim();
+    final customer = booking['user'] as Map<String, dynamic>?;
+    final customerName = [
+      customer?['firstName']?.toString() ?? '',
+      customer?['lastName']?.toString() ?? '',
+    ].where((s) => s.isNotEmpty).join(' ').trim();
 
     showModalBottomSheet(
       context: context,
@@ -1647,8 +1707,7 @@ final customerName = [
         return StatefulBuilder(
           builder: (context, setModalState) {
             final List rawItems = (booking['items'] as List?) ?? const [];
-            final Map<String, dynamic>? useItem =
-                item ??
+            final Map<String, dynamic>? useItem = item ??
                 (rawItems.isNotEmpty
                     ? rawItems.first as Map<String, dynamic>
                     : null);
@@ -1664,48 +1723,49 @@ final customerName = [
 
             final String headerTitle;
             if (hasMultipleServices && serviceItems.isNotEmpty) {
-              final firstName =
-                  serviceItems.first['branchService']?['displayName']
+              final firstName = serviceItems.first['branchService']
+                          ?['displayName']
                       ?.toString() ??
                   'Service';
               headerTitle = '$firstName + ${serviceItems.length - 1} more';
             } else if (useItem != null) {
               headerTitle =
                   useItem['branchService']?['displayName']?.toString() ??
-                  'Appointment';
+                      'Appointment';
             } else if (serviceItems.isNotEmpty) {
-              headerTitle =
-                  serviceItems.first['branchService']?['displayName']
+              headerTitle = serviceItems.first['branchService']?['displayName']
                       ?.toString() ??
                   'Appointment';
             } else {
               headerTitle = 'Appointment';
             }
 
-          String formatUserName(dynamic rawUser) {
-  if (rawUser is Map) {
-    final first = rawUser['firstName']?.toString() ?? '';
-    final last = rawUser['lastName']?.toString() ?? '';
-    final combined = '$first $last'.trim();
-    return combined.isNotEmpty ? combined : (rawUser['name']?.toString() ?? '');
-  }
-  return '';
-}
+            String formatUserName(dynamic rawUser) {
+              if (rawUser is Map) {
+                final first = rawUser['firstName']?.toString() ?? '';
+                final last = rawUser['lastName']?.toString() ?? '';
+                final combined = '$first $last'.trim();
+                return combined.isNotEmpty
+                    ? combined
+                    : (rawUser['name']?.toString() ?? '');
+              }
+              return '';
+            }
 
-final staffNames = serviceItems
-    .map((svc) => formatUserName(
-          svc['assignedUserBranch']?['user'] ?? svc['user'],
-        ))
-    .where((n) => n.isNotEmpty)
-    .toSet()
-    .toList();
+            final staffNames = serviceItems
+                .map((svc) => formatUserName(
+                      svc['assignedUserBranch']?['user'] ?? svc['user'],
+                    ))
+                .where((n) => n.isNotEmpty)
+                .toSet()
+                .toList();
 
-final String stylist = staffNames.isEmpty
-    ? 'N/A'
-    : staffNames.length == 1
-        ? staffNames.first
-        : staffNames.join(', '); // ?? show all instead of just "Multiple"
-
+            final String stylist = staffNames.isEmpty
+                ? 'N/A'
+                : staffNames.length == 1
+                    ? staffNames.first
+                    : staffNames
+                        .join(', '); // ?? show all instead of just "Multiple"
 
             int _toInt(dynamic value) {
               if (value is int) return value;
@@ -1717,17 +1777,17 @@ final String stylist = staffNames.isEmpty
             final double serviceListMaxHeight = serviceItems.isEmpty
                 ? 0
                 : (serviceItems.length > 4
-                      ? 320.0
-                      : serviceItems.length * 72.0);
+                    ? 320.0
+                    : serviceItems.length * 72.0);
 
-        // Always take booking-level start and end
-final start = _parseLocal(booking['startAt']);
-final end   = _parseLocal(booking['endAt']);
+            // Always take booking-level start and end
+            final start = _parseLocal(booking['startAt']);
+            final end = _parseLocal(booking['endAt']);
 
-final DateFormat timeFormatter = DateFormat('h:mm a');
-final String timeStr = (start != null && end != null)
-    ? "${timeFormatter.format(start)} - ${timeFormatter.format(end)}"
-    : '';
+            final DateFormat timeFormatter = DateFormat('h:mm a');
+            final String timeStr = (start != null && end != null)
+                ? "${timeFormatter.format(start)} - ${timeFormatter.format(end)}"
+                : '';
 
             // final DateFormat timeFormatter = DateFormat('h:mm a');
             // final String timeStr = start != null && end != null
@@ -1744,9 +1804,8 @@ final String timeStr = (start != null && end != null)
             //     ? 'Multiple team members'
             //     : (primaryStylistName.isNotEmpty ? primaryStylistName : 'N/A');
 
-            final int durationMinutes = useItem != null
-                ? _toInt(useItem['durationMin'])
-                : 0;
+            final int durationMinutes =
+                useItem != null ? _toInt(useItem['durationMin']) : 0;
             final String duration = !hasMultipleServices && durationMinutes > 0
                 ? '$durationMinutes min'
                 : '';
@@ -1760,12 +1819,12 @@ final String timeStr = (start != null && end != null)
             );
             final String singleServicePrice =
                 !hasMultipleServices && singleServicePriceMinor > 0
-                ? '?$singleServicePriceMinor'
-                : '';
+                    ? '?$singleServicePriceMinor'
+                    : '';
             final String totalPrice =
                 hasMultipleServices && aggregatedPriceMinor > 0
-                ? '₹$aggregatedPriceMinor'
-                : '';
+                    ? '₹$aggregatedPriceMinor'
+                    : '';
 
             Future<void> onConfirm() async {
               if (selectedBranchId == null) return;
@@ -1800,227 +1859,251 @@ final String timeStr = (start != null && end != null)
                 );
               }
             }
-Future<void> onStartJob() async {
-  if (selectedBranchId == null || loadingStart) return;
 
-  await showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (dialogCtx) {
-      String otp = "";
-      String errorMessage = "";
-      bool isSubmitting = false;
-      bool hasError = false;
+            Future<void> onStartJob() async {
+              if (selectedBranchId == null || loadingStart) return;
 
-      return StatefulBuilder(
-        builder: (dialogCtx, setDialogState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            title: Text(translateText("Enter OTP"),
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            content: SizedBox(
-              width: 350, // fixed modal width
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-           PinCodeTextField(
-  appContext: dialogCtx,
-  length: 6,
-  autoDismissKeyboard: true,
-  keyboardType: TextInputType.number,
-  animationType: AnimationType.fade,
-  pinTheme: PinTheme(
-    shape: PinCodeFieldShape.box,
-    borderRadius: BorderRadius.circular(8),
-    fieldHeight: 55,
-    fieldWidth: 45,
-    activeFillColor: Colors.white,
-    selectedFillColor: Colors.white,
-    inactiveFillColor: Colors.white,
+              await showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (dialogCtx) {
+                  String otp = "";
+                  String errorMessage = "";
+                  bool isSubmitting = false;
+                  bool hasError = false;
 
-    // ?? Dynamic colors based on hasError
-    activeColor: hasError ? Colors.red : AppColors.starColor,
-    selectedColor: hasError ? Colors.red : AppColors.starColor,
-    inactiveColor: hasError ? Colors.red : AppColors.starColor,
-    errorBorderColor: Colors.red,
-  ),
-  enableActiveFill: true,
-  onChanged: (value) {
-    otp = value;
-    setDialogState(() {
-      hasError = false; // reset error when typing again
-    });
-  },
-),
-
-
-                  // ?? Inline error under OTP field
-                  if (errorMessage.isNotEmpty) ...[
-                    SizedBox(height: 8),
-                    Text(
-                      errorMessage,
-                      style: const TextStyle(color: Colors.red, fontSize: 13),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogCtx),
-                child: Text(translateText("Cancel")),
-              ),
-              ElevatedButton(
-                onPressed: isSubmitting
-                    ? null
-                    : () async {
-                        if (otp.length != 6) {
-                          setDialogState(() {
-                            errorMessage = translateText("Enter valid 6-digit OTP");
-                              hasError = true; 
-                          });
-                          return;
-                        }
-
-                        setDialogState(() {
-                          isSubmitting = true;
-                          errorMessage = "";
-                        });
-
-                        Map<String, dynamic>? resp;
-                        try {
-                          resp = await ApiService.startAppointment(
-                            branchId: selectedBranchId!,
-                            appointmentId: booking['id'] as int,
-                            otp: otp,
-                          );
-                        } catch (e) {
-                          setDialogState(() {
-                            isSubmitting = false;
-                            errorMessage = translateText("Failed to reach server");
-                          });
-                          return;
-                        }
-
-                        final success = resp['success'] == true;
-                        final message = resp['message']?.toString() ??
-                            (success ? 'Job started' : 'Invalid OTP');
-
-                        setDialogState(() => isSubmitting = false);
-
-                        if (!success) {
-                          // ? Show inline error
-                          setDialogState(() {
-                            errorMessage = message;
-                             hasError = true;
-                          });
-                          return;
-                        }
-
-                        // ? Success
-                        Navigator.pop(dialogCtx);
-                        final newStatus = _normalizeStatus(
-                          resp['data']?['status'] ?? 'IN_PROGRESS',
-                        );
-                        setModalState(() {
-                          statusUpper = newStatus;
-                          booking['status'] = newStatus;
-                        });
-
-                        await getBookingsByDate(selectedBranchId!, selectedDate);
-
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text(message)),
-                          );
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.starColor,
-                ),
-                child: isSubmitting
-                    ? SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+                  return StatefulBuilder(
+                    builder: (dialogCtx, setDialogState) {
+                      return AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                      )
-                    : Text(translateText("Submit")),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
-Future<void> onCompleteJob() async {
-  if (selectedBranchId == null) return;
+                        title: Text(
+                          translateText("Enter OTP"),
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        content: SizedBox(
+                          width: 350, // fixed modal width
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              PinCodeTextField(
+                                appContext: dialogCtx,
+                                length: 6,
+                                autoDismissKeyboard: true,
+                                keyboardType: TextInputType.number,
+                                animationType: AnimationType.fade,
+                                pinTheme: PinTheme(
+                                  shape: PinCodeFieldShape.box,
+                                  borderRadius: BorderRadius.circular(8),
+                                  fieldHeight: 55,
+                                  fieldWidth: 45,
+                                  activeFillColor: Colors.white,
+                                  selectedFillColor: Colors.white,
+                                  inactiveFillColor: Colors.white,
 
-  // Extract customer name
-  final user = booking['user'] as Map<String, dynamic>?;
-  final customerName =
-      "${user?['firstName'] ?? ''} ${user?['lastName'] ?? ''}".trim();
+                                  // ?? Dynamic colors based on hasError
+                                  activeColor: hasError
+                                      ? Colors.red
+                                      : AppColors.starColor,
+                                  selectedColor: hasError
+                                      ? Colors.red
+                                      : AppColors.starColor,
+                                  inactiveColor: hasError
+                                      ? Colors.red
+                                      : AppColors.starColor,
+                                  errorBorderColor: Colors.red,
+                                ),
+                                enableActiveFill: true,
+                                onChanged: (value) {
+                                  otp = value;
+                                  setDialogState(() {
+                                    hasError =
+                                        false; // reset error when typing again
+                                  });
+                                },
+                              ),
 
-  // Build services list
-  final items = booking['items'] as List<dynamic>? ?? [];
-  final services = items.map((it) {
-    final serviceName = it['branchService']?['displayName']?.toString() ?? "Service";
-    final startAt = DateTime.tryParse(it['startAt']?.toString() ?? "");
-    final timeText = startAt != null
-        ? DateFormat('hh:mm a').format(startAt)
-        : "";
-    return {
-      "name": serviceName,
-      "time": timeText,
-    };
-  }).toList();
+                              // ?? Inline error under OTP field
+                              if (errorMessage.isNotEmpty) ...[
+                                SizedBox(height: 8),
+                                Text(
+                                  errorMessage,
+                                  style: const TextStyle(
+                                      color: Colors.red, fontSize: 13),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogCtx),
+                            child: Text(translateText("Cancel")),
+                          ),
+                          ElevatedButton(
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    if (otp.length != 6) {
+                                      setDialogState(() {
+                                        errorMessage = translateText(
+                                            "Enter valid 6-digit OTP");
+                                        hasError = true;
+                                      });
+                                      return;
+                                    }
 
-  // Ask user for feedback
-  final feedback = await _getFeedbackFromUser(context, customerName, services);
-  if (feedback == null) return; // user cancelled
+                                    setDialogState(() {
+                                      isSubmitting = true;
+                                      errorMessage = "";
+                                    });
 
-  final int rating = feedback['rating'] as int;
-  final String comment = feedback['comment'] as String;
+                                    Map<String, dynamic>? resp;
+                                    try {
+                                      resp = await ApiService.startAppointment(
+                                        branchId: selectedBranchId!,
+                                        appointmentId: booking['id'] as int,
+                                        otp: otp,
+                                      );
+                                    } catch (e) {
+                                      setDialogState(() {
+                                        isSubmitting = false;
+                                        errorMessage = translateText(
+                                            "Failed to reach server");
+                                      });
+                                      return;
+                                    }
 
-  // COMPLETE API
-  setModalState(() => loadingComplete = true);
-  final resp = await ApiService().completeAppointment(
-    branchId: selectedBranchId!,
-    appointmentId: booking['id'] as int,
-    rating: rating,
-    comment: comment,
-  );
-  setModalState(() => loadingComplete = false);
+                                    final success = resp['success'] == true;
+                                    final message =
+                                        resp['message']?.toString() ??
+                                            (success
+                                                ? 'Job started'
+                                                : 'Invalid OTP');
 
-  // Handle result
-  if (resp['success'] == true) {
-    final newStatus = _normalizeStatus(
-      resp['data']?['status'] ?? 'COMPLETED',
-    );
-    setModalState(() {
-      statusUpper = newStatus;
-    });
+                                    setDialogState(() => isSubmitting = false);
 
-    await getBookingsByDate(selectedBranchId!, selectedDate);
+                                    if (!success) {
+                                      // ? Show inline error
+                                      setDialogState(() {
+                                        errorMessage = message;
+                                        hasError = true;
+                                      });
+                                      return;
+                                    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(resp['message']?.toString() ?? 'Appointment completed'),
-      ),
-    );
-  } else {
-    final msg = (resp['message']?.toString().isNotEmpty ?? false)
-        ? resp['message'].toString()
-        : 'Failed to complete appointment';
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-}
+                                    // ? Success
+                                    Navigator.pop(dialogCtx);
+                                    final newStatus = _normalizeStatus(
+                                      resp['data']?['status'] ?? 'IN_PROGRESS',
+                                    );
+                                    setModalState(() {
+                                      statusUpper = newStatus;
+                                      booking['status'] = newStatus;
+                                    });
+
+                                    await getBookingsByDate(
+                                        selectedBranchId!, selectedDate);
+
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(content: Text(message)),
+                                      );
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.starColor,
+                            ),
+                            child: isSubmitting
+                                ? SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(translateText("Submit")),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              );
+            }
+
+            Future<void> onCompleteJob() async {
+              if (selectedBranchId == null) return;
+
+              // Extract customer name
+              final user = booking['user'] as Map<String, dynamic>?;
+              final customerName =
+                  "${user?['firstName'] ?? ''} ${user?['lastName'] ?? ''}"
+                      .trim();
+
+              // Build services list
+              final items = booking['items'] as List<dynamic>? ?? [];
+              final services = items.map((it) {
+                final serviceName =
+                    it['branchService']?['displayName']?.toString() ??
+                        "Service";
+                final startAt =
+                    DateTime.tryParse(it['startAt']?.toString() ?? "");
+                final timeText = startAt != null
+                    ? DateFormat('hh:mm a').format(startAt)
+                    : "";
+                return {
+                  "name": serviceName,
+                  "time": timeText,
+                };
+              }).toList();
+
+              // Ask user for feedback
+              final feedback =
+                  await _getFeedbackFromUser(context, customerName, services);
+              if (feedback == null) return; // user cancelled
+
+              final int rating = feedback['rating'] as int;
+              final String comment = feedback['comment'] as String;
+
+              // COMPLETE API
+              setModalState(() => loadingComplete = true);
+              final resp = await ApiService().completeAppointment(
+                branchId: selectedBranchId!,
+                appointmentId: booking['id'] as int,
+                rating: rating,
+                comment: comment,
+              );
+              setModalState(() => loadingComplete = false);
+
+              // Handle result
+              if (resp['success'] == true) {
+                final newStatus = _normalizeStatus(
+                  resp['data']?['status'] ?? 'COMPLETED',
+                );
+                setModalState(() {
+                  statusUpper = newStatus;
+                });
+
+                await getBookingsByDate(selectedBranchId!, selectedDate);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        resp['message']?.toString() ?? 'Appointment completed'),
+                  ),
+                );
+              } else {
+                final msg = (resp['message']?.toString().isNotEmpty ?? false)
+                    ? resp['message'].toString()
+                    : 'Failed to complete appointment';
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(msg)));
+              }
+            }
 
             return FractionallySizedBox(
               heightFactor: 0.70,
@@ -2039,216 +2122,249 @@ Future<void> onCompleteJob() async {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            children: [],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              SizedBox(height: 4),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Customer name + subtitle
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          customerName.isNotEmpty
+                                              ? customerName
+                                              : 'Customer',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        SizedBox(height: 2),
+                                        Text(
+                                          translateText('Customer'),
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Status badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: statusUpper == 'PENDING'
+                                          ? Colors.blue.shade100
+                                          : statusUpper == 'CONFIRMED'
+                                              ? Colors.pink.shade100
+                                              : statusUpper == 'IN_PROGRESS'
+                                                  ? AppColors.inProgressStatus
+                                                  : statusUpper == 'COMPLETED'
+                                                      ? Colors.green
+                                                          .shade100 // ? light green bg
+                                                      : Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      statusUpper,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: statusUpper == 'PENDING'
+                                            ? Colors.black
+                                            : statusUpper == 'CONFIRMED'
+                                                ? Colors.black
+                                                : statusUpper == 'IN_PROGRESS'
+                                                    ? Colors.black
+                                                    : statusUpper == 'COMPLETED'
+                                                        ? Colors
+                                                            .black // ? black text
+                                                        : Colors.black54,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 12),
+
+                              // Row: Date + Time
+                              const Divider(
+                                // ?? thin line between items
+                                height: 12,
+                                thickness: 0.8,
+                                color: Color(0xFFE0E0E0), // light grey
+                              ),
+                              if (start != null || timeStr.isNotEmpty)
+                                Row(
+                                  children: [
+                                    if (start != null)
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              translateText('Date'),
+                                              style: TextStyle(
+                                                color: Colors.black54,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              DateFormat('EEE, dd MMM yyyy')
+                                                  .format(start),
+                                              style: const TextStyle(
+                                                  color: Colors.black87),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (timeStr.isNotEmpty)
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              translateText('Time'),
+                                              style: TextStyle(
+                                                color: Colors.black54,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              timeStr,
+                                              style: const TextStyle(
+                                                  color: Colors.black87),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+
+                              SizedBox(height: 12),
+
+                              // Row: Duration + Price
+                              if (duration.isNotEmpty ||
+                                  totalPrice.isNotEmpty ||
+                                  singleServicePrice.isNotEmpty)
+                                Row(
+                                  children: [
+                                    if (duration.isNotEmpty)
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              translateText('Duration'),
+                                              style: TextStyle(
+                                                color: Colors.black54,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              duration,
+                                              style: const TextStyle(
+                                                  color: Colors.black87),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (!hasMultipleServices &&
+                                        singleServicePrice.isNotEmpty)
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              translateText('Total Price'),
+                                              style: TextStyle(
+                                                color: Colors.black54,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              singleServicePrice,
+                                              style: const TextStyle(
+                                                  color: Colors.black87),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (hasMultipleServices &&
+                                        totalPrice.isNotEmpty)
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              translateText('Total Price'),
+                                              style: TextStyle(
+                                                color: Colors.black54,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              totalPrice,
+                                              style: const TextStyle(
+                                                  color: Colors.black87),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+
+                              SizedBox(height: 12),
+
+                              // Assigned To
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    translateText('Assigned To'),
+                                    style: TextStyle(
+                                      color: Colors.black54,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    stylist,
+                                    style:
+                                        const TextStyle(color: Colors.black87),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
-                       Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    SizedBox(height: 4),Row(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    // Customer name + subtitle
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            customerName.isNotEmpty ? customerName : 'Customer',
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-          SizedBox(height: 2),
-          Text(translateText('Customer'),
-            style: TextStyle(
-  fontSize: 13,
-              color: Colors.black54,
-            ),
-          ),
-        ],
-      ),
-    ),
-
-    // Status badge
-   Container(
-  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-  decoration: BoxDecoration(
-    color: statusUpper == 'PENDING'
-        ? Colors.blue.shade100
-        : statusUpper == 'CONFIRMED'
-            ? Colors.pink.shade100
-            : statusUpper == 'IN_PROGRESS'
-                ? AppColors.inProgressStatus
-                : statusUpper == 'COMPLETED'
-                    ? Colors.green.shade100   // ? light green bg
-                    : Colors.grey.shade300,
-    borderRadius: BorderRadius.circular(12),
-  ),
-  child: Text(
-    statusUpper,
-    style: TextStyle(
-      fontSize: 12,
-      color: statusUpper == 'PENDING'
-          ? Colors.black
-          : statusUpper == 'CONFIRMED'
-              ? Colors.black
-              : statusUpper == 'IN_PROGRESS'
-                  ?  Colors.black
-                  : statusUpper == 'COMPLETED'
-                      ? Colors.black   // ? black text
-                      : Colors.black54,
-    ),
-  ),
-),
-
-  ],
-),
-SizedBox(height: 12),
-
-    // Row: Date + Time
-    const Divider( // ?? thin line between items
-      height: 12,
-      thickness: 0.8,
-      color: Color(0xFFE0E0E0), // light grey
-    ),
-    if (start != null || timeStr.isNotEmpty)
-      Row(
-        children: [
-          if (start != null)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(translateText('Date'),
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    DateFormat('EEE, dd MMM yyyy').format(start),
-                    style: const TextStyle(color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
-          if (timeStr.isNotEmpty)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(translateText('Time'),
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    timeStr,
-                    style: const TextStyle(color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-
-    SizedBox(height: 12),
-
-    // Row: Duration + Price
-    if (duration.isNotEmpty || totalPrice.isNotEmpty || singleServicePrice.isNotEmpty)
-      Row(
-        children: [
-          if (duration.isNotEmpty)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(translateText('Duration'),
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    duration,
-                    style: const TextStyle(color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
-          if (!hasMultipleServices && singleServicePrice.isNotEmpty)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(translateText('Total Price'),
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    singleServicePrice,
-                    style: const TextStyle(color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
-          if (hasMultipleServices && totalPrice.isNotEmpty)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(translateText('Total Price'),
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    totalPrice,
-                    style: const TextStyle(color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-
-    SizedBox(height: 12),
-
-    // Assigned To
-    Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(translateText('Assigned To'),
-          style: TextStyle(
-            color: Colors.black54,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          stylist,
-          style: const TextStyle(color: Colors.black87),
-        ),
-      ],
-    ),
-  ],
-),
-const Divider( // ?? thin line between items
-      height: 12,
-      thickness: 0.8,
-      color: Color(0xFFE0E0E0), // light grey
-    ),
+                          const Divider(
+                            // ?? thin line between items
+                            height: 12,
+                            thickness: 0.8,
+                            color: Color(0xFFE0E0E0), // light grey
+                          ),
                           if (serviceItems.isNotEmpty) ...[
                             SizedBox(height: 12),
-                            Text(translateText('Services'),
-                              style: TextStyle( color: Colors.black54,
-            fontWeight: FontWeight.bold,),
+                            Text(
+                              translateText('Services'),
+                              style: TextStyle(
+                                color: Colors.black54,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             SizedBox(height: 6),
                             ConstrainedBox(
@@ -2263,22 +2379,21 @@ const Divider( // ?? thin line between items
                                     const Divider(height: 12),
                                 itemBuilder: (_, idx) {
                                   final serviceItem = serviceItems[idx];
-                                  final DateTime? itemStart =
-                                      _parseLocal(
+                                  final DateTime? itemStart = _parseLocal(
                                         serviceItem['startAt']?.toString(),
                                       ) ??
                                       start;
-                                  final DateTime? itemEnd =
-                                      _parseLocal(
+                                  final DateTime? itemEnd = _parseLocal(
                                         serviceItem['endAt']?.toString(),
                                       ) ??
                                       end;
-                                  final String range =
-                                      (itemStart != null && itemEnd != null)
+                                  final String range = (itemStart != null &&
+                                          itemEnd != null)
                                       ? '${timeFormatter.format(itemStart)} - ${timeFormatter.format(itemEnd)}'
                                       : '';
                                   final String staffName = formatUserName(
-                                    serviceItem['assignedUserBranch']?['user'] ??
+                                    serviceItem['assignedUserBranch']
+                                            ?['user'] ??
                                         serviceItem['user'],
                                   );
                                   final int itemPriceMinor = _toInt(
@@ -2312,7 +2427,8 @@ const Divider( // ?? thin line between items
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                serviceItem['branchService']?['displayName']
+                                                serviceItem['branchService']
+                                                            ?['displayName']
                                                         ?.toString() ??
                                                     'Service',
                                                 style: const TextStyle(
@@ -2333,7 +2449,7 @@ const Divider( // ?? thin line between items
                           const Spacer(),
 
                           // ACTIONS:
-                          if (isPending) ...[
+                          if (isPending && !widget.isStylist) ...[
                             // Pending ? Confirm
                             SizedBox(
                               width: double.infinity,
@@ -2354,9 +2470,14 @@ const Divider( // ?? thin line between items
                                           color: Colors.white,
                                         ),
                                       )
-                                    : Text(translateText('Accept'), style: TextStyle(
-      color: Colors.white,   // ?? force white text
-      fontWeight: FontWeight.w600,),),
+                                    : Text(
+                                        translateText('Accept'),
+                                        style: TextStyle(
+                                          color: Colors
+                                              .white, // ?? force white text
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
                               ),
                             ),
                           ] else if (isConfirmed) ...[
@@ -2388,9 +2509,8 @@ const Divider( // ?? thin line between items
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed: loadingComplete
-                                    ? null
-                                    : onCompleteJob,
+                                onPressed:
+                                    loadingComplete ? null : onCompleteJob,
                                 style: ElevatedButton.styleFrom(
                                   foregroundColor: AppColors.white,
                                   backgroundColor: AppColors.starColor,
@@ -2408,6 +2528,20 @@ const Divider( // ?? thin line between items
                                         ),
                                       )
                                     : Text(translateText('Complete Job')),
+                              ),
+                            ),
+                          ] else if (isPending && widget.isStylist) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                                child: Text(statusUpper),
                               ),
                             ),
                           ] else ...[
@@ -2509,61 +2643,62 @@ const Divider( // ?? thin line between items
   //     }
   //   }
   // }
-Future<void> onBranchChanged(
-  int branchId,
-  int salonId,
-  Map<String, dynamic> branchData,
-) async {
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setInt('selected_branch_id', branchId);
-  await prefs.setInt('selected_salon_id', salonId);
+  Future<void> onBranchChanged(
+    int branchId,
+    int salonId,
+    Map<String, dynamic> branchData,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('selected_branch_id', branchId);
+    await prefs.setInt('selected_salon_id', salonId);
 
-  final String startTime =
-      (branchData['startTime'] ?? _branchStartTimeStr ?? '08:00:00')
-          .toString();
-  final String endTime =
-      (branchData['endTime'] ?? _branchEndTimeStr ?? '20:00:00').toString();
+    final String startTime =
+        (branchData['startTime'] ?? _branchStartTimeStr ?? '08:00:00')
+            .toString();
+    final String endTime =
+        (branchData['endTime'] ?? _branchEndTimeStr ?? '20:00:00').toString();
 
-  List<String> updatedSlots;
-  try {
-    updatedSlots = generateTimeSlots(startTime, endTime);
-  } catch (_) {
-    updatedSlots = timeSlots;
-  }
+    List<String> updatedSlots;
+    try {
+      updatedSlots = generateTimeSlots(startTime, endTime);
+    } catch (_) {
+      updatedSlots = timeSlots;
+    }
 
-  setState(() {
-    _loadingBranch = true;
-    selectedBranchId = branchId;
-    selectedSalonId = salonId;
-    selectedBranch = Map<String, dynamic>.from(branchData);
-    _branchStartTimeStr = startTime;
-    _branchEndTimeStr = endTime;
-    timeSlots = updatedSlots;
-  });
+    setState(() {
+      _loadingBranch = true;
+      selectedBranchId = branchId;
+      selectedSalonId = salonId;
+      selectedBranch = Map<String, dynamic>.from(branchData);
+      _branchStartTimeStr = startTime;
+      _branchEndTimeStr = endTime;
+      timeSlots = updatedSlots;
+    });
 
-  try {
-    // ?? Step 1: Fetch team members
-    await getTeamMembers(branchId);
+    try {
+      // ?? Step 1: Fetch team members
+      await getTeamMembers(branchId);
 
-    // ?? Step 2: Save branch cache
-    await _saveBranchCache(branchId);
+      // ?? Step 2: Save branch cache
+      await _saveBranchCache(branchId);
 
-    // ?? Step 3: Always fetch bookings for current date
-    print('[Bookings] calling getBookingsByDate ? branch=$branchId, date=$selectedDate');
-    await getBookingsByDate(branchId, selectedDate);
+      // ?? Step 3: Always fetch bookings for current date
+      print(
+          '[Bookings] calling getBookingsByDate ? branch=$branchId, date=$selectedDate');
+      await getBookingsByDate(branchId, selectedDate);
 
-    // ?? Step 4: Process any queued notifications
-    _processQueuedBookingNotificationIfAny();
+      // ?? Step 4: Process any queued notifications
+      _processQueuedBookingNotificationIfAny();
 
-    print('[Bookings] processed queued payload after branch change.');
-  } finally {
-    if (mounted) {
-      setState(() {
-        _loadingBranch = false;
-      });
+      print('[Bookings] processed queued payload after branch change.');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingBranch = false;
+        });
+      }
     }
   }
-}
 
   // Function to handle date change (previous and next)
   Future<void> _setSelectedDate(DateTime date) async {
@@ -2672,8 +2807,8 @@ Future<void> onBranchChanged(
     final branchOptions = _computeBranchOptions();
     final selectedBranchValue =
         branchOptions.any((option) => option.branchId == selectedBranchId)
-        ? selectedBranchId
-        : null;
+            ? selectedBranchId
+            : null;
     final branchHint = branchOptions.isEmpty
         ? context.t('No branches available')
         : context.t('Select Branch');
@@ -2749,16 +2884,16 @@ Future<void> onBranchChanged(
                       .toList(),
                   selectedItemBuilder: branchOptions.isNotEmpty
                       ? (context) => branchOptions
-                            .map(
-                              (option) => Align(
-                                alignment: Alignment.centerLeft,
-                                child: _BranchDropdownOption(
-                                  option: option,
-                                  compact: true,
-                                ),
+                          .map(
+                            (option) => Align(
+                              alignment: Alignment.centerLeft,
+                              child: _BranchDropdownOption(
+                                option: option,
+                                compact: true,
                               ),
-                            )
-                            .toList()
+                            ),
+                          )
+                          .toList()
                       : null,
                   onChanged: branchOptions.isEmpty
                       ? null
@@ -2778,22 +2913,23 @@ Future<void> onBranchChanged(
               SizedBox(height: 16),
               Row(
                 children: [
-             IconButton(
-  onPressed: () => changeWeek(false),
-  icon: Container(
-    padding: const EdgeInsets.all(8), // space around icon
-    decoration: BoxDecoration(
-      color: Colors.grey.shade200,    // light background
-      borderRadius: BorderRadius.circular(8), // rounded square
-    ),
-    child: SvgPicture.asset(
-      'assets/images/icons/previous.svg',
-      width: 20,
-      height: 20,
-      color: Colors.black, // or AppColors.starColor
-    ),
-  ),
-),
+                  IconButton(
+                    onPressed: () => changeWeek(false),
+                    icon: Container(
+                      padding: const EdgeInsets.all(8), // space around icon
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200, // light background
+                        borderRadius:
+                            BorderRadius.circular(8), // rounded square
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/images/icons/previous.svg',
+                        width: 20,
+                        height: 20,
+                        color: Colors.black, // or AppColors.starColor
+                      ),
+                    ),
+                  ),
                   Flexible(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -2817,8 +2953,8 @@ Future<void> onBranchChanged(
                           final Color bgColor = isSelected
                               ? Colors.black
                               : (isToday
-                                    ? Colors.blue.withOpacity(0.10)
-                                    : Colors.grey[200]!);
+                                  ? Colors.blue.withOpacity(0.10)
+                                  : Colors.grey[200]!);
 
                           final Color textColor = isSelected
                               ? Colors.white
@@ -2847,12 +2983,17 @@ Future<void> onBranchChanged(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
-  DateFormat('dd MMM').format(date), // ?? gives "30 Sep", "01 Oct"
-  style: TextStyle(
-    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-    color: isSelected ? Colors.white : Colors.black,
-  ),
-),
+                                      DateFormat('dd MMM').format(
+                                          date), // ?? gives "30 Sep", "01 Oct"
+                                      style: TextStyle(
+                                        fontWeight: isSelected
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : Colors.black,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -2862,32 +3003,31 @@ Future<void> onBranchChanged(
                       ),
                     ),
                   ),
-    IconButton(
-  onPressed: () => changeWeek(true),
-  icon: Container(
-    padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(
-      color: Colors.grey.shade200,
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: SvgPicture.asset(
-      'assets/images/icons/next.svg',
-      width: 20,
-      height: 20,
-      colorFilter: const ColorFilter.mode(
-        Colors.black, // ?? ensures visible
-        BlendMode.srcIn,
-      ),
-    ),
-  ),
-),
+                  IconButton(
+                    onPressed: () => changeWeek(true),
+                    icon: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: SvgPicture.asset(
+                        'assets/images/icons/next.svg',
+                        width: 20,
+                        height: 20,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.black, // ?? ensures visible
+                          BlendMode.srcIn,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
               SizedBox(height: 16),
               Expanded(
                 child: Container(
-                 color: Colors.white,
-
+                  color: Colors.white,
                   child: Column(
                     children: [
                       // Header row: Time + horizontally scrollable member headers
@@ -2898,7 +3038,8 @@ Future<void> onBranchChanged(
                             Container(
                               width: 100,
                               height: 60,
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
                               alignment: Alignment.centerLeft,
                               decoration: BoxDecoration(
                                 color: Colors.white,
@@ -2908,8 +3049,10 @@ Future<void> onBranchChanged(
                                 border: Border(
                                   top: BorderSide(color: Colors.grey.shade300),
                                   left: BorderSide(color: Colors.grey.shade300),
-                                  right: BorderSide(color: Colors.grey.shade300),
-                                  bottom: BorderSide(color: Colors.grey.shade300),
+                                  right:
+                                      BorderSide(color: Colors.grey.shade300),
+                                  bottom:
+                                      BorderSide(color: Colors.grey.shade300),
                                 ),
                               ),
                               child: Text(
@@ -2927,7 +3070,8 @@ Future<void> onBranchChanged(
                                 primary: false,
                                 physics: const ClampingScrollPhysics(),
                                 child: Row(
-                                  children: List.generate(_totalColumns, (index) {
+                                  children:
+                                      List.generate(_totalColumns, (index) {
                                     if (index >= teamMembers.length) {
                                       // Placeholder staff cell
                                       return _buildEmptyStaffCell(
@@ -2936,7 +3080,8 @@ Future<void> onBranchChanged(
                                     }
 
                                     final m = teamMembers[index];
-                                    final fn = (m['firstName'] ?? '').toString();
+                                    final fn =
+                                        (m['firstName'] ?? '').toString();
                                     final ln = (m['lastName'] ?? '').toString();
                                     final rawName = ('$fn $ln').trim();
                                     final displayName =
@@ -3089,7 +3234,8 @@ Future<void> onBranchChanged(
                                   physics: const ClampingScrollPhysics(),
                                   child: SizedBox(
                                     width: _totalColumns * _colWidth,
-                                    child: NotificationListener<ScrollNotification>(
+                                    child: NotificationListener<
+                                        ScrollNotification>(
                                       onNotification: (notif) {
                                         if (notif.metrics.axis ==
                                             Axis.vertical) {
@@ -3097,8 +3243,7 @@ Future<void> onBranchChanged(
                                               _timeColumnVController
                                                   .hasClients) {
                                             _syncingV = true;
-                                            final off =
-                                                _gridVController.offset;
+                                            final off = _gridVController.offset;
                                             if ((_timeColumnVController.offset -
                                                         off)
                                                     .abs() >
@@ -3137,17 +3282,14 @@ Future<void> onBranchChanged(
                                                     child: Container(
                                                       alignment:
                                                           Alignment.center,
-                                                      padding:
-                                                          const EdgeInsets
-                                                              .symmetric(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
                                                         horizontal: 16,
                                                         vertical: 12,
                                                       ),
-                                                      decoration:
-                                                          BoxDecoration(
+                                                      decoration: BoxDecoration(
                                                         color: Colors.white
-                                                            .withOpacity(
-                                                                0.92),
+                                                            .withOpacity(0.92),
                                                         borderRadius:
                                                             BorderRadius
                                                                 .circular(12),
@@ -3158,12 +3300,10 @@ Future<void> onBranchChanged(
                                                       ),
                                                       child: Text(
                                                         primaryEmptyMessage,
-                                                        style:
-                                                            const TextStyle(
+                                                        style: const TextStyle(
                                                           fontWeight:
                                                               FontWeight.w600,
-                                                          color:
-                                                              Colors.black54,
+                                                          color: Colors.black54,
                                                         ),
                                                         textAlign:
                                                             TextAlign.center,
@@ -3203,8 +3343,8 @@ Future<void> onBranchChanged(
                                                               const TextStyle(
                                                             fontWeight:
                                                                 FontWeight.w600,
-                                                            color: Colors
-                                                                .black54,
+                                                            color:
+                                                                Colors.black54,
                                                           ),
                                                         ),
                                                       ),
@@ -3238,46 +3378,45 @@ Future<void> onBranchChanged(
             ),
         ],
       ),
-   floatingActionButton: FloatingActionButton.extended(
-  heroTag: 'add_booking_fab', // ? unique tag
-  onPressed: () async {
-    if (selectedBranchId == null || selectedSalonId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select a salon'))),
-      );
-      return;
-    }
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'add_booking_fab', // ? unique tag
+        onPressed: () async {
+          if (selectedBranchId == null || selectedSalonId == null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(translateText('Please select a salon'))),
+            );
+            return;
+          }
 
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddBookingScreen(
-          salonId: selectedSalonId,
-          branchId: selectedBranchId,
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddBookingScreen(
+                salonId: selectedSalonId,
+                branchId: selectedBranchId,
+              ),
+            ),
+          );
+
+          if (result != null && selectedBranchId != null) {
+            getBookingsByDate(selectedBranchId!, selectedDate);
+          }
+        },
+        backgroundColor: AppColors.white,
+        foregroundColor: AppColors.grey,
+        icon: Image.asset(
+          "assets/images/plusIcn.png",
+          width: 18,
+          height: 18,
+        ),
+        label: Text(
+          translateText('Add Booking'),
+          style: TextStyle(
+            color: AppColors.darkGrey,
+          ),
         ),
       ),
-    );
-
-    if (result != null && selectedBranchId != null) {
-      getBookingsByDate(selectedBranchId!, selectedDate);
-    }
-  },
-  backgroundColor: AppColors.white,
-  foregroundColor: AppColors.grey,
-  icon: Image.asset(
-    "assets/images/plusIcn.png",
-    width: 18,
-    height: 18,
-  ),
-  label: Text(
-    translateText('Add Booking'),
-    style: TextStyle(
-      color: AppColors.darkGrey,
-    ),
-  ),
-),
-floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -3337,8 +3476,7 @@ class _BranchDropdownOption extends StatelessWidget {
     final displayTitle =
         branchLabel.isEmpty ? 'Branch #${option.branchId}' : branchLabel;
 
-    final titleStyle =
-        theme.textTheme.titleMedium?.copyWith(
+    final titleStyle = theme.textTheme.titleMedium?.copyWith(
           fontSize: compact ? 14 : 16,
           fontWeight: FontWeight.w600,
           color: AppColors.starColor,
@@ -3349,8 +3487,7 @@ class _BranchDropdownOption extends StatelessWidget {
           color: Colors.black87,
         );
 
-    final locationStyle =
-        theme.textTheme.bodySmall?.copyWith(
+    final locationStyle = theme.textTheme.bodySmall?.copyWith(
           fontSize: compact ? 12 : 13,
           color: Colors.blueGrey.shade500,
         ) ??
@@ -3433,9 +3570,9 @@ class _BranchDropdownOption extends StatelessWidget {
         ),
       ],
     );
-
   }
 }
+
 Widget _buildEmptyStaffCell(bool isLast) {
   return Container(
     width: _colWidth,

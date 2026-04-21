@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/screens/onboarding_screen.dart';
 import 'package:bloc_onboarding/screens/bottom_nav.dart';
+import 'package:bloc_onboarding/screens/stylist_bottom_nav.dart';
 import 'package:bloc_onboarding/screens/UpdateProfileScreen.dart';
-import 'package:provider/provider.dart';
-import '../services/language_listener.dart';
-import '../services/translations.dart';
 import '../services/auth_session_manager.dart';
+import '../services/stylist_branch_selection.dart';
 import '../services/token_expiration_service.dart';
+import '../services/user_role_session.dart';
+import '../utils/api_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -58,53 +59,113 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   // 👇 NEW: check login status
-  Future<void> _checkLoginStatus() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString("user_token");
-
-    if (token != null && token.isNotEmpty) {
-      if (TokenExpirationService.isTokenExpired(token)) {
-        await AuthSessionManager.instance
-            .forceLogout(reason: "session_expired");
-        return;
-      }
-
+  Future<void> _checkLoginStatus() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String? token = prefs.getString("user_token");
+
+    if (token != null && token.isNotEmpty) {
+      if (TokenExpirationService.isTokenExpired(token)) {
+        await AuthSessionManager.instance
+            .forceLogout(reason: "session_expired");
+        return;
+      }
+
       final bool storedFlag = prefs.getBool('profile_complete') ?? false;
       final String? storedFirstName =
           prefs.getString('first_name') ?? prefs.getString('firstName');
       final String? storedLastName =
           prefs.getString('last_name') ?? prefs.getString('lastName');
-      final bool derivedComplete = (storedFirstName?.trim().isNotEmpty ?? false) &&
-          (storedLastName?.trim().isNotEmpty ?? false);
+      final bool derivedComplete =
+          (storedFirstName?.trim().isNotEmpty ?? false) &&
+              (storedLastName?.trim().isNotEmpty ?? false);
       final bool profileComplete = storedFlag || derivedComplete;
+      final bool usesStylistShell =
+          await UserRoleSession.instance.usesStylistShell();
 
       if (!mounted) return;
       if (profileComplete) {
+        if (usesStylistShell) {
+          await _logStylistBranchResponse();
+        }
         await prefs.setBool('profile_complete', true);
         await prefs.setBool('profile_pending', false);
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 1)),
+          MaterialPageRoute(
+            builder: (_) => usesStylistShell
+                ? const StylistBottomNav(tabIndex: 0)
+                : const BottomNav(tabIndex: 1),
+          ),
         );
       } else {
         await prefs.setBool('profile_pending', true);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => UpdateUserProfileScreen(token: token),
+            builder: (_) => UpdateUserProfileScreen(
+              token: token,
+              isStylist: usesStylistShell,
+            ),
           ),
         );
       }
     } else {
-      if (!mounted) return;
-      // ❌ Not logged in → go to Onboarding
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => OnboardingScreen()),
-      );
-    }
-  }
-
+      if (!mounted) return;
+      // ❌ Not logged in → go to Onboarding
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => OnboardingScreen()),
+      );
+    }
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    if (value is num) return value.toInt();
+    return null;
+  }
+
+  Future<int?> _resolveStylistBranchId() async {
+    final selected = await StylistBranchSelectionStore.load();
+    if (selected.branchId != null) {
+      return selected.branchId;
+    }
+
+    final userBranches = await UserRoleSession.instance.loadUserBranches();
+    for (final rawEntry in userBranches) {
+      final entry = Map<String, dynamic>.from(rawEntry);
+      final rawBranch = entry['branch'];
+      if (rawBranch is! Map) continue;
+
+      final branch = Map<String, dynamic>.from(rawBranch);
+      final branchId = _asInt(branch['id']);
+      if (branchId != null) {
+        return branchId;
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _logStylistBranchResponse() async {
+    try {
+      final branchId = await _resolveStylistBranchId();
+      if (branchId == null) {
+        debugPrint('[SplashStylistBranch] No branch id found before home');
+        return;
+      }
+
+      debugPrint(
+        '[SplashStylistBranch] Calling branch details API before home for branchId=$branchId',
+      );
+      final response = await ApiService().getBranchDetail(branchId);
+      debugPrint('[SplashStylistBranch] Response: $response');
+    } catch (e) {
+      debugPrint('[SplashStylistBranch] Error: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;

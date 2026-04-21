@@ -84,33 +84,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
-              Future<void> _handleLogout() async {
-                if (isLoggingOut) return;
+            Future<void> _handleLogout() async {
+              if (isLoggingOut) return;
 
-                setSheetState(() => isLoggingOut = true);
+              setSheetState(() => isLoggingOut = true);
 
-                final success = await apiService.logoutUserAPI();
+              final success = await apiService.logoutUserAPI();
 
               if (!mounted) return;
 
               setSheetState(() => isLoggingOut = false);
 
-                Navigator.pop(ctx);
+              Navigator.pop(ctx);
 
-                if (!success && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        context.t('Logout request failed on the server.'),
-                      ),
+              if (!success && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      context.t('Logout request failed on the server.'),
                     ),
-                  );
-                }
-
-                await AuthSessionManager.instance.forceLogout(
-                  reason: success ? 'user_logout' : 'user_logout_failed',
+                  ),
                 );
               }
+
+              await AuthSessionManager.instance.forceLogout(
+                reason: success ? 'user_logout' : 'user_logout_failed',
+              );
+            }
 
             return Padding(
               padding: const EdgeInsets.all(20.0),
@@ -279,7 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final langListener = Provider.of<LanguageListener>(context);
+    Provider.of<LanguageListener>(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[100],

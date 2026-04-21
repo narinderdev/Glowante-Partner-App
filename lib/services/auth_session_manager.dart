@@ -21,6 +21,7 @@ class AuthSessionManager {
     'user_token',
     'token',
     'phone_number',
+    'user_id',
     'first_name',
     'last_name',
     'firstName',
@@ -30,6 +31,17 @@ class AuthSessionManager {
     'salon_address',
     'profile_complete',
     'profile_pending',
+    'user_role_ids',
+    'user_role_codes',
+    'user_role_labels',
+    'primary_role_id',
+    'primary_role_code',
+    'stylist_user_salons_json',
+    'stylist_user_branches_json',
+    'selected_branch_id',
+    'selected_salon_id',
+    'stylist_selected_salon_name',
+    'stylist_selected_branch_name',
   ];
 
   /// Registers a callback that will be triggered once logout cleanup finishes.
