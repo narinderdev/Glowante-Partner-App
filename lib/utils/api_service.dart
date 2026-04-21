@@ -81,7 +81,7 @@ class ApiService {
 
   // static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
-  static const String baseUrl = "https://a1cb-203-190-154-162.ngrok-free.app/";
+  static const String baseUrl = "https://d0cf-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String resendOtpEndpoint = "auth/resend_otp";
@@ -3042,6 +3042,63 @@ class ApiService {
     } catch (e) {
       print("❌ Error assigning user: $e");
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchMyAppointmentRatings(int branchId) async {
+    try {
+      final token = await getAuthToken();
+      if (token.isEmpty) {
+        throw Exception('No token found');
+      }
+
+      final url = Uri.parse(
+        '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/appointments/ratings/me',
+      );
+      debugPrint(
+        '[StylistReviewsAPI] GET $url | branchId=$branchId',
+      );
+
+      final response = await _sharedClient.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      debugPrint('[StylistReviewsAPI] status=${response.statusCode}');
+      _debugPrintChunked('StylistReviewsAPI body', response.body);
+
+      final decoded = response.body.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(response.body);
+      _debugPrintChunked('StylistReviewsAPI decoded', decoded);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        return {
+          'success': true,
+          'data': decoded,
+        };
+      }
+
+      return {
+        'success': false,
+        'message': decoded is Map<String, dynamic>
+            ? decoded['message']?.toString() ?? 'Failed to load reviews'
+            : 'Failed to load reviews',
+        'data': decoded,
+      };
+    } catch (e) {
+      debugPrint('[StylistReviewsAPI] error=$e');
+      return {
+        'success': false,
+        'message': e.toString(),
+        'data': const <String, dynamic>{},
+      };
     }
   }
 }

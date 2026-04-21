@@ -17,8 +17,10 @@ class StylistReviewsScreen extends StatefulWidget {
 }
 
 class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
+  final ApiService _apiService = ApiService();
+
   StylistBranchSelection _selection = const StylistBranchSelection();
-  List<Map<String, dynamic>> _appointmentReviews = const [];
+  List<Map<String, dynamic>> _reviews = const [];
   bool _loading = true;
   String? _error;
   double _overallRating = 0;
@@ -44,7 +46,7 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
 
     if (selection.branchId == null) {
       setState(() {
-        _appointmentReviews = const [];
+        _reviews = const [];
         _overallRating = 0;
         _totalReviews = 0;
         _loading = false;
@@ -53,92 +55,44 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
     }
 
     try {
-      final data = await ApiService.fetchBranchRatings(selection.branchId!);
-      if (data['success'] == true && data['data']?['appointments'] != null) {
-        final appointments = data['data']['appointments'] as List;
+      final response = await _apiService.fetchMyAppointmentRatings(
+        selection.branchId!,
+      );
+      final payload = response['data'];
+      final summary = payload is Map ? payload['summary'] : null;
+      final rawReviews = payload is Map && payload['reviews'] is List
+          ? payload['reviews'] as List
+          : const [];
+      final reviews = rawReviews
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
 
-        final appointmentReviews = <Map<String, dynamic>>[];
-        final allRatings = <int>[];
-
-        for (final appt in appointments) {
-          final start =
-              DateTime.tryParse(appt['startAt']?.toString() ?? '')?.toLocal();
-          final end =
-              DateTime.tryParse(appt['endAt']?.toString() ?? '')?.toLocal();
-
-          final appointmentData = <String, dynamic>{
-            'appointmentId': appt['appointmentId']?.toString() ?? '',
-            'startAt': start,
-            'endAt': end,
-            'client':
-                '${appt['client']?['firstName'] ?? ''} ${appt['client']?['lastName'] ?? ''}'
-                    .trim(),
-            'branchReview': null,
-            'professionalReviews': <Map<String, dynamic>>[],
-          };
-
-          final branchReview = appt['branchReview'];
-          if (branchReview is Map) {
-            final rating = branchReview['rating'];
-            if (rating is int) {
-              allRatings.add(rating);
-            }
-            appointmentData['branchReview'] = {
-              'rating': branchReview['rating'],
-              'comment': branchReview['comment'],
-              'reviewer':
-                  '${branchReview['reviewer']?['firstName'] ?? ''} ${branchReview['reviewer']?['lastName'] ?? ''}'
-                      .trim(),
-              'date':
-                  DateTime.tryParse(branchReview['createdAt']?.toString() ?? '')
-                      ?.toLocal(),
-            };
-          }
-
-          final professionalReviews = appt['professionalReviews'];
-          if (professionalReviews is List) {
-            for (final review in professionalReviews) {
-              if (review is! Map) continue;
-              appointmentData['professionalReviews'].add({
-                'professional':
-                    '${review['professional']?['firstName'] ?? ''} ${review['professional']?['lastName'] ?? ''}'
-                        .trim(),
-                'rating': review['rating'],
-                'comment': review['comment'],
-                'date': DateTime.tryParse(review['createdAt']?.toString() ?? '')
-                    ?.toLocal(),
-              });
-            }
-          }
-
-          appointmentReviews.add(appointmentData);
-        }
-
-        final overallRating = allRatings.isNotEmpty
-            ? allRatings.reduce((a, b) => a + b) / allRatings.length
-            : 0.0;
-
-        if (!mounted) return;
+      if (!mounted) return;
+      if (response['success'] == true) {
         setState(() {
-          _appointmentReviews = appointmentReviews;
-          _overallRating = overallRating;
-          _totalReviews = allRatings.length;
+          _reviews = reviews;
+          _overallRating = summary is Map
+              ? (summary['averageRating'] as num?)?.toDouble() ?? 0.0
+              : 0.0;
+          _totalReviews = summary is Map
+              ? (summary['totalReviews'] as num?)?.toInt() ?? reviews.length
+              : reviews.length;
           _loading = false;
         });
       } else {
-        if (!mounted) return;
         setState(() {
-          _appointmentReviews = const [];
+          _reviews = const [];
           _overallRating = 0;
           _totalReviews = 0;
-          _error = data['message']?.toString() ?? 'Failed to load reviews';
+          _error = response['message']?.toString() ?? 'Failed to load reviews';
           _loading = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _appointmentReviews = const [];
+        _reviews = const [];
         _overallRating = 0;
         _totalReviews = 0;
         _error = e.toString();
@@ -202,7 +156,8 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
               )
             else if (_selection.branchId == null)
               _EmptyState(
-                  message: context.t('Select a salon in Bookings first'))
+                message: context.t('Select a salon in Bookings first'),
+              )
             else if (_error != null)
               _EmptyState(message: _error!)
             else ...[
@@ -226,7 +181,7 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      _overallRating.toStringAsFixed(1),
+                      _overallRating.toStringAsFixed(2),
                       style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -244,16 +199,21 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (_appointmentReviews.isEmpty)
+              if (_reviews.isEmpty)
                 _EmptyState(message: context.t('No reviews found'))
               else
-                ..._appointmentReviews.map((appt) {
-                  final branchReview =
-                      appt['branchReview'] as Map<String, dynamic>?;
-                  final professionalReviews =
-                      (appt['professionalReviews'] as List?)
-                              ?.cast<Map<String, dynamic>>() ??
-                          const <Map<String, dynamic>>[];
+                ..._reviews.map((review) {
+                  final reviewer = review['reviewer'] is Map
+                      ? Map<String, dynamic>.from(review['reviewer'] as Map)
+                      : const <String, dynamic>{};
+                  final reviewerName =
+                      '${reviewer['firstName'] ?? ''} ${reviewer['lastName'] ?? ''}'
+                          .trim();
+                  final createdAt =
+                      DateTime.tryParse(review['createdAt']?.toString() ?? '')
+                          ?.toLocal();
+                  final comment = (review['comment'] ?? '').toString().trim();
+                  final rating = (review['rating'] as num?)?.toDouble() ?? 0.0;
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
@@ -266,81 +226,45 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          (appt['client']?.toString().trim().isNotEmpty ??
-                                  false)
-                              ? appt['client'].toString()
+                          reviewerName.isNotEmpty
+                              ? reviewerName
                               : context.t('Customer'),
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        if (appt['startAt'] != null)
+                        if (createdAt != null) ...[
+                          const SizedBox(height: 4),
                           Text(
-                            _dateFormat.format(appt['startAt'] as DateTime),
+                            _dateFormat.format(createdAt),
                             style: const TextStyle(color: Colors.black54),
                           ),
-                        if (branchReview != null) ...[
-                          const SizedBox(height: 12),
-                          _stars((branchReview['rating'] as num?)?.toDouble() ??
-                              0),
-                          const SizedBox(height: 8),
-                          if ((branchReview['comment'] ?? '')
-                              .toString()
-                              .trim()
-                              .isNotEmpty)
-                            Text(
-                              branchReview['comment'].toString(),
-                              style: const TextStyle(color: Colors.black87),
-                            ),
                         ],
-                        if (professionalReviews.isNotEmpty) ...[
-                          const SizedBox(height: 14),
+                        const SizedBox(height: 12),
+                        _stars(rating),
+                        if (comment.isNotEmpty) ...[
+                          const SizedBox(height: 8),
                           Text(
-                            context.t('Professional Reviews'),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                            ),
+                            comment,
+                            style: const TextStyle(color: Colors.black87),
                           ),
-                          const SizedBox(height: 8),
-                          ...professionalReviews.map((review) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    review['professional']
-                                                ?.toString()
-                                                .trim()
-                                                .isNotEmpty ==
-                                            true
-                                        ? review['professional'].toString()
-                                        : context.t('Professional'),
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  _stars(
-                                      (review['rating'] as num?)?.toDouble() ??
-                                          0),
-                                  const SizedBox(height: 4),
-                                  if ((review['comment'] ?? '')
-                                      .toString()
-                                      .trim()
-                                      .isNotEmpty)
-                                    Text(
-                                      review['comment'].toString(),
-                                      style: const TextStyle(
-                                          color: Colors.black87),
-                                    ),
-                                ],
-                              ),
-                            );
-                          }),
                         ],
+                        const SizedBox(height: 10),
+                        Text(
+                          '${context.t('Appointment')}: ${review['appointmentId'] ?? '--'}',
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 12,
+                          ),
+                        ),
+                        Text(
+                          '${context.t('Item')}: ${review['appointmentItemId'] ?? '--'}',
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 12,
+                          ),
+                        ),
                       ],
                     ),
                   );
