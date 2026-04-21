@@ -1716,66 +1716,65 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           ),
         ),
       ),
-      body: RefreshIndicator(
-        onRefresh: () => _loadOptions(
-          showPageLoader: false,
-          showInlineLoader: false,
-        ),
-        color: AppColors.starColor,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(5, 8, 5, 8),
-          children: [
-            DropdownButtonFormField<int>(
-              key: ValueKey(_selectedOption?.branchId),
-              initialValue: _selectedOption?.branchId,
-              decoration: InputDecoration(
-                labelText: context.t('Branch'),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 14,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                hintText: context.t('Select Branch'),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppColors.starColor),
-                ),
-              ),
-              items: _options
-                  .map(
-                    (option) => DropdownMenuItem<int>(
-                      value: option.branchId,
-                      child: Text(
-                        option.label,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _options.isEmpty
-                  ? null
-                  : (branchId) {
-                      if (branchId == null) return;
-                      final option = _options.firstWhere(
-                        (item) => item.branchId == branchId,
-                      );
-                      _selectOption(option);
-                    },
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            onRefresh: () => _loadOptions(
+              showPageLoader: false,
+              showInlineLoader: false,
             ),
-            const SizedBox(height: 16),
-            Stack(
-              alignment: Alignment.center,
+            color: AppColors.starColor,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(5, 8, 5, 8),
               children: [
+                DropdownButtonFormField<int>(
+                  key: ValueKey(_selectedOption?.branchId),
+                  initialValue: _selectedOption?.branchId,
+                  decoration: InputDecoration(
+                    labelText: context.t('Branch'),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    hintText: context.t('Select Branch'),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey.shade300),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: const BorderSide(color: AppColors.starColor),
+                    ),
+                  ),
+                  items: _options
+                      .map(
+                        (option) => DropdownMenuItem<int>(
+                          value: option.branchId,
+                          child: Text(
+                            option.label,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _options.isEmpty
+                      ? null
+                      : (branchId) {
+                          if (branchId == null) return;
+                          final option = _options.firstWhere(
+                            (item) => item.branchId == branchId,
+                          );
+                          _selectOption(option);
+                        },
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     IconButton(
@@ -1880,252 +1879,260 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     ),
                   ],
                 ),
-                if (_loadingDate)
-                  IgnorePointer(
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                if (_isLoading)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (_errorMessage != null || _options.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 6),
+                    child: Text(
+                      _errorMessage ?? context.t('No salons available'),
+                      style: const TextStyle(color: Colors.black54),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Column(
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.zero,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 60,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            alignment: Alignment.centerLeft,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(5),
+                              ),
+                              border: Border(
+                                top: BorderSide(color: Colors.grey.shade300),
+                                left: BorderSide(color: Colors.grey.shade300),
+                                right: BorderSide(color: Colors.grey.shade300),
+                                bottom: BorderSide(color: Colors.grey.shade300),
+                              ),
+                            ),
+                            child: Text(
+                              context.t('Time'),
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.only(
+                                topRight: Radius.circular(5),
+                              ),
+                              child: SingleChildScrollView(
+                                controller: _headerHController,
+                                scrollDirection: Axis.horizontal,
+                                physics: const ClampingScrollPhysics(),
+                                child: Container(
+                                  width: _scheduleWidth,
+                                  height: 60,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border(
+                                      top: BorderSide(
+                                          color: Colors.grey.shade300),
+                                      right: BorderSide(
+                                          color: Colors.grey.shade300),
+                                      bottom: BorderSide(
+                                          color: Colors.grey.shade300),
+                                    ),
+                                  ),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Text(
+                                      selectedLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.starColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      child: const Padding(
-                        padding: EdgeInsets.all(7),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: AppColors.starColor,
-                        ),
-                      ),
                     ),
-                  ),
-              ],
-            ),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_errorMessage != null || _options.isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 10, bottom: 6),
-                child: Text(
-                  _errorMessage ?? context.t('No salons available'),
-                  style: const TextStyle(color: Colors.black54),
-                ),
-              ),
-            const SizedBox(height: 12),
-            Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.zero,
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 60,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        alignment: Alignment.centerLeft,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(5),
-                          ),
-                          border: Border(
-                            top: BorderSide(color: Colors.grey.shade300),
-                            left: BorderSide(color: Colors.grey.shade300),
-                            right: BorderSide(color: Colors.grey.shade300),
-                            bottom: BorderSide(color: Colors.grey.shade300),
-                          ),
-                        ),
-                        child: Text(
-                          context.t('Time'),
-                          style: const TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(5),
-                          ),
-                          child: SingleChildScrollView(
-                            controller: _headerHController,
-                            scrollDirection: Axis.horizontal,
-                            physics: const ClampingScrollPhysics(),
-                            child: Container(
-                              width: _scheduleWidth,
-                              height: 60,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                border: Border(
-                                  top: BorderSide(color: Colors.grey.shade300),
-                                  right:
-                                      BorderSide(color: Colors.grey.shade300),
-                                  bottom:
-                                      BorderSide(color: Colors.grey.shade300),
-                                ),
-                              ),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  selectedLabel,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.starColor,
-                                  ),
+                    SizedBox(
+                      height: timetableHeight,
+                      child: Padding(
+                        padding: EdgeInsets.zero,
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 100,
+                              child: SingleChildScrollView(
+                                controller: _timeColumnVController,
+                                physics: const ClampingScrollPhysics(),
+                                child: Column(
+                                  children: [
+                                    ...List.generate(_timeSlots.length, (i) {
+                                      return Container(
+                                        width: 100,
+                                        height: _rowHeight,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        alignment: Alignment.centerLeft,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          border: Border(
+                                            left: BorderSide(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                            right: BorderSide(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                            bottom: BorderSide(
+                                              color: Colors.grey.shade300,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          _timeSlots[i],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                    const SizedBox(
+                                      height: _verticalScrollBottomInset,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  height: timetableHeight,
-                  child: Padding(
-                    padding: EdgeInsets.zero,
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 100,
-                          child: SingleChildScrollView(
-                            controller: _timeColumnVController,
-                            physics: const ClampingScrollPhysics(),
-                            child: Column(
-                              children: [
-                                ...List.generate(_timeSlots.length, (i) {
-                                  return Container(
-                                    width: 100,
-                                    height: _rowHeight,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    alignment: Alignment.centerLeft,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      border: Border(
-                                        left: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                        right: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                        bottom: BorderSide(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      _timeSlots[i],
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  );
-                                }),
-                                const SizedBox(
-                                  height: _verticalScrollBottomInset,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Scrollbar(
-                            controller: _gridHController,
-                            thumbVisibility: true,
-                            child: SingleChildScrollView(
-                              controller: _gridHController,
-                              scrollDirection: Axis.horizontal,
-                              physics: const ClampingScrollPhysics(),
-                              child: SizedBox(
-                                width: _scheduleWidth,
+                            Expanded(
+                              child: Scrollbar(
+                                controller: _gridHController,
+                                thumbVisibility: true,
                                 child: SingleChildScrollView(
-                                  controller: _gridVController,
+                                  controller: _gridHController,
+                                  scrollDirection: Axis.horizontal,
                                   physics: const ClampingScrollPhysics(),
                                   child: SizedBox(
                                     width: _scheduleWidth,
-                                    height: (_timeSlots.length * _rowHeight) +
-                                        _verticalScrollBottomInset,
-                                    child: Stack(
-                                      children: [
-                                        ..._buildBackgroundGrid(),
-                                        ..._buildBookingBlocks(),
-                                        if (!_isLoading && _bookings.isEmpty)
-                                          Positioned.fill(
-                                            child: IgnorePointer(
-                                              child: Center(
-                                                child: Container(
-                                                  margin: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 20,
-                                                  ),
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 16,
-                                                    vertical: 12,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white
-                                                        .withOpacity(0.92),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            12),
-                                                    border: Border.all(
-                                                      color:
-                                                          Colors.grey.shade300,
+                                    child: SingleChildScrollView(
+                                      controller: _gridVController,
+                                      physics: const ClampingScrollPhysics(),
+                                      child: SizedBox(
+                                        width: _scheduleWidth,
+                                        height:
+                                            (_timeSlots.length * _rowHeight) +
+                                                _verticalScrollBottomInset,
+                                        child: Stack(
+                                          children: [
+                                            ..._buildBackgroundGrid(),
+                                            ..._buildBookingBlocks(),
+                                            if (!_isLoading &&
+                                                _bookings.isEmpty)
+                                              Positioned.fill(
+                                                child: IgnorePointer(
+                                                  child: Center(
+                                                    child: Container(
+                                                      margin: const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 20,
+                                                      ),
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                        horizontal: 16,
+                                                        vertical: 12,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white
+                                                            .withOpacity(0.92),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(12),
+                                                        border: Border.all(
+                                                          color: Colors
+                                                              .grey.shade300,
+                                                        ),
+                                                      ),
+                                                      child: Text(
+                                                        context.t(
+                                                          'No bookings for this date',
+                                                        ),
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          color: Colors.black54,
+                                                        ),
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                      ),
                                                     ),
-                                                  ),
-                                                  child: Text(
-                                                    context.t(
-                                                      'No bookings for this date',
-                                                    ),
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: Colors.black54,
-                                                    ),
-                                                    textAlign: TextAlign.center,
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ),
-                                      ],
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          if (_loadingDate)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Center(
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.94),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.10),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.all(9),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: AppColors.starColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
