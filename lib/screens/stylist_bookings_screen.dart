@@ -85,7 +85,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     _timeSlots = defaultSchedule.timeSlots;
     _dayStart = defaultSchedule.dayStart;
     _dayEnd = defaultSchedule.dayEnd;
-    _loadOptions();
+    _loadOptions(
+      showPageLoader: false,
+      showInlineLoader: true,
+    );
 
     _timeColumnVController.addListener(() {
       if (_syncingV) return;
@@ -1879,12 +1882,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     ),
                   ],
                 ),
-                if (_isLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else if (_errorMessage != null || _options.isEmpty)
+                if (!_isLoading && (_errorMessage != null || _options.isEmpty))
                   Padding(
                     padding: const EdgeInsets.only(top: 10, bottom: 6),
                     child: Text(
@@ -2103,7 +2101,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               ],
             ),
           ),
-          if (_loadingDate)
+          if (_loadingDate || _isLoading)
             Positioned.fill(
               child: IgnorePointer(
                 child: Center(
