@@ -8,9 +8,9 @@ import '../services/push_notification_service.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'stylist_bookings_screen.dart';
-import 'stylist_inventory_screen.dart';
+// import 'stylist_inventory_screen.dart';
 import 'stylist_profile_screen.dart';
-import 'stylist_services_screen.dart';
+// import 'stylist_services_screen.dart';
 
 class StylistBottomNav extends StatefulWidget {
   const StylistBottomNav({
@@ -26,8 +26,8 @@ class StylistBottomNav extends StatefulWidget {
 
 class _StylistBottomNavState extends State<StylistBottomNav> {
   late int _currentIndex;
-  int _servicesRefreshSignal = 0;
-  int _inventoryRefreshSignal = 0;
+  // int _servicesRefreshSignal = 0;
+  // int _inventoryRefreshSignal = 0;
   StreamSubscription<BookingNotificationPayload>? _navPushSub;
 
   @override
@@ -67,8 +67,8 @@ class _StylistBottomNavState extends State<StylistBottomNav> {
   List<Widget> _buildScreens() {
     return [
       const StylistBookingsScreen(),
-      StylistServicesScreen(refreshSignal: _servicesRefreshSignal),
-      StylistInventoryScreen(refreshSignal: _inventoryRefreshSignal),
+      // StylistServicesScreen(refreshSignal: _servicesRefreshSignal),
+      // StylistInventoryScreen(refreshSignal: _inventoryRefreshSignal),
       const StylistProfileScreen(),
     ];
   }
@@ -89,16 +89,16 @@ class _StylistBottomNavState extends State<StylistBottomNav> {
         activeIconPath: 'assets/images/bookings1.png',
         label: context.t('Bookings'),
       ),
-      _Destination(
-        iconPath: 'assets/images/service.png',
-        activeIconPath: 'assets/images/service1.png',
-        label: context.t('Services'),
-      ),
-      _Destination(
-        icon: Icons.inventory_2_outlined,
-        activeIcon: Icons.inventory_2_rounded,
-        label: context.t('Inventory'),
-      ),
+      // _Destination(
+      //   iconPath: 'assets/images/service.png',
+      //   activeIconPath: 'assets/images/service1.png',
+      //   label: context.t('Services'),
+      // ),
+      // _Destination(
+      //   icon: Icons.inventory_2_outlined,
+      //   activeIcon: Icons.inventory_2_rounded,
+      //   label: context.t('Inventory'),
+      // ),
       _Destination(
         iconPath: 'assets/images/user.png',
         activeIconPath: 'assets/images/user1.png',
@@ -117,12 +117,12 @@ class _StylistBottomNavState extends State<StylistBottomNav> {
             currentIndex: _currentIndex,
             onSelect: (index) {
               setState(() {
-                if (index == 1) {
-                  _servicesRefreshSignal++;
-                }
-                if (index == 2) {
-                  _inventoryRefreshSignal++;
-                }
+                // if (index == 1) {
+                //   _servicesRefreshSignal++;
+                // }
+                // if (index == 2) {
+                //   _inventoryRefreshSignal++;
+                // }
                 _currentIndex = index;
               });
               debugPrint(

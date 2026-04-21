@@ -60,7 +60,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   List<_SalonBranchOption> _options = const [];
   List<Map<String, dynamic>> _bookings = const [];
   _SalonBranchOption? _selectedOption;
-  final DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = DateTime.now();
+  DateTime _weekAnchor = DateTime.now();
   int? _userId;
   bool _isLoading = true;
   String? _errorMessage;
@@ -73,6 +74,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   @override
   void initState() {
     super.initState();
+    _weekAnchor = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
     final defaultSchedule = _buildDefaultScheduleRange();
     _timeSlots = defaultSchedule.timeSlots;
     _dayStart = defaultSchedule.dayStart;
@@ -188,6 +194,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
   String _normalizeStatus(dynamic value) =>
       (value ?? '').toString().trim().toUpperCase();
+
+  bool _isSameDay(DateTime first, DateTime second) {
+    return first.year == second.year &&
+        first.month == second.month &&
+        first.day == second.day;
+  }
 
   DateTime? _parseLocal(dynamic iso) {
     if (iso == null) return null;
@@ -367,6 +379,32 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         firstName.isNotEmpty ? firstName : context.t('Appointment');
     if (items.length == 1) return baseLabel;
     return '$baseLabel + ${items.length - 1}';
+  }
+
+  String _readPriceText(Map<String, dynamic> booking) {
+    final rawItems = (booking['items'] as List?) ?? const [];
+    final items =
+        rawItems.whereType<Map>().map(Map<String, dynamic>.from).toList();
+    final totalPriceMinor = items.fold<int>(
+      0,
+      (sum, item) => sum + (_asInt(item['branchService']?['priceMinor']) ?? 0),
+    );
+    return totalPriceMinor > 0 ? '₹$totalPriceMinor' : '';
+  }
+
+  String _readTimeRange(Map<String, dynamic> booking) {
+    final rawItems = (booking['items'] as List?) ?? const [];
+    final items =
+        rawItems.whereType<Map>().map(Map<String, dynamic>.from).toList();
+    final start = _parseLocal(
+      booking['startAt'] ?? (items.isNotEmpty ? items.first['startAt'] : null),
+    );
+    final end = _parseLocal(
+      booking['endAt'] ?? (items.isNotEmpty ? items.first['endAt'] : null),
+    );
+    if (start == null || end == null) return '';
+    final formatter = DateFormat('h:mm a');
+    return '${formatter.format(start)} - ${formatter.format(end)}';
   }
 
   Color _statusColor(String status) {
@@ -703,54 +741,87 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             child: InkWell(
               borderRadius: BorderRadius.circular(12),
               onTap: () => _openAppointmentSheet(booking),
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: _statusColor(status),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x16000000),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _customerName(booking),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      left: BorderSide(
+                        color: _statusColor(status),
+                        width: 5,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _serviceLabel(booking),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x16000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 4),
                       ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      status,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _customerName(booking),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 8,
+                            ),
+                          ),
+                          Text(
+                            _serviceLabel(booking),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 8,
+                            ),
+                          ),
+                          if (_readPriceText(booking).isNotEmpty)
+                            Text(
+                              _readPriceText(booking),
+                              style: const TextStyle(
+                                color: Colors.black87,
+                                fontSize: 8,
+                              ),
+                            ),
+                        ],
                       ),
-                    ),
-                  ],
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _readTimeRange(booking),
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 8,
+                            ),
+                          ),
+                          Text(
+                            status,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.black87,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -785,6 +856,65 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _bookings = bookings;
       _errorMessage =
           response['success'] == true ? null : response['message']?.toString();
+    });
+  }
+
+  Future<void> _setSelectedDate(DateTime date) async {
+    final normalizedDate = DateTime(date.year, date.month, date.day);
+    final selected = _selectedOption;
+    final userId = _userId;
+
+    setState(() {
+      _selectedDate = normalizedDate;
+      _weekAnchor = normalizedDate;
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final schedule = selected != null
+        ? await _loadBranchScheduleRange(selected.branchId)
+        : _buildDefaultScheduleRange();
+
+    List<Map<String, dynamic>> bookings = const [];
+    String? errorMessage;
+
+    if (selected != null && userId != null) {
+      debugPrint(
+        '[StylistBookings] loading bookings after date change for branchId=${selected.branchId}, salonId=${selected.salonId}, userId=$userId, date=${DateFormat('yyyy-MM-dd').format(_selectedDate)}',
+      );
+      final response = await _apiService.fetchTeamAppointmentsByDate(
+        selected.branchId,
+        userId,
+        DateFormat('yyyy-MM-dd').format(_selectedDate),
+      );
+      final rawData = response['data'];
+      if (rawData is List) {
+        bookings = rawData
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+      }
+      if (response['success'] != true) {
+        errorMessage = response['message']?.toString();
+      }
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _bookings = bookings;
+      _timeSlots = schedule.timeSlots;
+      _dayStart = schedule.dayStart;
+      _dayEnd = schedule.dayEnd;
+      _errorMessage = errorMessage;
+      _isLoading = false;
+    });
+  }
+
+  void _changeWeek(bool isNext) {
+    setState(() {
+      _weekAnchor = isNext
+          ? _weekAnchor.add(const Duration(days: 7))
+          : _weekAnchor.subtract(const Duration(days: 7));
     });
   }
 
@@ -1586,23 +1716,24 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               key: ValueKey(_selectedOption?.branchId),
               initialValue: _selectedOption?.branchId,
               decoration: InputDecoration(
+                labelText: context.t('Branch'),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 14,
                 ),
                 filled: true,
                 fillColor: Colors.white,
-                hintText: context.t('Select Salon'),
+                hintText: context.t('Select Branch'),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: const BorderSide(color: AppColors.starColor),
                 ),
               ),
@@ -1627,6 +1758,94 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       _selectOption(option);
                     },
             ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => _changeWeek(false),
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.keyboard_double_arrow_left,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: List.generate(7, (index) {
+                        final date = DateTime(
+                          _weekAnchor.year,
+                          _weekAnchor.month,
+                          _weekAnchor.day,
+                        ).add(Duration(days: index));
+                        final isSelected = _isSameDay(date, _selectedDate);
+                        final now = DateTime.now();
+                        final isToday = _isSameDay(
+                          date,
+                          DateTime(now.year, now.month, now.day),
+                        );
+
+                        final bgColor = isSelected
+                            ? Colors.black
+                            : (isToday
+                                ? Colors.blue.withOpacity(0.10)
+                                : Colors.grey.shade200);
+                        final textColor = isSelected
+                            ? Colors.white
+                            : (isToday ? Colors.blue : Colors.black);
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: GestureDetector(
+                            onTap: () => _setSelectedDate(date),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8,
+                                horizontal: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                color: bgColor,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                DateFormat('dd MMM').format(date),
+                                style: TextStyle(
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: textColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _changeWeek(true),
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.keyboard_double_arrow_right,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 24),
@@ -1640,7 +1859,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                   style: const TextStyle(color: Colors.black54),
                 ),
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Column(
               children: [
                 Padding(

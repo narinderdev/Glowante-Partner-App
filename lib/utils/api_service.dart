@@ -81,7 +81,7 @@ class ApiService {
 
   // static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
-  static const String baseUrl = "https://d0cf-203-190-154-162.ngrok-free.app/";
+  static const String baseUrl = "https://321b-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String resendOtpEndpoint = "auth/resend_otp";
