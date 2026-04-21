@@ -521,9 +521,17 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return options;
   }
 
-  Future<void> _loadOptions() async {
+  Future<void> _loadOptions({
+    bool showPageLoader = true,
+    bool showInlineLoader = false,
+  }) async {
     setState(() {
-      _isLoading = true;
+      if (showPageLoader) {
+        _isLoading = true;
+      }
+      if (showInlineLoader) {
+        _loadingDate = true;
+      }
       _errorMessage = null;
     });
 
@@ -617,6 +625,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _dayEnd = schedule.dayEnd;
       _errorMessage = errorMessage;
       _isLoading = false;
+      _loadingDate = false;
     });
   }
 
@@ -630,7 +639,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     setState(() {
       _selectedOption = option;
-      _isLoading = true;
+      _loadingDate = true;
       _errorMessage = null;
     });
 
@@ -672,7 +681,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _dayStart = schedule.dayStart;
       _dayEnd = schedule.dayEnd;
       _errorMessage = errorMessage;
-      _isLoading = false;
+      _loadingDate = false;
     });
   }
 
@@ -1708,7 +1717,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadOptions,
+        onRefresh: () => _loadOptions(
+          showPageLoader: false,
+          showInlineLoader: false,
+        ),
         color: AppColors.starColor,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -1761,32 +1773,32 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     },
             ),
             const SizedBox(height: 16),
-            Row(
+            Stack(
+              alignment: Alignment.center,
               children: [
-                IconButton(
-                  onPressed: () => _changeWeek(false),
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: SvgPicture.asset(
-                      'assets/images/icons/previous.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.black,
-                        BlendMode.srcIn,
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: _loadingDate ? null : () => _changeWeek(false),
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: SvgPicture.asset(
+                          'assets/images/icons/previous.svg',
+                          width: 20,
+                          height: 20,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.black,
+                            BlendMode.srcIn,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                Flexible(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      IgnorePointer(
+                    Expanded(
+                      child: IgnorePointer(
                         ignoring: _loadingDate,
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
@@ -1818,7 +1830,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 8),
                                 child: GestureDetector(
-                                  onTap: () => _setSelectedDate(date),
+                                  onTap: _loadingDate
+                                      ? null
+                                      : () => _setSelectedDate(date),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 8,
@@ -1844,53 +1858,53 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                           ),
                         ),
                       ),
-                      if (_loadingDate)
-                        IgnorePointer(
-                          child: Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.92),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.08),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(7),
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.2,
-                                color: AppColors.starColor,
-                              ),
-                            ),
+                    ),
+                    IconButton(
+                      onPressed: _loadingDate ? null : () => _changeWeek(true),
+                      icon: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: SvgPicture.asset(
+                          'assets/images/icons/next.svg',
+                          width: 20,
+                          height: 20,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.black,
+                            BlendMode.srcIn,
                           ),
                         ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  onPressed: () => _changeWeek(true),
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: SvgPicture.asset(
-                      'assets/images/icons/next.svg',
-                      width: 20,
-                      height: 20,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.black,
-                        BlendMode.srcIn,
+                  ],
+                ),
+                if (_loadingDate)
+                  IgnorePointer(
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.92),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(7),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: AppColors.starColor,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
             if (_isLoading)
