@@ -1,16 +1,15 @@
 // lib/screens/web_doc_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // for SystemUiOverlayStyle
 import 'package:webview_flutter/webview_flutter.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
 
 class WebDocScreen extends StatefulWidget {
   final String title;
   final String url;
 
-  WebDocScreen({
+  const WebDocScreen({
     super.key,
     required this.title,
     required this.url,
@@ -45,7 +44,8 @@ class _WebDocScreenState extends State<WebDocScreen> {
             // Show a friendly message; keeps the screen from looking "black"
             setState(() {
               _loading = false;
-              _errorText = 'Failed to load page (${err.errorCode}): ${err.description}';
+              _errorText =
+                  'Failed to load page (${err.errorCode}): ${err.description}';
             });
           },
         ),
@@ -57,30 +57,11 @@ class _WebDocScreenState extends State<WebDocScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          widget.title,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.starColor, AppColors.getStartedButton],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-      ),
+      appBar: buildProfileSubpageAppBar(title: widget.title),
       body: Stack(
         children: [
           // WebView
-          if (_errorText == null)
-            WebViewWidget(controller: _controller),
+          if (_errorText == null) WebViewWidget(controller: _controller),
 
           // Error state (covers the WebView with a message + retry)
           if (_errorText != null)

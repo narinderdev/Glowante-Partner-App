@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/language_listener.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
@@ -119,29 +119,8 @@ class _StylistReviewsScreenState extends State<StylistReviewsScreen> {
     context.watch<LanguageListener>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F8),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          context.t('Reviews'),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.starColor, AppColors.getStartedButton],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-      ),
+      backgroundColor: const Color(0xFFFBF9F8),
+      appBar: buildProfileSubpageAppBar(title: context.t('Reviews')),
       body: RefreshIndicator(
         onRefresh: _loadReviews,
         color: AppColors.starColor,

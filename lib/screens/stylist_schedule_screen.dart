@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/language_listener.dart';
 import '../services/user_role_session.dart';
 import '../utils/colors.dart';
@@ -57,7 +57,9 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
 
   String _formatDay(String rawDay) {
     if (rawDay.isEmpty) return context.t('Day');
-    return rawDay[0].toUpperCase() + rawDay.substring(1).toLowerCase();
+    final normalized =
+        rawDay[0].toUpperCase() + rawDay.substring(1).toLowerCase();
+    return context.t(normalized);
   }
 
   String _formatTime(String rawTime) {
@@ -97,28 +99,8 @@ class _StylistScheduleScreenState extends State<StylistScheduleScreen> {
     context.watch<LanguageListener>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F8),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: Text(
-          context.t('Schedule'),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.starColor, AppColors.getStartedButton],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-      ),
+      backgroundColor: const Color(0xFFFBF9F8),
+      appBar: buildProfileSubpageAppBar(title: context.t('Schedule')),
       body: RefreshIndicator(
         onRefresh: _loadSchedules,
         color: AppColors.starColor,

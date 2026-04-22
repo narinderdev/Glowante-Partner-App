@@ -28,6 +28,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   flutter_gen: ^5.4.0
+  intl: ^0.20.2
   aws_s3_upload_lite: ^0.1.6     # ← replace with actual version from pub.dev
   mime: ^2.0.0
   path_provider: ^2.1.5
@@ -37,6 +38,7 @@ dependencies:
   url_launcher: ^6.3.0
   dotted_border: ^2.1.0
   flutter_svg: ^2.0.9
+  mobile_scanner: ^5.2.3
   pin_code_fields: ^8.0.1
   webview_flutter: ^4.7.0
   connectivity_plus: ^6.0.3
@@ -54,5 +56,20 @@ flutter:
     - assets/images/
     - assets/images/icons/
     - .env
+  fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope/Manrope-Light.ttf
+          weight: 300
+        - asset: assets/fonts/Manrope/Manrope-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Manrope/Manrope-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Manrope/Manrope-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Manrope/Manrope-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Manrope/Manrope-ExtraBold.ttf
+          weight: 800
 
   generate: true

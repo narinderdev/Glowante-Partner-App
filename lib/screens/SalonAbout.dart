@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-import 'package:flutter/services.dart';
 
 class SalonAbout extends StatefulWidget {
-  const SalonAbout({Key? key, this.branchId}) : super(key: key);
+  const SalonAbout({super.key, this.branchId});
 
   final int? branchId;
 
@@ -84,8 +84,7 @@ class _SalonAboutState extends State<SalonAbout> {
             salonId: salonId,
             salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
             branchId: branchId,
-            branchName:
-                branchName.isEmpty ? 'Branch #$branchId' : branchName,
+            branchName: branchName.isEmpty ? 'Branch #$branchId' : branchName,
             addressSummary: _branchAddressSummary(branch),
             branch: branch,
           ),
@@ -118,9 +117,9 @@ class _SalonAboutState extends State<SalonAbout> {
         setState(() {
           _salons = [];
           _loadingSalons = false;
-          _salonError = (response['message'] ??
-                  translateText('Failed to reach server'))
-              .toString();
+          _salonError =
+              (response['message'] ?? translateText('Failed to reach server'))
+                  .toString();
         });
       }
     } catch (e) {
@@ -183,7 +182,7 @@ class _SalonAboutState extends State<SalonAbout> {
       Map<String, dynamic>? data;
       if (response['data'] is Map<String, dynamic>) {
         data = Map<String, dynamic>.from(response['data'] as Map);
-      } else if (response is Map<String, dynamic>) {
+      } else {
         data = Map<String, dynamic>.from(response);
       }
 
@@ -228,26 +227,8 @@ class _SalonAboutState extends State<SalonAbout> {
   Widget build(BuildContext context) {
     context.t(''); // register for language changes
     return Scaffold(
-      backgroundColor: const Color(0xFFF2F2F2),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          translateText('About Salon'),
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.starColor, AppColors.getStartedButton],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
-      ),
+      backgroundColor: const Color(0xFFFBF9F8),
+      appBar: buildProfileSubpageAppBar(title: translateText('About Salon')),
       body: _buildBody(context),
     );
   }
@@ -302,76 +283,76 @@ class _SalonAboutState extends State<SalonAbout> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              Row(
-                children: [
-                  Text(
-                    translateText('Choose Branch'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                      fontSize: 16,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        translateText('Choose Branch'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (_loadingSalons)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                    ],
                   ),
-                  const Spacer(),
-                  if (_loadingSalons)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.grey.shade300),
+                      color: Colors.grey.shade100,
                     ),
-                ],
-              ),
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey.shade300),
-                  color: Colors.grey.shade100,
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: selectedOption?.branchId,
-                    isExpanded: true,
-                    itemHeight: 60,
-                    icon: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: AppColors.starColor,
-                    ),
-                    dropdownColor: Colors.white,
-                    items: branchItems,
-                    selectedItemBuilder: branchItems.isNotEmpty
-                        ? (context) => menuOptions
-                            .map(
-                              (option) => Align(
-                                alignment: Alignment.centerLeft,
-                                child: _BranchDropdownOption(
-                                  option: option,
-                                  compact: true,
-                                ),
-                              ),
-                            )
-                            .toList()
-                        : null,
-                    onChanged: _loadingSalons || branchOptions.isEmpty
-                        ? null
-                        : (newValue) {
-                            if (newValue == null) return;
-                            final option = branchOptions.firstWhere(
-                              (element) => element.branchId == newValue,
-                            );
-                            _onBranchSelected(option);
-                          },
-                    hint: Text(
-                      branchOptions.isEmpty
-                          ? translateText('No branches available')
-                          : branchHint,
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: selectedOption?.branchId,
+                        isExpanded: true,
+                        itemHeight: 60,
+                        icon: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: AppColors.starColor,
+                        ),
+                        dropdownColor: Colors.white,
+                        items: branchItems,
+                        selectedItemBuilder: branchItems.isNotEmpty
+                            ? (context) => menuOptions
+                                .map(
+                                  (option) => Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: _BranchDropdownOption(
+                                      option: option,
+                                      compact: true,
+                                    ),
+                                  ),
+                                )
+                                .toList()
+                            : null,
+                        onChanged: _loadingSalons || branchOptions.isEmpty
+                            ? null
+                            : (newValue) {
+                                if (newValue == null) return;
+                                final option = branchOptions.firstWhere(
+                                  (element) => element.branchId == newValue,
+                                );
+                                _onBranchSelected(option);
+                              },
+                        hint: Text(
+                          branchOptions.isEmpty
+                              ? translateText('No branches available')
+                              : branchHint,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
                 ],
               ),
             ),

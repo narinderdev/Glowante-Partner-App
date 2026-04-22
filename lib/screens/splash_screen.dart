@@ -34,21 +34,26 @@ class _SplashScreenState extends State<SplashScreen> {
 
   void startSplashSequence() async {
     await startSplashAnimation();
+    if (!mounted) return;
     await Future.delayed(const Duration(milliseconds: 1000));
+    if (!mounted) return;
     _checkLoginStatus(); // 👈 check token after animation
   }
 
   Future<void> startSplashAnimation() async {
     await Future.delayed(const Duration(milliseconds: 500));
+    if (!mounted) return;
     setState(() => isCircleExpanded = true);
 
     await Future.delayed(const Duration(milliseconds: 1000));
+    if (!mounted) return;
     setState(() {
       flowerScale = 1.8;
       flowerOpacity = 0.0;
     });
 
     await Future.delayed(const Duration(milliseconds: 800));
+    if (!mounted) return;
     setState(() {
       showGlowanteLogo = true;
       logoOpacity = 1.0;
@@ -89,6 +94,7 @@ class _SplashScreenState extends State<SplashScreen> {
         }
         await prefs.setBool('profile_complete', true);
         await prefs.setBool('profile_pending', false);
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -99,6 +105,7 @@ class _SplashScreenState extends State<SplashScreen> {
         );
       } else {
         await prefs.setBool('profile_pending', true);
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

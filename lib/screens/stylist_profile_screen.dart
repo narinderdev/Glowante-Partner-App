@@ -1,14 +1,14 @@
+import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
-import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'stylist_about_salon_screen.dart';
 import 'stylist_detail_screen.dart';
 import 'stylist_reviews_screen.dart';
@@ -43,7 +43,10 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
         prefs.getString('lastName') ?? prefs.getString('last_name') ?? '';
     final selection = await StylistBranchSelectionStore.load();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _userName = '$firstName $lastName'.trim();
       _phoneNumber = prefs.getString('phone_number') ?? '';
@@ -108,6 +111,12 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   }
 
   void _showLogoutSheet() {
+    final messenger = ScaffoldMessenger.of(context);
+    final logoutTitle = translateText('Logout');
+    final logoutMessage = translateText('Are you sure you want to log out?');
+    final cancelLabel = translateText('Cancel');
+    final confirmLogoutLabel = translateText('Yes, log out');
+    final failureText = translateText('Logout request failed on the server.');
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -119,22 +128,22 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
         return StatefulBuilder(
           builder: (ctx, setSheetState) {
             Future<void> handleLogout() async {
-              if (isLoggingOut) return;
+              if (isLoggingOut) {
+                return;
+              }
               setSheetState(() => isLoggingOut = true);
 
               final success = await apiService.logoutUserAPI();
-              if (!mounted) return;
+              if (!mounted || !ctx.mounted) {
+                return;
+              }
 
               setSheetState(() => isLoggingOut = false);
               Navigator.pop(ctx);
 
-              if (!success && mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      context.t('Logout request failed on the server.'),
-                    ),
-                  ),
+              if (!success) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text(failureText)),
                 );
               }
 
@@ -149,7 +158,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    context.t('Logout'),
+                    logoutTitle,
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -158,7 +167,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    context.t('Are you sure you want to log out?'),
+                    logoutMessage,
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 16, color: Colors.black87),
                   ),
@@ -174,7 +183,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: Text(context.t('Cancel')),
+                          child: Text(cancelLabel),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -197,7 +206,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : Text(context.t('Yes, log out')),
+                              : Text(confirmLogoutLabel),
                         ),
                       ),
                     ],
@@ -212,6 +221,13 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   }
 
   void _showDeleteDialog() {
+    final messenger = ScaffoldMessenger.of(context);
+    final deleteTitle = translateText('Delete Account');
+    final deleteMessage =
+        translateText('Are you sure you want to delete your account?');
+    final cancelLabel = translateText('Cancel');
+    final confirmDeleteLabel = translateText('Yes, delete');
+    final deleteFailureText = translateText('Delete failed. Please try again.');
     showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -221,11 +237,15 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             Future<void> handleDelete() async {
-              if (isDeleting) return;
+              if (isDeleting) {
+                return;
+              }
               setDialogState(() => isDeleting = true);
 
               final success = await apiService.deleteAccountAPI();
-              if (!mounted) return;
+              if (!mounted || !ctx.mounted) {
+                return;
+              }
 
               setDialogState(() => isDeleting = false);
 
@@ -235,11 +255,9 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                   reason: 'user_delete_account',
                 );
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
-                    content: Text(
-                      context.t('Delete failed. Please try again.'),
-                    ),
+                    content: Text(deleteFailureText),
                   ),
                 );
               }
@@ -250,19 +268,19 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                 borderRadius: BorderRadius.circular(16),
               ),
               title: Text(
-                context.t('Delete Account'),
+                deleteTitle,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: AppColors.starColor,
                 ),
               ),
               content: Text(
-                context.t('Are you sure you want to delete your account?'),
+                deleteMessage,
               ),
               actions: [
                 TextButton(
                   onPressed: isDeleting ? null : () => Navigator.pop(ctx),
-                  child: Text(context.t('Cancel')),
+                  child: Text(cancelLabel),
                 ),
                 ElevatedButton(
                   onPressed: isDeleting ? null : handleDelete,
@@ -282,7 +300,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : Text(context.t('Yes, delete')),
+                      : Text(confirmDeleteLabel),
                 ),
               ],
             );
@@ -296,227 +314,58 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   Widget build(BuildContext context) {
     final langListener = Provider.of<LanguageListener>(context);
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F8),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: Text(
-          context.t('Profile'),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
+    return SharedProfileScreen(
+      userName: _userName,
+      phoneNumber: _phoneNumber,
+      currentLanguageCode: langListener.currentLang,
+      onLanguageChanged: _changeLanguage,
+      onRefresh: _loadData,
+      menuItems: [
+        ProfileMenuItemData(
+          icon: Icons.schedule_outlined,
+          label: context.t('Schedule'),
+          onTap: _openSchedule,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.payments_outlined,
+          label: context.t('Commission'),
+          onTap: () => _openDetail(translateText('Commission')),
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.rate_review_outlined,
+          label: context.t('Reviews'),
+          onTap: _openReviews,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.info_outline,
+          label: context.t('About Salon'),
+          onTap: _openAboutSalon,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.privacy_tip_outlined,
+          label: context.t('Privacy Policy'),
+          onTap: () => _openDoc(
+            translateText('Privacy Policy'),
+            'https://glowante.com/privacy-policy',
           ),
+          showLeftAccent: true,
         ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.starColor, AppColors.getStartedButton],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+        ProfileMenuItemData(
+          icon: Icons.policy_outlined,
+          label: context.t('Terms & Conditions'),
+          onTap: () => _openDoc(
+            translateText('Terms & Conditions'),
+            'https://glowante.com/terms-of-services',
           ),
+          showLeftAccent: true,
         ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        color: AppColors.starColor,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x12000000),
-                    blurRadius: 18,
-                    offset: Offset(0, 10),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 36,
-                    backgroundColor: AppColors.starColor.withOpacity(0.12),
-                    child: const Icon(
-                      Icons.person,
-                      size: 38,
-                      color: AppColors.starColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _userName.isEmpty ? context.t('Profile') : _userName,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (_phoneNumber.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      _phoneNumber,
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.t('Language'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _changeLanguage('en'),
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: langListener.currentLang == 'en'
-                                ? AppColors.starColor
-                                : Colors.white,
-                            foregroundColor: langListener.currentLang == 'en'
-                                ? Colors.white
-                                : Colors.black87,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(context.t('English')),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => _changeLanguage('hi'),
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: langListener.currentLang == 'hi'
-                                ? AppColors.starColor
-                                : Colors.white,
-                            foregroundColor: langListener.currentLang == 'hi'
-                                ? Colors.white
-                                : Colors.black87,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('हिंदी'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.schedule_outlined),
-                    title: const Text('Schedule'),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: _openSchedule,
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.privacy_tip_outlined),
-                    title: Text(context.t('Privacy Policy')),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _openDoc(
-                      translateText('Privacy Policy'),
-                      'https://glowante.com/privacy-policy',
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.policy_outlined),
-                    title: Text(context.t('Terms & Conditions')),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _openDoc(
-                      translateText('Terms & Conditions'),
-                      'https://glowante.com/terms-of-services',
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.info_outline),
-                    title: Text(context.t('About Salon')),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: _openAboutSalon,
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.rate_review_outlined),
-                    title: Text(context.t('Reviews')),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: _openReviews,
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.payments_outlined),
-                    title: Text(context.t('Commission')),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                    onTap: () => _openDetail(translateText('Commission')),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _showLogoutSheet,
-              icon: const Icon(Icons.logout),
-              label: Text(context.t('Logout')),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _showDeleteDialog,
-              icon: const Icon(Icons.delete_forever),
-              label: Text(context.t('Delete Account')),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      ],
+      onLogout: _showLogoutSheet,
+      onDeleteAccount: _showDeleteDialog,
     );
   }
 }

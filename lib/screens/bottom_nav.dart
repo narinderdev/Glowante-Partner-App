@@ -1,10 +1,12 @@
 import 'dart:async';
+
+import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../services/language_listener.dart';
-import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../services/push_notification_service.dart';
-import '../utils/colors.dart';
+import '../widgets/shared_bottom_nav_bar.dart';
 import 'Bookings.dart';
 import 'category_screen.dart';
 import 'profile_screen.dart';
@@ -51,8 +53,12 @@ class _BottomNavState extends State<BottomNav> {
 
     _navPushSub =
         PushNotificationService.instance.bookingNotifications.listen((payload) {
-      if (!payload.wasTapped || !mounted) return;
-      if (_currentIndex == 0) return;
+      if (!payload.wasTapped || !mounted) {
+        return;
+      }
+      if (_currentIndex == 0) {
+        return;
+      }
       _setCurrentIndex(0);
     });
   }
@@ -97,24 +103,23 @@ class _BottomNavState extends State<BottomNav> {
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
 
-    // Build destinations dynamically based on current language
     final destinations = [
-      _Destination(
+      SharedBottomNavDestination(
         iconPath: 'assets/images/bookings.png',
         activeIconPath: 'assets/images/bookings1.png',
         label: context.t('Bookings'),
       ),
-      _Destination(
+      SharedBottomNavDestination(
         iconPath: 'assets/images/salon.png',
         activeIconPath: 'assets/images/salon1.png',
         label: context.t('Salons'),
       ),
-      _Destination(
+      SharedBottomNavDestination(
         iconPath: 'assets/images/service.png',
         activeIconPath: 'assets/images/service1.png',
         label: context.t('Catalog'),
       ),
-      _Destination(
+      SharedBottomNavDestination(
         iconPath: 'assets/images/user.png',
         activeIconPath: 'assets/images/user1.png',
         label: context.t('Profile'),
@@ -126,133 +131,11 @@ class _BottomNavState extends State<BottomNav> {
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(0, 0, 0, 20),
-          child: _FloatingNavBar(
-            destinations: destinations,
-            currentIndex: _currentIndex,
-            onSelect: (index) => _setCurrentIndex(index),
-          ),
-        ),
+      bottomNavigationBar: SharedBottomNavBar(
+        destinations: destinations,
+        currentIndex: _currentIndex,
+        onSelect: (index) => _setCurrentIndex(index),
       ),
     );
   }
-}
-
-class _FloatingNavBar extends StatelessWidget {
-  const _FloatingNavBar({
-    required this.destinations,
-    required this.currentIndex,
-    required this.onSelect,
-  });
-
-  final List<_Destination> destinations;
-  final int currentIndex;
-  final ValueChanged<int> onSelect;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final Color primary = theme.colorScheme.primary;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: primary.withOpacity(0.25),
-            blurRadius: 30,
-            spreadRadius: 5,
-            offset: const Offset(0, 12),
-          ),
-        ],
-        border: Border.all(
-          color: primary.withOpacity(0.15),
-          width: 1.2,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          for (int i = 0; i < destinations.length; i++)
-            _NavButton(
-              destination: destinations[i],
-              isActive: currentIndex == i,
-              onTap: () => onSelect(i),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavButton extends StatelessWidget {
-  const _NavButton({
-    required this.destination,
-    required this.isActive,
-    required this.onTap,
-  });
-
-  final _Destination destination;
-  final bool isActive;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.asset(
-                isActive ? destination.activeIconPath : destination.iconPath,
-                width: 24,
-                height: 24,
-              ),
-              const SizedBox(height: 4),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: isActive
-                      ? AppColors.starColor
-                      : AppColors.darkGrey.withOpacity(0.6),
-                ),
-                child: Text(destination.label),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Destination {
-  _Destination({
-    required this.iconPath,
-    required this.activeIconPath,
-    required this.label,
-  });
-
-  final String iconPath;
-  final String activeIconPath;
-  final String label;
 }
