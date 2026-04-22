@@ -566,22 +566,24 @@ class _AddSalonServicesState extends State<AddSalonServices> {
               ? const Center(child: CircularProgressIndicator())
               : Padding(
                   padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Text(
-                        translateText(
-                          'Choose the services that best describe your salon.\nYou can select multiple options.',
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        Text(
+                          translateText(
+                            'Choose the services that best describe your salon.\nYou can select multiple options.',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: GridView.builder(
+                        const SizedBox(height: 24),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,
@@ -689,48 +691,48 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                             );
                           },
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed: _isSubmitting
-                              ? null
-                              : () => _submitSelection(context),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => _submitSelection(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.starColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              elevation: 3,
                             ),
-                            elevation: 3,
-                          ),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            child: _isSubmitting
-                                ? const SizedBox(
-                                    key: ValueKey('loader'),
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Colors.white,
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: _isSubmitting
+                                  ? const SizedBox(
+                                      key: ValueKey('loader'),
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      translateText('Submit'),
+                                      key: const ValueKey('text'),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  )
-                                : Text(
-                                    translateText('Submit'),
-                                    key: const ValueKey('text'),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
                 ),
         );
