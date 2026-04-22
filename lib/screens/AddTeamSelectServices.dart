@@ -346,6 +346,7 @@ import '../utils/colors.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'dart:convert';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
 class AddTeamSelectServices extends StatefulWidget {
   final Map<String, dynamic> teamMemberData;
@@ -394,121 +395,119 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   }
 // ---------- Helpers: put inside _AddTeamSelectServicesState ----------
 
-/// Convert "08:00 AM" / "8:00 pm" → "08:00". If already "HH:mm", returns as-is.
-String _to24h(String input) {
-  final s = input.trim();
+  /// Convert "08:00 AM" / "8:00 pm" → "08:00". If already "HH:mm", returns as-is.
+  String _to24h(String input) {
+    final s = input.trim();
 
-  // already HH:mm (00–23)
-  final reg24 = RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d$');
-  if (reg24.hasMatch(s)) return s;
+    // already HH:mm (00–23)
+    final reg24 = RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d$');
+    if (reg24.hasMatch(s)) return s;
 
-  // match 8:05 am / 08:05 PM / 12:00 am etc.
-  final reg12 = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
-  final m = reg12.firstMatch(s);
-  if (m != null) {
-    int h = int.parse(m.group(1)!);
-    final int min = int.parse(m.group(2)!);
-    final String mer = m.group(3)!.toUpperCase();
-    if (h == 12) h = 0;
-    if (mer == 'PM') h += 12;
-    final hh = h.toString().padLeft(2, '0');
-    final mm = min.toString().padLeft(2, '0');
-    return '$hh:$mm';
+    // match 8:05 am / 08:05 PM / 12:00 am etc.
+    final reg12 = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
+    final m = reg12.firstMatch(s);
+    if (m != null) {
+      int h = int.parse(m.group(1)!);
+      final int min = int.parse(m.group(2)!);
+      final String mer = m.group(3)!.toUpperCase();
+      if (h == 12) h = 0;
+      if (mer == 'PM') h += 12;
+      final hh = h.toString().padLeft(2, '0');
+      final mm = min.toString().padLeft(2, '0');
+      return '$hh:$mm';
+    }
+
+    // if we can’t parse, just return as-is (or throw)
+    return s;
   }
 
-  // if we can’t parse, just return as-is (or throw)
-  return s;
-}
+  /// Map UI display names to API enum codes. Adjust to your backend’s values.
+  String _roleToCode(String name) {
+    final n = (name ?? '').toString().trim().toLowerCase();
+    const map = {
+      'salon worker': 'salon_worker',
+      'worker': 'salon_worker',
+      'stylist': 'salon_worker',
+      'receptionist': 'salon_receptionist',
+      'salon receptionist': 'salon_receptionist',
+    };
+    return map[n] ?? n.replaceAll(' ', '_'); // fallback to snake_case
+  }
 
+  String _specToCode(String name) {
+    final n = (name ?? '').toString().trim().toLowerCase();
+    const map = {
+      'hair cut': 'hair_cut',
+      'haircut': 'hair_cut',
+      'facial': 'facial',
+      'pedicure': 'pedicure',
+    };
+    return map[n] ?? n.replaceAll(' ', '_');
+  }
 
-/// Map UI display names to API enum codes. Adjust to your backend’s values.
-String _roleToCode(String name) {
-  final n = (name ?? '').toString().trim().toLowerCase();
-  const map = {
-    'salon worker': 'salon_worker',
-    'worker': 'salon_worker',
-    'stylist': 'salon_worker',
-    'receptionist': 'salon_receptionist',
-    'salon receptionist': 'salon_receptionist',
-  };
-  return map[n] ?? n.replaceAll(' ', '_'); // fallback to snake_case
-}
+  /// Remove nulls and keys the API doesn’t need in body (since branch is in URL).
+  Map<String, dynamic> _cleanBody(Map<String, dynamic> m) {
+    final copy = Map<String, dynamic>.from(m)
+      ..remove('useSalonHours')
+      ..remove('otp')
+      ..remove('profileImage')
+      ..remove('branchId'); // branch comes from URL
+    copy.removeWhere((k, v) => v == null);
+    return copy;
+  }
 
-String _specToCode(String name) {
-  final n = (name ?? '').toString().trim().toLowerCase();
-  const map = {
-    'hair cut': 'hair_cut',
-    'haircut': 'hair_cut',
-    'facial': 'facial',
-    'pedicure': 'pedicure',
-  };
-  return map[n] ?? n.replaceAll(' ', '_');
-}
+  /// Build exactly what the API expects.
+  Map<String, dynamic> _buildPayloadForApi(
+    Map<String, dynamic> base,
+    List<int> branchServiceIds,
+  ) {
+    // roles & specs normalization
+    final roles = (base['roles'] as List? ?? const [])
+        .map((e) => _roleToCode(e.toString()))
+        .toList();
 
-/// Remove nulls and keys the API doesn’t need in body (since branch is in URL).
-Map<String, dynamic> _cleanBody(Map<String, dynamic> m) {
-  final copy = Map<String, dynamic>.from(m)
-    ..remove('useSalonHours')
-    ..remove('otp')
-    ..remove('profileImage')
-    ..remove('branchId'); // branch comes from URL
-  copy.removeWhere((k, v) => v == null);
-  return copy;
-}
+    final specs = (base['specialities'] as List? ??
+            base['specializations'] as List? ??
+            const [])
+        .map((e) => _specToCode(e.toString()))
+        .toList();
 
-/// Build exactly what the API expects.
-Map<String, dynamic> _buildPayloadForApi(
-  Map<String, dynamic> base,
-  List<int> branchServiceIds,
-) {
-  // roles & specs normalization
-  final roles = (base['roles'] as List? ?? const [])
-      .map((e) => _roleToCode(e.toString()))
-      .toList();
+    // schedules normalization to HH:mm
+    final schedules =
+        (base['schedules'] as List? ?? const []).map<Map<String, dynamic>>((s) {
+      final sm = (s as Map).cast<String, dynamic>();
+      return {
+        'day': (sm['day'] ?? '').toString().toLowerCase(),
+        'startTime': _to24h((sm['startTime'] ?? sm['start'] ?? '').toString()),
+        'endTime': _to24h((sm['endTime'] ?? sm['end'] ?? '').toString()),
+      };
+    }).toList();
 
-  final specs = (base['specialities'] as List? ??
-          base['specializations'] as List? ??
-          const [])
-      .map((e) => _specToCode(e.toString()))
-      .toList();
+    // countryCode default
+    final countryCode = (base['countryCode'] ?? '+91').toString();
 
-  // schedules normalization to HH:mm
-  final schedules = (base['schedules'] as List? ?? const [])
-      .map<Map<String, dynamic>>((s) {
-        final sm = (s as Map).cast<String, dynamic>();
-        return {
-          'day': (sm['day'] ?? '').toString().toLowerCase(),
-          'startTime': _to24h((sm['startTime'] ?? sm['start'] ?? '').toString()),
-          'endTime': _to24h((sm['endTime'] ?? sm['end'] ?? '').toString()),
-        };
-      })
-      .toList();
+    // joiningDate passthrough (string "YYYY-MM-DD" preferred)
+    final joiningDate = base['joiningDate'];
 
-  // countryCode default
-  final countryCode = (base['countryCode'] ?? '+91').toString();
+    final result = <String, dynamic>{
+      'countryCode': countryCode,
+      'phoneNumber': base['phoneNumber'],
+      'firstName': base['firstName'],
+      'lastName': base['lastName'],
+      'email': base['email'],
+      'gender': (base['gender'] ?? '').toString().toLowerCase(),
+      'joiningDate': joiningDate, // ensure it's "yyyy-MM-dd"
+      'info': base['info'] ?? base['brief'],
+      'roles': roles,
+      'specialities': specs,
+      'schedules': schedules,
+      'branchServiceIds': branchServiceIds,
+      'profilePictureUrl': base['profilePictureUrl'],
+      'allowOnlineBooking': base['allowOnlineBooking'] ?? false,
+    };
 
-  // joiningDate passthrough (string "YYYY-MM-DD" preferred)
-  final joiningDate = base['joiningDate'];
-
-  final result = <String, dynamic>{
-    'countryCode': countryCode,
-    'phoneNumber': base['phoneNumber'],
-    'firstName': base['firstName'],
-    'lastName': base['lastName'],
-    'email': base['email'],
-    'gender': (base['gender'] ?? '').toString().toLowerCase(),
-    'joiningDate': joiningDate, // ensure it's "yyyy-MM-dd"
-    'info': base['info'] ?? base['brief'],
-    'roles': roles,
-    'specialities': specs,
-    'schedules': schedules,
-    'branchServiceIds': branchServiceIds,
-    'profilePictureUrl': base['profilePictureUrl'],
-    'allowOnlineBooking': base['allowOnlineBooking'] ?? false,
-  };
-
-  return _cleanBody(result);
-}
+    return _cleanBody(result);
+  }
 
   List<int> _allServiceIds() {
     final ids = <int>[];
@@ -593,8 +592,8 @@ Map<String, dynamic> _buildPayloadForApi(
         children: [
           // top-level services
           ...services
-              .map<Widget>((s) =>
-                  _buildServiceItem((s as Map).cast<String, dynamic>()))
+              .map<Widget>(
+                  (s) => _buildServiceItem((s as Map).cast<String, dynamic>()))
               .toList(),
 
           // subcategories
@@ -654,45 +653,48 @@ Map<String, dynamic> _buildPayloadForApi(
   //     if (mounted) setState(() => _submitting = false);
   //   }
   // }
-  
-Future<void> _submit() async {
-  if (_selectedServiceIds.isEmpty) {
-    _showError('Please select at least one service.');
-    return;
-  }
 
-  setState(() => _submitting = true);
-  try {
-    // Build normalized body
-    final payload = _buildPayloadForApi(
-      widget.teamMemberData,
-      _selectedServiceIds, // List<int>
-    );
-
-    final int branchId = (widget.teamMemberData['branchId'] as int?) ?? 0;
- print('==================== ADD TEAM MEMBER PAYLOAD ====================');
-    print('Branch ID => $branchId');
-    final encoder = JsonEncoder.withIndent('  ');
-    print(encoder.convert(payload));
-    print(encoder.convert(payload));
-    print('=================================================================');
-
-    // POST to /branches/{branchId}/add-user
-    final response = await ApiService().addTeamMember(branchId, payload);
-
-    if (!mounted) return;
-
-    if (response['success'] == true) {
-      Navigator.pop(context, true);
-    } else {
-      _showError(response['message']?.toString() ?? 'Failed to add team member');
+  Future<void> _submit() async {
+    if (_selectedServiceIds.isEmpty) {
+      _showError('Please select at least one service.');
+      return;
     }
-  } catch (e) {
-    _showError('An unexpected error occurred.');
-  } finally {
-    if (mounted) setState(() => _submitting = false);
+
+    setState(() => _submitting = true);
+    try {
+      // Build normalized body
+      final payload = _buildPayloadForApi(
+        widget.teamMemberData,
+        _selectedServiceIds, // List<int>
+      );
+
+      final int branchId = (widget.teamMemberData['branchId'] as int?) ?? 0;
+      print(
+          '==================== ADD TEAM MEMBER PAYLOAD ====================');
+      print('Branch ID => $branchId');
+      final encoder = JsonEncoder.withIndent('  ');
+      print(encoder.convert(payload));
+      print(encoder.convert(payload));
+      print(
+          '=================================================================');
+
+      // POST to /branches/{branchId}/add-user
+      final response = await ApiService().addTeamMember(branchId, payload);
+
+      if (!mounted) return;
+
+      if (response['success'] == true) {
+        Navigator.pop(context, true);
+      } else {
+        _showError(
+            response['message']?.toString() ?? 'Failed to add team member');
+      }
+    } catch (e) {
+      _showError('An unexpected error occurred.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
-}
 
   void _showError(String msg) {
     showDialog(
@@ -701,7 +703,8 @@ Future<void> _submit() async {
         title: const Text('Response'),
         content: Text(msg),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('OK')),
         ],
       ),
     );
@@ -710,65 +713,42 @@ Future<void> _submit() async {
   @override
   Widget build(BuildContext context) {
     final fullName =
-        '${widget.teamMemberData["firstName"] ?? ""} ${widget.teamMemberData["lastName"] ?? ""}'.trim();
+        '${widget.teamMemberData["firstName"] ?? ""} ${widget.teamMemberData["lastName"] ?? ""}'
+            .trim();
 
     return Scaffold(
-     backgroundColor: Colors.white,
-    appBar: AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      systemOverlayStyle: SystemUiOverlayStyle.light,
-      iconTheme: const IconThemeData(color: Colors.white),
-      title: Text(
-        translateText('Select Services'),
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
+      backgroundColor: Colors.white,
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Select Services'),
       ),
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              AppColors.starColor,
-              AppColors.getStartedButton,
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-      ),
-    ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 // Summary
-          if (fullName.isNotEmpty)
-  Padding(
-    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-    child: Align(
-      alignment: Alignment.centerLeft,
-      child: Text(
-        // translateText('Assign services to') + ' $fullName', // Only translate the static part
-        translateText('Assign services'), // Only translate the static part
-        style: const TextStyle(
-          fontSize: 16, 
-          fontWeight: FontWeight.w600
-        ),
-      ),
-    ),
-  ),
-
-
+                if (fullName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        // translateText('Assign services to') + ' $fullName', // Only translate the static part
+                        translateText(
+                            'Assign services'), // Only translate the static part
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
 
                 // Select All
                 Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   child: CheckboxListTile(
                     value: _allSelected,
                     onChanged: _toggleAll,
-                    title:  Text(translateText('Select All Services')),
+                    title: Text(translateText('Select All Services')),
                     controlAffinity: ListTileControlAffinity.trailing,
                   ),
                 ),
@@ -777,45 +757,45 @@ Future<void> _submit() async {
                 Expanded(
                   child: ListView.builder(
                     itemCount: _categories.length,
-                    itemBuilder: (ctx, i) =>
-                        _buildCategory((_categories[i] as Map).cast<String, dynamic>()),
+                    itemBuilder: (ctx, i) => _buildCategory(
+                        (_categories[i] as Map).cast<String, dynamic>()),
                   ),
                 ),
               ],
             ),
-bottomNavigationBar: SafeArea(
-  child: Padding(
-    padding: const EdgeInsets.all(16),
-    child: ElevatedButton(
-      onPressed: _submitting ? null : _submit,
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 50), // Full width
-        backgroundColor: AppColors.starColor,          // Gradient color
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),      // ← slight curve
-        ),
-        elevation: 2,                                  // small shadow for depth
-      ),
-      child: _submitting
-          ? const SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2.5,
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ElevatedButton(
+            onPressed: _submitting ? null : _submit,
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 50), // Full width
+              backgroundColor: AppColors.starColor, // Gradient color
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6), // ← slight curve
               ),
-            )
-          :  Text(translateText('Add Team Member'),  
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 16,
-              ),
+              elevation: 2, // small shadow for depth
             ),
-    ),
-  ),
-),
-
+            child: _submitting
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    translateText('Add Team Member'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+          ),
+        ),
+      ),
     );
   }
 }

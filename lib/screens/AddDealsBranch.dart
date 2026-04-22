@@ -4,7 +4,7 @@ import 'SelectServices.dart';
 import '../utils/api_service.dart';
 import 'dart:math' as math;
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
 class AddDealsBranchScreen extends StatefulWidget {
   final int branchId;
@@ -165,9 +165,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
         }
 
         final maxCap = _parseNum(maxDiscountController.text);
-        final applied = maxCap > 0
-            ? math.min(percentDiscount, maxCap)
-            : percentDiscount;
+        final applied =
+            maxCap > 0 ? math.min(percentDiscount, maxCap) : percentDiscount;
 
         discounted = (original - applied).clamp(0, original);
       }
@@ -275,12 +274,10 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
       'name': dealTitleController.text,
       'type': widget.source,
       'status': 'ACTIVE',
-      'validFrom': validFromController.text.isNotEmpty
-          ? validFromController.text
-          : null,
-      'validTo': validTillController.text.isNotEmpty
-          ? validTillController.text
-          : null,
+      'validFrom':
+          validFromController.text.isNotEmpty ? validFromController.text : null,
+      'validTo':
+          validTillController.text.isNotEmpty ? validTillController.text : null,
       'pricingMode': pricingMode.toUpperCase(),
       'price': _parseCurrency(discountedPriceController.text) ?? 0,
       'terms': 'Valid on weekdays only.',
@@ -396,25 +393,26 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
   }
 
   Widget _sectionTitle(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(
-      text,
-      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
-    ),
-  );
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          text,
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
     final showDiscountRow = pricingMode == 'Discount';
     // Flat field visible in Fixed OR Discount+Flat
-    final showFlatField =
-        (pricingMode == 'Fixed') ||
+    final showFlatField = (pricingMode == 'Fixed') ||
         (pricingMode == 'Discount' && discountType == 'Flat');
     final showPercentField =
         pricingMode == 'Discount' && discountType == 'Percent';
 
     return Scaffold(
-      appBar: AppBar(title: Text(translateText('Create Package Deal'))),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Create Package Deal'),
+      ),
       body: Container(
         color: const Color(0xFFFEFBF5),
         child: SingleChildScrollView(
@@ -437,7 +435,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
 
               // Pricing Mode / Discount Type
               if (!showDiscountRow) ...[
-                Text(translateText('Pricing Mode *'),
+                Text(
+                  translateText('Pricing Mode *'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -469,7 +468,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(translateText('Pricing Mode *'),
+                          Text(
+                            translateText('Pricing Mode *'),
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
@@ -507,7 +507,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(translateText('Discount Type *'),
+                          Text(
+                            translateText('Discount Type *'),
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 13,
@@ -570,9 +571,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                   if (result is List) {
                     setState(() {
                       _selectedServices = result.cast<Map<String, dynamic>>();
-                      originalPriceController.text = _originalTotalInt()
-                          .toDouble()
-                          .toStringAsFixed(2);
+                      originalPriceController.text =
+                          _originalTotalInt().toDouble().toStringAsFixed(2);
                     });
                     _recalcDiscounted();
                   } else if (result is Map) {
@@ -581,9 +581,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     );
                     setState(() {
                       _selectedServices = hydrated;
-                      originalPriceController.text = _originalTotalInt()
-                          .toDouble()
-                          .toStringAsFixed(2);
+                      originalPriceController.text =
+                          _originalTotalInt().toDouble().toStringAsFixed(2);
                     });
                     _recalcDiscounted();
                   }
@@ -601,7 +600,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     children: [
                       Icon(Icons.add, color: Color(0xFF946317)),
                       SizedBox(width: 8),
-                      Text(translateText('Select Services'),
+                      Text(
+                        translateText('Select Services'),
                         style: TextStyle(
                           color: Color(0xFF946317),
                           fontWeight: FontWeight.w600,
@@ -614,7 +614,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
 
               if (_selectedServices.isNotEmpty) ...[
                 SizedBox(height: 16),
-                Text(translateText('Selected Services'),
+                Text(
+                  translateText('Selected Services'),
                   style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                 ),
                 SizedBox(height: 8),
@@ -699,8 +700,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                         ),
                         onChanged: (value) {
                           setState(() {
-                            final discountPercent =
-                                int.tryParse(
+                            final discountPercent = int.tryParse(
                                   discountPercentController.text.trim(),
                                 ) ??
                                 0;
@@ -771,12 +771,12 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                 height: 48,
                 child: ElevatedButton(
                   onPressed: _submitOffer,
-
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _accent,
                     shape: RoundedRectangleBorder(borderRadius: _radius),
                   ),
-                  child: Text(translateText('Add Packages'),
+                  child: Text(
+                    translateText('Add Packages'),
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                   ),
                 ),

@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
 class AddTeamScreen extends StatefulWidget {
   final int branchId;
@@ -221,50 +222,51 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   //   }
   // }
   Future<void> _pickImage() async {
-  final picker = ImagePicker();
-  final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
-  if (picked == null) return;
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
 
-  setState(() {
-    _cameraImage = File(picked.path);
-  });
-
-  // show temporary feedback
-  _toast('Uploading image...');
-
-  final uploaded = await AwsS3Uploader().uploadImageResult(picked, folder: 'uploads/team');
-  if (uploaded != null) {
     setState(() {
-      imageUrl = uploaded.cdnUrl ?? uploaded.publicUrl;
+      _cameraImage = File(picked.path);
     });
-    _toast('Image uploaded successfully');
-  } else {
-    _toast('❌ Failed to upload image');
+
+    // show temporary feedback
+    _toast('Uploading image...');
+
+    final uploaded =
+        await AwsS3Uploader().uploadImageResult(picked, folder: 'uploads/team');
+    if (uploaded != null) {
+      setState(() {
+        imageUrl = uploaded.cdnUrl ?? uploaded.publicUrl;
+      });
+      _toast('Image uploaded successfully');
+    } else {
+      _toast('❌ Failed to upload image');
+    }
   }
-}
 
-Future<String?> _uploadImageToS3(File image) async {
-  try {
-    final xFile = XFile(image.path);
-    final result = await AwsS3Uploader().uploadImageResult(
-      xFile,
-      folder: 'uploads/team', // optional subfolder for team avatars
-    );
+  Future<String?> _uploadImageToS3(File image) async {
+    try {
+      final xFile = XFile(image.path);
+      final result = await AwsS3Uploader().uploadImageResult(
+        xFile,
+        folder: 'uploads/team', // optional subfolder for team avatars
+      );
 
-    if (result == null) {
-      debugPrint('❌ Upload failed');
+      if (result == null) {
+        debugPrint('❌ Upload failed');
+        return null;
+      }
+
+      // prefer cdnUrl if available
+      final url = result.cdnUrl ?? result.publicUrl;
+      debugPrint('✅ Uploaded profile image URL: $url');
+      return url;
+    } catch (e) {
+      debugPrint('Image upload error: $e');
       return null;
     }
-
-    // prefer cdnUrl if available
-    final url = result.cdnUrl ?? result.publicUrl;
-    debugPrint('✅ Uploaded profile image URL: $url');
-    return url;
-  } catch (e) {
-    debugPrint('Image upload error: $e');
-    return null;
   }
-}
 
   InputDecoration _decor({
     String? hint,
@@ -385,6 +387,7 @@ Future<String?> _uploadImageToS3(File image) async {
     _emailFocus.unfocus();
     _brieftFocus.unfocus();
   }
+
   // Future<void> _pickJoiningDate() async {
   //   _dismissKeyboard();
   //   final now = DateTime.now();
@@ -414,40 +417,40 @@ Future<String?> _uploadImageToS3(File image) async {
   //     });
   //   }
   // }
-Future<void> _pickJoiningDate() async {
-  _dismissKeyboard();
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day); // strip time
+  Future<void> _pickJoiningDate() async {
+    _dismissKeyboard();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day); // strip time
 
-  final res = await showDatePicker(
-    context: context,
-    firstDate: today, // ✅ cannot pick any date before today
-    lastDate: DateTime(now.year + 5),
-    initialDate: _joiningDate != null && _joiningDate!.isAfter(today)
-        ? _joiningDate!
-        : today, // ✅ default to today if past or null
-    builder: (ctx, child) {
-      return Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: Colors.black,
-            onPrimary: Colors.white,
-            onSurface: Colors.black87,
+    final res = await showDatePicker(
+      context: context,
+      firstDate: today, // ✅ cannot pick any date before today
+      lastDate: DateTime(now.year + 5),
+      initialDate: _joiningDate != null && _joiningDate!.isAfter(today)
+          ? _joiningDate!
+          : today, // ✅ default to today if past or null
+      builder: (ctx, child) {
+        return Theme(
+          data: Theme.of(ctx).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.black,
+              onPrimary: Colors.white,
+              onSurface: Colors.black87,
+            ),
           ),
-        ),
-        child: child!,
-      );
-    },
-  );
+          child: child!,
+        );
+      },
+    );
 
-  _dismissKeyboard();
-  if (res != null) {
-    setState(() {
-      _joiningDate = res;
-      _suppressDateError = true; // hide inline error after selection
-    });
+    _dismissKeyboard();
+    if (res != null) {
+      setState(() {
+        _joiningDate = res;
+        _suppressDateError = true; // hide inline error after selection
+      });
+    }
   }
-}
 
   Future<void> _openMultiSelect({
     required String title,
@@ -635,35 +638,8 @@ Future<void> _pickJoiningDate() async {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        // Let the gradient show through:
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
-        ),
-        title: Text(
-          translateText('Add Team Member'),
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        // Paint the gradient here:
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.starColor, // your start color
-                AppColors.getStartedButton, // your end color
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Add Team Member'),
       ),
       body: SafeArea(
         child: Form(
@@ -801,64 +777,70 @@ Future<void> _pickJoiningDate() async {
                     SizedBox(height: 16),
 
                     IntrinsicHeight(
-  child: Row(
-    crossAxisAlignment: CrossAxisAlignment.start, // keep tops aligned
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _reqLabel(translateText('First Name')),
-            const SizedBox(height: 8),
-            TextFormField(
-              focusNode: _firstNameFocus,
-              controller: _firstNameCtrl,
-             keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-              autovalidateMode: _showGlobalErrors
-                  ? AutovalidateMode.onUserInteraction
-                  : AutovalidateMode.disabled,
-              decoration: _decor(hint: translateText('Enter first name')),
-              validator: _vFirstName,
-              onChanged: (_) {
-                if (!_suppressFirstNameError) {
-                  setState(() => _suppressFirstNameError = true);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _reqLabel(translateText('Last Name')),
-            const SizedBox(height: 8),
-            TextFormField(
-              focusNode: _lastNameFocus,
-              controller: _lastNameCtrl,
-          keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-              autovalidateMode: _showGlobalErrors
-                  ? AutovalidateMode.onUserInteraction
-                  : AutovalidateMode.disabled,
-              decoration: _decor(hint: translateText('Enter last name')),
-              validator: _vLastName,
-              onChanged: (_) {
-                if (!_suppressLastNameError) {
-                  setState(() => _suppressLastNameError = true);
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    ],
-  ),
-),
-
+                      child: Row(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.start, // keep tops aligned
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _reqLabel(translateText('First Name')),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  focusNode: _firstNameFocus,
+                                  controller: _firstNameCtrl,
+                                  keyboardType: TextInputType.text,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  autovalidateMode: _showGlobalErrors
+                                      ? AutovalidateMode.onUserInteraction
+                                      : AutovalidateMode.disabled,
+                                  decoration: _decor(
+                                      hint: translateText('Enter first name')),
+                                  validator: _vFirstName,
+                                  onChanged: (_) {
+                                    if (!_suppressFirstNameError) {
+                                      setState(
+                                          () => _suppressFirstNameError = true);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _reqLabel(translateText('Last Name')),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  focusNode: _lastNameFocus,
+                                  controller: _lastNameCtrl,
+                                  keyboardType: TextInputType.text,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  autovalidateMode: _showGlobalErrors
+                                      ? AutovalidateMode.onUserInteraction
+                                      : AutovalidateMode.disabled,
+                                  decoration: _decor(
+                                      hint: translateText('Enter last name')),
+                                  validator: _vLastName,
+                                  onChanged: (_) {
+                                    if (!_suppressLastNameError) {
+                                      setState(
+                                          () => _suppressLastNameError = true);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
                     SizedBox(height: 16),
 
@@ -1076,8 +1058,8 @@ Future<void> _pickJoiningDate() async {
                       maxLines: 4,
                       maxLength: 100,
                       maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                     keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
+                      keyboardType: TextInputType.text,
+                      textCapitalization: TextCapitalization.sentences,
                       decoration: _decor(
                         hint: translateText('Enter a brief about this member'),
                       ).copyWith(

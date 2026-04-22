@@ -5,6 +5,7 @@ import 'TeamMemberDetails.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
 class TeamScreen extends StatefulWidget {
   @override
@@ -15,7 +16,8 @@ class _TeamScreenState extends State<TeamScreen> {
   late Future<List<Map<String, dynamic>>> branchOptionsFuture;
 
   int? selectedBranchId;
-  Map<String, dynamic>? selectedBranch; // {branchId, branchName, salonId, salonName}
+  Map<String, dynamic>?
+      selectedBranch; // {branchId, branchName, salonId, salonName}
   Future<List<dynamic>>? teamMembersFuture;
 
   bool _autoPicked = false;
@@ -76,7 +78,8 @@ class _TeamScreenState extends State<TeamScreen> {
     selectedBranch = branchOpt;
     selectedBranchId = branchOpt['branchId'] as int?;
     if (selectedBranchId != null) {
-      teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!); // ✅ always by branchId
+      teamMembersFuture =
+          _getTeamMembersByBranch(selectedBranchId!); // ✅ always by branchId
     } else {
       teamMembersFuture = null;
     }
@@ -86,24 +89,8 @@ class _TeamScreenState extends State<TeamScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          translateText('Team Members'),
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.starColor, AppColors.getStartedButton],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Team Members'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -130,8 +117,10 @@ class _TeamScreenState extends State<TeamScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                       hintText: translateText("No branches available"),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 14),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       disabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -143,7 +132,9 @@ class _TeamScreenState extends State<TeamScreen> {
                     dropdownColor: Colors.white,
                   ),
                   const SizedBox(height: 16),
-                  Expanded(child: Center(child: Text(translateText("No branches available")))),
+                  Expanded(
+                      child: Center(
+                          child: Text(translateText("No branches available")))),
                 ],
               );
             } else {
@@ -167,13 +158,15 @@ class _TeamScreenState extends State<TeamScreen> {
                               value: b['branchId'] as int,
                               child: Text(
                                 "${b['branchName']}",
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600),
                               ),
                             ))
                         .toList(),
                     onChanged: (value) {
                       if (value == null) return;
-                      final picked = branches.firstWhere((b) => b['branchId'] == value);
+                      final picked =
+                          branches.firstWhere((b) => b['branchId'] == value);
                       setState(() {
                         _pickBranch(picked);
                         print("Picked Branch -> branchId=${picked['branchId']} "
@@ -187,8 +180,10 @@ class _TeamScreenState extends State<TeamScreen> {
                         fontWeight: FontWeight.w700,
                       ),
                       hintText: translateText("Select branch"),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 14),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(color: Colors.grey.shade400),
@@ -206,16 +201,24 @@ class _TeamScreenState extends State<TeamScreen> {
                     child: FutureBuilder<List<dynamic>>(
                       future: teamMembersFuture,
                       builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return Center(child: CircularProgressIndicator(color: AppColors.starColor));
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(
+                              child: CircularProgressIndicator(
+                                  color: AppColors.starColor));
                         } else if (snapshot.hasError) {
-                          return Center(child: Text("Error: ${snapshot.error}"));
-                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                          return Center(child: Text(translateText("No team members found")));
+                          return Center(
+                              child: Text("Error: ${snapshot.error}"));
+                        } else if (!snapshot.hasData ||
+                            snapshot.data!.isEmpty) {
+                          return Center(
+                              child:
+                                  Text(translateText("No team members found")));
                         } else {
                           final members = snapshot.data!;
                           return GridView.builder(
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               mainAxisSpacing: 12,
                               crossAxisSpacing: 12,
@@ -225,12 +228,14 @@ class _TeamScreenState extends State<TeamScreen> {
                             itemBuilder: (context, index) {
                               final m = members[index];
                               return Card(
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                                 elevation: 3,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
                                     children: [
                                       // Image.asset(
                                       //   'assets/images/image.png',
@@ -242,59 +247,79 @@ class _TeamScreenState extends State<TeamScreen> {
                                       //     child: Center(child: Icon(Icons.person, size: 48, color: Colors.grey)),
                                       //   ),
                                       // ),
-                                     ClipRRect(
-  // borderRadius: BorderRadius.circular(15),
-  child: (m['profilePictureUrl'] != null &&
-          m['profilePictureUrl'].toString().isNotEmpty)
-      ? Image.network(
-          m['profilePictureUrl'],
-          height: 40,
-          width: 40,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Image.asset(
-            'assets/images/image.png',
-            height: 40,
-            width: 40,
-            fit: BoxFit.cover,
-          ),
-        )
-      : Image.asset(
-          'assets/images/image.png',
-          height: 40,
-          width: 40,
-          fit: BoxFit.cover,
-        ),
-),
+                                      ClipRRect(
+                                        // borderRadius: BorderRadius.circular(15),
+                                        child: (m['profilePictureUrl'] !=
+                                                    null &&
+                                                m['profilePictureUrl']
+                                                    .toString()
+                                                    .isNotEmpty)
+                                            ? Image.network(
+                                                m['profilePictureUrl'],
+                                                height: 40,
+                                                width: 40,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) =>
+                                                    Image.asset(
+                                                  'assets/images/image.png',
+                                                  height: 40,
+                                                  width: 40,
+                                                  fit: BoxFit.cover,
+                                                ),
+                                              )
+                                            : Image.asset(
+                                                'assets/images/image.png',
+                                                height: 40,
+                                                width: 40,
+                                                fit: BoxFit.cover,
+                                              ),
+                                      ),
 
                                       const SizedBox(height: 8),
                                       Text(
                                         "${m['firstName']} ${m['lastName'] ?? ''}",
                                         textAlign: TextAlign.center,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 8),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 8),
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        (m['roles'] != null && m['roles'].isNotEmpty)
+                                        (m['roles'] != null &&
+                                                m['roles'].isNotEmpty)
                                             ? m['roles'][0]['label']
                                             : "Staff",
-                                        style: TextStyle(color: Colors.grey[600]),
+                                        style:
+                                            TextStyle(color: Colors.grey[600]),
                                       ),
                                       const SizedBox(height: 6),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.work, size: 16, color: AppColors.starColor),
+                                          Icon(Icons.work,
+                                              size: 16,
+                                              color: AppColors.starColor),
                                           const SizedBox(width: 4),
-                                          Text(translateText("2 year+ Experience"), style: const TextStyle(fontSize: 12)),
+                                          Text(
+                                              translateText(
+                                                  "2 year+ Experience"),
+                                              style: const TextStyle(
+                                                  fontSize: 12)),
                                         ],
                                       ),
                                       const SizedBox(height: 6),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.star, size: 16, color: AppColors.starColor),
+                                          Icon(Icons.star,
+                                              size: 16,
+                                              color: AppColors.starColor),
                                           const SizedBox(width: 4),
-                                          Text(translateText("4.5 (43)"), style: const TextStyle(fontSize: 12)),
+                                          Text(translateText("4.5 (43)"),
+                                              style: const TextStyle(
+                                                  fontSize: 12)),
                                         ],
                                       ),
                                       const Spacer(),
@@ -305,7 +330,8 @@ class _TeamScreenState extends State<TeamScreen> {
                                             MaterialPageRoute(
                                               builder: (_) => TeamMemberDetails(
                                                 member: m,
-                                                salons: null, // optional; not needed if you only use branchId
+                                                salons:
+                                                    null, // optional; not needed if you only use branchId
                                               ),
                                             ),
                                           );
@@ -313,9 +339,12 @@ class _TeamScreenState extends State<TeamScreen> {
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: AppColors.starColor,
                                           foregroundColor: AppColors.white,
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8)),
                                         ),
-                                        child: Text(translateText("View Member")),
+                                        child:
+                                            Text(translateText("View Member")),
                                       ),
                                     ],
                                   ),
@@ -333,7 +362,6 @@ class _TeamScreenState extends State<TeamScreen> {
           },
         ),
       ),
-
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           if (selectedBranch != null) {
@@ -351,15 +379,20 @@ class _TeamScreenState extends State<TeamScreen> {
             );
             if (refresh == true) {
               setState(() {
-                teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!); // ✅ refresh by branch
+                teamMembersFuture = _getTeamMembersByBranch(
+                    selectedBranchId!); // ✅ refresh by branch
               });
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(translateText("Team member added successfully"))),
+                SnackBar(
+                    content:
+                        Text(translateText("Team member added successfully"))),
               );
             }
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(translateText("Please select a branch first."))),
+              SnackBar(
+                  content:
+                      Text(translateText("Please select a branch first."))),
             );
           }
         },

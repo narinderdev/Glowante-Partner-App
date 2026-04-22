@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +8,7 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
 class AddDealsScreen extends StatefulWidget {
   final int branchId;
@@ -264,8 +265,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         });
       }
 
-      final Map<String, dynamic> itemSummary =
-          (o['itemSummary'] is Map) ? Map<String, dynamic>.from(o['itemSummary']) : const <String, dynamic>{};
+      final Map<String, dynamic> itemSummary = (o['itemSummary'] is Map)
+          ? Map<String, dynamic>.from(o['itemSummary'])
+          : const <String, dynamic>{};
 
       final double? originalTotal =
           _asDouble(itemSummary['totalPrice'] ?? itemSummary['total']);
@@ -292,17 +294,19 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
       if (pricingMode == 'Fixed') {
         if (originalVal > 0) {
-          amountOffController.text =
-              (originalVal - discountedVal).clamp(0, originalVal).toStringAsFixed(2);
+          amountOffController.text = (originalVal - discountedVal)
+              .clamp(0, originalVal)
+              .toStringAsFixed(2);
         }
       } else if (pricingMode == 'Discount' && discountType == 'Flat') {
-        final double? amt =
-            _asDouble(o['discount'] ?? o['amount'] ?? itemSummary['totalDiscount']);
+        final double? amt = _asDouble(
+            o['discount'] ?? o['amount'] ?? itemSummary['totalDiscount']);
         if (amt != null && amt > 0) {
           amountOffController.text = amt.toStringAsFixed(2);
         } else if (originalVal > 0) {
-          amountOffController.text =
-              (originalVal - discountedVal).clamp(0, originalVal).toStringAsFixed(2);
+          amountOffController.text = (originalVal - discountedVal)
+              .clamp(0, originalVal)
+              .toStringAsFixed(2);
         }
       }
 
@@ -388,50 +392,51 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   //     }
   //   }
   // }
-Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
-  final now = DateTime.now();
-  final DateTime? fromDate = _parseUiDate(validFromController.text);
+  Future<void> _pickDate(TextEditingController c,
+      {required bool isFrom}) async {
+    final now = DateTime.now();
+    final DateTime? fromDate = _parseUiDate(validFromController.text);
 
-  // If selecting Valid From → cannot pick a past date.
-  // If selecting Valid Till → cannot pick a date before today or before Valid From.
-  final firstDate = isFrom
-      ? DateTime(now.year, now.month, now.day) // today onward only
-      : (fromDate != null && fromDate.isAfter(now)
-          ? fromDate
-          : DateTime(now.year, now.month, now.day));
+    // If selecting Valid From → cannot pick a past date.
+    // If selecting Valid Till → cannot pick a date before today or before Valid From.
+    final firstDate = isFrom
+        ? DateTime(now.year, now.month, now.day) // today onward only
+        : (fromDate != null && fromDate.isAfter(now)
+            ? fromDate
+            : DateTime(now.year, now.month, now.day));
 
-  final picked = await showDatePicker(
-    context: context,
-    initialDate: now.isBefore(firstDate) ? firstDate : now,
-    firstDate: firstDate,
-    lastDate: DateTime(now.year + 5),
-    builder: (ctx, child) => Theme(
-      data: Theme.of(ctx).copyWith(
-        colorScheme: const ColorScheme.light(
-          primary: Colors.black,
-          onPrimary: Colors.white,
-          onSurface: Colors.black87,
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now.isBefore(firstDate) ? firstDate : now,
+      firstDate: firstDate,
+      lastDate: DateTime(now.year + 5),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Colors.black,
+            onPrimary: Colors.white,
+            onSurface: Colors.black87,
+          ),
         ),
+        child: child!,
       ),
-      child: child!,
-    ),
-  );
+    );
 
-  if (picked != null) {
-    setState(() {
-      c.text = _formatDate(picked);
-      if (isFrom) {
-        _sValidFrom = true;
-      } else {
-        _sValidTill = true;
+    if (picked != null) {
+      setState(() {
+        c.text = _formatDate(picked);
+        if (isFrom) {
+          _sValidFrom = true;
+        } else {
+          _sValidTill = true;
+        }
+      });
+
+      if (_showErrors) {
+        _formKey.currentState?.validate();
       }
-    });
-
-    if (_showErrors) {
-      _formKey.currentState?.validate();
     }
   }
-}
 
   double _originalTotal() {
     double sum = 0;
@@ -807,10 +812,9 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
       'terms': termsController.text.trim().isEmpty
           ? null
           : termsController.text.trim(),
-'items': _selectedServices
-    .map((s) => {'branchServiceId': s['id'], 'qty': s['qty']})
-    .toList(),
-
+      'items': _selectedServices
+          .map((s) => {'branchServiceId': s['id'], 'qty': s['qty']})
+          .toList(),
     };
 
     if (pricingMode == 'Fixed') {
@@ -947,33 +951,8 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        // âœ… Keep default Android back button
-        automaticallyImplyLeading: true,
-        iconTheme:
-            const IconThemeData(color: Colors.white), // back button color
-        title: Text(
-          translateText(titleKey),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.starColor, // your start color
-                AppColors.getStartedButton, // your end color
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText(titleKey),
       ),
       body: SafeArea(
         child: Form(
@@ -1006,44 +985,43 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
                 //   },
                 // ),
                 TextFormField(
-  controller: dealTitleController,
-  keyboardType: TextInputType.text,                // 👈 text keyboard
- textCapitalization: TextCapitalization.sentences,
-  inputFormatters: [
-    _SentenceCaseTextFormatter(),
-    LengthLimitingTextInputFormatter(50), // ✅ Max 50 chars
-  ],
-  autovalidateMode: _showErrors
-      ? AutovalidateMode.always
-      : AutovalidateMode.disabled,
-  decoration: _decor(
-    label: widget.source.toUpperCase() == 'PACKAGE'
-        ? '${translateText('Package Title')} *'
-        : '${translateText('Deal Title')} *',
-    hint: widget.source.toUpperCase() == 'PACKAGE'
-        ? translateText("E.G. MEN'S GROOMING PACKAGE")
-        : translateText("E.G. FESTIVE DEAL"),
-    // ✅ Add live counter
-    suffix: Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: Text(
-        '${dealTitleController.text.length}/50',
-        style: TextStyle(
-          fontSize: 12,
-          color: dealTitleController.text.length >= 50
-              ? Colors.red
-              : Colors.grey,
-        ),
-      ),
-    ),
-  ),
-  validator: _vTitle,
-  onChanged: (_) {
-    if (!_sTitle) setState(() => _sTitle = true);
-    setState(() {}); // ✅ Refresh counter live
-  },
-),
-
+                  controller: dealTitleController,
+                  keyboardType: TextInputType.text, // 👈 text keyboard
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: [
+                    _SentenceCaseTextFormatter(),
+                    LengthLimitingTextInputFormatter(50), // ✅ Max 50 chars
+                  ],
+                  autovalidateMode: _showErrors
+                      ? AutovalidateMode.always
+                      : AutovalidateMode.disabled,
+                  decoration: _decor(
+                    label: widget.source.toUpperCase() == 'PACKAGE'
+                        ? '${translateText('Package Title')} *'
+                        : '${translateText('Deal Title')} *',
+                    hint: widget.source.toUpperCase() == 'PACKAGE'
+                        ? translateText("E.G. MEN'S GROOMING PACKAGE")
+                        : translateText("E.G. FESTIVE DEAL"),
+                    // ✅ Add live counter
+                    suffix: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Text(
+                        '${dealTitleController.text.length}/50',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: dealTitleController.text.length >= 50
+                              ? Colors.red
+                              : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ),
+                  validator: _vTitle,
+                  onChanged: (_) {
+                    if (!_sTitle) setState(() => _sTitle = true);
+                    setState(() {}); // ✅ Refresh counter live
+                  },
+                ),
 
                 SizedBox(height: 14),
 
@@ -1095,59 +1073,61 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                           IntrinsicHeight(
-  child: Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: validFromController,
-                            readOnly: true,
-                            autovalidateMode: _showErrors
-                                ? AutovalidateMode.onUserInteraction
-                                : AutovalidateMode.disabled,
-                            decoration: _decor(
-                              label: '${translateText('Valid From')} *',
-                              hint: 'dd-MM-yyyy',
-                              prefix: Icons.calendar_today_outlined,
-                              suffix: IconButton(
-                                icon: const Icon(Icons.date_range,
-                                    color: Colors.black),
-                                onPressed: () => _pickDate(validFromController,
-                                    isFrom: true),
+                    IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: validFromController,
+                              readOnly: true,
+                              autovalidateMode: _showErrors
+                                  ? AutovalidateMode.onUserInteraction
+                                  : AutovalidateMode.disabled,
+                              decoration: _decor(
+                                label: '${translateText('Valid From')} *',
+                                hint: 'dd-MM-yyyy',
+                                prefix: Icons.calendar_today_outlined,
+                                suffix: IconButton(
+                                  icon: const Icon(Icons.date_range,
+                                      color: Colors.black),
+                                  onPressed: () => _pickDate(
+                                      validFromController,
+                                      isFrom: true),
+                                ),
                               ),
+                              validator: _vValidFrom,
+                              onTap: () =>
+                                  _pickDate(validFromController, isFrom: true),
                             ),
-                            validator: _vValidFrom,
-                            onTap: () =>
-                                _pickDate(validFromController, isFrom: true),
                           ),
-                        ),
-                        SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: validTillController,
-                            readOnly: true,
-                            autovalidateMode: _showErrors
-                                ? AutovalidateMode.onUserInteraction
-                                : AutovalidateMode.disabled,
-                            decoration: _decor(
-                              label: '${translateText('Valid Till')} *',
-                              hint: 'dd-MM-yyyy',
-                              prefix: Icons.calendar_today_outlined,
-                              suffix: IconButton(
-                                icon: const Icon(Icons.date_range,
-                                    color: Colors.black),
-                                onPressed: () => _pickDate(validTillController,
-                                    isFrom: false),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: validTillController,
+                              readOnly: true,
+                              autovalidateMode: _showErrors
+                                  ? AutovalidateMode.onUserInteraction
+                                  : AutovalidateMode.disabled,
+                              decoration: _decor(
+                                label: '${translateText('Valid Till')} *',
+                                hint: 'dd-MM-yyyy',
+                                prefix: Icons.calendar_today_outlined,
+                                suffix: IconButton(
+                                  icon: const Icon(Icons.date_range,
+                                      color: Colors.black),
+                                  onPressed: () => _pickDate(
+                                      validTillController,
+                                      isFrom: false),
+                                ),
                               ),
+                              validator: _vValidTill,
+                              onTap: () =>
+                                  _pickDate(validTillController, isFrom: false),
                             ),
-                            validator: _vValidTill,
-                            onTap: () =>
-                                _pickDate(validTillController, isFrom: false),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                ),
                   ],
                 ),
                 SizedBox(height: 18),
@@ -1493,30 +1473,33 @@ Future<void> _pickDate(TextEditingController c, {required bool isFrom}) async {
                 //     prefix: Icons.article_outlined,
                 //   ),
                 // ),
-TextFormField(
-  controller: termsController,
-   keyboardType: TextInputType.text,                    // 👈 text keyboard
- textCapitalization: TextCapitalization.sentences,
-  inputFormatters: [
-    _SentenceCaseTextFormatter(),
-    NoSpecialCharsFormatter(),
-    LengthLimitingTextInputFormatter(50), // ✅ Limit to 50 characters
-  ],
-  decoration: _decor(
-    label: translateText('Terms (optional)'),
-    hint: translateText('ANY TERMS & CONDITIONS...'),
-    prefix: Icons.article_outlined,
-    // ✅ Show live character count
-    suffix: Padding(
-      padding: const EdgeInsets.only(right: 12),
-      child: Text(
-        '${termsController.text.length}/50',
-        style: const TextStyle(fontSize: 12, color: Colors.grey),
-      ),
-    ),
-  ),
-  onChanged: (_) => setState(() {}), // ✅ Refresh counter as user types
-),
+                TextFormField(
+                  controller: termsController,
+                  keyboardType: TextInputType.text, // 👈 text keyboard
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: [
+                    _SentenceCaseTextFormatter(),
+                    NoSpecialCharsFormatter(),
+                    LengthLimitingTextInputFormatter(
+                        50), // ✅ Limit to 50 characters
+                  ],
+                  decoration: _decor(
+                    label: translateText('Terms (optional)'),
+                    hint: translateText('ANY TERMS & CONDITIONS...'),
+                    prefix: Icons.article_outlined,
+                    // ✅ Show live character count
+                    suffix: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Text(
+                        '${termsController.text.length}/50',
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                  onChanged: (_) =>
+                      setState(() {}), // ✅ Refresh counter as user types
+                ),
 
                 SizedBox(height: 22),
 

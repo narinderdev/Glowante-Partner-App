@@ -6,11 +6,16 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
 class TeamMemberDetails extends StatelessWidget {
   final Map<String, dynamic> member;
-final List<Map<String, dynamic>>? salons;// 👈 new
-  const TeamMemberDetails({Key? key, required this.member,   this.salons,}) : super(key: key);
+  final List<Map<String, dynamic>>? salons; // 👈 new
+  const TeamMemberDetails({
+    Key? key,
+    required this.member,
+    this.salons,
+  }) : super(key: key);
 
   String _initials(String first, String last) {
     final f = first.isNotEmpty ? first[0] : '';
@@ -21,8 +26,8 @@ final List<Map<String, dynamic>>? salons;// 👈 new
   @override
   Widget build(BuildContext context) {
     final String firstName = (member['firstName'] ?? '').toString();
-    final String lastName  = (member['lastName'] ?? '').toString();
-      final userId = member['id'];
+    final String lastName = (member['lastName'] ?? '').toString();
+    final userId = member['id'];
     final String name = (firstName + ' ' + lastName).trim();
     final String role = (member['roles'] != null && member['roles'].isNotEmpty)
         ? member['roles'][0]['label']?.toString() ?? 'Staff'
@@ -34,42 +39,19 @@ final List<Map<String, dynamic>>? salons;// 👈 new
     final String rating = '4.5';
     final String experience = member['experience']?.toString() ?? '3 years';
     final List branches = (member['userBranches'] ?? []) as List;
-final List userSalons = (member['userSalons'] ?? []) as List;
-final List userBranches = (member['userBranches'] ?? []) as List;
-final String joinedAt = userBranches.isNotEmpty
-    ? (userBranches[0]['joiningDate'] ?? 'N/A').toString()
-    : 'N/A';
+    final List userSalons = (member['userSalons'] ?? []) as List;
+    final List userBranches = (member['userBranches'] ?? []) as List;
+    final String joinedAt = userBranches.isNotEmpty
+        ? (userBranches[0]['joiningDate'] ?? 'N/A').toString()
+        : 'N/A';
 
     final borderColor = Colors.black.withOpacity(0.08);
-    final cardRadius  = BorderRadius.circular(14);
+    final cardRadius = BorderRadius.circular(14);
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        // Let the gradient show through:
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
-        ),
-        title: Text(translateText('View Member'),
-          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
-        ),
-        // Paint the gradient here:
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.starColor,        // your start color
-                AppColors.getStartedButton, // your end color
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('View Member'),
       ),
       // 🔹 Scrollable content
       body: Container(
@@ -210,86 +192,86 @@ final String joinedAt = userBranches.isNotEmpty
 
               SizedBox(height: 12),
               _SectionCard(
-  title: translateText('Joined At'),
-  icon: Icons.calendar_today_outlined,
-  borderColor: borderColor,
-  radius: cardRadius,
-  trailing: Text(
-    joinedAt,
-    style: const TextStyle(
-      fontWeight: FontWeight.w600,
-      fontSize: 14,
-    ),
-  ),
-),
-
-
-SizedBox(height: 12),
-              // Assigned Branches
-              _SectionCard(
-  title: translateText('Assigned Branches'),
-  icon: Icons.apartment_outlined,
-  borderColor: borderColor,
-  radius: cardRadius,
-  // 👈 removed trailing from the card header
-  child: Align(
-    alignment: Alignment.centerLeft,
-    child: branches.isEmpty
-        ? Text(translateText('No branched assigned'),
-            style: TextStyle(color: Colors.black54),
-          )
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: branches.map((b) {
-              final br = (b as Map)['branch'] as Map?;
-              final branchName = (br?['name'] ?? '').toString();
-
-              return InkWell(
-                onTap: () {
-                  // TODO: handle branch row tap if you want
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.location_on_outlined,
-                          size: 18, color: Colors.black54),
-                      SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          branchName,
-                          style: const TextStyle(fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 22,
-                        color: Colors.black45,
-                      ),
-                    ],
+                title: translateText('Joined At'),
+                icon: Icons.calendar_today_outlined,
+                borderColor: borderColor,
+                radius: cardRadius,
+                trailing: Text(
+                  joinedAt,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-  ),
-),
+              ),
 
+              SizedBox(height: 12),
+              // Assigned Branches
+              _SectionCard(
+                title: translateText('Assigned Branches'),
+                icon: Icons.apartment_outlined,
+                borderColor: borderColor,
+                radius: cardRadius,
+                // 👈 removed trailing from the card header
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: branches.isEmpty
+                      ? Text(
+                          translateText('No branched assigned'),
+                          style: TextStyle(color: Colors.black54),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: branches.map((b) {
+                            final br = (b as Map)['branch'] as Map?;
+                            final branchName = (br?['name'] ?? '').toString();
+
+                            return InkWell(
+                              onTap: () {
+                                // TODO: handle branch row tap if you want
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 6),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.location_on_outlined,
+                                        size: 18, color: Colors.black54),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        branchName,
+                                        style: const TextStyle(fontSize: 14),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 22,
+                                      color: Colors.black45,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                ),
+              ),
             ],
           ),
         ),
       ),
-       bottomNavigationBar: SafeArea(
-  top: false,
-  child: Padding(
-    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-    child: SizedBox(
-      width: double.infinity,
-    ),
-  ),
-),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: SizedBox(
+            width: double.infinity,
+          ),
+        ),
+      ),
     );
   }
 }
