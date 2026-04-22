@@ -49,14 +49,11 @@ class _SalonBranchOption {
 
 class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   static const double _rowHeight = 44.0;
-  static const double _scheduleWidth = 420.0;
   static const double _verticalScrollBottomInset = 24.0;
 
   final ApiService _apiService = ApiService();
   final ScrollController _timeColumnVController = ScrollController();
   final ScrollController _gridVController = ScrollController();
-  final ScrollController _headerHController = ScrollController();
-  final ScrollController _gridHController = ScrollController();
 
   List<_SalonBranchOption> _options = const [];
   List<Map<String, dynamic>> _bookings = const [];
@@ -68,7 +65,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   bool _loadingDate = false;
   String? _errorMessage;
   bool _syncingV = false;
-  bool _syncingH = false;
   List<String> _timeSlots = const [];
   late DateTime _dayStart;
   late DateTime _dayEnd;
@@ -112,30 +108,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         }
       }
       _syncingV = false;
-    });
-
-    _headerHController.addListener(() {
-      if (_syncingH) return;
-      _syncingH = true;
-      if (_gridHController.hasClients) {
-        final off = _headerHController.offset;
-        if ((_gridHController.offset - off).abs() > 0.5) {
-          _gridHController.jumpTo(off);
-        }
-      }
-      _syncingH = false;
-    });
-
-    _gridHController.addListener(() {
-      if (_syncingH) return;
-      _syncingH = true;
-      if (_headerHController.hasClients) {
-        final off = _gridHController.offset;
-        if ((_headerHController.offset - off).abs() > 0.5) {
-          _headerHController.jumpTo(off);
-        }
-      }
-      _syncingH = false;
     });
   }
 
@@ -1891,212 +1863,210 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     ),
                   ),
                 const SizedBox(height: 12),
-                Column(
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.zero,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 60,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            alignment: Alignment.centerLeft,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(5),
-                              ),
-                              border: Border(
-                                top: BorderSide(color: Colors.grey.shade300),
-                                left: BorderSide(color: Colors.grey.shade300),
-                                right: BorderSide(color: Colors.grey.shade300),
-                                bottom: BorderSide(color: Colors.grey.shade300),
-                              ),
-                            ),
-                            child: Text(
-                              context.t('Time'),
-                              style: const TextStyle(
-                                color: Colors.black87,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(5),
-                              ),
-                              child: SingleChildScrollView(
-                                controller: _headerHController,
-                                scrollDirection: Axis.horizontal,
-                                physics: const ClampingScrollPhysics(),
-                                child: Container(
-                                  width: _scheduleWidth,
-                                  height: 60,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final scheduleWidth = math.max(
+                      constraints.maxWidth - 100,
+                      0.0,
+                    );
+
+                    return Column(
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.zero,
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 100,
+                                height: 60,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(5),
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    border: Border(
-                                      top: BorderSide(
-                                          color: Colors.grey.shade300),
-                                      right: BorderSide(
-                                          color: Colors.grey.shade300),
-                                      bottom: BorderSide(
-                                          color: Colors.grey.shade300),
+                                  border: Border(
+                                    top:
+                                        BorderSide(color: Colors.grey.shade300),
+                                    left:
+                                        BorderSide(color: Colors.grey.shade300),
+                                    right:
+                                        BorderSide(color: Colors.grey.shade300),
+                                    bottom: BorderSide(
+                                      color: Colors.grey.shade300,
                                     ),
                                   ),
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      selectedLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.starColor,
+                                ),
+                                child: Text(
+                                  context.t('Time'),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(5),
+                                  ),
+                                  child: Container(
+                                    width: scheduleWidth,
+                                    height: 60,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        right: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                        bottom: BorderSide(
+                                          color: Colors.grey.shade300,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        selectedLabel,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.starColor,
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      height: timetableHeight,
-                      child: Padding(
-                        padding: EdgeInsets.zero,
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 100,
-                              child: SingleChildScrollView(
-                                controller: _timeColumnVController,
-                                physics: const ClampingScrollPhysics(),
-                                child: Column(
-                                  children: [
-                                    ...List.generate(_timeSlots.length, (i) {
-                                      return Container(
-                                        width: 100,
-                                        height: _rowHeight,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                        ),
-                                        alignment: Alignment.centerLeft,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          border: Border(
-                                            left: BorderSide(
-                                              color: Colors.grey.shade300,
+                        ),
+                        SizedBox(
+                          height: timetableHeight,
+                          child: Padding(
+                            padding: EdgeInsets.zero,
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 100,
+                                  child: SingleChildScrollView(
+                                    controller: _timeColumnVController,
+                                    physics: const ClampingScrollPhysics(),
+                                    child: Column(
+                                      children: [
+                                        ...List.generate(_timeSlots.length,
+                                            (i) {
+                                          return Container(
+                                            width: 100,
+                                            height: _rowHeight,
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              border: Border(
+                                                left: BorderSide(
+                                                  color: Colors.grey.shade300,
+                                                ),
+                                                right: BorderSide(
+                                                  color: Colors.grey.shade300,
+                                                ),
+                                                bottom: BorderSide(
+                                                  color: Colors.grey.shade300,
+                                                ),
+                                              ),
                                             ),
-                                            right: BorderSide(
-                                              color: Colors.grey.shade300,
+                                            child: Text(
+                                              _timeSlots[i],
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 12,
+                                              ),
                                             ),
-                                            bottom: BorderSide(
-                                              color: Colors.grey.shade300,
-                                            ),
-                                          ),
+                                          );
+                                        }),
+                                        const SizedBox(
+                                          height: _verticalScrollBottomInset,
                                         ),
-                                        child: Text(
-                                          _timeSlots[i],
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      );
-                                    }),
-                                    const SizedBox(
-                                      height: _verticalScrollBottomInset,
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Scrollbar(
-                                controller: _gridHController,
-                                thumbVisibility: true,
-                                child: SingleChildScrollView(
-                                  controller: _gridHController,
-                                  scrollDirection: Axis.horizontal,
-                                  physics: const ClampingScrollPhysics(),
-                                  child: SizedBox(
-                                    width: _scheduleWidth,
-                                    child: SingleChildScrollView(
-                                      controller: _gridVController,
-                                      physics: const ClampingScrollPhysics(),
-                                      child: SizedBox(
-                                        width: _scheduleWidth,
-                                        height:
-                                            (_timeSlots.length * _rowHeight) +
-                                                _verticalScrollBottomInset,
-                                        child: Stack(
-                                          children: [
-                                            ..._buildBackgroundGrid(),
-                                            ..._buildBookingBlocks(),
-                                            if (!_isLoading &&
-                                                _bookings.isEmpty)
-                                              Positioned.fill(
-                                                child: IgnorePointer(
-                                                  child: Center(
-                                                    child: Container(
-                                                      margin: const EdgeInsets
-                                                          .symmetric(
-                                                        horizontal: 20,
+                                Expanded(
+                                  child: SingleChildScrollView(
+                                    controller: _gridVController,
+                                    physics: const ClampingScrollPhysics(),
+                                    child: SizedBox(
+                                      width: scheduleWidth,
+                                      height: (_timeSlots.length * _rowHeight) +
+                                          _verticalScrollBottomInset,
+                                      child: Stack(
+                                        children: [
+                                          ..._buildBackgroundGrid(),
+                                          ..._buildBookingBlocks(),
+                                          if (!_isLoading && _bookings.isEmpty)
+                                            Positioned.fill(
+                                              child: IgnorePointer(
+                                                child: Center(
+                                                  child: Container(
+                                                    margin: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 20,
+                                                    ),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 12,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white
+                                                          .withOpacity(0.92),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        12,
                                                       ),
-                                                      padding: const EdgeInsets
-                                                          .symmetric(
-                                                        horizontal: 16,
-                                                        vertical: 12,
+                                                      border: Border.all(
+                                                        color: Colors
+                                                            .grey.shade300,
                                                       ),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.white
-                                                            .withOpacity(0.92),
-                                                        borderRadius:
-                                                            BorderRadius
-                                                                .circular(12),
-                                                        border: Border.all(
-                                                          color: Colors
-                                                              .grey.shade300,
-                                                        ),
+                                                    ),
+                                                    child: Text(
+                                                      context.t(
+                                                        'No bookings for this date',
                                                       ),
-                                                      child: Text(
-                                                        context.t(
-                                                          'No bookings for this date',
-                                                        ),
-                                                        style: const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Colors.black54,
-                                                        ),
-                                                        textAlign:
-                                                            TextAlign.center,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        color: Colors.black54,
                                                       ),
+                                                      textAlign:
+                                                          TextAlign.center,
                                                     ),
                                                   ),
                                                 ),
                                               ),
-                                          ],
-                                        ),
+                                            ),
+                                        ],
                                       ),
                                     ),
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -2139,8 +2109,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   void dispose() {
     _timeColumnVController.dispose();
     _gridVController.dispose();
-    _headerHController.dispose();
-    _gridHController.dispose();
     super.dispose();
   }
 }

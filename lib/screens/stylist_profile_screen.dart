@@ -438,7 +438,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                 children: [
                   ListTile(
                     leading: const Icon(Icons.schedule_outlined),
-                    title: Text(context.t('Schedule')),
+                    title: const Text('Schedule'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: _openSchedule,
                   ),
