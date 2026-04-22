@@ -18,11 +18,14 @@ TextStyle _profileSubpageTitleStyle() {
 AppBar buildProfileSubpageAppBar({
   required String title,
   bool centerTitle = true,
+  bool automaticallyImplyLeading = true,
+  List<Widget>? actions,
 }) {
   return AppBar(
     backgroundColor: _profileSubpageBackground,
     elevation: 0,
     centerTitle: centerTitle,
+    automaticallyImplyLeading: automaticallyImplyLeading,
     surfaceTintColor: Colors.transparent,
     shadowColor: Colors.transparent,
     scrolledUnderElevation: 0,
@@ -35,6 +38,7 @@ AppBar buildProfileSubpageAppBar({
       title,
       style: _profileSubpageTitleStyle(),
     ),
+    actions: actions,
     bottom: const PreferredSize(
       preferredSize: Size.fromHeight(1),
       child: Divider(

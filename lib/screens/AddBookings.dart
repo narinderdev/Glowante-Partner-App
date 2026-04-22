@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'SelectServices.dart';
 import '../utils/api_service.dart';
 import 'package:flutter/services.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
@@ -32,17 +33,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-String? _serviceError;
-String? _professionalError;
-String? _firstNameError;
-String? _lastNameError;
+  String? _serviceError;
+  String? _professionalError;
+  String? _firstNameError;
+  String? _lastNameError;
 
   // Selected services from modal: each {id, name, price, qty, durationMin}
   List<Map<String, dynamic>> _selectedServices = [];
 
   // Services tree for the modal and flat list for lookup.
   List<Map<String, dynamic>> _svcTree = []; // nodes: {name, services[], subs[]}
-  List<Map<String, dynamic>> _branchServices = []; // flat items: {id, name, priceMinor, durationMin, path}
+  List<Map<String, dynamic>> _branchServices =
+      []; // flat items: {id, name, priceMinor, durationMin, path}
   bool _loadingServices = true;
 
   // Focused/active service (drives Professional filtering)
@@ -61,19 +63,20 @@ String? _lastNameError;
     return _professionalByService[sid];
   }
 
-@override
-void initState() {
-  super.initState();
-  _loadServices();
-  _loadTeamMembers();
+  @override
+  void initState() {
+    super.initState();
+    _loadServices();
+    _loadTeamMembers();
 
-  // Set default date to today
-  _selectedDate = DateTime.now();
+    // Set default date to today
+    _selectedDate = DateTime.now();
 
-  // Set default times
-  _startTime = const TimeOfDay(hour: 8, minute: 0);  // 08:00 AM
-  _endTime = const TimeOfDay(hour: 8, minute: 30);   // 08:00 PM
-}
+    // Set default times
+    _startTime = const TimeOfDay(hour: 8, minute: 0); // 08:00 AM
+    _endTime = const TimeOfDay(hour: 8, minute: 30); // 08:00 PM
+  }
+
   @override
   void dispose() {
     _clientfNameCtrl.dispose();
@@ -160,166 +163,173 @@ void initState() {
       });
     }
   }
+
 // Method to show search modal
-void _showCustomerSearch() {
-  showDialog(
-    context: context,
-    builder: (ctx) {
-      final phoneCtrl = TextEditingController();
-      String countryCode = "+91"; // default
-      return AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(translateText("Search Customer")),
+  void _showCustomerSearch() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        final phoneCtrl = TextEditingController();
+        String countryCode = "+91"; // default
+        return AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(translateText("Search Customer")),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  // Country Code
+                  DropdownButton<String>(
+                    value: countryCode,
+                    items: ["+91", "+1", "+44"]
+                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) countryCode = v;
+                    },
+                  ),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 10,
+                      decoration: InputDecoration(
+                        hintText: translateText("Enter phone number"),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () async {
+                  final phone = phoneCtrl.text.trim();
+                  if (phone.length < 10) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(translateText("Enter 10-digit number"))));
+                    return;
+                  }
+
+                  try {
+                    final result = await ApiService().resolveWalkinNumber(
+                        widget.branchId!, countryCode, phone);
+
+                    if (result['success'] == true && result['data'] != null) {
+                      final data = result['data'];
+
+                      // Customer exists in branch
+                      if (data is Map<String, dynamic> &&
+                          data.containsKey('user')) {
+                        final user = data['user'] as Map<String, dynamic>;
+                        print("👤 User Map received: $user");
+                        Navigator.pop(ctx);
+                        _showCustomerDetails(user);
+                      }
+                      // Customer not found, OTP sent
+                      else if (data is Map<String, dynamic> &&
+                          data['status'] == "OTP_SENT") {
+                        print("📲 OTP flow triggered");
+                        Navigator.pop(ctx);
+                        _showOtpBox(phone, countryCode);
+                      } else {
+                        print("⚠️ Unexpected data format: $data");
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                              content: Text(translateText(
+                                  "Unexpected response from server"))),
+                        );
+                      }
+                    } else {
+                      Navigator.pop(ctx);
+                      _showOtpBox(phone, countryCode);
+                    }
+                  } catch (e) {
+                    print("❌ Error: $e");
+                  }
+                },
+                child: Text(translateText("Search")),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+// Show Customer details modal
+  void _showCustomerDetails(Map<String, dynamic> customer) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(translateText("Customer Found")),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                // Country Code
-                DropdownButton<String>(
-                  value: countryCode,
-                  items: ["+91", "+1", "+44"]
-                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) countryCode = v;
-                  },
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    maxLength: 10,
-                    decoration: InputDecoration(
-                      hintText: translateText("Enter phone number"),
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                final phone = phoneCtrl.text.trim();
-                if (phone.length < 10) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(translateText("Enter 10-digit number"))));
-                  return;
-                }
-
-            try {
-  final result = await ApiService()
-      .resolveWalkinNumber(widget.branchId!, countryCode, phone);
-
- if (result['success'] == true && result['data'] != null) {
-  final data = result['data'];
-
-  // Customer exists in branch
-  if (data is Map<String, dynamic> && data.containsKey('user')) {
-    final user = data['user'] as Map<String, dynamic>;
-    print("👤 User Map received: $user");
-    Navigator.pop(ctx);
-    _showCustomerDetails(user);
-  }
-  // Customer not found, OTP sent
-  else if (data is Map<String, dynamic> && data['status'] == "OTP_SENT") {
-    print("📲 OTP flow triggered");
-    Navigator.pop(ctx);
-    _showOtpBox(phone, countryCode);
-  }
-  else {
-    print("⚠️ Unexpected data format: $data");
-    Navigator.pop(ctx);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(translateText("Unexpected response from server"))),
-    );
-  }
-}
- else {
-    Navigator.pop(ctx);
-    _showOtpBox(phone, countryCode);
-  }
-} catch (e) {
-  print("❌ Error: $e");
-}
-
-              },
-              child: Text(translateText("Search")),
-            ),
+            Text("ID: ${customer['id']}"),
+            Text("First Name: ${customer['firstName']}"),
+            Text("Last Name: ${customer['lastName']}"),
+            Text("Email: ${customer['email']}"),
+            Text("Phone: ${customer['fullPhoneNumber']}"),
           ],
         ),
-      );
-    },
-  );
-}
+        actions: [
+          TextButton(
+            onPressed: () {
+              // ✅ Fill controllers when OK is pressed
+              setState(() {
+                _clientIdCtrl.text = (customer['id'] ?? '').toString();
+                _clientfNameCtrl.text =
+                    (customer['firstName'] ?? '').toString();
+                _clientlNameCtrl.text = (customer['lastName'] ?? '').toString();
+                _mobileCtrl.text =
+                    (customer['fullPhoneNumber'] ?? '').toString();
+                _emailCtrl.text =
+                    customer['email'] != null ? customer['email'] : '';
+              });
 
-// Show Customer details modal
-void _showCustomerDetails(Map<String, dynamic> customer) {
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(translateText("Customer Found")),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text("ID: ${customer['id']}"),
-          Text("First Name: ${customer['firstName']}"),
-          Text("Last Name: ${customer['lastName']}"),
-          Text("Email: ${customer['email']}"),
-          Text("Phone: ${customer['fullPhoneNumber']}"),
+              Navigator.pop(ctx); // close modal
+            },
+            child: Text(translateText("OK")),
+          ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            // ✅ Fill controllers when OK is pressed
-            setState(() {
-              _clientIdCtrl.text   = (customer['id'] ?? '').toString();
-              _clientfNameCtrl.text = (customer['firstName'] ?? '').toString();
-              _clientlNameCtrl.text = (customer['lastName'] ?? '').toString();
-              _mobileCtrl.text      = (customer['fullPhoneNumber'] ?? '').toString();
-              _emailCtrl.text = customer['email'] != null ? customer['email'] : '';
-            });
-
-            Navigator.pop(ctx); // close modal
-          },
-          child: Text(translateText("OK")),
-        ),
-      ],
-    ),
-  );
-}
+    );
+  }
 
 // Show OTP entry modal
-void _showOtpBox(String phone, String countryCode) {
-  final otpCtrl = TextEditingController();
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(translateText("Enter OTP")),
-      content: TextField(
-        controller: otpCtrl,
-        keyboardType: TextInputType.number,
-        maxLength: 6,
-        decoration: InputDecoration(
-          hintText: translateText("Enter 6-digit OTP"),
-          border: OutlineInputBorder(),
+  void _showOtpBox(String phone, String countryCode) {
+    final otpCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(translateText("Enter OTP")),
+        content: TextField(
+          controller: otpCtrl,
+          keyboardType: TextInputType.number,
+          maxLength: 6,
+          decoration: InputDecoration(
+            hintText: translateText("Enter 6-digit OTP"),
+            border: OutlineInputBorder(),
+          ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              print("➡️ OTP entered: ${otpCtrl.text}");
+              Navigator.pop(ctx);
+            },
+            child: Text(translateText("Verify")),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            print("➡️ OTP entered: ${otpCtrl.text}");
-            Navigator.pop(ctx);
-          },
-          child: Text(translateText("Verify")),
-        ),
-      ],
-    ),
-  );
-}
+    );
+  }
+
   void _showServicePicker() async {
     final picked = await showModalBottomSheet<Map<String, dynamic>>(
       context: context,
@@ -371,8 +381,7 @@ void _showOtpBox(String phone, String countryCode) {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 6),
+                              padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Text(
                                 catName,
                                 style: const TextStyle(
@@ -383,8 +392,7 @@ void _showOtpBox(String phone, String countryCode) {
                               _serviceTile(ctx, s, leftPad: 12, locked: locked),
                             for (final sub in subs) ...[
                               Padding(
-                                padding:
-                                    const EdgeInsets.fromLTRB(8, 8, 0, 4),
+                                padding: const EdgeInsets.fromLTRB(8, 8, 0, 4),
                                 child: Text(
                                   (sub['name'] ?? '').toString(),
                                   style: TextStyle(
@@ -457,51 +465,53 @@ void _showOtpBox(String phone, String countryCode) {
     //   });
     // }
     if (picked != null) {
-  final v = picked['id'] as int;
-  final name = (picked['name'] ?? '').toString();
+      final v = picked['id'] as int;
+      final name = (picked['name'] ?? '').toString();
 
-  setState(() {
-    final already = _selectedServices.any((s) => s['id'] == v);
+      setState(() {
+        final already = _selectedServices.any((s) => s['id'] == v);
 
-    if (already) {
-      // Deselect (remove)
-      _selectedServices.removeWhere((s) => s['id'] == v);
-      _professionalByService.remove(v);
+        if (already) {
+          // Deselect (remove)
+          _selectedServices.removeWhere((s) => s['id'] == v);
+          _professionalByService.remove(v);
 
-      // If it was the active service, move focus to another selected one (or none)
-      if (_selectedServiceId == v) {
-        _selectedServiceId = _selectedServices.isNotEmpty
-            ? _selectedServices.last['id'] as int
-            : null;
-        _selectedServiceName = _selectedServices.isNotEmpty
-            ? _selectedServices.last['name'] as String
-            : null;
-        _staffRole = _selectedServiceName;
-      }
-    } else {
-      // Add (select) this service
-      _selectedServices.add({
-        'id': v,
-        'name': name,
-        'price': picked['priceMinor'],
-        'qty': 1,
-        'durationMin': picked['durationMin'],
+          // If it was the active service, move focus to another selected one (or none)
+          if (_selectedServiceId == v) {
+            _selectedServiceId = _selectedServices.isNotEmpty
+                ? _selectedServices.last['id'] as int
+                : null;
+            _selectedServiceName = _selectedServices.isNotEmpty
+                ? _selectedServices.last['name'] as String
+                : null;
+            _staffRole = _selectedServiceName;
+          }
+        } else {
+          // Add (select) this service
+          _selectedServices.add({
+            'id': v,
+            'name': name,
+            'price': picked['priceMinor'],
+            'qty': 1,
+            'durationMin': picked['durationMin'],
+          });
+
+          _selectedServiceId = v;
+          _selectedServiceName = name;
+          _staffRole = name;
+
+          // Show prompt to select professional
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(translateText('Select Professional for {name}',
+                    params: {'name': name}))),
+          );
+        }
+
+        // ✅ Clear the service error when user selects/deselects a service
+        _serviceError = null;
       });
-
-      _selectedServiceId = v;
-      _selectedServiceName = name;
-      _staffRole = name;
-
-      // Show prompt to select professional
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Select Professional for {name}', params: {'name': name}))),
-      );
     }
-
-    // ✅ Clear the service error when user selects/deselects a service
-    _serviceError = null;
-  });
-}
   }
 
   // Service row in the bottom sheet.
@@ -539,8 +549,7 @@ void _showOtpBox(String phone, String countryCode) {
         dense: true,
         contentPadding: const EdgeInsets.only(left: 8, right: 8),
         leading: Icon(Icons.cut),
-        title:
-            Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: meta.isNotEmpty ? Text(meta) : null,
         trailing: trailing,
         onTap: () => Navigator.pop<Map<String, dynamic>>(ctx, svc),
@@ -619,6 +628,7 @@ void _showOtpBox(String phone, String countryCode) {
     final dt = DateTime(now.year, now.month, now.day, t.hour, t.minute);
     return DateFormat('h:mm a').format(dt);
   }
+
   String _formatDate(DateTime? d) {
     if (d == null) return '';
     return DateFormat('EEE, MMM d, yyyy').format(d);
@@ -639,9 +649,8 @@ void _showOtpBox(String phone, String countryCode) {
   }
 
   Future<void> _pickTime({required bool isStart}) async {
-    final initialTime =
-        (isStart ? _startTime : _endTime) ??
-            const TimeOfDay(hour: 9, minute: 0);
+    final initialTime = (isStart ? _startTime : _endTime) ??
+        const TimeOfDay(hour: 9, minute: 0);
     final picked =
         await showTimePicker(context: context, initialTime: initialTime);
     if (picked != null) {
@@ -666,81 +675,84 @@ void _showOtpBox(String phone, String countryCode) {
 
   int _toMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
 
-void _save() async {
-  if (!_formKey.currentState!.validate()) return;
+  void _save() async {
+    if (!_formKey.currentState!.validate()) return;
 
-if (_selectedServiceId == null || _selectedServices.isEmpty) {
-  setState(() {
-    _serviceError = translateText('Service is required');
-  });
- _showError(translateText('Please select Service'));
-  return;
-} else {
-  setState(() {
-    _serviceError = null;
-  });
-}
+    if (_selectedServiceId == null || _selectedServices.isEmpty) {
+      setState(() {
+        _serviceError = translateText('Service is required');
+      });
+      _showError(translateText('Please select Service'));
+      return;
+    } else {
+      setState(() {
+        _serviceError = null;
+      });
+    }
 
- final missing = _selectedServices
-    .where((s) => !_professionalByService.containsKey(s['id']))
-    .map((s) => (s['name'] ?? '').toString())
-    .toList();
-if (missing.isNotEmpty) {
-  setState(() {
-    _professionalError = translateText('Professional is required for: {items}', params: {'items': missing.join(', ')});
-  });
-  // _showError('Please select Professional for: ${missing.join(", ")}');
-  return;
-} else {
-  setState(() {
-    _professionalError = null;
-  });
-}
+    final missing = _selectedServices
+        .where((s) => !_professionalByService.containsKey(s['id']))
+        .map((s) => (s['name'] ?? '').toString())
+        .toList();
+    if (missing.isNotEmpty) {
+      setState(() {
+        _professionalError = translateText(
+            'Professional is required for: {items}',
+            params: {'items': missing.join(', ')});
+      });
+      // _showError('Please select Professional for: ${missing.join(", ")}');
+      return;
+    } else {
+      setState(() {
+        _professionalError = null;
+      });
+    }
 
-  if (_selectedDate == null) {
-_showError(translateText('Please select a date'));
-    return;
+    if (_selectedDate == null) {
+      _showError(translateText('Please select a date'));
+      return;
+    }
+    if (_startTime == null || _endTime == null) {
+      _showError(translateText('Please select start and end time'));
+      return;
+    }
+
+    // build startAt (ISO date + start time)
+    final startDateTime = DateTime(
+      _selectedDate!.year,
+      _selectedDate!.month,
+      _selectedDate!.day,
+      _startTime!.hour,
+      _startTime!.minute,
+    );
+
+    final payload = {
+      "userId": int.tryParse(_clientIdCtrl.text.trim()) ?? 0,
+      "startAt": startDateTime.toIso8601String(),
+      "services": _selectedServices.map((s) {
+        return {
+          "branchServiceId": s['id'],
+          "assignedUserBranchId": 0, // update if you have staff assignment
+        };
+      }).toList(),
+    };
+    print("Booking payload: $payload");
+    try {
+      final result =
+          await ApiService().createAppointment(widget.branchId!, payload);
+
+      print("✅ Appointment Created: $result");
+
+      Navigator.pop(context, result); // send back API response
+    } catch (e) {
+      _showError("Failed to create appointment: $e");
+    }
   }
-  if (_startTime == null || _endTime == null) {
-  _showError(translateText('Please select start and end time'));
-    return;
+
+  String capitalizeFirstLetter(String input) {
+    if (input.isEmpty) return input;
+    return input[0].toUpperCase() + input.substring(1);
   }
-
-  // build startAt (ISO date + start time)
-  final startDateTime = DateTime(
-    _selectedDate!.year,
-    _selectedDate!.month,
-    _selectedDate!.day,
-    _startTime!.hour,
-    _startTime!.minute,
-  );
-
-  final payload = {
-    "userId": int.tryParse(_clientIdCtrl.text.trim()) ?? 0,
-    "startAt": startDateTime.toIso8601String(),
-    "services": _selectedServices.map((s) {
-      return {
-        "branchServiceId": s['id'],
-        "assignedUserBranchId": 0, // update if you have staff assignment
-      };
-    }).toList(),
-  };
- print("Booking payload: $payload");
-  try {
-    final result = await ApiService()
-        .createAppointment(widget.branchId!, payload);
-
-    print("✅ Appointment Created: $result");
-
-    Navigator.pop(context, result); // send back API response
-  } catch (e) {
-    _showError("Failed to create appointment: $e");
-  }
-}
-String capitalizeFirstLetter(String input) {
-  if (input.isEmpty) return input;
-  return input[0].toUpperCase() + input.substring(1);
-}
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -753,21 +765,19 @@ String capitalizeFirstLetter(String input) {
         ? <String>[]
         : (() {
             final names = matched
-                .map((m) =>
-                    "${m['firstName']} ${m['lastName'] ?? ''}".trim())
+                .map((m) => "${m['firstName']} ${m['lastName'] ?? ''}".trim())
                 .toList();
             // Always include "Any" at the top
-           return <String>[translateText('Any'), ...names];
-
+            return <String>[translateText('Any'), ...names];
           })();
 
-  final proHint = _loadingMembers
-    ? translateText('Loading...')
-    : (_selectedServiceId == null
-        ? translateText('Choose')
-        : (proItems.length == 1 && proItems.first != 'Any'
+    final proHint = _loadingMembers
+        ? translateText('Loading...')
+        : (_selectedServiceId == null
             ? translateText('Choose')
-            : translateText('Choose / Any')));
+            : (proItems.length == 1 && proItems.first != 'Any'
+                ? translateText('Choose')
+                : translateText('Choose / Any')));
 
     // Chips should show only for services that already have a professional
     final chipServices = _selectedServices
@@ -776,31 +786,8 @@ String capitalizeFirstLetter(String input) {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        // Let the gradient show through:
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
-        ),
-        title: Text(translateText('Add Booking'),
-          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
-        ),
-        // Paint the gradient here:
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.starColor,        // your start color
-                AppColors.getStartedButton, // your end color
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Add Booking'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -818,55 +805,58 @@ String capitalizeFirstLetter(String input) {
 // ElevatedButton(
 //   onPressed: _showCustomerSearch,
 //   child: Text("Add Customer"),
-// ),  
+// ),
 //                 SizedBox(height: 16),
-Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    // Salon & Branch info
-    // Text(
-    //   'Salon & Branch Id: ${widget.salonId ?? '-'} / ${widget.branchId ?? '-'}',
-    //   style: const TextStyle(
-    //     fontSize: 16,
-    //     fontWeight: FontWeight.w500,
-    //   ),
-    // ),
-    // SizedBox(height: 16),
+                Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Salon & Branch info
+                // Text(
+                //   'Salon & Branch Id: ${widget.salonId ?? '-'} / ${widget.branchId ?? '-'}',
+                //   style: const TextStyle(
+                //     fontSize: 16,
+                //     fontWeight: FontWeight.w500,
+                //   ),
+                // ),
+                // SizedBox(height: 16),
 
-    // Full-width outlined button with custom plus icon
-     SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: _showCustomerSearch,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: Colors.white, // white inside
-          side: const BorderSide(color: Colors.grey, width: 1.5), // grey border
-          padding: const EdgeInsets.symmetric(vertical: 10), // reduced height
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20), // more rounded
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/plusIcn.png',
-              width: 20,
-              height: 20,
-            ),
-            SizedBox(width: 8),
-            Text(translateText("Add Customer"),
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-    SizedBox(height: 16),
+                // Full-width outlined button with custom plus icon
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _showCustomerSearch,
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: Colors.white, // white inside
+                      side: const BorderSide(
+                          color: Colors.grey, width: 1.5), // grey border
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 10), // reduced height
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20), // more rounded
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset(
+                          'assets/images/plusIcn.png',
+                          width: 20,
+                          height: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          translateText("Add Customer"),
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
                 //ID
                 // const _FieldLabel('Customer ID'),
                 // TextFormField(
@@ -877,96 +867,104 @@ Column(
                 // ),
                 // SizedBox(height: 16),
                 // Client Name (First + Last side by side)
-Row(
-  children: [
-    // First Name
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-_FieldLabel(translateText('First Name *')),
-         // First Name
-TextFormField(
-  controller: _clientfNameCtrl,
- keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-  decoration: _inputDecoration(translateText('First name')).copyWith(
-    errorText: _firstNameError,
-  ),
-  // ✅ Do NOT return '', we handle the text manually for inline display
-  validator: (v) {
-    if (v == null || v.trim().isEmpty) {
-      _firstNameError = translateText('First Name is required');
-      return null; // let errorText handle it
-    }
-    _firstNameError = null;
-    return null;
-  },
-  onChanged: (value) {
-    // ✅ Only clear validation error when user types non-empty
-    if (value.trim().isNotEmpty && _firstNameError != null) {
-      setState(() => _firstNameError = null);
-    }
+                Row(
+                  children: [
+                    // First Name
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _FieldLabel(translateText('First Name *')),
+                          // First Name
+                          TextFormField(
+                            controller: _clientfNameCtrl,
+                            keyboardType: TextInputType.text,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration:
+                                _inputDecoration(translateText('First name'))
+                                    .copyWith(
+                              errorText: _firstNameError,
+                            ),
+                            // ✅ Do NOT return '', we handle the text manually for inline display
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                _firstNameError =
+                                    translateText('First Name is required');
+                                return null; // let errorText handle it
+                              }
+                              _firstNameError = null;
+                              return null;
+                            },
+                            onChanged: (value) {
+                              // ✅ Only clear validation error when user types non-empty
+                              if (value.trim().isNotEmpty &&
+                                  _firstNameError != null) {
+                                setState(() => _firstNameError = null);
+                              }
 
-    // Auto-capitalize first letter(s)
-    final capitalized = capitalizeFirstLetter(value);
-    if (value != capitalized) {
-      _clientfNameCtrl.value = _clientfNameCtrl.value.copyWith(
-        text: capitalized,
-        selection: TextSelection.collapsed(offset: capitalized.length),
-      );
-    }
-  },
-),
+                              // Auto-capitalize first letter(s)
+                              final capitalized = capitalizeFirstLetter(value);
+                              if (value != capitalized) {
+                                _clientfNameCtrl.value =
+                                    _clientfNameCtrl.value.copyWith(
+                                  text: capitalized,
+                                  selection: TextSelection.collapsed(
+                                      offset: capitalized.length),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12), // spacing between fields
+                    // Last Name
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _FieldLabel(translateText('Last Name *')),
+                          // Last Name
+                          TextFormField(
+                            controller: _clientlNameCtrl,
+                            keyboardType: TextInputType.text,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration:
+                                _inputDecoration(translateText('Last name'))
+                                    .copyWith(
+                              errorText: _lastNameError,
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) {
+                                _lastNameError =
+                                    translateText('Last Name is required');
+                                return null; // handled manually
+                              }
+                              _lastNameError = null;
+                              return null;
+                            },
+                            onChanged: (value) {
+                              if (value.trim().isNotEmpty &&
+                                  _lastNameError != null) {
+                                setState(() => _lastNameError = null);
+                              }
 
-
-        ],
-      ),
-    ),
-    SizedBox(width: 12), // spacing between fields
-    // Last Name
-    Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-_FieldLabel(translateText('Last Name *')),
-         // Last Name
-TextFormField(
-  controller: _clientlNameCtrl,
-keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-  decoration: _inputDecoration(translateText('Last name')).copyWith(
-    errorText: _lastNameError,
-  ),
-  validator: (v) {
-    if (v == null || v.trim().isEmpty) {
-      _lastNameError = translateText('Last Name is required');
-      return null; // handled manually
-    }
-    _lastNameError = null;
-    return null;
-  },
-  onChanged: (value) {
-    if (value.trim().isNotEmpty && _lastNameError != null) {
-      setState(() => _lastNameError = null);
-    }
-
-    final capitalized = capitalizeFirstLetter(value);
-    if (value != capitalized) {
-      _clientlNameCtrl.value = _clientlNameCtrl.value.copyWith(
-        text: capitalized,
-        selection: TextSelection.collapsed(offset: capitalized.length),
-      );
-    }
-  },
-),
-
-
-        ],
-      ),
-    ),
-  ],
-),
+                              final capitalized = capitalizeFirstLetter(value);
+                              if (value != capitalized) {
+                                _clientlNameCtrl.value =
+                                    _clientlNameCtrl.value.copyWith(
+                                  text: capitalized,
+                                  selection: TextSelection.collapsed(
+                                      offset: capitalized.length),
+                                );
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
 
                 SizedBox(height: 16),
 
@@ -995,56 +993,55 @@ keyboardType: TextInputType.text,
                 Row(
                   children: [
                     // Left: Services *
-                   Expanded(
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _FieldLabel(translateText('Services *')),
-      InkWell(
-        onTap: _loadingServices || _svcTree.isEmpty
-            ? null
-            : _showServicePicker,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-              horizontal: 12, vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: Colors.grey.shade300),
-          ),
-          child: Row(
-            children: [
-              // Icon(Icons.design_services, size: 18),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  _selectedServiceId == null
-                      ? translateText('Choose')
-                      : (_branchServices.firstWhere(
-                              (e) =>
-                                  e['id'] ==
-                                  _selectedServiceId)['path']
-                          as String),
-                  style: const TextStyle(fontSize: 16),
-                ),
-              ),
-              Icon(Icons.keyboard_arrow_down),
-            ],
-          ),
-        ),
-      ),
-      if (_serviceError != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 6, left: 4),
-          child: Text(
-            _serviceError!,
-            style: const TextStyle(color: Colors.red, fontSize: 12),
-          ),
-        ),
-    ],
-  ),
-),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _FieldLabel(translateText('Services *')),
+                          InkWell(
+                            onTap: _loadingServices || _svcTree.isEmpty
+                                ? null
+                                : _showServicePicker,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Row(
+                                children: [
+                                  // Icon(Icons.design_services, size: 18),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _selectedServiceId == null
+                                          ? translateText('Choose')
+                                          : (_branchServices.firstWhere((e) =>
+                                                  e['id'] ==
+                                                  _selectedServiceId)['path']
+                                              as String),
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                  Icon(Icons.keyboard_arrow_down),
+                                ],
+                              ),
+                            ),
+                          ),
+                          if (_serviceError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6, left: 4),
+                              child: Text(
+                                _serviceError!,
+                                style: const TextStyle(
+                                    color: Colors.red, fontSize: 12),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                     SizedBox(width: 12),
 
                     // Right: Professional * (applies to ACTIVE service)
@@ -1072,34 +1069,37 @@ keyboardType: TextInputType.text,
                     //   ),
                     // ),
                     Expanded(
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _FieldLabel(translateText('Professional *')),
-      _Dropdown<String>(
-        value: _activeProfessional,
-        hint: proHint,
-        items: proItems,
-        onChanged: (_selectedServiceId == null || _loadingMembers)
-            ? (_) {}
-            : (v) {
-                if (v == null) return;
-                setState(() {
-                  _professionalByService[_selectedServiceId!] = v;
-                });
-              },
-      ),
-      if (_professionalError != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 6, left: 4),
-          child: Text(
-            _professionalError!,
-            style: const TextStyle(color: Colors.red, fontSize: 12),
-          ),
-        ),
-    ],
-  ),
-),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _FieldLabel(translateText('Professional *')),
+                          _Dropdown<String>(
+                            value: _activeProfessional,
+                            hint: proHint,
+                            items: proItems,
+                            onChanged:
+                                (_selectedServiceId == null || _loadingMembers)
+                                    ? (_) {}
+                                    : (v) {
+                                        if (v == null) return;
+                                        setState(() {
+                                          _professionalByService[
+                                              _selectedServiceId!] = v;
+                                        });
+                                      },
+                          ),
+                          if (_professionalError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6, left: 4),
+                              child: Text(
+                                _professionalError!,
+                                style: const TextStyle(
+                                    color: Colors.red, fontSize: 12),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
 
@@ -1116,8 +1116,7 @@ keyboardType: TextInputType.text,
                       final dur = s['durationMin'] != null
                           ? '${s['durationMin']}m'
                           : '';
-                      final price =
-                          s['price'] != null ? '₹${s['price']}' : '';
+                      final price = s['price'] != null ? '₹${s['price']}' : '';
                       final pro = _professionalByService[id] ?? '';
                       final meta = [
                         if (dur.isNotEmpty) dur,
@@ -1127,19 +1126,19 @@ keyboardType: TextInputType.text,
 
                       return Chip(
                         label: Text(
-                          meta.isEmpty ? '$name x$qty' : '$name x$qty  —  $meta',
+                          meta.isEmpty
+                              ? '$name x$qty'
+                              : '$name x$qty  —  $meta',
                         ),
                         onDeleted: () {
                           setState(() {
-                            _selectedServices
-                                .removeWhere((e) => e['id'] == id);
+                            _selectedServices.removeWhere((e) => e['id'] == id);
                             _professionalByService.remove(id);
 
                             if (_selectedServiceId == id) {
-                              _selectedServiceId =
-                                  _selectedServices.isNotEmpty
-                                      ? _selectedServices.last['id'] as int
-                                      : null;
+                              _selectedServiceId = _selectedServices.isNotEmpty
+                                  ? _selectedServices.last['id'] as int
+                                  : null;
                               _selectedServiceName =
                                   _selectedServices.isNotEmpty
                                       ? _selectedServices.last['name'] as String
@@ -1166,29 +1165,30 @@ keyboardType: TextInputType.text,
                 //   ),
                 // ),
                 _FieldLabel(translateText('Date *')),
-Container(
-  height: 48,
-  padding: const EdgeInsets.symmetric(horizontal: 12),
-  decoration: BoxDecoration(
-    color: Colors.grey.shade100, // Light grey to indicate disabled
-    borderRadius: BorderRadius.circular(12),
-    border: Border.all(color: Colors.grey.shade300),
-  ),
-  child: Row(
-    children: [
-      Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-      SizedBox(width: 8),
-      Expanded(
-       child: Text(
-  _selectedDate == null
-      ? translateText('Select date')
-      : _formatDate(_selectedDate),
-  style: const TextStyle(color: Colors.grey),
-),
-      ),
-    ],
-  ),
-),
+                Container(
+                  height: 48,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color:
+                        Colors.grey.shade100, // Light grey to indicate disabled
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 18, color: Colors.grey),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _selectedDate == null
+                              ? translateText('Select date')
+                              : _formatDate(_selectedDate),
+                          style: const TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 SizedBox(height: 12),
 
                 // Start / End time
@@ -1198,15 +1198,15 @@ Container(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                           _FieldLabel(translateText('Start Time *')),
-InkWell(
-  onTap: () => _pickTime(isStart: true),
-  child: _TimeBox(
-    text: _startTime == null
-        ? translateText('Start Time')
-        : _formatTimeOfDay(_startTime),
-  ),
-),
+                          _FieldLabel(translateText('Start Time *')),
+                          InkWell(
+                            onTap: () => _pickTime(isStart: true),
+                            child: _TimeBox(
+                              text: _startTime == null
+                                  ? translateText('Start Time')
+                                  : _formatTimeOfDay(_startTime),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1216,14 +1216,14 @@ InkWell(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _FieldLabel(translateText('End Time *')),
-InkWell(
-  onTap: () => _pickTime(isStart: false),
-  child: _TimeBox(
-    text: _endTime == null
-        ? translateText('End Time')
-        : _formatTimeOfDay(_endTime),
-  ),
-),
+                          InkWell(
+                            onTap: () => _pickTime(isStart: false),
+                            child: _TimeBox(
+                              text: _endTime == null
+                                  ? translateText('End Time')
+                                  : _formatTimeOfDay(_endTime),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -1241,8 +1241,7 @@ InkWell(
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      padding:
-                          const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: Text(translateText('Save'),
                         style: TextStyle(fontWeight: FontWeight.bold)),
@@ -1276,10 +1275,8 @@ InputDecoration _inputDecoration(String hint) => InputDecoration(
       hintText: hint,
       filled: true,
       fillColor: Colors.white,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border:
-          OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),

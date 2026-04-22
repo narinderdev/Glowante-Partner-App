@@ -381,7 +381,6 @@
 //   }
 // }
 
-
 //   @override
 //   Widget build(BuildContext context) {
 //     context.watch<LanguageListener>();
@@ -462,7 +461,7 @@
 //                       _buildTextField(
 //                         controller: _salonNameController,
 //                      keyboardType: TextInputType.text,
-//   textCapitalization: TextCapitalization.sentences, 
+//   textCapitalization: TextCapitalization.sentences,
 //                         label: 'Salon Name *',
 //                         hint: 'Enter your salon name',
 //                         maxLength: 50,
@@ -594,7 +593,7 @@
 //                       _buildTextField(
 //                         controller: _descriptionController,
 //                       keyboardType: TextInputType.text,
-//   textCapitalization: TextCapitalization.sentences, 
+//   textCapitalization: TextCapitalization.sentences,
 //                         label: 'Description *',
 //                         hint: 'Enter a description about your salon',
 //                         maxLines: 1,
@@ -756,7 +755,6 @@
 // // ✅ Clean label text for error messages
 // final String cleanLabel = localizedLabel.trim();
 
-
 //   // ✅ Optional capitalization listener
 //   if (forceCapitalize) {
 //     controller.addListener(() {
@@ -793,7 +791,6 @@
 //    autovalidateMode: _submitted
 //     ? AutovalidateMode.always // show validation after submit
 //     : AutovalidateMode.disabled, // before submit, stay silent
-
 
 //       validator: (value) {
 //   final text = value?.trim() ?? '';
@@ -887,7 +884,6 @@
 //   );
 // }
 
-
 //   Widget _buildTimePickerField({
 //     required TextEditingController controller,
 //     required String label,
@@ -915,6 +911,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'add_location_screen.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../screens/bottom_nav.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'AddSalonServices.dart';
@@ -1027,21 +1024,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
       final latitude = widget.latitude;
       final longitude = widget.longitude;
-      final bool hasCoordinates =
-          latitude != null && longitude != null && (latitude != 0.0 || longitude != 0.0);
+      final bool hasCoordinates = latitude != null &&
+          longitude != null &&
+          (latitude != 0.0 || longitude != 0.0);
 
       if (completeAddress.isNotEmpty && hasCoordinates) {
         context.read<AddSalonCubit>().updateAddress(
-          AddSalonAddress(
-            // We store completeAddress in buildingName for back-compat
-            buildingName: completeAddress,
-            city: '',         // not used now
-            pincode: '',      // not used now
-            state: '',        // not used now
-            latitude: latitude!,
-            longitude: longitude!,
-          ),
-        );
+              AddSalonAddress(
+                // We store completeAddress in buildingName for back-compat
+                buildingName: completeAddress,
+                city: '', // not used now
+                pincode: '', // not used now
+                state: '', // not used now
+                latitude: latitude!,
+                longitude: longitude!,
+              ),
+            );
       }
 
       context.read<AddSalonCubit>().loadSavedPhone(
@@ -1071,8 +1069,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   bool _isAddressComplete(AddSalonAddress? address) {
     if (address == null) return false;
 
-    final hasCompleteAddress = address.buildingName.trim().isNotEmpty; // completeAddress stored here
-    final hasValidCoordinates = address.latitude != 0.0 || address.longitude != 0.0;
+    final hasCompleteAddress =
+        address.buildingName.trim().isNotEmpty; // completeAddress stored here
+    final hasValidCoordinates =
+        address.latitude != 0.0 || address.longitude != 0.0;
 
     return hasCompleteAddress && hasValidCoordinates;
   }
@@ -1123,40 +1123,44 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   //   );
   // }
   Future<void> _chooseLocation(AddSalonState state) async {
-  final addr = state.address;
+    final addr = state.address;
 
-  final result = await Navigator.push<Map<String, dynamic>?>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AddLocationScreen(
-        // If your AddLocationScreen supports these:
-        initialCompleteAddress: addr?.buildingName,   // complete address (line1)
-        initialScoFlatHouse: addr?.city,              // 🟢 we repurposed 'city' to store SCO/Flat/House
-        initialStreetSectorArea: addr?.pincode,       // 🟢 we repurposed 'pincode' to store Street/Sector/Area
+    final result = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddLocationScreen(
+          // If your AddLocationScreen supports these:
+          initialCompleteAddress:
+              addr?.buildingName, // complete address (line1)
+          initialScoFlatHouse:
+              addr?.city, // 🟢 we repurposed 'city' to store SCO/Flat/House
+          initialStreetSectorArea: addr
+              ?.pincode, // 🟢 we repurposed 'pincode' to store Street/Sector/Area
+        ),
       ),
-    ),
-  );
+    );
 
-  if (!mounted || result == null) return;
+    if (!mounted || result == null) return;
 
-  final completeAddress  = (result['completeAddress'] as String?)?.trim() ?? '';
-  final scoFlatHouse     = (result['scoFlatHouse'] as String?)?.trim() ?? '';
-  final streetSectorArea = (result['streetSectorArea'] as String?)?.trim() ?? '';
-  final latitude         = (result['latitude'] as num?)?.toDouble() ?? 0;
-  final longitude        = (result['longitude'] as num?)?.toDouble() ?? 0;
+    final completeAddress =
+        (result['completeAddress'] as String?)?.trim() ?? '';
+    final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
+    final streetSectorArea =
+        (result['streetSectorArea'] as String?)?.trim() ?? '';
+    final latitude = (result['latitude'] as num?)?.toDouble() ?? 0;
+    final longitude = (result['longitude'] as num?)?.toDouble() ?? 0;
 
-  context.read<AddSalonCubit>().updateAddress(
-    AddSalonAddress(
-      buildingName: completeAddress, // line1
-      city: scoFlatHouse,            // line2 part A (SCO/Flat/House)
-      pincode: streetSectorArea,     // line2 part B (Street/Sector/Area)
-      state: '',                     // unused in the new flow
-      latitude: latitude,
-      longitude: longitude,
-    ),
-  );
-}
-
+    context.read<AddSalonCubit>().updateAddress(
+          AddSalonAddress(
+            buildingName: completeAddress, // line1
+            city: scoFlatHouse, // line2 part A (SCO/Flat/House)
+            pincode: streetSectorArea, // line2 part B (Street/Sector/Area)
+            state: '', // unused in the new flow
+            latitude: latitude,
+            longitude: longitude,
+          ),
+        );
+  }
 
   Future<void> _submit(AddSalonState state) async {
     setState(() => _submitted = true);
@@ -1168,7 +1172,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select start and end time.'))),
+        SnackBar(
+            content: Text(translateText('Please select start and end time.'))),
       );
       return;
     }
@@ -1177,7 +1182,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final address = state.address;
     if (!_isAddressComplete(address)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please add the salon location.'))),
+        SnackBar(
+            content: Text(translateText('Please add the salon location.'))),
       );
       return;
     }
@@ -1187,15 +1193,15 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     try {
       final images = cubit.state.images;
-    String? imageUrl;
-if (images.isNotEmpty) {
-  final res = await AwsS3Uploader()
-      .uploadImageResult(XFile(images.first.path))
-      .timeout(const Duration(seconds: 45), onTimeout: () => null);
+      String? imageUrl;
+      if (images.isNotEmpty) {
+        final res = await AwsS3Uploader()
+            .uploadImageResult(XFile(images.first.path))
+            .timeout(const Duration(seconds: 45), onTimeout: () => null);
 
-  // Prefer CDN if provided, else use origin/public
-  imageUrl = res?.cdnUrl ?? res?.publicUrl;
-}
+        // Prefer CDN if provided, else use origin/public
+        imageUrl = res?.cdnUrl ?? res?.publicUrl;
+      }
 
       final formData = AddSalonFormData(
         name: _salonNameController.text.trim(),
@@ -1261,30 +1267,8 @@ if (images.isNotEmpty) {
 
         return Scaffold(
           backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            systemOverlayStyle: SystemUiOverlayStyle.light,
-            iconTheme: const IconThemeData(color: Colors.white),
-            title: Text(
-              translateText('Add Salon'),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.starColor,
-                    AppColors.getStartedButton,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
+          appBar: buildProfileSubpageAppBar(
+            title: translateText('Add Salon'),
           ),
           body: Stack(
             children: [
@@ -1311,7 +1295,9 @@ if (images.isNotEmpty) {
                         hint: 'Enter phone number',
                         enabled: true,
                         keyboardType: TextInputType.phone,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                       ),
                       Row(
                         children: [
@@ -1342,13 +1328,17 @@ if (images.isNotEmpty) {
                         onTap: () => _chooseLocation(state),
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.darkGrey, width: 1),
+                            border:
+                                Border.all(color: AppColors.darkGrey, width: 1),
                           ),
                           child: (address == null ||
-                                  address.buildingName.trim().isEmpty) // 🟢 CHANGED: only check completeAddress holder
+                                  address.buildingName
+                                      .trim()
+                                      .isEmpty) // 🟢 CHANGED: only check completeAddress holder
                               ? Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -1381,36 +1371,44 @@ if (images.isNotEmpty) {
                                   children: [
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           // 🟢 CHANGED: show complete address (stored in buildingName)
-                                         // Line 1: Complete address (from buildingName)
-Text(
-  address.buildingName,
-  style: const TextStyle(
-    fontWeight: FontWeight.bold,
-    color: AppColors.darkGrey,
-  ),
-),
+                                          // Line 1: Complete address (from buildingName)
+                                          Text(
+                                            address.buildingName,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.darkGrey,
+                                            ),
+                                          ),
 
 // Line 2: Optional fields if present (we stored them in city & pincode)
-if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
-  Padding(
-    padding: const EdgeInsets.only(top: 4),
-    child: Text(
-      [
-        address.city.trim(),         // SCO / Flat / House
-        address.pincode.trim(),      // Street / Sector / Area
-      ].where((s) => s.isNotEmpty).join(', '),
-      style: const TextStyle(color: AppColors.darkGrey),
-    ),
-  ),
-
+                                          if (address.city.trim().isNotEmpty ||
+                                              address.pincode.trim().isNotEmpty)
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                [
+                                                  address.city
+                                                      .trim(), // SCO / Flat / House
+                                                  address.pincode
+                                                      .trim(), // Street / Sector / Area
+                                                ]
+                                                    .where((s) => s.isNotEmpty)
+                                                    .join(', '),
+                                                style: const TextStyle(
+                                                    color: AppColors.darkGrey),
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ),
-                                    const Icon(Icons.edit, color: AppColors.darkGrey),
+                                    const Icon(Icons.edit,
+                                        color: AppColors.darkGrey),
                                   ],
                                 ),
                         ),
@@ -1455,7 +1453,9 @@ if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
                                   child: GestureDetector(
                                     onTap: () {
                                       setState(() {
-                                        context.read<AddSalonCubit>().removeImage(image);
+                                        context
+                                            .read<AddSalonCubit>()
+                                            .removeImage(image);
                                       });
                                     },
                                     child: Container(
@@ -1496,7 +1496,8 @@ if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
                         width: double.infinity,
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: state.isSubmitting ? null : () => _submit(state),
+                          onPressed:
+                              state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.starColor,
                             foregroundColor: AppColors.white,
@@ -1594,14 +1595,14 @@ if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
         textCapitalization: textCapitalization,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
-        autovalidateMode: _submitted
-            ? AutovalidateMode.always
-            : AutovalidateMode.disabled,
+        autovalidateMode:
+            _submitted ? AutovalidateMode.always : AutovalidateMode.disabled,
         validator: (value) {
           final text = value?.trim() ?? '';
 
           if (text.isEmpty) {
-            return translateText('{field} is required').replaceAll('{field}', cleanLabel);
+            return translateText('{field} is required')
+                .replaceAll('{field}', cleanLabel);
           }
 
           if (label.toLowerCase().contains('phone') ||

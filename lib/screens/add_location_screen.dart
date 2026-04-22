@@ -667,7 +667,6 @@
 //   );
 // }
 
-
 // class AddressComponentsModel {
 //   String name;
 //   String city;
@@ -1384,6 +1383,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../services/language_listener.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -1437,10 +1437,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   final _formKey = GlobalKey<FormState>();
 
   // Controllers we keep
-  final TextEditingController completeAddressController = TextEditingController();
+  final TextEditingController completeAddressController =
+      TextEditingController();
   final TextEditingController scoFlatHouseController = TextEditingController();
-  final TextEditingController streetSectorAreaController = TextEditingController();
-  final TextEditingController searchLocationController = TextEditingController();
+  final TextEditingController streetSectorAreaController =
+      TextEditingController();
+  final TextEditingController searchLocationController =
+      TextEditingController();
 
   @override
   void initState() {
@@ -1486,7 +1489,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                translateText('Turn on location services to use your current location'),
+                translateText(
+                    'Turn on location services to use your current location'),
               ),
             ),
           );
@@ -1506,7 +1510,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                translateText('Allow location access to autofill your address details'),
+                translateText(
+                    'Allow location access to autofill your address details'),
               ),
             ),
           );
@@ -1521,7 +1526,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
           builder: (context) => AlertDialog(
             title: Text(translateText('Allow location access')),
             content: Text(
-              translateText('Enable location permissions in Settings to use your current location.'),
+              translateText(
+                  'Enable location permissions in Settings to use your current location.'),
             ),
             actions: [
               TextButton(
@@ -1608,7 +1614,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         countries: ['IN'],
       );
       final preds = result.predictions ?? [];
-      if (_latestQuery != query || searchLocationController.text.isEmpty) return;
+      if (_latestQuery != query || searchLocationController.text.isEmpty)
+        return;
 
       setState(() => predictions = preds);
       if (preds.isNotEmpty) _showOverlay();
@@ -1655,7 +1662,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     title: Text(
                       p.fullText ?? '',
-                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      style:
+                          const TextStyle(fontSize: 14, color: Colors.black87),
                     ),
                     onTap: () async {
                       await _onPredictionSelected(p.placeId);
@@ -1713,25 +1721,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          translateText('Add location'),
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppColors.starColor, AppColors.getStartedButton],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Add location'),
       ),
       body: GestureDetector(
         onTap: () {
@@ -1759,7 +1750,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                         ),
                         suffixIcon: searchLocationController.text.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.close, color: Colors.grey),
+                                icon:
+                                    const Icon(Icons.close, color: Colors.grey),
                                 splashRadius: 18,
                                 onPressed: () {
                                   FocusScope.of(context).unfocus();
@@ -1783,12 +1775,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       },
                     ),
                   ),
-
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
-                        child: Divider(color: Colors.grey.shade300, thickness: 1),
+                        child:
+                            Divider(color: Colors.grey.shade300, thickness: 1),
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -1801,7 +1793,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                         ),
                       ),
                       Expanded(
-                        child: Divider(color: Colors.grey.shade300, thickness: 1),
+                        child:
+                            Divider(color: Colors.grey.shade300, thickness: 1),
                       ),
                     ],
                   ),
@@ -1826,7 +1819,6 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                         : Text(translateText('Use Current Location')),
                   ),
                   const SizedBox(height: 20),
-
                   Card(
                     elevation: 1,
                     shape: RoundedRectangleBorder(
@@ -1869,15 +1861,16 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState?.validate() ?? false) {
                         Navigator.pop(context, {
-                          'completeAddress': completeAddressController.text.trim(),
+                          'completeAddress':
+                              completeAddressController.text.trim(),
                           'scoFlatHouse': scoFlatHouseController.text.trim(),
-                          'streetSectorArea': streetSectorAreaController.text.trim(),
+                          'streetSectorArea':
+                              streetSectorAreaController.text.trim(),
                           'latitude': latitude,
                           'longitude': longitude,
                         });
@@ -1885,7 +1878,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              translateText('Please fill all required fields correctly'),
+                              translateText(
+                                  'Please fill all required fields correctly'),
                             ),
                           ),
                         );

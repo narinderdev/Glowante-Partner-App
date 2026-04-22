@@ -21,7 +21,7 @@
 //     this.branchFormData, // ✅ for branch flow
 //     this.branchAddress,
 //     this.branchImages = const [],
-//      this.salonId, 
+//      this.salonId,
 //   });
 
 //   final AddSalonFormData? formData; // ✅ Keep this for salon
@@ -30,8 +30,6 @@
 //   final List<File> branchImages;
 //   final List<String> initialCodes;
 //    final int? salonId;
-
-
 
 //   @override
 //   State<AddSalonServices> createState() => _AddSalonServicesState();
@@ -249,7 +247,6 @@
 //         ),
 // ),
 
-
 //                                       ),
 
 //                                       /// ✅ Tick overlay when selected
@@ -423,7 +420,6 @@
 //   }
 // }
 
-
 // }
 
 import 'dart:convert';
@@ -438,6 +434,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import '../utils/localization_helper.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'bottom_nav.dart';
 
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
@@ -484,7 +481,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
   Future<void> fetchServiceCatalog() async {
     try {
       final token = await ApiService().getAuthToken();
-      final url = Uri.parse('${ApiService.baseUrl}${ApiService.serviceCatalog}');
+      final url =
+          Uri.parse('${ApiService.baseUrl}${ApiService.serviceCatalog}');
 
       final response = await http.get(
         url,
@@ -561,30 +559,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
       builder: (context, state) {
         return Scaffold(
           backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            systemOverlayStyle: SystemUiOverlayStyle.light,
-            iconTheme: const IconThemeData(color: Colors.white),
-            title: Text(
-              translateText('Select Services'),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.starColor,
-                    AppColors.getStartedButton,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
+          appBar: buildProfileSubpageAppBar(
+            title: translateText('Select Services'),
           ),
           body: _isLoading
               ? const Center(child: CircularProgressIndicator())
@@ -663,20 +639,18 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                               : Image(
                                                   image: _imageProviders
                                                       .putIfAbsent(
-                                                        imageUrl,
-                                                        () =>
-                                                            CachedNetworkImageProvider(
-                                                                imageUrl),
-                                                      ),
+                                                    imageUrl,
+                                                    () =>
+                                                        CachedNetworkImageProvider(
+                                                            imageUrl),
+                                                  ),
                                                   fit: BoxFit.cover,
                                                   gaplessPlayback: true,
                                                   filterQuality:
                                                       FilterQuality.high,
-                                                  errorBuilder:
-                                                      (_, __, ___) =>
-                                                          const Icon(
-                                                    Icons
-                                                        .image_not_supported,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      const Icon(
+                                                    Icons.image_not_supported,
                                                   ),
                                                 ),
                                         ),
@@ -806,9 +780,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content:
-                  Text(translateText('Branch added successfully!'))),
+          SnackBar(content: Text(translateText('Branch added successfully!'))),
         );
 
         Navigator.of(context).pushAndRemoveUntil(

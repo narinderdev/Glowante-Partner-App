@@ -60,7 +60,7 @@
 //   bool _submitted = false;
 //   final Map<_BranchField, bool> _fieldValidationVisibility = {
 //     for (final field in _BranchField.values) field: false,
-    
+
 //   };
 
 //   @override
@@ -122,7 +122,6 @@
 //     _resetFieldError(field);
 //   }
 // }
-
 
 //   Future<void> _chooseLocation(AddBranchState state) async {
 //     final result = await Navigator.push<Map<String, dynamic>?>(
@@ -249,7 +248,6 @@
 //   ),
 // );
 // }
-
 
 //   @override
 //   Widget build(BuildContext context) {
@@ -462,7 +460,7 @@
 //                         maxLines: 1,
 //                         maxLength: 50,
 //                        keyboardType: TextInputType.text,
-//   textCapitalization: TextCapitalization.sentences, 
+//   textCapitalization: TextCapitalization.sentences,
 //                         inputFormatters: const [_FirstLetterUpperFormatter()],
 //                       ),
 
@@ -619,7 +617,6 @@
 //       )
 //     : null,
 
-
 //   // ✅ Label with required star
 //   label: _requiredLabel(localizedLabel, required: isRequired),
 
@@ -700,6 +697,7 @@ import '../services/language_listener.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'add_location_screen.dart';
 import 'package:flutter/services.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/colors.dart';
 import 'AddSalonServices.dart';
@@ -816,8 +814,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   // ✅ Minimal back-compat helper: require complete address (stored in buildingName) + coordinates
   bool _isAddressComplete(BranchAddress? address) {
     if (address == null) return false;
-    final hasCompleteAddress = address.buildingName.trim().isNotEmpty; // holds complete address
-    final hasValidCoordinates = address.latitude != 0.0 || address.longitude != 0.0;
+    final hasCompleteAddress =
+        address.buildingName.trim().isNotEmpty; // holds complete address
+    final hasValidCoordinates =
+        address.latitude != 0.0 || address.longitude != 0.0;
     return hasCompleteAddress && hasValidCoordinates;
   }
 
@@ -838,19 +838,21 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (!mounted || result == null) return;
 
     // 🟢 Read new keys from AddLocationScreen
-    final completeAddress   = (result['completeAddress'] as String?)?.trim() ?? '';
-    final scoFlatHouse      = (result['scoFlatHouse'] as String?)?.trim() ?? '';
-    final streetSectorArea  = (result['streetSectorArea'] as String?)?.trim() ?? '';
-    final latitude          = (result['latitude'] as num?)?.toDouble() ?? 0;
-    final longitude         = (result['longitude'] as num?)?.toDouble() ?? 0;
+    final completeAddress =
+        (result['completeAddress'] as String?)?.trim() ?? '';
+    final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
+    final streetSectorArea =
+        (result['streetSectorArea'] as String?)?.trim() ?? '';
+    final latitude = (result['latitude'] as num?)?.toDouble() ?? 0;
+    final longitude = (result['longitude'] as num?)?.toDouble() ?? 0;
 
     // 🟢 Store completeAddress into buildingName (back-compat with existing model)
     branchCubit.updateAddress(
       BranchAddress(
         buildingName: completeAddress, // complete address here
-        city: scoFlatHouse,            // optional mapping to keep the value
-        pincode: streetSectorArea,     // optional mapping to keep the value
-        state: '',                     // not used in new flow
+        city: scoFlatHouse, // optional mapping to keep the value
+        pincode: streetSectorArea, // optional mapping to keep the value
+        state: '', // not used in new flow
         latitude: latitude,
         longitude: longitude,
       ),
@@ -990,30 +992,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
         return Scaffold(
           backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            systemOverlayStyle: SystemUiOverlayStyle.light,
-            iconTheme: const IconThemeData(color: Colors.white),
-            title: Text(
-              translateText('Add Branch'),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.starColor,
-                    AppColors.getStartedButton,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-            ),
+          appBar: buildProfileSubpageAppBar(
+            title: translateText('Add Branch'),
           ),
           body: Stack(
             children: [
@@ -1027,7 +1007,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       _buildTextField(
                         field: _BranchField.name,
                         controller: _branchNameController,
-                        label:translateText('Branch Name *'),
+                        label: translateText('Branch Name *'),
                         hint: translateText('Enter Branch Name'),
                         keyboardType: TextInputType.text,
                         textCapitalization: TextCapitalization.sentences,
@@ -1042,7 +1022,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                         maxLength: 10,
                         enabled: false,
                         keyboardType: TextInputType.number,
-                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly
+                        ],
                       ),
                       IntrinsicHeight(
                         child: Row(
@@ -1145,30 +1127,38 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                    Text(
-  address.buildingName,
-  style: const TextStyle(
-    fontWeight: FontWeight.bold,
-    color: AppColors.darkGrey,
-  ),
-),
+                                      Text(
+                                        address.buildingName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.darkGrey,
+                                        ),
+                                      ),
 
 // Line 2: Optional fields if present (we stored them in city & pincode)
-if (address.city.trim().isNotEmpty || address.pincode.trim().isNotEmpty)
-  Padding(
-    padding: const EdgeInsets.only(top: 4),
-    child: Text(
-      [
-        address.city.trim(),         // SCO / Flat / House
-        address.pincode.trim(),      // Street / Sector / Area
-      ].where((s) => s.isNotEmpty).join(', '),
-      style: const TextStyle(color: AppColors.darkGrey),
-    ),
-  ),
+                                      if (address.city.trim().isNotEmpty ||
+                                          address.pincode.trim().isNotEmpty)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 4),
+                                          child: Text(
+                                            [
+                                              address.city
+                                                  .trim(), // SCO / Flat / House
+                                              address.pincode
+                                                  .trim(), // Street / Sector / Area
+                                            ]
+                                                .where((s) => s.isNotEmpty)
+                                                .join(', '),
+                                            style: const TextStyle(
+                                                color: AppColors.darkGrey),
+                                          ),
+                                        ),
                                     ],
                                   ),
                                 ),
-                                const Icon(Icons.edit, color: AppColors.darkGrey),
+                                const Icon(Icons.edit,
+                                    color: AppColors.darkGrey),
                               ],
                             ),
                           ),
