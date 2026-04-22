@@ -11,6 +11,8 @@ import '../services/stylist_branch_selection.dart';
 import '../services/user_role_session.dart';
 import '../features/stylist_item_entry/stylist_item_entry_feature.dart';
 import '../utils/api_service.dart';
+import '../utils/colors.dart';
+import 'AddBookings.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 const String _bookingsFontFamily = 'Manrope';
@@ -43,7 +45,12 @@ TextStyle _bookingTextStyle({
 }
 
 class StylistBookingsScreen extends StatefulWidget {
-  const StylistBookingsScreen({super.key});
+  const StylistBookingsScreen({
+    super.key,
+    this.isOwnerMode = false,
+  });
+
+  final bool isOwnerMode;
 
   @override
   State<StylistBookingsScreen> createState() => _StylistBookingsScreenState();
@@ -55,21 +62,20 @@ class _SalonBranchOption {
     required this.branchId,
     required this.salonName,
     required this.branchName,
+    this.addressSummary = '',
+    this.isMain = false,
   });
 
   final int salonId;
   final int branchId;
   final String salonName;
   final String branchName;
+  final String addressSummary;
+  final bool isMain;
 
   String get label {
-    if (salonName.isNotEmpty &&
-        branchName.isNotEmpty &&
-        salonName != branchName) {
-      return '$salonName • $branchName';
-    }
-    if (salonName.isNotEmpty) return salonName;
     if (branchName.isNotEmpty) return branchName;
+    if (salonName.isNotEmpty) return salonName;
     return 'Salon #$salonId';
   }
 }
@@ -183,6 +189,56 @@ String _customerName(BuildContext context, Map<String, dynamic> booking) {
     if (name.isNotEmpty) return name;
   }
   return context.t('Customer');
+}
+
+String _branchAddressSummary(dynamic rawAddress) {
+  if (rawAddress is! Map) return '';
+  final address = Map<String, dynamic>.from(rawAddress);
+  final parts = <String>[
+    address['district']?.toString().trim() ?? '',
+    address['city']?.toString().trim() ?? '',
+    address['state']?.toString().trim() ?? '',
+  ].where((value) => value.isNotEmpty).toList();
+  return parts.join(', ');
+}
+
+String _personName(dynamic raw) {
+  if (raw is! Map) return '';
+  final map = Map<String, dynamic>.from(raw);
+  final first = map['firstName']?.toString().trim() ?? '';
+  final last = map['lastName']?.toString().trim() ?? '';
+  final full = '$first $last'.trim();
+  if (full.isNotEmpty) return full;
+  return map['name']?.toString().trim() ?? '';
+}
+
+List<String> _assignedStaffNames(Map<String, dynamic> booking) {
+  final names = <String>[];
+  final seen = <String>{};
+
+  void addName(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return;
+    if (seen.add(normalized)) {
+      names.add(normalized);
+    }
+  }
+
+  addName(_personName(booking['teamMember']));
+
+  for (final item in _bookingItems(booking)) {
+    addName(_personName(item['teamMember']));
+    addName(_personName(item['assignedUserBranch']?['user']));
+  }
+
+  return names;
+}
+
+String _assignedStaffSummary(
+    BuildContext context, Map<String, dynamic> booking) {
+  final names = _assignedStaffNames(booking);
+  if (names.isEmpty) return '';
+  return names.join(', ');
 }
 
 String _serviceLabel(BuildContext context, Map<String, dynamic> booking) {
@@ -381,6 +437,8 @@ String _bookingTotalPrice(Map<String, dynamic> booking) {
 
 String _statusLabel(BuildContext context, String status) {
   switch (status) {
+    case 'PENDING':
+      return context.t('Pending');
     case 'IN_PROGRESS':
       return context.t('In Progress');
     case 'COMPLETED':
@@ -394,6 +452,17 @@ String _statusLabel(BuildContext context, String status) {
 
 _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
   switch (status) {
+    case 'PENDING':
+      return _BookingStatusVisuals(
+        label: _statusLabel(context, status),
+        leadingColor: const Color(0xFFDCE8F6),
+        cardBorderColor: _bookingsBorder,
+        pillBackgroundColor: const Color(0xFFF1F5F9),
+        pillBorderColor: const Color(0xFFF1F5F9),
+        pillTextColor: _bookingsUpcoming,
+        primaryButtonColor: _bookingsAccent,
+        primaryTextColor: Colors.white,
+      );
     case 'IN_PROGRESS':
       return _BookingStatusVisuals(
         label: _statusLabel(context, status),
@@ -440,6 +509,9 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
       );
   }
 }
+
+bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>
+    isOwnerMode && status == 'PENDING';
 
 bool _showsStartAction(String status) => status == 'CONFIRMED';
 
@@ -732,6 +804,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   int? _userId;
   bool _isLoading = true;
   bool _loadingDate = false;
+  int? _confirmingAppointmentId;
   int? _startingAppointmentId;
   int? _completingAppointmentId;
   String? _errorMessage;
@@ -773,6 +846,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               branchName: branchName.isEmpty
                   ? (salonName.isEmpty ? 'Salon #$salonId' : salonName)
                   : branchName,
+              addressSummary: _branchAddressSummary(branch['address']),
+              isMain: branch['isMain'] == true,
             ),
           );
         }
@@ -793,6 +868,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               (derivedBranchName != null && derivedBranchName.isNotEmpty)
                   ? derivedBranchName
                   : (salonName.isEmpty ? 'Salon #$salonId' : salonName),
+          addressSummary: _branchAddressSummary(salon['address']),
+          isMain: salon['isMain'] == true,
         ),
       );
     }
@@ -831,11 +908,81 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           branchName: branchName.isEmpty
               ? (salonName.isEmpty ? 'Branch #$branchId' : salonName)
               : branchName,
+          addressSummary: _branchAddressSummary(branch['address']),
+          isMain: branch['isMain'] == true,
         ),
       );
     }
 
     return options;
+  }
+
+  Future<List<_SalonBranchOption>> _loadBaseOptions() async {
+    if (widget.isOwnerMode) {
+      final response = await _apiService.getSalonListApi();
+      final data = (response['data'] as List?) ?? const [];
+      final options = _buildOptionsFromSalons(data);
+      if (options.isNotEmpty) {
+        return options;
+      }
+      return _buildOptionsFromSalons(
+        await UserRoleSession.instance.loadUserSalons(),
+      );
+    }
+
+    var options = _buildOptionsFromUserBranches(
+      await UserRoleSession.instance.loadUserBranches(),
+    );
+    if (options.isNotEmpty) {
+      return options;
+    }
+
+    options = _buildOptionsFromSalons(
+      await UserRoleSession.instance.loadUserSalons(),
+    );
+    if (options.isNotEmpty) {
+      return options;
+    }
+
+    final response = await _apiService.getSalonListApi();
+    final data = (response['data'] as List?) ?? const [];
+    return _buildOptionsFromSalons(data);
+  }
+
+  Future<_BookingsFetchResult> _fetchBookingsForBranch({
+    required int branchId,
+    int? userId,
+  }) async {
+    try {
+      final response = widget.isOwnerMode
+          ? await _apiService.fetchAppointments(
+              branchId,
+              _formatApiDate(_selectedDate),
+            )
+          : await _apiService.fetchTeamAppointmentsByDate(
+              branchId,
+              userId!,
+              _formatApiDate(_selectedDate),
+            );
+      final rawData = response['data'];
+      final bookings = rawData is List
+          ? rawData
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList()
+          : const <Map<String, dynamic>>[];
+      return _BookingsFetchResult(
+        bookings: bookings,
+        errorMessage: response['success'] == true
+            ? null
+            : response['message']?.toString(),
+      );
+    } catch (e) {
+      return _BookingsFetchResult(
+        bookings: const [],
+        errorMessage: e.toString(),
+      );
+    }
   }
 
   Future<void> _loadOptions({
@@ -850,28 +997,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('user_id');
-
-    List<_SalonBranchOption> options = _buildOptionsFromUserBranches(
-      await UserRoleSession.instance.loadUserBranches(),
-    );
-    if (options.isEmpty) {
-      options = _buildOptionsFromSalons(
-        await UserRoleSession.instance.loadUserSalons(),
-      );
-    }
-
     String? errorMessage;
-    if (options.isEmpty) {
-      try {
-        final response = await _apiService.getSalonListApi();
-        final data = (response['data'] as List?) ?? const [];
-        options = _buildOptionsFromSalons(data);
-        errorMessage = response['success'] == true
-            ? null
-            : response['message']?.toString();
-      } catch (e) {
-        errorMessage = e.toString();
-      }
+    List<_SalonBranchOption> options = const [];
+    try {
+      options = await _loadBaseOptions();
+    } catch (e) {
+      errorMessage = e.toString();
     }
 
     final saved = await StylistBranchSelectionStore.load();
@@ -896,23 +1027,14 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
 
     List<Map<String, dynamic>> bookings = const [];
-    if (selected != null && userId != null) {
-      final response = await _apiService.fetchTeamAppointmentsByDate(
-        selected.branchId,
-        userId,
-        _formatApiDate(_selectedDate),
+    if (selected != null && (widget.isOwnerMode || userId != null)) {
+      final result = await _fetchBookingsForBranch(
+        branchId: selected.branchId,
+        userId: userId,
       );
-      final rawData = response['data'];
-      if (rawData is List) {
-        bookings = rawData
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
-      }
-      if (response['success'] != true) {
-        errorMessage ??= response['message']?.toString();
-      }
-    } else if (selected != null && userId == null) {
+      bookings = result.bookings;
+      errorMessage ??= result.errorMessage;
+    } else if (selected != null && !widget.isOwnerMode && userId == null) {
       errorMessage ??= 'Unable to load stylist bookings';
     }
 
@@ -920,7 +1042,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     setState(() {
       _options = options;
       _selectedOption = selected;
-      _userId = userId;
+      _userId = widget.isOwnerMode ? null : userId;
       _bookings = bookings;
       _errorMessage = errorMessage;
       _isLoading = false;
@@ -930,27 +1052,18 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
   Future<void> _reloadBookingsForSelectedOption() async {
     final selected = _selectedOption;
-    final userId = _userId;
-    if (selected == null || userId == null) return;
+    if (selected == null) return;
+    if (!widget.isOwnerMode && _userId == null) return;
 
-    final response = await _apiService.fetchTeamAppointmentsByDate(
-      selected.branchId,
-      userId,
-      _formatApiDate(_selectedDate),
+    final result = await _fetchBookingsForBranch(
+      branchId: selected.branchId,
+      userId: _userId,
     );
-    final rawData = response['data'];
-    final bookings = rawData is List
-        ? rawData
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList()
-        : const <Map<String, dynamic>>[];
 
     if (!mounted) return;
     setState(() {
-      _bookings = bookings;
-      _errorMessage =
-          response['success'] == true ? null : response['message']?.toString();
+      _bookings = result.bookings;
+      _errorMessage = result.errorMessage;
     });
   }
 
@@ -970,24 +1083,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     List<Map<String, dynamic>> bookings = const [];
     String? errorMessage;
-    if (_userId != null) {
-      final response = await _apiService.fetchTeamAppointmentsByDate(
-        option.branchId,
-        _userId!,
-        _formatApiDate(_selectedDate),
-      );
-      final rawData = response['data'];
-      if (rawData is List) {
-        bookings = rawData
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
-      }
-      if (response['success'] != true) {
-        errorMessage = response['message']?.toString();
-      }
-    } else {
+    if (!widget.isOwnerMode && _userId == null) {
       errorMessage = 'Unable to load stylist bookings';
+    } else {
+      final result = await _fetchBookingsForBranch(
+        branchId: option.branchId,
+        userId: _userId,
+      );
+      bookings = result.bookings;
+      errorMessage = result.errorMessage;
     }
 
     if (!mounted) return;
@@ -1012,22 +1116,13 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     List<Map<String, dynamic>> bookings = const [];
     String? errorMessage;
 
-    if (selected != null && userId != null) {
-      final response = await _apiService.fetchTeamAppointmentsByDate(
-        selected.branchId,
-        userId,
-        _formatApiDate(_selectedDate),
+    if (selected != null && (widget.isOwnerMode || userId != null)) {
+      final result = await _fetchBookingsForBranch(
+        branchId: selected.branchId,
+        userId: userId,
       );
-      final rawData = response['data'];
-      if (rawData is List) {
-        bookings = rawData
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList();
-      }
-      if (response['success'] != true) {
-        errorMessage = response['message']?.toString();
-      }
+      bookings = result.bookings;
+      errorMessage = result.errorMessage;
     }
 
     if (!mounted) return;
@@ -1113,6 +1208,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         builder: (_) => _StylistBookingDetailScreen(
           booking: Map<String, dynamic>.from(booking),
           branchId: selected.branchId,
+          isOwnerMode: widget.isOwnerMode,
         ),
       ),
     );
@@ -1120,6 +1216,70 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     if (shouldRefresh == true) {
       await _reloadBookingsForSelectedOption();
     }
+  }
+
+  Future<void> _handleConfirmFromList(Map<String, dynamic> booking) async {
+    final selected = _selectedOption;
+    final appointmentId = _asInt(booking['id']);
+    if (selected == null ||
+        appointmentId == null ||
+        _confirmingAppointmentId != null) {
+      return;
+    }
+
+    setState(() => _confirmingAppointmentId = appointmentId);
+    final resp = await ApiService().confirmAppointment(
+      branchId: selected.branchId,
+      appointmentId: appointmentId,
+    );
+    if (!mounted) return;
+    setState(() => _confirmingAppointmentId = null);
+
+    if (resp['success'] == true) {
+      booking['status'] = _normalizeStatus(
+        resp['data']?['status'] ?? 'CONFIRMED',
+      );
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            resp['message']?.toString() ?? translateText('Booking Confirmed'),
+          ),
+        ),
+      );
+      await _reloadBookingsForSelectedOption();
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          resp['message']?.toString() ?? 'Failed to confirm appointment',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openAddBooking() async {
+    final selected = _selectedOption;
+    if (selected == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Please select a salon'))),
+      );
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddBookingScreen(
+          salonId: selected.salonId,
+          branchId: selected.branchId,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    await _reloadBookingsForSelectedOption();
   }
 
   Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
@@ -1306,19 +1466,34 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                                 padding: const EdgeInsets.only(bottom: 14),
                                 child: _BookingListCard(
                                   booking: booking,
+                                  assignedStaffLabel: widget.isOwnerMode
+                                      ? _assignedStaffSummary(context, booking)
+                                      : '',
+                                  isOwnerMode: widget.isOwnerMode,
                                   onTap: () => _openBookingDetail(booking),
-                                  onPrimaryActionTap: _showsStartAction(
+                                  onPrimaryActionTap: _showsConfirmAction(
                                     _normalizeStatus(booking['status']),
+                                    isOwnerMode: widget.isOwnerMode,
                                   )
-                                      ? () => _handleStartFromList(booking)
-                                      : _showsFinishAction(
+                                      ? () => _handleConfirmFromList(booking)
+                                      : _showsStartAction(
                                           _normalizeStatus(booking['status']),
                                         )
-                                          ? () =>
-                                              _handleCompleteFromList(booking)
-                                          : null,
+                                          ? () => _handleStartFromList(booking)
+                                          : _showsFinishAction(
+                                              _normalizeStatus(
+                                                booking['status'],
+                                              ),
+                                            )
+                                              ? () => _handleCompleteFromList(
+                                                    booking,
+                                                  )
+                                              : null,
                                   isProcessing:
-                                      (_startingAppointmentId != null &&
+                                      (_confirmingAppointmentId != null &&
+                                              _confirmingAppointmentId ==
+                                                  _asInt(booking['id'])) ||
+                                          (_startingAppointmentId != null &&
                                               _startingAppointmentId ==
                                                   _asInt(booking['id'])) ||
                                           (_completingAppointmentId != null &&
@@ -1360,8 +1535,39 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             ),
         ],
       ),
+      floatingActionButton: widget.isOwnerMode
+          ? FloatingActionButton.extended(
+              heroTag: 'owner_add_booking_fab',
+              onPressed: _openAddBooking,
+              backgroundColor: AppColors.white,
+              foregroundColor: AppColors.grey,
+              icon: Image.asset(
+                'assets/images/plusIcn.png',
+                width: 18,
+                height: 18,
+              ),
+              label: Text(
+                translateText('Add Booking'),
+                style: TextStyle(
+                  color: AppColors.darkGrey,
+                ),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation:
+          widget.isOwnerMode ? FloatingActionButtonLocation.endFloat : null,
     );
   }
+}
+
+class _BookingsFetchResult {
+  const _BookingsFetchResult({
+    required this.bookings,
+    required this.errorMessage,
+  });
+
+  final List<Map<String, dynamic>> bookings;
+  final String? errorMessage;
 }
 
 class _HeaderBranchSelector extends StatelessWidget {
@@ -1472,16 +1678,34 @@ class _BranchDropdownItem extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              option.branchName.isNotEmpty ? option.branchName : option.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _bookingTextStyle(
-                size: 13,
-                weight: FontWeight.w700,
-                color: _bookingsPrimaryText,
-                letterSpacing: 0.2,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  option.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _bookingTextStyle(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: _bookingsPrimaryText,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                if (option.addressSummary.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    option.addressSummary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _bookingTextStyle(
+                      size: 11,
+                      weight: FontWeight.w600,
+                      color: _bookingsSecondaryText,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(width: 8),
@@ -1629,12 +1853,16 @@ class _BookingEmptyState extends StatelessWidget {
 class _BookingListCard extends StatelessWidget {
   const _BookingListCard({
     required this.booking,
+    required this.assignedStaffLabel,
+    required this.isOwnerMode,
     required this.onTap,
     this.onPrimaryActionTap,
     this.isProcessing = false,
   });
 
   final Map<String, dynamic> booking;
+  final String assignedStaffLabel;
+  final bool isOwnerMode;
   final VoidCallback onTap;
   final VoidCallback? onPrimaryActionTap;
   final bool isProcessing;
@@ -1643,8 +1871,11 @@ class _BookingListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _normalizeStatus(booking['status']);
     final visuals = _statusVisuals(context, status);
-    final actionLabel =
-        _showsStartAction(status) ? context.t('Start Job').toUpperCase() : null;
+    final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
+        ? context.t('Accept').toUpperCase()
+        : (_showsStartAction(status)
+            ? context.t('Start Job').toUpperCase()
+            : null);
     final finishLabel = _showsFinishAction(status)
         ? context.t('Finish Job').toUpperCase()
         : null;
@@ -1836,6 +2067,31 @@ class _BookingListCard extends StatelessWidget {
                           ],
                         ),
                       ],
+                      if (assignedStaffLabel.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.badge_outlined,
+                              size: 14,
+                              color: _bookingsSecondaryText,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '${context.t('Assigned To')}: $assignedStaffLabel',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _bookingTextStyle(
+                                  size: 12,
+                                  weight: FontWeight.w600,
+                                  color: _bookingsSecondaryText,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (actionLabel != null || finishLabel != null) ...[
                         const SizedBox(height: 12),
                         SizedBox(
@@ -1923,10 +2179,12 @@ class _StylistBookingDetailScreen extends StatefulWidget {
   const _StylistBookingDetailScreen({
     required this.booking,
     required this.branchId,
+    required this.isOwnerMode,
   });
 
   final Map<String, dynamic> booking;
   final int branchId;
+  final bool isOwnerMode;
 
   @override
   State<_StylistBookingDetailScreen> createState() =>
@@ -1938,6 +2196,7 @@ class _StylistBookingDetailScreenState
   late Map<String, dynamic> _booking;
   late String _statusUpper;
   final List<StylistUsedItem> _addedItems = [];
+  bool _loadingConfirm = false;
   bool _loadingStart = false;
   bool _loadingComplete = false;
   bool _didChange = false;
@@ -1984,6 +2243,46 @@ class _StylistBookingDetailScreenState
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(resp['message']?.toString() ?? 'Job started'),
+      ),
+    );
+  }
+
+  Future<void> _handleConfirmJob() async {
+    if (_loadingConfirm) return;
+
+    setState(() => _loadingConfirm = true);
+    final resp = await ApiService().confirmAppointment(
+      branchId: widget.branchId,
+      appointmentId: _booking['id'] as int,
+    );
+    if (!mounted) return;
+
+    setState(() => _loadingConfirm = false);
+
+    if (resp['success'] == true) {
+      final newStatus = _normalizeStatus(
+        resp['data']?['status'] ?? 'CONFIRMED',
+      );
+      setState(() {
+        _statusUpper = newStatus;
+        _booking['status'] = newStatus;
+        _didChange = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            resp['message']?.toString() ?? translateText('Booking Confirmed'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          resp['message']?.toString() ?? 'Failed to confirm appointment',
+        ),
       ),
     );
   }
@@ -2098,6 +2397,8 @@ class _StylistBookingDetailScreenState
     final visuals = _statusVisuals(context, _statusUpper);
     final serviceSummary = _serviceCardSummary(context, _booking);
     final serviceSegments = _detailServiceSegments(context, _booking);
+    final assignedStaffLabel =
+        widget.isOwnerMode ? _assignedStaffSummary(context, _booking) : '';
     final timeRange = _bookingTimeRange(_booking);
     final totalAmount = _bookingTotalPrice(_booking);
     final elapsed = _detailElapsedTime();
@@ -2120,11 +2421,16 @@ class _StylistBookingDetailScreenState
         dateLabel: 'MAY 2023',
       ),
     ];
-    final primaryAction = _showsFinishAction(_statusUpper)
-        ? context.t('Finish Job').toUpperCase()
-        : (_showsStartAction(_statusUpper)
-            ? context.t('Start Job').toUpperCase()
-            : null);
+    final primaryAction = _showsConfirmAction(
+      _statusUpper,
+      isOwnerMode: widget.isOwnerMode,
+    )
+        ? context.t('Accept').toUpperCase()
+        : (_showsFinishAction(_statusUpper)
+            ? context.t('Finish Job').toUpperCase()
+            : (_showsStartAction(_statusUpper)
+                ? context.t('Start Job').toUpperCase()
+                : null));
     final primaryColor =
         _showsFinishAction(_statusUpper) ? _bookingsDark : _bookingsAccent;
 
@@ -2149,15 +2455,21 @@ class _StylistBookingDetailScreenState
         scheduledMinutes: scheduledMinutes,
         timeRange: timeRange,
         serviceSummary: serviceSummary,
+        assignedStaffLabel: assignedStaffLabel,
         serviceSegments: serviceSegments,
         preferences: preferences,
         totalAmount: totalAmount,
         primaryAction: primaryAction,
         primaryActionColor: primaryColor,
-        isPrimaryLoading: _loadingStart || _loadingComplete,
-        onPrimaryAction: _showsFinishAction(_statusUpper)
-            ? _handleCompleteJob
-            : (_showsStartAction(_statusUpper) ? _handleStartJob : null),
+        isPrimaryLoading: _loadingConfirm || _loadingStart || _loadingComplete,
+        onPrimaryAction: _showsConfirmAction(
+          _statusUpper,
+          isOwnerMode: widget.isOwnerMode,
+        )
+            ? _handleConfirmJob
+            : (_showsFinishAction(_statusUpper)
+                ? _handleCompleteJob
+                : (_showsStartAction(_statusUpper) ? _handleStartJob : null)),
         addedItems: _addedItems,
         onAddItems: _showAddItemsInfo,
       ),

@@ -4,6 +4,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../stylist_item_entry_theme.dart';
 import '../stylist_used_item.dart';
 import 'stylist_used_item_editor_screen.dart';
+import '../../../utils/localization_helper.dart';
 
 class StylistItemScannerScreen extends StatefulWidget {
   const StylistItemScannerScreen({super.key});
@@ -28,8 +29,6 @@ class _StylistItemScannerScreenState extends State<StylistItemScannerScreen> {
       MaterialPageRoute(
         builder: (_) => StylistUsedItemEditorScreen(
           title: 'Scanned Product Details',
-          subtitle:
-              'Review the scanned product information before saving it locally.',
           submitLabel: 'Use This Item',
           sourceLabel: 'Camera scan',
           initialItem: StylistUsedItem.fromScanCode(code),
@@ -78,7 +77,6 @@ class _StylistItemScannerScreenState extends State<StylistItemScannerScreen> {
       MaterialPageRoute(
         builder: (_) => const StylistUsedItemEditorScreen(
           title: 'Enter Item Details',
-          subtitle: 'Add beauty product usage manually for this appointment.',
           submitLabel: 'Save Item',
           sourceLabel: 'Manual entry',
         ),
@@ -190,18 +188,20 @@ class _StylistItemScannerScreenState extends State<StylistItemScannerScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Scan barcode or QR code',
-                        style: TextStyle(
+                      Text(
+                        context.t('Scan barcode or QR code'),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Place the product code inside the frame. After scanning, the product details screen opens for review.',
-                        style: TextStyle(
+                      Text(
+                        context.t(
+                          'Place the product code inside the frame. After scanning, the product details screen opens for review.',
+                        ),
+                        style: const TextStyle(
                           color: Color(0xFFE7E5E4),
                           fontSize: 14,
                           height: 1.45,
@@ -222,9 +222,9 @@ class _StylistItemScannerScreenState extends State<StylistItemScannerScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          child: const Text(
-                            'Enter details instead',
-                            style: TextStyle(fontWeight: FontWeight.w600),
+                          child: Text(
+                            context.t('Enter details instead'),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),

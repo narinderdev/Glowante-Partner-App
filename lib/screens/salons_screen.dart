@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderBox;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
@@ -432,23 +431,8 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.starColor, AppColors.getStartedButton],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x2AFF7043),
-            blurRadius: 18,
-            offset: Offset(0, 10),
-          ),
-        ],
-      ),
+      color: const Color(0xFFFBF9F8),
       child: SafeArea(
         bottom: false,
         child: GestureDetector(
@@ -457,40 +441,22 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            translateText(readOnly ? 'Salons' : 'My Salons'),
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ) ??
-                                const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          // SizedBox(height: 4),
-                          // Text(translateText('Stay on top of every branch and booking'),
-                          //   style:
-                          //       theme.textTheme.bodySmall?.copyWith(
-                          //         color: Colors.white70,
-                          //       ) ??
-                          //       const TextStyle(
-                          //         color: Colors.white70,
-                          //         fontSize: 12,
-                          //       ),
-                          // ),
-                        ],
+                      child: Text(
+                        translateText(readOnly ? 'Salons' : 'My Salons'),
+                        textAlign: TextAlign.left,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontFamilyFallback: ['Inter', 'sans-serif'],
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFB45309),
+                        ),
                       ),
                     ),
                     if (!readOnly)
@@ -498,17 +464,16 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                         onPressed: onAddSalon,
                         style: ElevatedButton.styleFrom(
                           elevation: 0,
-                          backgroundColor: AppColors.lightGrey,
+                          backgroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 8),
                           shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(24), // ? rounded corners
+                            borderRadius: BorderRadius.circular(24),
                           ),
                         ).copyWith(
                           side: MaterialStateProperty.all(
                             const BorderSide(
-                              color: AppColors.grey, // ? border color
+                              color: Color(0xFFE7DED6),
                               width: 1,
                               style: BorderStyle.solid,
                             ),
@@ -518,25 +483,32 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Image.asset(
-                              "assets/images/plusIcn.png", // ? your custom plus icon
+                              "assets/images/plusIcn.png",
                               width: 18,
                               height: 18,
                             ),
-                            SizedBox(width: 6),
+                            const SizedBox(width: 6),
                             Text(
                               translateText('Add Salon'),
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color:
-                                    AppColors.grey, // ? matches other buttons
+                                color: Color(0xFF78716C),
                               ),
                             ),
                           ],
                         ),
-                      ),
+                      )
+                    else
+                      const SizedBox.shrink(),
                   ],
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFF1EBE6),
+                ),
+                const SizedBox(height: 12),
                 _AppBarSearchField(
                   controller: searchController,
                   onChanged: onSearchChanged,
@@ -672,8 +644,6 @@ class _SalonsOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1127,21 +1097,39 @@ class _SalonCard extends StatelessWidget {
     final tagline = rawTagline.isNotEmpty ? rawTagline : rawDescription;
     final rawImage = _cleanText(salon['imageUrl']);
     var imageUrl = rawImage.isEmpty ? null : rawImage;
+    String normalizeName(String value) => value.trim().toLowerCase();
 
-    // if (imageUrl == null) {
-    //   for (final branch in branches) {
-    //     final branchImage = _cleanText(branch['imageUrl']);
-    //     if (branchImage.isNotEmpty) {
-    //       imageUrl = branchImage;
-    //       break;
-    //     }
-    //   }
-    // }
+    bool isMainBranch(Map<String, dynamic> branch) {
+      final rawIsMain = branch['isMain'];
+      if (rawIsMain is bool) {
+        return rawIsMain;
+      }
+      return normalizeName(_cleanText(branch['name'])) ==
+          normalizeName(salonName);
+    }
+
+    int branchId(Map<String, dynamic> branch) => _parseId(branch['id']);
+
+    Map<String, dynamic>? primaryBranch;
+    if (branches.isNotEmpty) {
+      try {
+        primaryBranch = branches.firstWhere(isMainBranch);
+      } catch (_) {
+        try {
+          primaryBranch = branches.firstWhere(
+            (branch) =>
+                normalizeName(_cleanText(branch['name'])) ==
+                normalizeName(salonName),
+          );
+        } catch (_) {
+          primaryBranch = branches.first;
+        }
+      }
+    }
+
     if (imageUrl == null) {
       for (final branch in branches) {
-        final branchName = _cleanText(branch['name']).toLowerCase();
-        final salonNameLower = salonName.toLowerCase();
-        if (branchName == salonNameLower) {
+        if (isMainBranch(branch)) {
           final branchImage = _cleanText(branch['imageUrl']);
           if (branchImage.isNotEmpty) {
             imageUrl = branchImage;
@@ -1152,38 +1140,21 @@ class _SalonCard extends StatelessWidget {
     }
 
     final borderColor = accentColor.withOpacity(0.18);
-    String _norm(String s) => s.trim().toLowerCase();
+    final int? primaryBranchId =
+        primaryBranch == null ? null : branchId(primaryBranch);
 
-    final bool hasMainBranch = branches.any(
-      (b) => _norm((b['name'] ?? '').toString()) == _norm(salonName),
-    );
-
-// branches to show in the expanded list (exclude the �main�)
-    final List<Map<String, dynamic>> visibleBranches = branches.where((b) {
-      final bName = _norm((b['name'] ?? '').toString());
-      return bName != _norm(salonName);
+    // branches to show in the expanded list (exclude only the main branch)
+    final List<Map<String, dynamic>> visibleBranches = branches.where((branch) {
+      if (primaryBranchId == null) return true;
+      return branchId(branch) != primaryBranchId;
     }).toList();
 
-// single main branch only?
-    final bool onlyMainBranch = branches.length == 1 &&
-        _norm((branches.first['name'] ?? '').toString()) == _norm(salonName);
+    // single main branch only?
+    final bool onlyMainBranch = branches.length == 1 && primaryBranch != null;
 
-// number chip should show extra locations only (not the main)
+    // number chip should show extra locations only (not the main)
     final int additionalBranches =
-        hasMainBranch ? (branches.length - 1) : branches.length;
-
-    Map<String, dynamic>? primaryBranch;
-    if (branches.isNotEmpty) {
-      final normalizedSalonName = _norm(salonName);
-      try {
-        primaryBranch = branches.firstWhere(
-          (branch) =>
-              _norm((branch['name'] ?? '').toString()) == normalizedSalonName,
-        );
-      } catch (_) {
-        primaryBranch = branches.first;
-      }
-    }
+        primaryBranch != null ? branches.length - 1 : branches.length;
 
     String composeAddress(Map<String, dynamic>? data) {
       if (data == null || data.isEmpty) {

@@ -2,11 +2,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // needed for TextInputFormatter
-import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import '../Viewmodels/AddCategory.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'AddServices.dart';
 import '../services/language_listener.dart';
 import '../utils/colors.dart';
@@ -39,15 +40,15 @@ class CategoryScreen extends StatefulWidget {
   const CategoryScreen({super.key});
 
   @override
-  State<CategoryScreen> createState() => _CategoryScreenState();
+  State<CategoryScreen> createState() => CategoryScreenState();
 }
 
-class _CategoryScreenState extends State<CategoryScreen> {
+class CategoryScreenState extends State<CategoryScreen> {
   final Map<int, bool> _expandedSubcategories = {};
-  int? _selectedSalonId;
   Map<String, dynamic>? _selectedSalon;
   final ScrollController _catalogScrollController = ScrollController();
   double? _pendingScrollOffset;
+  bool _syncingBookingsSelection = false;
 
   int? _asInt(dynamic value) {
     if (value == null) return null;
@@ -67,12 +68,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
       } else if (salonCubit.state.selectedSalon != null) {
         final Map<String, dynamic> selectedSalon =
             Map<String, dynamic>.from(salonCubit.state.selectedSalon!);
-        final int? branchId = _asInt(selectedSalon['branchId']);
-        final int? salonId = _asInt(selectedSalon['salonId']);
+        final int? branchId = _asInt(selectedSalon['branchId']) ??
+            _asInt(selectedSalon['salonId']);
         setState(() {
           _selectedSalon = selectedSalon;
-          _selectedSalonId = branchId ?? salonId;
         });
+        if (branchId != null) {
+          final categoryCubit = context.read<CategoryCubit>();
+          categoryCubit.resetCategories();
+          categoryCubit.loadCategories(branchId);
+        }
       }
     });
   }
@@ -80,6 +85,94 @@ class _CategoryScreenState extends State<CategoryScreen> {
   void _rememberScrollPosition() {
     if (_catalogScrollController.hasClients) {
       _pendingScrollOffset = _catalogScrollController.offset;
+    }
+  }
+
+  Future<void> refreshFromCurrentSelection() async {
+    final branchId = _asInt(_selectedSalon?['branchId']) ??
+        _asInt(_selectedSalon?['salonId']);
+    final categoryCubit = context.read<CategoryCubit>();
+
+    if (branchId != null) {
+      categoryCubit.resetCategories();
+      await categoryCubit.loadCategories(branchId);
+      return;
+    }
+
+    final salons = context
+        .read<SalonListCubit>()
+        .state
+        .salons
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+    await _syncFromBookingsSelection(salons);
+  }
+
+  void _scheduleSyncFromBookings(List<Map<String, dynamic>> salons) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncFromBookingsSelection(salons);
+    });
+  }
+
+  Future<void> _syncFromBookingsSelection(
+    List<Map<String, dynamic>> salons,
+  ) async {
+    if (!mounted || _syncingBookingsSelection || salons.isEmpty) return;
+    _syncingBookingsSelection = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final storedBranchId = prefs.getInt('selected_branch_id');
+      if (storedBranchId == null) return;
+
+      Map<String, dynamic>? matchedSalon;
+      Map<String, dynamic>? matchedBranch;
+
+      for (final rawSalon in salons) {
+        final salon = Map<String, dynamic>.from(rawSalon);
+        final branches = salon['branches'];
+        if (branches is! List) continue;
+        for (final entry in branches) {
+          if (entry is! Map) continue;
+          final branch = Map<String, dynamic>.from(entry);
+          if (_asInt(branch['id']) == storedBranchId) {
+            matchedSalon = salon;
+            matchedBranch = branch;
+            break;
+          }
+        }
+        if (matchedBranch != null) break;
+      }
+
+      if (matchedSalon == null || matchedBranch == null) return;
+
+      final matchedSalonId = _asInt(matchedSalon['id']);
+      if (matchedSalonId == null) return;
+
+      final nextSelection = {
+        'salonId': matchedSalonId,
+        'salonName': matchedSalon['name'],
+        'branchId': storedBranchId,
+        'branchName': matchedBranch['name'],
+      };
+      final isSameBranch =
+          _asInt(_selectedSalon?['branchId']) == storedBranchId;
+
+      if (!mounted) return;
+      final categoryCubit = context.read<CategoryCubit>();
+      if (!isSameBranch) {
+        setState(() {
+          _selectedSalon = nextSelection;
+          _expandedSubcategories.clear();
+        });
+        context.read<SalonListCubit>().setSelectedSalon(nextSelection);
+        categoryCubit.resetCategories();
+        categoryCubit.loadCategories(storedBranchId);
+      } else if (categoryCubit.state.categories.isEmpty &&
+          categoryCubit.state.status != CategoryStatus.loading) {
+        categoryCubit.loadCategories(storedBranchId);
+      }
+    } finally {
+      _syncingBookingsSelection = false;
     }
   }
 
@@ -104,48 +197,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
     super.dispose();
   }
 
-void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
-  if (value == null) return;
-
-  Map<String, dynamic>? selectedSalon;
-  Map<String, dynamic>? selectedBranch;
-
-  for (final salon in salons) {
-    for (final branch in salon['branches'] ?? []) {
-      if (branch['id'] == value) {
-        selectedSalon = salon;
-        selectedBranch = branch;
-        break;
-      }
-    }
-    if (selectedBranch != null) break;
-  }
-
-  if (selectedBranch == null) return;
-
-  final Map<String, dynamic> branch = Map<String, dynamic>.from(selectedBranch);
-  final Map<String, dynamic> salon = Map<String, dynamic>.from(selectedSalon!);
-  final int? branchIdFromMap = _asInt(branch['id']);
-  final int? salonId = _asInt(salon['id']);
-  final int? effectiveBranchId = branchIdFromMap ?? value;
-  if (effectiveBranchId == null || salonId == null) return;
-
-  setState(() {
-    _selectedSalonId = effectiveBranchId;
-    _selectedSalon = {
-      'salonId': salonId,
-      'salonName': salon['name'],
-      'branchId': effectiveBranchId,
-      'branchName': branch['name'],
-    };
-  });
-
-  context.read<SalonListCubit>().setSelectedSalon(_selectedSalon!);
-  final categoryCubit = context.read<CategoryCubit>();
-  categoryCubit.resetCategories();
-  categoryCubit.loadCategories(effectiveBranchId);
-}
-
 // ---------- ADD / EDIT CATEGORY ----------
   Future<void> _showAddCategorySheet({Map<String, dynamic>? category}) async {
     if (_selectedSalon == null) {
@@ -153,8 +204,8 @@ void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
       return;
     }
 
-    final int? branchId =
-        _asInt(_selectedSalon?['branchId']) ?? _asInt(_selectedSalon?['salonId']);
+    final int? branchId = _asInt(_selectedSalon?['branchId']) ??
+        _asInt(_selectedSalon?['salonId']);
     if (branchId == null) {
       _toast('Missing branch information.');
       return;
@@ -209,7 +260,7 @@ void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
     if (!mounted || confirmed != true) return;
 
     _rememberScrollPosition();
-   final branchId = _selectedSalon!['branchId'] as int;
+    final branchId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteCategory(
             branchId,
@@ -239,7 +290,7 @@ void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
     if (!mounted || confirmed != true) return;
 
     _rememberScrollPosition();
-  final branchId = _selectedSalon!['branchId'] as int;
+    final branchId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteSubCategory(
             branchId,
@@ -261,12 +312,13 @@ void _onSalonSelected(int? value, List<Map<String, dynamic>> salons) {
 
     if (!mounted || result == null) return;
 
- final branchId = _selectedSalon?['branchId'] as int? ?? _selectedSalon!['salonId'] as int;
-context.read<CategoryCubit>().updateService(
-  branchId,
-  result['serviceId'] as int,
-  result['payload'] as Map<String, dynamic>,
-);
+    final branchId = _selectedSalon?['branchId'] as int? ??
+        _selectedSalon!['salonId'] as int;
+    context.read<CategoryCubit>().updateService(
+          branchId,
+          result['serviceId'] as int,
+          result['payload'] as Map<String, dynamic>,
+        );
   }
 
   // ---------- CONFIRM DELETE SERVICE ----------
@@ -346,7 +398,6 @@ context.read<CategoryCubit>().updateService(
       if (branchId == null || salonId == null) return;
 
       setState(() {
-        _selectedSalonId = branchId;
         _selectedSalon = {
           'salonId': salonId,
           'salonName': salon['name'],
@@ -369,7 +420,6 @@ context.read<CategoryCubit>().updateService(
     if (fallbackSalonId == null) return;
 
     setState(() {
-      _selectedSalonId = fallbackSalonId;
       _selectedSalon = {
         'salonId': fallbackSalonId,
         'salonName': fallbackSalon['name'],
@@ -389,9 +439,15 @@ context.read<CategoryCubit>().updateService(
     context.watch<LanguageListener>();
     final salonState = context.watch<SalonListCubit>().state;
     final CategoryState catState = context.watch<CategoryCubit>().state;
+    final salons = salonState.salons
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+
+    _scheduleSyncFromBookings(salons);
 
     return Scaffold(
-      backgroundColor: AppColors.starColor,
+      backgroundColor: const Color(0xFFFBF9F8),
+      appBar: buildProfileSubpageAppBar(title: translateText('Catalog')),
       body: MultiBlocListener(
         listeners: [
           BlocListener<CategoryCubit, CategoryState>(
@@ -414,17 +470,11 @@ context.read<CategoryCubit>().updateService(
           ),
         ],
         child: SafeArea(
+          top: false,
           child: Stack(
             children: [
               Column(
                 children: [
-                  _HeaderSection(
-                    salonState: salonState,
-                    selectedSalonId: _selectedSalonId,
-                    selectedSalon: _selectedSalon,
-                    onSalonSelected: _onSalonSelected,
-                    onRefresh: _handleManualRefresh,
-                  ),
                   Expanded(
                     child: Container(
                       width: double.infinity,
@@ -434,7 +484,9 @@ context.read<CategoryCubit>().updateService(
                   ),
                 ],
               ),
-              if (catState.isSubmitting) _buildLoaderOverlay(),
+              if (catState.isSubmitting ||
+                  (catState.isLoading && _selectedSalon != null))
+                _buildLoaderOverlay(),
             ],
           ),
         ),
@@ -444,17 +496,23 @@ context.read<CategoryCubit>().updateService(
           : FloatingActionButton.extended(
               heroTag: 'catalogueFab',
               onPressed: () => _showAddCategorySheet(),
-              icon: Icon(Icons.add_rounded, size: 18,),
-              label: Text(translateText('New Category'),style: const TextStyle(
-            fontSize: 13, // 🔹 smaller font
-            fontWeight: FontWeight.w600,
-          ),),
+              icon: Icon(
+                Icons.add_rounded,
+                size: 18,
+              ),
+              label: Text(
+                translateText('New Category'),
+                style: const TextStyle(
+                  fontSize: 13, // 🔹 smaller font
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               backgroundColor: AppColors.starColor,
               foregroundColor: AppColors.white,
               extendedPadding: const EdgeInsets.symmetric(
-          horizontal: 10, // 🔹 reduces width
-          vertical: 0,    // 🔹 reduces height
-        ),
+                horizontal: 10, // 🔹 reduces width
+                vertical: 0, // 🔹 reduces height
+              ),
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
@@ -474,38 +532,33 @@ context.read<CategoryCubit>().updateService(
             _EmptyState(
               icon: Icons.store_mall_directory_outlined,
               title: translateText('Choose a salon'),
-              subtitle: translateText(
-                  'Pick a salon above to start managing its catalogue.'),
+              subtitle: translateText('Please select a salon first.'),
             ),
           ] else ...[
-            if (catState.isLoading && catState.categories.isEmpty)
-              const _LoaderCard()
-            else if (catState.status == CategoryStatus.failure &&
+            if (catState.status == CategoryStatus.failure &&
                 catState.categories.isEmpty)
               _ErrorCard(
                 message: catState.message ?? 'Failed to load categories',
                 onRetry: _refreshData,
               )
             else ...[
-              if (catState.isLoading)
-                _InlineProgress(
-                    message: translateText('Refreshing catalogue...')),
-              _CategoryList(
-                categories: catState.categories,
-                onAddSubcategory: _openSubcategorySheet,
-                onEditSubcategory: _openSubcategorySheet,
-                onAddServices: _openAddService,
-                onEditCategory: _showAddCategorySheet,
-                onDeleteCategory: _confirmDeleteCategory,
-                onDeleteSubcategory: _confirmDeleteSubCategory,
-                onEditService: _showUpdateServiceSheet,
-                onDeleteService: _confirmDeleteService,
-                expanded: _expandedSubcategories,
-                toggleExpanded: (id) => setState(() {
-                  _expandedSubcategories[id] =
-                      !(_expandedSubcategories[id] ?? false);
-                }),
-              ),
+              if (catState.categories.isNotEmpty)
+                _CategoryList(
+                  categories: catState.categories,
+                  onAddSubcategory: _openSubcategorySheet,
+                  onEditSubcategory: _openSubcategorySheet,
+                  onAddServices: _openAddService,
+                  onEditCategory: _showAddCategorySheet,
+                  onDeleteCategory: _confirmDeleteCategory,
+                  onDeleteSubcategory: _confirmDeleteSubCategory,
+                  onEditService: _showUpdateServiceSheet,
+                  onDeleteService: _confirmDeleteService,
+                  expanded: _expandedSubcategories,
+                  toggleExpanded: (id) => setState(() {
+                    _expandedSubcategories[id] =
+                        !(_expandedSubcategories[id] ?? false);
+                  }),
+                ),
             ],
           ],
           SizedBox(height: 40),
@@ -514,14 +567,10 @@ context.read<CategoryCubit>().updateService(
     );
   }
 
-  Future<void> _handleManualRefresh() async {
-    await _refreshData();
-  }
-
   Future<void> _refreshData() async {
     if (_selectedSalon != null) {
-      final int? loadId =
-          _asInt(_selectedSalon?['branchId']) ?? _asInt(_selectedSalon?['salonId']);
+      final int? loadId = _asInt(_selectedSalon?['branchId']) ??
+          _asInt(_selectedSalon?['salonId']);
       if (loadId != null) {
         context.read<CategoryCubit>().loadCategories(loadId);
       } else {
@@ -535,11 +584,30 @@ context.read<CategoryCubit>().updateService(
 
   // ---------- OVERLAY ----------
   Widget _buildLoaderOverlay() {
-    return const Positioned.fill(
+    return Positioned.fill(
       child: Stack(
         children: [
-          ModalBarrier(dismissible: false, color: Colors.black45),
-          Center(child: CircularProgressIndicator(color: Colors.white)),
+          IgnorePointer(
+            child: Container(
+              color: Colors.white.withValues(alpha: 0.35),
+              alignment: Alignment.center,
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(10),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: AppColors.starColor,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -549,269 +617,6 @@ context.read<CategoryCubit>().updateService(
   void _toast(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-}
-
-class _HeaderSection extends StatelessWidget {
-  const _HeaderSection({
-    required this.salonState,
-    required this.selectedSalonId,
-    required this.selectedSalon,
-    required this.onSalonSelected,
-    required this.onRefresh,
-  });
-
-  final SalonListState salonState;
-  final int? selectedSalonId;
-  final Map<String, dynamic>? selectedSalon;
-  final void Function(int?, List<Map<String, dynamic>>) onSalonSelected;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final textTheme = theme.textTheme;
-
-    final List<Map<String, dynamic>> salons = salonState.salons
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
-
-    // final List<DropdownMenuItem<int>> salonItems = <DropdownMenuItem<int>>[];
-    // for (final salon in salons) {
-    //   final dynamic rawId = salon['id'];
-    //   final int? salonId =
-    //       rawId is int ? rawId : int.tryParse(rawId.toString());
-    //   if (salonId == null) continue;
-    //   final String salonTitle =
-    //       salon['name']?.toString().trim().isNotEmpty == true
-    //           ? salon['name'].toString()
-    //           : 'Salon';
-    //   salonItems.add(
-    //     DropdownMenuItem<int>(
-    //       value: salonId,
-    //       child: Row(
-    //         children: [
-    //           Container(
-    //             padding: const EdgeInsets.all(8),
-    //             decoration: BoxDecoration(
-    //               color: Colors.grey.shade200,
-    //               borderRadius: BorderRadius.circular(8),
-    //             ),
-    //             child: Icon(
-    //               Icons.storefront,
-    //               color: AppColors.starColor,
-    //               size: 18,
-    //             ),
-    //           ),
-    //           const SizedBox(width: 12),
-    //           Expanded(
-    //             child: Text(
-    //               salonTitle,
-    //               style: textTheme.bodyMedium?.copyWith(
-    //                 fontWeight: FontWeight.w600,
-    //                 color: Colors.black,
-    //               ),
-    //               overflow: TextOverflow.ellipsis,
-    //             ),
-    //           ),
-    //         ],
-    //       ),
-    //     ),
-    //   );
-    // }
-final List<DropdownMenuItem<int>> salonItems = <DropdownMenuItem<int>>[];
-
-for (final salon in salons) {
-  final String salonName = salon['name'] ?? 'Salon';
-  final List branches = salon['branches'] ?? [];
-
-  for (final branch in branches) {
-    final int? branchId = branch['id'];
-    if (branchId == null) continue;
-
-    final String branchName = branch['name'] ?? 'Branch';
-    final String city = branch['address']?['city'] ?? '';
-
-    salonItems.add(
-      DropdownMenuItem<int>(
-        value: branchId,
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.storefront,
-                color: AppColors.starColor,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                "$branchName${city.isNotEmpty ? ' ($city)' : ''}",
-                style: textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-    final bool hasSelection = salonItems.any(
-      (item) => item.value == selectedSalonId,
-    );
-    final int? dropdownValue = hasSelection ? selectedSalonId : null;
-
-    final String? selectedName = selectedSalon?['salonName'] as String?;
-
-    final headerGradient = LinearGradient(
-      colors: [AppColors.starColor, AppColors.getStartedButton],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
-      decoration: BoxDecoration(
-        gradient: headerGradient,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      translateText('Catalog'),
-                      style: textTheme.headlineSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    // const SizedBox(height: 4),
-                    // Text(
-                    //   selectedName ??
-                    //       translateText('Select a salon to get started'),
-                    //   style: textTheme.bodyMedium?.copyWith(
-                    //     color: Colors.white70,
-                    //   ),
-                    //   maxLines: 1,
-                    //   overflow: TextOverflow.ellipsis,
-                    // ),
-                    // Text(
-                    //   selectedName ??
-                    //       translateText('Select a salon to get started'),
-                    //   style: textTheme.bodyMedium?.copyWith(
-                    //     color: Colors.white70,
-                    //   ),
-                    //   maxLines: 1,
-                    //   overflow: TextOverflow.ellipsis,
-                    // ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.12),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      translateText('Choose Salon'),
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const Spacer(),
-                    if (salonState.isLoading)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                  ],
-                ),
-                // const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade300),
-                    color: Colors.grey.shade100,
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<int>(
-                      value: dropdownValue,
-                      isExpanded: true,
-                      icon: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.starColor,
-                      ),
-                      dropdownColor: Colors.white,
-                      items: salonItems,
-                      onChanged: salonItems.isEmpty
-                          ? null
-                          : (value) => onSalonSelected(value, salons),
-                      hint: Text(
-                        salonItems.isEmpty
-                            ? translateText('No salons available')
-                            : translateText('Choose salon'),
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // const SizedBox(height: 20),
-          // OutlinedButton.icon(
-          //   onPressed: salonState.isLoading ? null : onRefresh,
-          //   style: OutlinedButton.styleFrom(
-          //     foregroundColor: Colors.white,
-          //     side: const BorderSide(color: Colors.white54),
-          //     shape: RoundedRectangleBorder(
-          //       borderRadius: BorderRadius.circular(12),
-          //     ),
-          //   ),
-          //   icon: const Icon(Icons.refresh_rounded),
-          //   label: Text(translateText('Refresh salons')),
-          // ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1168,7 +973,9 @@ class _SubcategoryTile extends StatelessWidget {
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           key: ValueKey(subCategory['id']),
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16,),
+          tilePadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+          ),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           initiallyExpanded: isExpanded,
           onExpansionChanged: (value) {
@@ -1633,7 +1440,6 @@ class _EditCategorySheet extends StatefulWidget {
   State<_EditCategorySheet> createState() => _EditCategorySheetState();
 }
 
-
 class _EditCategorySheetState extends State<_EditCategorySheet> {
   late final TextEditingController nameController;
   late final TextEditingController descriptionController;
@@ -1697,13 +1503,12 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
       // ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ 3. Use correct Cubit function
       final cubit = context.read<CategoryCubit>();
 
-     if (isEdit) {
-  final categoryId = widget.category!['id'] as int;
-  await cubit.updateCategory(widget.branchId, categoryId, req);
-} else {
-  await cubit.addCategory(widget.branchId, req);
-}
-
+      if (isEdit) {
+        final categoryId = widget.category!['id'] as int;
+        await cubit.updateCategory(widget.branchId, categoryId, req);
+      } else {
+        await cubit.addCategory(widget.branchId, req);
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -1714,6 +1519,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
       if (mounted) setState(() => isSaving = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -1803,11 +1609,11 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
 class _EditSubcategorySheet extends StatefulWidget {
   const _EditSubcategorySheet({
     this.subCategory,
-       required this.branchId,
+    required this.branchId,
     required this.categoryId,
   });
   final Map<String, dynamic>? subCategory;
-   final int branchId;
+  final int branchId;
   final int categoryId;
 
   @override
@@ -1866,8 +1672,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
         final subCategoryId = widget.subCategory!['id'] as int;
         await cubit.updateSubCategory(widget.branchId, subCategoryId, t);
       } else {
-       await cubit.addSubCategory(widget.branchId, widget.categoryId, t);
-
+        await cubit.addSubCategory(widget.branchId, widget.categoryId, t);
       }
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -2210,6 +2015,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
 
     return nErr == null && pErr == null && dErr == null;
   }
+
   @override
   Widget build(BuildContext context) {
     return _BottomSheetScaffold(
@@ -2280,62 +2086,60 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
           ],
           SizedBox(height: 8),
 
-        const SizedBox(height: 6),
+          const SizedBox(height: 6),
 
-        // ✅ Submit button (unchanged)
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            icon: isSaving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.save_rounded),
-            onPressed: isSaving
-                ? null
-                : () async {
-                    if (!_validate()) return;
-                    FocusScope.of(context).unfocus();
-                    setState(() => isSaving = true);
-                    try {
-                      final payload = {
-                        'name': nameController.text.trim(),
-                        'description': descriptionController.text.trim(),
-                        'defaultDurationMin':
-                            int.tryParse(durationController.text.trim()),
-                        'defaultPriceMinor':
-                            int.tryParse(priceController.text.trim()),
-                        'isActive': isActive.value,
-                      }..removeWhere((k, v) => v == null);
+          // ✅ Submit button (unchanged)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.save_rounded),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (!_validate()) return;
+                      FocusScope.of(context).unfocus();
+                      setState(() => isSaving = true);
+                      try {
+                        final payload = {
+                          'name': nameController.text.trim(),
+                          'description': descriptionController.text.trim(),
+                          'defaultDurationMin':
+                              int.tryParse(durationController.text.trim()),
+                          'defaultPriceMinor':
+                              int.tryParse(priceController.text.trim()),
+                          'isActive': isActive.value,
+                        }..removeWhere((k, v) => v == null);
 
-                      Navigator.of(context).pop(<String, dynamic>{
-                        'serviceId': widget.service['id'] as int,
-                        'payload': payload,
-                      });
-                    } finally {
-                      if (mounted) setState(() => isSaving = false);
-                    }
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.starColor,
-              foregroundColor: AppColors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                        Navigator.of(context).pop(<String, dynamic>{
+                          'serviceId': widget.service['id'] as int,
+                          'payload': payload,
+                        });
+                      } finally {
+                        if (mounted) setState(() => isSaving = false);
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
+              label: Text(translateText('Update Service')),
             ),
-            label: Text(translateText('Update Service')),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
-
-}
-

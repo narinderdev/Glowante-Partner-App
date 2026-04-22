@@ -23,7 +23,6 @@ Future<StylistUsedItem?> showStylistItemEntryFlow(BuildContext context) async {
     MaterialPageRoute(
       builder: (_) => const StylistUsedItemEditorScreen(
         title: 'Enter Item Details',
-        subtitle: 'Add beauty product usage manually for this appointment.',
         submitLabel: 'Save Item',
         sourceLabel: 'Manual entry',
       ),

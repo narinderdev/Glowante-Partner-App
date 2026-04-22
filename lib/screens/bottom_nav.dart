@@ -28,16 +28,18 @@ class _BottomNavState extends State<BottomNav> {
   late int _currentIndex;
   late final List<Widget> _screens;
   late final GlobalKey<SalonsScreenState> _salonsScreenKey;
+  late final GlobalKey<CategoryScreenState> _categoryScreenKey;
   StreamSubscription<BookingNotificationPayload>? _navPushSub;
 
   @override
   void initState() {
     super.initState();
     _salonsScreenKey = GlobalKey<SalonsScreenState>();
+    _categoryScreenKey = GlobalKey<CategoryScreenState>();
     _screens = [
       const BookingsScreen(),
       SalonsScreen(key: _salonsScreenKey),
-      const CategoryScreen(),
+      CategoryScreen(key: _categoryScreenKey),
       const ProfileScreen(),
     ];
     _currentIndex = widget.tabIndex.clamp(0, _screens.length - 1);
@@ -81,6 +83,8 @@ class _BottomNavState extends State<BottomNav> {
     if (_currentIndex == index && animate) {
       if (index == 1) {
         _salonsScreenKey.currentState?.collapseQuickActions();
+      } else if (index == 2) {
+        _categoryScreenKey.currentState?.refreshFromCurrentSelection();
       }
       return;
     }
@@ -95,6 +99,11 @@ class _BottomNavState extends State<BottomNav> {
       });
     } else {
       _currentIndex = index;
+    }
+    if (index == 2) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _categoryScreenKey.currentState?.refreshFromCurrentSelection();
+      });
     }
     debugPrint('[HomeReach] Owner home shell active tab=$_currentIndex');
   }

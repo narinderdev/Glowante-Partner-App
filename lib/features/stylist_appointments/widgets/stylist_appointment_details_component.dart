@@ -83,6 +83,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
     required this.scheduledMinutes,
     required this.timeRange,
     required this.serviceSummary,
+    required this.assignedStaffLabel,
     required this.serviceSegments,
     required this.preferences,
     required this.totalAmount,
@@ -107,6 +108,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   final int scheduledMinutes;
   final String timeRange;
   final String serviceSummary;
+  final String assignedStaffLabel;
   final List<StylistAppointmentServiceSegment> serviceSegments;
   final List<StylistAppointmentPreferenceData> preferences;
   final String totalAmount;
@@ -192,6 +194,30 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (assignedStaffLabel.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.badge_outlined,
+                                size: 16,
+                                color: _detailsSecondaryText,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${context.t('Assigned To')}: $assignedStaffLabel',
+                                  style: _detailsTextStyle(
+                                    size: 12,
+                                    weight: FontWeight.w600,
+                                    color: _detailsSecondaryText,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 12),
                         ...serviceSegments.asMap().entries.map(
                               (entry) => Padding(
@@ -637,14 +663,18 @@ class _UsedItemSummaryCard extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _UsedItemChip(label: item.quantityLabel),
-                    _UsedItemChip(label: item.sourceLabel),
-                  ],
-                ),
+                if (item.quantityLabel.trim().isNotEmpty ||
+                    item.sourceLabel.trim().isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (item.quantityLabel.trim().isNotEmpty)
+                        _UsedItemChip(label: item.quantityLabel),
+                      if (item.sourceLabel.trim().isNotEmpty)
+                        _UsedItemChip(label: context.t(item.sourceLabel)),
+                    ],
+                  ),
                 if (item.notes.trim().isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(

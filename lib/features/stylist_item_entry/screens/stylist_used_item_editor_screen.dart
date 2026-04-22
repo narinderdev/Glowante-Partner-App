@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 
 import '../stylist_item_entry_theme.dart';
 import '../stylist_used_item.dart';
+import '../../../utils/localization_helper.dart';
 
 class StylistUsedItemEditorScreen extends StatefulWidget {
   const StylistUsedItemEditorScreen({
     super.key,
     required this.title,
-    required this.subtitle,
     required this.submitLabel,
     required this.sourceLabel,
     this.initialItem,
@@ -16,7 +16,6 @@ class StylistUsedItemEditorScreen extends StatefulWidget {
   });
 
   final String title;
-  final String subtitle;
   final String submitLabel;
   final String sourceLabel;
   final StylistUsedItem? initialItem;
@@ -34,10 +33,7 @@ class _StylistUsedItemEditorScreenState
   late final TextEditingController _nameController;
   late final TextEditingController _brandController;
   late final TextEditingController _categoryController;
-  late final TextEditingController _quantityController;
-  late final TextEditingController _unitController;
   late final TextEditingController _codeController;
-  late final TextEditingController _notesController;
 
   @override
   void initState() {
@@ -46,10 +42,7 @@ class _StylistUsedItemEditorScreenState
     _nameController = TextEditingController(text: item?.name ?? '');
     _brandController = TextEditingController(text: item?.brand ?? '');
     _categoryController = TextEditingController(text: item?.category ?? '');
-    _quantityController = TextEditingController(text: item?.quantity ?? '');
-    _unitController = TextEditingController(text: item?.unit ?? '');
     _codeController = TextEditingController(text: item?.code ?? '');
-    _notesController = TextEditingController(text: item?.notes ?? '');
   }
 
   @override
@@ -57,10 +50,7 @@ class _StylistUsedItemEditorScreenState
     _nameController.dispose();
     _brandController.dispose();
     _categoryController.dispose();
-    _quantityController.dispose();
-    _unitController.dispose();
     _codeController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -71,10 +61,10 @@ class _StylistUsedItemEditorScreenState
       name: _nameController.text.trim(),
       brand: _brandController.text.trim(),
       category: _categoryController.text.trim(),
-      quantity: _quantityController.text.trim(),
-      unit: _unitController.text.trim(),
+      quantity: '',
+      unit: '',
       code: _codeController.text.trim(),
-      notes: _notesController.text.trim(),
+      notes: '',
       sourceLabel: widget.sourceLabel,
     );
 
@@ -91,7 +81,7 @@ class _StylistUsedItemEditorScreenState
         systemOverlayStyle: SystemUiOverlayStyle.dark,
         titleSpacing: 0,
         title: Text(
-          widget.title,
+          context.t(widget.title),
           style: const TextStyle(
             color: stylistItemPrimaryText,
             fontSize: 18,
@@ -107,176 +97,38 @@ class _StylistUsedItemEditorScreenState
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: stylistItemBorder),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.subtitle,
-                      style: const TextStyle(
-                        color: stylistItemSecondaryText,
-                        fontSize: 14,
-                        height: 1.45,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: stylistItemAccent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline_rounded,
-                            size: 18,
-                            color: stylistItemAccent,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Submit is local only right now. No API will be called.',
-                              style: TextStyle(
-                                color:
-                                    stylistItemAccent.withValues(alpha: 0.95),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
               _FieldCard(
                 child: Column(
                   children: [
                     _ItemTextField(
+                      controller: _categoryController,
+                      label: context.t('Category'),
+                      hint: context.t('Enter product category'),
+                    ),
+                    const SizedBox(height: 14),
+                    _ItemTextField(
+                      controller: _brandController,
+                      label: context.t('Brand'),
+                      hint: context.t('Enter brand name'),
+                    ),
+                    const SizedBox(height: 14),
+                    _ItemTextField(
                       controller: _nameController,
-                      label: 'Item name',
-                      hint: 'Enter product name',
+                      label: context.t('Item name'),
+                      hint: context.t('Enter product name'),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Item name is required';
+                          return translateText('Item name is required');
                         }
                         return null;
                       },
                     ),
                     const SizedBox(height: 14),
                     _ItemTextField(
-                      controller: _brandController,
-                      label: 'Brand',
-                      hint: 'Enter brand name',
-                    ),
-                    const SizedBox(height: 14),
-                    _ItemTextField(
-                      controller: _categoryController,
-                      label: 'Category',
-                      hint: 'Enter product category',
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ItemTextField(
-                            controller: _quantityController,
-                            label: 'Item used',
-                            hint: '1',
-                            keyboardType: TextInputType.number,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Required';
-                              }
-                              return null;
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _ItemTextField(
-                            controller: _unitController,
-                            label: 'Unit',
-                            hint: 'ml / gm / pcs',
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    _ItemTextField(
                       controller: _codeController,
-                      label: 'Barcode / QR code',
-                      hint: 'Enter or review scanned code',
+                      label: context.t('Barcode / QR code'),
+                      hint: context.t('Enter or review scanned code'),
                       readOnly: widget.codeReadOnly,
-                    ),
-                    const SizedBox(height: 14),
-                    _ItemTextField(
-                      controller: _notesController,
-                      label: 'Notes',
-                      hint: 'Add optional notes for the product usage',
-                      maxLines: 4,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: stylistItemBorder),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: stylistItemBackground,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(
-                        Icons.inventory_2_outlined,
-                        color: stylistItemAccent,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Source',
-                            style: TextStyle(
-                              color: stylistItemSecondaryText,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.sourceLabel,
-                            style: const TextStyle(
-                              color: stylistItemPrimaryText,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),
@@ -296,7 +148,7 @@ class _StylistUsedItemEditorScreenState
                     ),
                   ),
                   child: Text(
-                    widget.submitLabel,
+                    context.t(widget.submitLabel),
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -338,8 +190,6 @@ class _ItemTextField extends StatelessWidget {
     required this.controller,
     required this.label,
     required this.hint,
-    this.keyboardType,
-    this.maxLines = 1,
     this.readOnly = false,
     this.validator,
   });
@@ -347,8 +197,6 @@ class _ItemTextField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final String hint;
-  final TextInputType? keyboardType;
-  final int maxLines;
   final bool readOnly;
   final String? Function(String?)? validator;
 
@@ -368,8 +216,6 @@ class _ItemTextField extends StatelessWidget {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
-          keyboardType: keyboardType,
-          maxLines: maxLines,
           readOnly: readOnly,
           validator: validator,
           decoration: InputDecoration(

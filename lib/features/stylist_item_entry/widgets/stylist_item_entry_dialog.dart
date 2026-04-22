@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../stylist_item_entry_theme.dart';
+import '../../../utils/localization_helper.dart';
 
 enum StylistItemEntryAction { scan, manual }
 
@@ -55,10 +56,10 @@ class StylistItemEntryDialog extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Add items used',
-                    style: TextStyle(
+                    context.t('Add items used'),
+                    style: const TextStyle(
                       color: stylistItemPrimaryText,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -72,8 +73,10 @@ class StylistItemEntryDialog extends StatelessWidget {
             const SizedBox(height: 14),
             _EntryActionCard(
               icon: Icons.qr_code_scanner_rounded,
-              title: 'Scan',
-              description: 'Open camera and scan a barcode or QR code.',
+              title: context.t('Scan'),
+              description: context.t(
+                'Open camera and scan a barcode or QR code.',
+              ),
               onTap: () {
                 Navigator.of(context).pop(StylistItemEntryAction.scan);
               },
@@ -83,8 +86,10 @@ class StylistItemEntryDialog extends StatelessWidget {
             const SizedBox(height: 12),
             _EntryActionCard(
               icon: Icons.edit_note_rounded,
-              title: 'Enter Details',
-              description: 'Fill the item details manually on the next screen.',
+              title: context.t('Enter Details'),
+              description: context.t(
+                'Fill the item details manually on the next screen.',
+              ),
               onTap: () {
                 Navigator.of(context).pop(StylistItemEntryAction.manual);
               },
@@ -96,9 +101,9 @@ class StylistItemEntryDialog extends StatelessWidget {
               width: double.infinity,
               child: TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(
+                child: Text(
+                  context.t('Cancel'),
+                  style: const TextStyle(
                     color: stylistItemSecondaryText,
                     fontWeight: FontWeight.w600,
                   ),

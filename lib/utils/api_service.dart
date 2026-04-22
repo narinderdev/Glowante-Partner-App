@@ -592,8 +592,14 @@ class ApiService {
         "Authorization": "Bearer $token",
       },
     );
-    print('url: ${baseUrl + getSalonList}');
-    print("Response (Salon List): ${response.body}");
+    _debugPrintChunked('Salon List URL', baseUrl + getSalonList);
+    Object responseLog = response.body;
+    try {
+      responseLog = const JsonEncoder.withIndent('  ').convert(
+        json.decode(response.body),
+      );
+    } catch (_) {}
+    _debugPrintChunked('Salon List Response', responseLog, chunkSize: 1000);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return json.decode(response.body);
