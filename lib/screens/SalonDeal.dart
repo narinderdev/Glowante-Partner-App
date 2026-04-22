@@ -4,6 +4,7 @@ import 'Adddeals.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
 // ---- UI constants ----
 const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
@@ -90,7 +91,8 @@ class _DealScreenState extends State<DealScreen> {
             .toList();
 
         debugPrint('✅ Filtered offers count: ${offers.length}');
-        debugPrint('✅ Filtered offers: ${offers.map((e) => e['name']).toList()}');
+        debugPrint(
+            '✅ Filtered offers: ${offers.map((e) => e['name']).toList()}');
       } else {
         offers = [];
         debugPrint('❌ Failed to load offers: ${response['message']}');
@@ -226,27 +228,8 @@ class _DealScreenState extends State<DealScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          translateText('Deal'),
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.starColor,
-                AppColors.getStartedButton,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Deal'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -270,7 +253,8 @@ class _DealScreenState extends State<DealScreen> {
                             value: branch['branchId'],
                             child: Text(
                               "${branch['salonName']} - ${branch['branchName']}",
-                              style: const TextStyle(fontWeight: FontWeight.w600),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
                             ),
                           ),
                         )
@@ -288,16 +272,16 @@ class _DealScreenState extends State<DealScreen> {
                       labelText: translateText('Branch'),
                       filled: true,
                       fillColor: kDropdownFill,
-                      contentPadding:
-                          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Expanded(
-                    child:
-                        Center(child: Text(translateText('No salons available'))),
+                    child: Center(
+                        child: Text(translateText('No salons available'))),
                   ),
                 ],
               );
@@ -324,46 +308,48 @@ class _DealScreenState extends State<DealScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                    DropdownButtonFormField<int>(
-  value: selectedSalonId,
-  isExpanded: true,
-  items: salons.map<DropdownMenuItem<int>>((salon) {
-    return DropdownMenuItem(
-      value: salon['branchId'] as int,
-      child: Text(
-        "${salon['branchName']}", // 👈 show both
-        style: const TextStyle(fontWeight: FontWeight.w600),
-      ),
-    );
-  }).toList(),
-  onChanged: (value) async {
-    setState(() => selectedSalonId = value);
-    if (value != null) {
-      final selected = salons.firstWhere((s) => s['branchId'] == value);
-      selectedSalon = {
-        'salonId': selected['salonId'],
-        'salonName': selected['salonName'],
-        'branchId': selected['branchId'],
-        'branchName': selected['branchName'],
-      };
-      await _fetchOffers(selected['branchId']);
-    }
-  },
-  decoration: InputDecoration(
-    labelText: translateText('Salon'),
-    filled: true,
-    fillColor: kDropdownFill,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-  ),
-),
+                  DropdownButtonFormField<int>(
+                    value: selectedSalonId,
+                    isExpanded: true,
+                    items: salons.map<DropdownMenuItem<int>>((salon) {
+                      return DropdownMenuItem(
+                        value: salon['branchId'] as int,
+                        child: Text(
+                          "${salon['branchName']}", // 👈 show both
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) async {
+                      setState(() => selectedSalonId = value);
+                      if (value != null) {
+                        final selected =
+                            salons.firstWhere((s) => s['branchId'] == value);
+                        selectedSalon = {
+                          'salonId': selected['salonId'],
+                          'salonName': selected['salonName'],
+                          'branchId': selected['branchId'],
+                          'branchName': selected['branchName'],
+                        };
+                        await _fetchOffers(selected['branchId']);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: translateText('Salon'),
+                      filled: true,
+                      fillColor: kDropdownFill,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   Expanded(
                     child: Builder(builder: (context) {
                       if (selectedSalonId == null) {
                         return Center(
-                          child:
-                              Text(translateText("Please select a salon")),
+                          child: Text(translateText("Please select a salon")),
                         );
                       }
                       if (loadingOffers) {
@@ -371,8 +357,7 @@ class _DealScreenState extends State<DealScreen> {
                       }
                       if (offers.isEmpty) {
                         return Center(
-                          child:
-                              Text(translateText("No deals available")),
+                          child: Text(translateText("No deals available")),
                         );
                       }
                       return ListView.builder(
@@ -418,30 +403,28 @@ class _DealScreenState extends State<DealScreen> {
         onPressed: () {
           if (selectedSalon == null) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content:
-                      Text(translateText("Please select a salon"))),
+              SnackBar(content: Text(translateText("Please select a salon"))),
             );
             return;
           }
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AddDealsScreen(
-            branchId: selectedSalon!['branchId'],
-            branchName: selectedSalon!['branchName'],
-            source: 'DEAL',
-            isEdit: false,
-            existingOffer: null,
-            onPackageCreated: (branchId) => _fetchOffers(branchId),
-          ),
-        ),
-      );
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddDealsScreen(
+                branchId: selectedSalon!['branchId'],
+                branchName: selectedSalon!['branchName'],
+                source: 'DEAL',
+                isEdit: false,
+                existingOffer: null,
+                onPackageCreated: (branchId) => _fetchOffers(branchId),
+              ),
+            ),
+          );
         },
         label: Text(
           translateText("Add Deal"),
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.w600),
+          style:
+              const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         icon: const Icon(Icons.add, color: Colors.white),
         backgroundColor: AppColors.starColor,
@@ -492,15 +475,14 @@ class _OfferCard extends StatelessWidget {
           ? offer['price'] as num
           : num.tryParse(offer['price']?.toString() ?? '0') ?? 0;
 
-      final Map<String, dynamic> itemSummary =
-          (offer['itemSummary'] is Map)
-              ? Map<String, dynamic>.from(offer['itemSummary'])
-              : {};
-      final num actualPrice =
-          (itemSummary['totalPrice'] is num) ? itemSummary['totalPrice'] as num : 0;
+      final Map<String, dynamic> itemSummary = (offer['itemSummary'] is Map)
+          ? Map<String, dynamic>.from(offer['itemSummary'])
+          : {};
+      final num actualPrice = (itemSummary['totalPrice'] is num)
+          ? itemSummary['totalPrice'] as num
+          : 0;
 
-      final List items =
-          (offer['items'] is List) ? offer['items'] as List : [];
+      final List items = (offer['items'] is List) ? offer['items'] as List : [];
 
       final bool isDiscount = pricingMode.toUpperCase() == 'DISCOUNT';
       final num savings = _calcSavings(
@@ -567,48 +549,47 @@ class _OfferCard extends StatelessWidget {
               const SizedBox(height: 10),
 
               // --------- pricing block ---------
-           // --------- pricing block ---------
-Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    if (actualPrice > 0 && finalPrice < actualPrice) ...[
-      Text(
-        rs(actualPrice),
-        style: const TextStyle(
-          fontSize: 14,
-          color: Colors.grey,
-          decoration: TextDecoration.lineThrough,
-          decorationThickness: 1, // ✅ thin line
-        ),
-      ),
-      const SizedBox(height: 4),
-    ],
-    Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          rs(finalPrice),
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: isDiscount ? Colors.orange : Colors.black,
-          ),
-        ),
-        const Spacer(),
-        if (actualPrice > 0 && finalPrice < actualPrice)
-          Text(
-            'You save ${rs(actualPrice - finalPrice)}',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.green,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-      ],
-    ),
-  ],
-),
-
+              // --------- pricing block ---------
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (actualPrice > 0 && finalPrice < actualPrice) ...[
+                    Text(
+                      rs(actualPrice),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                        decoration: TextDecoration.lineThrough,
+                        decorationThickness: 1, // ✅ thin line
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                  ],
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        rs(finalPrice),
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: isDiscount ? Colors.orange : Colors.black,
+                        ),
+                      ),
+                      const Spacer(),
+                      if (actualPrice > 0 && finalPrice < actualPrice)
+                        Text(
+                          'You save ${rs(actualPrice - finalPrice)}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.green,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
 
               const SizedBox(height: 12),
 
@@ -616,7 +597,8 @@ Column(
               if (items.isNotEmpty) ...[
                 Text(
                   translateText('Includes'),
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 6),
                 Wrap(
@@ -647,7 +629,8 @@ Column(
                     Expanded(
                       child: Text(
                         _formatValidity(validFrom, validTo),
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        style:
+                            const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ),
                   ],
