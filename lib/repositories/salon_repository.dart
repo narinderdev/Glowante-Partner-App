@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import '../utils/api_service.dart';
 import '../Viewmodels/AddCategory.dart';
-import '../Viewmodels/AddSalonBranchRequest.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 
 class SalonRepository {
@@ -112,101 +111,107 @@ class SalonRepository {
 //   return decoded;
 // }
 
-Future<Map<String, dynamic>> createSalon({
-  required String name,
-  required String phone,
-  required String startTime,
-  required String endTime,
-  required String description,
+  Future<Map<String, dynamic>> createSalon({
+    required String name,
+    required String phone,
+    required String startTime,
+    required String endTime,
+    required String description,
+    required Map<String, List<Map<String, String>>> schedule,
 
-  // ⚠️ These are from the new flow:
-  // buildingName => completeAddress
-  // city         => sco/flat/house (optional)
-  // pincode      => street/sector/area (optional)
-  // state        => (unused for now)
-  required String buildingName,
-  required String city,
-  required String pincode,
-  required String state,
-  required double latitude,
-  required double longitude,
-  required List<String> serviceCodes,
-  List<String> selectedCategoryCodes = const [],
-  List<File> images = const [],
-  String? imageUrl,
-}) async {
-  // Upload if needed
-  if ((imageUrl == null || imageUrl.isEmpty) && images.isNotEmpty) {
-    final urls = await _apiService.uploadMultipleImages(images);
-    if (urls.isNotEmpty) imageUrl = urls.first;
-  }
+    // ⚠️ These are from the new flow:
+    // buildingName => completeAddress
+    // city         => sco/flat/house (optional)
+    // pincode      => street/sector/area (optional)
+    // state        => (unused for now)
+    required String buildingName,
+    required String city,
+    required String pincode,
+    required String state,
+    required double latitude,
+    required double longitude,
+    required List<String> serviceCodes,
+    List<String> selectedCategoryCodes = const [],
+    List<File> images = const [],
+    String? imageUrl,
+  }) async {
+    // Upload if needed
+    if ((imageUrl == null || imageUrl.isEmpty) && images.isNotEmpty) {
+      final urls = await _apiService.uploadMultipleImages(images);
+      if (urls.isNotEmpty) imageUrl = urls.first;
+    }
 
-  // Helper to join non-empty parts with ", "
-  String _joinNonEmpty(List<String> parts) =>
-      parts.where((s) => s.trim().isNotEmpty).map((s) => s.trim()).join(', ');
+    // Helper to join non-empty parts with ", "
+    String _joinNonEmpty(List<String> parts) =>
+        parts.where((s) => s.trim().isNotEmpty).map((s) => s.trim()).join(', ');
 
-  // 🔑 Re-interpret the incoming params from new flow
-  final completeAddress = buildingName.trim(); // line1
-  final scoFlatHouse    = city.trim();         // optional
-  final streetSector    = pincode.trim();      // optional
+    // 🔑 Re-interpret the incoming params from new flow
+    final completeAddress = buildingName.trim(); // line1
+    final scoFlatHouse = city.trim(); // optional
+    final streetSector = pincode.trim(); // optional
 
-  final line2 = _joinNonEmpty([scoFlatHouse, streetSector]);
+    final line2 = _joinNonEmpty([scoFlatHouse, streetSector]);
 
-  // We DO NOT guess city/state/postalCode to avoid wrong values
-  final body = <String, dynamic>{
-    'name': name,
-    'phone': phone,
-    'startTime': startTime,
-    'endTime': endTime,
-    'description': description,
-    'imageUrl': imageUrl,
-    'address': {
-      'line1': completeAddress,
-      'line2': line2,       // optional extras land here
-      'village': '',
-      'district': '',
-      'city': '',           // leave blank unless you parse it
-      'state': '',          // leave blank unless you parse it
-      'country': 'India',
-      'postalCode': '',     // leave blank unless you parse a real PIN
-      'latitude': latitude,
-      'longitude': longitude,
-    },
-    'selectedCategoryCodes': selectedCategoryCodes,
-  };
+    // We DO NOT guess city/state/postalCode to avoid wrong values
+    final body = <String, dynamic>{
+      'name': name,
+      'phone': phone,
+      'startTime': startTime,
+      'endTime': endTime,
+      'description': description,
+      'imageUrl': imageUrl,
+      'imageUrls':
+          imageUrl == null || imageUrl.isEmpty ? <String>[] : [imageUrl],
+      'schedule': schedule,
+      'address': {
+        'line1': completeAddress,
+        'line2': line2, // optional extras land here
+        'village': '',
+        'district': '',
+        'city': '', // leave blank unless you parse it
+        'state': '', // leave blank unless you parse it
+        'country': 'India',
+        'postalCode': '', // leave blank unless you parse a real PIN
+        'latitude': latitude,
+        'longitude': longitude,
+      },
+      'selectedCategoryCodes': selectedCategoryCodes,
+    };
 
-  // Debug + Crashlytics logs
-  final encoder = const JsonEncoder.withIndent('  ');
-  final payloadLog = encoder.convert(body);
-  debugPrint('[SalonRepository] createSalon payload ->\n$payloadLog');
-  FirebaseCrashlytics.instance
-      .log('[SalonRepository] createSalon payload -> $payloadLog');
+    // Debug + Crashlytics logs
+    final encoder = const JsonEncoder.withIndent('  ');
+    final payloadLog = encoder.convert(body);
+    debugPrint('[SalonRepository] createSalon payload ->\n$payloadLog');
+    FirebaseCrashlytics.instance
+        .log('[SalonRepository] createSalon payload -> $payloadLog');
 
-  final endpoint = Uri.parse(ApiService.baseUrl + ApiService.createSalonEndpoint);
-  final token = await _apiService.getAuthToken();
+    final endpoint =
+        Uri.parse(ApiService.baseUrl + ApiService.createSalonEndpoint);
+    final token = await _apiService.getAuthToken();
 
-  final response = await http.post(
-    endpoint,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    },
-    body: jsonEncode(body),
-  );
-
-  debugPrint('[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
-  FirebaseCrashlytics.instance.log(
-      '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
-
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw HttpException(
-      'createSalon failed (${response.statusCode}): ${response.body}',
-      uri: endpoint,
+    final response = await http.post(
+      endpoint,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(body),
     );
-  }
 
-  return jsonDecode(response.body) as Map<String, dynamic>;
-}
+    debugPrint(
+        '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
+    FirebaseCrashlytics.instance.log(
+        '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw HttpException(
+        'createSalon failed (${response.statusCode}): ${response.body}',
+        uri: endpoint,
+      );
+    }
+
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
 
   // ------------------------------------------------------------
   // 3️⃣ Add branch under a salon
@@ -218,13 +223,14 @@ Future<Map<String, dynamic>> createSalon({
     required String startTime,
     required String endTime,
     required String description,
-    
+    required Map<String, List<Map<String, String>>> schedule,
     required Map<String, dynamic> address,
     required double latitude,
     required double longitude,
     List<File> images = const [],
     List<String> selectedCategoryCodes = const [],
     String? imageUrl,
+    int? sourceBranchId,
   }) async {
     String resolvedImageUrl = imageUrl?.trim() ?? '';
 
@@ -240,16 +246,106 @@ Future<Map<String, dynamic>> createSalon({
       'phone': phone,
       'description': description,
       'imageUrl': resolvedImageUrl,
+      'imageUrls':
+          resolvedImageUrl.isEmpty ? <String>[] : <String>[resolvedImageUrl],
+      'schedule': schedule,
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
       'selectedCategoryCodes': selectedCategoryCodes,
+      if (sourceBranchId != null) 'sourceBranchId': sourceBranchId,
     };
 
     debugPrint('➡️ Creating Branch for Salon ID: $salonId');
     debugPrint('➡️ Payload: $body');
 
     return _apiService.addSalonBranch(salonId, body);
+  }
+
+  Future<Map<String, dynamic>> updateSalon({
+    required int salonId,
+    required String name,
+    required String phone,
+    required String startTime,
+    required String endTime,
+    required String description,
+    Map<String, List<Map<String, String>>>? schedule,
+    List<String>? selectedCategoryCodes,
+    String? imageUrl,
+    Map<String, dynamic>? address,
+    double? latitude,
+    double? longitude,
+  }) {
+    return _apiService.updateSalon(salonId, {
+      'name': name,
+      'phone': phone,
+      'startTime': startTime,
+      'endTime': endTime,
+      'description': description,
+      if (schedule != null) 'schedule': schedule,
+      if (selectedCategoryCodes != null)
+        'selectedCategoryCodes': selectedCategoryCodes,
+      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (address != null) 'address': address,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+    });
+  }
+
+  Future<Map<String, dynamic>> updateBranch({
+    required int branchId,
+    required String name,
+    required String phone,
+    required String startTime,
+    required String endTime,
+    required String description,
+    Map<String, List<Map<String, String>>>? schedule,
+    List<String>? selectedCategoryCodes,
+    int? sourceBranchId,
+    required Map<String, dynamic> address,
+    required double latitude,
+    required double longitude,
+    String? imageUrl,
+  }) {
+    return _apiService.updateBranch(branchId, {
+      'name': name,
+      'phone': phone,
+      'startTime': startTime,
+      'endTime': endTime,
+      'description': description,
+      if (schedule != null) 'schedule': schedule,
+      if (selectedCategoryCodes != null)
+        'selectedCategoryCodes': selectedCategoryCodes,
+      if (sourceBranchId != null) 'sourceBranchId': sourceBranchId,
+      'imageUrl': imageUrl,
+      'address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+    });
+  }
+
+  Future<Map<String, dynamic>> activateSalon(int salonId) {
+    return _apiService.activateSalon(salonId);
+  }
+
+  Future<Map<String, dynamic>> deactivateSalon(int salonId) {
+    return _apiService.deactivateSalon(salonId);
+  }
+
+  Future<Map<String, dynamic>> deleteSalon(int salonId) {
+    return _apiService.deleteSalon(salonId);
+  }
+
+  Future<Map<String, dynamic>> activateBranch(int branchId) {
+    return _apiService.activateBranch(branchId);
+  }
+
+  Future<Map<String, dynamic>> deactivateBranch(int branchId) {
+    return _apiService.deactivateBranch(branchId);
+  }
+
+  Future<Map<String, dynamic>> deleteBranch(int branchId) {
+    return _apiService.deleteBranch(branchId);
   }
 
   // ------------------------------------------------------------

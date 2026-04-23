@@ -12,6 +12,7 @@ import 'AddServices.dart';
 import '../services/language_listener.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../utils/api_service.dart';
 
 /// Shared function signature for opening the subcategory sheet
 typedef SubcategoryOp = Future<void> Function({
@@ -369,6 +370,213 @@ class CategoryScreenState extends State<CategoryScreen> {
     }
   }
 
+  Future<void> _showPredefinedServicesModal() async {
+    if (_selectedSalon == null) return;
+    final branchId = _asInt(_selectedSalon?['branchId']) ??
+        _asInt(_selectedSalon?['salonId']);
+    if (branchId == null) return;
+
+    try {
+      final branchServicesResponse =
+          await ApiService().getBranchService(branchId: branchId);
+      final response = await ApiService().getServiceCatalog();
+      final existingBranchCodes =
+          _extractServiceCodes(branchServicesResponse['data']).toSet();
+      final items = (response['data'] as List? ?? const [])
+          .whereType<Map>()
+          .map((entry) => Map<String, dynamic>.from(entry))
+          .toList();
+      if (!mounted) return;
+
+      final catalogCodeMap = <String, String>{
+        for (final item in items)
+          if ((item['code'] ?? '').toString().trim().isNotEmpty)
+            (item['code'] ?? '').toString().trim().toUpperCase():
+                (item['code'] ?? '').toString().trim(),
+      };
+      final catalogCodes = catalogCodeMap.keys.toSet();
+      final initiallySelectedCodes = existingBranchCodes
+          .where((code) => catalogCodes.contains(code))
+          .toSet();
+      final Set<String> selectedCodes = <String>{...initiallySelectedCodes};
+      bool isImporting = false;
+      final imported = await showModalBottomSheet<List<String>>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              return Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                child: SafeArea(
+                  top: false,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        translateText('Add predefined services'),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.55,
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            final actualCode =
+                                (item['code'] ?? '').toString().trim();
+                            final code = actualCode.toUpperCase();
+                            final label = (item['name'] ?? '').toString();
+                            return CheckboxListTile(
+                              value: selectedCodes.contains(code),
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(label.isEmpty
+                                  ? translateText('Unnamed service')
+                                  : label),
+                              subtitle:
+                                  actualCode.isEmpty ? null : Text(actualCode),
+                              activeColor: AppColors.starColor,
+                              onChanged: code.isEmpty || isImporting
+                                  ? null
+                                  : (checked) {
+                                      setSheetState(() {
+                                        if (checked == true) {
+                                          selectedCodes.add(code);
+                                        } else {
+                                          selectedCodes.remove(code);
+                                        }
+                                      });
+                                    },
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: selectedCodes.isEmpty || isImporting
+                              ? null
+                              : () async {
+                                  setSheetState(() => isImporting = true);
+                                  try {
+                                    final selectedActualCodes = selectedCodes
+                                        .map((code) =>
+                                            catalogCodeMap[code] ?? code)
+                                        .toList();
+                                    final selectedSet = selectedActualCodes
+                                        .map((e) => e.toUpperCase())
+                                        .toSet();
+                                    await ApiService().importPredefinedServices(
+                                      branchId: branchId,
+                                      serviceCodes: selectedActualCodes,
+                                      unselectedCodes: initiallySelectedCodes
+                                          .where((code) =>
+                                              !selectedSet.contains(code))
+                                          .map((code) =>
+                                              catalogCodeMap[code] ?? code)
+                                          .toList(),
+                                    );
+                                    if (!sheetContext.mounted) return;
+                                    Navigator.pop(
+                                      sheetContext,
+                                      selectedActualCodes,
+                                    );
+                                  } catch (error) {
+                                    if (!mounted) return;
+                                    _toast(error.toString());
+                                    if (sheetContext.mounted) {
+                                      setSheetState(() => isImporting = false);
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.starColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: isImporting
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(translateText('Import Services')),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+
+      if (imported == null || imported.isEmpty) return;
+      if (!mounted) return;
+      _toast(translateText('Predefined services imported successfully'));
+      await _refreshData();
+    } catch (error) {
+      if (!mounted) return;
+      _toast(error.toString());
+    }
+  }
+
+  Iterable<String> _extractServiceCodes(dynamic value) sync* {
+    if (value is List) {
+      for (final item in value) {
+        yield* _extractServiceCodes(item);
+      }
+      return;
+    }
+
+    if (value is! Map) return;
+
+    final dynamic code = value['code'];
+    if (code != null) {
+      final normalized = code.toString().trim().toUpperCase();
+      if (normalized.isNotEmpty) {
+        yield normalized;
+      }
+    }
+
+    for (final nestedKey in const [
+      'services',
+      'items',
+      'subCategories',
+      'subcategories',
+      'categories',
+      'data',
+    ]) {
+      final nested = value[nestedKey];
+      if (nested != null) {
+        yield* _extractServiceCodes(nested);
+      }
+    }
+
+    for (final nested in value.values) {
+      if (nested is Map || nested is List) {
+        yield* _extractServiceCodes(nested);
+      }
+    }
+  }
+
   void _autoPickFirstSalon(SalonListState state) {
     if (_selectedSalon != null) return;
     if (state.salons.isEmpty) return;
@@ -535,6 +743,25 @@ class CategoryScreenState extends State<CategoryScreen> {
               subtitle: translateText('Please select a salon first.'),
             ),
           ] else ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _showPredefinedServicesModal,
+                  icon: const Icon(Icons.playlist_add_rounded),
+                  label: Text(translateText('Add predefined services')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.starColor,
+                    side: const BorderSide(color: AppColors.starColor),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ),
+            ),
             if (catState.status == CategoryStatus.failure &&
                 catState.categories.isEmpty)
               _ErrorCard(

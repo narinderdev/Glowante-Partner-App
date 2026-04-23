@@ -153,6 +153,103 @@ class SalonsScreenState extends State<SalonsScreen> {
     }
   }
 
+  Future<void> _goToEditSalon(Map<String, dynamic> salon) async {
+    _collapseFab();
+    debugPrint('[SalonAction] Edit salon tapped -> salonId=${salon['id']}');
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (context) => AddSalonCubit(context.read<SalonRepository>()),
+          child: AddSalonScreen(
+            isEdit: true,
+            initialSalon: salon,
+          ),
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      await _refreshSalons();
+    }
+  }
+
+  Future<void> _setSalonActive({
+    required int salonId,
+    required bool active,
+  }) async {
+    final repo = context.read<SalonRepository>();
+    try {
+      debugPrint(
+        '[SalonAction] ${active ? 'Activate' : 'Deactivate'} salon -> salonId=$salonId',
+      );
+      if (active) {
+        await repo.activateSalon(salonId);
+      } else {
+        await repo.deactivateSalon(salonId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText(
+              active
+                  ? 'Salon activated successfully'
+                  : 'Salon deactivated successfully',
+            ),
+          ),
+        ),
+      );
+      await _refreshSalons();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
+  Future<void> _deleteSalon(int salonId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(translateText('Delete Salon')),
+        content: Text(
+          translateText('Are you sure you want to delete this salon?'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(translateText('Cancel')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.starColor),
+            child: Text(translateText('Delete')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      debugPrint('[SalonAction] Delete salon -> salonId=$salonId');
+      await context.read<SalonRepository>().deleteSalon(salonId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Salon deleted successfully'))),
+      );
+      await _refreshSalons();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
   Future<void> _goToAddBranch(int salonId) async {
     final added = await Navigator.push<bool>(
       context,
@@ -167,6 +264,109 @@ class SalonsScreenState extends State<SalonsScreen> {
 
     if (added == true && mounted) {
       await _refreshSalons();
+    }
+  }
+
+  Future<void> _goToEditBranch({
+    required int salonId,
+    required Map<String, dynamic> branch,
+  }) async {
+    debugPrint(
+      '[BranchAction] Edit branch tapped -> salonId=$salonId branchId=${branch['id']}',
+    );
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BlocProvider(
+          create: (context) =>
+              AddBranchCubit(context.read<SalonRepository>(), salonId: salonId),
+          child: AddBranchScreen(
+            salonId: salonId,
+            isEdit: true,
+            initialBranch: branch,
+          ),
+        ),
+      ),
+    );
+
+    if (updated == true && mounted) {
+      await _refreshSalons();
+    }
+  }
+
+  Future<void> _setBranchActive({
+    required int branchId,
+    required bool active,
+  }) async {
+    final repo = context.read<SalonRepository>();
+    try {
+      debugPrint(
+        '[BranchAction] ${active ? 'Activate' : 'Deactivate'} branch -> branchId=$branchId',
+      );
+      if (active) {
+        await repo.activateBranch(branchId);
+      } else {
+        await repo.deactivateBranch(branchId);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText(
+              active
+                  ? 'Branch activated successfully'
+                  : 'Branch deactivated successfully',
+            ),
+          ),
+        ),
+      );
+      await _refreshSalons();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
+  Future<void> _deleteBranch(int branchId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(translateText('Delete Branch')),
+        content: Text(
+          translateText('Are you sure you want to delete this branch?'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(translateText('Cancel')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.starColor),
+            child: Text(translateText('Delete')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      debugPrint('[BranchAction] Delete branch -> branchId=$branchId');
+      await context.read<SalonRepository>().deleteBranch(branchId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Branch deleted successfully'))),
+      );
+      await _refreshSalons();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
     }
   }
 
@@ -296,6 +496,33 @@ class SalonsScreenState extends State<SalonsScreen> {
                               onAddBranch: widget.readOnly
                                   ? null
                                   : () => _goToAddBranch(salonId),
+                              onEditSalon: widget.readOnly
+                                  ? null
+                                  : () => _goToEditSalon(salon),
+                              onToggleSalonActive: widget.readOnly
+                                  ? null
+                                  : (active) => _setSalonActive(
+                                        salonId: salonId,
+                                        active: active,
+                                      ),
+                              onDeleteSalon: widget.readOnly
+                                  ? null
+                                  : () => _deleteSalon(salonId),
+                              onEditBranch: widget.readOnly
+                                  ? null
+                                  : (branch) => _goToEditBranch(
+                                        salonId: salonId,
+                                        branch: branch,
+                                      ),
+                              onToggleBranchActive: widget.readOnly
+                                  ? null
+                                  : (branchId, active) => _setBranchActive(
+                                        branchId: branchId,
+                                        active: active,
+                                      ),
+                              onDeleteBranch: widget.readOnly
+                                  ? null
+                                  : (branchId) => _deleteBranch(branchId),
                               onOpenBranch: (branchId) => _openBranchDetail(
                                 salonId: salonId,
                                 branchId: branchId,
@@ -1039,6 +1266,12 @@ class _SalonCard extends StatelessWidget {
     required this.isExpanded,
     required this.onToggle,
     this.onAddBranch,
+    this.onEditSalon,
+    this.onToggleSalonActive,
+    this.onDeleteSalon,
+    this.onEditBranch,
+    this.onToggleBranchActive,
+    this.onDeleteBranch,
     required this.onOpenBranch,
   });
 
@@ -1047,6 +1280,12 @@ class _SalonCard extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggle;
   final VoidCallback? onAddBranch;
+  final VoidCallback? onEditSalon;
+  final void Function(bool active)? onToggleSalonActive;
+  final VoidCallback? onDeleteSalon;
+  final void Function(Map<String, dynamic> branch)? onEditBranch;
+  final void Function(int branchId, bool active)? onToggleBranchActive;
+  final void Function(int branchId)? onDeleteBranch;
   final Future<void> Function(int branchId) onOpenBranch;
 
   int _parseId(dynamic value) {
@@ -1068,6 +1307,31 @@ class _SalonCard extends StatelessWidget {
       return '';
     }
     return text;
+  }
+
+  String _composeAddress(Map<String, dynamic>? data) {
+    if (data == null || data.isEmpty) {
+      return '';
+    }
+
+    final segments = <String>[];
+
+    void push(dynamic value) {
+      final text = _cleanText(value);
+      if (text.isNotEmpty && !segments.contains(text)) {
+        segments.add(text);
+      }
+    }
+
+    push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
+    push(data['line2'] ?? data['addressLine2']);
+    push(data['village']);
+    push(data['district']);
+    push(data['city']);
+    push(data['state']);
+    push(data['country']);
+    push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
+    return segments.join(', ');
   }
 
   Widget _buildAvatar(String? imageUrl) {
@@ -1142,66 +1406,35 @@ class _SalonCard extends StatelessWidget {
     final borderColor = accentColor.withOpacity(0.18);
     final int? primaryBranchId =
         primaryBranch == null ? null : branchId(primaryBranch);
+    final bool isActive = salon['active'] != false;
+    final List<Map<String, dynamic>> visibleBranches =
+        branches.where((branch) => !isMainBranch(branch)).toList();
 
-    // branches to show in the expanded list (exclude only the main branch)
-    final List<Map<String, dynamic>> visibleBranches = branches.where((branch) {
-      if (primaryBranchId == null) return true;
-      return branchId(branch) != primaryBranchId;
-    }).toList();
-
-    // single main branch only?
-    final bool onlyMainBranch = branches.length == 1 && primaryBranch != null;
-
-    // number chip should show extra locations only (not the main)
-    final int additionalBranches =
-        primaryBranch != null ? branches.length - 1 : branches.length;
-
-    String composeAddress(Map<String, dynamic>? data) {
-      if (data == null || data.isEmpty) {
-        return '';
-      }
-
-      final segments = <String>[];
-      void push(dynamic value) {
-        final text = _cleanText(value);
-        if (text.isNotEmpty && !segments.contains(text)) {
-          segments.add(text);
-        }
-      }
-
-      push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
-      push(data['line2'] ?? data['addressLine2']);
-      final cityState = [
-        _cleanText(data['city'] ?? data['district']),
-        _cleanText(data['state']),
-      ].where((value) => value.isNotEmpty).join(', ');
-      push(cityState);
-      push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
-      return segments.join(', ');
-    }
+    // number chip should show only visible non-main branches
+    final int additionalBranches = visibleBranches.length;
 
     String addressLabel = '';
     final dynamic salonAddressRaw = salon['address'];
     if (salonAddressRaw is Map<String, dynamic>) {
-      addressLabel = composeAddress(salonAddressRaw);
+      addressLabel = _composeAddress(salonAddressRaw);
     }
     if (addressLabel.isEmpty) {
       if (primaryBranch != null) {
         final dynamic branchAddressRaw = primaryBranch!['address'];
         if (branchAddressRaw is Map<String, dynamic>) {
-          addressLabel = composeAddress(branchAddressRaw);
+          addressLabel = _composeAddress(branchAddressRaw);
         }
         if (addressLabel.isEmpty) {
-          addressLabel = composeAddress(primaryBranch);
+          addressLabel = _composeAddress(primaryBranch);
         }
       }
       if (addressLabel.isEmpty) {
         for (final branch in branches) {
           final dynamic candidateRaw = branch['address'];
           if (candidateRaw is Map<String, dynamic>) {
-            addressLabel = composeAddress(candidateRaw);
+            addressLabel = _composeAddress(candidateRaw);
           } else {
-            addressLabel = composeAddress(branch);
+            addressLabel = _composeAddress(branch);
           }
           if (addressLabel.isNotEmpty) {
             break;
@@ -1292,17 +1525,67 @@ class _SalonCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          salonName,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF263238),
-                              ) ??
-                              const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF263238),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                salonName,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF263238),
+                                    ) ??
+                                    const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF263238),
+                                    ),
                               ),
+                            ),
+                            if (onEditSalon != null ||
+                                onToggleSalonActive != null ||
+                                onDeleteSalon != null)
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert_rounded),
+                                onSelected: (value) {
+                                  switch (value) {
+                                    case 'edit':
+                                      onEditSalon?.call();
+                                      break;
+                                    case 'toggle':
+                                      onToggleSalonActive?.call(!isActive);
+                                      break;
+                                    case 'delete':
+                                      onDeleteSalon?.call();
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  if (onEditSalon != null)
+                                    PopupMenuItem<String>(
+                                      value: 'edit',
+                                      child: Text(translateText('Edit Salon')),
+                                    ),
+                                  if (onToggleSalonActive != null)
+                                    PopupMenuItem<String>(
+                                      value: 'toggle',
+                                      child: Text(
+                                        translateText(
+                                          isActive
+                                              ? 'Deactivate Salon'
+                                              : 'Activate Salon',
+                                        ),
+                                      ),
+                                    ),
+                                  if (onDeleteSalon != null)
+                                    PopupMenuItem<String>(
+                                      value: 'delete',
+                                      child: Text(
+                                        translateText('Delete Salon'),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                          ],
                         ),
                         SizedBox(height: 8),
                         Wrap(
@@ -1351,8 +1634,7 @@ class _SalonCard extends StatelessWidget {
                 : Column(
                     children: [
                       // 0 branches OR single (main) ? only CTA
-                      if ((branches.isEmpty || onlyMainBranch) &&
-                          onAddBranch != null) ...[
+                      if (visibleBranches.isEmpty && onAddBranch != null) ...[
                         Align(
                           alignment: Alignment.centerRight,
                           child: Container(
@@ -1405,7 +1687,17 @@ class _SalonCard extends StatelessWidget {
                           return _BranchTile(
                             branch: branch,
                             accentColor: AppColors.starColor,
-                            onOpen: () async => onOpenBranch(branchId),
+                            onOpen: null,
+                            onEdit: onEditBranch == null
+                                ? null
+                                : () => onEditBranch!(branch),
+                            onToggleActive: onToggleBranchActive == null
+                                ? null
+                                : (active) =>
+                                    onToggleBranchActive!(branchId, active),
+                            onDelete: onDeleteBranch == null
+                                ? null
+                                : () => onDeleteBranch!(branchId),
                             hideViewButton: false,
                             hideTitle: false,
                           );
@@ -1471,16 +1763,22 @@ class _SalonCard extends StatelessWidget {
 class _BranchTile extends StatefulWidget {
   const _BranchTile({
     required this.branch,
-    required this.onOpen,
     required this.accentColor,
+    this.onOpen,
+    this.onEdit,
+    this.onToggleActive,
+    this.onDelete,
     this.hideViewButton = false,
     this.hideTitle = false,
     Key? key,
   }) : super(key: key);
 
   final Map<String, dynamic> branch;
-  final Future<void> Function() onOpen;
+  final Future<void> Function()? onOpen;
   final Color accentColor;
+  final VoidCallback? onEdit;
+  final void Function(bool active)? onToggleActive;
+  final VoidCallback? onDelete;
   final bool hideViewButton;
   final bool hideTitle;
 
@@ -1491,13 +1789,49 @@ class _BranchTile extends StatefulWidget {
 class _BranchTileState extends State<_BranchTile> {
   bool isLoading = false;
 
+  String _cleanText(dynamic value) {
+    if (value == null) {
+      return '';
+    }
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') {
+      return '';
+    }
+    return text;
+  }
+
+  String _composeAddress(Map<String, dynamic>? data) {
+    if (data == null || data.isEmpty) {
+      return '';
+    }
+
+    final segments = <String>[];
+
+    void push(dynamic value) {
+      final text = _cleanText(value);
+      if (text.isNotEmpty && !segments.contains(text)) {
+        segments.add(text);
+      }
+    }
+
+    push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
+    push(data['line2'] ?? data['addressLine2']);
+    push(data['village']);
+    push(data['district']);
+    push(data['city']);
+    push(data['state']);
+    push(data['country']);
+    push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
+    return segments.join(', ');
+  }
+
   void _handleTap() async {
-    if (isLoading) {
+    if (isLoading || widget.onOpen == null) {
       return;
     }
     setState(() => isLoading = true);
     try {
-      await widget.onOpen();
+      await widget.onOpen!();
     } finally {
       if (mounted) {
         setState(() => isLoading = false);
@@ -1510,9 +1844,9 @@ class _BranchTileState extends State<_BranchTile> {
     final branch = widget.branch;
     final accentColor = widget.accentColor;
     final address = branch['address'] as Map<String, dynamic>? ?? {};
-    final line1 =
-        (address['line1'] ?? address['addressLine1'] ?? '').toString().trim();
-    final city = (address['city'] ?? address['state'] ?? '').toString().trim();
+    final fullAddress = _composeAddress(address).isNotEmpty
+        ? _composeAddress(address)
+        : _composeAddress(branch);
     final phone = (branch['phone'] ??
             branch['phoneNumber'] ??
             branch['contactNumber'] ??
@@ -1521,17 +1855,18 @@ class _BranchTileState extends State<_BranchTile> {
         .trim();
     final borderTint = accentColor.withOpacity(isLoading ? 0.35 : 0.18);
     final shadowTint = accentColor.withOpacity(0.08);
+    final isActive = branch['active'] != false;
 // ? decide the left title for this tile
 
 // ADD this instead:
     final String title = (branch['name'] ?? '').toString().trim();
     final bool showTitle = !widget.hideTitle && title.isNotEmpty;
     final chips = <Widget>[];
-    if (city.isNotEmpty) {
+    if (fullAddress.isNotEmpty) {
       chips.add(
         _MetricChip(
           icon: Icons.location_on_outlined,
-          label: city,
+          label: fullAddress,
           accentColor: accentColor,
         ),
       );
@@ -1546,149 +1881,108 @@ class _BranchTileState extends State<_BranchTile> {
       );
     }
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderTint),
-        boxShadow: [
-          BoxShadow(
-            color: shadowTint,
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Container(
-              //   width: 38,
-              //   height: 38,
-              //   decoration: BoxDecoration(
-              //     color: Colors.white, // ? white background
-              //     borderRadius: BorderRadius.circular(12),
-              //     border: Border.all(
-              //         color: accentColor.withOpacity(0.6)), // optional border
-              //   ),
-              //   child: Icon(Icons.storefront_rounded,
-              //       color: accentColor), // ? star color icon
-              // ),
-              _buildBranchAvatar(branch['imageUrl']?.toString(), accentColor),
-
-              SizedBox(width: 12),
-              // Expanded(
-              //   child: Column(
-              //     crossAxisAlignment: CrossAxisAlignment.start,
-              //     children: [
-              //       Text(
-              //         (branch['name'] ?? 'Branch').toString(),
-              //         style: const TextStyle(
-              //           fontSize: 14,
-              //           fontWeight: FontWeight.w700,
-              //           color: Color(0xFF37474F),
-              //         ),
-              //       ),
-              //       if (line1.isNotEmpty) ...[
-              //         SizedBox(height: 4),
-              //         Text(
-              //           line1,
-              //           maxLines: 2,
-              //           overflow: TextOverflow.ellipsis,
-              //           style: const TextStyle(
-              //             fontSize: 12,
-              //             color: Color(0xFF607D8B),
-              //           ),
-              //         ),
-              //       ],
-              //     ],
-              //   ),
-              // ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (showTitle)
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF37474F),
-                        ),
+    return InkWell(
+      onTap: widget.onOpen == null ? null : _handleTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: borderTint),
+          boxShadow: [
+            BoxShadow(
+              color: shadowTint,
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            _buildBranchAvatar(branch['imageUrl']?.toString(), accentColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showTitle)
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF37474F),
                       ),
-                    if (line1.isNotEmpty) ...[
-                      if (showTitle) SizedBox(height: 4),
-                      Text(
-                        line1,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF607D8B),
-                        ),
+                    ),
+                  if (fullAddress.isNotEmpty) ...[
+                    if (showTitle) const SizedBox(height: 4),
+                    Text(
+                      fullAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF607D8B),
                       ),
-                    ],
+                    ),
                   ],
+                ],
+              ),
+            ),
+            if (widget.onEdit != null ||
+                widget.onToggleActive != null ||
+                widget.onDelete != null)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert_rounded),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'edit':
+                      widget.onEdit?.call();
+                      break;
+                    case 'toggle':
+                      widget.onToggleActive?.call(!isActive);
+                      break;
+                    case 'delete':
+                      widget.onDelete?.call();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  if (widget.onEdit != null)
+                    PopupMenuItem<String>(
+                      value: 'edit',
+                      child: Text(translateText('Edit Branch')),
+                    ),
+                  if (widget.onToggleActive != null)
+                    PopupMenuItem<String>(
+                      value: 'toggle',
+                      child: Text(
+                        translateText(
+                          isActive ? 'Deactivate Branch' : 'Activate Branch',
+                        ),
+                      ),
+                    ),
+                  if (widget.onDelete != null)
+                    PopupMenuItem<String>(
+                      value: 'delete',
+                      child: Text(translateText('Delete Branch')),
+                    ),
+                ],
+              ),
+            if (isLoading)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: accentColor,
                 ),
               ),
-
-              if (isLoading)
-                SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: accentColor,
-                  ),
-                ),
-            ],
-          ),
-          // if (chips.isNotEmpty) ...[
-          //   SizedBox(height: 10),
-          //   Wrap(spacing: 8, runSpacing: 6, children: chips),
-          // ],
-          // SizedBox(height: 14),
-          // if (!widget.hideViewButton) // ?? only show for non-main branches
-          //   Align(
-          //     alignment: Alignment.centerRight,
-          //     child: TextButton(
-          //       onPressed: isLoading ? null : _handleTap,
-          //       style: TextButton.styleFrom(
-          //         backgroundColor: Colors.white,
-          //         foregroundColor: AppColors.starColor,
-          //         padding:
-          //             const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          //         shape: RoundedRectangleBorder(
-          //           borderRadius: BorderRadius.circular(16),
-          //           side:
-          //               BorderSide(color: AppColors.starColor.withOpacity(0.6)),
-          //         ),
-          //       ),
-          //       child:
-          //       Row(
-          //         mainAxisSize: MainAxisSize.min,
-          //         children: [
-          //           Text(
-          //             translateText('View Branch'),
-          //             style: TextStyle(
-          //               fontWeight: FontWeight.w600,
-          //               color: AppColors.starColor,
-          //             ),
-          //           ),
-          //           SizedBox(width: 6),
-          //           Icon(Icons.arrow_forward_rounded,
-          //               size: 18, color: AppColors.starColor),
-          //         ],
-          //       ),
-          //     ),
-          //   ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -751,6 +751,8 @@ class _AddServicesState extends State<AddServices> {
   final descController = TextEditingController();
   final priceController = TextEditingController();
   final durationController = TextEditingController();
+  final commissionValueController = TextEditingController();
+  final commissionMaxController = TextEditingController();
 
   final FocusNode _nameFocus = FocusNode();
 
@@ -759,6 +761,11 @@ class _AddServicesState extends State<AddServices> {
   String? selectedCategoryKey;
   String? selectedCategoryType;
   Map<String, dynamic>? selectedService;
+  bool _commissionEnabled = false;
+  String _commissionType = 'percentage';
+
+  int? get _enteredPrice => int.tryParse(priceController.text.trim());
+  bool get _hasValidPrice => (_enteredPrice ?? 0) > 0;
 
   @override
   void initState() {
@@ -785,6 +792,8 @@ class _AddServicesState extends State<AddServices> {
     descController.dispose();
     priceController.dispose();
     durationController.dispose();
+    commissionValueController.dispose();
+    commissionMaxController.dispose();
     _nameFocus.dispose();
     super.dispose();
   }
@@ -795,13 +804,15 @@ class _AddServicesState extends State<AddServices> {
     if (currentKey == null) return null;
     final validKeys = items.map((e) => e.value).whereType<String>().toSet();
     if (!validKeys.contains(currentKey)) {
-      debugPrint('[Dropdown Fix] Resetting invalid selectedCategoryKey: $currentKey');
+      debugPrint(
+          '[Dropdown Fix] Resetting invalid selectedCategoryKey: $currentKey');
       return null;
     }
     return currentKey;
   }
 
-  int? _validateSelectedSubcategory(int? currentId, List<DropdownMenuItem<int>> items) {
+  int? _validateSelectedSubcategory(
+      int? currentId, List<DropdownMenuItem<int>> items) {
     if (currentId == null) return null;
     final validIds = items.map((e) => e.value).whereType<int>().toSet();
     if (!validIds.contains(currentId)) {
@@ -821,7 +832,8 @@ class _AddServicesState extends State<AddServices> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText("Failed to fetch service catalog"))),
+        SnackBar(
+            content: Text(translateText("Failed to fetch service catalog"))),
       );
     }
   }
@@ -845,6 +857,8 @@ class _AddServicesState extends State<AddServices> {
       final desc = descController.text.trim();
       final price = int.parse(priceController.text.trim());
       final duration = int.parse(durationController.text.trim());
+      final commissionValue = commissionValueController.text.trim();
+      final commissionMax = commissionMaxController.text.trim();
 
       final request = AddSalonServiceRequest(
         branchCategoryId: branchCategoryId,
@@ -855,9 +869,25 @@ class _AddServicesState extends State<AddServices> {
         priceMinor: price,
         priceType: "fixed",
         isActive: true,
+        commissionEnabled: _commissionEnabled,
+        commissionType: _commissionEnabled ? _commissionType : null,
+        commissionFixedAmountMinor:
+            _commissionEnabled && _commissionType == 'fixed'
+                ? int.tryParse(commissionValue)
+                : null,
+        commissionPercentage:
+            _commissionEnabled && _commissionType == 'percentage'
+                ? double.tryParse(commissionValue)
+                : null,
+        commissionMaxAmountMinor: _commissionEnabled &&
+                _commissionType == 'percentage' &&
+                commissionMax.isNotEmpty
+            ? int.tryParse(commissionMax)
+            : null,
       );
 
-      await ApiService().addService(branchId: widget.branchId, request: request);
+      await ApiService()
+          .addService(branchId: widget.branchId, request: request);
 
       if (!mounted) return;
 
@@ -927,6 +957,48 @@ class _AddServicesState extends State<AddServices> {
     if (v.isEmpty) return translateText("Duration is required");
     final num? n = int.tryParse(v);
     if (n == null || n <= 0) return translateText("Duration must be positive");
+    return null;
+  }
+
+  String? _validateCommissionValue(String? value) {
+    if (!_commissionEnabled) return null;
+    final price = _enteredPrice;
+    if (price == null || price <= 0) {
+      return translateText("Enter price first to configure commission");
+    }
+    final v = (value ?? '').trim();
+    if (v.isEmpty) {
+      return _commissionType == 'percentage'
+          ? translateText("Commission percentage is required")
+          : translateText("Commission amount is required");
+    }
+    final parsed = _commissionType == 'percentage'
+        ? double.tryParse(v)
+        : double.tryParse(v);
+    if (parsed == null || parsed <= 0) {
+      return translateText("Enter a valid commission value");
+    }
+    if (_commissionType == 'percentage' && parsed > 100) {
+      return translateText("Commission percentage cannot exceed 100");
+    }
+    if (_commissionType == 'fixed' && parsed > price) {
+      return translateText("Commission amount cannot exceed price");
+    }
+    return null;
+  }
+
+  String? _validateCommissionMax(String? value) {
+    if (!_commissionEnabled || _commissionType != 'percentage') return null;
+    final price = _enteredPrice;
+    final v = (value ?? '').trim();
+    if (v.isEmpty) return null;
+    final parsed = int.tryParse(v);
+    if (parsed == null || parsed <= 0) {
+      return translateText("Enter a valid max commission amount");
+    }
+    if (price != null && price > 0 && parsed > price) {
+      return translateText("Commission max cannot exceed price");
+    }
     return null;
   }
 
@@ -1126,257 +1198,405 @@ class _AddServicesState extends State<AddServices> {
   //   );
   // }
   @override
-Widget build(BuildContext context) {
-  final categoryItems =
-      buildCategoryAndSubcategoryKeyItems(widget.categories ?? []);
+  Widget build(BuildContext context) {
+    final categoryItems =
+        buildCategoryAndSubcategoryKeyItems(widget.categories ?? []);
 
-  return Scaffold(
-    backgroundColor: Colors.white,
-    appBar: AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      systemOverlayStyle: SystemUiOverlayStyle.light,
-      iconTheme: const IconThemeData(color: Colors.white),
-      title: Text(
-        translateText('Add Service'),
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          translateText('Add Service'),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-      ),
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [AppColors.starColor, AppColors.getStartedButton],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.starColor, AppColors.getStartedButton],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
         ),
       ),
-    ),
-    body: Form(
-      key: _formKey,
-      autovalidateMode: _autoValidate
-          ? AutovalidateMode.onUserInteraction
-          : AutovalidateMode.disabled,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            _SectionCard(
-              title: "",
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _FieldLabel(translateText("Service Name *")),
-                  const SizedBox(height: 6),
-                  // ✅ Service Name (max 50 chars + counter)
-                  Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      TextFormField(
-                        controller: nameController,
-                        focusNode: _nameFocus,
-                        autofocus: true,
-                        textInputAction: TextInputAction.next,
-                       keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-                        inputFormatters: [
-                          const FirstLetterUpperFormatter(),
-                          LengthLimitingTextInputFormatter(50),
-                        ],
-                        onChanged: (_) => setState(() {}),
-                        decoration: _inputDecoration(
-                          hint: translateText("Add a service name"),
-                          icon: Icons.badge_outlined,
-                        ).copyWith(counterText: ''),
-                        validator: _validateLabel,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 12, bottom: 8),
-                        child: Text(
-                          '${nameController.text.length}/50',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: nameController.text.length >= 50
-                                ? Colors.red
-                                : Colors.grey,
+      body: Form(
+        key: _formKey,
+        autovalidateMode: _autoValidate
+            ? AutovalidateMode.onUserInteraction
+            : AutovalidateMode.disabled,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              _SectionCard(
+                title: "",
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _FieldLabel(translateText("Service Name *")),
+                    const SizedBox(height: 6),
+                    // ✅ Service Name (max 50 chars + counter)
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        TextFormField(
+                          controller: nameController,
+                          focusNode: _nameFocus,
+                          autofocus: true,
+                          textInputAction: TextInputAction.next,
+                          keyboardType: TextInputType.text,
+                          textCapitalization: TextCapitalization.sentences,
+                          inputFormatters: [
+                            const FirstLetterUpperFormatter(),
+                            LengthLimitingTextInputFormatter(50),
+                          ],
+                          onChanged: (_) => setState(() {}),
+                          decoration: _inputDecoration(
+                            hint: translateText("Add a service name"),
+                            icon: Icons.badge_outlined,
+                          ).copyWith(counterText: ''),
+                          validator: _validateLabel,
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12, bottom: 8),
+                          child: Text(
+                            '${nameController.text.length}/50',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: nameController.text.length >= 50
+                                  ? Colors.red
+                                  : Colors.grey,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
 
-                  const SizedBox(height: 16),
-                  _FieldLabel(translateText("Description (Optional)")),
-                  const SizedBox(height: 6),
-                  // ✅ Description (max 50 chars + counter)
-                  Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      TextFormField(
-                        controller: descController,
-                        maxLines: 2,
-                       keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-                        inputFormatters: [LengthLimitingTextInputFormatter(50)],
-                        onChanged: (_) => setState(() {}),
-                        decoration: _inputDecoration(
-                          hint: translateText("Add a short description"),
-                          icon: Icons.description_outlined,
-                        ).copyWith(counterText: ''),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 12, bottom: 8),
-                        child: Text(
-                          '${descController.text.length}/50',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: descController.text.length >= 50
-                                ? Colors.red
-                                : Colors.grey,
+                    const SizedBox(height: 16),
+                    _FieldLabel(translateText("Description (Optional)")),
+                    const SizedBox(height: 6),
+                    // ✅ Description (max 50 chars + counter)
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        TextFormField(
+                          controller: descController,
+                          maxLines: 2,
+                          keyboardType: TextInputType.text,
+                          textCapitalization: TextCapitalization.sentences,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(50)
+                          ],
+                          onChanged: (_) => setState(() {}),
+                          decoration: _inputDecoration(
+                            hint: translateText("Add a short description"),
+                            icon: Icons.description_outlined,
+                          ).copyWith(counterText: ''),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 12, bottom: 8),
+                          child: Text(
+                            '${descController.text.length}/50',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: descController.text.length >= 50
+                                  ? Colors.red
+                                  : Colors.grey,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ✅ Category Section (unchanged)
-            _SectionCard(
-              title: "",
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _FieldLabel(translateText("Category *")),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    isExpanded: true,
-                    value: _validateSelectedCategoryKey(
-                        selectedCategoryKey, categoryItems),
-                    hint: Text(translateText("Select Category")),
-                    items: categoryItems,
-                    onChanged: (key) {
-                      if (key == null) return;
-                      setState(() {
-                        selectedCategoryKey = key;
-                        selectedService = null;
-                        if (key.startsWith('cat:')) {
-                          final id = int.parse(key.substring(4));
-                          selectedCategoryType = 'category';
-                          selectedCategory =
-                              findCategoryById(widget.categories ?? [], id);
-                        } else {
-                          final id = int.parse(key.substring(4));
-                          selectedCategoryType = 'subCategory';
-                          selectedCategory =
-                              findSubcategoryById(widget.categories ?? [], id);
-                        }
-                      });
-                    },
-                    decoration: _inputDecoration(),
-                    validator: (_) => _validateCategory(selectedCategory),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // ✅ Price + Duration with limits
-            _SectionCard(
-              title: "",
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: priceController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(6), // ✅ 6 digits max
                       ],
-                      decoration: _inputDecoration(
-                        label: translateText("Price *"),
-                        icon: Icons.currency_rupee,
-                      ),
-                      validator: _validatePrice,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: durationController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(4), // ✅ 4 digits max
-                      ],
-                      decoration: _inputDecoration(
-                        label: translateText("Duration (min) *"),
-                        icon: Icons.timer_outlined,
-                      ),
-                      validator: _validateDuration,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-            // ✅ Submit button (unchanged)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: _isLoading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.add_task_outlined, color: Colors.white),
-                label: Text(
-                  _isLoading
-                      ? translateText('Adding...')
-                      : translateText('Add Service'),
-                  style: const TextStyle(fontSize: 16, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.starColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _isLoading
-                    ? null
-                    : () async {
-                        if (!_autoValidate) {
-                          setState(() => _autoValidate = true);
-                        }
-                        final valid = _formKey.currentState!.validate();
-                        if (!valid) return;
-                        await _addService();
+              // ✅ Category Section (unchanged)
+              _SectionCard(
+                title: "",
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _FieldLabel(translateText("Category *")),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      isExpanded: true,
+                      value: _validateSelectedCategoryKey(
+                          selectedCategoryKey, categoryItems),
+                      hint: Text(translateText("Select Category")),
+                      items: categoryItems,
+                      onChanged: (key) {
+                        if (key == null) return;
+                        setState(() {
+                          selectedCategoryKey = key;
+                          selectedService = null;
+                          if (key.startsWith('cat:')) {
+                            final id = int.parse(key.substring(4));
+                            selectedCategoryType = 'category';
+                            selectedCategory =
+                                findCategoryById(widget.categories ?? [], id);
+                          } else {
+                            final id = int.parse(key.substring(4));
+                            selectedCategoryType = 'subCategory';
+                            selectedCategory = findSubcategoryById(
+                                widget.categories ?? [], id);
+                          }
+                        });
                       },
+                      decoration: _inputDecoration(),
+                      validator: (_) => _validateCategory(selectedCategory),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 16),
+
+              // ✅ Price + Duration with limits
+              _SectionCard(
+                title: "",
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: priceController,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => setState(() {
+                          if (!_hasValidPrice && _commissionEnabled) {
+                            _commissionEnabled = false;
+                            commissionValueController.clear();
+                            commissionMaxController.clear();
+                          }
+                        }),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6), // ✅ 6 digits max
+                        ],
+                        decoration: _inputDecoration(
+                          label: translateText("Price *"),
+                          icon: Icons.currency_rupee,
+                        ),
+                        validator: _validatePrice,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: durationController,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(4), // ✅ 4 digits max
+                        ],
+                        decoration: _inputDecoration(
+                          label: translateText("Duration (min) *"),
+                          icon: Icons.timer_outlined,
+                        ),
+                        validator: _validateDuration,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              _SectionCard(
+                title: "",
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                translateText("Commission"),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1F2937),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                translateText(
+                                  "First enter the service price, then configure a fixed amount or percentage.",
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _commissionEnabled,
+                          activeColor: AppColors.starColor,
+                          onChanged: (value) {
+                            if (value && !_hasValidPrice) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    translateText(
+                                        "Enter a valid price before enabling commission"),
+                                  ),
+                                ),
+                              );
+                              return;
+                            }
+                            setState(() {
+                              _commissionEnabled = value;
+                              if (!value) {
+                                commissionValueController.clear();
+                                commissionMaxController.clear();
+                              }
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    if (_commissionEnabled) ...[
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        value: _commissionType,
+                        decoration: _inputDecoration(
+                          label: translateText("Commission Type *"),
+                          icon: Icons.percent_rounded,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'fixed',
+                            child: Text('Fixed'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'percentage',
+                            child: Text('Percentage'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          setState(() {
+                            _commissionType = value;
+                            commissionValueController.clear();
+                            commissionMaxController.clear();
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: commissionValueController,
+                        keyboardType: _commissionType == 'percentage'
+                            ? const TextInputType.numberWithOptions(
+                                decimal: true)
+                            : TextInputType.number,
+                        inputFormatters: _commissionType == 'percentage'
+                            ? [
+                                FilteringTextInputFormatter.allow(
+                                  RegExp(r'[0-9.]'),
+                                ),
+                                LengthLimitingTextInputFormatter(6),
+                              ]
+                            : [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(6),
+                              ],
+                        decoration: _inputDecoration(
+                          label: translateText(
+                            _commissionType == 'percentage'
+                                ? "Commission Percentage *"
+                                : "Commission Amount *",
+                          ),
+                          icon: _commissionType == 'percentage'
+                              ? Icons.percent_rounded
+                              : Icons.currency_rupee,
+                        ),
+                        validator: _validateCommissionValue,
+                      ),
+                      if (_commissionType == 'percentage') ...[
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: commissionMaxController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          decoration: _inputDecoration(
+                            label: translateText("Commission Max (optional)"),
+                            icon: Icons.currency_rupee,
+                          ),
+                          validator: _validateCommissionMax,
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // ✅ Submit button (unchanged)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: _isLoading
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.add_task_outlined,
+                          color: Colors.white),
+                  label: Text(
+                    _isLoading
+                        ? translateText('Adding...')
+                        : translateText('Add Service'),
+                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.starColor,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
+                          if (!_autoValidate) {
+                            setState(() => _autoValidate = true);
+                          }
+                          final valid = _formKey.currentState!.validate();
+                          if (!valid) return;
+                          await _addService();
+                        },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
-
+    );
+  }
 }
 
 // ------------------- Helper UI -------------------
-InputDecoration _inputDecoration({String? hint, String? label, IconData? icon}) {
+InputDecoration _inputDecoration(
+    {String? hint, String? label, IconData? icon}) {
   return InputDecoration(
     hintText: hint,
     labelText: label,
@@ -1417,8 +1637,8 @@ class _FieldLabel extends StatelessWidget {
   final String text;
   const _FieldLabel(this.text);
   @override
-  Widget build(BuildContext context) =>
-      Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13));
+  Widget build(BuildContext context) => Text(text,
+      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13));
 }
 
 // ---------- Dropdown Helpers ----------
@@ -1435,8 +1655,9 @@ List<DropdownMenuItem<String>> buildCategoryAndSubcategoryKeyItems(
       final subId = sub['id'] as int;
       items.add(DropdownMenuItem<String>(
         value: 'sub:$subId',
-        child:
-            Padding(padding: const EdgeInsets.only(left: 20), child: Text(sub['displayName'] ?? '')),
+        child: Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: Text(sub['displayName'] ?? '')),
       ));
     }
   }

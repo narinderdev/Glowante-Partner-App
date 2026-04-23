@@ -1,10 +1,9 @@
 // lib/screens/AssignUserSlots.dart
 import 'package:flutter/material.dart';
-import 'package:bloc_onboarding/widgets/step_header.dart';
-import '../utils/api_service.dart';                  // ✅ FIX: import ApiService
-import 'TeamMemberDetails.dart';                    // for navigation after success
-import 'SalonTeams.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../widgets/multi_step_flow_header.dart';
+import 'team_online_availability_screen.dart';
 
 class AssignUserSlot extends StatefulWidget {
   final int salonId;
@@ -64,15 +63,19 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     setState(() => weeklySchedule[day]![index][key] = newTime);
   }
 
-  Future<void> _pickTime(BuildContext context, String day, int index, String key) async {
-    final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
+  Future<void> _pickTime(
+      BuildContext context, String day, int index, String key) async {
+    final picked = await showTimePicker(
+        context: context, initialTime: const TimeOfDay(hour: 9, minute: 0));
     if (picked != null) _updateTime(day, index, key, picked.format(context));
   }
 
   void _copyMondayToAll() {
     if (weeklySchedule['Monday']!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please add time slots for Monday first.'))),
+        SnackBar(
+            content:
+                Text(translateText('Please add time slots for Monday first.'))),
       );
       return;
     }
@@ -106,8 +109,12 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(day, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-            if (slots.isEmpty) Text(translateText('No time slots added'), style: TextStyle(color: Colors.black54)),
+            Text(day,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            if (slots.isEmpty)
+              Text(translateText('No time slots added'),
+                  style: TextStyle(color: Colors.black54)),
             for (var i = 0; i < slots.length; i++)
               Row(
                 children: [
@@ -117,7 +124,9 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                       child: _timeBox(slots[i]['start'] ?? '09:00 AM'),
                     ),
                   ),
-                  Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Text(translateText('to'))),
+                  Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(translateText('to'))),
                   Expanded(
                     child: GestureDetector(
                       onTap: () => _pickTime(context, day, i, 'end'),
@@ -132,7 +141,9 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
               ),
             Align(
               alignment: Alignment.centerLeft,
-              child: TextButton(onPressed: () => _addSlot(day), child: Text(translateText('+ Add Slot'))),
+              child: TextButton(
+                  onPressed: () => _addSlot(day),
+                  child: Text(translateText('+ Add Slot'))),
             ),
           ],
         ),
@@ -140,8 +151,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     );
   }
 
-  Future<void> _onAssign() async {
-    // Build schedules for API
+  Future<void> _goToCompleteStep() async {
     final schedules = <Map<String, dynamic>>[];
     weeklySchedule.forEach((day, list) {
       for (final slot in list) {
@@ -153,10 +163,10 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       }
     });
 
-    // 🔎 Log payload (optional)
     final payloadPreview = {
       'userId': widget.userId,
       'joiningDate': widget.joinedAt,
+      'allowOnlineBooking': true,
       'schedules': schedules,
       'branchServiceIds': widget.selectedServiceIds,
     };
@@ -164,28 +174,20 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
     setState(() => isSubmitting = true);
     try {
-      final resp = await ApiService().assignUserToBranch(
-        widget.branchId,
-        widget.userId,
-        widget.joinedAt,
-        schedules,
-        widget.selectedServiceIds,
+      final assigned = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TeamOnlineAvailabilityScreen.assignUser(
+            branchId: widget.branchId,
+            assignUserId: widget.userId,
+            assignBranchServiceIds: widget.selectedServiceIds,
+            assignSchedules: schedules,
+            initialJoiningDate: widget.joinedAt,
+          ),
+        ),
       );
-
-      if (resp['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('User assigned successfully'))),
-        );
-
-        // ✅ Keep the back button by pushing (not replacing) to TeamMemberDetails.
-       Navigator.push(
-  context,
-  MaterialPageRoute(
-    builder: (_) => TeamScreen(),
-  ),
-);
-      } else {
-        throw Exception(resp['message'] ?? 'Failed to assign user');
+      if (assigned == true && mounted) {
+        Navigator.pop(context, true);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -199,14 +201,41 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // ✅ Default AppBar shows a back arrow automatically
-      appBar: AppBar(title: Text(translateText('Assign User'))),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Assign User'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const StepHeader(currentStep: 3),
+            MultiStepFlowHeader(
+              currentStep: 3,
+              useIcons: true,
+              steps: const [
+                FlowStepItem(
+                  stepNumber: 1,
+                  label: 'Select Branches',
+                  icon: Icons.place_outlined,
+                ),
+                FlowStepItem(
+                  stepNumber: 2,
+                  label: 'Choose Services',
+                  icon: Icons.handyman_outlined,
+                ),
+                FlowStepItem(
+                  stepNumber: 3,
+                  label: 'Schedule',
+                  icon: Icons.calendar_today_outlined,
+                ),
+                FlowStepItem(
+                  stepNumber: 4,
+                  label: 'Complete',
+                  icon: Icons.check_circle_outline,
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
 
             // Quick context
             // Text('User ID: ${widget.userId}', style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -218,9 +247,12 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
             // Text(widget.selectedServiceIds.toString()),
             SizedBox(height: 16),
 
-            Text(translateText('Set Weekly Working Hours'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(translateText('Set Weekly Working Hours'),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             _buildDayCard('Monday'),
-            ElevatedButton(onPressed: _copyMondayToAll, child: Text(translateText('Copy Monday to All Days'))),
+            ElevatedButton(
+                onPressed: _copyMondayToAll,
+                child: Text(translateText('Copy Monday to All Days'))),
             _buildDayCard('Tuesday'),
             _buildDayCard('Wednesday'),
             _buildDayCard('Thursday'),
@@ -234,20 +266,47 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12.0),
-          child: ElevatedButton(
-            onPressed: isSubmitting ? null : _onAssign, // ✅ loader disables button
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: isSubmitting
-                ? SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : Text(translateText('Assign User')),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: const Color(0xFFE5E7EB),
+                    foregroundColor: const Color(0xFF374151),
+                    side: BorderSide.none,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  child: Text(translateText('Previous')),
+                ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: isSubmitting ? null : _goToCompleteStep,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                  ),
+                  child: isSubmitting
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(translateText('Next')),
+                ),
+              ),
+            ],
           ),
         ),
       ),

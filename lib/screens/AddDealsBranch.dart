@@ -29,6 +29,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
   final TextEditingController dealTitleController = TextEditingController();
   final TextEditingController validFromController = TextEditingController();
   final TextEditingController validTillController = TextEditingController();
+  final TextEditingController durationValueController = TextEditingController();
   final TextEditingController originalPriceController = TextEditingController();
   final TextEditingController discountedPriceController =
       TextEditingController();
@@ -47,6 +48,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
   String discountType = 'Flat'; // Flat | Percent
   final List<String> pricingModes = const ['Fixed', 'Discount'];
   final List<String> discountTypes = const ['Flat', 'Percent'];
+  final List<String> durationUnits = const ['DAY', 'MONTH', 'YEAR'];
+  String durationUnit = 'MONTH';
 
   // Selected services from modal
   List<Map<String, dynamic>> _selectedServices = [];
@@ -81,6 +84,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     dealTitleController.dispose();
     validFromController.dispose();
     validTillController.dispose();
+    durationValueController.dispose();
     originalPriceController.dispose();
     discountedPriceController.dispose();
     amountOffController.dispose();
@@ -212,6 +216,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
 
   Future<bool> _validateForm() async {
     final errors = <String>[];
+    final isPackage = widget.source.toUpperCase() == 'PACKAGE';
 
     if (dealTitleController.text.trim().isEmpty) {
       errors.add(translateText('Deal title is required.'));
@@ -224,6 +229,13 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     final discounted = _parseCurrency(discountedPriceController.text);
     if (discounted == null || discounted <= 0) {
       errors.add(translateText('Discounted price must be greater than 0.'));
+    }
+
+    if (isPackage) {
+      final durationValue = int.tryParse(durationValueController.text.trim());
+      if (durationValue == null || durationValue <= 0) {
+        errors.add(translateText('Enter a valid duration.'));
+      }
     }
 
     final amountText = amountOffController.text.trim();
@@ -279,7 +291,6 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
       'validTo':
           validTillController.text.isNotEmpty ? validTillController.text : null,
       'pricingMode': pricingMode.toUpperCase(),
-      'price': _parseCurrency(discountedPriceController.text) ?? 0,
       'terms': 'Valid on weekdays only.',
       'items': _selectedServices
           .map(
@@ -289,13 +300,16 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
             },
           )
           .toList(),
+      if (widget.source.toUpperCase() == 'PACKAGE')
+        'durationValue': int.tryParse(durationValueController.text.trim()),
+      if (widget.source.toUpperCase() == 'PACKAGE')
+        'durationUnit': durationUnit,
     };
 
     if (pricingMode == 'Fixed') {
-      offerData['amountType'] = 'FLAT';
-      offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
-      offerData['discount'] = offerData['amount'];
+      offerData['price'] = _parseCurrency(discountedPriceController.text) ?? 0;
     } else {
+      offerData['price'] = _parseCurrency(discountedPriceController.text) ?? 0;
       offerData['discountType'] = discountType == 'Flat' ? 'AMOUNT' : 'PERCENT';
       if (discountType == 'Flat') {
         offerData['amountType'] = 'FLAT';
@@ -408,6 +422,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
         (pricingMode == 'Discount' && discountType == 'Flat');
     final showPercentField =
         pricingMode == 'Discount' && discountType == 'Percent';
+    final isPackage = widget.source.toUpperCase() == 'PACKAGE';
 
     return Scaffold(
       appBar: buildProfileSubpageAppBar(
@@ -431,6 +446,52 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                   hint: "e.g. Men's Grooming Package",
                 ),
               ),
+              if (isPackage) ...[
+                SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: durationValueController,
+                        keyboardType: TextInputType.number,
+                        decoration: _decor(
+                          label: '${translateText('Duration')} *',
+                          hint: translateText('Enter duration'),
+                          prefix: Icons.timelapse_outlined,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: durationUnit,
+                        items: durationUnits
+                            .map(
+                              (unit) => DropdownMenuItem(
+                                value: unit,
+                                child: Text(
+                                  translateText(
+                                    unit[0] + unit.substring(1).toLowerCase(),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            durationUnit = value ?? 'MONTH';
+                          });
+                        },
+                        decoration: _decor(
+                          label: '${translateText('Duration Unit')} *',
+                          prefix: Icons.schedule_outlined,
+                        ),
+                        icon: Icon(Icons.keyboard_arrow_down_rounded),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               SizedBox(height: 16),
 
               // Pricing Mode / Discount Type

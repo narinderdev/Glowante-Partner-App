@@ -424,17 +424,16 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import '../utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../widgets/salon_flow_step_header.dart';
 import 'bottom_nav.dart';
 
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
@@ -450,6 +449,10 @@ class AddSalonServices extends StatefulWidget {
     this.branchImages = const [],
     this.salonId,
     this.branchImageUrl,
+    this.sourceBranches = const <Map<String, dynamic>>[],
+    this.initialSourceBranchId,
+    this.onSubmit,
+    this.submitLabel = 'Submit',
   });
 
   final AddSalonFormData? formData;
@@ -459,6 +462,11 @@ class AddSalonServices extends StatefulWidget {
   final List<String> initialCodes;
   final int? salonId;
   final String? branchImageUrl;
+  final List<Map<String, dynamic>> sourceBranches;
+  final int? initialSourceBranchId;
+  final Future<void> Function(List<String> selectedCodes, int? sourceBranchId)?
+      onSubmit;
+  final String submitLabel;
 
   @override
   State<AddSalonServices> createState() => _AddSalonServicesState();
@@ -470,11 +478,13 @@ class _AddSalonServicesState extends State<AddSalonServices> {
   bool _isLoading = true;
   bool _isSubmitting = false;
   final Map<String, ImageProvider> _imageProviders = {};
+  int? _selectedSourceBranchId;
 
   @override
   void initState() {
     super.initState();
     _selectedCodes = List<String>.from(widget.initialCodes);
+    _selectedSourceBranchId = widget.initialSourceBranchId;
     fetchServiceCatalog();
   }
 
@@ -535,6 +545,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
 
   @override
   Widget build(BuildContext context) {
+    final bool copyServicesSelected =
+        widget.branchFormData != null && _selectedSourceBranchId != null;
     return BlocConsumer<AddSalonCubit, AddSalonState>(
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
@@ -569,6 +581,15 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
+                        SalonFlowStepHeader(
+                          currentStep: 3,
+                          detailsLabel: translateText(
+                            widget.branchFormData != null
+                                ? 'Branch Details'
+                                : 'Salon Details',
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         Text(
                           translateText(
                             'Choose the services that best describe your salon.\nYou can select multiple options.',
@@ -581,154 +602,241 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            childAspectRatio: 0.9,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
+                        if (widget.branchFormData != null &&
+                            widget.sourceBranches.isNotEmpty) ...[
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              translateText(
+                                'Copy services from an existing branch',
+                              ),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFB45309),
+                              ),
+                            ),
                           ),
-                          itemCount: _services.length,
-                          itemBuilder: (context, index) {
-                            final service =
-                                _services[index] as Map<String, dynamic>;
-                            final name = (service['name'] ?? '') as String;
-                            final imageUrl =
-                                (service['image_url'] ?? '') as String;
-                            final code = (service['code'] ?? '') as String;
-                            final isSelected = _selectedCodes.contains(code);
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: widget.sourceBranches.map((branch) {
+                              final branchId = (branch['id'] as num?)?.toInt();
+                              final isSelected = branchId != null &&
+                                  branchId == _selectedSourceBranchId;
+                              final branchName =
+                                  (branch['name'] ?? '').toString().trim();
+                              return ChoiceChip(
+                                label: Text(
+                                  branchName.isEmpty
+                                      ? translateText('Unnamed Branch')
+                                      : branchName,
+                                ),
+                                selected: isSelected,
+                                selectedColor: const Color(0xFFFDE7C3),
+                                side: BorderSide(
+                                  color: isSelected
+                                      ? AppColors.starColor
+                                      : const Color(0xFFD1D5DB),
+                                ),
+                                onSelected: branchId == null
+                                    ? null
+                                    : (selected) {
+                                        setState(() {
+                                          _selectedSourceBranchId =
+                                              selected ? branchId : null;
+                                          if (selected) {
+                                            _selectedCodes.clear();
+                                          }
+                                        });
+                                      },
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                        AbsorbPointer(
+                          absorbing: copyServicesSelected,
+                          child: Opacity(
+                            opacity: copyServicesSelected ? 0.45 : 1,
+                            child: GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                childAspectRatio: 0.9,
+                                crossAxisSpacing: 16,
+                                mainAxisSpacing: 16,
+                              ),
+                              itemCount: _services.length,
+                              itemBuilder: (context, index) {
+                                final service =
+                                    _services[index] as Map<String, dynamic>;
+                                final name = (service['name'] ?? '') as String;
+                                final imageUrl =
+                                    (service['image_url'] ?? '') as String;
+                                final code = (service['code'] ?? '') as String;
+                                final isSelected =
+                                    _selectedCodes.contains(code);
 
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (isSelected) {
-                                    _selectedCodes.remove(code);
-                                  } else {
-                                    _selectedCodes.add(code);
-                                  }
-                                });
-                              },
-                              child: Column(
-                                children: [
-                                  Stack(
-                                    alignment: Alignment.center,
+                                return GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      if (isSelected) {
+                                        _selectedCodes.remove(code);
+                                      } else {
+                                        _selectedCodes.add(code);
+                                      }
+                                    });
+                                  },
+                                  child: Column(
                                     children: [
-                                      Container(
-                                        width: 75,
-                                        height: 75,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: isSelected
-                                                ? AppColors.starColor
-                                                : Colors.transparent,
-                                            width: 3,
-                                          ),
-                                          boxShadow: const [
-                                            BoxShadow(
-                                              color: Colors.black12,
-                                              blurRadius: 6,
-                                            ),
-                                          ],
-                                        ),
-                                        child: ClipOval(
-                                          child: imageUrl.isEmpty
-                                              ? const Icon(
-                                                  Icons.image_not_supported)
-                                              : Image(
-                                                  image: _imageProviders
-                                                      .putIfAbsent(
-                                                    imageUrl,
-                                                    () =>
-                                                        CachedNetworkImageProvider(
-                                                            imageUrl),
-                                                  ),
-                                                  fit: BoxFit.cover,
-                                                  gaplessPlayback: true,
-                                                  filterQuality:
-                                                      FilterQuality.high,
-                                                  errorBuilder: (_, __, ___) =>
-                                                      const Icon(
-                                                    Icons.image_not_supported,
-                                                  ),
+                                      Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          Container(
+                                            width: 75,
+                                            height: 75,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              border: Border.all(
+                                                color: isSelected
+                                                    ? AppColors.starColor
+                                                    : Colors.transparent,
+                                                width: 3,
+                                              ),
+                                              boxShadow: const [
+                                                BoxShadow(
+                                                  color: Colors.black12,
+                                                  blurRadius: 6,
                                                 ),
+                                              ],
+                                            ),
+                                            child: ClipOval(
+                                              child: imageUrl.isEmpty
+                                                  ? const Icon(
+                                                      Icons.image_not_supported)
+                                                  : Image(
+                                                      image: _imageProviders
+                                                          .putIfAbsent(
+                                                        imageUrl,
+                                                        () =>
+                                                            CachedNetworkImageProvider(
+                                                                imageUrl),
+                                                      ),
+                                                      fit: BoxFit.cover,
+                                                      gaplessPlayback: true,
+                                                      filterQuality:
+                                                          FilterQuality.high,
+                                                      errorBuilder:
+                                                          (_, __, ___) =>
+                                                              const Icon(
+                                                        Icons
+                                                            .image_not_supported,
+                                                      ),
+                                                    ),
+                                            ),
+                                          ),
+                                          if (isSelected)
+                                            Container(
+                                              width: 75,
+                                              height: 75,
+                                              decoration: BoxDecoration(
+                                                color: Colors.black
+                                                    .withOpacity(0.35),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(
+                                                Icons.check_circle,
+                                                color: Colors.white,
+                                                size: 32,
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        name,
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: isSelected
+                                              ? Colors.black
+                                              : Colors.grey[700],
                                         ),
                                       ),
-                                      if (isSelected)
-                                        Container(
-                                          width: 75,
-                                          height: 75,
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.black.withOpacity(0.35),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.check_circle,
-                                            color: Colors.white,
-                                            size: 32,
-                                          ),
-                                        ),
                                     ],
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    name,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w500,
-                                      color: isSelected
-                                          ? Colors.black
-                                          : Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 52,
-                          child: ElevatedButton(
-                            onPressed: _isSubmitting
-                                ? null
-                                : () => _submitSelection(context),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.starColor,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              elevation: 3,
-                            ),
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 300),
-                              child: _isSubmitting
-                                  ? const SizedBox(
-                                      key: ValueKey('loader'),
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Text(
-                                      translateText('Submit'),
-                                      key: const ValueKey('text'),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                );
+                              },
                             ),
                           ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _isSubmitting
+                                    ? null
+                                    : () => Navigator.pop(context),
+                                style: OutlinedButton.styleFrom(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  side: BorderSide.none,
+                                  backgroundColor: const Color(0xFFE5E7EB),
+                                  foregroundColor: const Color(0xFF374151),
+                                ),
+                                child: Text(translateText('Back')),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: SizedBox(
+                                height: 52,
+                                child: ElevatedButton(
+                                  onPressed: _isSubmitting
+                                      ? null
+                                      : () => _submitSelection(context),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.starColor,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    elevation: 3,
+                                  ),
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 300),
+                                    child: _isSubmitting
+                                        ? const SizedBox(
+                                            key: ValueKey('loader'),
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.5,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : Text(
+                                            translateText(widget.submitLabel),
+                                            key: const ValueKey('text'),
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -741,7 +849,9 @@ class _AddSalonServicesState extends State<AddSalonServices> {
   }
 
   Future<void> _submitSelection(BuildContext context) async {
-    if (_selectedCodes.isEmpty) {
+    final copyServicesSelected =
+        widget.branchFormData != null && _selectedSourceBranchId != null;
+    if (!copyServicesSelected && _selectedCodes.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content:
@@ -758,6 +868,16 @@ class _AddSalonServicesState extends State<AddSalonServices> {
     salonCubit.updateSelectedServiceCodes(List<String>.from(_selectedCodes));
 
     try {
+      if (widget.onSubmit != null) {
+        await widget.onSubmit!(
+          List<String>.from(_selectedCodes),
+          _selectedSourceBranchId,
+        );
+        if (!mounted) return;
+        Navigator.pop(context, true);
+        return;
+      }
+
       // ✅ Branch Flow
       if (widget.branchFormData != null && widget.salonId != null) {
         final branchCubit = context.read<AddBranchCubit>();
@@ -772,12 +892,14 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           startTime: branch.startTime,
           endTime: branch.endTime,
           description: branch.description,
+          schedule: branch.schedule,
           address: address.toJson(),
           latitude: address.latitude,
           longitude: address.longitude,
           images: images,
           imageUrl: branch.imageUrl ?? widget.branchImageUrl,
           selectedCategoryCodes: _selectedCodes, // ✅ FIXED
+          sourceBranchId: _selectedSourceBranchId,
         );
 
         if (!mounted) return;

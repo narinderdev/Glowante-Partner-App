@@ -17,6 +17,7 @@ class DealScreen extends StatefulWidget {
 class _DealScreenState extends State<DealScreen> {
   late Future<List<Map<String, dynamic>>> salonsList;
   final Set<int> _deletingIds = {};
+  final Set<int> _statusUpdatingIds = {};
   int? selectedSalonId;
   Map<String, dynamic>? selectedSalon;
 
@@ -105,6 +106,29 @@ class _DealScreenState extends State<DealScreen> {
         );
       }
     });
+  }
+
+  Future<void> _toggleOfferStatus(int offerId, bool makeLive) async {
+    if (selectedSalonId == null) return;
+    setState(() => _statusUpdatingIds.add(offerId));
+    try {
+      await ApiService().setBranchOfferStatus(
+        branchId: selectedSalonId!,
+        offerId: offerId,
+        live: makeLive,
+      );
+      if (!mounted) return;
+      await _fetchOffers(selectedSalonId!);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _statusUpdatingIds.remove(offerId));
+      }
+    }
   }
 
   // ✅ Sanitize every offer before rendering
@@ -372,22 +396,35 @@ class _DealScreenState extends State<DealScreen> {
                             offer: offer,
                             rs: _rs,
                             isDeleting: _deletingIds.contains(offerId),
+                            isStatusUpdating:
+                                _statusUpdatingIds.contains(offerId),
+                            onToggleStatus: () => _toggleOfferStatus(
+                              offerId,
+                              (offer['status']?.toString().toUpperCase() ??
+                                      '') !=
+                                  'ACTIVE',
+                            ),
                             onDelete: () =>
                                 _confirmDeleteOffer(offerId, offer['name']),
-                            onEdit: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => AddDealsScreen(
-                                  branchId: selectedSalon!['branchId'],
-                                  branchName: selectedSalon!['branchName'],
-                                  source: 'DEAL',
-                                  isEdit: true,
-                                  existingOffer: offer,
-                                  onPackageCreated: (branchId) =>
-                                      _fetchOffers(branchId),
+                            onEdit: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AddDealsScreen(
+                                    branchId: selectedSalon!['branchId'],
+                                    branchName: selectedSalon!['branchName'],
+                                    source: 'DEAL',
+                                    isEdit: true,
+                                    existingOffer: offer,
+                                    onPackageCreated: (branchId) =>
+                                        _fetchOffers(branchId),
+                                  ),
                                 ),
-                              ),
-                            ),
+                              );
+                              if (selectedSalonId != null) {
+                                _fetchOffers(selectedSalonId!);
+                              }
+                            },
                           );
                         },
                       );
@@ -442,14 +479,18 @@ class _OfferCard extends StatelessWidget {
     required this.rs,
     required this.onDelete,
     required this.onEdit,
+    required this.onToggleStatus,
     required this.isDeleting,
+    required this.isStatusUpdating,
   });
 
   final Map<String, dynamic> offer;
   final String Function(num? n) rs;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+  final VoidCallback onToggleStatus;
   final bool isDeleting;
+  final bool isStatusUpdating;
 
   @override
   Widget build(BuildContext context) {
@@ -457,6 +498,7 @@ class _OfferCard extends StatelessWidget {
       // --------- read from response safely ---------
       final String name = offer['name']?.toString() ?? '';
       final String status = offer['status']?.toString() ?? 'UNKNOWN';
+      final bool isActive = status.toUpperCase() == 'ACTIVE';
       final String type = offer['type']?.toString() ?? 'N/A';
       final String pricingMode = offer['pricingMode']?.toString() ?? 'FIXED';
       final String discountType = offer['discountType']?.toString() ?? 'NONE';
@@ -663,7 +705,32 @@ class _OfferCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   ElevatedButton(
-                    onPressed: isDeleting ? null : onEdit,
+                    onPressed: (isDeleting || isStatusUpdating)
+                        ? null
+                        : onToggleStatus,
+                    style: _blackButtonStyle,
+                    child: isStatusUpdating
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            translateText(
+                              isActive ? 'Deactivate' : 'Make Live',
+                            ),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    onPressed: (isDeleting || isStatusUpdating) ? null : onEdit,
                     style: _blackButtonStyle,
                     child: Text(
                       translateText('Edit'),
@@ -673,7 +740,8 @@ class _OfferCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   ElevatedButton.icon(
-                    onPressed: isDeleting ? null : onDelete,
+                    onPressed:
+                        (isDeleting || isStatusUpdating) ? null : onDelete,
                     icon: isDeleting
                         ? const SizedBox(
                             width: 16,

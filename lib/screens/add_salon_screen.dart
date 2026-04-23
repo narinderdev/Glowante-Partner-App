@@ -915,6 +915,8 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../screens/bottom_nav.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'AddSalonServices.dart';
+import 'set_weekly_schedule_screen.dart';
+import '../widgets/salon_flow_step_header.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 
 class _FirstLetterUpperFormatter extends TextInputFormatter {
@@ -960,6 +962,8 @@ class AddSalonScreen extends StatefulWidget {
     this.state,
     this.latitude,
     this.longitude,
+    this.initialSalon,
+    this.isEdit = false,
   });
 
   final String? id;
@@ -978,6 +982,8 @@ class AddSalonScreen extends StatefulWidget {
   final String? state;
   final double? latitude;
   final double? longitude;
+  final Map<String, dynamic>? initialSalon;
+  final bool isEdit;
 
   @override
   State<AddSalonScreen> createState() => _AddSalonScreenState();
@@ -993,6 +999,182 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
 
+  Map<String, dynamic>? _asStringKeyedMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map(
+        (key, dynamic nestedValue) => MapEntry(key.toString(), nestedValue),
+      );
+    }
+    return null;
+  }
+
+  Map<String, dynamic>? _resolvePrimaryBranch(Map<String, dynamic> salon) {
+    final branches = (salon['branches'] as List<dynamic>? ?? const [])
+        .map(_asStringKeyedMap)
+        .whereType<Map<String, dynamic>>()
+        .toList();
+
+    if (branches.isEmpty) return null;
+
+    for (final branch in branches) {
+      if (branch['isMain'] == true) {
+        return branch;
+      }
+    }
+
+    return branches.first;
+  }
+
+  String _firstNonEmptyValue(List<dynamic> values) {
+    for (final value in values) {
+      final text = (value ?? '').toString().trim();
+      if (text.isNotEmpty && text.toLowerCase() != 'null') {
+        return text;
+      }
+    }
+    return '';
+  }
+
+  double _readDoubleValue(List<dynamic> values) {
+    for (final value in values) {
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse((value ?? '').toString().trim());
+      if (parsed != null) return parsed;
+    }
+    return 0;
+  }
+
+  Map<String, List<Map<String, String>>> _extractInitialSchedule(
+    Map<String, dynamic>? salon,
+  ) {
+    final result = <String, List<Map<String, String>>>{};
+    final primaryBranch = salon == null ? null : _resolvePrimaryBranch(salon);
+    final rawSchedule = primaryBranch?['schedule'] ?? salon?['schedule'];
+
+    if (rawSchedule is Map) {
+      for (final entry in rawSchedule.entries) {
+        final day = entry.key.toString().toLowerCase();
+        final slots = entry.value;
+        if (slots is! List) continue;
+        result[day] = slots
+            .whereType<Map>()
+            .map((slot) => <String, String>{
+                  'startTime':
+                      _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                  'endTime':
+                      _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                })
+            .where((slot) =>
+                slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
+            .toList();
+      }
+    } else if (rawSchedule is List) {
+      for (final rawEntry in rawSchedule.whereType<Map>()) {
+        final day = (rawEntry['day'] ?? '').toString().toLowerCase();
+        if (day.isEmpty) continue;
+        final slots = rawEntry['slots'];
+        if (slots is! List) continue;
+        result[day] = slots
+            .whereType<Map>()
+            .map((slot) => <String, String>{
+                  'startTime':
+                      _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                  'endTime':
+                      _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                })
+            .where((slot) =>
+                slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
+            .toList();
+      }
+    }
+
+    return result;
+  }
+
+  String _normalizePhone(dynamic value) {
+    final digits =
+        value == null ? '' : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length <= 10) return digits;
+    if (digits.length == 12 && digits.startsWith('91')) {
+      return digits.substring(2);
+    }
+    return digits.substring(digits.length - 10);
+  }
+
+  AddSalonAddress? _extractInitialAddress(Map<String, dynamic> salon) {
+    final primaryBranch = _resolvePrimaryBranch(salon);
+    final address = _asStringKeyedMap(
+          salon['address'],
+        ) ??
+        _asStringKeyedMap(primaryBranch?['address']) ??
+        primaryBranch;
+
+    if (address == null) return null;
+
+    final completeAddress = <String>[];
+    for (final key in const [
+      'line1',
+      'line2',
+      'village',
+      'district',
+      'city',
+      'state',
+      'country',
+      'postalCode',
+    ]) {
+      final value = (address[key] ?? '').toString().trim();
+      if (value.isNotEmpty && !completeAddress.contains(value)) {
+        completeAddress.add(value);
+      }
+    }
+
+    final scoFlatHouse = _firstNonEmptyValue([
+      address['line2'],
+      address['village'],
+    ]);
+    final streetSectorArea = _firstNonEmptyValue([
+      address['district'],
+      address['city'],
+      address['state'],
+      address['postalCode'],
+    ]);
+
+    if (completeAddress.isEmpty &&
+        scoFlatHouse.isEmpty &&
+        streetSectorArea.isEmpty) {
+      return null;
+    }
+
+    return AddSalonAddress(
+      buildingName: completeAddress.join(', '),
+      city: scoFlatHouse,
+      pincode: streetSectorArea,
+      state: _firstNonEmptyValue([
+        address['state'],
+      ]),
+      latitude: _readDoubleValue([
+        address['latitude'],
+        address['lat'],
+        primaryBranch?['latitude'],
+        primaryBranch?['lat'],
+        salon['latitude'],
+        salon['lat'],
+      ]),
+      longitude: _readDoubleValue([
+        address['longitude'],
+        address['lng'],
+        address['lon'],
+        primaryBranch?['longitude'],
+        primaryBranch?['lng'],
+        primaryBranch?['lon'],
+        salon['longitude'],
+        salon['lng'],
+        salon['lon'],
+      ]),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1002,7 +1184,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     final phone = widget.phoneNumber;
     if (phone != null && phone.isNotEmpty) {
-      _phoneController.text = phone;
+      _phoneController.text = _normalizePhone(phone);
     }
 
     final proceedContext = widget.isProceedFrom?.toLowerCase().trim();
@@ -1018,7 +1200,41 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       }
     }
 
+    final initialSalon = widget.initialSalon;
+    if (initialSalon != null) {
+      final primaryBranch = _resolvePrimaryBranch(initialSalon);
+      _salonNameController.text =
+          (initialSalon['name'] ?? '').toString().trim();
+      _descriptionController.text = _firstNonEmptyValue(
+          [initialSalon['description'], primaryBranch?['description']]);
+      _phoneController.text = _normalizePhone(
+        _firstNonEmptyValue([
+          initialSalon['phone'],
+          primaryBranch?['phone'],
+          widget.phoneNumber,
+        ]),
+      );
+      final startTime = _firstNonEmptyValue([
+        initialSalon['startTime'],
+        primaryBranch?['startTime'],
+      ]);
+      final endTime = _firstNonEmptyValue([
+        initialSalon['endTime'],
+        primaryBranch?['endTime'],
+      ]);
+      if (startTime.isNotEmpty) {
+        _startTimeController.text = startTime;
+      }
+      if (endTime.isNotEmpty) {
+        _endTimeController.text = endTime;
+      }
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final initialSalon = widget.initialSalon;
+      final initialAddress =
+          initialSalon == null ? null : _extractInitialAddress(initialSalon);
+
       // 🟢 CHANGED: treat legacy buildingName as a completeAddress holder
       final completeAddress = widget.buildingName?.trim() ?? '';
 
@@ -1028,7 +1244,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           longitude != null &&
           (latitude != 0.0 || longitude != 0.0);
 
-      if (completeAddress.isNotEmpty && hasCoordinates) {
+      if (initialAddress != null) {
+        context.read<AddSalonCubit>().updateAddress(initialAddress);
+      } else if (completeAddress.isNotEmpty && hasCoordinates) {
         context.read<AddSalonCubit>().updateAddress(
               AddSalonAddress(
                 // We store completeAddress in buildingName for back-compat
@@ -1170,7 +1388,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       return;
     }
 
-    if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+    if (widget.isEdit &&
+        (_startTimeController.text.isEmpty ||
+            _endTimeController.text.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(translateText('Please select start and end time.'))),
@@ -1180,7 +1400,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     // 🟢 CHANGED: use new completeness check
     final address = state.address;
-    if (!_isAddressComplete(address)) {
+    if (!widget.isEdit && !_isAddressComplete(address)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text(translateText('Please add the salon location.'))),
@@ -1193,24 +1413,94 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     try {
       final images = cubit.state.images;
-      String? imageUrl;
+      String? imageUrl = _firstNonEmptyValue([
+        widget.initialSalon?['imageUrl'],
+        widget.imageUrl,
+      ]);
       if (images.isNotEmpty) {
         final res = await AwsS3Uploader()
             .uploadImageResult(XFile(images.first.path))
             .timeout(const Duration(seconds: 45), onTimeout: () => null);
 
-        // Prefer CDN if provided, else use origin/public
-        imageUrl = res?.cdnUrl ?? res?.publicUrl;
+        imageUrl = res?.cdnUrl ?? res?.publicUrl ?? imageUrl;
+      }
+
+      if (widget.isEdit && widget.initialSalon != null) {
+        final salonId = (widget.initialSalon!['id'] as num?)?.toInt();
+        if (salonId == null) {
+          throw Exception('Missing salon id');
+        }
+        final scheduleResult = await Navigator.push<ScheduleStepResult>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SetWeeklyScheduleScreen(
+              detailsStepLabel: 'Salon Details',
+              initialStartTime: _startTimeController.text.trim(),
+              initialEndTime: _endTimeController.text.trim(),
+              initialSchedule: _extractInitialSchedule(widget.initialSalon),
+              totalSteps: 2,
+              submitLabel: 'Save',
+            ),
+          ),
+        );
+        if (!mounted || scheduleResult == null) return;
+        await cubit.repository.updateSalon(
+          salonId: salonId,
+          name: _salonNameController.text.trim(),
+          phone: _normalizePhone(_phoneController.text),
+          startTime: scheduleResult.startTime,
+          endTime: scheduleResult.endTime,
+          description: _descriptionController.text.trim(),
+          schedule: scheduleResult.schedule,
+          imageUrl: imageUrl,
+          address: address == null
+              ? null
+              : {
+                  'line1': address.buildingName,
+                  'line2': address.city,
+                  'village': '',
+                  'district': '',
+                  'city': '',
+                  'state': address.state,
+                  'country': 'India',
+                  'postalCode': address.pincode,
+                },
+          latitude: address?.latitude,
+          longitude: address?.longitude,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(translateText('Salon updated successfully')),
+          ),
+        );
+        Navigator.pop(context, true);
+        return;
       }
 
       final formData = AddSalonFormData(
         name: _salonNameController.text.trim(),
-        phone: _phoneController.text.trim(),
+        phone: _normalizePhone(_phoneController.text),
         startTime: _startTimeController.text.trim(),
         endTime: _endTimeController.text.trim(),
         description: _descriptionController.text.trim(),
+        schedule: const <String, List<Map<String, String>>>{},
         imageUrl: imageUrl,
       );
+
+      final scheduleResult = await Navigator.push<ScheduleStepResult>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SetWeeklyScheduleScreen(
+            detailsStepLabel: 'Salon Details',
+            initialStartTime: _startTimeController.text.trim(),
+            initialEndTime: _endTimeController.text.trim(),
+            initialSchedule: const <String, List<Map<String, String>>>{},
+            totalSteps: 3,
+          ),
+        ),
+      );
+      if (!mounted || scheduleResult == null) return;
 
       await Navigator.push<void>(
         context,
@@ -1219,7 +1509,15 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             value: cubit,
             child: AddSalonServices(
               initialCodes: state.selectedServiceCodes,
-              formData: formData,
+              formData: AddSalonFormData(
+                name: formData.name,
+                phone: formData.phone,
+                startTime: scheduleResult.startTime,
+                endTime: scheduleResult.endTime,
+                description: formData.description,
+                schedule: scheduleResult.schedule,
+                imageUrl: formData.imageUrl,
+              ),
             ),
           ),
         ),
@@ -1264,11 +1562,15 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       builder: (context, state) {
         final images = state.images;
         final address = state.address;
+        final existingImageUrl = _firstNonEmptyValue([
+          widget.initialSalon?['imageUrl'],
+          widget.imageUrl,
+        ]);
 
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: buildProfileSubpageAppBar(
-            title: translateText('Add Salon'),
+            title: translateText(widget.isEdit ? 'Edit Salon' : 'Add Salon'),
           ),
           body: Stack(
             children: [
@@ -1279,6 +1581,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      SalonFlowStepHeader(
+                        currentStep: 1,
+                        detailsLabel: translateText('Salon Details'),
+                        totalSteps: widget.isEdit ? 2 : 3,
+                      ),
+                      const SizedBox(height: 24),
                       _buildTextField(
                         controller: _salonNameController,
                         keyboardType: TextInputType.text,
@@ -1296,29 +1604,32 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         enabled: true,
                         keyboardType: TextInputType.phone,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
                         ],
                       ),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildTimePickerField(
-                              controller: _startTimeController,
-                              label: 'Start Time *',
-                              onTap: () => _selectTime(_startTimeController),
+                      if (widget.isEdit) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTimePickerField(
+                                controller: _startTimeController,
+                                label: 'Start Time *',
+                                onTap: () => _selectTime(_startTimeController),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTimePickerField(
-                              controller: _endTimeController,
-                              label: 'End Time *',
-                              onTap: () => _selectTime(_endTimeController),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTimePickerField(
+                                controller: _endTimeController,
+                                label: 'End Time *',
+                                onTap: () => _selectTime(_endTimeController),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                       Text(
                         translateText('Salon Address'),
                         style: Theme.of(context).textTheme.titleMedium,
@@ -1434,6 +1745,16 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
+                          if (images.isEmpty && existingImageUrl.isNotEmpty)
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                existingImageUrl,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           for (final image in images)
                             Stack(
                               clipBehavior: Clip.none,

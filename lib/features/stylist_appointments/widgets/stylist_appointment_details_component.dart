@@ -93,6 +93,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.addedItems,
     required this.onAddItems,
+    this.onRefresh,
   });
 
   final VoidCallback onBack;
@@ -118,271 +119,62 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   final VoidCallback? onPrimaryAction;
   final List<StylistUsedItem> addedItems;
   final VoidCallback onAddItems;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _detailsPage,
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: onBack,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: _detailsPrimaryText,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      context.t('Appointment Details'),
-                      style: _detailsTextStyle(
-                        size: 18,
-                        weight: FontWeight.w600,
-                        color: _detailsPrimaryText,
-                      ),
-                    ),
-                  ),
-                ],
+    final content = ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: onBack,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(
+                  Icons.arrow_back,
+                  color: _detailsPrimaryText,
+                  size: 24,
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: _detailsBorder,
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  _DetailSectionCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                context.t('Services').toUpperCase(),
-                                style: _detailsTextStyle(
-                                  size: 12,
-                                  weight: FontWeight.w700,
-                                  color: _detailsSecondaryText,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '($timeRange)',
-                              style: _detailsTextStyle(
-                                size: 12,
-                                weight: FontWeight.w700,
-                                color: _detailsAccent,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (assignedStaffLabel.trim().isNotEmpty) ...[
-                          const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(
-                                Icons.badge_outlined,
-                                size: 16,
-                                color: _detailsSecondaryText,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  '${context.t('Assigned To')}: $assignedStaffLabel',
-                                  style: _detailsTextStyle(
-                                    size: 12,
-                                    weight: FontWeight.w600,
-                                    color: _detailsSecondaryText,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        ...serviceSegments.asMap().entries.map(
-                              (entry) => Padding(
-                                padding: EdgeInsets.only(
-                                  bottom:
-                                      entry.key == serviceSegments.length - 1
-                                          ? 0
-                                          : 10,
-                                ),
-                                child: _DetailServiceRow(
-                                  segment: entry.value,
-                                ),
-                              ),
-                            ),
-                      ],
-                    ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.t('Appointment Details'),
+                  style: _detailsTextStyle(
+                    size: 18,
+                    weight: FontWeight.w600,
+                    color: _detailsPrimaryText,
                   ),
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0xFFE7DED3)),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x14000000),
-                          blurRadius: 14,
-                          offset: Offset(0, 8),
-                        ),
-                        BoxShadow(
-                          color: Color(0x10C19A6B),
-                          blurRadius: 10,
-                          offset: Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Divider(
+          height: 1,
+          thickness: 1,
+          color: _detailsBorder,
+        ),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            children: [
+              _DetailSectionCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          elapsedClock,
-                          style: _detailsTextStyle(
-                            size: 24,
-                            weight: FontWeight.w700,
-                            color: _detailsPrimaryText,
-                            height: 1,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        _ElapsedTimelineBar(
-                          statusCode: statusCode,
-                          elapsedMinutes: elapsedMinutes,
-                          scheduledMinutes: scheduledMinutes,
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '${elapsedMinutes}m',
-                                style: _detailsTextStyle(
-                                  size: 11,
-                                  weight: FontWeight.w700,
-                                  color: _elapsedValueColor(
-                                    statusCode: statusCode,
-                                    elapsedMinutes: elapsedMinutes,
-                                    scheduledMinutes: scheduledMinutes,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${context.t('Total Time')}: ${scheduledMinutes}m',
-                              style: _detailsTextStyle(
-                                size: 11,
-                                weight: FontWeight.w600,
-                                color: _detailsSecondaryText,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (primaryAction != null)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isPrimaryLoading ? null : onPrimaryAction,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primaryActionColor,
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(52),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: isPrimaryLoading
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (primaryAction ==
-                                      context
-                                          .t('Finish Job')
-                                          .toUpperCase()) ...[
-                                    Image.asset(
-                                      'assets/images/checkmark.png',
-                                      width: 18,
-                                      height: 18,
-                                      color: Colors.white,
-                                    ),
-                                    const SizedBox(width: 8),
-                                  ],
-                                  Text(
-                                    primaryAction!,
-                                    style: _detailsTextStyle(
-                                      size: 14,
-                                      weight: FontWeight.w700,
-                                      color: Colors.white,
-                                      letterSpacing: 0.8,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
-                    )
-                  else
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 17),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFFE6DFD7)),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: _detailsUpcoming,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 10),
-                  if (addedItems.isNotEmpty) ...[
-                    _DetailSectionCard(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            context.t('Items Used').toUpperCase(),
+                        Expanded(
+                          child: Text(
+                            context.t('Services').toUpperCase(),
                             style: _detailsTextStyle(
                               size: 12,
                               weight: FontWeight.w700,
@@ -390,52 +182,267 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                               letterSpacing: 0.8,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          ...addedItems.asMap().entries.map(
-                                (entry) => Padding(
-                                  padding: EdgeInsets.only(
-                                    bottom: entry.key == addedItems.length - 1
-                                        ? 0
-                                        : 10,
-                                  ),
-                                  child: _UsedItemSummaryCard(
-                                    item: entry.value,
-                                  ),
-                                ),
+                        ),
+                        Text(
+                          '($timeRange)',
+                          style: _detailsTextStyle(
+                            size: 12,
+                            weight: FontWeight.w700,
+                            color: _detailsAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (assignedStaffLabel.trim().isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.badge_outlined,
+                            size: 16,
+                            color: _detailsSecondaryText,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${context.t('Assigned To')}: $assignedStaffLabel',
+                              style: _detailsTextStyle(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: _detailsSecondaryText,
                               ),
+                            ),
+                          ),
                         ],
                       ),
+                    ],
+                    const SizedBox(height: 12),
+                    ...serviceSegments.asMap().entries.map(
+                          (entry) => Padding(
+                            padding: EdgeInsets.only(
+                              bottom: entry.key == serviceSegments.length - 1
+                                  ? 0
+                                  : 10,
+                            ),
+                            child: _DetailServiceRow(
+                              segment: entry.value,
+                            ),
+                          ),
+                        ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE7DED3)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x14000000),
+                      blurRadius: 14,
+                      offset: Offset(0, 8),
+                    ),
+                    BoxShadow(
+                      color: Color(0x10C19A6B),
+                      blurRadius: 10,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      elapsedClock,
+                      style: _detailsTextStyle(
+                        size: 24,
+                        weight: FontWeight.w700,
+                        color: _detailsPrimaryText,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _ElapsedTimelineBar(
+                      statusCode: statusCode,
+                      elapsedMinutes: elapsedMinutes,
+                      scheduledMinutes: scheduledMinutes,
                     ),
                     const SizedBox(height: 10),
-                  ],
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: onAddItems,
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(48),
-                        foregroundColor: _detailsAccent,
-                        side: const BorderSide(color: _detailsAccent),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${elapsedMinutes}m',
+                            style: _detailsTextStyle(
+                              size: 11,
+                              weight: FontWeight.w700,
+                              color: _elapsedValueColor(
+                                statusCode: statusCode,
+                                elapsedMinutes: elapsedMinutes,
+                                scheduledMinutes: scheduledMinutes,
+                              ),
+                            ),
+                          ),
                         ),
+                        Text(
+                          '${context.t('Total Time')}: ${scheduledMinutes}m',
+                          style: _detailsTextStyle(
+                            size: 11,
+                            weight: FontWeight.w600,
+                            color: _detailsSecondaryText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (primaryAction != null)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: isPrimaryLoading ? null : onPrimaryAction,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryActionColor,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(52),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(
-                        context.t('Add Items').toUpperCase(),
+                    ),
+                    child: isPrimaryLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (primaryAction ==
+                                  context.t('Finish Job').toUpperCase()) ...[
+                                Image.asset(
+                                  'assets/images/checkmark.png',
+                                  width: 18,
+                                  height: 18,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                              Text(
+                                primaryAction!,
+                                style: _detailsTextStyle(
+                                  size: 14,
+                                  weight: FontWeight.w700,
+                                  color: Colors.white,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 17),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE6DFD7)),
+                  ),
+                  child: Text(
+                    statusLabel,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _detailsUpcoming,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 10),
+              if (addedItems.isNotEmpty) ...[
+                _DetailSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.t('Items Used').toUpperCase(),
                         style: _detailsTextStyle(
-                          size: 13,
+                          size: 12,
                           weight: FontWeight.w700,
-                          color: _detailsAccent,
+                          color: _detailsSecondaryText,
                           letterSpacing: 0.8,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      ...addedItems.asMap().entries.map(
+                            (entry) => Padding(
+                              padding: EdgeInsets.only(
+                                bottom:
+                                    entry.key == addedItems.length - 1 ? 0 : 10,
+                              ),
+                              child: _UsedItemSummaryCard(
+                                item: entry.value,
+                              ),
+                            ),
+                          ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: onAddItems,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    foregroundColor: _detailsAccent,
+                    side: const BorderSide(color: _detailsAccent),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                ],
+                  child: Text(
+                    context.t('Add Items').toUpperCase(),
+                    style: _detailsTextStyle(
+                      size: 13,
+                      weight: FontWeight.w700,
+                      color: _detailsAccent,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
+      ],
+    );
+
+    return Scaffold(
+      backgroundColor: _detailsPage,
+      body: SafeArea(
+        bottom: false,
+        child: onRefresh == null
+            ? content
+            : RefreshIndicator(
+                color: _detailsAccent,
+                onRefresh: onRefresh!,
+                child: content,
+              ),
       ),
     );
   }

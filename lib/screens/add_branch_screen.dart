@@ -701,9 +701,12 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/colors.dart';
 import 'AddSalonServices.dart';
+import 'set_weekly_schedule_screen.dart';
+import '../widgets/salon_flow_step_header.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import '../utils/aws_s3_uploader.dart';
+import '../utils/api_service.dart';
 
 enum _BranchField { name, phone, startTime, endTime, description }
 
@@ -732,9 +735,16 @@ class _FirstLetterUpperFormatter extends TextInputFormatter {
 }
 
 class AddBranchScreen extends StatefulWidget {
-  const AddBranchScreen({super.key, required this.salonId});
+  const AddBranchScreen({
+    super.key,
+    required this.salonId,
+    this.initialBranch,
+    this.isEdit = false,
+  });
 
   final int salonId;
+  final Map<String, dynamic>? initialBranch;
+  final bool isEdit;
 
   @override
   State<AddBranchScreen> createState() => _AddBranchScreenState();
@@ -750,17 +760,198 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
   bool _isNextLoading = false;
+  List<Map<String, dynamic>> _sourceBranches = const [];
+  String? _existingImageUrl;
   final Map<_BranchField, bool> _fieldValidationVisibility = {
     for (final field in _BranchField.values) field: false,
   };
+
+  Map<String, dynamic>? _asStringKeyedMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      return value.map(
+        (key, dynamic nestedValue) => MapEntry(key.toString(), nestedValue),
+      );
+    }
+    return null;
+  }
+
+  String _firstNonEmptyValue(List<dynamic> values) {
+    for (final value in values) {
+      final text = (value ?? '').toString().trim();
+      if (text.isNotEmpty && text.toLowerCase() != 'null') {
+        return text;
+      }
+    }
+    return '';
+  }
+
+  double _readDoubleValue(List<dynamic> values) {
+    for (final value in values) {
+      if (value is num) return value.toDouble();
+      final parsed = double.tryParse((value ?? '').toString().trim());
+      if (parsed != null) return parsed;
+    }
+    return 0;
+  }
+
+  Map<String, List<Map<String, String>>> _extractInitialSchedule(
+    Map<String, dynamic>? branch,
+  ) {
+    final result = <String, List<Map<String, String>>>{};
+    final rawSchedule = branch?['schedule'];
+
+    if (rawSchedule is Map) {
+      for (final entry in rawSchedule.entries) {
+        final day = entry.key.toString().toLowerCase();
+        final slots = entry.value;
+        if (slots is! List) continue;
+        result[day] = slots
+            .whereType<Map>()
+            .map((slot) => <String, String>{
+                  'startTime':
+                      _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                  'endTime':
+                      _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                })
+            .where((slot) =>
+                slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
+            .toList();
+      }
+    } else if (rawSchedule is List) {
+      for (final rawEntry in rawSchedule.whereType<Map>()) {
+        final day = (rawEntry['day'] ?? '').toString().toLowerCase();
+        if (day.isEmpty) continue;
+        final slots = rawEntry['slots'];
+        if (slots is! List) continue;
+        result[day] = slots
+            .whereType<Map>()
+            .map((slot) => <String, String>{
+                  'startTime':
+                      _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                  'endTime':
+                      _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                })
+            .where((slot) =>
+                slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
+            .toList();
+      }
+    }
+
+    return result;
+  }
+
+  String _normalizePhone(dynamic value) {
+    final digits =
+        value == null ? '' : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.length <= 10) return digits;
+    if (digits.length == 12 && digits.startsWith('91')) {
+      return digits.substring(2);
+    }
+    return digits.substring(digits.length - 10);
+  }
+
+  BranchAddress? _extractInitialAddress(Map<String, dynamic> branch) {
+    final address = _asStringKeyedMap(branch['address']) ?? branch;
+
+    final completeAddress = <String>[];
+    for (final key in const [
+      'line1',
+      'line2',
+      'village',
+      'district',
+      'city',
+      'state',
+      'country',
+      'postalCode',
+    ]) {
+      final value = (address[key] ?? '').toString().trim();
+      if (value.isNotEmpty && !completeAddress.contains(value)) {
+        completeAddress.add(value);
+      }
+    }
+
+    final scoFlatHouse = _firstNonEmptyValue([
+      address['line2'],
+      address['village'],
+    ]);
+    final streetSectorArea = _firstNonEmptyValue([
+      address['district'],
+      address['city'],
+      address['state'],
+      address['postalCode'],
+    ]);
+
+    if (completeAddress.isEmpty &&
+        scoFlatHouse.isEmpty &&
+        streetSectorArea.isEmpty) {
+      return null;
+    }
+
+    return BranchAddress(
+      buildingName: completeAddress.join(', '),
+      city: scoFlatHouse,
+      pincode: streetSectorArea,
+      state: _firstNonEmptyValue([address['state']]),
+      latitude: _readDoubleValue([
+        address['latitude'],
+        address['lat'],
+        branch['latitude'],
+        branch['lat'],
+      ]),
+      longitude: _readDoubleValue([
+        address['longitude'],
+        address['lng'],
+        address['lon'],
+        branch['longitude'],
+        branch['lng'],
+        branch['lon'],
+      ]),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _startTimeController.text = "08:00 AM";
     _endTimeController.text = "08:00 PM";
+    final initialBranch = widget.initialBranch;
+    if (initialBranch != null) {
+      _branchNameController.text =
+          (initialBranch['name'] ?? '').toString().trim();
+      _phoneController.text = _normalizePhone(
+        _firstNonEmptyValue([
+          initialBranch['phone'],
+          initialBranch['phoneNumber'],
+          initialBranch['contactNumber'],
+        ]),
+      );
+      _descriptionController.text =
+          (initialBranch['description'] ?? '').toString().trim();
+      final startTime = _firstNonEmptyValue([initialBranch['startTime']]);
+      final endTime = _firstNonEmptyValue([initialBranch['endTime']]);
+      if (startTime.isNotEmpty) {
+        _startTimeController.text = startTime;
+      }
+      if (endTime.isNotEmpty) {
+        _endTimeController.text = endTime;
+      }
+      final imageUrl = (initialBranch['imageUrl'] ?? '').toString().trim();
+      if (imageUrl.isNotEmpty) {
+        _existingImageUrl = imageUrl;
+      }
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AddBranchCubit>().loadSavedPhone();
+      final initialBranch = widget.initialBranch;
+      final initialAddress =
+          initialBranch == null ? null : _extractInitialAddress(initialBranch);
+      if (initialAddress != null) {
+        context.read<AddBranchCubit>().updateAddress(initialAddress);
+      }
+      if (!widget.isEdit) {
+        _loadSourceBranches();
+      }
     });
   }
 
@@ -780,6 +971,34 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (files.isEmpty) return;
     final images = files.map((file) => File(file.path)).toList();
     context.read<AddBranchCubit>().setImages(images);
+  }
+
+  Future<void> _loadSourceBranches() async {
+    try {
+      final response = await ApiService().getSalonListApi();
+      if (response['success'] != true || response['data'] is! List) {
+        return;
+      }
+      final salons = (response['data'] as List)
+          .whereType<Map>()
+          .map((entry) => Map<String, dynamic>.from(entry))
+          .toList();
+      final salon = salons.firstWhere(
+        (entry) => entry['id'] == widget.salonId,
+        orElse: () => <String, dynamic>{},
+      );
+      final branches = (salon['branches'] as List? ?? const [])
+          .whereType<Map>()
+          .map((entry) => Map<String, dynamic>.from(entry))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _sourceBranches = branches;
+      });
+    } catch (error, stack) {
+      debugPrint('Failed to load source branches: $error');
+      debugPrintStack(stackTrace: stack);
+    }
   }
 
   void _resetFieldError(_BranchField field) {
@@ -818,6 +1037,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         address.buildingName.trim().isNotEmpty; // holds complete address
     final hasValidCoordinates =
         address.latitude != 0.0 || address.longitude != 0.0;
+    if (widget.isEdit) {
+      return hasCompleteAddress;
+    }
     return hasCompleteAddress && hasValidCoordinates;
   }
 
@@ -875,7 +1097,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final isValid = form.validate();
     if (!isValid) return;
 
-    if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+    if (widget.isEdit &&
+        (_startTimeController.text.isEmpty ||
+            _endTimeController.text.isEmpty)) {
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(translateText('Please select start and end time.')),
@@ -897,7 +1121,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     FocusScope.of(context).unfocus();
 
     final images = state.images;
-    String? imageUrl;
+    String? imageUrl = _existingImageUrl;
 
     if (images.isNotEmpty) {
       setState(() => _isNextLoading = true);
@@ -926,16 +1150,75 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       }
     }
 
+    if (widget.isEdit && widget.initialBranch != null) {
+      final branchId = (widget.initialBranch!['id'] as num?)?.toInt();
+      if (branchId == null) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text(translateText('Missing branch id'))),
+        );
+        return;
+      }
+      final scheduleResult = await Navigator.push<ScheduleStepResult>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SetWeeklyScheduleScreen(
+            detailsStepLabel: 'Branch Details',
+            initialStartTime: _startTimeController.text.trim(),
+            initialEndTime: _endTimeController.text.trim(),
+            initialSchedule: _extractInitialSchedule(widget.initialBranch),
+            totalSteps: 2,
+            submitLabel: 'Save',
+          ),
+        ),
+      );
+      if (!mounted || scheduleResult == null) return;
+      await context.read<AddBranchCubit>().repository.updateBranch(
+            branchId: branchId,
+            name: _branchNameController.text.trim(),
+            phone: _normalizePhone(_phoneController.text),
+            startTime: scheduleResult.startTime,
+            endTime: scheduleResult.endTime,
+            description: _descriptionController.text.trim(),
+            schedule: scheduleResult.schedule,
+            address: state.address!.toJson(),
+            latitude: state.address!.latitude,
+            longitude: state.address!.longitude,
+            imageUrl: imageUrl,
+          );
+
+      if (!mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(translateText('Branch updated successfully'))),
+      );
+      Navigator.pop(context, true);
+      return;
+    }
+
     final branchFormData = AddBranchFormData(
       name: _branchNameController.text.trim(),
-      phone: _phoneController.text.trim(),
+      phone: _normalizePhone(_phoneController.text),
       startTime: _startTimeController.text.trim(),
       endTime: _endTimeController.text.trim(),
       description: _descriptionController.text.trim(),
+      schedule: const <String, List<Map<String, String>>>{},
       imageUrl: imageUrl,
     );
 
     if (!mounted) return;
+
+    final scheduleResult = await Navigator.push<ScheduleStepResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SetWeeklyScheduleScreen(
+          detailsStepLabel: 'Branch Details',
+          initialStartTime: _startTimeController.text.trim(),
+          initialEndTime: _endTimeController.text.trim(),
+          initialSchedule: const <String, List<Map<String, String>>>{},
+          totalSteps: 3,
+        ),
+      ),
+    );
+    if (!mounted || scheduleResult == null) return;
 
     await Navigator.push(
       context,
@@ -950,11 +1233,20 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
             ),
           ],
           child: AddSalonServices(
-            branchFormData: branchFormData,
+            branchFormData: AddBranchFormData(
+              name: branchFormData.name,
+              phone: branchFormData.phone,
+              startTime: scheduleResult.startTime,
+              endTime: scheduleResult.endTime,
+              description: branchFormData.description,
+              schedule: scheduleResult.schedule,
+              imageUrl: branchFormData.imageUrl,
+            ),
             branchAddress: state.address!,
             branchImages: images,
             salonId: widget.salonId,
             branchImageUrl: imageUrl,
+            sourceBranches: _sourceBranches,
           ),
         ),
       ),
@@ -967,7 +1259,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     return BlocConsumer<AddBranchCubit, AddBranchState>(
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
-        if (state.savedPhone != null) {
+        if (!widget.isEdit &&
+            state.savedPhone != null &&
+            _phoneController.text.isEmpty) {
           _phoneController.text = state.savedPhone!;
           _resetFieldError(_BranchField.phone);
         }
@@ -981,7 +1275,15 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
         if (state.status == BranchFormStatus.success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Branch added successfully'))),
+            SnackBar(
+              content: Text(
+                translateText(
+                  widget.isEdit
+                      ? 'Branch updated successfully'
+                      : 'Branch added successfully',
+                ),
+              ),
+            ),
           );
           Navigator.pop(context, true);
         }
@@ -993,7 +1295,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         return Scaffold(
           backgroundColor: Colors.white,
           appBar: buildProfileSubpageAppBar(
-            title: translateText('Add Branch'),
+            title: translateText(widget.isEdit ? 'Edit Branch' : 'Add Branch'),
           ),
           body: Stack(
             children: [
@@ -1004,6 +1306,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      SalonFlowStepHeader(
+                        currentStep: 1,
+                        detailsLabel: translateText('Branch Details'),
+                        totalSteps: widget.isEdit ? 2 : 3,
+                      ),
+                      const SizedBox(height: 24),
                       _buildTextField(
                         field: _BranchField.name,
                         controller: _branchNameController,
@@ -1026,45 +1334,47 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                           FilteringTextInputFormatter.digitsOnly
                         ],
                       ),
-                      IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  _buildTimePickerField(
-                                    field: _BranchField.startTime,
-                                    controller: _startTimeController,
-                                    label: 'Start Time *',
-                                    onTap: () => _selectTime(
-                                      _BranchField.startTime,
-                                      _startTimeController,
+                      if (widget.isEdit) ...[
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    _buildTimePickerField(
+                                      field: _BranchField.startTime,
+                                      controller: _startTimeController,
+                                      label: 'Start Time *',
+                                      onTap: () => _selectTime(
+                                        _BranchField.startTime,
+                                        _startTimeController,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  _buildTimePickerField(
-                                    field: _BranchField.endTime,
-                                    controller: _endTimeController,
-                                    label: 'End Time *',
-                                    onTap: () => _selectTime(
-                                      _BranchField.endTime,
-                                      _endTimeController,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  children: [
+                                    _buildTimePickerField(
+                                      field: _BranchField.endTime,
+                                      controller: _endTimeController,
+                                      label: 'End Time *',
+                                      onTap: () => _selectTime(
+                                        _BranchField.endTime,
+                                        _endTimeController,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
+                        const SizedBox(height: 20),
+                      ],
                       Text(
                         translateText('Branch Address'),
                         style: Theme.of(context).textTheme.titleMedium,
@@ -1187,6 +1497,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
+                          if (images.isEmpty &&
+                              (_existingImageUrl?.isNotEmpty ?? false))
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                _existingImageUrl!,
+                                width: 80,
+                                height: 80,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           for (final image in images)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
@@ -1238,7 +1559,11 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : Text(translateText('Next')),
+                              : Text(
+                                  translateText(
+                                    widget.isEdit ? 'Save' : 'Next',
+                                  ),
+                                ),
                         ),
                       ),
                     ],

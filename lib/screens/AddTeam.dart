@@ -6,22 +6,26 @@ import 'package:image_picker/image_picker.dart';
 // import '../screens/AddTeamSelectServices.dart';
 import '../screens/AddTeamChooseTimeSlots.dart';
 import '../utils/api_service.dart';
-import 'package:flutter/services.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../widgets/multi_step_flow_header.dart';
 
 class AddTeamScreen extends StatefulWidget {
   final int branchId;
   final int salonId;
   final String? salonName;
+  final bool isEdit;
+  final Map<String, dynamic>? initialMember;
 
   const AddTeamScreen({
     super.key,
     required this.branchId,
     required this.salonId,
     required this.salonName,
+    this.isEdit = false,
+    this.initialMember,
   });
 
   @override
@@ -104,10 +108,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return _gender.isEmpty ? translateText('Select gender') : null;
   }
 
-  String? _vJoiningDate() {
-    if (_suppressDateError) return null;
-    return _joiningDate == null ? translateText('Select a joining date') : null;
-  }
+  String? _vJoiningDate() => null;
 
   String? _vRoles() {
     if (_suppressRolesError) return null;
@@ -163,6 +164,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   // Image
   File? _cameraImage;
   String? imageUrl;
+  String? _existingImageUrl;
 
   // Button submit loader
   bool _isSubmitting = false;
@@ -171,6 +173,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   void initState() {
     super.initState();
     _fetchRolesAndSpecializations();
+    _prefillFromInitialMember();
   }
 
   @override
@@ -198,6 +201,133 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       });
     } catch (e) {
       debugPrint('Error fetching roles/specs: $e');
+    }
+  }
+
+  void _prefillFromInitialMember() {
+    final member = widget.initialMember;
+    if (member == null) return;
+    final branchAssignment = _branchAssignment(member);
+
+    _phoneCtrl.text =
+        (member['phoneNumber'] ?? member['phone'] ?? '').toString().trim();
+    _firstNameCtrl.text = (member['firstName'] ?? '').toString().trim();
+    _lastNameCtrl.text = (member['lastName'] ?? '').toString().trim();
+    _emailCtrl.text = (member['email'] ?? '').toString().trim();
+    _gender = _normalizeGender((member['gender'] ?? '').toString().trim());
+    _briefCtrl.text =
+        (member['info'] ?? member['brief'] ?? '').toString().trim();
+    _existingImageUrl =
+        (member['profilePictureUrl'] ?? '').toString().trim().isEmpty
+            ? null
+            : (member['profilePictureUrl'] ?? '').toString().trim();
+    _phoneVerified = widget.isEdit;
+
+    final joiningDateRaw =
+        branchAssignment?['joiningDate'] ?? member['joiningDate'];
+    if (joiningDateRaw is String && joiningDateRaw.trim().isNotEmpty) {
+      _joiningDate = DateTime.tryParse(joiningDateRaw.trim());
+    }
+
+    _selectedRoles
+      ..clear()
+      ..addAll(_extractLabels(member['roles']));
+    _selectedSpecs
+      ..clear()
+      ..addAll(
+        _extractLabels(
+          member['specialities'] ?? member['specializations'],
+        ),
+      );
+  }
+
+  Map<String, dynamic>? _branchAssignment(Map<String, dynamic> member) {
+    final rawAssignments = member['userBranches'];
+    if (rawAssignments is! List) {
+      return null;
+    }
+
+    for (final assignment in rawAssignments) {
+      if (assignment is! Map) continue;
+      final branch = assignment['branch'];
+      final branchId = branch is Map ? branch['id'] : assignment['branchId'];
+      if (branchId?.toString() == widget.branchId.toString()) {
+        return Map<String, dynamic>.from(assignment);
+      }
+    }
+
+    if (rawAssignments.isNotEmpty && rawAssignments.first is Map) {
+      return Map<String, dynamic>.from(rawAssignments.first as Map);
+    }
+    return null;
+  }
+
+  List<String> _extractLabels(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .map((entry) {
+          if (entry is Map) {
+            return (entry['label'] ?? entry['name'] ?? entry['code'] ?? '')
+                .toString()
+                .trim();
+          }
+          return entry.toString().trim();
+        })
+        .where((value) => value.isNotEmpty)
+        .toList();
+  }
+
+  List<String> _resolveCodes(
+    List<String> selectedValues,
+    List<Map<String, dynamic>> source,
+  ) {
+    return selectedValues.map((selected) {
+      final normalizedSelected = selected.trim().toLowerCase();
+      for (final option in source) {
+        final candidates = [
+          option['label'],
+          option['name'],
+          option['code'],
+        ]
+            .map((value) => (value ?? '').toString().trim())
+            .where((v) => v.isNotEmpty);
+        for (final candidate in candidates) {
+          if (candidate.toLowerCase() == normalizedSelected) {
+            final code = (option['code'] ?? candidate).toString().trim();
+            return code.isEmpty ? candidate : code;
+          }
+        }
+      }
+      return normalizedSelected.replaceAll(' ', '_');
+    }).toList();
+  }
+
+  Map<String, dynamic>? _normalizedAddress(dynamic rawAddress) {
+    if (rawAddress is! Map) {
+      return null;
+    }
+
+    final normalized = <String, dynamic>{};
+    for (final entry in rawAddress.entries) {
+      final key = entry.key.toString();
+      final value = entry.value;
+      if (value == null) continue;
+      if (value is String && value.trim().isEmpty) continue;
+      normalized[key] = value;
+    }
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  String _normalizeGender(String value) {
+    switch (value.toLowerCase()) {
+      case 'male':
+        return 'Male';
+      case 'female':
+        return 'Female';
+      case 'other':
+        return 'Other';
+      default:
+        return value;
     }
   }
 
@@ -581,6 +711,68 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     );
   }
 
+  Future<void> _submitEditMember() async {
+    if (!await _validateFormAndShowAlert()) return;
+
+    final userId = (widget.initialMember?['id'] as num?)?.toInt();
+    if (userId == null) {
+      _toast('Missing member id');
+      return;
+    }
+
+    String capitalizeFirst(String value) =>
+        value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
+
+    setState(() => _isSubmitting = true);
+    try {
+      final branchAssignment =
+          _branchAssignment(widget.initialMember ?? const {});
+      final payload = <String, dynamic>{
+        "countryCode": "+91",
+        "phoneNumber": _phoneCtrl.text.trim(),
+        "firstName": capitalizeFirst(_firstNameCtrl.text.trim()),
+        "lastName": capitalizeFirst(_lastNameCtrl.text.trim()),
+        "email": _emailCtrl.text.trim(),
+        "gender": _gender.toLowerCase(),
+        if (_joiningDate != null)
+          "joiningDate":
+              '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
+        "info": capitalizeFirst(_briefCtrl.text.trim()),
+        "roles": _resolveCodes(_selectedRoles, _allRoles),
+        "specialities": _resolveCodes(_selectedSpecs, _allSpecs),
+        "profilePictureUrl": imageUrl ?? _existingImageUrl,
+        "schedules": branchAssignment?['schedules'] ??
+            widget.initialMember?['schedules'] ??
+            const [],
+        "branchServiceIds": branchAssignment?['branchServiceIds'] ??
+            widget.initialMember?['branchServiceIds'] ??
+            const [],
+        "allowOnlineBooking": branchAssignment?['allowOnlineBooking'] ??
+            widget.initialMember?['allowOnlineBooking'] ??
+            true,
+        if (_normalizedAddress(widget.initialMember?['address']) != null)
+          "address": _normalizedAddress(widget.initialMember?['address']),
+      }..removeWhere((key, value) => value == null);
+
+      await ApiService().updateTeamMember(
+        branchId: widget.branchId,
+        userId: userId,
+        payload: payload,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(translateText('Team member updated successfully'))),
+      );
+      Navigator.pop(context, true);
+    } catch (error) {
+      _toast(error.toString());
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   // Helper to run something after rebuild completes
   Future<void> _afterRebuild() {
     final c = Completer<void>();
@@ -639,7 +831,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: buildProfileSubpageAppBar(
-        title: translateText('Add Team Member'),
+        title: translateText(
+            widget.isEdit ? 'Edit Team Member' : 'Add Team Member'),
       ),
       body: SafeArea(
         child: Form(
@@ -653,6 +846,30 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (!widget.isEdit) ...[
+                      MultiStepFlowHeader(
+                        currentStep: 1,
+                        steps: const [
+                          FlowStepItem(
+                            stepNumber: 1,
+                            label: 'Personal Details',
+                          ),
+                          FlowStepItem(
+                            stepNumber: 2,
+                            label: 'Schedule',
+                          ),
+                          FlowStepItem(
+                            stepNumber: 3,
+                            label: 'Services',
+                          ),
+                          FlowStepItem(
+                            stepNumber: 4,
+                            label: 'Online Availability',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     Center(
                       child: GestureDetector(
                         onTap: _pickImage,
@@ -660,7 +877,17 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           radius: 40,
                           backgroundColor: Colors.grey[300],
                           child: _cameraImage == null
-                              ? Icon(Icons.camera_alt, size: 30)
+                              ? (_existingImageUrl != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(40),
+                                      child: Image.network(
+                                        _existingImageUrl!,
+                                        fit: BoxFit.cover,
+                                        width: 80,
+                                        height: 80,
+                                      ),
+                                    )
+                                  : Icon(Icons.camera_alt, size: 30))
                               : ClipRRect(
                                   borderRadius: BorderRadius.circular(40),
                                   child: Image.file(
@@ -1009,7 +1236,14 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                     SizedBox(height: 16),
 
-                    _reqLabel(translateText('Joining Date')),
+                    Text(
+                      translateText('Joining Date'),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     SizedBox(height: 8),
                     GestureDetector(
                       onTap: _pickJoiningDate,
@@ -1082,7 +1316,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             ? value[0].toUpperCase() + value.substring(1)
                             : value;
 
+                        final branchAssignment =
+                            _branchAssignment(widget.initialMember ?? const {});
                         final payload = <String, dynamic>{
+                          if (widget.isEdit)
+                            "userId":
+                                (widget.initialMember?['id'] as num?)?.toInt(),
+                          "isEdit": widget.isEdit,
                           "countryCode": "+91",
                           "phoneNumber": _phoneCtrl.text.trim(),
                           "firstName":
@@ -1090,13 +1330,34 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           "lastName":
                               capitalizeFirst(_lastNameCtrl.text.trim()),
                           "email": _emailCtrl.text.trim(),
-                          "gender": _gender,
-                          "joiningDate": _joiningDate,
+                          "gender": _gender.toLowerCase(),
+                          if (_joiningDate != null)
+                            "joiningDate":
+                                '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
                           "brief": capitalizeFirst(_briefCtrl.text.trim()),
-                          "roles": List<String>.from(_selectedRoles),
-                          "specializations": List<String>.from(_selectedSpecs),
-                          "specialities": List<String>.from(_selectedSpecs),
-                          "profilePictureUrl": imageUrl,
+                          "roles": _resolveCodes(_selectedRoles, _allRoles),
+                          "specializations":
+                              _resolveCodes(_selectedSpecs, _allSpecs),
+                          "specialities":
+                              _resolveCodes(_selectedSpecs, _allSpecs),
+                          "profilePictureUrl": imageUrl ?? _existingImageUrl,
+                          "allowOnlineBooking":
+                              branchAssignment?['allowOnlineBooking'] ??
+                                  widget.initialMember?['allowOnlineBooking'] ??
+                                  true,
+                          "branchServiceIds":
+                              branchAssignment?['branchServiceIds'] ??
+                                  widget.initialMember?['branchServiceIds'] ??
+                                  const [],
+                          "schedules": branchAssignment?['schedules'] ??
+                              widget.initialMember?['schedules'] ??
+                              const [],
+                          if (_normalizedAddress(
+                                  widget.initialMember?['address']) !=
+                              null)
+                            "address": _normalizedAddress(
+                              widget.initialMember?['address'],
+                            ),
                           // "otp": _otpCtrl.text.trim(),
                         };
 

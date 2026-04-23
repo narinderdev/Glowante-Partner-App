@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import '../utils/colors.dart';
 import 'select_services_AssignUser.dart';
-import 'package:bloc_onboarding/widgets/step_header.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-import '../utils/colors.dart';
-import 'package:flutter/services.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../widgets/multi_step_flow_header.dart';
 
 class Branch {
   final int id;
@@ -58,66 +56,43 @@ class AssignUserScreen extends StatefulWidget {
 
 class _AssignUserScreenState extends State<AssignUserScreen> {
   int? _selectedBranchId;
-@override
-void initState() {
-  super.initState();
-  // Log the branches when screen initializes
-  print("🟢 Salon ID (filter): ${widget.salonId}");
-  print("🟢 Total salons received: ${widget.salons.length}");
 
-  for (var s in widget.salons) {
-    print("Salon: ${s['name']} (${s['id']})");
-    final branches = s['branches'] ?? [];
-    print("  Branches count: ${branches.length}");
-    for (var b in branches) {
-      print("    ↳ Branch: ${b['name']} | ID: ${b['id']} | Salon ID: ${s['id']}");
+  @override
+  void initState() {
+    super.initState();
+    print("🟢 Salon ID (filter): ${widget.salonId}");
+    print("🟢 Total salons received: ${widget.salons.length}");
+
+    for (final s in widget.salons) {
+      print("Salon: ${s['name']} (${s['id']})");
+      final branches = s['branches'] ?? [];
+      print("  Branches count: ${branches.length}");
+      for (final b in branches) {
+        print(
+            "    ↳ Branch: ${b['name']} | ID: ${b['id']} | Salon ID: ${s['id']}");
+      }
+    }
+
+    print("🟡 Filtered branches for salonId ${widget.salonId}:");
+    for (final b in widget.branches) {
+      print("   ✅ ${b.name} (ID: ${b.id}) - SalonId: ${b.salonId}");
     }
   }
-
-  print("🟡 Filtered branches for salonId ${widget.salonId}:");
-  for (var b in widget.branches) {
-    print("   ✅ ${b.name} (ID: ${b.id}) - SalonId: ${b.salonId}");
-  }
-}
 
   @override
   Widget build(BuildContext context) {
     final userName =
         "${widget.member['firstName'] ?? ''} ${widget.member['lastName'] ?? ''}"
             .trim();
-  final userId = widget.member['id']; 
- final List<dynamic> userSalons =
+    final List<dynamic> userSalons =
         (widget.member['userSalons'] ?? []) as List<dynamic>;
     final String joinedAt = userSalons.isNotEmpty
         ? (userSalons[0]['joinedAt'] ?? '').toString()
         : 'N/A';
-   return Scaffold(
+    return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        // Let the gradient show through:
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        // Ensure status bar + icons look good on the gradient:
-        systemOverlayStyle: SystemUiOverlayStyle.light,
-        iconTheme: const IconThemeData(
-          color: Colors.white, // back button color
-        ),
-        title: Text(translateText('Assign User'),
-          style: TextStyle(color: Colors.white,fontWeight: FontWeight.bold,),
-        ),
-        // Paint the gradient here:
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.starColor,        // your start color
-                AppColors.getStartedButton, // your end color
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Assign User'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -126,8 +101,33 @@ void initState() {
           children: [
             // ✅ Step header (Step 1 active)
             Padding(
-              padding: EdgeInsets.only(top: 8, bottom: 16),
-              child: StepHeader(currentStep: 1),
+              padding: const EdgeInsets.only(top: 8, bottom: 24),
+              child: MultiStepFlowHeader(
+                currentStep: 1,
+                useIcons: true,
+                steps: const [
+                  FlowStepItem(
+                    stepNumber: 1,
+                    label: 'Select Branches',
+                    icon: Icons.place_outlined,
+                  ),
+                  FlowStepItem(
+                    stepNumber: 2,
+                    label: 'Choose Services',
+                    icon: Icons.handyman_outlined,
+                  ),
+                  FlowStepItem(
+                    stepNumber: 3,
+                    label: 'Schedule',
+                    icon: Icons.calendar_today_outlined,
+                  ),
+                  FlowStepItem(
+                    stepNumber: 4,
+                    label: 'Complete',
+                    icon: Icons.check_circle_outline,
+                  ),
+                ],
+              ),
             ),
 
             Text(
@@ -137,7 +137,9 @@ void initState() {
             SizedBox(height: 16),
             Expanded(
               child: widget.branches.isEmpty
-                  ? Center(child: Text(translateText("No branches found for this salon")))
+                  ? Center(
+                      child: Text(
+                          translateText("No branches found for this salon")))
                   : ListView.builder(
                       itemCount: widget.branches.length,
                       itemBuilder: (_, i) {
@@ -159,25 +161,23 @@ void initState() {
                             .firstWhere((b) => b.id == _selectedBranchId);
 
                         // Go to Step 2
-                        final selectedServices = await Navigator.push(
+                        final assigned = await Navigator.push<bool>(
                           context,
                           MaterialPageRoute(
                             builder: (_) => SelectServicesAssignUser(
                               salonId: branch.salonId,
                               branchId: branch.id,
                               userId: widget.member['id'],
-                              joinedAt: joinedAt, 
-                              member: widget.member,        // ✅ add this
+                              joinedAt: joinedAt,
+                              member: widget.member, // ✅ add this
                               salons: widget.salons,
                             ),
                           ),
                         );
 
                         // Maintain selection after returning
-                        if (selectedServices != null) {
-                          setState(() {
-                            _selectedBranchId = branch.id;
-                          });
+                        if (assigned == true && mounted) {
+                          Navigator.pop(context, true);
                         }
                       },
                 style: ElevatedButton.styleFrom(
@@ -187,7 +187,8 @@ void initState() {
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                child: Text(translateText("Next"),
+                child: Text(
+                  translateText("Next"),
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),

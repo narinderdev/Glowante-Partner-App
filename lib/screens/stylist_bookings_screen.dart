@@ -2352,6 +2352,67 @@ class _StylistBookingDetailScreenState
     );
   }
 
+  Future<void> _refreshBookingDetails() async {
+    try {
+      final start = _bookingStart(_booking);
+      final targetDate = start ?? DateTime.now();
+      final response = widget.isOwnerMode
+          ? await ApiService().fetchAppointments(
+              widget.branchId,
+              _formatApiDate(targetDate),
+            )
+          : await ApiService().fetchTeamAppointmentsByDate(
+              widget.branchId,
+              _asInt(_booking['assignedUserBranchId']) ??
+                  _asInt(_booking['assignedUserId']) ??
+                  _asInt(_booking['teamMember']?['id']) ??
+                  _asInt(_booking['userBranchId']) ??
+                  0,
+              _formatApiDate(targetDate),
+            );
+
+      final rawData = response['data'];
+      final bookings = rawData is List
+          ? rawData
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList()
+          : const <Map<String, dynamic>>[];
+
+      final appointmentId = _asInt(_booking['id']);
+      final refreshed = appointmentId == null
+          ? null
+          : bookings.cast<Map<String, dynamic>?>().firstWhere(
+                (item) => _asInt(item?['id']) == appointmentId,
+                orElse: () => null,
+              );
+
+      if (!mounted) return;
+
+      if (refreshed != null) {
+        setState(() {
+          _booking = Map<String, dynamic>.from(refreshed);
+          _statusUpper = _normalizeStatus(_booking['status']);
+        });
+        _syncElapsedTicker();
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('Unable to refresh appointment details'),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
   Duration _detailElapsedTime() {
     final start = _bookingStart(_booking);
     if (_statusUpper != 'IN_PROGRESS' && _statusUpper != 'COMPLETED') {
@@ -2472,6 +2533,7 @@ class _StylistBookingDetailScreenState
                 : (_showsStartAction(_statusUpper) ? _handleStartJob : null)),
         addedItems: _addedItems,
         onAddItems: _showAddItemsInfo,
+        onRefresh: _refreshBookingDetails,
       ),
     );
   }

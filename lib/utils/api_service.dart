@@ -81,9 +81,10 @@ class ApiService {
 
   // static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
-  static const String baseUrl = "https://a5f4-203-190-154-162.ngrok-free.app/";
+  static const String baseUrl = "https://5238-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
+  static const String registerUserEndpoint = "auth/register";
   static const String resendOtpEndpoint = "auth/resend_otp";
   static const String updateUserProfile = "users/update";
   static const String createSalonEndpoint = "salons/create";
@@ -118,6 +119,38 @@ class ApiService {
     return "salons/$salonId/branches/add";
   }
 
+  static String updateBranchAPI(int branchId) {
+    return "branches/$branchId";
+  }
+
+  static String activateBranchAPI(int branchId) {
+    return "branches/$branchId/activate";
+  }
+
+  static String deactivateBranchAPI(int branchId) {
+    return "branches/$branchId/deactivate";
+  }
+
+  static String deleteBranchAPI(int branchId) {
+    return "branches/$branchId";
+  }
+
+  static String updateSalonAPI(int salonId) {
+    return "salons/$salonId";
+  }
+
+  static String activateSalonAPI(int salonId) {
+    return "salons/$salonId/activate";
+  }
+
+  static String deactivateSalonAPI(int salonId) {
+    return "salons/$salonId/deactivate";
+  }
+
+  static String deleteSalonAPI(int salonId) {
+    return "salons/$salonId";
+  }
+
   static String addTeamMemberEndpoint(int id) {
     return "branches/$id/add-user";
   }
@@ -126,10 +159,24 @@ class ApiService {
     return "salons/$salonId/users";
   }
 
+  static String updateTeamMemberEndpoint(int branchId, int userId) {
+    return "branches/$branchId/team/$userId";
+  }
+
+  static String activateTeamMemberEndpoint(int branchId, int userId) {
+    return "branches/$branchId/team/$userId/activate";
+  }
+
+  static String deactivateTeamMemberEndpoint(int branchId, int userId) {
+    return "branches/$branchId/team/$userId/deactivate";
+  }
+
   static String getBranchServicesAPI(int branchId) =>
       "branches/$branchId/services";
   static String getBranchServicesFlatAPI(int branchId) =>
       "branches/$branchId/services/flat";
+  static String importPredefinedServicesAPI(int branchId) =>
+      "branches/$branchId/services/import-predefined";
   static String getInventoryItemsAPI(
     int branchId, {
     int page = 1,
@@ -154,12 +201,28 @@ class ApiService {
     return "salons/$salonId/offers/$offerId";
   }
 
+  static String setSalonOfferLive(int salonId, int offerId) {
+    return "salons/$salonId/offers/$offerId/live";
+  }
+
+  static String setSalonOfferInactive(int salonId, int offerId) {
+    return "salons/$salonId/offers/$offerId/inactive";
+  }
+
   static String updateSalonBranchOffer(int branchId, int offerId) {
-    return "branches/$branchId/offers/$offerId";
+    return "branches/$branchId/offers/$offerId/override";
   }
 
   static String deleteSalonBranchOffer(int branchId, int offerId) {
     return "branches/$branchId/offers/$offerId";
+  }
+
+  static String setBranchOfferLive(int branchId, int offerId) {
+    return "branches/$branchId/offers/$offerId/live";
+  }
+
+  static String setBranchOfferInactive(int branchId, int offerId) {
+    return "branches/$branchId/offers/$offerId/inactive";
   }
 
   static String getSalonUser(int salonId, bool isActiveOnly) {
@@ -236,6 +299,10 @@ class ApiService {
     return "branches/$branchId/walkins/resolve-number";
   }
 
+  static String getBranchClientsAPI(int branchId) {
+    return "branches/$branchId/branch-client";
+  }
+
   static String updateSalonOffer(int salonId, int offerId) {
     return "salons/$salonId/offers/$offerId";
   }
@@ -243,6 +310,10 @@ class ApiService {
   //This below 4 api is pending to implement on frontend
   // Confirm Booking appointment (see static helper above)
   static String createAppointmentAPI(int branchId) {
+    return "branches/$branchId/appointments/branch";
+  }
+
+  static String createManualBookingAPI(int branchId) {
     return "branches/$branchId/appointments/branch";
   }
 
@@ -257,6 +328,16 @@ class ApiService {
   static String getSalon(int salonId, String status) {
     return "bookings/salon-bookings/$salonId?status=$status";
   }
+
+  static String importClientsFileAPI(int branchId) {
+    return "branches/$branchId/clients/import-file";
+  }
+
+  static String importClientsByPhoneAPI(int branchId) {
+    return "branches/$branchId/clients/import-by-phone";
+  }
+
+  static const String reportsDashboardAPI = "reports/dashboard";
 
   // / ---------------------- IMAGE UPLOAD ----------------------
 
@@ -351,6 +432,63 @@ class ApiService {
     } else {
       throw Exception("Failed OTP: ${response.body}");
     }
+  }
+
+  Future<Map<String, dynamic>> registerCustomer({
+    required String phoneNumber,
+    required String firstName,
+    required String lastName,
+    String source = 'salon_app',
+    String? deviceToken,
+  }) async {
+    String? resolvedToken = deviceToken;
+    if (resolvedToken == null || resolvedToken.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      resolvedToken = prefs.getString('fcm_device_token');
+    }
+
+    final payload = <String, dynamic>{
+      "phoneNumber": phoneNumber,
+      "source": source,
+      "firstName": firstName,
+      "lastName": lastName,
+      if (resolvedToken != null && resolvedToken.isNotEmpty)
+        "deviceToken": resolvedToken,
+    };
+
+    final response = await _sharedClient.post(
+      Uri.parse(baseUrl + registerUserEndpoint),
+      headers: {"Content-Type": "application/json"},
+      body: json.encode(payload),
+    );
+
+    debugPrint("[RegisterCustomer] status=${response.statusCode}");
+    _debugPrintChunked("RegisterCustomer body", response.body);
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed register customer: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> getBranchClients(int branchId) async {
+    final token = await getAuthToken();
+    final response = await _sharedClient.get(
+      Uri.parse(baseUrl + getBranchClientsAPI(branchId)),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    debugPrint("[GetBranchClients] status=${response.statusCode}");
+    _debugPrintChunked("GetBranchClients body", response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final body = response.body.isEmpty ? '{}' : response.body;
+      return json.decode(body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to fetch branch clients: ${response.body}");
   }
 
   // Resend OTP
@@ -989,10 +1127,8 @@ class ApiService {
   Future<Map<String, dynamic>> getServiceCatalog() async {
     final token = await getAuthToken();
     final url = Uri.parse(baseUrl + serviceCatalog);
-
-    print("➡️ Calling Service Catalog API");
-    print("➡️ URL: $url");
-    print("➡️ Token: $token");
+    _debugPrintChunked('Service Catalog URL', url);
+    _debugPrintChunked('Service Catalog Token', token);
 
     final response = await _sharedClient.get(
       url,
@@ -1001,14 +1137,20 @@ class ApiService {
         "Authorization": "Bearer $token",
       },
     );
-
-    print("⬅️ Status Code: ${response.statusCode}");
-    print("⬅️ Response Body: ${response.body}");
+    _debugPrintChunked('Service Catalog Status', response.statusCode);
+    final rawBody = response.body;
+    _debugPrintChunked('Service Catalog Response Raw', rawBody);
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      final decoded = jsonDecode(rawBody);
+      const encoder = JsonEncoder.withIndent('  ');
+      _debugPrintChunked(
+        'Service Catalog Response Pretty',
+        encoder.convert(decoded),
+      );
+      return decoded;
     } else {
-      throw Exception("Failed to fetch service catalog: ${response.body}");
+      throw Exception("Failed to fetch service catalog: $rawBody");
     }
   }
 
@@ -1140,6 +1282,221 @@ class ApiService {
       print("Failed to add branch: ${response.body}");
       throw Exception("Failed to add branch: ${response.body}");
     }
+  }
+
+  Future<Map<String, dynamic>> updateSalon(
+    int salonId,
+    Map<String, dynamic> salonData,
+  ) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + updateSalonAPI(salonId));
+    _debugPrintChunked('Salon Update URL', url);
+    _debugPrintChunked('Salon Update Payload', jsonEncode(salonData));
+
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(salonData),
+    );
+    _debugPrintChunked('Salon Update Response', response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to update salon: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> activateSalon(int salonId) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + activateSalonAPI(salonId));
+    _debugPrintChunked('Salon Activate URL', url);
+    const body = '{}';
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: body,
+    );
+    _debugPrintChunked('Salon Activate Response', response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to activate salon: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> deactivateSalon(int salonId) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + deactivateSalonAPI(salonId));
+    _debugPrintChunked('Salon Deactivate URL', url);
+    const body = '{}';
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: body,
+    );
+    _debugPrintChunked('Salon Deactivate Response', response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to deactivate salon: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> deleteSalon(int salonId) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + deleteSalonAPI(salonId));
+    _debugPrintChunked('Salon Delete URL', url);
+    const body = '{}';
+    final response = await _sharedClient.delete(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: body,
+    );
+    _debugPrintChunked('Salon Delete Response', response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to delete salon: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> updateBranch(
+    int branchId,
+    Map<String, dynamic> branchData,
+  ) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + updateBranchAPI(branchId));
+    _debugPrintChunked('Branch Update URL', url);
+    _debugPrintChunked('Branch Update Payload', jsonEncode(branchData));
+
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(branchData),
+    );
+    _debugPrintChunked('Branch Update Response', response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to update branch: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> activateBranch(int branchId) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + activateBranchAPI(branchId));
+    _debugPrintChunked('Branch Activate URL', url);
+    const body = '{}';
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: body,
+    );
+    _debugPrintChunked('Branch Activate Response', response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to activate branch: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> deactivateBranch(int branchId) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + deactivateBranchAPI(branchId));
+    _debugPrintChunked('Branch Deactivate URL', url);
+    const body = '{}';
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: body,
+    );
+    _debugPrintChunked('Branch Deactivate Response', response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to deactivate branch: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> deleteBranch(int branchId) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + deleteBranchAPI(branchId));
+    _debugPrintChunked('Branch Delete URL', url);
+    const body = '{}';
+    final response = await _sharedClient.delete(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: body,
+    );
+    _debugPrintChunked('Branch Delete Response', response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to delete branch: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> importPredefinedServices({
+    required int branchId,
+    required List<String> serviceCodes,
+    List<String> unselectedCodes = const [],
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + importPredefinedServicesAPI(branchId));
+    final payload = {
+      "serviceCodes": serviceCodes,
+      "unselectedCodes": unselectedCodes,
+    };
+    _debugPrintChunked('Import Predefined Services URL', url);
+    _debugPrintChunked(
+      'Import Predefined Services Payload',
+      const JsonEncoder.withIndent('  ').convert(payload),
+    );
+    final response = await _sharedClient.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
+    _debugPrintChunked(
+      'Import Predefined Services Status',
+      response.statusCode,
+    );
+    _debugPrintChunked(
+      'Import Predefined Services Response',
+      response.body,
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to import predefined services: ${response.body}");
   }
 
   // ---------------------- GET BRANCH DETAILS ----------------------
@@ -1873,6 +2230,29 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> setSalonOfferStatus({
+    required int salonId,
+    required int offerId,
+    required bool live,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(
+      "$baseUrl${live ? setSalonOfferLive(salonId, offerId) : setSalonOfferInactive(salonId, offerId)}",
+    );
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to update offer status: ${response.body}");
+  }
+
   // ---------------------- CREATE SALON BRANCH OFFER ----------------------
   Future<Map<String, dynamic>> createSalonBranchOffer(
     int branchId,
@@ -2080,6 +2460,30 @@ class ApiService {
       print("❌ DELETE Branch Offer error: $e");
       return {'success': false, 'message': e.toString()};
     }
+  }
+
+  Future<Map<String, dynamic>> setBranchOfferStatus({
+    required int branchId,
+    required int offerId,
+    required bool live,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(
+      "$baseUrl${live ? setBranchOfferLive(branchId, offerId) : setBranchOfferInactive(branchId, offerId)}",
+    );
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: '{}',
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to update branch offer status: ${response.body}");
   }
 
   // ---------------------- GET SALON USERS ----------------------
@@ -3006,12 +3410,35 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> createManualBooking(
+    int branchId,
+    Map<String, dynamic> payload,
+  ) async {
+    final token = await getAuthToken();
+    final url = Uri.parse('$baseUrl${createManualBookingAPI(branchId)}');
+
+    final response = await _sharedClient.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to create manual booking: ${response.body}");
+  }
+
   Future<Map<String, dynamic>> assignUserToBranch(
       int branchId,
       int userId,
       String joiningDate,
       List<Map<String, dynamic>> schedules,
-      List<int> branchServiceIds) async {
+      List<int> branchServiceIds,
+      bool allowOnlineBooking) async {
     final token = await getAuthToken();
     final url = Uri.parse('$baseUrl${assignUserToBranchAPI(branchId)}');
 
@@ -3020,6 +3447,7 @@ class ApiService {
       "joiningDate": joiningDate, // e.g. "2025-08-21"
       "schedules": schedules, // multiple schedules, multiple days allowed
       "branchServiceIds": branchServiceIds,
+      "allowOnlineBooking": allowOnlineBooking,
     };
 
     print("➡️ Calling Assign User To Branch API");
@@ -3049,6 +3477,139 @@ class ApiService {
       print("❌ Error assigning user: $e");
       rethrow;
     }
+  }
+
+  Future<Map<String, dynamic>> updateTeamMember({
+    required int branchId,
+    required int userId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final token = await getAuthToken();
+    final url =
+        Uri.parse('$baseUrl${updateTeamMemberEndpoint(branchId, userId)}');
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to update team member: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> setTeamMemberActive({
+    required int branchId,
+    required int userId,
+    required bool active,
+  }) async {
+    final token = await getAuthToken();
+    final endpoint = active
+        ? activateTeamMemberEndpoint(branchId, userId)
+        : deactivateTeamMemberEndpoint(branchId, userId);
+    final url = Uri.parse('$baseUrl$endpoint');
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: '{}',
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to update team member status: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> deleteTeamMember({
+    required int branchId,
+    required int userId,
+  }) async {
+    final token = await getAuthToken();
+    final url =
+        Uri.parse('$baseUrl${updateTeamMemberEndpoint(branchId, userId)}');
+    final response = await _sharedClient.delete(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: '{}',
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return response.body.isEmpty
+          ? <String, dynamic>{'success': true}
+          : json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to delete team member: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> importClientsByPhone({
+    required int branchId,
+    required List<Map<String, dynamic>> clients,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse('$baseUrl${importClientsByPhoneAPI(branchId)}');
+    final response = await _sharedClient.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({'clients': clients}),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to import clients: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> importClientsFile({
+    required int branchId,
+    required File file,
+  }) async {
+    final token = await getAuthToken();
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('$baseUrl${importClientsFileAPI(branchId)}'),
+    )
+      ..headers['Authorization'] = 'Bearer $token'
+      ..files.add(await http.MultipartFile.fromPath('file', file.path));
+
+    final response = await _sharedClient.send(request);
+    final body = await response.stream.bytesToString();
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return body.isEmpty
+          ? <String, dynamic>{'success': true}
+          : json.decode(body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to import clients file: $body");
+  }
+
+  Future<Map<String, dynamic>> getReportsDashboard() async {
+    final token = await getAuthToken();
+    final url = Uri.parse('$baseUrl$reportsDashboardAPI');
+    final response = await _sharedClient.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to load reports dashboard: ${response.body}");
   }
 
   Future<Map<String, dynamic>> fetchMyAppointmentRatings(int branchId) async {

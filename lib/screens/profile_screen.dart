@@ -13,6 +13,8 @@ import '../utils/colors.dart';
 import 'SalonAbout.dart';
 import 'SalonReviews.dart';
 import 'login_screen.dart';
+import 'owner_dashboard_screen.dart';
+import 'owner_branch_clients_screen.dart';
 import 'web_doc_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -290,6 +292,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onLanguageChanged: _changeLanguage,
       onRefresh: _loadUserData,
       menuItems: [
+        ProfileMenuItemData(
+          icon: Icons.dashboard_outlined,
+          label: context.t('Dashboard'),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const OwnerDashboardScreen(),
+              ),
+            );
+          },
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.groups_outlined,
+          label: context.t('Clients'),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const OwnerBranchClientsScreen(),
+              ),
+            );
+          },
+          showLeftAccent: true,
+        ),
         ProfileMenuItemData(
           icon: Icons.rate_review_outlined,
           label: context.t('Reviews'),

@@ -347,6 +347,8 @@ import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'dart:convert';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../widgets/multi_step_flow_header.dart';
+import 'team_online_availability_screen.dart';
 
 class AddTeamSelectServices extends StatefulWidget {
   final Map<String, dynamic> teamMemberData;
@@ -371,6 +373,15 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   @override
   void initState() {
     super.initState();
+    final initialSelected =
+        (widget.teamMemberData['branchServiceIds'] as List? ?? const [])
+            .map((e) {
+      if (e is num) return e.toInt();
+      return int.tryParse(e.toString());
+    }).whereType<int>();
+    for (final serviceId in initialSelected) {
+      _selected[serviceId] = true;
+    }
     _fetchServices();
   }
 
@@ -654,7 +665,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   //   }
   // }
 
-  Future<void> _submit() async {
+  Future<void> _goToOnlineAvailability() async {
     if (_selectedServiceIds.isEmpty) {
       _showError('Please select at least one service.');
       return;
@@ -669,25 +680,24 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       );
 
       final int branchId = (widget.teamMemberData['branchId'] as int?) ?? 0;
-      print(
-          '==================== ADD TEAM MEMBER PAYLOAD ====================');
-      print('Branch ID => $branchId');
-      final encoder = JsonEncoder.withIndent('  ');
-      print(encoder.convert(payload));
-      print(encoder.convert(payload));
-      print(
-          '=================================================================');
-
-      // POST to /branches/{branchId}/add-user
-      final response = await ApiService().addTeamMember(branchId, payload);
-
+      final response = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => widget.teamMemberData['isEdit'] == true
+              ? TeamOnlineAvailabilityScreen.editMember(
+                  branchId: branchId,
+                  userId: (widget.teamMemberData['userId'] as int?) ?? 0,
+                  payload: payload,
+                )
+              : TeamOnlineAvailabilityScreen.addMember(
+                  branchId: branchId,
+                  payload: payload,
+                ),
+        ),
+      );
       if (!mounted) return;
-
-      if (response['success'] == true) {
+      if (response == true) {
         Navigator.pop(context, true);
-      } else {
-        _showError(
-            response['message']?.toString() ?? 'Failed to add team member');
       }
     } catch (e) {
       _showError('An unexpected error occurred.');
@@ -725,6 +735,18 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: MultiStepFlowHeader(
+                    currentStep: 3,
+                    steps: const [
+                      FlowStepItem(stepNumber: 1, label: 'Personal Details'),
+                      FlowStepItem(stepNumber: 2, label: 'Schedule'),
+                      FlowStepItem(stepNumber: 3, label: 'Services'),
+                      FlowStepItem(stepNumber: 4, label: 'Online Availability'),
+                    ],
+                  ),
+                ),
                 // Summary
                 if (fullName.isNotEmpty)
                   Padding(
@@ -766,33 +788,56 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: ElevatedButton(
-            onPressed: _submitting ? null : _submit,
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 50), // Full width
-              backgroundColor: AppColors.starColor, // Gradient color
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6), // ← slight curve
-              ),
-              elevation: 2, // small shadow for depth
-            ),
-            child: _submitting
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  )
-                : Text(
-                    translateText('Add Team Member'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed:
+                      _submitting ? null : () => Navigator.pop(context, false),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    backgroundColor: const Color(0xFFE5E7EB),
+                    foregroundColor: const Color(0xFF374151),
+                    side: BorderSide.none,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
+                  child: Text(translateText('Previous')),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _submitting ? null : _goToOnlineAvailability,
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    elevation: 2,
+                  ),
+                  child: _submitting
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : Text(
+                          translateText('Next'),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -67,6 +67,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   final dealTitleController = TextEditingController();
   final validFromController = TextEditingController();
   final validTillController = TextEditingController();
+  final durationValueController = TextEditingController();
   final originalPriceController = TextEditingController();
   final discountedPriceController = TextEditingController();
   final amountOffController = TextEditingController(); // flat or percent
@@ -78,6 +79,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   String discountType = 'Flat'; // Flat | Percent
   final pricingModes = const ['Fixed', 'Discount'];
   final discountTypes = const ['Flat', 'Percent'];
+  final durationUnits = const ['DAY', 'MONTH', 'YEAR'];
+  String durationUnit = 'MONTH';
 
   List<Map<String, dynamic>> _selectedServices = [];
 
@@ -215,6 +218,15 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       final vt = fmtIn(o['validTo']);
       if (vf != null) validFromController.text = vf;
       if (vt != null) validTillController.text = vt;
+      final existingDurationValue = o['durationValue'];
+      if (existingDurationValue != null) {
+        durationValueController.text = existingDurationValue.toString();
+      }
+      final existingDurationUnit = (o['durationUnit'] ?? '').toString().trim();
+      if (existingDurationUnit.isNotEmpty &&
+          durationUnits.contains(existingDurationUnit.toUpperCase())) {
+        durationUnit = existingDurationUnit.toUpperCase();
+      }
 
       final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
       pricingMode = pmRaw == 'DISCOUNT' ? 'Discount' : 'Fixed';
@@ -336,6 +348,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     dealTitleController.dispose();
     validFromController.dispose();
     validTillController.dispose();
+    durationValueController.dispose();
     originalPriceController.dispose();
     discountedPriceController.dispose();
     amountOffController.dispose();
@@ -730,6 +743,18 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     return null;
   }
 
+  String? _vPackageDuration() {
+    if (widget.source.toUpperCase() != 'PACKAGE') return null;
+    final durationValue = int.tryParse(durationValueController.text.trim());
+    if (durationValue == null || durationValue <= 0) {
+      return translateText('Enter a valid duration.');
+    }
+    if (!durationUnits.contains(durationUnit)) {
+      return translateText('Select a valid duration unit.');
+    }
+    return null;
+  }
+
   // ----------------- ALERT -----------------
   Future<void> _showValidationDialog(List<String> errors) async {
     await showDialog<void>(
@@ -784,6 +809,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     push(_vAmountOff(amountOffController.text));
     push(_vMaxDiscount(maxDiscountController.text));
     push(_vDiscounted());
+    push(_vPackageDuration());
 
     if (errors.isNotEmpty) {
       await _showValidationDialog(errors);
@@ -800,6 +826,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     _recalcDiscounted();
     String capitalizeFirst(String value) =>
         value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
+    final isPackage = widget.source.toUpperCase() == 'PACKAGE';
 
     final body = <String, dynamic>{
       'name': capitalizeFirst(dealTitleController.text.trim()),
@@ -808,20 +835,30 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       'validFrom': _toIsoDate(validFromController.text),
       'validTo': _toIsoDate(validTillController.text),
       'pricingMode': pricingMode.toUpperCase(), // FIXED | DISCOUNT
-      'price': _parseCurrency(discountedPriceController.text) ?? 0,
       'terms': termsController.text.trim().isEmpty
           ? null
           : termsController.text.trim(),
       'items': _selectedServices
           .map((s) => {'branchServiceId': s['id'], 'qty': s['qty']})
           .toList(),
+      if (isPackage && durationValueController.text.trim().isNotEmpty)
+        'durationValue': int.tryParse(durationValueController.text.trim()),
+      if (isPackage) 'durationUnit': durationUnit,
     };
 
     if (pricingMode == 'Fixed') {
-      body['amountType'] = 'FLAT';
-      body['amount'] = _parseCurrency(amountOffController.text) ?? 0;
-      body['discount'] = body['amount'];
+      final fixedPrice = _parseCurrency(discountedPriceController.text) ?? 0;
+      body[widget.isEdit ? 'priceOverride' : 'price'] = fixedPrice;
+      final durationValue = widget.existingOffer?['durationValue'];
+      final durationUnit = widget.existingOffer?['durationUnit'];
+      if (durationValue != null) {
+        body['durationValue'] = durationValue;
+      }
+      if (durationUnit != null) {
+        body['durationUnit'] = durationUnit;
+      }
     } else {
+      body['price'] = _parseCurrency(discountedPriceController.text) ?? 0;
       final isFlat = discountType == 'Flat';
       body['discountType'] = isFlat ? 'AMOUNT' : 'PERCENT';
       if (isFlat) {
@@ -856,7 +893,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                 content: Text(translateText('Offer updated successfully'))),
           );
           widget.onPackageCreated(widget.branchId);
-          Navigator.pop(context);
+          Navigator.pop(context, true);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -875,7 +912,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           SnackBar(content: Text(translateText('Offer created successfully'))),
         );
         widget.onPackageCreated(widget.branchId);
-        Navigator.pop(context);
+        Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1130,6 +1167,56 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                     ),
                   ],
                 ),
+                if (isPackage) ...[
+                  SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: durationValueController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(4),
+                          ],
+                          decoration: _decor(
+                            label: '${translateText('Duration')} *',
+                            hint: translateText('Enter duration'),
+                            prefix: Icons.timelapse_outlined,
+                          ),
+                          validator: (_) => _vPackageDuration(),
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: durationUnit,
+                          items: durationUnits
+                              .map(
+                                (unit) => DropdownMenuItem(
+                                  value: unit,
+                                  child: Text(
+                                    translateText(
+                                      unit[0] + unit.substring(1).toLowerCase(),
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              durationUnit = value ?? 'MONTH';
+                            });
+                          },
+                          decoration: _decor(
+                            label: '${translateText('Duration Unit')} *',
+                            prefix: Icons.schedule_outlined,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 SizedBox(height: 18),
 
                 _section(translateText('Pricing Option')),

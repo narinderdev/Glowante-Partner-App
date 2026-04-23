@@ -27,16 +27,25 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   final TextEditingController _clientlNameCtrl = TextEditingController();
   final TextEditingController _mobileCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
+  List<Map<String, dynamic>> _branchClientsCache = [];
 
   // Keep existing names so your payload stays the same.
   String? _staffRole; // we'll sync this to the selected service name
   DateTime? _selectedDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
+  TimeOfDay? _branchStartTime;
+  TimeOfDay? _branchEndTime;
   String? _serviceError;
   String? _professionalError;
   String? _firstNameError;
   String? _lastNameError;
+
+  bool get _hasCustomerDetails {
+    return _clientIdCtrl.text.trim().isNotEmpty ||
+        _clientfNameCtrl.text.trim().isNotEmpty ||
+        _clientlNameCtrl.text.trim().isNotEmpty;
+  }
 
   // Selected services from modal: each {id, name, price, qty, durationMin}
   List<Map<String, dynamic>> _selectedServices = [];
@@ -68,9 +77,11 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     super.initState();
     _loadServices();
     _loadTeamMembers();
+    _loadBranchTiming();
 
     // Set default date to today
-    _selectedDate = DateTime.now();
+    final now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
 
     // Set default times
     _startTime = const TimeOfDay(hour: 8, minute: 0); // 08:00 AM
@@ -164,168 +175,623 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
   }
 
-// Method to show search modal
-  void _showCustomerSearch() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        final phoneCtrl = TextEditingController();
-        String countryCode = "+91"; // default
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: Text(translateText("Search Customer")),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  // Country Code
-                  DropdownButton<String>(
-                    value: countryCode,
-                    items: ["+91", "+1", "+44"]
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c)))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) countryCode = v;
-                    },
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      maxLength: 10,
-                      decoration: InputDecoration(
-                        hintText: translateText("Enter phone number"),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () async {
-                  final phone = phoneCtrl.text.trim();
-                  if (phone.length < 10) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text(translateText("Enter 10-digit number"))));
-                    return;
-                  }
+  TimeOfDay? _parseApiTimeOfDay(dynamic raw) {
+    final value = raw?.toString().trim() ?? '';
+    if (value.isEmpty) return null;
+    final match = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(value);
+    if (match == null) return null;
+    final hour = int.tryParse(match.group(1) ?? '');
+    final minute = int.tryParse(match.group(2) ?? '');
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
 
-                  try {
-                    final result = await ApiService().resolveWalkinNumber(
-                        widget.branchId!, countryCode, phone);
+  Future<void> _loadBranchTiming() async {
+    final branchId = widget.branchId;
+    if (branchId == null) return;
+    try {
+      final response = await ApiService().getBranchDetail(branchId);
+      final data = response['data'];
+      if (data is! Map) return;
+      final details = Map<String, dynamic>.from(data);
+      final start = _parseApiTimeOfDay(details['startTime']);
+      final end = _parseApiTimeOfDay(details['endTime']);
+      if (!mounted) return;
+      setState(() {
+        _branchStartTime = start;
+        _branchEndTime = end;
+        if (start != null) {
+          _startTime = start;
+          _syncEndTimeWithDuration();
+        }
+      });
+    } catch (_) {
+      // Fallback to default values when branch details are unavailable.
+    }
+  }
 
-                    if (result['success'] == true && result['data'] != null) {
-                      final data = result['data'];
+  String _digitsOnly(String value) => value.replaceAll(RegExp(r'[^0-9]'), '');
 
-                      // Customer exists in branch
-                      if (data is Map<String, dynamic> &&
-                          data.containsKey('user')) {
-                        final user = data['user'] as Map<String, dynamic>;
-                        print("👤 User Map received: $user");
-                        Navigator.pop(ctx);
-                        _showCustomerDetails(user);
-                      }
-                      // Customer not found, OTP sent
-                      else if (data is Map<String, dynamic> &&
-                          data['status'] == "OTP_SENT") {
-                        print("📲 OTP flow triggered");
-                        Navigator.pop(ctx);
-                        _showOtpBox(phone, countryCode);
-                      } else {
-                        print("⚠️ Unexpected data format: $data");
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(translateText(
-                                  "Unexpected response from server"))),
-                        );
-                      }
-                    } else {
-                      Navigator.pop(ctx);
-                      _showOtpBox(phone, countryCode);
-                    }
-                  } catch (e) {
-                    print("❌ Error: $e");
-                  }
-                },
-                child: Text(translateText("Search")),
-              ),
-            ],
-          ),
-        );
-      },
+  Map<String, dynamic> _normalizeCustomer(dynamic raw) {
+    final base =
+        raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    if (base['user'] is Map) {
+      final user = Map<String, dynamic>.from(base['user'] as Map);
+      for (final entry in base.entries) {
+        user.putIfAbsent(entry.key, () => entry.value);
+      }
+      return user;
+    }
+    return base;
+  }
+
+  List<Map<String, dynamic>> _extractBranchClients(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((item) => _normalizeCustomer(item))
+          .toList();
+    }
+
+    if (raw is Map) {
+      for (final key in const ['clients', 'items', 'results', 'data']) {
+        final nested = raw[key];
+        if (nested != null) {
+          final extracted = _extractBranchClients(nested);
+          if (extracted.isNotEmpty) {
+            return extracted;
+          }
+        }
+      }
+      return raw.isEmpty
+          ? const []
+          : <Map<String, dynamic>>[_normalizeCustomer(raw)];
+    }
+
+    return const [];
+  }
+
+  String _customerDisplayPhone(Map<String, dynamic> customer) {
+    final fullPhone = (customer['fullPhoneNumber'] ?? '').toString().trim();
+    if (fullPhone.isNotEmpty) return fullPhone;
+    final digits = _digitsOnly((customer['phoneNumber'] ?? '').toString());
+    if (digits.isEmpty) return '';
+    return digits.startsWith('91') && digits.length > 10
+        ? '+$digits'
+        : '+91$digits';
+  }
+
+  void _fillCustomerFields(
+    Map<String, dynamic> customer, {
+    String? fallbackPhone,
+    String? fallbackFirstName,
+    String? fallbackLastName,
+  }) {
+    final firstName =
+        (customer['firstName'] ?? fallbackFirstName ?? '').toString();
+    final lastName =
+        (customer['lastName'] ?? fallbackLastName ?? '').toString();
+    final phoneDigits = _digitsOnly(
+      (customer['phoneNumber'] ??
+              customer['fullPhoneNumber'] ??
+              fallbackPhone ??
+              '')
+          .toString(),
+    );
+    final fullPhone = _customerDisplayPhone(customer);
+
+    setState(() {
+      _clientIdCtrl.text = (customer['id'] ?? '').toString();
+      _clientfNameCtrl.text = firstName;
+      _clientlNameCtrl.text = lastName;
+      _mobileCtrl.text = fullPhone.isNotEmpty ? fullPhone : phoneDigits;
+      _emailCtrl.text = (customer['email'] ?? '').toString();
+      _firstNameError = null;
+      _lastNameError = null;
+    });
+  }
+
+  void _clearCustomerSelection() {
+    setState(() {
+      _clientIdCtrl.clear();
+      _clientfNameCtrl.clear();
+      _clientlNameCtrl.clear();
+      _mobileCtrl.clear();
+      _emailCtrl.clear();
+      _firstNameError = null;
+      _lastNameError = null;
+    });
+  }
+
+  int _totalSelectedDurationMinutes() {
+    var total = 0;
+    for (final service in _selectedServices) {
+      final duration = service['durationMin'];
+      if (duration is int) {
+        total += duration;
+      } else if (duration is num) {
+        total += duration.toInt();
+      }
+    }
+    return total;
+  }
+
+  List<Map<String, dynamic>> _membersForService(int serviceId) {
+    final members = <Map<String, dynamic>>[];
+    final currentBranchId = widget.branchId;
+
+    for (final member in _teamMembers) {
+      final branches = member['userBranches'] as List? ?? const [];
+      for (final entry in branches) {
+        if (entry is! Map) continue;
+        final branchEntry = Map<String, dynamic>.from(entry);
+        final branch = branchEntry['branch'];
+        final branchMap =
+            branch is Map ? Map<String, dynamic>.from(branch) : {};
+        final branchId = branchMap['id'] is int
+            ? branchMap['id'] as int
+            : int.tryParse('${branchMap['id'] ?? ''}');
+        if (currentBranchId != null && branchId != currentBranchId) continue;
+
+        final services = branchEntry['userBranchServices'] as List? ?? const [];
+        final hasService = services.any((item) {
+          if (item is! Map) return false;
+          final branchService = item['branchService'];
+          if (branchService is! Map) return false;
+          final id = branchService['id'];
+          if (id is int) return id == serviceId;
+          if (id is num) return id.toInt() == serviceId;
+          return int.tryParse('$id') == serviceId;
+        });
+        if (!hasService) continue;
+
+        final name =
+            "${member['firstName'] ?? ''} ${member['lastName'] ?? ''}".trim();
+        final userBranchId = branchEntry['id'] is int
+            ? branchEntry['id'] as int
+            : int.tryParse('${branchEntry['id'] ?? ''}') ??
+                (member['id'] is int
+                    ? member['id'] as int
+                    : int.tryParse('${member['id'] ?? ''}'));
+        if (name.isEmpty || userBranchId == null) continue;
+
+        members.add({
+          'label': name,
+          'userBranchId': userBranchId,
+        });
+        break;
+      }
+    }
+
+    return members;
+  }
+
+  void _syncEndTimeWithDuration() {
+    final start = _startTime;
+    if (start == null) return;
+
+    final totalDuration = _totalSelectedDurationMinutes();
+    final startMinutes = _toMinutes(start);
+    final computedEndMinutes = startMinutes + totalDuration;
+    final branchEndMinutes =
+        _branchEndTime == null ? null : _toMinutes(_branchEndTime!);
+
+    if (branchEndMinutes != null && computedEndMinutes > branchEndMinutes) {
+      _endTime = null;
+      return;
+    }
+
+    _endTime = TimeOfDay(
+      hour: (computedEndMinutes ~/ 60) % 24,
+      minute: computedEndMinutes % 60,
     );
   }
 
-// Show Customer details modal
-  void _showCustomerDetails(Map<String, dynamic> customer) {
-    showDialog(
+  String _branchTimingLabel() {
+    if (_branchStartTime == null || _branchEndTime == null) {
+      return '';
+    }
+    return '${_formatTimeOfDay(_branchStartTime)} - ${_formatTimeOfDay(_branchEndTime)}';
+  }
+
+  void _upsertBranchClientCache(Map<String, dynamic> customer) {
+    if (customer.isEmpty) return;
+    final id = (customer['id'] ?? '').toString().trim();
+    final phone = _digitsOnly(
+      (customer['phoneNumber'] ?? customer['fullPhoneNumber'] ?? '').toString(),
+    );
+    final matchIndex = _branchClientsCache.indexWhere((existing) {
+      final existingId = (existing['id'] ?? '').toString().trim();
+      final existingPhone = _digitsOnly(
+        (existing['phoneNumber'] ?? existing['fullPhoneNumber'] ?? '')
+            .toString(),
+      );
+      return (id.isNotEmpty && existingId == id) ||
+          (phone.isNotEmpty && existingPhone == phone);
+    });
+
+    if (matchIndex >= 0) {
+      _branchClientsCache[matchIndex] = customer;
+    } else {
+      _branchClientsCache.insert(0, customer);
+    }
+  }
+
+  Future<void> _showOtpBox(
+    String phone, {
+    required String firstName,
+    required String lastName,
+  }) async {
+    final otpCtrl = TextEditingController();
+    bool isVerifying = false;
+
+    await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(translateText("Customer Found")),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text("ID: ${customer['id']}"),
-            Text("First Name: ${customer['firstName']}"),
-            Text("Last Name: ${customer['lastName']}"),
-            Text("Email: ${customer['email']}"),
-            Text("Phone: ${customer['fullPhoneNumber']}"),
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(translateText("Verify OTP")),
+          content: TextField(
+            controller: otpCtrl,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: InputDecoration(
+              hintText: translateText("Enter 6-digit OTP"),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isVerifying ? null : () => Navigator.pop(ctx),
+              child: Text(translateText("Cancel")),
+            ),
+            TextButton(
+              onPressed: isVerifying
+                  ? null
+                  : () async {
+                      final otp = otpCtrl.text.trim();
+                      if (otp.length != 6) {
+                        _showError(translateText("Enter 6-digit OTP"));
+                        return;
+                      }
+
+                      setDialogState(() => isVerifying = true);
+                      try {
+                        final response =
+                            await ApiService().verifyOTP(phone, otp);
+                        Map<String, dynamic> customer = {};
+                        final data = response['data'];
+                        if (data is Map) {
+                          customer = _normalizeCustomer(data);
+                        }
+                        if (customer.isEmpty && widget.branchId != null) {
+                          final clientsResponse = await ApiService()
+                              .getBranchClients(widget.branchId!);
+                          final clients =
+                              _extractBranchClients(clientsResponse['data']);
+                          customer = clients.firstWhere(
+                            (item) =>
+                                _digitsOnly(
+                                  (item['phoneNumber'] ??
+                                          item['fullPhoneNumber'] ??
+                                          '')
+                                      .toString(),
+                                ) ==
+                                phone,
+                            orElse: () => <String, dynamic>{},
+                          );
+                        }
+                        _fillCustomerFields(
+                          customer,
+                          fallbackPhone: phone,
+                          fallbackFirstName: firstName,
+                          fallbackLastName: lastName,
+                        );
+                        _upsertBranchClientCache({
+                          ...customer,
+                          if (!customer.containsKey('phoneNumber'))
+                            'phoneNumber': phone,
+                          if (!customer.containsKey('firstName'))
+                            'firstName': firstName,
+                          if (!customer.containsKey('lastName'))
+                            'lastName': lastName,
+                        });
+                        if (!mounted) return;
+                        Navigator.pop(ctx);
+                      } catch (e) {
+                        _showError(e.toString());
+                      } finally {
+                        if (ctx.mounted) {
+                          setDialogState(() => isVerifying = false);
+                        }
+                      }
+                    },
+              child: isVerifying
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(translateText("Verify")),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // ✅ Fill controllers when OK is pressed
-              setState(() {
-                _clientIdCtrl.text = (customer['id'] ?? '').toString();
-                _clientfNameCtrl.text =
-                    (customer['firstName'] ?? '').toString();
-                _clientlNameCtrl.text = (customer['lastName'] ?? '').toString();
-                _mobileCtrl.text =
-                    (customer['fullPhoneNumber'] ?? '').toString();
-                _emailCtrl.text =
-                    customer['email'] != null ? customer['email'] : '';
-              });
-
-              Navigator.pop(ctx); // close modal
-            },
-            child: Text(translateText("OK")),
-          ),
-        ],
       ),
     );
   }
 
-// Show OTP entry modal
-  void _showOtpBox(String phone, String countryCode) {
-    final otpCtrl = TextEditingController();
-    showDialog(
+  Future<void> _showAddCustomerModal({String initialPhone = ''}) async {
+    final phoneCtrl = TextEditingController(text: _digitsOnly(initialPhone));
+    final firstCtrl = TextEditingController();
+    final lastCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(translateText("Enter OTP")),
-        content: TextField(
-          controller: otpCtrl,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          decoration: InputDecoration(
-            hintText: translateText("Enter 6-digit OTP"),
-            border: OutlineInputBorder(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Text(translateText("Add New Customer")),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520, maxHeight: 360),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: firstCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      hintText: translateText("First Name"),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: lastCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      hintText: translateText("Last Name"),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    maxLength: 10,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: InputDecoration(
+                      hintText: translateText("Phone Number"),
+                      border: const OutlineInputBorder(),
+                      counterText: '',
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+              child: Text(translateText("Cancel")),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final firstName = firstCtrl.text.trim();
+                      final lastName = lastCtrl.text.trim();
+                      final phone = _digitsOnly(phoneCtrl.text.trim());
+                      if (firstName.isEmpty || lastName.isEmpty) {
+                        _showError(translateText(
+                            "First name and last name are required"));
+                        return;
+                      }
+                      if (phone.length != 10) {
+                        _showError(translateText("Enter a valid phone number"));
+                        return;
+                      }
+                      setDialogState(() => isSubmitting = true);
+                      try {
+                        await ApiService().registerCustomer(
+                          phoneNumber: phone,
+                          firstName: firstName,
+                          lastName: lastName,
+                        );
+                        if (!mounted) return;
+                        Navigator.pop(ctx);
+                        await _showOtpBox(
+                          phone,
+                          firstName: firstName,
+                          lastName: lastName,
+                        );
+                      } catch (e) {
+                        _showError(e.toString());
+                      } finally {
+                        if (ctx.mounted) {
+                          setDialogState(() => isSubmitting = false);
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: Colors.white,
+              ),
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(translateText("Continue")),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              print("➡️ OTP entered: ${otpCtrl.text}");
-              Navigator.pop(ctx);
-            },
-            child: Text(translateText("Verify")),
-          ),
-        ],
+      ),
+    );
+  }
+
+  Future<void> _showCustomerSearch() async {
+    if (widget.branchId == null) return;
+
+    List<Map<String, dynamic>> clients = [];
+    try {
+      final response = await ApiService().getBranchClients(widget.branchId!);
+      clients = _extractBranchClients(response['data']);
+      for (final customer in _branchClientsCache) {
+        final normalized = _normalizeCustomer(customer);
+        final id = (normalized['id'] ?? '').toString().trim();
+        final phone = _digitsOnly(
+          (normalized['phoneNumber'] ?? normalized['fullPhoneNumber'] ?? '')
+              .toString(),
+        );
+        final alreadyExists = clients.any((existing) {
+          final existingId = (existing['id'] ?? '').toString().trim();
+          final existingPhone = _digitsOnly(
+            (existing['phoneNumber'] ?? existing['fullPhoneNumber'] ?? '')
+                .toString(),
+          );
+          return (id.isNotEmpty && existingId == id) ||
+              (phone.isNotEmpty && existingPhone == phone);
+        });
+        if (!alreadyExists) {
+          clients.insert(0, normalized);
+        }
+      }
+      _branchClientsCache = List<Map<String, dynamic>>.from(clients);
+    } catch (e) {
+      _showError(e.toString());
+    }
+    if (!mounted) return;
+
+    final searchCtrl = TextEditingController();
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final query = searchCtrl.text.trim().toLowerCase();
+          final queryDigits = _digitsOnly(query);
+          final filteredClients = clients.where((client) {
+            if (query.isEmpty) return true;
+            final firstName =
+                (client['firstName'] ?? '').toString().toLowerCase();
+            final lastName =
+                (client['lastName'] ?? '').toString().toLowerCase();
+            final phone = _digitsOnly(
+              (client['phoneNumber'] ?? client['fullPhoneNumber'] ?? '')
+                  .toString(),
+            );
+            return firstName.contains(query) ||
+                lastName.contains(query) ||
+                phone.contains(queryDigits);
+          }).toList();
+
+          return Dialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: SizedBox(
+              width: 520,
+              height: 420,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      translateText("Select Customer"),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: searchCtrl,
+                      onChanged: (_) => setDialogState(() {}),
+                      decoration: InputDecoration(
+                        hintText: translateText("Search customer..."),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (filteredClients.isNotEmpty) ...[
+                      Text(
+                        translateText("Existing Customers"),
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: filteredClients.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (_, index) {
+                            final customer = filteredClients[index];
+                            final name =
+                                "${customer['firstName'] ?? ''} ${customer['lastName'] ?? ''}"
+                                    .trim();
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                name.isEmpty
+                                    ? translateText("Unnamed customer")
+                                    : name,
+                              ),
+                              subtitle: Text(_customerDisplayPhone(customer)),
+                              onTap: () {
+                                _fillCustomerFields(customer);
+                                _upsertBranchClientCache(customer);
+                                Navigator.pop(ctx);
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ] else ...[
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: Text(
+                            translateText("No existing customer found"),
+                            style: TextStyle(color: Colors.grey.shade700),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await _showAddCustomerModal(
+                              initialPhone: queryDigits);
+                        },
+                        icon: const Icon(Icons.add_circle_outline),
+                        label: Text(translateText("Add New Customer")),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(translateText("Cancel")),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -499,17 +965,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           _selectedServiceId = v;
           _selectedServiceName = name;
           _staffRole = name;
-
-          // Show prompt to select professional
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(translateText('Select Professional for {name}',
-                    params: {'name': name}))),
-          );
         }
 
         // ✅ Clear the service error when user selects/deselects a service
         _serviceError = null;
+        _professionalError = null;
+        _syncEndTimeWithDuration();
       });
     }
   }
@@ -532,16 +993,13 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       if (priceText.isNotEmpty) priceText,
     ].join(' • ');
 
-    final bool isActive = _selectedServiceId == svcId;
     final bool isSelected =
         _selectedServices.any((e) => (e['id'] as int) == svcId);
 
-    // Icon logic: active > selected > none
-    final Widget trailing = isActive
-        ? Icon(Icons.radio_button_checked, color: Colors.orange)
-        : (isSelected
-            ? Icon(Icons.check_box, color: Colors.grey)
-            : Icon(Icons.check_box_outline_blank, color: Colors.grey));
+    final Widget trailing = Icon(
+      isSelected ? Icons.check_box : Icons.check_box_outline_blank,
+      color: isSelected ? Colors.orange : Colors.grey,
+    );
 
     return Padding(
       padding: EdgeInsets.only(left: leftPad),
@@ -612,6 +1070,20 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return map;
   }
 
+  int? _resolveAssignedUserBranchId(int serviceId) {
+    final selectedProfessional = _professionalByService[serviceId];
+    if (selectedProfessional == null || selectedProfessional.isEmpty) {
+      return null;
+    }
+
+    for (final option in _membersForService(serviceId)) {
+      if (option['label'] == selectedProfessional) {
+        return option['userBranchId'] as int?;
+      }
+    }
+    return null;
+  }
+
   double get _servicesTotal {
     double sum = 0;
     for (final s in _selectedServices) {
@@ -649,26 +1121,33 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   Future<void> _pickTime({required bool isStart}) async {
-    final initialTime = (isStart ? _startTime : _endTime) ??
-        const TimeOfDay(hour: 9, minute: 0);
+    if (!isStart) return;
+
+    final initialTime =
+        _startTime ?? _branchStartTime ?? const TimeOfDay(hour: 9, minute: 0);
     final picked =
         await showTimePicker(context: context, initialTime: initialTime);
     if (picked != null) {
+      final pickedMinutes = _toMinutes(picked);
+      final branchStartMinutes =
+          _branchStartTime == null ? null : _toMinutes(_branchStartTime!);
+      final branchEndMinutes =
+          _branchEndTime == null ? null : _toMinutes(_branchEndTime!);
+      final computedEndMinutes =
+          pickedMinutes + _totalSelectedDurationMinutes();
+
+      if (branchStartMinutes != null && pickedMinutes < branchStartMinutes) {
+        _showError(translateText('Start time must be within branch timings'));
+        return;
+      }
+      if (branchEndMinutes != null && computedEndMinutes > branchEndMinutes) {
+        _showError(translateText('Selected time exceeds branch timings'));
+        return;
+      }
+
       setState(() {
-        if (isStart) {
-          _startTime = picked;
-          // Ensure end >= start
-          if (_endTime != null) {
-            final s = _toMinutes(_startTime!);
-            final e = _toMinutes(_endTime!);
-            if (e <= s) {
-              _endTime = TimeOfDay(
-                  hour: picked.hour, minute: (picked.minute + 30) % 60);
-            }
-          }
-        } else {
-          _endTime = picked;
-        }
+        _startTime = picked;
+        _syncEndTimeWithDuration();
       });
     }
   }
@@ -690,56 +1169,48 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       });
     }
 
-    final missing = _selectedServices
-        .where((s) => !_professionalByService.containsKey(s['id']))
-        .map((s) => (s['name'] ?? '').toString())
-        .toList();
-    if (missing.isNotEmpty) {
-      setState(() {
-        _professionalError = translateText(
-            'Professional is required for: {items}',
-            params: {'items': missing.join(', ')});
-      });
-      // _showError('Please select Professional for: ${missing.join(", ")}');
-      return;
-    } else {
-      setState(() {
-        _professionalError = null;
-      });
-    }
-
     if (_selectedDate == null) {
       _showError(translateText('Please select a date'));
+      return;
+    }
+    final userId = int.tryParse(_clientIdCtrl.text.trim());
+    if (userId == null) {
+      _showError(translateText('Please select or verify a customer first'));
       return;
     }
     if (_startTime == null || _endTime == null) {
       _showError(translateText('Please select start and end time'));
       return;
     }
-
-    // build startAt (ISO date + start time)
-    final startDateTime = DateTime(
-      _selectedDate!.year,
-      _selectedDate!.month,
-      _selectedDate!.day,
-      _startTime!.hour,
-      _startTime!.minute,
-    );
+    if (_selectedServices.any(
+      (service) => (_professionalByService[service['id'] as int] ?? '').isEmpty,
+    )) {
+      setState(() {
+        _professionalError =
+            translateText('Please select team member for every service');
+      });
+      _showError(translateText('Please select team member for every service'));
+      return;
+    }
 
     final payload = {
-      "userId": int.tryParse(_clientIdCtrl.text.trim()) ?? 0,
-      "startAt": startDateTime.toIso8601String(),
+      "userId": userId,
+      "date": DateFormat('yyyy-MM-dd').format(_selectedDate!),
+      "startAt":
+          '${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}',
+      "endAt":
+          '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}',
       "services": _selectedServices.map((s) {
         return {
           "branchServiceId": s['id'],
-          "assignedUserBranchId": 0, // update if you have staff assignment
+          "assignedUserBranchId": _resolveAssignedUserBranchId(s['id'] as int),
         };
       }).toList(),
     };
     print("Booking payload: $payload");
     try {
       final result =
-          await ApiService().createAppointment(widget.branchId!, payload);
+          await ApiService().createManualBooking(widget.branchId!, payload);
 
       print("✅ Appointment Created: $result");
 
@@ -760,29 +1231,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final matched = _filterMembersByServices();
-    final List<String> proItems = _loadingMembers
-        ? <String>[]
-        : (() {
-            final names = matched
-                .map((m) => "${m['firstName']} ${m['lastName'] ?? ''}".trim())
-                .toList();
-            // Always include "Any" at the top
-            return <String>[translateText('Any'), ...names];
-          })();
-
-    final proHint = _loadingMembers
-        ? translateText('Loading...')
-        : (_selectedServiceId == null
-            ? translateText('Choose')
-            : (proItems.length == 1 && proItems.first != 'Any'
-                ? translateText('Choose')
-                : translateText('Choose / Any')));
-
-    // Chips should show only for services that already have a professional
-    final chipServices = _selectedServices
-        .where((s) => _professionalByService.containsKey(s['id']))
-        .toList();
+    final chipServices = _selectedServices;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -820,153 +1269,100 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 // ),
                 // SizedBox(height: 16),
 
-                // Full-width outlined button with custom plus icon
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: _showCustomerSearch,
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: Colors.white, // white inside
-                      side: const BorderSide(
-                          color: Colors.grey, width: 1.5), // grey border
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 10), // reduced height
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20), // more rounded
-                      ),
+                if (_hasCustomerDetails)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFD1D5DB)),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Image.asset(
-                          'assets/images/plusIcn.png',
-                          width: 20,
-                          height: 20,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                [
+                                  _clientfNameCtrl.text.trim(),
+                                  _clientlNameCtrl.text.trim(),
+                                ].where((part) => part.isNotEmpty).join(' '),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              if (_mobileCtrl.text.trim().isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  _mobileCtrl.text.trim(),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                        SizedBox(width: 8),
-                        Text(
-                          translateText("Add Customer"),
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                        const SizedBox(width: 12),
+                        InkWell(
+                          onTap: _clearCustomerSelection,
+                          borderRadius: BorderRadius.circular(999),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.close,
+                              size: 18,
+                              color: Colors.redAccent,
+                            ),
                           ),
                         ),
                       ],
                     ),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _showCustomerSearch,
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.grey, width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Image.asset(
+                            'assets/images/plusIcn.png',
+                            width: 20,
+                            height: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            translateText("Add Customer"),
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                SizedBox(height: 16),
-                //ID
-                // const _FieldLabel('Customer ID'),
-                // TextFormField(
-                //   controller: _clientIdCtrl,
-                //   decoration: _inputDecoration('Customer ID'),
-                //   validator: (v) =>
-                //       (v == null || v.trim().isEmpty) ? 'Required' : null,
-                // ),
-                // SizedBox(height: 16),
-                // Client Name (First + Last side by side)
-                Row(
-                  children: [
-                    // First Name
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _FieldLabel(translateText('First Name *')),
-                          // First Name
-                          TextFormField(
-                            controller: _clientfNameCtrl,
-                            keyboardType: TextInputType.text,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration:
-                                _inputDecoration(translateText('First name'))
-                                    .copyWith(
-                              errorText: _firstNameError,
-                            ),
-                            // ✅ Do NOT return '', we handle the text manually for inline display
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                _firstNameError =
-                                    translateText('First Name is required');
-                                return null; // let errorText handle it
-                              }
-                              _firstNameError = null;
-                              return null;
-                            },
-                            onChanged: (value) {
-                              // ✅ Only clear validation error when user types non-empty
-                              if (value.trim().isNotEmpty &&
-                                  _firstNameError != null) {
-                                setState(() => _firstNameError = null);
-                              }
-
-                              // Auto-capitalize first letter(s)
-                              final capitalized = capitalizeFirstLetter(value);
-                              if (value != capitalized) {
-                                _clientfNameCtrl.value =
-                                    _clientfNameCtrl.value.copyWith(
-                                  text: capitalized,
-                                  selection: TextSelection.collapsed(
-                                      offset: capitalized.length),
-                                );
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: 12), // spacing between fields
-                    // Last Name
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _FieldLabel(translateText('Last Name *')),
-                          // Last Name
-                          TextFormField(
-                            controller: _clientlNameCtrl,
-                            keyboardType: TextInputType.text,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration:
-                                _inputDecoration(translateText('Last name'))
-                                    .copyWith(
-                              errorText: _lastNameError,
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) {
-                                _lastNameError =
-                                    translateText('Last Name is required');
-                                return null; // handled manually
-                              }
-                              _lastNameError = null;
-                              return null;
-                            },
-                            onChanged: (value) {
-                              if (value.trim().isNotEmpty &&
-                                  _lastNameError != null) {
-                                setState(() => _lastNameError = null);
-                              }
-
-                              final capitalized = capitalizeFirstLetter(value);
-                              if (value != capitalized) {
-                                _clientlNameCtrl.value =
-                                    _clientlNameCtrl.value.copyWith(
-                                  text: capitalized,
-                                  selection: TextSelection.collapsed(
-                                      offset: capitalized.length),
-                                );
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
 
                 // Mobile
                 // const _FieldLabel('Mobile Number *'),
@@ -989,167 +1385,199 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 // ),
                 // SizedBox(height: 16),
 
-                // Service (hierarchical) + Professional (per active service)
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Left: Services *
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _FieldLabel(translateText('Services *')),
-                          InkWell(
-                            onTap: _loadingServices || _svcTree.isEmpty
-                                ? null
-                                : _showServicePicker,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Row(
-                                children: [
-                                  // Icon(Icons.design_services, size: 18),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _selectedServiceId == null
-                                          ? translateText('Choose')
-                                          : (_branchServices.firstWhere((e) =>
-                                                  e['id'] ==
-                                                  _selectedServiceId)['path']
-                                              as String),
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ),
-                                  Icon(Icons.keyboard_arrow_down),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (_serviceError != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6, left: 4),
+                    _FieldLabel(translateText('Services *')),
+                    InkWell(
+                      onTap: _loadingServices || _svcTree.isEmpty
+                          ? null
+                          : _showServicePicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 8),
+                            Expanded(
                               child: Text(
-                                _serviceError!,
-                                style: const TextStyle(
-                                    color: Colors.red, fontSize: 12),
+                                _selectedServiceId == null
+                                    ? translateText('Choose')
+                                    : (_branchServices.firstWhere((e) =>
+                                        e['id'] ==
+                                        _selectedServiceId)['path'] as String),
+                                style: const TextStyle(fontSize: 16),
                               ),
                             ),
-                        ],
+                            const Icon(Icons.keyboard_arrow_down),
+                          ],
+                        ),
                       ),
                     ),
-                    SizedBox(width: 12),
-
-                    // Right: Professional * (applies to ACTIVE service)
-                    // Expanded(
-                    //   child: Column(
-                    //     crossAxisAlignment: CrossAxisAlignment.start,
-                    //     children: [
-                    //       const _FieldLabel('Professional *'),
-                    //       _Dropdown<String>(
-                    //         value: _activeProfessional,
-                    //         hint: proHint,
-                    //         items: proItems,
-                    //         // If no active service or members loading, disable change
-                    //         onChanged:
-                    //             (_selectedServiceId == null || _loadingMembers)
-                    //                 ? (_) {}
-                    //                 : (v) {
-                    //                     if (v == null) return;
-                    //                     setState(() {
-                    //                       _professionalByService[_selectedServiceId!] = v;
-                    //                     });
-                    //                   },
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _FieldLabel(translateText('Professional *')),
-                          _Dropdown<String>(
-                            value: _activeProfessional,
-                            hint: proHint,
-                            items: proItems,
-                            onChanged:
-                                (_selectedServiceId == null || _loadingMembers)
-                                    ? (_) {}
-                                    : (v) {
-                                        if (v == null) return;
-                                        setState(() {
-                                          _professionalByService[
-                                              _selectedServiceId!] = v;
-                                        });
-                                      },
-                          ),
-                          if (_professionalError != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6, left: 4),
-                              child: Text(
-                                _professionalError!,
-                                style: const TextStyle(
-                                    color: Colors.red, fontSize: 12),
-                              ),
-                            ),
-                        ],
+                    if (_serviceError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6, left: 4),
+                        child: Text(
+                          _serviceError!,
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 12),
+                        ),
                       ),
-                    ),
                   ],
                 ),
 
-                // SHOW CHIPS: only for services which already have a professional
                 if (chipServices.isNotEmpty) ...[
                   SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: -8,
-                    children: chipServices.map((s) {
-                      final id = s['id'] as int;
-                      final name = (s['name'] ?? '').toString();
-                      final qty = (s['qty'] ?? 1) as int;
-                      final dur = s['durationMin'] != null
-                          ? '${s['durationMin']}m'
-                          : '';
-                      final price = s['price'] != null ? '₹${s['price']}' : '';
-                      final pro = _professionalByService[id] ?? '';
-                      final meta = [
-                        if (dur.isNotEmpty) dur,
-                        if (price.isNotEmpty) price,
-                        if (pro.isNotEmpty) pro,
-                      ].join(' • ');
+                  ...chipServices.map((s) {
+                    final id = s['id'] as int;
+                    final name = (s['name'] ?? '').toString();
+                    final dur = s['durationMin'] != null
+                        ? '${s['durationMin']} min'
+                        : '';
+                    final price = s['price'] != null ? 'Rs ${s['price']}' : '';
+                    final members = _membersForService(id);
+                    final selectedMember = _professionalByService[id];
 
-                      return Chip(
-                        label: Text(
-                          meta.isEmpty
-                              ? '$name x$qty'
-                              : '$name x$qty  —  $meta',
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      [
+                                        if (dur.isNotEmpty) dur,
+                                        if (price.isNotEmpty) price,
+                                      ].join(', '),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF6B7280),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedServices.removeWhere(
+                                      (e) => e['id'] == id,
+                                    );
+                                    _professionalByService.remove(id);
+                                    _syncEndTimeWithDuration();
+
+                                    if (_selectedServiceId == id) {
+                                      _selectedServiceId = _selectedServices
+                                              .isNotEmpty
+                                          ? _selectedServices.last['id'] as int
+                                          : null;
+                                      _selectedServiceName =
+                                          _selectedServices.isNotEmpty
+                                              ? _selectedServices.last['name']
+                                                  as String
+                                              : null;
+                                      _staffRole = _selectedServiceName;
+                                    }
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(999),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: selectedMember,
+                                isExpanded: true,
+                                hint: Text(translateText('Select Team Member')),
+                                items: members
+                                    .map(
+                                      (member) => DropdownMenuItem<String>(
+                                        value: member['label'] as String,
+                                        child: Text(member['label'] as String),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    if (value == null) {
+                                      _professionalByService.remove(id);
+                                    } else {
+                                      _professionalByService[id] = value;
+                                    }
+                                    _professionalError = null;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                          if (members.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8, left: 4),
+                              child: Text(
+                                translateText('No team members found'),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFFEF4444),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                  if (_professionalError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4, left: 4),
+                      child: Text(
+                        _professionalError!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
                         ),
-                        onDeleted: () {
-                          setState(() {
-                            _selectedServices.removeWhere((e) => e['id'] == id);
-                            _professionalByService.remove(id);
-
-                            if (_selectedServiceId == id) {
-                              _selectedServiceId = _selectedServices.isNotEmpty
-                                  ? _selectedServices.last['id'] as int
-                                  : null;
-                              _selectedServiceName =
-                                  _selectedServices.isNotEmpty
-                                      ? _selectedServices.last['name'] as String
-                                      : null;
-                              _staffRole = _selectedServiceName;
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
+                      ),
+                    ),
                 ],
 
                 SizedBox(height: 20),
@@ -1191,7 +1619,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 ),
                 SizedBox(height: 12),
 
-                // Start / End time
+                if (_branchTimingLabel().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      '${translateText('Branch timings')}: ${_branchTimingLabel()}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF6B7280),
+                      ),
+                    ),
+                  ),
+
                 Row(
                   children: [
                     Expanded(
@@ -1216,8 +1655,11 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _FieldLabel(translateText('End Time *')),
-                          InkWell(
-                            onTap: () => _pickTime(isStart: false),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                             child: _TimeBox(
                               text: _endTime == null
                                   ? translateText('End Time')
@@ -1231,6 +1673,42 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 ),
 
                 SizedBox(height: 24),
+                if (chipServices.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Text(translateText('Total Duration')),
+                            const Spacer(),
+                            Text('${_totalSelectedDurationMinutes()} min'),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(translateText('Total Price')),
+                            const Spacer(),
+                            Text(
+                                'Rs ${chipServices.fold<num>(0, (sum, service) {
+                              final price = service['price'];
+                              return sum + ((price is num) ? price : 0);
+                            })}'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                if (chipServices.isNotEmpty) const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

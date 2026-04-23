@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // For formatting date/time
-import 'AddTeam.dart'; // Import AddTeam screen to navigate back
 import 'SalonTeams.dart'; // Import TeamMember screen to navigate to
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
-import 'package:flutter/services.dart';
 import 'AddTeamSelectServices.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../widgets/multi_step_flow_header.dart';
 
 class AddTeamChooseTimeSlot extends StatefulWidget {
   final Map<String, dynamic> formData;
@@ -39,6 +38,54 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       'Sunday': [],
     };
     mondaySchedule = {}; // Initializing Monday's schedule separately
+    _prefillSchedules();
+  }
+
+  String _normalizeDisplayTime(String input) {
+    final text = input.trim();
+    if (text.isEmpty) return '08:00 AM';
+    final twelveMatch =
+        RegExp(r'^(\d{1,2}):(\d{2})\s*([AP]M)$', caseSensitive: false)
+            .firstMatch(text);
+    if (twelveMatch != null) {
+      final hour = int.parse(twelveMatch.group(1)!);
+      final minute = int.parse(twelveMatch.group(2)!);
+      final suffix = twelveMatch.group(3)!.toUpperCase();
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
+    }
+
+    final twentyFourWithSeconds =
+        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    if (twentyFourWithSeconds != null) {
+      final hour = int.parse(twentyFourWithSeconds.group(1)!);
+      final minute = int.parse(twentyFourWithSeconds.group(2)!);
+      final suffix = hour >= 12 ? 'PM' : 'AM';
+      final hour12 = ((hour + 11) % 12) + 1;
+      return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
+    }
+    return '08:00 AM';
+  }
+
+  void _prefillSchedules() {
+    final rawSchedules = widget.formData['schedules'];
+    if (rawSchedules is! List || rawSchedules.isEmpty) return;
+
+    for (final raw in rawSchedules.whereType<Map>()) {
+      final day = (raw['day'] ?? '').toString().trim().toLowerCase();
+      if (day.isEmpty) continue;
+      final normalizedDay = '${day[0].toUpperCase()}${day.substring(1)}';
+      if (!weeklySchedule.containsKey(normalizedDay)) continue;
+      weeklySchedule[normalizedDay] = [
+        {
+          'start': _normalizeDisplayTime(
+            (raw['startTime'] ?? raw['start'] ?? '').toString(),
+          ),
+          'end': _normalizeDisplayTime(
+            (raw['endTime'] ?? raw['end'] ?? '').toString(),
+          ),
+        },
+      ];
+    }
   }
 
   // Method to add a slot to a specific day
@@ -291,6 +338,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
       // Build the same payload you used for the API
       final Map<String, dynamic> teamMemberData = {
+        "isEdit": widget.formData['isEdit'] == true,
+        "userId": widget.formData['userId'],
         "phoneNumber": widget.formData['phoneNumber'],
         "firstName": widget.formData['firstName'],
         "lastName": widget.formData['lastName'],
@@ -303,6 +352,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "schedules": scheduleData,
         "useSalonHours": _useSalonHours,
         "otp": widget.formData['otp']?.toString(),
+        "allowOnlineBooking": widget.formData['allowOnlineBooking'] ?? true,
+        "branchServiceIds": widget.formData['branchServiceIds'] ?? const [],
+        "address": widget.formData['address'],
         "branchId": widget.formData['branchId'],
         // If you also need to pass the original form data (e.g., image file), include it:
         "profilePictureUrl": widget.formData['profilePictureUrl'],
@@ -400,6 +452,19 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                MultiStepFlowHeader(
+                  currentStep: 2,
+                  steps: const [
+                    FlowStepItem(stepNumber: 1, label: 'Personal Details'),
+                    FlowStepItem(stepNumber: 2, label: 'Schedule'),
+                    FlowStepItem(stepNumber: 3, label: 'Services'),
+                    FlowStepItem(
+                      stepNumber: 4,
+                      label: 'Online Availability',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
                 Text(
                   translateText('Set Weekly Working Hours'),
                   style: TextStyle(

@@ -13,7 +13,9 @@ class AddBranchFormData {
     required this.startTime,
     required this.endTime,
     required this.description,
+    required this.schedule,
     this.imageUrl,
+    this.sourceBranchId,
   });
 
   final String name;
@@ -21,7 +23,9 @@ class AddBranchFormData {
   final String startTime;
   final String endTime;
   final String description;
+  final Map<String, List<Map<String, String>>> schedule;
   final String? imageUrl;
+  final int? sourceBranchId;
 }
 
 class AddBranchCubit extends Cubit<AddBranchState> {
@@ -97,11 +101,13 @@ class AddBranchCubit extends Cubit<AddBranchState> {
         startTime: formData.startTime,
         endTime: formData.endTime,
         description: formData.description,
+        schedule: formData.schedule,
         address: address.toJson(),
         latitude: address.latitude,
         longitude: address.longitude,
         images: state.images,
         imageUrl: formData.imageUrl,
+        sourceBranchId: formData.sourceBranchId,
       );
 
       emit(

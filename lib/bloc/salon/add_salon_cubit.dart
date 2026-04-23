@@ -14,7 +14,8 @@ class AddSalonFormData {
     required this.startTime,
     required this.endTime,
     required this.description,
-     this.imageUrl,
+    required this.schedule,
+    this.imageUrl,
   });
 
   final String name;
@@ -22,13 +23,15 @@ class AddSalonFormData {
   final String startTime;
   final String endTime;
   final String description;
-   final String? imageUrl;
+  final Map<String, List<Map<String, String>>> schedule;
+  final String? imageUrl;
 }
 
 class AddSalonCubit extends Cubit<AddSalonState> {
   AddSalonCubit(this._repository) : super(const AddSalonState());
 
   final SalonRepository _repository;
+  SalonRepository get repository => _repository;
 
   Future<void> loadSavedPhone({String? initialPhone}) async {
     if (initialPhone != null && initialPhone.isNotEmpty) {
@@ -63,10 +66,11 @@ class AddSalonCubit extends Cubit<AddSalonState> {
       );
     }
   }
-void removeImage(File image) {
-  final updated = List<File>.from(state.images)..remove(image);
-  emit(state.copyWith(images: updated));
-}
+
+  void removeImage(File image) {
+    final updated = List<File>.from(state.images)..remove(image);
+    emit(state.copyWith(images: updated));
+  }
 
   void updateAddress(AddSalonAddress address) {
     emit(state.copyWith(address: address, status: AddSalonStatus.ready));
@@ -132,14 +136,11 @@ void removeImage(File image) {
   //     );
   //   }
   // }
- void setSubmitting(bool submitting) {
-  emit(state.copyWith(
-    status: submitting
-        ? AddSalonStatus.submitting
-        : AddSalonStatus.ready,
-  ));
-}
-
+  void setSubmitting(bool submitting) {
+    emit(state.copyWith(
+      status: submitting ? AddSalonStatus.submitting : AddSalonStatus.ready,
+    ));
+  }
 
   Future<void> submit(AddSalonFormData formData) async {
     final address = state.address;
@@ -168,6 +169,7 @@ void removeImage(File image) {
         startTime: formData.startTime,
         endTime: formData.endTime,
         description: formData.description,
+        schedule: formData.schedule,
         imageUrl: formData.imageUrl,
         buildingName: address.buildingName,
         city: address.city,
