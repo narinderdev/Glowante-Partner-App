@@ -72,6 +72,49 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return '₹${(minor / 100).toStringAsFixed(2)}';
   }
 
+  int _firstMinorValue(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final raw = source[key];
+      if (raw == null) continue;
+      if (raw is String && raw.trim().isEmpty) continue;
+      return _asInt(raw);
+    }
+    return 0;
+  }
+
+  int _completedRevenueMinor(
+    Map<String, dynamic> summary,
+    Map<String, dynamic> dashboard,
+  ) {
+    final completedKeys = [
+      'completedRevenueMinor',
+      'completedRevenue',
+      'completedBookingsRevenueMinor',
+      'completedBookingsRevenue',
+    ];
+    final fallbackKeys = [
+      'revenueMinor',
+      'revenue',
+    ];
+
+    final completedMinor = _firstMinorValue(summary, completedKeys);
+    if (completedMinor > 0) {
+      return completedMinor;
+    }
+
+    final dashboardCompletedMinor = _firstMinorValue(dashboard, completedKeys);
+    if (dashboardCompletedMinor > 0) {
+      return dashboardCompletedMinor;
+    }
+
+    final summaryRevenueMinor = _firstMinorValue(summary, fallbackKeys);
+    if (summaryRevenueMinor > 0) {
+      return summaryRevenueMinor;
+    }
+
+    return _firstMinorValue(dashboard, fallbackKeys);
+  }
+
   String _selectedSalonLabel() {
     final label = _selection.salonName.trim();
     return label.isEmpty ? translateText('All Salons') : label;
@@ -109,6 +152,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
         )
         .toList();
+    final completedRevenueMinor = _completedRevenueMinor(summary, _dashboard);
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
@@ -179,7 +223,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                       ),
                       _RevenueCard(
                         title: context.t('Completed Revenue'),
-                        value: _formatMinorCurrency(summary['revenueMinor']),
+                        value: _formatMinorCurrency(completedRevenueMinor),
                         statusCounts: bookingStatusCounts,
                       ),
                     ],
@@ -402,7 +446,7 @@ class _RevenueCard extends StatelessWidget {
         final isUltraCompact =
             constraints.maxHeight > 0 && constraints.maxHeight < 136;
         final items =
-            allItems.take(isUltraCompact ? 1 : (isCompact ? 2 : 3)).toList();
+            allItems.take(isUltraCompact ? 0 : (isCompact ? 2 : 3)).toList();
         final titleStyle = TextStyle(
           fontSize: isUltraCompact ? 9 : (isCompact ? 10 : 11),
           fontWeight: FontWeight.w700,
@@ -435,11 +479,60 @@ class _RevenueCard extends StatelessWidget {
           ),
           child: Row(
             children: [
+              // Expanded(
+              //   child: Column(
+              //     crossAxisAlignment: CrossAxisAlignment.start,
+              //     mainAxisSize: MainAxisSize.min,
+              //     mainAxisAlignment: MainAxisAlignment.center,
+              //     children: [
+              //       Text(
+              //         title.toUpperCase(),
+              //         maxLines: 1,
+              //         overflow: TextOverflow.ellipsis,
+              //         style: titleStyle,
+              //       ),
+              //       SizedBox(height: isUltraCompact ? 2 : (isCompact ? 4 : 8)),
+              //       Text(
+              //         value,
+              //         maxLines: 1,
+              //         overflow: TextOverflow.ellipsis,
+              //         style: valueStyle,
+              //       ),
+              //       SizedBox(height: isUltraCompact ? 4 : (isCompact ? 6 : 10)),
+              //       ...items.map(
+              //         (item) => Padding(
+              //           padding: EdgeInsets.only(
+              //               bottom: isUltraCompact ? 1 : (isCompact ? 2 : 4)),
+              //           child: Row(
+              //             children: [
+              //               Container(
+              //                 width: 8,
+              //                 height: 8,
+              //                 decoration: BoxDecoration(
+              //                   color: _statusColor(item.label),
+              //                   shape: BoxShape.circle,
+              //                 ),
+              //               ),
+              //               const SizedBox(width: 6),
+              //               Expanded(
+              //                 child: Text(
+              //                   '${item.label.toUpperCase()} (${item.count})',
+              //                   maxLines: 1,
+              //                   overflow: TextOverflow.ellipsis,
+              //                   style: legendStyle,
+              //                 ),
+              //               ),
+              //             ],
+              //           ),
+              //         ),
+              //       ),
+              //     ],
+              //   ),
+              // ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     Text(
                       title.toUpperCase(),
@@ -448,40 +541,56 @@ class _RevenueCard extends StatelessWidget {
                       style: titleStyle,
                     ),
                     SizedBox(height: isUltraCompact ? 2 : (isCompact ? 4 : 8)),
-                    Text(
-                      value,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: valueStyle,
-                    ),
-                    SizedBox(height: isUltraCompact ? 4 : (isCompact ? 6 : 10)),
-                    ...items.map(
-                      (item) => Padding(
-                        padding: EdgeInsets.only(
-                            bottom: isUltraCompact ? 1 : (isCompact ? 2 : 4)),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: _statusColor(item.label),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                '${item.label.toUpperCase()} (${item.count})',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: legendStyle,
-                              ),
-                            ),
-                          ],
+                    Flexible(
+                      flex: 0,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          value,
+                          style: valueStyle,
                         ),
                       ),
                     ),
+                    SizedBox(height: isUltraCompact ? 4 : (isCompact ? 6 : 10)),
+                    if (items.isNotEmpty)
+                      Expanded(
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom:
+                                    isUltraCompact ? 1 : (isCompact ? 2 : 4),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: _statusColor(item.label),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      '${item.label.toUpperCase()} (${item.count})',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: legendStyle,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                   ],
                 ),
               ),

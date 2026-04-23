@@ -35,6 +35,7 @@ class AppTranslations {
           'Are you sure you want to delete your account?',
       'Are you sure you want to log out?': 'Are you sure you want to log out?',
       'Assign User': 'Assign User',
+      'Assigned to': 'Assigned to',
       'Assigned To': 'Assigned To',
       'Branch Name *': 'Branch Name *',
       'Enter Branch Name': 'Enter Branch Name',
@@ -52,6 +53,8 @@ class AppTranslations {
       'Branch Images(Optional)': 'Branch Images(Optional)',
       'Branch added successfully': 'Branch added successfully',
       'Choose Branch': 'Choose Branch',
+      "Choose branch where you'd like to assign that team member":
+          "Choose branch where you'd like to assign that team member",
       'Brief About Member': 'Brief About Member',
       'Cancel': 'Cancel',
       'Catalog': 'Catalog',
@@ -103,6 +106,8 @@ class AppTranslations {
       'Discounted price must be greater than 0.':
           'Discounted price must be greater than 0.',
       'Done': 'Done',
+      'This team member is already assigned to every branch in this salon.':
+          'This team member is already assigned to every branch in this salon.',
       'Monday': 'Monday',
       'Tuesday': 'Tuesday',
       'Wednesday': 'Wednesday',
@@ -469,6 +474,7 @@ class AppTranslations {
       'Are you sure you want to log out?':
           'क्या आप वाकई लॉग आउट करना चाहते हैं?',
       'Assign User': 'यूज़र असाइन करें',
+      'Assigned to': 'असाइन किया गया',
       'Assigned To': 'को असाइन किया गया',
       'Back': 'वापस',
       'Become Stylish': 'स्टाइलिश बनें',
@@ -483,6 +489,8 @@ class AppTranslations {
       'Branch Images(Optional)': 'शाखा की तस्वीरें (वैकल्पिक)',
       'Branch added successfully': 'शाखा सफलतापूर्वक जोड़ी गई',
       'Choose Branch': 'शाखा चुनें',
+      "Choose branch where you'd like to assign that team member":
+          'वह शाखा चुनें जहां आप इस टीम सदस्य को असाइन करना चाहते हैं',
       'Brief About Member': 'सदस्य के बारे में संक्षेप',
       'Cancel': 'रद्द करें',
       'Catalog': 'कैटलॉग',
@@ -558,6 +566,8 @@ class AppTranslations {
       'End Time': 'समाप्ति समय',
       'Description (optional)': 'विवरण (वैकल्पिक)',
       'Details': 'विवरण',
+      'This team member is already assigned to every branch in this salon.':
+          'यह टीम सदस्य इस सैलून की हर शाखा में पहले से असाइन है।',
       'Discount Type *': 'छूट प्रकार *',
       'Discounted price must be greater than 0.':
           'रियायती मूल्य 0 से अधिक होना चाहिए।',

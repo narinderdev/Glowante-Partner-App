@@ -57,6 +57,38 @@ class AssignUserScreen extends StatefulWidget {
 class _AssignUserScreenState extends State<AssignUserScreen> {
   int? _selectedBranchId;
 
+  Set<int> _assignedBranchIds() {
+    final assignedBranchIds = <int>{};
+    final rawAssignments = widget.member['userBranches'];
+    if (rawAssignments is! List) {
+      return assignedBranchIds;
+    }
+
+    for (final assignment in rawAssignments) {
+      if (assignment is! Map) continue;
+      final branch = assignment['branch'];
+      final dynamic rawId =
+          branch is Map ? branch['id'] : assignment['branchId'];
+      final int? branchId = rawId is int
+          ? rawId
+          : rawId is num
+              ? rawId.toInt()
+              : int.tryParse('${rawId ?? ''}');
+      if (branchId != null) {
+        assignedBranchIds.add(branchId);
+      }
+    }
+
+    return assignedBranchIds;
+  }
+
+  List<Branch> get _availableBranches {
+    final assignedBranchIds = _assignedBranchIds();
+    return widget.branches
+        .where((branch) => !assignedBranchIds.contains(branch.id))
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -81,14 +113,19 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userName =
-        "${widget.member['firstName'] ?? ''} ${widget.member['lastName'] ?? ''}"
-            .trim();
     final List<dynamic> userSalons =
         (widget.member['userSalons'] ?? []) as List<dynamic>;
     final String joinedAt = userSalons.isNotEmpty
         ? (userSalons[0]['joinedAt'] ?? '').toString()
         : 'N/A';
+    final availableBranches = _availableBranches;
+    final noBranchesLeft = availableBranches.isEmpty;
+    final selectedBranchId = availableBranches.any(
+      (branch) => branch.id == _selectedBranchId,
+    )
+        ? _selectedBranchId
+        : null;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: buildProfileSubpageAppBar(
@@ -131,34 +168,64 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
             ),
 
             Text(
-              "Choose branch where you'd like to assign $userName",
+              translateText(
+                "Choose branch where you'd like to assign that team member",
+              ),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Expanded(
               child: widget.branches.isEmpty
                   ? Center(
                       child: Text(
-                          translateText("No branches found for this salon")))
-                  : ListView.builder(
-                      itemCount: widget.branches.length,
-                      itemBuilder: (_, i) {
-                        final branch = widget.branches[i];
-                        final isSelected = _selectedBranchId == branch.id;
-                        return _buildBranchCard(branch, isSelected);
-                      },
-                    ),
+                        translateText("No branches found for this salon"),
+                      ),
+                    )
+                  : noBranchesLeft
+                      ? Center(
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 28,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(14),
+                              border:
+                                  Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Text(
+                              translateText(
+                                "This team member is already assigned to every branch in this salon.",
+                              ),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: availableBranches.length,
+                          itemBuilder: (_, i) {
+                            final branch = availableBranches[i];
+                            final isSelected = selectedBranchId == branch.id;
+                            return _buildBranchCard(branch, isSelected);
+                          },
+                        ),
             ),
 
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _selectedBranchId == null
+                onPressed: noBranchesLeft || selectedBranchId == null
                     ? null
                     : () async {
-                        final branch = widget.branches
-                            .firstWhere((b) => b.id == _selectedBranchId);
+                        final branch = availableBranches
+                            .firstWhere((b) => b.id == selectedBranchId);
 
                         // Go to Step 2
                         final assigned = await Navigator.push<bool>(
@@ -176,7 +243,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
                         );
 
                         // Maintain selection after returning
-                        if (assigned == true && mounted) {
+                        if (assigned == true && context.mounted) {
                           Navigator.pop(context, true);
                         }
                       },

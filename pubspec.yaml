@@ -38,6 +38,7 @@ dependencies:
   url_launcher: ^6.3.0
   dotted_border: ^2.1.0
   flutter_svg: ^2.0.9
+  file_picker: ^8.1.7
   mobile_scanner: ^5.2.3
   pin_code_fields: ^8.0.1
   webview_flutter: ^4.7.0

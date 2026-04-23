@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/stylist_branch_selection.dart';
@@ -23,6 +28,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   int? _selectedBranchId;
   bool _isLoadingBranches = true;
   bool _isLoadingClients = false;
+  bool _isExporting = false;
   String? _errorMessage;
 
   @override
@@ -219,9 +225,344 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     }).toList();
   }
 
+  String _csvCell(String value) {
+    final escaped = value.replaceAll('"', '""');
+    return '"$escaped"';
+  }
+
+  String _formatCreatedAt(dynamic value) {
+    final raw = _cleanText(value);
+    if (raw.isEmpty) return '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return DateFormat('yyyy-MM-dd HH:mm').format(parsed.toLocal());
+  }
+
+  Future<String> _downloadsFilePath(String fileName) async {
+    final downloadsDirectory = await getDownloadsDirectory();
+    if (downloadsDirectory != null) {
+      return '${downloadsDirectory.path}/$fileName';
+    }
+
+    final home = Platform.environment['HOME']?.trim();
+    if (home != null && home.isNotEmpty) {
+      return '$home/Downloads/$fileName';
+    }
+
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    return '${documentsDirectory.path}/$fileName';
+  }
+
+  Future<void> _exportClients() async {
+    if (_clients.isEmpty) {
+      _showSnack(translateText('No clients found'));
+      return;
+    }
+    if (_isExporting) return;
+
+    setState(() => _isExporting = true);
+    try {
+      final rows = <String>[
+        [
+          'ID',
+          'First Name',
+          'Last Name',
+          'Email',
+          'Phone Number',
+          'Status',
+          'Role',
+          'Created At',
+        ].map(_csvCell).join(','),
+      ];
+
+      for (final client in _clients) {
+        rows.add(
+          [
+            _cleanText(client['id']),
+            _cleanText(client['firstName']),
+            _cleanText(client['lastName']),
+            _cleanText(client['email']),
+            _cleanText(client['phoneNumber'] ?? client['fullPhoneNumber']),
+            client['active'] == false
+                ? translateText('Inactive')
+                : translateText('Active'),
+            _cleanText(client['role'] ?? client['userType'] ?? 'App User'),
+            _formatCreatedAt(
+              client['createdAt'] ??
+                  client['created_at'] ??
+                  client['updatedAt'],
+            ),
+          ].map(_csvCell).join(','),
+        );
+      }
+
+      final csv = rows.join('\n');
+      final branchName = _branchOptions
+          .cast<_OwnerBranchOption?>()
+          .firstWhere(
+            (option) => option?.branchId == _selectedBranchId,
+            orElse: () => null,
+          )
+          ?.branchName
+          .trim();
+      final safeName = (branchName == null || branchName.isEmpty
+              ? 'branch_clients'
+              : branchName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_'))
+          .replaceAll(RegExp(r'^_+|_+$'), '');
+      final fileName = '${safeName.isEmpty ? 'branch_clients' : safeName}.csv';
+
+      var targetPath = await _downloadsFilePath(fileName);
+
+      final file = File(targetPath);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(csv);
+      _showSnack('Exported to ${file.path}');
+    } catch (error) {
+      _showSnack(error.toString());
+    } finally {
+      if (mounted) {
+        setState(() => _isExporting = false);
+      }
+    }
+  }
+
+  Future<void> _showImportClientsModal() async {
+    if (_selectedBranchId == null) {
+      _showSnack(translateText('Please select a branch first.'));
+      return;
+    }
+
+    PlatformFile? selectedFile;
+    bool isUploading = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> pickFile() async {
+              final result = await FilePicker.platform.pickFiles(
+                type: FileType.custom,
+                allowedExtensions: const ['xlsx', 'xls', 'csv'],
+                withData: false,
+              );
+              if (result == null || result.files.isEmpty) return;
+              setDialogState(() {
+                selectedFile = result.files.single;
+              });
+            }
+
+            Future<void> downloadTemplate() async {
+              final template =
+                  'phoneNumber,countryCode,firstName,lastName,email\n';
+              final targetPath =
+                  await _downloadsFilePath('branch_clients_template.csv');
+              final file = File(targetPath);
+              await file.parent.create(recursive: true);
+              await file.writeAsString(template);
+              if (!mounted) return;
+              _showSnack('Template saved to $targetPath');
+            }
+
+            Future<void> uploadFile() async {
+              if (selectedFile?.path == null || selectedFile!.path!.isEmpty) {
+                _showSnack('Please choose a file');
+                return;
+              }
+              setDialogState(() => isUploading = true);
+              try {
+                await _apiService.importClientsFile(
+                  branchId: _selectedBranchId!,
+                  file: File(selectedFile!.path!),
+                );
+                if (!mounted || !dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop();
+                _showSnack('Clients imported successfully');
+                await _loadClientsForBranch(_selectedBranchId!,
+                    saveSelection: false);
+              } catch (error) {
+                _showSnack(error.toString());
+                if (dialogContext.mounted) {
+                  setDialogState(() => isUploading = false);
+                }
+              }
+            }
+
+            return Dialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Import Branch Clients',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF111827),
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Download the template, fill in the client details, and upload the completed file.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Supported formats: .xlsx, .xls, or .csv.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFD1D5DB)),
+                          color: const Color(0xFFFBFBFB),
+                        ),
+                        child: const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'REQUIRED COLUMNS',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                                color: Color(0xFF374151),
+                              ),
+                            ),
+                            SizedBox(height: 10),
+                            Text(
+                                '• phoneNumber (also accepts phone / mobile / mobileNumber)'),
+                            SizedBox(height: 4),
+                            Text('• countryCode'),
+                            SizedBox(height: 4),
+                            Text('• firstName'),
+                            SizedBox(height: 4),
+                            Text('• lastName'),
+                            SizedBox(height: 4),
+                            Text('• email'),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: isUploading ? null : downloadTemplate,
+                        icon: const Icon(Icons.file_download_outlined),
+                        label: const Text('Download Template'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.starColor,
+                          side: const BorderSide(color: AppColors.starColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Upload completed file',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFD1D5DB)),
+                        ),
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            OutlinedButton(
+                              onPressed: isUploading ? null : pickFile,
+                              child: const Text('Choose File'),
+                            ),
+                            Text(
+                              selectedFile?.name ?? 'No file chosen',
+                              style: const TextStyle(color: Color(0xFF374151)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: isUploading
+                                ? null
+                                : () => Navigator.of(dialogContext).pop(),
+                            child: Text(translateText('Cancel')),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton(
+                            onPressed: isUploading ? null : uploadFile,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.starColor,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: isUploading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Upload & Import'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showSnack(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final comingSoonText = translateText('Coming Soon');
     final selectedOption =
         _branchOptions.cast<_OwnerBranchOption?>().firstWhere(
               (option) => option?.branchId == _selectedBranchId,
@@ -333,12 +674,14 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                 );
 
                 final exportButton = OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(comingSoonText)),
-                    );
-                  },
-                  icon: const Icon(Icons.file_download_outlined, size: 18),
+                  onPressed: _isExporting ? null : _exportClients,
+                  icon: _isExporting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.file_download_outlined, size: 18),
                   label: Text(context.t('Export')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF16A34A),
@@ -350,11 +693,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                 );
 
                 final importButton = ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(comingSoonText)),
-                    );
-                  },
+                  onPressed: _showImportClientsModal,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.starColor,
                     foregroundColor: Colors.white,

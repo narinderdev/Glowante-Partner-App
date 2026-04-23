@@ -168,6 +168,92 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
+  bool _memberHasAssignments(Map<String, dynamic> member) {
+    final rawAssignments = member['userBranches'];
+    return rawAssignments is List && rawAssignments.isNotEmpty;
+  }
+
+  String? _salonNameForBranchId(int branchId) {
+    for (final salon in _salons) {
+      final salonName = (salon['name'] ?? '').toString().trim();
+      final branches = salon['branches'] as List? ?? const [];
+      for (final branch in branches) {
+        if (branch is! Map) continue;
+        final rawId = branch['id'];
+        final id = rawId is int
+            ? rawId
+            : rawId is num
+                ? rawId.toInt()
+                : int.tryParse('${rawId ?? ''}');
+        if (id == branchId) {
+          return salonName;
+        }
+      }
+    }
+    return null;
+  }
+
+  String _memberAssignedSalonLabel(Map<String, dynamic> member) {
+    final rawAssignments = member['userBranches'];
+    if (rawAssignments is! List || rawAssignments.isEmpty) {
+      return '';
+    }
+
+    final salonNames = <String>{};
+    for (final assignment in rawAssignments) {
+      if (assignment is! Map) continue;
+      final branch = assignment['branch'];
+      final rawBranchId = branch is Map ? branch['id'] : assignment['branchId'];
+      final branchId = rawBranchId is int
+          ? rawBranchId
+          : rawBranchId is num
+              ? rawBranchId.toInt()
+              : int.tryParse('${rawBranchId ?? ''}');
+      if (branchId == null) continue;
+      final salonName = _salonNameForBranchId(branchId);
+      if (salonName != null && salonName.isNotEmpty) {
+        salonNames.add(salonName);
+      }
+    }
+
+    if (salonNames.isNotEmpty) {
+      return salonNames.join(', ');
+    }
+
+    return (selectedBranch?['salonName'] ?? '').toString().trim();
+  }
+
+  Widget _buildAssignButtonChild(Map<String, dynamic> member) {
+    if (!_memberHasAssignments(member)) {
+      return Text(translateText("Assign"));
+    }
+
+    final assignedSalonLabel = _memberAssignedSalonLabel(member);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          translateText("Assigned to"),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (assignedSalonLabel.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            assignedSalonLabel,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10.5),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -642,8 +728,8 @@ class _TeamScreenState extends State<TeamScreen> {
                                               vertical: 10,
                                             ),
                                           ),
-                                          child: Text(
-                                            translateText("Assign"),
+                                          child: _buildAssignButtonChild(
+                                            Map<String, dynamic>.from(m),
                                           ),
                                         ),
                                       ),
@@ -678,6 +764,7 @@ class _TeamScreenState extends State<TeamScreen> {
                 ),
               ),
             );
+            if (!context.mounted) return;
             if (refresh == true) {
               setState(() {
                 teamMembersFuture = _getTeamMembersByBranch(
