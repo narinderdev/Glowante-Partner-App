@@ -438,27 +438,82 @@ class CategoryScreenState extends State<CategoryScreen> {
                             final actualCode =
                                 (item['code'] ?? '').toString().trim();
                             final code = actualCode.toUpperCase();
-                            final label = (item['name'] ?? '').toString();
-                            return CheckboxListTile(
-                              value: selectedCodes.contains(code),
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(label.isEmpty
-                                  ? translateText('Unnamed service')
-                                  : label),
-                              subtitle:
-                                  actualCode.isEmpty ? null : Text(actualCode),
-                              activeColor: AppColors.starColor,
-                              onChanged: code.isEmpty || isImporting
+                            final label = _catalogItemLabel(item);
+                            final imageUrl = _catalogItemImageUrl(item);
+                            return InkWell(
+                              onTap: code.isEmpty || isImporting
                                   ? null
-                                  : (checked) {
+                                  : () {
                                       setSheetState(() {
-                                        if (checked == true) {
-                                          selectedCodes.add(code);
-                                        } else {
+                                        if (selectedCodes.contains(code)) {
                                           selectedCodes.remove(code);
+                                        } else {
+                                          selectedCodes.add(code);
                                         }
                                       });
                                     },
+                              borderRadius: BorderRadius.circular(14),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF8F1EA),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: imageUrl == null
+                                          ? const Icon(
+                                              Icons.content_cut_outlined,
+                                              color: AppColors.starColor,
+                                              size: 20,
+                                            )
+                                          : Image.network(
+                                              imageUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) =>
+                                                  const Icon(
+                                                Icons.content_cut_outlined,
+                                                color: AppColors.starColor,
+                                                size: 20,
+                                              ),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        label.isEmpty
+                                            ? translateText('Unnamed service')
+                                            : label,
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Checkbox(
+                                      value: selectedCodes.contains(code),
+                                      activeColor: AppColors.starColor,
+                                      onChanged: code.isEmpty || isImporting
+                                          ? null
+                                          : (checked) {
+                                              setSheetState(() {
+                                                if (checked == true) {
+                                                  selectedCodes.add(code);
+                                                } else {
+                                                  selectedCodes.remove(code);
+                                                }
+                                              });
+                                            },
+                                    ),
+                                  ],
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -575,6 +630,29 @@ class CategoryScreenState extends State<CategoryScreen> {
         yield* _extractServiceCodes(nested);
       }
     }
+  }
+
+  String _catalogItemLabel(Map<String, dynamic> item) {
+    for (final key in const ['displayName', 'name', 'serviceName', 'title']) {
+      final value = item[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  String? _catalogItemImageUrl(Map<String, dynamic> item) {
+    for (final key in const [
+      'image_url',
+      'imageUrl',
+      'image',
+      'iconUrl',
+      'photoUrl',
+      'thumbnailUrl',
+    ]) {
+      final value = item[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return null;
   }
 
   void _autoPickFirstSalon(SalonListState state) {

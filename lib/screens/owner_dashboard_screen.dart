@@ -148,7 +148,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     crossAxisCount: isNarrow ? 1 : 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: isNarrow ? 2.35 : 1.1,
+                    childAspectRatio: isNarrow ? 2.35 : 1.0,
                     physics: const NeverScrollableScrollPhysics(),
                     shrinkWrap: true,
                     children: [
@@ -397,26 +397,30 @@ class _RevenueCard extends StatelessWidget {
         .toList();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact = constraints.maxHeight > 0 && constraints.maxHeight < 145;
-        final items = allItems.take(isCompact ? 2 : 3).toList();
+        final isCompact =
+            constraints.maxHeight > 0 && constraints.maxHeight < 145;
+        final isUltraCompact =
+            constraints.maxHeight > 0 && constraints.maxHeight < 136;
+        final items =
+            allItems.take(isUltraCompact ? 1 : (isCompact ? 2 : 3)).toList();
         final titleStyle = TextStyle(
-          fontSize: isCompact ? 10 : 11,
+          fontSize: isUltraCompact ? 9 : (isCompact ? 10 : 11),
           fontWeight: FontWeight.w700,
           letterSpacing: 0.7,
           color: const Color(0xFFB45309),
         );
         final valueStyle = TextStyle(
-          fontSize: isCompact ? 20 : 24,
+          fontSize: isUltraCompact ? 18 : (isCompact ? 20 : 24),
           fontWeight: FontWeight.w700,
           color: AppColors.starColor,
         );
         final legendStyle = TextStyle(
-          fontSize: isCompact ? 10 : 11,
+          fontSize: isUltraCompact ? 9 : (isCompact ? 10 : 11),
           color: const Color(0xFF78716C),
         );
 
         return Container(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(isUltraCompact ? 10 : 14),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(18),
@@ -443,17 +447,18 @@ class _RevenueCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: titleStyle,
                     ),
-                    SizedBox(height: isCompact ? 4 : 8),
+                    SizedBox(height: isUltraCompact ? 2 : (isCompact ? 4 : 8)),
                     Text(
                       value,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: valueStyle,
                     ),
-                    SizedBox(height: isCompact ? 6 : 10),
+                    SizedBox(height: isUltraCompact ? 4 : (isCompact ? 6 : 10)),
                     ...items.map(
                       (item) => Padding(
-                        padding: EdgeInsets.only(bottom: isCompact ? 2 : 4),
+                        padding: EdgeInsets.only(
+                            bottom: isUltraCompact ? 1 : (isCompact ? 2 : 4)),
                         child: Row(
                           children: [
                             Container(
@@ -480,10 +485,10 @@ class _RevenueCard extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(width: isCompact ? 8 : 12),
+              SizedBox(width: isUltraCompact ? 6 : (isCompact ? 8 : 12)),
               SizedBox(
-                width: isCompact ? 72 : 88,
-                height: isCompact ? 72 : 88,
+                width: isUltraCompact ? 58 : (isCompact ? 72 : 88),
+                height: isUltraCompact ? 58 : (isCompact ? 72 : 88),
                 child: CustomPaint(
                   painter: _DonutPainter(items: items),
                 ),
