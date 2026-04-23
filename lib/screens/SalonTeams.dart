@@ -306,7 +306,7 @@ class _TeamScreenState extends State<TeamScreen> {
                               crossAxisCount: 2,
                               mainAxisSpacing: 12,
                               crossAxisSpacing: 12,
-                              childAspectRatio: screenWidth < 380 ? 0.36 : 0.40,
+                              childAspectRatio: screenWidth < 380 ? 0.33 : 0.37,
                             ),
                             itemCount: members.length,
                             itemBuilder: (context, index) {
@@ -327,82 +327,6 @@ class _TeamScreenState extends State<TeamScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
                                     children: [
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          IconButton(
-                                            constraints: const BoxConstraints(),
-                                            padding: EdgeInsets.zero,
-                                            splashRadius: 18,
-                                            icon: const Icon(
-                                              Icons.edit_outlined,
-                                              size: 18,
-                                              color: AppColors.starColor,
-                                            ),
-                                            onPressed:
-                                                (isDeleting || isStatusUpdating)
-                                                    ? null
-                                                    : () async {
-                                                        final refresh =
-                                                            await Navigator
-                                                                .push<bool>(
-                                                          context,
-                                                          MaterialPageRoute(
-                                                            builder: (_) =>
-                                                                AddTeamScreen(
-                                                              branchId:
-                                                                  selectedBranch![
-                                                                      'branchId'],
-                                                              salonId:
-                                                                  selectedBranch![
-                                                                      'salonId'],
-                                                              salonName:
-                                                                  selectedBranch![
-                                                                      'salonName'],
-                                                              isEdit: true,
-                                                              initialMember: Map<
-                                                                  String,
-                                                                  dynamic>.from(
-                                                                m,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        );
-                                                        if (refresh == true) {
-                                                          await _refreshTeamMembers();
-                                                        }
-                                                      },
-                                          ),
-                                          const SizedBox(width: 8),
-                                          IconButton(
-                                            constraints: const BoxConstraints(),
-                                            padding: EdgeInsets.zero,
-                                            splashRadius: 18,
-                                            icon: isDeleting
-                                                ? const SizedBox(
-                                                    width: 18,
-                                                    height: 18,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      color: Colors.red,
-                                                    ),
-                                                  )
-                                                : const Icon(
-                                                    Icons.delete_outline,
-                                                    size: 18,
-                                                    color: Colors.red,
-                                                  ),
-                                            onPressed:
-                                                (isDeleting || isStatusUpdating)
-                                                    ? null
-                                                    : () => _deleteMember(
-                                                          userId,
-                                                        ),
-                                          ),
-                                        ],
-                                      ),
                                       const SizedBox(height: 4),
                                       ClipRRect(
                                         child: (m['profilePictureUrl'] !=
@@ -492,6 +416,104 @@ class _TeamScreenState extends State<TeamScreen> {
                                             translateText("4.5 (43)"),
                                             style:
                                                 const TextStyle(fontSize: 10.5),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: (isDeleting ||
+                                                      isStatusUpdating)
+                                                  ? null
+                                                  : () async {
+                                                      final refresh =
+                                                          await Navigator.push<
+                                                              bool>(
+                                                        context,
+                                                        MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              AddTeamScreen(
+                                                            branchId:
+                                                                selectedBranch![
+                                                                    'branchId'],
+                                                            salonId:
+                                                                selectedBranch![
+                                                                    'salonId'],
+                                                            salonName:
+                                                                selectedBranch![
+                                                                    'salonName'],
+                                                            isEdit: true,
+                                                            initialMember: Map<
+                                                                String,
+                                                                dynamic>.from(
+                                                              m,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      );
+                                                      if (refresh == true) {
+                                                        await _refreshTeamMembers();
+                                                      }
+                                                    },
+                                              style: OutlinedButton.styleFrom(
+                                                side: BorderSide(
+                                                  color: AppColors.starColor,
+                                                ),
+                                                foregroundColor:
+                                                    AppColors.starColor,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  vertical: 10,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                translateText("Edit"),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: OutlinedButton(
+                                              onPressed: (isDeleting ||
+                                                      isStatusUpdating)
+                                                  ? null
+                                                  : () => _deleteMember(
+                                                        userId,
+                                                      ),
+                                              style: OutlinedButton.styleFrom(
+                                                side: const BorderSide(
+                                                  color: Colors.red,
+                                                ),
+                                                foregroundColor: Colors.red,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  vertical: 10,
+                                                ),
+                                              ),
+                                              child: isDeleting
+                                                  ? const SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                        color: Colors.red,
+                                                      ),
+                                                    )
+                                                  : Text(
+                                                      translateText("Delete"),
+                                                    ),
+                                            ),
                                           ),
                                         ],
                                       ),

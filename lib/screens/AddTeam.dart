@@ -910,7 +910,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _phoneCtrl,
-                            enabled: !_phoneVerified,
+                            enabled: widget.isEdit || !_phoneVerified,
                             keyboardType: TextInputType.phone,
                             // Only validate on typing AFTER first submit
                             autovalidateMode: _showGlobalErrors
@@ -973,7 +973,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     ),
 
                     SizedBox(height: 16),
-                    if (_phoneVerified)
+                    if (_phoneVerified && !widget.isEdit)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
