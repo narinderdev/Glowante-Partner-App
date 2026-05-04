@@ -236,7 +236,7 @@ class _TeamScreenState extends State<TeamScreen> {
           translateText("Assigned to"),
           textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -245,9 +245,9 @@ class _TeamScreenState extends State<TeamScreen> {
           Text(
             assignedSalonLabel,
             textAlign: TextAlign.center,
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10.5),
+            style: const TextStyle(fontSize: 9.5, height: 1.15),
           ),
         ],
       ],
@@ -386,13 +386,17 @@ class _TeamScreenState extends State<TeamScreen> {
                         } else {
                           final members = snapshot.data!;
                           final screenWidth = MediaQuery.of(context).size.width;
+                          final isCompactPhone = screenWidth < 390;
+                          final crossAxisCount = screenWidth >= 1024 ? 3 : 2;
+                          final cardHeight = isCompactPhone ? 390.0 : 370.0;
                           return GridView.builder(
+                            padding: const EdgeInsets.only(bottom: 96),
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
+                              crossAxisCount: crossAxisCount,
                               mainAxisSpacing: 12,
                               crossAxisSpacing: 12,
-                              childAspectRatio: screenWidth < 380 ? 0.33 : 0.37,
+                              mainAxisExtent: cardHeight,
                             ),
                             itemCount: members.length,
                             itemBuilder: (context, index) {
@@ -405,7 +409,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                   _deletingMemberIds.contains(userId);
                               return Card(
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
+                                    borderRadius: BorderRadius.circular(16)),
                                 elevation: 3,
                                 child: Padding(
                                   padding: const EdgeInsets.all(12.0),
@@ -413,7 +417,6 @@ class _TeamScreenState extends State<TeamScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.center,
                                     children: [
-                                      const SizedBox(height: 4),
                                       ClipRRect(
                                         child: (m['profilePictureUrl'] !=
                                                     null &&
@@ -422,36 +425,36 @@ class _TeamScreenState extends State<TeamScreen> {
                                                     .isNotEmpty)
                                             ? Image.network(
                                                 m['profilePictureUrl'],
-                                                height: 40,
-                                                width: 40,
+                                                height: 44,
+                                                width: 44,
                                                 fit: BoxFit.cover,
                                                 errorBuilder: (_, __, ___) =>
                                                     Image.asset(
                                                   'assets/images/image.png',
-                                                  height: 40,
-                                                  width: 40,
+                                                  height: 44,
+                                                  width: 44,
                                                   fit: BoxFit.cover,
                                                 ),
                                               )
                                             : Image.asset(
                                                 'assets/images/image.png',
-                                                height: 40,
-                                                width: 40,
+                                                height: 44,
+                                                width: 44,
                                                 fit: BoxFit.cover,
                                               ),
                                       ),
-                                      const SizedBox(height: 6),
+                                      const SizedBox(height: 8),
                                       Text(
                                         "${m['firstName']} ${m['lastName'] ?? ''}",
                                         textAlign: TextAlign.center,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 11,
+                                          fontSize: 13,
                                         ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 2),
                                       Text(
                                         (m['roles'] != null &&
                                                 m['roles'].isNotEmpty)
@@ -459,19 +462,19 @@ class _TeamScreenState extends State<TeamScreen> {
                                             : "Staff",
                                         style: TextStyle(
                                           color: Colors.grey[600],
-                                          fontSize: 11,
+                                          fontSize: 10.5,
                                         ),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),
-                                      const SizedBox(height: 6),
+                                      const SizedBox(height: 8),
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
                                           Icon(
                                             Icons.work,
-                                            size: 14,
+                                            size: 13,
                                             color: AppColors.starColor,
                                           ),
                                           const SizedBox(width: 4),
@@ -480,7 +483,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                               translateText(
                                                   "2 year+ Experience"),
                                               style: const TextStyle(
-                                                  fontSize: 10.5),
+                                                  fontSize: 9.5),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -494,18 +497,17 @@ class _TeamScreenState extends State<TeamScreen> {
                                         children: [
                                           Icon(
                                             Icons.star,
-                                            size: 14,
+                                            size: 13,
                                             color: AppColors.starColor,
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
                                             translateText("4.5 (43)"),
-                                            style:
-                                                const TextStyle(fontSize: 10.5),
+                                            style: const TextStyle(fontSize: 9.5),
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 10),
                                       Row(
                                         children: [
                                           Expanded(
@@ -553,9 +555,18 @@ class _TeamScreenState extends State<TeamScreen> {
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                 ),
+                                                minimumSize:
+                                                    const Size.fromHeight(34),
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                  vertical: 10,
+                                                  horizontal: 4,
+                                                  vertical: 8,
+                                                ),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                textStyle: const TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                               child: Text(
@@ -563,7 +574,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                               ),
                                             ),
                                           ),
-                                          const SizedBox(width: 8),
+                                          const SizedBox(width: 6),
                                           Expanded(
                                             child: OutlinedButton(
                                               onPressed: (isDeleting ||
@@ -581,9 +592,18 @@ class _TeamScreenState extends State<TeamScreen> {
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                 ),
+                                                minimumSize:
+                                                    const Size.fromHeight(34),
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                  vertical: 10,
+                                                  horizontal: 4,
+                                                  vertical: 8,
+                                                ),
+                                                visualDensity:
+                                                    VisualDensity.compact,
+                                                textStyle: const TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                               child: isDeleting
@@ -603,7 +623,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 6),
                                       SizedBox(
                                         width: double.infinity,
                                         child: OutlinedButton(
@@ -624,8 +644,17 @@ class _TeamScreenState extends State<TeamScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
+                                            minimumSize:
+                                                const Size.fromHeight(34),
                                             padding: const EdgeInsets.symmetric(
-                                              vertical: 10,
+                                              horizontal: 6,
+                                              vertical: 8,
+                                            ),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            textStyle: const TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           child: isStatusUpdating
@@ -673,8 +702,17 @@ class _TeamScreenState extends State<TeamScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
+                                            minimumSize:
+                                                const Size.fromHeight(34),
                                             padding: const EdgeInsets.symmetric(
-                                              vertical: 10,
+                                              horizontal: 6,
+                                              vertical: 8,
+                                            ),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            textStyle: const TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           child: Text(
@@ -682,7 +720,7 @@ class _TeamScreenState extends State<TeamScreen> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 6),
                                       SizedBox(
                                         width: double.infinity,
                                         child: OutlinedButton(
@@ -724,8 +762,17 @@ class _TeamScreenState extends State<TeamScreen> {
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
+                                            minimumSize:
+                                                const Size.fromHeight(36),
                                             padding: const EdgeInsets.symmetric(
-                                              vertical: 10,
+                                              horizontal: 6,
+                                              vertical: 8,
+                                            ),
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                            textStyle: const TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
                                           child: _buildAssignButtonChild(
