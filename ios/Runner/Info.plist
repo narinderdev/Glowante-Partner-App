@@ -30,6 +30,8 @@
 	<string>We use your location in the background to keep salon services accurate.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>We use your location to keep salon services accurate.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your location while you use the app to autofill and verify salon and branch locations.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app uses the camera to scan beauty product barcodes and QR codes for stylist item entry.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
