@@ -1,7 +1,7 @@
 name: bloc_onboarding
 description: "A new Flutter project."
 publish_to: 'none'
-version: 2.0.0+20
+version: 2.0.1+21
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
@@ -39,7 +39,7 @@ dependencies:
   dotted_border: ^2.1.0
   flutter_svg: ^2.0.9
   file_picker: ^8.1.7
-  mobile_scanner: ^5.2.3
+  mobile_scanner: ^6.0.10
   pin_code_fields: ^8.0.1
   webview_flutter: ^4.7.0
   connectivity_plus: ^6.0.3
