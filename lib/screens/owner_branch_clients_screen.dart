@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,13 @@ class OwnerBranchClientsScreen extends StatefulWidget {
 }
 
 class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
+  static const double _serialColWidth = 72;
+  static const double _nameColWidth = 220;
+  static const double _mobileColWidth = 180;
+  static const double _statusColWidth = 120;
+  static const double _actionColWidth = 140;
+  static const double _tableHorizontalPadding = 16;
+
   final TextEditingController _searchController = TextEditingController();
   final ApiService _apiService = ApiService();
 
@@ -236,6 +244,385 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw;
     return DateFormat('yyyy-MM-dd HH:mm').format(parsed.toLocal());
+  }
+
+  String _formatDateValue(dynamic value) {
+    final raw = _cleanText(value);
+    if (raw.isEmpty) return 'N/A';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return DateFormat('dd MMM yyyy, hh:mm a').format(parsed.toLocal());
+  }
+
+  String _formatAmount(dynamic value) {
+    if (value is num) {
+      return '₹${value.toStringAsFixed(0)}';
+    }
+    final parsed = num.tryParse(_cleanText(value));
+    if (parsed == null) {
+      return _cleanText(value).isEmpty ? 'N/A' : _cleanText(value);
+    }
+    return '₹${parsed.toStringAsFixed(0)}';
+  }
+
+  String _formatMinorAmount(dynamic value, {String currency = 'INR'}) {
+    final amount = value is num
+        ? value.toDouble()
+        : num.tryParse(_cleanText(value))?.toDouble();
+    if (amount == null) return 'N/A';
+
+    final normalized = amount / 100;
+    if (currency.toUpperCase() == 'INR') {
+      return '₹${normalized.toStringAsFixed(2)}';
+    }
+    return '${currency.toUpperCase()} ${normalized.toStringAsFixed(2)}';
+  }
+
+  List<Map<String, dynamic>> _extractPurchases(dynamic raw) {
+    if (raw is List) {
+      return raw
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    if (raw is Map) {
+      final map = Map<String, dynamic>.from(raw);
+      if (map.containsKey('packages') || map.containsKey('deals')) {
+        return [
+          ..._extractPurchases(map['packages']),
+          ..._extractPurchases(map['deals']),
+        ];
+      }
+      for (final key in const [
+        'purchases',
+        'items',
+        'results',
+        'data',
+        'orders',
+        'carts',
+      ]) {
+        final nested = map[key];
+        final extracted = _extractPurchases(nested);
+        if (extracted.isNotEmpty) {
+          return extracted;
+        }
+      }
+      return map.isEmpty ? const [] : <Map<String, dynamic>>[map];
+    }
+    return const [];
+  }
+
+  int? _clientIdFromMap(Map<String, dynamic> client) {
+    return _asInt(client['id']) ??
+        _asInt(client['clientId']) ??
+        _asInt(client['userId']);
+  }
+
+  String _purchaseTitle(Map<String, dynamic> purchase) {
+    final candidates = [
+      purchase['title'],
+      purchase['name'],
+      purchase['displayName'],
+      purchase['packageName'],
+      purchase['dealName'],
+      purchase['serviceName'],
+      purchase['cartName'],
+      purchase['orderNumber'],
+      purchase['invoiceNumber'],
+      purchase['id'],
+    ];
+    for (final candidate in candidates) {
+      final text = _cleanText(candidate);
+      if (text.isNotEmpty) return text;
+    }
+    return 'Purchase';
+  }
+
+  String _purchaseSubtitle(Map<String, dynamic> purchase) {
+    final parts = <String>[];
+    final type = _cleanText(purchase['type']);
+    final status = _cleanText(
+      purchase['status'] ??
+          purchase['paymentStatus'] ??
+          purchase['orderStatus'],
+    );
+    final date = _formatDateValue(
+      purchase['purchasedAt'] ??
+          purchase['createdAt'] ??
+          purchase['purchaseDate'] ??
+          purchase['bookedAt'] ??
+          purchase['updatedAt'],
+    );
+    if (type.isNotEmpty) parts.add(type);
+    if (status.isNotEmpty) parts.add(status);
+    if (date != 'N/A') parts.add(date);
+    return parts.isEmpty ? 'No additional details' : parts.join(' • ');
+  }
+
+  String _purchaseAmountLabel(Map<String, dynamic> purchase) {
+    if (purchase.containsKey('paidAmountMinor')) {
+      final value = purchase['paidAmountMinor'];
+      final text = _cleanText(value);
+      if (text.isNotEmpty) {
+        return _formatMinorAmount(
+          value,
+          currency: _cleanText(purchase['currency']).isEmpty
+              ? 'INR'
+              : _cleanText(purchase['currency']),
+        );
+      }
+    }
+    final keys = [
+      'totalAmount',
+      'amount',
+      'price',
+      'netAmount',
+      'grandTotal',
+      'total',
+      'paidAmount',
+      'amountMinor',
+      'totalMinor',
+    ];
+    for (final key in keys) {
+      final value = purchase[key];
+      final text = _cleanText(value);
+      if (text.isNotEmpty) {
+        return _formatAmount(value);
+      }
+    }
+    return 'N/A';
+  }
+
+  Widget _buildClientHeaderCell(
+    String label,
+    double width, {
+    Alignment alignment = Alignment.centerLeft,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Align(
+        alignment: alignment,
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClientBodyCell(
+    Widget child,
+    double width, {
+    Alignment alignment = Alignment.centerLeft,
+  }) {
+    return SizedBox(
+      width: width,
+      child: Align(alignment: alignment, child: child),
+    );
+  }
+
+  void _logPurchaseResponseShape(Map<String, dynamic> response) {
+    debugPrint('[ClientPurchasesModal] responseType=${response.runtimeType}');
+    debugPrint('[ClientPurchasesModal] topLevelKeys=${response.keys.toList()}');
+
+    for (final entry in response.entries) {
+      final value = entry.value;
+      debugPrint(
+        '[ClientPurchasesModal] key=${entry.key} valueType=${value.runtimeType}',
+      );
+      if (value is Map<String, dynamic>) {
+        debugPrint(
+          '[ClientPurchasesModal] ${entry.key} keys=${value.keys.toList()}',
+        );
+      } else if (value is List && value.isNotEmpty && value.first is Map) {
+        final first = Map<String, dynamic>.from(value.first as Map);
+        debugPrint(
+          '[ClientPurchasesModal] ${entry.key} firstItemKeys=${first.keys.toList()}',
+        );
+      }
+    }
+
+    const encoder = JsonEncoder.withIndent('  ');
+    try {
+      debugPrint(
+          '[ClientPurchasesModal] fullResponse=\n${encoder.convert(response)}');
+    } catch (_) {}
+  }
+
+  Future<void> _showClientPurchasesModal(Map<String, dynamic> client) async {
+    final branchId = _selectedBranchId;
+    final clientId = _clientIdFromMap(client);
+    if (branchId == null || clientId == null) {
+      _showSnack('Missing branch or client id');
+      return;
+    }
+
+    final clientName = [
+      _cleanText(client['firstName']),
+      _cleanText(client['lastName']),
+    ].where((part) => part.isNotEmpty).join(' ');
+    final phone =
+        _cleanText(client['phoneNumber'] ?? client['fullPhoneNumber']);
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720, maxHeight: 640),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: _apiService.getClientPurchases(
+                  branchId: branchId,
+                  clientId: clientId,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.starColor,
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                clientName.isEmpty
+                                    ? 'Client Purchases'
+                                    : clientName,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF111827),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () =>
+                                  Navigator.of(dialogContext).pop(),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(snapshot.error.toString()),
+                      ],
+                    );
+                  }
+
+                  final response = snapshot.data ?? const <String, dynamic>{};
+                  _logPurchaseResponseShape(response);
+                  final purchases = _extractPurchases(response['data']);
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  clientName.isEmpty
+                                      ? 'Client Purchases'
+                                      : clientName,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  phone.isEmpty
+                                      ? 'Client ID: $clientId'
+                                      : phone,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            icon: const Icon(Icons.close),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      if (purchases.isEmpty)
+                        const Expanded(
+                          child: Center(
+                            child: Text(
+                              'No previous purchases found',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: purchases.length,
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final purchase = purchases[index];
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                title: Text(
+                                  _purchaseTitle(purchase),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                subtitle: Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(_purchaseSubtitle(purchase)),
+                                ),
+                                trailing: Text(
+                                  _purchaseAmountLabel(purchase),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<String> _downloadsFilePath(String fileName) async {
@@ -778,8 +1165,6 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
               ),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final isCompactTable = constraints.maxWidth < 720;
-
                   if (_isLoadingClients) {
                     return const Padding(
                       padding: EdgeInsets.all(24),
@@ -799,185 +1184,162 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                     );
                   }
 
-                  if (isCompactTable) {
-                    return Column(
-                      children: filteredClients.map((client) {
-                        final name = [
-                          _cleanText(client['firstName']),
-                          _cleanText(client['lastName']),
-                        ].where((part) => part.isNotEmpty).join(' ');
-                        final email = _cleanText(client['email']);
-                        final contact = _cleanText(
-                          client['phoneNumber'] ?? client['fullPhoneNumber'],
-                        );
-                        final isActive = client['active'] != false;
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              top: BorderSide(color: Color(0xFFF1F5F9)),
-                            ),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                name.isEmpty ? context.t('Customer') : name,
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              if (email.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  email,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ],
-                              if (contact.isNotEmpty) ...[
-                                const SizedBox(height: 6),
-                                Text(
-                                  contact,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 10),
-                              Text(
-                                isActive
-                                    ? context.t('Active')
-                                    : context.t('Inactive'),
-                                style: TextStyle(
-                                  color: isActive
-                                      ? const Color(0xFF22C55E)
-                                      : const Color(0xFFEF4444),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }
+                  final tableWidth =
+                      constraints.maxWidth < 820 ? 820.0 : constraints.maxWidth;
+                  final rowContentWidth =
+                      tableWidth - (_tableHorizontalPadding * 2);
+                  final baseFlexibleWidth = _nameColWidth +
+                      _mobileColWidth +
+                      _statusColWidth +
+                      _actionColWidth;
+                  final extraWidth = rowContentWidth >
+                          (_serialColWidth + baseFlexibleWidth)
+                      ? rowContentWidth - (_serialColWidth + baseFlexibleWidth)
+                      : 0.0;
+                  final nameColumnWidth = _nameColWidth + (extraWidth * 0.45);
+                  final mobileColumnWidth =
+                      _mobileColWidth + (extraWidth * 0.25);
+                  final statusColumnWidth =
+                      _statusColWidth + (extraWidth * 0.15);
+                  final actionColumnWidth =
+                      _actionColWidth + (extraWidth * 0.15);
 
-                  return Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(14),
-                          ),
-                        ),
-                        child: const Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                'NAME',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF6B7280),
-                                ),
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: tableWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: _tableHorizontalPadding,
+                              vertical: 12,
+                            ),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.vertical(
+                                top: Radius.circular(14),
                               ),
                             ),
-                            Expanded(
-                              flex: 4,
-                              child: Text(
-                                'EMAIL',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF6B7280),
+                            child: Row(
+                              children: [
+                                _buildClientHeaderCell('S.NO', _serialColWidth),
+                                _buildClientHeaderCell(
+                                  'NAME',
+                                  nameColumnWidth,
                                 ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Text(
-                                'CONTACT',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF6B7280),
+                                _buildClientHeaderCell(
+                                  'MOBILE',
+                                  mobileColumnWidth,
                                 ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                'STATUS',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF6B7280),
+                                _buildClientHeaderCell(
+                                  'STATUS',
+                                  statusColumnWidth,
                                 ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      ...filteredClients.map((client) {
-                        final name = [
-                          _cleanText(client['firstName']),
-                          _cleanText(client['lastName']),
-                        ].where((part) => part.isNotEmpty).join(' ');
-                        final email = _cleanText(client['email']);
-                        final contact = _cleanText(
-                          client['phoneNumber'] ?? client['fullPhoneNumber'],
-                        );
-                        final isActive = client['active'] != false;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              top: BorderSide(color: Color(0xFFF1F5F9)),
+                                _buildClientHeaderCell(
+                                  'ACTION',
+                                  actionColumnWidth,
+                                  alignment: Alignment.centerRight,
+                                ),
+                              ],
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: Text(
-                                  name.isEmpty ? context.t('Customer') : name,
+                          ...filteredClients.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final client = entry.value;
+                            final name = [
+                              _cleanText(client['firstName']),
+                              _cleanText(client['lastName']),
+                            ].where((part) => part.isNotEmpty).join(' ');
+                            final contact = _cleanText(
+                              client['phoneNumber'] ??
+                                  client['fullPhoneNumber'],
+                            );
+                            final isActive = client['active'] != false;
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: _tableHorizontalPadding,
+                                vertical: 14,
+                              ),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(color: Color(0xFFF1F5F9)),
                                 ),
                               ),
-                              Expanded(flex: 4, child: Text(email)),
-                              Expanded(flex: 3, child: Text(contact)),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  isActive
-                                      ? context.t('Active')
-                                      : context.t('Inactive'),
-                                  style: TextStyle(
-                                    color: isActive
-                                        ? const Color(0xFF22C55E)
-                                        : const Color(0xFFEF4444),
-                                    fontWeight: FontWeight.w600,
+                              child: Row(
+                                children: [
+                                  _buildClientBodyCell(
+                                    Text('${index + 1}'),
+                                    _serialColWidth,
                                   ),
-                                ),
+                                  _buildClientBodyCell(
+                                    Text(
+                                      name.isEmpty
+                                          ? context.t('Customer')
+                                          : name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    nameColumnWidth,
+                                  ),
+                                  _buildClientBodyCell(
+                                    Text(
+                                      contact.isEmpty ? 'N/A' : contact,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    mobileColumnWidth,
+                                  ),
+                                  _buildClientBodyCell(
+                                    Text(
+                                      isActive
+                                          ? context.t('Active')
+                                          : context.t('Inactive'),
+                                      style: TextStyle(
+                                        color: isActive
+                                            ? const Color(0xFF22C55E)
+                                            : const Color(0xFFEF4444),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    statusColumnWidth,
+                                  ),
+                                  _buildClientBodyCell(
+                                    OutlinedButton(
+                                      onPressed: () =>
+                                          _showClientPurchasesModal(client),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.starColor,
+                                        side: const BorderSide(
+                                          color: AppColors.starColor,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 10,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        'View',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    actionColumnWidth,
+                                    alignment: Alignment.centerRight,
+                                  ),
+                                ],
                               ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),

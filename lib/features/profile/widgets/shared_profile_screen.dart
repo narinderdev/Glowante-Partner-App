@@ -49,6 +49,7 @@ class SharedProfileScreen extends StatelessWidget {
     required this.onDeleteAccount,
     this.onRefresh,
     this.roleLabel,
+    this.topSections = const <Widget>[],
   });
 
   final String userName;
@@ -60,6 +61,7 @@ class SharedProfileScreen extends StatelessWidget {
   final VoidCallback onDeleteAccount;
   final Future<void> Function()? onRefresh;
   final String? roleLabel;
+  final List<Widget> topSections;
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +82,10 @@ class SharedProfileScreen extends StatelessWidget {
                 currentLanguageCode: currentLanguageCode,
                 onLanguageChanged: onLanguageChanged,
               ),
+              for (final section in topSections) ...[
+                const SizedBox(height: 18),
+                section,
+              ],
               const SizedBox(height: 18),
               for (final item in menuItems) ...[
                 _ProfileMenuCard(item: item),

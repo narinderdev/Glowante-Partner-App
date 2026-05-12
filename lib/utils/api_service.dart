@@ -304,6 +304,10 @@ class ApiService {
     return "branches/$branchId/branch-client";
   }
 
+  static String getClientPurchasesAPI(int branchId, int clientId) {
+    return "branches/$branchId/cart/purchases?clientId=$clientId";
+  }
+
   static String updateSalonOffer(int salonId, int offerId) {
     return "salons/$salonId/offers/$offerId";
   }
@@ -490,6 +494,61 @@ class ApiService {
       return json.decode(body) as Map<String, dynamic>;
     }
     throw Exception("Failed to fetch branch clients: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> getClientPurchases({
+    required int branchId,
+    required int clientId,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + getClientPurchasesAPI(branchId, clientId));
+    final response = await _sharedClient.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    debugPrint("[GetClientPurchases] url=$url");
+    debugPrint("[GetClientPurchases] status=${response.statusCode}");
+    _debugPrintChunked("GetClientPurchases body", response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final body = response.body.isEmpty ? '{}' : response.body;
+      final decoded = json.decode(body);
+      debugPrint(
+        "[GetClientPurchases] decodedType=${decoded.runtimeType}",
+      );
+      if (decoded is Map<String, dynamic>) {
+        debugPrint(
+          "[GetClientPurchases] topLevelKeys=${decoded.keys.toList()}",
+        );
+        final data = decoded['data'];
+        if (data is Map<String, dynamic>) {
+          debugPrint(
+            "[GetClientPurchases] dataKeys=${data.keys.toList()}",
+          );
+        } else if (data is List && data.isNotEmpty && data.first is Map) {
+          final first = Map<String, dynamic>.from(data.first as Map);
+          debugPrint(
+            "[GetClientPurchases] firstItemKeys=${first.keys.toList()}",
+          );
+        }
+      } else if (decoded is List &&
+          decoded.isNotEmpty &&
+          decoded.first is Map) {
+        final first = Map<String, dynamic>.from(decoded.first as Map);
+        debugPrint(
+          "[GetClientPurchases] firstItemKeys=${first.keys.toList()}",
+        );
+      }
+      return decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{'data': decoded};
+    }
+
+    throw Exception("Failed to fetch client purchases: ${response.body}");
   }
 
   // Resend OTP
@@ -2882,6 +2941,16 @@ class ApiService {
       'priceType': body['priceType'] ?? 'fixed',
       'priceMinor': body['priceMinor'] ?? body['defaultPriceMinor'],
       'isActive': body['isActive'] ?? true,
+      if (body.containsKey('commissionEnabled'))
+        'commissionEnabled': body['commissionEnabled'],
+      if (body.containsKey('commissionType'))
+        'commissionType': body['commissionType'],
+      if (body.containsKey('commissionPercentage'))
+        'commissionPercentage': body['commissionPercentage'],
+      if (body.containsKey('commissionFixedAmountMinor'))
+        'commissionFixedAmountMinor': body['commissionFixedAmountMinor'],
+      if (body.containsKey('commissionMaxAmountMinor'))
+        'commissionMaxAmountMinor': body['commissionMaxAmountMinor'],
     }..removeWhere((key, value) => value == null);
 
     // ✅ Pretty logging

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/profile/compensation/profile_compensation_screen.dart';
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
@@ -291,6 +292,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
       onRefresh: _loadUserData,
+      topSections: [
+        _ProfileCompensationEntry(
+          onOpenPayroll: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ProfileCompensationScreen(
+                  initialModule: CompensationModule.payroll,
+                ),
+              ),
+            );
+          },
+          onOpenCommission: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ProfileCompensationScreen(
+                  initialModule: CompensationModule.commission,
+                ),
+              ),
+            );
+          },
+        ),
+      ],
       menuItems: [
         ProfileMenuItemData(
           icon: Icons.dashboard_outlined,
@@ -375,6 +400,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ],
       onLogout: () => _showLogoutModal(context),
       onDeleteAccount: () => _showDeleteAccountDialog(context),
+    );
+  }
+}
+
+class _ProfileCompensationEntry extends StatelessWidget {
+  const _ProfileCompensationEntry({
+    required this.onOpenPayroll,
+    required this.onOpenCommission,
+  });
+
+  final VoidCallback onOpenPayroll;
+  final VoidCallback onOpenCommission;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _ProfileEntryButton(
+          icon: Icons.payments_outlined,
+          label: context.t('Payroll'),
+          onTap: onOpenPayroll,
+        ),
+        const SizedBox(height: 12),
+        _ProfileEntryButton(
+          icon: Icons.tune_rounded,
+          label: context.t('Commission'),
+          onTap: onOpenCommission,
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileEntryButton extends StatelessWidget {
+  const _ProfileEntryButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: const Border(
+              left: BorderSide(
+                color: Color(0xFFC19A6B),
+                width: 4,
+              ),
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 12,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F5F2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: const Color(0xFF78716C),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1C1917),
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16,
+                  color: Color(0xFF78716C),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
