@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/profile/compensation/profile_compensation_screen.dart';
+import '../features/profile/operations/owner_profile_operations_screen.dart';
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
@@ -31,6 +32,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? userName;
   String? phoneNumber;
 
+  void _logProfile(String event, {Object? details}) {
+    debugPrint(
+      '[OwnerProfile] $event${details == null ? '' : ' | $details'}',
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -55,8 +62,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _changeLanguage(String langCode) {
+    _logProfile('language_changed', details: langCode);
     final langListener = Provider.of<LanguageListener>(context, listen: false);
     langListener.changeLanguage(langCode);
+  }
+
+  void _openDashboard() {
+    _logProfile('open_dashboard');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const OwnerDashboardScreen(),
+      ),
+    );
+  }
+
+  void _openClients() {
+    _logProfile('open_clients');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const OwnerBranchClientsScreen(),
+      ),
+    );
+  }
+
+  void _openCommission() {
+    _logProfile('open_commission');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProfileCompensationScreen(
+          initialModule: CompensationModule.commission,
+        ),
+      ),
+    );
+  }
+
+  void _openInventory() {
+    _logProfile('open_inventory');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const OwnerProfileOperationsScreen(
+          initialModule: OwnerOperationsModule.inventory,
+        ),
+      ),
+    );
+  }
+
+  void _openPayroll() {
+    _logProfile('open_payroll');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProfileCompensationScreen(
+          initialModule: CompensationModule.payroll,
+        ),
+      ),
+    );
+  }
+
+  void _openVendor() {
+    _logProfile('open_vendor');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const OwnerProfileOperationsScreen(
+          initialModule: OwnerOperationsModule.vendor,
+        ),
+      ),
+    );
   }
 
   void _showLogoutModal(BuildContext context) {
@@ -292,72 +368,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
       onRefresh: _loadUserData,
-      topSections: [
-        _ProfileCompensationEntry(
-          onOpenPayroll: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ProfileCompensationScreen(
-                  initialModule: CompensationModule.payroll,
-                ),
-              ),
-            );
-          },
-          onOpenCommission: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ProfileCompensationScreen(
-                  initialModule: CompensationModule.commission,
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+      topSections: const <Widget>[],
       menuItems: [
-        ProfileMenuItemData(
-          icon: Icons.dashboard_outlined,
-          label: context.t('Dashboard'),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const OwnerDashboardScreen(),
-              ),
-            );
-          },
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.groups_outlined,
-          label: context.t('Clients'),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const OwnerBranchClientsScreen(),
-              ),
-            );
-          },
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.rate_review_outlined,
-          label: context.t('Reviews'),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SalonReviews()),
-            );
-          },
-          showLeftAccent: true,
-        ),
         ProfileMenuItemData(
           icon: Icons.info_outline,
           label: context.t('About Salon'),
           onTap: () {
+            _logProfile('open_about_salon');
             Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const SalonAbout()),
@@ -366,9 +383,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
           showLeftAccent: true,
         ),
         ProfileMenuItemData(
+          icon: Icons.groups_outlined,
+          label: context.t('Clients'),
+          onTap: _openClients,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.tune_rounded,
+          label: context.t('Commission'),
+          onTap: _openCommission,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.dashboard_outlined,
+          label: context.t('Dashboard'),
+          onTap: _openDashboard,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.inventory_2_outlined,
+          label: context.t('Inventory'),
+          onTap: _openInventory,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.payments_outlined,
+          label: context.t('Payroll'),
+          onTap: _openPayroll,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
           icon: Icons.privacy_tip_outlined,
           label: context.t('Privacy Policy'),
           onTap: () {
+            _logProfile('open_privacy_policy');
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -382,9 +430,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           showLeftAccent: true,
         ),
         ProfileMenuItemData(
+          icon: Icons.rate_review_outlined,
+          label: context.t('Reviews'),
+          onTap: () {
+            _logProfile('open_reviews');
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SalonReviews()),
+            );
+          },
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
           icon: Icons.policy_outlined,
           label: context.t('Terms & Conditions'),
           onTap: () {
+            _logProfile('open_terms_conditions');
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -397,118 +458,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           },
           showLeftAccent: true,
         ),
+        ProfileMenuItemData(
+          icon: Icons.badge_outlined,
+          label: context.t('Vendor'),
+          onTap: _openVendor,
+          showLeftAccent: true,
+        ),
       ],
       onLogout: () => _showLogoutModal(context),
       onDeleteAccount: () => _showDeleteAccountDialog(context),
-    );
-  }
-}
-
-class _ProfileCompensationEntry extends StatelessWidget {
-  const _ProfileCompensationEntry({
-    required this.onOpenPayroll,
-    required this.onOpenCommission,
-  });
-
-  final VoidCallback onOpenPayroll;
-  final VoidCallback onOpenCommission;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _ProfileEntryButton(
-          icon: Icons.payments_outlined,
-          label: context.t('Payroll'),
-          onTap: onOpenPayroll,
-        ),
-        const SizedBox(height: 12),
-        _ProfileEntryButton(
-          icon: Icons.tune_rounded,
-          label: context.t('Commission'),
-          onTap: onOpenCommission,
-        ),
-      ],
-    );
-  }
-}
-
-class _ProfileEntryButton extends StatelessWidget {
-  const _ProfileEntryButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: const Border(
-              left: BorderSide(
-                color: Color(0xFFC19A6B),
-                width: 4,
-              ),
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                blurRadius: 12,
-                offset: Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F5F2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 20,
-                    color: const Color(0xFF78716C),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1C1917),
-                    ),
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 16,
-                  color: Color(0xFF78716C),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

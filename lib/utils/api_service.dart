@@ -184,6 +184,27 @@ class ApiService {
     int limit = 20,
   }) =>
       "branches/$branchId/inventory-items?page=$page&limit=$limit";
+  static String getBranchVendorsAPI(int branchId) =>
+      "branches/$branchId/vendors";
+  static String getVendorDetailsAPI(int branchId, int vendorId) =>
+      "branches/$branchId/vendors/$vendorId";
+  static String getBranchStoreAPI(int branchId) => "branches/$branchId/store";
+  static String getStoreDetailsAPI(int branchId, int storeId) =>
+      "branches/$branchId/store/$storeId";
+  static String getInventoryItemDetailsAPI(int branchId, int inventoryId) =>
+      "branches/$branchId/inventory-items/$inventoryId";
+  static String getInventoryItemCategoriesOptionsAPI(int branchId) =>
+      "branches/$branchId/inventory-items/categories/options";
+  static String getPurchaseOrdersAPI(int branchId) =>
+      "branches/$branchId/procurement/po";
+  static String getPurchaseOrderDetailsAPI(int branchId, int poId) =>
+      "branches/$branchId/procurement/po/$poId";
+  static String updatePurchaseOrderStatusAPI(int branchId, int poId) =>
+      "branches/$branchId/procurement/po/$poId/status";
+  static String getGoodsReceiptNotesAPI(int branchId) =>
+      "branches/$branchId/procurement/grn";
+  static String getGoodsReceiptNoteDetailsAPI(int branchId, int grnId) =>
+      "branches/$branchId/procurement/grn/$grnId";
   static const String getRolesSpecialization = "users/constants";
 
   static String getTeamMember(int id) {
@@ -382,6 +403,106 @@ class ApiService {
     }
 
     return token;
+  }
+
+  Future<Map<String, dynamic>> _authorizedJsonRequest({
+    required String method,
+    required String endpoint,
+    Map<String, dynamic>? body,
+    required String debugTag,
+  }) async {
+    try {
+      final token = await getAuthToken();
+      if (token.isEmpty) {
+        return {
+          'success': false,
+          'message': 'No token found',
+          'data': const <String, dynamic>{},
+        };
+      }
+
+      final url = Uri.parse(baseUrl + endpoint);
+      debugPrint('[$debugTag] $method $url');
+      if (body != null) {
+        _debugPrintChunked('$debugTag payload', body);
+      }
+
+      final headers = <String, String>{
+        'Authorization': 'Bearer $token',
+      };
+      if (body != null && method.toUpperCase() != 'GET') {
+        headers['Content-Type'] = 'application/json';
+      }
+
+      late http.Response response;
+      switch (method.toUpperCase()) {
+        case 'GET':
+          response = await _sharedClient.get(url, headers: headers);
+          break;
+        case 'POST':
+          response = await _sharedClient.post(
+            url,
+            headers: headers,
+            body: jsonEncode(body ?? const <String, dynamic>{}),
+          );
+          break;
+        case 'PATCH':
+          response = await _sharedClient.patch(
+            url,
+            headers: headers,
+            body: jsonEncode(body ?? const <String, dynamic>{}),
+          );
+          break;
+        case 'DELETE':
+          response = await _sharedClient.delete(url, headers: headers);
+          break;
+        default:
+          throw UnsupportedError('Unsupported HTTP method: $method');
+      }
+
+      debugPrint('[$debugTag] status=${response.statusCode}');
+      _debugPrintChunked('$debugTag body', response.body);
+
+      dynamic decoded;
+      if (response.body.isNotEmpty) {
+        try {
+          decoded = jsonDecode(response.body);
+        } catch (_) {
+          decoded = response.body;
+        }
+      }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        return {
+          'success': true,
+          'data': decoded,
+        };
+      }
+
+      if (decoded is Map<String, dynamic>) {
+        return {
+          'success': false,
+          'message': decoded['message']?.toString() ?? 'Request failed',
+          'data': decoded['data'] ?? decoded,
+        };
+      }
+
+      return {
+        'success': false,
+        'message': response.body.isEmpty ? 'Request failed' : response.body,
+        'data': decoded ?? const <String, dynamic>{},
+        'statusCode': response.statusCode,
+      };
+    } catch (error) {
+      debugPrint('[$debugTag] error=$error');
+      return {
+        'success': false,
+        'message': error.toString(),
+        'data': const <String, dynamic>{},
+      };
+    }
   }
 
   // Login
@@ -2842,6 +2963,246 @@ class ApiService {
         'data': const <String, dynamic>{},
       };
     }
+  }
+
+  Future<Map<String, dynamic>> getBranchVendors(int branchId) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getBranchVendorsAPI(branchId),
+      debugTag: 'BranchVendorsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getVendorDetails({
+    required int branchId,
+    required int vendorId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getVendorDetailsAPI(branchId, vendorId),
+      debugTag: 'VendorDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createVendor({
+    required int branchId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: getBranchVendorsAPI(branchId),
+      body: payload,
+      debugTag: 'CreateVendorAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updateVendor({
+    required int branchId,
+    required int vendorId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: getVendorDetailsAPI(branchId, vendorId),
+      body: payload,
+      debugTag: 'UpdateVendorAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteVendor({
+    required int branchId,
+    required int vendorId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: getVendorDetailsAPI(branchId, vendorId),
+      debugTag: 'DeleteVendorAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getStores(int branchId) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getBranchStoreAPI(branchId),
+      debugTag: 'StoreListAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getStoreDetails({
+    required int branchId,
+    required int storeId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getStoreDetailsAPI(branchId, storeId),
+      debugTag: 'StoreDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createStore({
+    required int branchId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: getBranchStoreAPI(branchId),
+      body: payload,
+      debugTag: 'CreateStoreAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updateStore({
+    required int branchId,
+    required int storeId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: getStoreDetailsAPI(branchId, storeId),
+      body: payload,
+      debugTag: 'UpdateStoreAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteStore({
+    required int branchId,
+    required int storeId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: getStoreDetailsAPI(branchId, storeId),
+      debugTag: 'DeleteStoreAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getInventoryItemDetails({
+    required int branchId,
+    required int inventoryId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getInventoryItemDetailsAPI(branchId, inventoryId),
+      debugTag: 'InventoryItemDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createInventoryItem({
+    required int branchId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: "branches/$branchId/inventory-items",
+      body: payload,
+      debugTag: 'CreateInventoryItemAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updateInventoryItem({
+    required int branchId,
+    required int inventoryId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: getInventoryItemDetailsAPI(branchId, inventoryId),
+      body: payload,
+      debugTag: 'UpdateInventoryItemAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteInventoryItem({
+    required int branchId,
+    required int inventoryId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: getInventoryItemDetailsAPI(branchId, inventoryId),
+      debugTag: 'DeleteInventoryItemAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getInventoryItemCategories(int branchId) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getInventoryItemCategoriesOptionsAPI(branchId),
+      debugTag: 'InventoryItemCategoriesAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPurchaseOrders(int branchId) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getPurchaseOrdersAPI(branchId),
+      debugTag: 'PurchaseOrderListAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPurchaseOrderDetails({
+    required int branchId,
+    required int poId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getPurchaseOrderDetailsAPI(branchId, poId),
+      debugTag: 'PurchaseOrderDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createPurchaseOrder({
+    required int branchId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: getPurchaseOrdersAPI(branchId),
+      body: payload,
+      debugTag: 'CreatePurchaseOrderAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updatePurchaseOrderStatus({
+    required int branchId,
+    required int poId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: updatePurchaseOrderStatusAPI(branchId, poId),
+      body: payload,
+      debugTag: 'UpdatePurchaseOrderStatusAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getGoodsReceiptNotes(int branchId) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getGoodsReceiptNotesAPI(branchId),
+      debugTag: 'GrnListAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getGoodsReceiptNoteDetails({
+    required int branchId,
+    required int grnId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getGoodsReceiptNoteDetailsAPI(branchId, grnId),
+      debugTag: 'GrnDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createGoodsReceiptNote({
+    required int branchId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: getGoodsReceiptNotesAPI(branchId),
+      body: payload,
+      debugTag: 'CreateGrnAPI',
+    );
   }
 
   // ---------------------- CONFIRM APPOINTMENT ----------------------

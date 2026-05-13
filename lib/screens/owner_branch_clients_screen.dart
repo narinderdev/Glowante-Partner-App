@@ -31,6 +31,12 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ApiService _apiService = ApiService();
 
+  void _logClients(String event, {Object? details}) {
+    debugPrint(
+      '[OwnerClients] $event${details == null ? '' : ' | $details'}',
+    );
+  }
+
   List<_OwnerBranchOption> _branchOptions = const [];
   List<Map<String, dynamic>> _clients = const [];
   int? _selectedBranchId;
@@ -42,6 +48,14 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(() {
+      _logClients(
+        'search_changed',
+        details:
+            'query=${_searchController.text.trim()}, results=${_filteredClients.length}',
+      );
+    });
+    _logClients('init');
     _loadData();
   }
 
@@ -52,6 +66,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   }
 
   Future<void> _loadData() async {
+    _logClients('load_data_started');
     setState(() {
       _isLoadingBranches = true;
       _errorMessage = null;
@@ -74,6 +89,11 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
         _selectedBranchId = selectedBranchId;
         _isLoadingBranches = false;
       });
+      _logClients(
+        'load_data_success',
+        details:
+            'branches=${options.length}, selectedBranchId=$selectedBranchId',
+      );
 
       if (selectedBranchId != null) {
         await _loadClientsForBranch(selectedBranchId, saveSelection: false);
@@ -84,6 +104,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
         _isLoadingBranches = false;
         _errorMessage = error.toString();
       });
+      _logClients('load_data_failed', details: error);
     }
   }
 
@@ -181,6 +202,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     int branchId, {
     bool saveSelection = true,
   }) async {
+    _logClients(
+      'load_clients_started',
+      details: 'branchId=$branchId, saveSelection=$saveSelection',
+    );
     setState(() {
       _isLoadingClients = true;
       _errorMessage = null;
@@ -207,12 +232,17 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
         _clients = clients;
         _isLoadingClients = false;
       });
+      _logClients(
+        'load_clients_success',
+        details: 'branchId=$branchId, clients=${clients.length}',
+      );
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _isLoadingClients = false;
         _errorMessage = error.toString();
       });
+      _logClients('load_clients_failed', details: error);
     }
   }
 
@@ -460,6 +490,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       _showSnack('Missing branch or client id');
       return;
     }
+    _logClients(
+      'open_client_purchases_modal',
+      details: 'branchId=$branchId, clientId=$clientId',
+    );
 
     final clientName = [
       _cleanText(client['firstName']),
@@ -646,6 +680,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       return;
     }
     if (_isExporting) return;
+    _logClients(
+      'export_clients_started',
+      details: 'branchId=$_selectedBranchId, count=${_clients.length}',
+    );
 
     setState(() => _isExporting = true);
     try {
@@ -703,8 +741,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       final file = File(targetPath);
       await file.parent.create(recursive: true);
       await file.writeAsString(csv);
+      _logClients('export_clients_success', details: file.path);
       _showSnack('Exported to ${file.path}');
     } catch (error) {
+      _logClients('export_clients_failed', details: error);
       _showSnack(error.toString());
     } finally {
       if (mounted) {
@@ -718,6 +758,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       _showSnack(translateText('Please select a branch first.'));
       return;
     }
+    _logClients(
+      'open_import_clients_modal',
+      details: 'branchId=$_selectedBranchId',
+    );
 
     PlatformFile? selectedFile;
     bool isUploading = false;
@@ -734,6 +778,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                 withData: false,
               );
               if (result == null || result.files.isEmpty) return;
+              _logClients(
+                'import_file_picked',
+                details: result.files.single.path ?? result.files.single.name,
+              );
               setDialogState(() {
                 selectedFile = result.files.single;
               });
@@ -758,16 +806,25 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
               }
               setDialogState(() => isUploading = true);
               try {
+                _logClients(
+                  'import_upload_started',
+                  details: selectedFile!.path,
+                );
                 await _apiService.importClientsFile(
                   branchId: _selectedBranchId!,
                   file: File(selectedFile!.path!),
                 );
                 if (!mounted || !dialogContext.mounted) return;
+                _logClients(
+                  'import_upload_success',
+                  details: 'branchId=$_selectedBranchId',
+                );
                 Navigator.of(dialogContext).pop();
                 _showSnack('Clients imported successfully');
                 await _loadClientsForBranch(_selectedBranchId!,
                     saveSelection: false);
               } catch (error) {
+                _logClients('import_upload_failed', details: error);
                 _showSnack(error.toString());
                 if (dialogContext.mounted) {
                   setDialogState(() => isUploading = false);
@@ -807,16 +864,18 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      const Text(
-                        'Download the template, fill in the client details, and upload the completed file.',
+                      Text(
+                        context.t(
+                          'Download the template, fill in the client details, and upload the completed file.',
+                        ),
                         style: TextStyle(
                           fontSize: 14,
                           color: Color(0xFF6B7280),
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
-                        'Supported formats: .xlsx, .xls, or .csv.',
+                      Text(
+                        context.t('Supported formats: .xlsx, .xls, or .csv.'),
                         style: TextStyle(
                           fontSize: 14,
                           color: Color(0xFF6B7280),
@@ -831,11 +890,11 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                           border: Border.all(color: const Color(0xFFD1D5DB)),
                           color: const Color(0xFFFBFBFB),
                         ),
-                        child: const Column(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'REQUIRED COLUMNS',
+                              context.t('REQUIRED COLUMNS'),
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
@@ -861,7 +920,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                       OutlinedButton.icon(
                         onPressed: isUploading ? null : downloadTemplate,
                         icon: const Icon(Icons.file_download_outlined),
-                        label: const Text('Download Template'),
+                        label: Text(context.t('Download Template')),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.starColor,
                           side: const BorderSide(color: AppColors.starColor),
@@ -871,8 +930,8 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      const Text(
-                        'Upload completed file',
+                      Text(
+                        context.t('Upload completed file'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
@@ -893,10 +952,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                           children: [
                             OutlinedButton(
                               onPressed: isUploading ? null : pickFile,
-                              child: const Text('Choose File'),
+                              child: Text(context.t('Choose File')),
                             ),
                             Text(
-                              selectedFile?.name ?? 'No file chosen',
+                              selectedFile?.name ?? context.t('No file chosen'),
                               style: const TextStyle(color: Color(0xFF374151)),
                             ),
                           ],
@@ -928,7 +987,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : const Text('Upload & Import'),
+                                : Text(context.t('Upload & Import')),
                           ),
                         ],
                       ),

@@ -9,6 +9,9 @@ import '../../../utils/colors.dart';
 import 'profile_compensation_models.dart';
 import 'profile_compensation_repository.dart';
 
+part 'owner_payroll.dart';
+part 'owner_commission.dart';
+
 enum CompensationModule { payroll, commission }
 
 enum _PayrollStage { dashboard, setup }
@@ -61,11 +64,25 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   String? _contentError;
   int? _selectedServiceId;
 
+  String get _moduleLogLabel =>
+      _module == CompensationModule.payroll ? 'payroll' : 'commission';
+
+  void _logCompensation(String event, {Object? details}) {
+    debugPrint(
+      '[OwnerCompensation:$_moduleLogLabel] $event${details == null ? '' : ' | $details'}',
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _module = widget.initialModule;
+    _logCompensation('init', details: 'initialModule=$_moduleLogLabel');
     _serviceSearchController.addListener(() {
+      _logCompensation(
+        'service_search_changed',
+        details: _serviceSearchController.text.trim(),
+      );
       setState(() {});
     });
     _loadInitialData();
@@ -78,6 +95,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   Future<void> _loadInitialData() async {
+    _logCompensation('load_initial_data_started');
     setState(() {
       _isLoadingBranches = true;
       _branchError = null;
@@ -103,6 +121,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         _selectedBranch = selectedBranch;
         _isLoadingBranches = false;
       });
+      _logCompensation(
+        'load_initial_data_success',
+        details:
+            'branches=${branchOptions.length}, selectedBranch=${selectedBranch?.branchId}',
+      );
 
       if (selectedBranch != null) {
         await _reloadContent();
@@ -115,11 +138,20 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         _isLoadingBranches = false;
         _branchError = _errorText(error);
       });
+      _logCompensation(
+        'load_initial_data_failed',
+        details: _errorText(error),
+      );
     }
   }
 
   Future<void> _reloadContent({bool showLoader = true}) async {
     final selectedBranch = _selectedBranch;
+    _logCompensation(
+      'reload_content_started',
+      details:
+          'branchId=${selectedBranch?.branchId}, showLoader=$showLoader, module=$_moduleLogLabel',
+    );
     if (selectedBranch == null) {
       setState(() {
         _contentError = null;
@@ -151,6 +183,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       setState(() {
         _isLoadingContent = false;
       });
+      _logCompensation(
+        'reload_content_success',
+        details:
+            'branchId=${selectedBranch.branchId}, team=${_teamMembers.length}, runs=${_payrollRuns.length}, services=${_services.length}',
+      );
     } catch (error) {
       if (!mounted) {
         return;
@@ -159,10 +196,16 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         _isLoadingContent = false;
         _contentError = _errorText(error);
       });
+      _logCompensation(
+        'reload_content_failed',
+        details: _errorText(error),
+      );
     }
   }
 
   Future<void> _loadPayrollData(int branchId) async {
+    _logCompensation('load_payroll_data_started',
+        details: 'branchId=$branchId');
     final results = await Future.wait<dynamic>(<Future<dynamic>>[
       _repository.loadTeamMembers(branchId),
       _repository.loadPayrollSetups(branchId),
@@ -178,9 +221,18 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       _payrollSetups = List<PayrollSetupRecord>.from(results[1] as List);
       _payrollRuns = List<PayrollRunRecord>.from(results[2] as List);
     });
+    _logCompensation(
+      'load_payroll_data_success',
+      details:
+          'branchId=$branchId, team=${_teamMembers.length}, setups=${_payrollSetups.length}, runs=${_payrollRuns.length}',
+    );
   }
 
   Future<void> _loadCommissionData(int branchId) async {
+    _logCompensation(
+      'load_commission_data_started',
+      details: 'branchId=$branchId',
+    );
     final results = await Future.wait<dynamic>(<Future<dynamic>>[
       _repository.loadTeamMembers(branchId),
       _repository.loadServices(branchId),
@@ -207,12 +259,21 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       _staffOverrides = List<StaffCommissionOverride>.from(results[3] as List);
       _selectedServiceId = selectedServiceId;
     });
+    _logCompensation(
+      'load_commission_data_success',
+      details:
+          'branchId=$branchId, team=${_teamMembers.length}, services=${_services.length}, rules=${_serviceRules.length}, overrides=${_staffOverrides.length}, selectedServiceId=$_selectedServiceId',
+    );
   }
 
   Future<void> _switchBranch(ProfileBranchOption option) async {
     if (_selectedBranch?.branchId == option.branchId) {
       return;
     }
+    _logCompensation(
+      'switch_branch',
+      details: 'from=${_selectedBranch?.branchId} to=${option.branchId}',
+    );
 
     setState(() {
       _selectedBranch = option;
@@ -228,8 +289,17 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (branchId == null) {
       return;
     }
+    _logCompensation(
+      'save_payroll_setup_started',
+      details:
+          'branchId=$branchId, userId=${setup.userId}, payrollType=${setup.payrollType}',
+    );
     await _repository.savePayrollSetup(branchId, setup);
     await _loadPayrollData(branchId);
+    _logCompensation(
+      'save_payroll_setup_success',
+      details: 'branchId=$branchId, userId=${setup.userId}',
+    );
     _showToast('Payroll setup saved successfully');
   }
 
@@ -238,6 +308,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (branchId == null) {
       return;
     }
+    _logCompensation(
+      'generate_payroll_requested',
+      details: 'branchId=$branchId, period=${period.toIso8601String()}',
+    );
     await _performAction(() async {
       await _repository.generatePayroll(
         branchId: branchId,
@@ -248,9 +322,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _payrollStage = _PayrollStage.dashboard;
-      });
+      _showPayrollDashboardStage();
+      _logCompensation(
+        'generate_payroll_success',
+        details: 'branchId=$branchId, period=${period.toIso8601String()}',
+      );
       _showToast('Payroll generated successfully');
     });
   }
@@ -263,6 +339,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (branchId == null) {
       return;
     }
+    _logCompensation(
+      'save_commission_rule_started',
+      details:
+          'branchId=$branchId, serviceId=${service.id}, ruleType=${rule.ruleType}, active=${rule.active}',
+    );
     await _performAction(() async {
       await _repository.saveCommissionRule(
         branchId: branchId,
@@ -270,6 +351,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         rule: rule,
       );
       await _loadCommissionData(branchId);
+      _logCompensation(
+        'save_commission_rule_success',
+        details: 'branchId=$branchId, serviceId=${service.id}',
+      );
       _showToast('Commission rule saved successfully');
     });
   }
@@ -282,6 +367,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (branchId == null) {
       return;
     }
+    _logCompensation(
+      'save_commission_overrides_started',
+      details:
+          'branchId=$branchId, serviceId=$serviceId, overrides=${overrides.length}',
+    );
     await _performAction(() async {
       final currentForService = _staffOverrides
           .where((item) => item.serviceId == serviceId)
@@ -299,6 +389,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         ],
       );
       await _loadCommissionData(branchId);
+      _logCompensation(
+        'save_commission_overrides_success',
+        details: 'branchId=$branchId, serviceId=$serviceId',
+      );
       _showToast('Commission override saved successfully');
     });
   }
@@ -308,18 +402,28 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (branchId == null) {
       return;
     }
+    _logCompensation(
+      'delete_commission_override_started',
+      details: 'branchId=$branchId, overrideId=$overrideId',
+    );
     await _performAction(() async {
       await _repository.deleteStaffOverride(
         branchId: branchId,
         overrideId: overrideId,
       );
       await _loadCommissionData(branchId);
+      _logCompensation(
+        'delete_commission_override_success',
+        details: 'branchId=$branchId, overrideId=$overrideId',
+      );
       _showToast('Override removed successfully');
     });
   }
 
   Future<void> _performAction(Future<void> Function() action) async {
     if (_isActionInProgress) {
+      _logCompensation('perform_action_skipped',
+          details: 'already_in_progress');
       return;
     }
 
@@ -330,6 +434,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     try {
       await action();
     } catch (error) {
+      _logCompensation('perform_action_failed', details: _errorText(error));
       _showToast(_errorText(error), isError: true);
     } finally {
       if (mounted) {
@@ -414,6 +519,22 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     );
   }
 
+  void _showPayrollSetupStage() {
+    setState(() => _payrollStage = _PayrollStage.setup);
+  }
+
+  void _showPayrollDashboardStage() {
+    setState(() => _payrollStage = _PayrollStage.dashboard);
+  }
+
+  void _setCommissionTabValue(_CommissionTab tab) {
+    setState(() => _commissionTab = tab);
+  }
+
+  void _selectCommissionService(int serviceId) {
+    setState(() => _selectedServiceId = serviceId);
+  }
+
   String _errorText(Object error) {
     final text = error.toString().replaceFirst('Exception: ', '').trim();
     return text.isEmpty ? 'Something went wrong. Please try again.' : text;
@@ -439,13 +560,19 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   Future<void> _openGeneratePayrollDialog() async {
+    _logCompensation('open_generate_payroll_dialog');
     final selected = await showDialog<DateTime>(
       context: context,
       builder: (context) => const _GeneratePayrollDialog(),
     );
     if (selected == null) {
+      _logCompensation('generate_payroll_dialog_cancelled');
       return;
     }
+    _logCompensation(
+      'generate_payroll_dialog_selected',
+      details: selected.toIso8601String(),
+    );
     await _generatePayroll(selected);
   }
 
@@ -454,6 +581,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (branchId == null) {
       return;
     }
+    _logCompensation(
+      'open_payroll_review',
+      details: 'branchId=$branchId, runId=${initialRun.id}',
+    );
 
     PayrollRunRecord currentRun = initialRun;
     await showModalBottomSheet<void>(
@@ -476,14 +607,26 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
               }
               setSheetState(() => isBusy = true);
               try {
+                _logCompensation(
+                  'approve_payroll_started',
+                  details: 'branchId=$branchId, runId=${currentRun.id}',
+                );
                 final updated = await _repository.approvePayroll(
                   branchId: branchId,
                   runId: currentRun.id,
                 );
                 await refreshRun(updated);
                 setSheetState(() => currentRun = updated);
+                _logCompensation(
+                  'approve_payroll_success',
+                  details: 'branchId=$branchId, runId=${currentRun.id}',
+                );
                 _showToast('Payroll approved successfully');
               } catch (error) {
+                _logCompensation(
+                  'approve_payroll_failed',
+                  details: _errorText(error),
+                );
                 _showToast(_errorText(error), isError: true);
               } finally {
                 if (sheetContext.mounted) {
@@ -501,10 +644,15 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 submitLabel: 'Mark payroll as paid',
               );
               if (payment == null) {
+                _logCompensation('record_payroll_payment_cancelled');
                 return;
               }
               setSheetState(() => isBusy = true);
               try {
+                _logCompensation(
+                  'record_payroll_payment_started',
+                  details: 'branchId=$branchId, runId=${currentRun.id}',
+                );
                 final updated = await _repository.recordPayrollPayment(
                   branchId: branchId,
                   runId: currentRun.id,
@@ -512,8 +660,16 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 );
                 await refreshRun(updated);
                 setSheetState(() => currentRun = updated);
+                _logCompensation(
+                  'record_payroll_payment_success',
+                  details: 'branchId=$branchId, runId=${currentRun.id}',
+                );
                 _showToast('Payroll payment recorded successfully');
               } catch (error) {
+                _logCompensation(
+                  'record_payroll_payment_failed',
+                  details: _errorText(error),
+                );
                 _showToast(_errorText(error), isError: true);
               } finally {
                 if (sheetContext.mounted) {
@@ -697,6 +853,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (branchId == null) {
       return null;
     }
+    _logCompensation(
+      'open_employee_review',
+      details: 'branchId=$branchId, runId=${run.id}, userId=${employee.userId}',
+    );
 
     PayrollRunRecord currentRun = run;
     PayrollRunEmployeeRecord currentEmployee = employee;
@@ -724,10 +884,19 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
               }
               final adjustment = await _showAdjustmentDialog(type);
               if (adjustment == null) {
+                _logCompensation(
+                  'add_adjustment_cancelled',
+                  details: 'type=$type, userId=${currentEmployee.userId}',
+                );
                 return;
               }
               setSheetState(() => isBusy = true);
               try {
+                _logCompensation(
+                  'add_adjustment_started',
+                  details:
+                      'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, type=$type',
+                );
                 final updated = await _repository.addEmployeeAdjustment(
                   branchId: branchId,
                   runId: currentRun.id,
@@ -738,8 +907,17 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 if (sheetContext.mounted) {
                   setSheetState(() {});
                 }
+                _logCompensation(
+                  'add_adjustment_success',
+                  details:
+                      'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}, type=$type',
+                );
                 _showToast('Adjustment saved successfully');
               } catch (error) {
+                _logCompensation(
+                  'add_adjustment_failed',
+                  details: _errorText(error),
+                );
                 _showToast(_errorText(error), isError: true);
               } finally {
                 if (sheetContext.mounted) {
@@ -757,10 +935,19 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 submitLabel: 'Mark employee as paid',
               );
               if (payment == null) {
+                _logCompensation(
+                  'record_employee_payment_cancelled',
+                  details: 'userId=${currentEmployee.userId}',
+                );
                 return;
               }
               setSheetState(() => isBusy = true);
               try {
+                _logCompensation(
+                  'record_employee_payment_started',
+                  details:
+                      'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}',
+                );
                 final updated = await _repository.recordEmployeePayment(
                   branchId: branchId,
                   runId: currentRun.id,
@@ -771,8 +958,17 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 if (sheetContext.mounted) {
                   setSheetState(() {});
                 }
+                _logCompensation(
+                  'record_employee_payment_success',
+                  details:
+                      'branchId=$branchId, runId=${currentRun.id}, userId=${currentEmployee.userId}',
+                );
                 _showToast('Employee payment recorded successfully');
               } catch (error) {
+                _logCompensation(
+                  'record_employee_payment_failed',
+                  details: _errorText(error),
+                );
                 _showToast(_errorText(error), isError: true);
               } finally {
                 if (sheetContext.mounted) {
@@ -1086,50 +1282,59 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                _LabeledTextField(
+                                  label: 'Payment mode',
+                                  controller: modeController,
+                                  validator: (value) =>
+                                      value == null || value.trim().isEmpty
+                                          ? 'Payment mode is required'
+                                          : null,
+                                ),
+                                const SizedBox(height: 14),
+                                _LabeledTextField(
+                                  label: 'Reference / Txn ID',
+                                  controller: referenceController,
+                                ),
+                                const SizedBox(height: 14),
+                                _DateFieldButton(
+                                  label: 'Paid date',
+                                  value: paidDate,
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: paidDate,
+                                      firstDate: DateTime(2022),
+                                      lastDate: DateTime(2100),
+                                    );
+                                    if (picked != null) {
+                                      setSheetState(() => paidDate = picked);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 14),
+                                _LabeledTextField(
+                                  label: 'Notes',
+                                  controller: notesController,
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 18),
-                        _LabeledTextField(
-                          label: 'Payment mode',
-                          controller: modeController,
-                          validator: (value) =>
-                              value == null || value.trim().isEmpty
-                                  ? 'Payment mode is required'
-                                  : null,
-                        ),
-                        const SizedBox(height: 14),
-                        _LabeledTextField(
-                          label: 'Reference / Txn ID',
-                          controller: referenceController,
-                        ),
-                        const SizedBox(height: 14),
-                        _DateFieldButton(
-                          label: 'Paid date',
-                          value: paidDate,
-                          onTap: () async {
-                            final picked = await showDatePicker(
-                              context: context,
-                              initialDate: paidDate,
-                              firstDate: DateTime(2022),
-                              lastDate: DateTime(2100),
-                            );
-                            if (picked != null) {
-                              setSheetState(() => paidDate = picked);
-                            }
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        _LabeledTextField(
-                          label: 'Notes',
-                          controller: notesController,
-                          maxLines: 3,
-                        ),
-                        const Spacer(),
+                        const SizedBox(height: 16),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -1214,7 +1419,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 _LabeledTextField(
                   label: 'Remarks',
                   controller: remarksController,
-                  maxLines: 3,
+                  maxLines: 1,
                 ),
               ],
             ),
@@ -1388,379 +1593,14 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
           teamMembers: _activeTeamMembers,
           existingSetups: _setupByUserId,
           onSave: _savePayrollSetup,
-          onBack: () {
-            setState(() => _payrollStage = _PayrollStage.dashboard);
-          },
-          onContinue: () {
-            setState(() => _payrollStage = _PayrollStage.dashboard);
-          },
+          onBack: _showPayrollDashboardStage,
+          onContinue: _showPayrollDashboardStage,
         );
       }
       return _buildPayrollDashboard();
     }
 
     return _buildCommissionScreen();
-  }
-
-  Widget _buildPayrollDashboard() {
-    final currentRun = _payrollRuns.isEmpty ? null : _payrollRuns.first;
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                label: 'Active team',
-                value: '${_activeTeamMembers.length}',
-                subtitle: 'members',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                label: 'Configured',
-                value: '${_payrollSetups.length}',
-                subtitle: 'payroll setups',
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                label: 'Runs',
-                value: '${_payrollRuns.length}',
-                subtitle: 'generated',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (currentRun != null)
-          _HighlightCard(
-            title: 'Current run',
-            subtitle: currentRun.periodLabel,
-            amount: _formatCurrency(currentRun.totalAmountMinor),
-            status: currentRun.statusLabel,
-            onTap: () {
-              _openPayrollReview(currentRun);
-            },
-          )
-        else
-          const _EmptyStateCard(
-            title: 'No payroll generated yet',
-            subtitle:
-                'Finish payroll setup, then generate the first payroll period for this branch.',
-          ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            if (!_isPayrollConfiguredForAllTeam)
-              _ActionChipButton(
-                label: context.t('Setup Payroll'),
-                filled: true,
-                onTap: _isActionInProgress
-                    ? null
-                    : () {
-                        setState(() => _payrollStage = _PayrollStage.setup);
-                      },
-              ),
-            if (_isPayrollConfiguredForAllTeam)
-              _ActionChipButton(
-                label: _isActionInProgress
-                    ? context.t('Generating...')
-                    : context.t('Generate Payroll'),
-                filled: true,
-                onTap: _isActionInProgress
-                    ? null
-                    : () {
-                        _openGeneratePayrollDialog();
-                      },
-              ),
-            if (_payrollRuns.isNotEmpty)
-              _ActionChipButton(
-                label: context.t('Review & Pay'),
-                onTap: _isActionInProgress
-                    ? null
-                    : () {
-                        _openPayrollReview(_payrollRuns.first);
-                      },
-              ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text(
-          context.t('Generated Payroll Periods'),
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1C1917),
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_activeTeamMembers.isEmpty)
-          const _EmptyStateCard(
-            title: 'No staff found for this branch',
-            subtitle: 'Add or activate team members before setting up payroll.',
-          )
-        else if (_payrollRuns.isEmpty)
-          const _EmptyStateCard(
-            title: 'No payroll history available',
-            subtitle:
-                'Once you generate payroll, each period will appear here for review and payment.',
-          )
-        else
-          ..._payrollRuns.map(
-            (run) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _PayrollRunTile(
-                run: run,
-                amountLabel: _formatCurrency(run.totalAmountMinor),
-                statusColor: _statusColor(run.statusLabel),
-                onOpen: () {
-                  _openPayrollReview(run);
-                },
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildCommissionScreen() {
-    if (_services.isEmpty) {
-      return const _EmptyStateCard(
-        title: 'No services found for this branch',
-        subtitle:
-            'Commission setup needs active branch services and staff members.',
-      );
-    }
-
-    final selectedService = _selectedService;
-    final selectedRule = _selectedServiceRule;
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _ModuleButton(
-                label: 'Services',
-                icon: Icons.design_services_outlined,
-                isSelected: _commissionTab == _CommissionTab.services,
-                onTap: () {
-                  setState(() => _commissionTab = _CommissionTab.services);
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ModuleButton(
-                label: 'Staff Overrides',
-                icon: Icons.groups_2_outlined,
-                isSelected: _commissionTab == _CommissionTab.overrides,
-                onTap: () {
-                  setState(() => _commissionTab = _CommissionTab.overrides);
-                },
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _serviceSearchController,
-          decoration: InputDecoration(
-            hintText: 'Search services',
-            prefixIcon: const Icon(Icons.search),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 136,
-          child: _filteredServices.isEmpty
-              ? const _EmptyStateCard(
-                  title: 'No matching services',
-                  subtitle: 'Try a different service name or clear the search.',
-                )
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _filteredServices.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final service = _filteredServices[index];
-                    final isSelected = selectedService?.id == service.id;
-                    final rule = _repository.ruleForService(
-                      service: service,
-                      storedRules: _serviceRules,
-                    );
-                    return _ServiceSelectorCard(
-                      service: service,
-                      rule: rule,
-                      isSelected: isSelected,
-                      onTap: () {
-                        setState(() => _selectedServiceId = service.id);
-                      },
-                    );
-                  },
-                ),
-        ),
-        const SizedBox(height: 18),
-        if (selectedService == null || selectedRule == null)
-          const _EmptyStateCard(
-            title: 'Select a service',
-            subtitle:
-                'Choose a service to edit its default commission rule and staff overrides.',
-          )
-        else if (_commissionTab == _CommissionTab.services)
-          _ServiceRuleEditorCard(
-            service: selectedService,
-            initialRule: selectedRule,
-            isSaving: _isActionInProgress,
-            onSave: (rule) => _saveCommissionRule(
-              service: selectedService,
-              rule: rule,
-            ),
-          )
-        else
-          Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                selectedService.name,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1C1917),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                selectedService.categoryName.isEmpty
-                                    ? 'Staff override rules'
-                                    : selectedService.categoryName,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  color: Color(0xFF6B7280),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        _ActionChipButton(
-                          label: _isActionInProgress
-                              ? 'Saving...'
-                              : 'Add Override',
-                          onTap: _isActionInProgress
-                              ? null
-                              : () {
-                                  _openAddOverrideDialog();
-                                },
-                          filled: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    if (_selectedServiceOverrides.isEmpty)
-                      const _EmptyStateCard(
-                        title: 'No staff overrides found',
-                        subtitle:
-                            'Add override rules for one or more staff members on this service.',
-                      )
-                    else
-                      ..._selectedServiceOverrides.map(
-                        (override) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8F5F2),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        override.staffName,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF1C1917),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        override.ruleType ==
-                                                CommissionRuleTypes.percentage
-                                            ? '${override.value.toStringAsFixed(1)}%'
-                                            : _formatCurrency(
-                                                override.value.round()),
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          color: Color(0xFF6B7280),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Effective from ${_formatDate(override.effectiveFrom)}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF9CA3AF),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: _isActionInProgress
-                                      ? null
-                                      : () {
-                                          _deleteOverride(override.id);
-                                        },
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    color: AppColors.red,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-      ],
-    );
   }
 }
 
@@ -2256,95 +2096,6 @@ class _ErrorStateCard extends StatelessWidget {
   }
 }
 
-class _GeneratePayrollDialog extends StatefulWidget {
-  const _GeneratePayrollDialog();
-
-  @override
-  State<_GeneratePayrollDialog> createState() => _GeneratePayrollDialogState();
-}
-
-class _GeneratePayrollDialogState extends State<_GeneratePayrollDialog> {
-  late int _selectedMonth;
-  late int _selectedYear;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _selectedMonth = now.month;
-    _selectedYear = now.year;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final years =
-        List<int>.generate(5, (index) => DateTime.now().year - 1 + index);
-
-    return AlertDialog(
-      title: Text(context.t('Generate Payroll')),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DropdownButtonFormField<int>(
-            initialValue: _selectedMonth,
-            decoration: const InputDecoration(labelText: 'Month'),
-            items: List<DropdownMenuItem<int>>.generate(
-              12,
-              (index) => DropdownMenuItem<int>(
-                value: index + 1,
-                child:
-                    Text(DateFormat('MMMM').format(DateTime(2026, index + 1))),
-              ),
-            ),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _selectedMonth = value);
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<int>(
-            initialValue: _selectedYear,
-            decoration: const InputDecoration(labelText: 'Year'),
-            items: years
-                .map(
-                  (year) => DropdownMenuItem<int>(
-                    value: year,
-                    child: Text('$year'),
-                  ),
-                )
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _selectedYear = value);
-              }
-            },
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(
-              context,
-              DateTime(_selectedYear, _selectedMonth, 1),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.starColor,
-            foregroundColor: Colors.white,
-          ),
-          child: Text(context.t('Generate Payroll')),
-        ),
-      ],
-    );
-  }
-}
-
 class _LabeledTextField extends StatelessWidget {
   const _LabeledTextField({
     required this.label,
@@ -2434,875 +2185,6 @@ class _DateFieldButton extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _PayrollSetupView extends StatefulWidget {
-  const _PayrollSetupView({
-    required this.teamMembers,
-    required this.existingSetups,
-    required this.onSave,
-    required this.onBack,
-    required this.onContinue,
-  });
-
-  final List<ProfileTeamMember> teamMembers;
-  final Map<int, PayrollSetupRecord> existingSetups;
-  final Future<void> Function(PayrollSetupRecord setup) onSave;
-  final VoidCallback onBack;
-  final VoidCallback onContinue;
-
-  @override
-  State<_PayrollSetupView> createState() => _PayrollSetupViewState();
-}
-
-class _PayrollSetupViewState extends State<_PayrollSetupView> {
-  final Set<int> _savingIds = <int>{};
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.teamMembers.isEmpty) {
-      return const _EmptyStateCard(
-        title: 'No staff found for this branch',
-        subtitle: 'Add or activate team members before configuring payroll.',
-      );
-    }
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: widget.onBack,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text('Back to Dashboard'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: widget.onContinue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text('Continue / Review'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: widget.teamMembers.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final member = widget.teamMembers[index];
-              final initial = widget.existingSetups[member.id];
-              return _PayrollSetupMemberCard(
-                member: member,
-                initialSetup: initial,
-                isSaving: _savingIds.contains(member.id),
-                onSave: (setup) async {
-                  setState(() => _savingIds.add(member.id));
-                  try {
-                    await widget.onSave(setup);
-                  } finally {
-                    if (mounted) {
-                      setState(() => _savingIds.remove(member.id));
-                    }
-                  }
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PayrollSetupMemberCard extends StatefulWidget {
-  const _PayrollSetupMemberCard({
-    required this.member,
-    required this.initialSetup,
-    required this.isSaving,
-    required this.onSave,
-  });
-
-  final ProfileTeamMember member;
-  final PayrollSetupRecord? initialSetup;
-  final bool isSaving;
-  final Future<void> Function(PayrollSetupRecord setup) onSave;
-
-  @override
-  State<_PayrollSetupMemberCard> createState() =>
-      _PayrollSetupMemberCardState();
-}
-
-class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
-  late String _payrollType;
-  late TextEditingController _salaryController;
-  late TextEditingController _commissionController;
-  late DateTime _effectiveDate;
-
-  @override
-  void initState() {
-    super.initState();
-    _payrollType = widget.initialSetup?.payrollType ?? PayrollTypes.salaryOnly;
-    _salaryController = TextEditingController(
-      text: widget.initialSetup == null || widget.initialSetup!.salaryMinor == 0
-          ? ''
-          : '${widget.initialSetup!.salaryMinor}',
-    );
-    _commissionController = TextEditingController(
-      text: widget.initialSetup == null ||
-              widget.initialSetup!.commissionPercent == 0
-          ? ''
-          : widget.initialSetup!.commissionPercent.toStringAsFixed(1),
-    );
-    _effectiveDate = widget.initialSetup?.effectiveDate ?? DateTime.now();
-  }
-
-  @override
-  void dispose() {
-    _salaryController.dispose();
-    _commissionController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant _PayrollSetupMemberCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialSetup != widget.initialSetup &&
-        widget.initialSetup != null) {
-      _payrollType = widget.initialSetup!.payrollType;
-      _salaryController.text = widget.initialSetup!.salaryMinor == 0
-          ? ''
-          : '${widget.initialSetup!.salaryMinor}';
-      _commissionController.text = widget.initialSetup!.commissionPercent == 0
-          ? ''
-          : widget.initialSetup!.commissionPercent.toStringAsFixed(1);
-      _effectiveDate = widget.initialSetup!.effectiveDate;
-    }
-  }
-
-  bool get _requiresSalary =>
-      _payrollType == PayrollTypes.salaryOnly ||
-      _payrollType == PayrollTypes.salaryCommission;
-
-  bool get _requiresCommission =>
-      _payrollType == PayrollTypes.commissionOnly ||
-      _payrollType == PayrollTypes.salaryCommission;
-
-  Future<void> _submit() async {
-    final salary = int.tryParse(_salaryController.text.trim()) ?? 0;
-    final commission = double.tryParse(_commissionController.text.trim()) ?? 0;
-
-    if (_requiresSalary && salary <= 0) {
-      _showRowToast('Salary is required for salary-based payroll types.');
-      return;
-    }
-    if (_requiresCommission && (commission < 0 || commission > 100)) {
-      _showRowToast('Commission must be between 0 and 100.');
-      return;
-    }
-
-    final setup = PayrollSetupRecord(
-      userId: widget.member.id,
-      userName: widget.member.name,
-      payrollType: _payrollType,
-      salaryMinor: _requiresSalary ? salary : 0,
-      commissionPercent: _requiresCommission ? commission : 0,
-      effectiveDate: _effectiveDate,
-    );
-    await widget.onSave(setup);
-  }
-
-  void _showRowToast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.member.name,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1917),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.member.role.isEmpty
-                          ? 'Team member'
-                          : widget.member.role,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (widget.initialSetup != null)
-                const _StatusPill(
-                  label: 'Configured',
-                  color: Color(0xFF157347),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            initialValue: _payrollType,
-            decoration: InputDecoration(
-              labelText: 'Payroll type',
-              filled: true,
-              fillColor: const Color(0xFFF8F5F2),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            items: PayrollTypes.values
-                .map(
-                  (value) => DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(PayrollTypes.label(value)),
-                  ),
-                )
-                .toList(),
-            onChanged: widget.isSaving
-                ? null
-                : (value) {
-                    if (value != null) {
-                      setState(() => _payrollType = value);
-                    }
-                  },
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _LabeledTextField(
-                  label: 'Salary',
-                  controller: _salaryController,
-                  enabled: _requiresSalary && !widget.isSaving,
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _LabeledTextField(
-                  label: 'Commission %',
-                  controller: _commissionController,
-                  enabled: _requiresCommission && !widget.isSaving,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _DateFieldButton(
-            label: 'Effective date',
-            value: _effectiveDate,
-            onTap: widget.isSaving
-                ? () {}
-                : () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _effectiveDate,
-                      firstDate: DateTime(2022),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) {
-                      setState(() => _effectiveDate = picked);
-                    }
-                  },
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: widget.isSaving
-                  ? null
-                  : () {
-                      _submit();
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: Text(widget.isSaving ? 'Saving...' : 'Save'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ServiceSelectorCard extends StatelessWidget {
-  const _ServiceSelectorCard({
-    required this.service,
-    required this.rule,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  final BranchServiceSummary service;
-  final CommissionServiceRule rule;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final valueLabel = rule.ruleType == CommissionRuleTypes.percentage
-        ? '${rule.value.toStringAsFixed(1)}%'
-        : '₹${rule.value.round()}';
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Ink(
-          width: 220,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF1C1917) : Colors.white,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: isSelected
-                  ? const Color(0xFF1C1917)
-                  : const Color(0xFFE9DFD1),
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Text(
-                service.name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected ? Colors.white : const Color(0xFF1C1917),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: Text(
-                  service.categoryName.isEmpty
-                      ? 'Service commission'
-                      : service.categoryName,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isSelected
-                        ? const Color(0xFFD1D5DB)
-                        : const Color(0xFF6B7280),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                rule.active ? valueLabel : 'Inactive',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected
-                      ? const Color(0xFFFCD34D)
-                      : const Color(0xFFB45309),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ServiceRuleEditorCard extends StatefulWidget {
-  const _ServiceRuleEditorCard({
-    required this.service,
-    required this.initialRule,
-    required this.isSaving,
-    required this.onSave,
-  });
-
-  final BranchServiceSummary service;
-  final CommissionServiceRule initialRule;
-  final bool isSaving;
-  final Future<void> Function(CommissionServiceRule rule) onSave;
-
-  @override
-  State<_ServiceRuleEditorCard> createState() => _ServiceRuleEditorCardState();
-}
-
-class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
-  late String _ruleType;
-  late TextEditingController _valueController;
-  late TextEditingController _notesController;
-  late DateTime _effectiveFrom;
-  late bool _active;
-
-  @override
-  void initState() {
-    super.initState();
-    _applyRule(widget.initialRule);
-  }
-
-  @override
-  void didUpdateWidget(covariant _ServiceRuleEditorCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.service.id != widget.service.id ||
-        oldWidget.initialRule != widget.initialRule) {
-      _applyRule(widget.initialRule);
-    }
-  }
-
-  void _applyRule(CommissionServiceRule rule) {
-    if (_isControllerReady) {
-      _valueController.dispose();
-      _notesController.dispose();
-    }
-    _ruleType = rule.ruleType;
-    _valueController = TextEditingController(
-      text: rule.value == 0 ? '' : rule.value.toStringAsFixed(1),
-    );
-    _notesController = TextEditingController(text: rule.notes);
-    _effectiveFrom = rule.effectiveFrom;
-    _active = rule.active;
-  }
-
-  bool get _isControllerReady {
-    try {
-      _valueController;
-      _notesController;
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  @override
-  void dispose() {
-    _valueController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  void _reset() {
-    setState(() {
-      _valueController.text = widget.initialRule.value == 0
-          ? ''
-          : widget.initialRule.value.toStringAsFixed(1);
-      _notesController.text = widget.initialRule.notes;
-      _ruleType = widget.initialRule.ruleType;
-      _effectiveFrom = widget.initialRule.effectiveFrom;
-      _active = widget.initialRule.active;
-    });
-  }
-
-  Future<void> _save() async {
-    final parsed = double.tryParse(_valueController.text.trim());
-    if (parsed == null || parsed < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid commission value')),
-      );
-      return;
-    }
-    if (_ruleType == CommissionRuleTypes.percentage && parsed > 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Commission must be between 0 and 100')),
-      );
-      return;
-    }
-
-    await widget.onSave(
-      CommissionServiceRule(
-        serviceId: widget.service.id,
-        ruleType: _ruleType,
-        value: parsed,
-        effectiveFrom: _effectiveFrom,
-        active: _active,
-        notes: _notesController.text.trim(),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.service.name,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1917),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Default commission rule',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _active,
-                activeThumbColor: AppColors.starColor,
-                onChanged: widget.isSaving
-                    ? null
-                    : (value) {
-                        setState(() => _active = value);
-                      },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            initialValue: _ruleType,
-            decoration: InputDecoration(
-              labelText: 'Rule type',
-              filled: true,
-              fillColor: const Color(0xFFF8F5F2),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            items: const [
-              DropdownMenuItem(
-                value: CommissionRuleTypes.percentage,
-                child: Text('Percentage'),
-              ),
-              DropdownMenuItem(
-                value: CommissionRuleTypes.fixed,
-                child: Text('Fixed'),
-              ),
-            ],
-            onChanged: widget.isSaving
-                ? null
-                : (value) {
-                    if (value != null) {
-                      setState(() => _ruleType = value);
-                    }
-                  },
-          ),
-          const SizedBox(height: 12),
-          _LabeledTextField(
-            label: _ruleType == CommissionRuleTypes.percentage
-                ? 'Value (%)'
-                : 'Value (₹)',
-            controller: _valueController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          const SizedBox(height: 12),
-          _DateFieldButton(
-            label: 'Effective from',
-            value: _effectiveFrom,
-            onTap: widget.isSaving
-                ? () {}
-                : () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _effectiveFrom,
-                      firstDate: DateTime(2022),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) {
-                      setState(() => _effectiveFrom = picked);
-                    }
-                  },
-          ),
-          const SizedBox(height: 12),
-          _LabeledTextField(
-            label: 'Notes',
-            controller: _notesController,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: widget.isSaving
-                      ? null
-                      : () {
-                          _reset();
-                        },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text('Cancel'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: widget.isSaving
-                      ? null
-                      : () {
-                          _save();
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(widget.isSaving ? 'Saving...' : 'Save'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddOverrideDialog extends StatefulWidget {
-  const _AddOverrideDialog({
-    required this.serviceId,
-    required this.staff,
-  });
-
-  final int serviceId;
-  final List<ProfileTeamMember> staff;
-
-  @override
-  State<_AddOverrideDialog> createState() => _AddOverrideDialogState();
-}
-
-class _AddOverrideDialogState extends State<_AddOverrideDialog> {
-  final Set<int> _selectedStaffIds = <int>{};
-  final TextEditingController _valueController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
-
-  String _ruleType = CommissionRuleTypes.percentage;
-  DateTime _effectiveFrom = DateTime.now();
-
-  @override
-  void dispose() {
-    _valueController.dispose();
-    _notesController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final parsed = double.tryParse(_valueController.text.trim());
-    if (_selectedStaffIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least one staff member')),
-      );
-      return;
-    }
-    if (parsed == null || parsed < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid override value')),
-      );
-      return;
-    }
-    if (_ruleType == CommissionRuleTypes.percentage && parsed > 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Commission must be between 0 and 100')),
-      );
-      return;
-    }
-
-    final overrides = widget.staff
-        .where((member) => _selectedStaffIds.contains(member.id))
-        .map(
-          (member) => StaffCommissionOverride(
-            id: '${widget.serviceId}_${member.id}_${DateTime.now().millisecondsSinceEpoch}',
-            serviceId: widget.serviceId,
-            staffId: member.id,
-            staffName: member.name,
-            ruleType: _ruleType,
-            value: parsed,
-            effectiveFrom: _effectiveFrom,
-            notes: _notesController.text.trim(),
-          ),
-        )
-        .toList();
-
-    Navigator.pop(context, overrides);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Override'),
-      content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Select staff',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: widget.staff.map((member) {
-                  final isSelected = _selectedStaffIds.contains(member.id);
-                  return FilterChip(
-                    label: Text(member.name),
-                    selected: isSelected,
-                    onSelected: (value) {
-                      setState(() {
-                        if (value) {
-                          _selectedStaffIds.add(member.id);
-                        } else {
-                          _selectedStaffIds.remove(member.id);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: _ruleType,
-                decoration: const InputDecoration(labelText: 'Rule type'),
-                items: const [
-                  DropdownMenuItem(
-                    value: CommissionRuleTypes.percentage,
-                    child: Text('Percentage'),
-                  ),
-                  DropdownMenuItem(
-                    value: CommissionRuleTypes.fixed,
-                    child: Text('Fixed'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _ruleType = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              _LabeledTextField(
-                label: 'Value',
-                controller: _valueController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-              ),
-              const SizedBox(height: 12),
-              _DateFieldButton(
-                label: 'Effective from',
-                value: _effectiveFrom,
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _effectiveFrom,
-                    firstDate: DateTime(2022),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setState(() => _effectiveFrom = picked);
-                  }
-                },
-              ),
-              const SizedBox(height: 12),
-              _LabeledTextField(
-                label: 'Notes',
-                controller: _notesController,
-                maxLines: 3,
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _submit,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.starColor,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Save Override'),
-        ),
-      ],
     );
   }
 }
