@@ -6,11 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
-import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'stylist_about_salon_screen.dart';
-import 'stylist_detail_screen.dart';
 import 'stylist_reviews_screen.dart';
 import 'stylist_schedule_screen.dart';
 import 'stylist_web_doc_screen.dart';
@@ -27,7 +25,6 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
 
   String _userName = '';
   String _phoneNumber = '';
-  StylistBranchSelection _selection = const StylistBranchSelection();
 
   @override
   void initState() {
@@ -41,8 +38,6 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
         prefs.getString('firstName') ?? prefs.getString('first_name') ?? '';
     final lastName =
         prefs.getString('lastName') ?? prefs.getString('last_name') ?? '';
-    final selection = await StylistBranchSelectionStore.load();
-
     if (!mounted) {
       return;
     }
@@ -50,7 +45,6 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
     setState(() {
       _userName = '$firstName $lastName'.trim();
       _phoneNumber = prefs.getString('phone_number') ?? '';
-      _selection = selection;
     });
   }
 
@@ -64,21 +58,6 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => StylistWebDocScreen(title: title, url: url),
-      ),
-    );
-  }
-
-  void _openDetail(String title) {
-    final label = _selection.label.isEmpty
-        ? translateText('Select a salon in Bookings first')
-        : _selection.label;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StylistDetailScreen(
-          title: title,
-          subtitle: '$title\n\n$label',
-        ),
       ),
     );
   }
@@ -325,12 +304,6 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
           icon: Icons.schedule_outlined,
           label: context.t('Schedule'),
           onTap: _openSchedule,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.payments_outlined,
-          label: context.t('Commission'),
-          onTap: () => _openDetail(translateText('Commission')),
           showLeftAccent: true,
         ),
         ProfileMenuItemData(
