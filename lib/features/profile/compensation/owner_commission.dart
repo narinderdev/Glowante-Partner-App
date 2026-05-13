@@ -410,16 +410,18 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
 
   Future<void> _save() async {
     final parsed = double.tryParse(_valueController.text.trim());
+    final invalidValue = translateText('Enter a valid commission value');
+    final commissionRange =
+        translateText('Commission must be between 0 and 100');
     if (parsed == null || parsed < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.t('Enter a valid commission value'))),
+        SnackBar(content: Text(invalidValue)),
       );
       return;
     }
     if (_ruleType == CommissionRuleTypes.percentage && parsed > 100) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(context.t('Commission must be between 0 and 100'))),
+        SnackBar(content: Text(commissionRange)),
       );
       return;
     }
@@ -624,22 +626,25 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
 
   void _submit() {
     final parsed = double.tryParse(_valueController.text.trim());
+    final selectStaff = translateText('Select at least one staff member');
+    final invalidOverride = translateText('Enter a valid override value');
+    final commissionRange =
+        translateText('Commission must be between 0 and 100');
     if (_selectedStaffIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.t('Select at least one staff member'))),
+        SnackBar(content: Text(selectStaff)),
       );
       return;
     }
     if (parsed == null || parsed < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.t('Enter a valid override value'))),
+        SnackBar(content: Text(invalidOverride)),
       );
       return;
     }
     if (_ruleType == CommissionRuleTypes.percentage && parsed > 100) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(context.t('Commission must be between 0 and 100'))),
+        SnackBar(content: Text(commissionRange)),
       );
       return;
     }
