@@ -1,7 +1,7 @@
 name: bloc_onboarding
 description: "A new Flutter project."
 publish_to: 'none'
-version: 2.0.1+21
+version: 2.0.1+22
 
 environment:
   sdk: ">=3.2.0 <4.0.0"
@@ -17,6 +17,9 @@ dependencies:
   flutter_google_places_sdk: ^0.4.2+1
   flutter_dotenv: ^5.1.0
   image_picker: ^1.1.2
+  camera: ^0.11.0+2
+  google_mlkit_face_detection: ^0.13.2
+  image: ^4.5.4
   otp_autofill: ^4.1.0
   fluttertoast: ^9.0.0
   http: ^1.5.0
@@ -43,6 +46,7 @@ dependencies:
   pin_code_fields: ^8.0.1
   webview_flutter: ^4.7.0
   connectivity_plus: ^6.0.3
+  tflite_flutter: ^0.11.0
   webview_flutter_android: ^3.16.1
   webview_flutter_wkwebview: ^3.13.1
 
@@ -56,6 +60,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/icons/
+    - assets/models/
     - .env
   fonts:
     - family: Manrope

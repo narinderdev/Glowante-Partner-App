@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/profile/widgets/shared_profile_screen.dart';
+import '../features/stylist_attendance/stylist_mark_attendance_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
 import '../utils/api_service.dart';
@@ -85,6 +86,15 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => const StylistReviewsScreen(),
+      ),
+    );
+  }
+
+  void _openMarkAttendance() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const StylistMarkAttendanceScreen(),
       ),
     );
   }
@@ -300,6 +310,12 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
       onLanguageChanged: _changeLanguage,
       onRefresh: _loadData,
       menuItems: [
+        ProfileMenuItemData(
+          icon: Icons.face_retouching_natural_outlined,
+          label: context.t('Mark Attendance'),
+          onTap: _openMarkAttendance,
+          showLeftAccent: true,
+        ),
         ProfileMenuItemData(
           icon: Icons.schedule_outlined,
           label: context.t('Schedule'),

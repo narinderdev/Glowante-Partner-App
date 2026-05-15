@@ -181,6 +181,8 @@ class AppTranslations {
       'Logout': 'Logout',
       'Logout failed. Please try again.': 'Logout failed. Please try again.',
       'Male': 'Male',
+      'Mark Attendance': 'Mark Attendance',
+      'Marked': 'Marked',
       'Mobile Number': 'Mobile Number',
       'Must start with a capital letter': 'Must start with a capital letter',
       'My Salons': 'My Salons',
@@ -263,6 +265,94 @@ class AppTranslations {
       'Manual entry': 'Manual entry',
       'Open camera and scan a barcode or QR code.':
           'Open camera and scan a barcode or QR code.',
+      'Attendance needs an active branch selection before setup can begin.':
+          'Attendance needs an active branch selection before setup can begin.',
+      'Attendance marked successfully': 'Attendance marked successfully',
+      'Attendance Marked': 'Attendance Marked',
+      'Attendance Marked Today': 'Attendance Marked Today',
+      'Attendance Not Marked Yet': 'Attendance Not Marked Yet',
+      'Face Setup': 'Face Setup',
+      'Face Setup Pending': 'Face Setup Pending',
+      'Face Setup Ready': 'Face Setup Ready',
+      'Face image saved locally': 'Face image saved locally',
+      'Face setup completed successfully': 'Face setup completed successfully',
+      'Face setup reset successfully': 'Face setup reset successfully',
+      'Upload or capture 5 face angles to prepare local attendance matching on this device.':
+          'Upload or capture 5 face angles to prepare local attendance matching on this device.',
+      'Please upload all 5 required face images':
+          'Please upload all 5 required face images',
+      'Complete face setup first': 'Complete face setup first',
+      'Complete Setup': 'Complete Setup',
+      'Latest Attendance': 'Latest Attendance',
+      'Recent Attendance': 'Recent Attendance',
+      'No attendance marked yet': 'No attendance marked yet',
+      'Once you scan your face, local attendance entries will appear here.':
+          'Once you scan your face, local attendance entries will appear here.',
+      'Once auto face scan succeeds, local attendance entries will appear here.':
+          'Once auto face scan succeeds, local attendance entries will appear here.',
+      'Not marked yet': 'Not marked yet',
+      'Progress': 'Progress',
+      'Reset': 'Reset',
+      'Reset Face Setup': 'Reset Face Setup',
+      'Saved locally': 'Saved locally',
+      'Scan Face to Mark Attendance': 'Scan Face to Mark Attendance',
+      'This will remove local face setup images and attendance scans on this device.':
+          'This will remove local face setup images and attendance scans on this device.',
+      'Upload from Gallery': 'Upload from Gallery',
+      'Use Camera': 'Use Camera',
+      'Front': 'Front',
+      'Left Side': 'Left Side',
+      'Right Side': 'Right Side',
+      'Up': 'Up',
+      'Down': 'Down',
+      'Look straight into the camera.': 'Look straight into the camera.',
+      'Turn slightly to your left.': 'Turn slightly to your left.',
+      'Turn slightly to your right.': 'Turn slightly to your right.',
+      'Lift your chin slightly upward.': 'Lift your chin slightly upward.',
+      'Tilt your chin slightly downward.': 'Tilt your chin slightly downward.',
+      'Add Image': 'Add Image',
+      'Capture a clearer front-facing scan to mark attendance.':
+          'Capture a clearer front-facing scan to mark attendance.',
+      'Capture 5 face angles to prepare local attendance matching on this device.':
+          'Capture 5 face angles to prepare local attendance matching on this device.',
+      'Check In': 'Check In',
+      'Check Out': 'Check Out',
+      'Check-in Done': 'Check-in Done',
+      'Check-in Pending': 'Check-in Pending',
+      'Check-out Done': 'Check-out Done',
+      'Check-out Pending': 'Check-out Pending',
+      'Check-in is already marked for today.':
+          'Check-in is already marked for today.',
+      'Check-out is already marked for today.':
+          'Check-out is already marked for today.',
+      'Check-in must be marked before check-out.':
+          'Check-in must be marked before check-out.',
+      'Check-in marked successfully': 'Check-in marked successfully',
+      'Check-out marked successfully': 'Check-out marked successfully',
+      'Open Front Camera': 'Open Front Camera',
+      'Align your face inside the frame for auto scan.':
+          'Align your face inside the frame for auto scan.',
+      'Auto detection is running. No shutter tap is needed.':
+          'Auto detection is running. No shutter tap is needed.',
+      'Attendance uses the stylist branch selected in bookings or home.':
+          'Attendance uses the stylist branch selected in bookings or home.',
+      'Face verification failed. Please retry with the enrolled person.':
+          'Face verification failed. Please retry with the enrolled person.',
+      'Face does not match the enrolled user. Please use the enrolled face.':
+          'Face does not match the enrolled user. Please use the enrolled face.',
+      'Front face setup is missing. Please complete setup again.':
+          'Front face setup is missing. Please complete setup again.',
+      'The front camera will open for {pose}. Keep only one face visible.':
+          'The front camera will open for {pose}. Keep only one face visible.',
+      'Face angle does not match {pose}. Please follow the pose guide.':
+          'Face angle does not match {pose}. Please follow the pose guide.',
+      'Face detected successfully': 'Face detected successfully',
+      'Retake': 'Retake',
+      'Multiple faces detected. Only one face should be visible.':
+          'Multiple faces detected. Only one face should be visible.',
+      'No face detected. Please try again.':
+          'No face detected. Please try again.',
+      'Stylist': 'Stylist',
       'Place the product code inside the frame. After scanning, the product details screen opens for review.':
           'Place the product code inside the frame. After scanning, the product details screen opens for review.',
       'Save Item': 'Save Item',
@@ -837,6 +927,8 @@ class AppTranslations {
       'Logout failed. Please try again.':
           'लॉग आउट विफल। कृपया पुनः प्रयास करें।',
       'Male': 'पुरुष',
+      'Mark Attendance': 'उपस्थिति दर्ज करें',
+      'Marked': 'दर्ज',
       'Mobile Number': 'मोबाइल नंबर',
       'Must start with a capital letter': 'बड़े अक्षर से शुरू होना चाहिए',
       'My Salons': 'मेरे सैलून',
@@ -928,6 +1020,95 @@ class AppTranslations {
       'Manual entry': 'मैन्युअल एंट्री',
       'Open camera and scan a barcode or QR code.':
           'कैमरा खोलें और बारकोड या क्यूआर कोड स्कैन करें।',
+      'Attendance needs an active branch selection before setup can begin.':
+          'उपस्थिति शुरू करने से पहले सक्रिय शाखा चयन आवश्यक है।',
+      'Attendance marked successfully': 'उपस्थिति सफलतापूर्वक दर्ज हो गई',
+      'Attendance Marked': 'उपस्थिति दर्ज',
+      'Attendance Marked Today': 'आज की उपस्थिति दर्ज है',
+      'Attendance Not Marked Yet': 'आज की उपस्थिति अभी दर्ज नहीं हुई',
+      'Face Setup': 'फेस सेटअप',
+      'Face Setup Pending': 'फेस सेटअप लंबित',
+      'Face Setup Ready': 'फेस सेटअप तैयार',
+      'Face image saved locally': 'फेस इमेज लोकल डिवाइस पर सेव हो गई',
+      'Face setup completed successfully': 'फेस सेटअप सफलतापूर्वक पूरा हुआ',
+      'Face setup reset successfully': 'फेस सेटअप सफलतापूर्वक रीसेट हुआ',
+      'Upload or capture 5 face angles to prepare local attendance matching on this device.':
+          'इस डिवाइस पर लोकल उपस्थिति मिलान के लिए 5 चेहरे के एंगल अपलोड या कैप्चर करें।',
+      'Please upload all 5 required face images':
+          'कृपया सभी 5 आवश्यक चेहरे की तस्वीरें अपलोड करें',
+      'Complete face setup first': 'पहले फेस सेटअप पूरा करें',
+      'Complete Setup': 'सेटअप पूरा करें',
+      'Latest Attendance': 'नवीनतम उपस्थिति',
+      'Recent Attendance': 'हाल की उपस्थिति',
+      'No attendance marked yet': 'अभी तक कोई उपस्थिति दर्ज नहीं हुई',
+      'Once you scan your face, local attendance entries will appear here.':
+          'जैसे ही आप चेहरा स्कैन करेंगे, लोकल उपस्थिति एंट्री यहां दिखाई देंगी।',
+      'Once auto face scan succeeds, local attendance entries will appear here.':
+          'जैसे ही ऑटो फेस स्कैन सफल होगा, लोकल उपस्थिति एंट्री यहां दिखाई देंगी।',
+      'Not marked yet': 'अभी दर्ज नहीं',
+      'Progress': 'प्रगति',
+      'Reset': 'रीसेट',
+      'Reset Face Setup': 'फेस सेटअप रीसेट करें',
+      'Saved locally': 'लोकल डिवाइस पर सेव',
+      'Scan Face to Mark Attendance':
+          'उपस्थिति दर्ज करने के लिए चेहरा स्कैन करें',
+      'This will remove local face setup images and attendance scans on this device.':
+          'यह इस डिवाइस से लोकल फेस सेटअप इमेज और उपस्थिति स्कैन हटा देगा।',
+      'Upload from Gallery': 'गैलरी से अपलोड करें',
+      'Use Camera': 'कैमरा इस्तेमाल करें',
+      'Front': 'सामने',
+      'Left Side': 'बायाँ पक्ष',
+      'Right Side': 'दायाँ पक्ष',
+      'Up': 'ऊपर',
+      'Down': 'नीचे',
+      'Look straight into the camera.': 'सीधे कैमरे की ओर देखें।',
+      'Turn slightly to your left.': 'थोड़ा बाईं ओर मुड़ें।',
+      'Turn slightly to your right.': 'थोड़ा दाईं ओर मुड़ें।',
+      'Lift your chin slightly upward.': 'ठोड़ी को थोड़ा ऊपर उठाएं।',
+      'Tilt your chin slightly downward.': 'ठोड़ी को थोड़ा नीचे झुकाएं।',
+      'Add Image': 'इमेज जोड़ें',
+      'Capture a clearer front-facing scan to mark attendance.':
+          'उपस्थिति दर्ज करने के लिए अधिक स्पष्ट सामने वाला फेस स्कैन लें।',
+      'Capture 5 face angles to prepare local attendance matching on this device.':
+          'इस डिवाइस पर लोकल उपस्थिति मिलान के लिए 5 चेहरे के एंगल कैप्चर करें।',
+      'Check In': 'चेक इन',
+      'Check Out': 'चेक आउट',
+      'Check-in Done': 'चेक-इन पूरा',
+      'Check-in Pending': 'चेक-इन लंबित',
+      'Check-out Done': 'चेक-आउट पूरा',
+      'Check-out Pending': 'चेक-आउट लंबित',
+      'Check-in is already marked for today.':
+          'आज के लिए चेक-इन पहले ही दर्ज हो चुका है।',
+      'Check-out is already marked for today.':
+          'आज के लिए चेक-आउट पहले ही दर्ज हो चुका है।',
+      'Check-in must be marked before check-out.':
+          'चेक-आउट से पहले चेक-इन दर्ज होना चाहिए।',
+      'Check-in marked successfully': 'चेक-इन सफलतापूर्वक दर्ज हुआ',
+      'Check-out marked successfully': 'चेक-आउट सफलतापूर्वक दर्ज हुआ',
+      'Open Front Camera': 'फ्रंट कैमरा खोलें',
+      'Align your face inside the frame for auto scan.':
+          'ऑटो स्कैन के लिए अपना चेहरा फ्रेम के अंदर रखें।',
+      'Auto detection is running. No shutter tap is needed.':
+          'ऑटो डिटेक्शन चल रहा है। शटर टैप की जरूरत नहीं है।',
+      'Attendance uses the stylist branch selected in bookings or home.':
+          'उपस्थिति के लिए बुकिंग्स या होम में चुनी गई स्टाइलिस्ट शाखा का उपयोग होगा।',
+      'Face verification failed. Please retry with the enrolled person.':
+          'चेहरा सत्यापन विफल हुआ। कृपया नामांकित व्यक्ति के साथ फिर प्रयास करें।',
+      'Face does not match the enrolled user. Please use the enrolled face.':
+          'चेहरा नामांकित उपयोगकर्ता से मेल नहीं खाता। कृपया उसी नामांकित चेहरे का उपयोग करें।',
+      'Front face setup is missing. Please complete setup again.':
+          'फ्रंट फेस सेटअप उपलब्ध नहीं है। कृपया सेटअप फिर से पूरा करें।',
+      'The front camera will open for {pose}. Keep only one face visible.':
+          '{pose} के लिए फ्रंट कैमरा खुलेगा। केवल एक चेहरा दिखाई देना चाहिए।',
+      'Face angle does not match {pose}. Please follow the pose guide.':
+          'चेहरे का एंगल {pose} से मेल नहीं खाता। कृपया दिए गए पोज़ का पालन करें।',
+      'Face detected successfully': 'चेहरा सफलतापूर्वक पहचाना गया',
+      'Retake': 'दोबारा लें',
+      'Multiple faces detected. Only one face should be visible.':
+          'कई चेहरे मिले। केवल एक चेहरा दिखाई देना चाहिए।',
+      'No face detected. Please try again.':
+          'कोई चेहरा नहीं मिला। कृपया फिर से प्रयास करें।',
+      'Stylist': 'स्टाइलिस्ट',
       'Place the product code inside the frame. After scanning, the product details screen opens for review.':
           'उत्पाद कोड को फ्रेम के अंदर रखें। स्कैन होने के बाद उत्पाद विवरण स्क्रीन समीक्षा के लिए खुलेगी।',
       'Save Item': 'आइटम सहेजें',

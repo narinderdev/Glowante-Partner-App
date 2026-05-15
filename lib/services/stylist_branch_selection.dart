@@ -48,11 +48,35 @@ class StylistBranchSelectionStore {
 
   static Future<StylistBranchSelection> load() async {
     final prefs = await SharedPreferences.getInstance();
+    final salonId = _readInt(prefs, _selectedSalonIdKey);
+    final branchId = _readInt(prefs, _selectedBranchIdKey);
     return StylistBranchSelection(
-      salonId: prefs.getInt(_selectedSalonIdKey),
-      branchId: prefs.getInt(_selectedBranchIdKey),
-      salonName: prefs.getString(_selectedSalonNameKey) ?? '',
-      branchName: prefs.getString(_selectedBranchNameKey) ?? '',
+      salonId: salonId,
+      branchId: branchId,
+      salonName: _readString(prefs, _selectedSalonNameKey),
+      branchName: _readString(prefs, _selectedBranchNameKey),
     );
+  }
+
+  static int? _readInt(SharedPreferences prefs, String key) {
+    final value = prefs.get(key);
+    if (value is int) {
+      return value;
+    }
+    if (value is String) {
+      return int.tryParse(value);
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return null;
+  }
+
+  static String _readString(SharedPreferences prefs, String key) {
+    final value = prefs.get(key);
+    if (value == null) {
+      return '';
+    }
+    return value.toString();
   }
 }
