@@ -12,7 +12,7 @@ class PayrollTypes {
   ];
 
   static String label(String value) {
-    switch (value) {
+    switch (normalize(value)) {
       case salaryCommission:
         return 'Salary + Commission';
       case salaryOnly:
@@ -21,6 +21,23 @@ class PayrollTypes {
         return 'Commission Only';
       default:
         return 'Salary Only';
+    }
+  }
+
+  static String normalize(String value) {
+    switch (value.trim().toUpperCase()) {
+      case 'SALARY_PLUS_COMMISSION':
+      case 'SALARY_COMMISSION':
+      case 'SALARY+COMMISSION':
+        return salaryCommission;
+      case 'SALARY_ONLY':
+      case 'SALARY':
+        return salaryOnly;
+      case 'COMMISSION_ONLY':
+      case 'COMMISSION':
+        return commissionOnly;
+      default:
+        return value;
     }
   }
 }
@@ -33,6 +50,49 @@ class CommissionRuleTypes {
 class AdjustmentTypes {
   static const String addition = 'ADDITION';
   static const String deduction = 'DEDUCTION';
+}
+
+class AdvancePaymentModes {
+  static const String cash = 'CASH';
+  static const String googlePay = 'GOOGLE_PAY';
+  static const String phonePe = 'PHONE_PE';
+  static const String paytm = 'PAYTM';
+  static const String bankTransfer = 'BANK_TRANSFER';
+  static const String upi = 'UPI';
+
+  static const List<String> values = <String>[
+    cash,
+    googlePay,
+    phonePe,
+    paytm,
+    bankTransfer,
+    upi,
+  ];
+
+  static String label(String value) {
+    switch (_asString(value).toUpperCase()) {
+      case cash:
+        return 'Cash';
+      case googlePay:
+        return 'Google Pay';
+      case phonePe:
+        return 'PhonePe';
+      case paytm:
+        return 'Paytm';
+      case bankTransfer:
+        return 'Bank Transfer';
+      case upi:
+        return 'UPI';
+      default:
+        return _asString(value)
+            .replaceAll('_', ' ')
+            .toLowerCase()
+            .split(' ')
+            .where((item) => item.isNotEmpty)
+            .map((item) => '${item[0].toUpperCase()}${item.substring(1)}')
+            .join(' ');
+    }
+  }
 }
 
 class ProfileBranchOption {
@@ -79,6 +139,114 @@ class ProfileTeamMember {
   final bool isActive;
 }
 
+@immutable
+class PayrollAdvanceRecord {
+  const PayrollAdvanceRecord({
+    required this.id,
+    required this.branchId,
+    required this.employeeId,
+    required this.employeeName,
+    required this.amount,
+    required this.remainingAmount,
+    required this.givenDate,
+    required this.paymentMode,
+    required this.paymentReference,
+    required this.status,
+    required this.remarks,
+    required this.createdAt,
+  });
+
+  final int id;
+  final int branchId;
+  final int employeeId;
+  final String employeeName;
+  final int amount;
+  final int remainingAmount;
+  final DateTime givenDate;
+  final String paymentMode;
+  final String paymentReference;
+  final String status;
+  final String remarks;
+  final DateTime createdAt;
+
+  PayrollAdvanceRecord copyWith({
+    int? id,
+    int? branchId,
+    int? employeeId,
+    String? employeeName,
+    int? amount,
+    int? remainingAmount,
+    DateTime? givenDate,
+    String? paymentMode,
+    String? paymentReference,
+    String? status,
+    String? remarks,
+    DateTime? createdAt,
+  }) {
+    return PayrollAdvanceRecord(
+      id: id ?? this.id,
+      branchId: branchId ?? this.branchId,
+      employeeId: employeeId ?? this.employeeId,
+      employeeName: employeeName ?? this.employeeName,
+      amount: amount ?? this.amount,
+      remainingAmount: remainingAmount ?? this.remainingAmount,
+      givenDate: givenDate ?? this.givenDate,
+      paymentMode: paymentMode ?? this.paymentMode,
+      paymentReference: paymentReference ?? this.paymentReference,
+      status: status ?? this.status,
+      remarks: remarks ?? this.remarks,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'id': id,
+      'branchId': branchId,
+      'employeeId': employeeId,
+      'employeeName': employeeName,
+      'amount': amount,
+      'remainingAmount': remainingAmount,
+      'givenDate': givenDate.toIso8601String(),
+      'paymentMode': paymentMode,
+      'paymentReference': paymentReference,
+      'status': status,
+      'remarks': remarks,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory PayrollAdvanceRecord.fromJson(Map<String, dynamic> json) {
+    return PayrollAdvanceRecord(
+      id: _asInt(json['id']) ?? 0,
+      branchId: _asInt(json['branchId']) ?? 0,
+      employeeId: _asInt(json['employeeId'] ?? json['teamMemberId']) ?? 0,
+      employeeName: _asString(
+        json['employeeName'] ??
+            json['teamMemberName'] ??
+            json['name'] ??
+            json['employee']?['name'],
+      ),
+      amount: _asInt(json['amount']) ?? 0,
+      remainingAmount:
+          _asInt(json['remainingAmount'] ?? json['remaining_amount']) ??
+              (_asInt(json['amount']) ?? 0),
+      givenDate:
+          DateTime.tryParse(_asString(json['givenDate'] ?? json['date'])) ??
+              DateTime.now(),
+      paymentMode: _asString(json['paymentMode']),
+      paymentReference: _asString(
+        json['paymentReference'] ?? json['reference'],
+      ),
+      status: _asString(json['status'], fallback: 'ACTIVE'),
+      remarks: _asString(json['remarks']),
+      createdAt: DateTime.tryParse(
+              _asString(json['createdAt'] ?? json['updatedAt'])) ??
+          DateTime.now(),
+    );
+  }
+}
+
 class BranchServiceSummary {
   const BranchServiceSummary({
     required this.id,
@@ -120,6 +288,7 @@ class PayrollSetupRecord {
     required this.salaryMinor,
     required this.commissionPercent,
     required this.effectiveDate,
+    this.salaryConfigId,
   });
 
   final int userId;
@@ -128,6 +297,7 @@ class PayrollSetupRecord {
   final int salaryMinor;
   final double commissionPercent;
   final DateTime effectiveDate;
+  final int? salaryConfigId;
 
   PayrollSetupRecord copyWith({
     int? userId,
@@ -136,6 +306,7 @@ class PayrollSetupRecord {
     int? salaryMinor,
     double? commissionPercent,
     DateTime? effectiveDate,
+    int? salaryConfigId,
   }) {
     return PayrollSetupRecord(
       userId: userId ?? this.userId,
@@ -144,6 +315,7 @@ class PayrollSetupRecord {
       salaryMinor: salaryMinor ?? this.salaryMinor,
       commissionPercent: commissionPercent ?? this.commissionPercent,
       effectiveDate: effectiveDate ?? this.effectiveDate,
+      salaryConfigId: salaryConfigId ?? this.salaryConfigId,
     );
   }
 
@@ -155,6 +327,7 @@ class PayrollSetupRecord {
       'salaryMinor': salaryMinor,
       'commissionPercent': commissionPercent,
       'effectiveDate': effectiveDate.toIso8601String(),
+      'salaryConfigId': salaryConfigId,
     };
   }
 
@@ -170,6 +343,7 @@ class PayrollSetupRecord {
             _asString(json['effectiveDate']),
           ) ??
           DateTime.now(),
+      salaryConfigId: _asInt(json['salaryConfigId'] ?? json['salaryId']),
     );
   }
 }
@@ -212,36 +386,93 @@ class PaymentRecord {
 class PayrollAdjustmentRecord {
   const PayrollAdjustmentRecord({
     required this.id,
+    required this.payrollEmployeeId,
     required this.type,
     required this.amountMinor,
     required this.remarks,
     required this.createdAt,
+    this.isDeleted = false,
   });
 
   final String id;
+  final int payrollEmployeeId;
   final String type;
   final int amountMinor;
   final String remarks;
   final DateTime createdAt;
+  final bool isDeleted;
+
+  PayrollAdjustmentRecord copyWith({
+    String? id,
+    int? payrollEmployeeId,
+    String? type,
+    int? amountMinor,
+    String? remarks,
+    DateTime? createdAt,
+    bool? isDeleted,
+  }) {
+    return PayrollAdjustmentRecord(
+      id: id ?? this.id,
+      payrollEmployeeId: payrollEmployeeId ?? this.payrollEmployeeId,
+      type: type ?? this.type,
+      amountMinor: amountMinor ?? this.amountMinor,
+      remarks: remarks ?? this.remarks,
+      createdAt: createdAt ?? this.createdAt,
+      isDeleted: isDeleted ?? this.isDeleted,
+    );
+  }
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
+      'payrollEmployeeId': payrollEmployeeId,
       'type': type,
       'amountMinor': amountMinor,
       'remarks': remarks,
       'createdAt': createdAt.toIso8601String(),
+      'isDeleted': isDeleted,
     };
   }
 
   factory PayrollAdjustmentRecord.fromJson(Map<String, dynamic> json) {
+    final resolvedType = _asString(json['type']).isNotEmpty
+        ? _asString(json['type'])
+        : json.containsKey('deductionId') ||
+                json.containsKey('deduction_id') ||
+                _asString(json['source']).toLowerCase().contains('deduction')
+            ? AdjustmentTypes.deduction
+            : AdjustmentTypes.addition;
     return PayrollAdjustmentRecord(
-      id: _asString(json['id']),
-      type: _asString(json['type'], fallback: AdjustmentTypes.addition),
-      amountMinor: _asInt(json['amountMinor']) ?? 0,
-      remarks: _asString(json['remarks']),
-      createdAt:
-          DateTime.tryParse(_asString(json['createdAt'])) ?? DateTime.now(),
+      id: _asString(
+        json['id'] ??
+            json['additionalChargeId'] ??
+            json['additional_charge_id'] ??
+            json['deductionId'] ??
+            json['deduction_id'],
+      ),
+      payrollEmployeeId: _asInt(
+            json['payrollEmployeeId'] ??
+                json['payroll_employee_id'] ??
+                json['employeeId'] ??
+                json['employee_id'] ??
+                json['userId'],
+          ) ??
+          0,
+      type: resolvedType,
+      amountMinor: _asInt(json['amountMinor'] ?? json['amount']) ?? 0,
+      remarks: _asString(json['remarks'] ?? json['reason']),
+      createdAt: DateTime.tryParse(
+            _asString(
+              json['createdAt'] ??
+                  json['created_at'] ??
+                  json['updatedAt'] ??
+                  json['updated_at'],
+            ),
+          ) ??
+          DateTime.now(),
+      isDeleted: _asBool(
+        json['isDeleted'] ?? json['deleted'] ?? json['is_deleted'],
+      ),
     );
   }
 }
@@ -250,24 +481,40 @@ class PayrollAdjustmentRecord {
 class PayrollRunEmployeeRecord {
   const PayrollRunEmployeeRecord({
     required this.userId,
+    required this.payrollEmployeeId,
     required this.userName,
+    required this.role,
     required this.payrollType,
     required this.salaryMinor,
     required this.commissionPercent,
     required this.commissionAmountMinor,
     required this.effectiveDate,
     required this.adjustments,
+    this.grossPayOverrideMinor,
+    this.additionsOverrideMinor,
+    this.deductionsOverrideMinor,
+    this.advancesOverrideMinor,
+    this.netPayableOverrideMinor,
+    this.backendStatus,
     this.payment,
   });
 
   final int userId;
+  final int payrollEmployeeId;
   final String userName;
+  final String role;
   final String payrollType;
   final int salaryMinor;
   final double commissionPercent;
   final int commissionAmountMinor;
   final DateTime effectiveDate;
   final List<PayrollAdjustmentRecord> adjustments;
+  final int? grossPayOverrideMinor;
+  final int? additionsOverrideMinor;
+  final int? deductionsOverrideMinor;
+  final int? advancesOverrideMinor;
+  final int? netPayableOverrideMinor;
+  final String? backendStatus;
   final PaymentRecord? payment;
 
   int get additionsTotalMinor => adjustments
@@ -278,27 +525,67 @@ class PayrollRunEmployeeRecord {
       .where((item) => item.type == AdjustmentTypes.deduction)
       .fold<int>(0, (sum, item) => sum + item.amountMinor);
 
-  int get netPayableMinor =>
+  int get additionsDisplayMinor =>
+      additionsOverrideMinor ?? additionsTotalMinor;
+
+  int get deductionsDisplayMinor =>
+      deductionsOverrideMinor ?? deductionsTotalMinor;
+
+  int get advancesDisplayMinor => advancesOverrideMinor ?? 0;
+
+  int get grossPayMinor =>
+      grossPayOverrideMinor ??
       salaryMinor +
-      commissionAmountMinor +
-      additionsTotalMinor -
-      deductionsTotalMinor;
+          commissionAmountMinor +
+          additionsDisplayMinor -
+          advancesDisplayMinor;
+
+  int get netPayableMinor =>
+      netPayableOverrideMinor ??
+      salaryMinor +
+          commissionAmountMinor +
+          additionsTotalMinor -
+          deductionsTotalMinor;
+
+  String get statusLabel {
+    final normalizedStatus = _asString(backendStatus).trim().toLowerCase();
+    if (normalizedStatus == 'paid') {
+      return 'Paid';
+    }
+    if (normalizedStatus == 'reviewed' || normalizedStatus == 'approved') {
+      return 'Reviewed';
+    }
+    if (payment != null) {
+      return 'Paid';
+    }
+    return 'Pending';
+  }
 
   PayrollRunEmployeeRecord copyWith({
     int? userId,
+    int? payrollEmployeeId,
     String? userName,
+    String? role,
     String? payrollType,
     int? salaryMinor,
     double? commissionPercent,
     int? commissionAmountMinor,
     DateTime? effectiveDate,
     List<PayrollAdjustmentRecord>? adjustments,
+    int? grossPayOverrideMinor,
+    int? additionsOverrideMinor,
+    int? deductionsOverrideMinor,
+    int? advancesOverrideMinor,
+    int? netPayableOverrideMinor,
+    String? backendStatus,
     PaymentRecord? payment,
     bool clearPayment = false,
   }) {
     return PayrollRunEmployeeRecord(
       userId: userId ?? this.userId,
+      payrollEmployeeId: payrollEmployeeId ?? this.payrollEmployeeId,
       userName: userName ?? this.userName,
+      role: role ?? this.role,
       payrollType: payrollType ?? this.payrollType,
       salaryMinor: salaryMinor ?? this.salaryMinor,
       commissionPercent: commissionPercent ?? this.commissionPercent,
@@ -307,6 +594,17 @@ class PayrollRunEmployeeRecord {
       effectiveDate: effectiveDate ?? this.effectiveDate,
       adjustments:
           adjustments ?? List<PayrollAdjustmentRecord>.from(this.adjustments),
+      grossPayOverrideMinor:
+          grossPayOverrideMinor ?? this.grossPayOverrideMinor,
+      additionsOverrideMinor:
+          additionsOverrideMinor ?? this.additionsOverrideMinor,
+      deductionsOverrideMinor:
+          deductionsOverrideMinor ?? this.deductionsOverrideMinor,
+      advancesOverrideMinor:
+          advancesOverrideMinor ?? this.advancesOverrideMinor,
+      netPayableOverrideMinor:
+          netPayableOverrideMinor ?? this.netPayableOverrideMinor,
+      backendStatus: backendStatus ?? this.backendStatus,
       payment: clearPayment ? null : (payment ?? this.payment),
     );
   }
@@ -314,13 +612,21 @@ class PayrollRunEmployeeRecord {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'userId': userId,
+      'payrollEmployeeId': payrollEmployeeId,
       'userName': userName,
+      'role': role,
       'payrollType': payrollType,
       'salaryMinor': salaryMinor,
       'commissionPercent': commissionPercent,
       'commissionAmountMinor': commissionAmountMinor,
       'effectiveDate': effectiveDate.toIso8601String(),
       'adjustments': adjustments.map((item) => item.toJson()).toList(),
+      'grossPayOverrideMinor': grossPayOverrideMinor,
+      'additionsOverrideMinor': additionsOverrideMinor,
+      'deductionsOverrideMinor': deductionsOverrideMinor,
+      'advancesOverrideMinor': advancesOverrideMinor,
+      'netPayableOverrideMinor': netPayableOverrideMinor,
+      'backendStatus': backendStatus,
       'payment': payment?.toJson(),
     };
   }
@@ -328,14 +634,30 @@ class PayrollRunEmployeeRecord {
   factory PayrollRunEmployeeRecord.fromJson(Map<String, dynamic> json) {
     return PayrollRunEmployeeRecord(
       userId: _asInt(json['userId']) ?? 0,
-      userName: _asString(json['userName']),
-      payrollType:
-          _asString(json['payrollType'], fallback: PayrollTypes.salaryOnly),
-      salaryMinor: _asInt(json['salaryMinor']) ?? 0,
-      commissionPercent: _asDouble(json['commissionPercent']) ?? 0,
-      commissionAmountMinor: _asInt(json['commissionAmountMinor']) ?? 0,
+      payrollEmployeeId: _asInt(
+            json['payrollEmployeeId'] ??
+                json['employeeId'] ??
+                json['teamMemberId'] ??
+                json['payroll_employee_id'] ??
+                json['userId'],
+          ) ??
+          0,
+      userName: _asString(
+        json['userName'] ?? json['teamMemberName'] ?? json['name'],
+      ),
+      role: _asString(json['role'], fallback: 'Team Member'),
+      payrollType: PayrollTypes.normalize(
+        _asString(json['payrollType'], fallback: PayrollTypes.salaryOnly),
+      ),
+      salaryMinor: _asInt(json['salaryMinor'] ?? json['salaryAmount']) ?? 0,
+      commissionPercent: _asDouble(
+              json['commissionPercent'] ?? json['commissionPercentage']) ??
+          0,
+      commissionAmountMinor:
+          _asInt(json['commissionAmountMinor'] ?? json['commissionAmount']) ??
+              0,
       effectiveDate: DateTime.tryParse(
-            _asString(json['effectiveDate']),
+            _asString(json['effectiveDate'] ?? json['effectiveFrom']),
           ) ??
           DateTime.now(),
       adjustments: ((json['adjustments'] as List?) ?? const <dynamic>[])
@@ -345,6 +667,17 @@ class PayrollRunEmployeeRecord {
                 Map<String, dynamic>.from(item)),
           )
           .toList(),
+      grossPayOverrideMinor:
+          _asInt(json['grossPayOverrideMinor'] ?? json['grossPay']),
+      additionsOverrideMinor:
+          _asInt(json['additionsOverrideMinor'] ?? json['additionsAmount']),
+      deductionsOverrideMinor:
+          _asInt(json['deductionsOverrideMinor'] ?? json['deductionsAmount']),
+      advancesOverrideMinor:
+          _asInt(json['advancesOverrideMinor'] ?? json['advanceAmount']),
+      netPayableOverrideMinor:
+          _asInt(json['netPayableOverrideMinor'] ?? json['netPayable']),
+      backendStatus: _asString(json['backendStatus'] ?? json['status']),
       payment: json['payment'] is Map
           ? PaymentRecord.fromJson(
               Map<String, dynamic>.from(json['payment'] as Map),
@@ -364,6 +697,13 @@ class PayrollRunRecord {
     required this.employees,
     this.approvedAt,
     this.payment,
+    this.backendStatus,
+    this.summaryNetPayableMinor,
+    this.summaryPaidMinor,
+    this.summaryOutstandingMinor,
+    this.summaryEmployeeCount,
+    this.noteTitle,
+    this.noteDescription,
   });
 
   final String id;
@@ -373,13 +713,29 @@ class PayrollRunRecord {
   final DateTime? approvedAt;
   final List<PayrollRunEmployeeRecord> employees;
   final PaymentRecord? payment;
+  final String? backendStatus;
+  final int? summaryNetPayableMinor;
+  final int? summaryPaidMinor;
+  final int? summaryOutstandingMinor;
+  final int? summaryEmployeeCount;
+  final String? noteTitle;
+  final String? noteDescription;
 
   bool get isApproved => approvedAt != null;
+
+  int get employeeCount => summaryEmployeeCount ?? employees.length;
 
   bool get allEmployeesPaid =>
       employees.isNotEmpty && employees.every((item) => item.payment != null);
 
   String get statusLabel {
+    final normalizedStatus = _asString(backendStatus).trim().toLowerCase();
+    if (normalizedStatus == 'paid') {
+      return 'Paid';
+    }
+    if (normalizedStatus == 'reviewed' || normalizedStatus == 'approved') {
+      return 'Reviewed';
+    }
     if (payment != null || allEmployeesPaid) {
       return 'Paid';
     }
@@ -390,7 +746,14 @@ class PayrollRunRecord {
   }
 
   int get totalAmountMinor =>
+      summaryNetPayableMinor ??
       employees.fold<int>(0, (sum, item) => sum + item.netPayableMinor);
+
+  int get paidAmountMinor => summaryPaidMinor ?? 0;
+
+  int get outstandingAmountMinor =>
+      summaryOutstandingMinor ??
+      (totalAmountMinor - paidAmountMinor).clamp(0, totalAmountMinor);
 
   PayrollRunRecord copyWith({
     String? id,
@@ -402,6 +765,13 @@ class PayrollRunRecord {
     PaymentRecord? payment,
     bool clearPayment = false,
     bool clearApproval = false,
+    String? backendStatus,
+    int? summaryNetPayableMinor,
+    int? summaryPaidMinor,
+    int? summaryOutstandingMinor,
+    int? summaryEmployeeCount,
+    String? noteTitle,
+    String? noteDescription,
   }) {
     return PayrollRunRecord(
       id: id ?? this.id,
@@ -412,6 +782,15 @@ class PayrollRunRecord {
       employees:
           employees ?? List<PayrollRunEmployeeRecord>.from(this.employees),
       payment: clearPayment ? null : (payment ?? this.payment),
+      backendStatus: backendStatus ?? this.backendStatus,
+      summaryNetPayableMinor:
+          summaryNetPayableMinor ?? this.summaryNetPayableMinor,
+      summaryPaidMinor: summaryPaidMinor ?? this.summaryPaidMinor,
+      summaryOutstandingMinor:
+          summaryOutstandingMinor ?? this.summaryOutstandingMinor,
+      summaryEmployeeCount: summaryEmployeeCount ?? this.summaryEmployeeCount,
+      noteTitle: noteTitle ?? this.noteTitle,
+      noteDescription: noteDescription ?? this.noteDescription,
     );
   }
 
@@ -424,6 +803,13 @@ class PayrollRunRecord {
       'approvedAt': approvedAt?.toIso8601String(),
       'employees': employees.map((item) => item.toJson()).toList(),
       'payment': payment?.toJson(),
+      'backendStatus': backendStatus,
+      'summaryNetPayableMinor': summaryNetPayableMinor,
+      'summaryPaidMinor': summaryPaidMinor,
+      'summaryOutstandingMinor': summaryOutstandingMinor,
+      'summaryEmployeeCount': summaryEmployeeCount,
+      'noteTitle': noteTitle,
+      'noteDescription': noteDescription,
     };
   }
 
@@ -447,6 +833,18 @@ class PayrollRunRecord {
               Map<String, dynamic>.from(json['payment'] as Map),
             )
           : null,
+      backendStatus: _asString(json['backendStatus'] ?? json['status']),
+      summaryNetPayableMinor:
+          _asInt(json['summaryNetPayableMinor'] ?? json['netPayableMinor']),
+      summaryPaidMinor:
+          _asInt(json['summaryPaidMinor'] ?? json['totalPaidMinor']),
+      summaryOutstandingMinor: _asInt(
+        json['summaryOutstandingMinor'] ?? json['outstandingMinor'],
+      ),
+      summaryEmployeeCount:
+          _asInt(json['summaryEmployeeCount'] ?? json['employeeCount']),
+      noteTitle: _asString(json['noteTitle']),
+      noteDescription: _asString(json['noteDescription']),
     );
   }
 }

@@ -82,7 +82,7 @@ class ApiService {
   // static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
   static const String baseUrl = "https://dev-api.glowante.com/";
-  // static const String baseUrl = "https://5238-203-190-154-162.ngrok-free.app/";
+  // static const String baseUrl = "https://d905-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String registerUserEndpoint = "auth/register";
@@ -189,6 +189,20 @@ class ApiService {
   static String getVendorDetailsAPI(int branchId, int vendorId) =>
       "branches/$branchId/vendors/$vendorId";
   static String getBranchStoreAPI(int branchId) => "branches/$branchId/store";
+  static String branchDashboardAPI(int branchId) =>
+      "v2/branches/$branchId/dashboard";
+  static String payrollSetupTeamMembersAPI(int branchId) =>
+      "v2/branches/$branchId/payroll-setup/team-members";
+  static String employeeSalaryConfigAPI(int employeeId, int salaryId) =>
+      "v2/employees/$employeeId/salary/$salaryId";
+  static String branchAdvancesAPI(
+    int branchId, {
+    required int month,
+    required int year,
+  }) =>
+      "v2/branches/$branchId/advances?month=$month&year=$year";
+  static String employeeAdvancesAPI(int branchId, int employeeId) =>
+      "v2/branches/$branchId/employees/$employeeId/advances";
   static String getStoreDetailsAPI(int branchId, int storeId) =>
       "branches/$branchId/store/$storeId";
   static String getInventoryItemDetailsAPI(int branchId, int inventoryId) =>
@@ -205,6 +219,22 @@ class ApiService {
       "branches/$branchId/procurement/grn";
   static String getGoodsReceiptNoteDetailsAPI(int branchId, int grnId) =>
       "branches/$branchId/procurement/grn/$grnId";
+  static const String payrollAdditionalChargesAPI =
+      "payroll/additional-charges";
+  static String payrollReviewDetailsAPI(int branchId, String payrollId) =>
+      "v2/branches/$branchId/review/payroll/$payrollId";
+  static String payrollEmployeeAdjustmentsAPI(int payrollEmployeeId) =>
+      "v2/payroll/$payrollEmployeeId/adjustments";
+  static String payrollEmployeeAdjustmentDetailsAPI(
+    int payrollEmployeeId,
+    String adjustmentId,
+  ) =>
+      "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
+  static String payrollAdditionalChargeDetailsAPI(String chargeId) =>
+      "payroll/additional-charges/$chargeId";
+  static const String payrollDeductionsAPI = "payroll/deductions";
+  static String payrollDeductionDetailsAPI(String deductionId) =>
+      "payroll/deductions/$deductionId";
   static const String getRolesSpecialization = "users/constants";
 
   static String getTeamMember(int id) {
@@ -3205,6 +3235,215 @@ class ApiService {
     );
   }
 
+  Future<Map<String, dynamic>> createPayrollAdditionalCharge({
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: payrollAdditionalChargesAPI,
+      body: payload,
+      debugTag: 'CreatePayrollAdditionalChargeAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollAdditionalCharges() {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollAdditionalChargesAPI,
+      debugTag: 'PayrollAdditionalChargesListAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollAdditionalChargeDetails({
+    required String chargeId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollAdditionalChargeDetailsAPI(chargeId),
+      debugTag: 'PayrollAdditionalChargeDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updatePayrollAdditionalCharge({
+    required String chargeId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: payrollAdditionalChargeDetailsAPI(chargeId),
+      body: payload,
+      debugTag: 'UpdatePayrollAdditionalChargeAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deletePayrollAdditionalCharge({
+    required String chargeId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: payrollAdditionalChargeDetailsAPI(chargeId),
+      debugTag: 'DeletePayrollAdditionalChargeAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createPayrollDeduction({
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: payrollDeductionsAPI,
+      body: payload,
+      debugTag: 'CreatePayrollDeductionAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollDeductions() {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollDeductionsAPI,
+      debugTag: 'PayrollDeductionsListAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollDeductionDetails({
+    required String deductionId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollDeductionDetailsAPI(deductionId),
+      debugTag: 'PayrollDeductionDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updatePayrollDeduction({
+    required String deductionId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: payrollDeductionDetailsAPI(deductionId),
+      body: payload,
+      debugTag: 'UpdatePayrollDeductionAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deletePayrollDeduction({
+    required String deductionId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: payrollDeductionDetailsAPI(deductionId),
+      debugTag: 'DeletePayrollDeductionAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollReviewDetails({
+    required int branchId,
+    required String payrollId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollReviewDetailsAPI(branchId, payrollId),
+      debugTag: 'PayrollReviewDetailsAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollSetupTeamMembers({
+    required int branchId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollSetupTeamMembersAPI(branchId),
+      debugTag: 'PayrollSetupTeamMembersAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updateEmployeeSalaryConfig({
+    required int employeeId,
+    required int salaryId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: employeeSalaryConfigAPI(employeeId, salaryId),
+      body: payload,
+      debugTag: 'UpdateEmployeeSalaryConfigAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getBranchAdvances({
+    required int branchId,
+    required int month,
+    required int year,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: branchAdvancesAPI(branchId, month: month, year: year),
+      debugTag: 'BranchAdvancesAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createEmployeeAdvance({
+    required int branchId,
+    required int employeeId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: employeeAdvancesAPI(branchId, employeeId),
+      body: payload,
+      debugTag: 'CreateEmployeeAdvanceAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollEmployeeAdjustments({
+    required int payrollEmployeeId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollEmployeeAdjustmentsAPI(payrollEmployeeId),
+      debugTag: 'PayrollEmployeeAdjustmentsListAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createPayrollEmployeeAdjustment({
+    required int payrollEmployeeId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: payrollEmployeeAdjustmentsAPI(payrollEmployeeId),
+      body: payload,
+      debugTag: 'CreatePayrollEmployeeAdjustmentAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updatePayrollEmployeeAdjustment({
+    required int payrollEmployeeId,
+    required String adjustmentId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint:
+          payrollEmployeeAdjustmentDetailsAPI(payrollEmployeeId, adjustmentId),
+      body: payload,
+      debugTag: 'UpdatePayrollEmployeeAdjustmentAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deletePayrollEmployeeAdjustment({
+    required int payrollEmployeeId,
+    required String adjustmentId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint:
+          payrollEmployeeAdjustmentDetailsAPI(payrollEmployeeId, adjustmentId),
+      debugTag: 'DeletePayrollEmployeeAdjustmentAPI',
+    );
+  }
+
   // ---------------------- CONFIRM APPOINTMENT ----------------------
   Future<Map<String, dynamic>> confirmAppointment({
     required int branchId,
@@ -4041,6 +4280,16 @@ class ApiService {
       return json.decode(response.body) as Map<String, dynamic>;
     }
     throw Exception("Failed to load reports dashboard: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> getBranchDashboard({
+    required int branchId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: branchDashboardAPI(branchId),
+      debugTag: 'BranchDashboardAPI',
+    );
   }
 
   Future<Map<String, dynamic>> fetchMyAppointmentRatings(int branchId) async {

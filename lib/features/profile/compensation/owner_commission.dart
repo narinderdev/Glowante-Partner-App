@@ -600,10 +600,12 @@ class _AddOverrideDialog extends StatefulWidget {
   const _AddOverrideDialog({
     required this.serviceId,
     required this.staff,
+    required this.onSubmit,
   });
 
   final int serviceId;
   final List<ProfileTeamMember> staff;
+  final Future<void> Function(List<StaffCommissionOverride> overrides) onSubmit;
 
   @override
   State<_AddOverrideDialog> createState() => _AddOverrideDialogState();
@@ -616,6 +618,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
 
   String _ruleType = CommissionRuleTypes.percentage;
   DateTime _effectiveFrom = DateTime.now();
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -624,7 +627,10 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_isSaving) {
+      return;
+    }
     final parsed = double.tryParse(_valueController.text.trim());
     final selectStaff = translateText('Select at least one staff member');
     final invalidOverride = translateText('Enter a valid override value');
@@ -665,7 +671,17 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
         )
         .toList();
 
-    Navigator.pop(context, overrides);
+    setState(() => _isSaving = true);
+    try {
+      await widget.onSubmit(overrides);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override
@@ -695,15 +711,17 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                   return FilterChip(
                     label: Text(member.name),
                     selected: isSelected,
-                    onSelected: (value) {
-                      setState(() {
-                        if (value) {
-                          _selectedStaffIds.add(member.id);
-                        } else {
-                          _selectedStaffIds.remove(member.id);
-                        }
-                      });
-                    },
+                    onSelected: _isSaving
+                        ? null
+                        : (value) {
+                            setState(() {
+                              if (value) {
+                                _selectedStaffIds.add(member.id);
+                              } else {
+                                _selectedStaffIds.remove(member.id);
+                              }
+                            });
+                          },
                   );
                 }).toList(),
               ),
@@ -721,16 +739,19 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                     child: Text(context.t('Fixed')),
                   ),
                 ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _ruleType = value);
-                  }
-                },
+                onChanged: _isSaving
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() => _ruleType = value);
+                        }
+                      },
               ),
               const SizedBox(height: 12),
               _LabeledTextField(
                 label: context.t('Value'),
                 controller: _valueController,
+                enabled: !_isSaving,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
               ),
@@ -738,22 +759,25 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
               _DateFieldButton(
                 label: context.t('Effective from'),
                 value: _effectiveFrom,
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _effectiveFrom,
-                    firstDate: DateTime(2022),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) {
-                    setState(() => _effectiveFrom = picked);
-                  }
-                },
+                onTap: _isSaving
+                    ? () {}
+                    : () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _effectiveFrom,
+                          firstDate: DateTime(2022),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setState(() => _effectiveFrom = picked);
+                        }
+                      },
               ),
               const SizedBox(height: 12),
               _LabeledTextField(
                 label: context.t('Notes'),
                 controller: _notesController,
+                enabled: !_isSaving,
                 maxLines: 1,
               ),
             ],
@@ -762,7 +786,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
           child: Text(context.t('Cancel')),
         ),
         ElevatedButton(
@@ -771,7 +795,25 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
             backgroundColor: AppColors.starColor,
             foregroundColor: Colors.white,
           ),
-          child: Text(context.t('Save Override')),
+          child: _isSaving
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(context.t('Saving...')),
+                  ],
+                )
+              : Text(context.t('Save Override')),
         ),
       ],
     );

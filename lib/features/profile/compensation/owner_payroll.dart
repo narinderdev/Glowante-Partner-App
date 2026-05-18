@@ -2,132 +2,112 @@ part of 'profile_compensation_screen.dart';
 
 extension _OwnerPayrollUi on _ProfileCompensationScreenState {
   Widget _buildPayrollDashboard() {
-    final currentRun = _payrollRuns.isEmpty ? null : _payrollRuns.first;
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _MetricCard(
-                label: context.t('Active team'),
-                value: '${_activeTeamMembers.length}',
-                subtitle: context.t('members'),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF1EBE6)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x11000000),
+                blurRadius: 18,
+                offset: Offset(0, 8),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                label: context.t('Configured'),
-                value: '${_payrollSetups.length}',
-                subtitle: context.t('payroll setups'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _MetricCard(
-                label: context.t('Runs'),
-                value: '${_payrollRuns.length}',
-                subtitle: context.t('generated'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (currentRun != null)
-          _HighlightCard(
-            title: context.t('Current run'),
-            subtitle: currentRun.periodLabel,
-            amount: _formatCurrency(currentRun.totalAmountMinor),
-            status: currentRun.statusLabel,
-            onTap: () {
-              _openPayrollReview(currentRun);
-            },
-          )
-        else
-          _EmptyStateCard(
-            title: context.t('No payroll generated yet'),
-            subtitle: context.t(
-              'Finish payroll setup, then generate the first payroll period for this branch.',
-            ),
+            ],
           ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            if (!_isPayrollConfiguredForAllTeam)
-              _ActionChipButton(
-                label: context.t('Setup Payroll'),
-                filled: true,
-                onTap: _isActionInProgress
-                    ? null
-                    : () {
-                        _showPayrollSetupStage();
-                      },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Payroll Runs',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1C1917),
+                      ),
+                    ),
+                  ),
+                  _ActionChipButton(
+                    label: _isOpeningPayrollSetup
+                        ? context.t('Opening...')
+                        : 'Manage Team Setup',
+                    icon: Icons.manage_accounts_outlined,
+                    isLoading: _isOpeningPayrollSetup,
+                    onTap: (_isActionInProgress || _isOpeningPayrollSetup)
+                        ? null
+                        : _openPayrollSetupScreen,
+                  ),
+                ],
               ),
-            if (_isPayrollConfiguredForAllTeam)
-              _ActionChipButton(
-                label: _isActionInProgress
-                    ? context.t('Generating...')
-                    : context.t('Generate Payroll'),
-                filled: true,
-                onTap: _isActionInProgress
-                    ? null
-                    : () {
-                        _openGeneratePayrollDialog();
+              const SizedBox(height: 14),
+              if (_payrollRuns.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFCFAF8),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFE9DFD1)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'No payroll runs available',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1C1917),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Complete team setup first. Generated payroll periods will appear here for review.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      if (_isPayrollConfiguredForAllTeam) ...[
+                        const SizedBox(height: 14),
+                        _ActionChipButton(
+                          label: _isActionInProgress
+                              ? context.t('Generating...')
+                              : context.t('Generate Payroll'),
+                          filled: true,
+                          isLoading: _isActionInProgress,
+                          onTap: _isActionInProgress
+                              ? null
+                              : _openGeneratePayrollDialog,
+                        ),
+                      ],
+                    ],
+                  ),
+                )
+              else
+                ..._payrollRuns.map(
+                  (run) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _PayrollRunTile(
+                      run: run,
+                      amountLabel: _formatCurrency(run.totalAmountMinor),
+                      statusColor: _statusColor(run.statusLabel),
+                      onOpen: () {
+                        _openPayrollReview(run);
                       },
-              ),
-            if (_payrollRuns.isNotEmpty)
-              _ActionChipButton(
-                label: context.t('Review & Pay'),
-                onTap: _isActionInProgress
-                    ? null
-                    : () {
-                        _openPayrollReview(_payrollRuns.first);
-                      },
-              ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Text(
-          context.t('Generated Payroll Periods'),
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF1C1917),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
-        const SizedBox(height: 12),
-        if (_activeTeamMembers.isEmpty)
-          _EmptyStateCard(
-            title: context.t('No staff found for this branch'),
-            subtitle: context.t(
-              'Add or activate team members before setting up payroll.',
-            ),
-          )
-        else if (_payrollRuns.isEmpty)
-          _EmptyStateCard(
-            title: context.t('No payroll history available'),
-            subtitle: context.t(
-              'Once you generate payroll, each period will appear here for review and payment.',
-            ),
-          )
-        else
-          ..._payrollRuns.map(
-            (run) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _PayrollRunTile(
-                run: run,
-                amountLabel: _formatCurrency(run.totalAmountMinor),
-                statusColor: _statusColor(run.statusLabel),
-                onOpen: () {
-                  _openPayrollReview(run);
-                },
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -227,14 +207,12 @@ class _PayrollSetupView extends StatefulWidget {
     required this.teamMembers,
     required this.existingSetups,
     required this.onSave,
-    required this.onBack,
     required this.onContinue,
   });
 
   final List<ProfileTeamMember> teamMembers;
   final Map<int, PayrollSetupRecord> existingSetups;
   final Future<void> Function(PayrollSetupRecord setup) onSave;
-  final VoidCallback onBack;
   final VoidCallback onContinue;
 
   @override
@@ -243,6 +221,67 @@ class _PayrollSetupView extends StatefulWidget {
 
 class _PayrollSetupViewState extends State<_PayrollSetupView> {
   final Set<int> _savingIds = <int>{};
+
+  int get _configuredCount => widget.teamMembers
+      .where((member) => widget.existingSetups.containsKey(member.id))
+      .length;
+
+  int get _pendingCount => widget.teamMembers.length - _configuredCount;
+
+  Future<void> _openEditDialog(ProfileTeamMember member) async {
+    final initial = widget.existingSetups[member.id];
+    debugPrint(
+      '[OwnerCompensation:payroll] open_payroll_setup_member_dialog | '
+      'userId=${member.id}, configured=${initial != null}',
+    );
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          contentPadding: const EdgeInsets.all(16),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: SingleChildScrollView(
+              child: _PayrollSetupMemberCard(
+                member: member,
+                initialSetup: initial,
+                isSaving: _savingIds.contains(member.id),
+                onSave: (setup) async {
+                  debugPrint(
+                    '[OwnerCompensation:payroll] payroll_setup_member_save_started | '
+                    'userId=${member.id}, payrollType=${setup.payrollType}',
+                  );
+                  setState(() => _savingIds.add(member.id));
+                  try {
+                    await widget.onSave(setup);
+                    debugPrint(
+                      '[OwnerCompensation:payroll] payroll_setup_member_save_success | '
+                      'userId=${member.id}',
+                    );
+                    if (dialogContext.mounted) {
+                      Navigator.of(dialogContext).pop();
+                    }
+                  } catch (error) {
+                    debugPrint(
+                      '[OwnerCompensation:payroll] payroll_setup_member_save_failed | '
+                      'userId=${member.id}, error=$error',
+                    );
+                    rethrow;
+                  } finally {
+                    if (mounted) {
+                      setState(() => _savingIds.remove(member.id));
+                    }
+                  }
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -257,64 +296,317 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Row(
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: widget.onBack,
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: Text(context.t('Back to Dashboard')),
+              Text(
+                context.t('Setup Payroll'),
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1C1917),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: widget.onContinue,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+              const SizedBox(height: 8),
+              Text(
+                context.t('Set up salary and commission for your team'),
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFB45309),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Text(
+                      '1',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  child: Text(context.t('Continue / Review')),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Payroll Setup',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 12),
+                      child: Divider(color: Color(0xFFD7CEC5)),
+                    ),
+                  ),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFD7CEC5)),
+                    ),
+                    child: const Text(
+                      '2',
+                      style: TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Review',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBF5),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE7A45B)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Color(0xFFB45309),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Set salary and commission for your team',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFB45309),
+                            ),
+                          ),
+                          SizedBox(height: 6),
+                          Text(
+                            'You can update salary or commission anytime. Changes will be used for payroll calculations.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Team Members (${widget.teamMembers.length})',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1C1917),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Add salary and commission details for each team member.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ...widget.teamMembers.asMap().entries.map((entry) {
+                        final index = entry.key;
+                        final member = entry.value;
+                        final setup = widget.existingSetups[member.id];
+                        final payType = setup == null
+                            ? 'Not configured'
+                            : PayrollTypes.label(setup.payrollType);
+                        final salaryText =
+                            setup == null || setup.salaryMinor == 0
+                                ? '-'
+                                : '₹${setup.salaryMinor}';
+                        final commissionText = setup == null ||
+                                setup.commissionPercent == 0
+                            ? '-'
+                            : '${setup.commissionPercent.toStringAsFixed(1)}%';
+                        return Column(
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        member.name,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        member.role.isEmpty
+                                            ? context.t('Team member')
+                                            : member.role,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    payType,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    salaryText,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    commissionText,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    setup == null
+                                        ? '-'
+                                        : DateFormat('dd MMM yyyy')
+                                            .format(setup.effectiveDate),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                OutlinedButton(
+                                  onPressed: _savingIds.contains(member.id)
+                                      ? null
+                                      : () => _openEditDialog(member),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.starColor,
+                                    side:
+                                        BorderSide(color: AppColors.starColor),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    _savingIds.contains(member.id)
+                                        ? context.t('Saving...')
+                                        : context.t('Edit'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (index != widget.teamMembers.length - 1)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 14),
+                                child: Divider(height: 1),
+                              ),
+                          ],
+                        );
+                      }),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFFBF0),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: const Color(0xFFF2D29A)),
+                        ),
+                        child: Text(
+                          '$_configuredCount members have payroll setup • $_pendingCount members need to be added\nTip: You can change payroll type, salary or commission for any team member.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFFB26A00),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: ElevatedButton(
+                          onPressed: widget.onContinue,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.starColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                          ),
+                          child: const Text('Review'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
-          ),
-        ),
-        Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: widget.teamMembers.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final member = widget.teamMembers[index];
-              final initial = widget.existingSetups[member.id];
-              return _PayrollSetupMemberCard(
-                member: member,
-                initialSetup: initial,
-                isSaving: _savingIds.contains(member.id),
-                onSave: (setup) async {
-                  setState(() => _savingIds.add(member.id));
-                  try {
-                    await widget.onSave(setup);
-                  } finally {
-                    if (mounted) {
-                      setState(() => _savingIds.remove(member.id));
-                    }
-                  }
-                },
-              );
-            },
           ),
         ),
       ],
@@ -433,12 +725,8 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
+    return Padding(
+      padding: const EdgeInsets.all(4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -562,8 +850,26 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: Text(
-                  widget.isSaving ? context.t('Saving...') : context.t('Save')),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (widget.isSaving)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  if (widget.isSaving) const SizedBox(width: 10),
+                  Text(
+                    widget.isSaving
+                        ? context.t('Saving...')
+                        : context.t('Save'),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

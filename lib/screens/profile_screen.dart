@@ -123,6 +123,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _openAdvance() {
+    _logProfile('open_advance');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProfileCompensationScreen(
+          initialModule: CompensationModule.advance,
+        ),
+      ),
+    );
+  }
+
   void _openVendor() {
     _logProfile('open_vendor');
     Navigator.push(
@@ -410,6 +422,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
           icon: Icons.payments_outlined,
           label: context.t('Payroll'),
           onTap: _openPayroll,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.account_balance_wallet_outlined,
+          label: context.t('Advance'),
+          onTap: _openAdvance,
           showLeftAccent: true,
         ),
         ProfileMenuItemData(
