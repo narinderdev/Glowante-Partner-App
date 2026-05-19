@@ -194,11 +194,24 @@ String _customerName(BuildContext context, Map<String, dynamic> booking) {
 String _branchAddressSummary(dynamic rawAddress) {
   if (rawAddress is! Map) return '';
   final address = Map<String, dynamic>.from(rawAddress);
-  final parts = <String>[
-    address['district']?.toString().trim() ?? '',
-    address['city']?.toString().trim() ?? '',
-    address['state']?.toString().trim() ?? '',
-  ].where((value) => value.isNotEmpty).toList();
+  final parts = <String>[];
+
+  void push(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null' || parts.contains(text)) {
+      return;
+    }
+    parts.add(text);
+  }
+
+  push(address['line1']);
+  push(address['line2']);
+  push(address['village']);
+  push(address['district']);
+  push(address['city']);
+  push(address['state']);
+  push(address['postalCode']);
+  push(address['country']);
   return parts.join(', ');
 }
 
@@ -1368,6 +1381,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     final selectedLabel = _selectedOption?.label.isNotEmpty == true
         ? _selectedOption!.label
         : context.t('Select Branch');
+    final selectedAddressSummary = _selectedOption?.addressSummary ?? '';
     final canChangeBranch = _options.length > 1;
     final sortedBookings = _sortedBookings();
     final dateRailStart = _selectedDate.subtract(const Duration(days: 3));
@@ -1397,6 +1411,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     child: _HeaderBranchSelector(
                       key: _branchSelectorKey,
                       label: selectedLabel,
+                      addressSummary: selectedAddressSummary,
                       isInteractive: canChangeBranch,
                       onTap: canChangeBranch ? _openBranchPicker : null,
                     ),
@@ -1574,11 +1589,13 @@ class _HeaderBranchSelector extends StatelessWidget {
   const _HeaderBranchSelector({
     super.key,
     required this.label,
+    this.addressSummary = '',
     required this.isInteractive,
     this.onTap,
   });
 
   final String label;
+  final String addressSummary;
   final bool isInteractive;
   final VoidCallback? onTap;
 
@@ -1604,21 +1621,40 @@ class _HeaderBranchSelector extends StatelessWidget {
                 size: 20,
               ),
               const SizedBox(width: 12),
-              Flexible(
+              Expanded(
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Flexible(
-                      child: Text(
-                        label.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _bookingTextStyle(
-                          size: 14,
-                          weight: FontWeight.w600,
-                          color: _bookingsPrimaryText,
-                          letterSpacing: 0.6,
-                        ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _bookingTextStyle(
+                              size: 14,
+                              weight: FontWeight.w600,
+                              color: _bookingsPrimaryText,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          if (addressSummary.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              addressSummary,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _bookingTextStyle(
+                                size: 11,
+                                weight: FontWeight.w600,
+                                color: _bookingsSecondaryText,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     if (isInteractive) ...[

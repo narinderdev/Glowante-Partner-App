@@ -685,13 +685,17 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 (client['firstName'] ?? '').toString().toLowerCase();
             final lastName =
                 (client['lastName'] ?? '').toString().toLowerCase();
+            final fullName = '$firstName $lastName'.trim();
             final phone = _digitsOnly(
               (client['phoneNumber'] ?? client['fullPhoneNumber'] ?? '')
                   .toString(),
             );
-            return firstName.contains(query) ||
+            final matchesName = firstName.contains(query) ||
                 lastName.contains(query) ||
-                phone.contains(queryDigits);
+                fullName.contains(query);
+            final matchesPhone =
+                queryDigits.isNotEmpty && phone.contains(queryDigits);
+            return matchesName || matchesPhone;
           }).toList();
 
           return Dialog(
