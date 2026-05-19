@@ -814,6 +814,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   List<Map<String, dynamic>> _bookings = const [];
   _SalonBranchOption? _selectedOption;
   DateTime _selectedDate = DateTime.now();
+  DateTime _visibleDateStart = DateTime.now();
   int? _userId;
   bool _isLoading = true;
   bool _loadingDate = false;
@@ -825,6 +826,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
+    _visibleDateStart = _selectedDate;
     _loadOptions(showPageLoader: false, showInlineLoader: true);
   }
 
@@ -1146,6 +1150,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     });
   }
 
+  void _shiftVisibleDates(int days) {
+    setState(() {
+      _visibleDateStart = _visibleDateStart.add(Duration(days: days));
+    });
+  }
+
   List<Map<String, dynamic>> _sortedBookings() {
     final items = [..._bookings];
     items.sort((a, b) {
@@ -1384,9 +1394,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     final selectedAddressSummary = _selectedOption?.addressSummary ?? '';
     final canChangeBranch = _options.length > 1;
     final sortedBookings = _sortedBookings();
-    final dateRailStart = _selectedDate.subtract(const Duration(days: 3));
+    final dateRailStart = _visibleDateStart;
     final dateRail = List.generate(
-      18,
+      7,
       (index) => dateRailStart.add(Duration(days: index)),
     );
 
@@ -1430,23 +1440,43 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       children: [
                         IgnorePointer(
                           ignoring: _loadingDate,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: List.generate(dateRail.length, (index) {
-                                final date = dateRail[index];
-                                return Padding(
-                                  padding: EdgeInsets.only(
-                                    right: index == dateRail.length - 1 ? 0 : 6,
+                          child: Row(
+                            children: [
+                              _DateRailArrowButton(
+                                icon: Icons.keyboard_arrow_left_rounded,
+                                onTap: () => _shiftVisibleDates(-7),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children:
+                                        List.generate(dateRail.length, (index) {
+                                      final date = dateRail[index];
+                                      return Padding(
+                                        padding: EdgeInsets.only(
+                                          right: index == dateRail.length - 1
+                                              ? 0
+                                              : 6,
+                                        ),
+                                        child: _CalendarDateCard(
+                                          date: date,
+                                          isSelected:
+                                              _isSameDay(date, _selectedDate),
+                                          onTap: () => _setSelectedDate(date),
+                                        ),
+                                      );
+                                    }),
                                   ),
-                                  child: _CalendarDateCard(
-                                    date: date,
-                                    isSelected: _isSameDay(date, _selectedDate),
-                                    onTap: () => _setSelectedDate(date),
-                                  ),
-                                );
-                              }),
-                            ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _DateRailArrowButton(
+                                icon: Icons.keyboard_arrow_right_rounded,
+                                onTap: () => _shiftVisibleDates(7),
+                              ),
+                            ],
                           ),
                         ),
                         if (!_isLoading &&
@@ -1765,6 +1795,41 @@ class _BranchDropdownItem extends StatelessWidget {
                 : null,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DateRailArrowButton extends StatelessWidget {
+  const _DateRailArrowButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 36,
+          height: 64,
+          decoration: BoxDecoration(
+            color: _bookingsCard,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _bookingsBorder),
+          ),
+          child: Icon(
+            icon,
+            color: _bookingsSecondaryText,
+            size: 20,
+          ),
+        ),
       ),
     );
   }

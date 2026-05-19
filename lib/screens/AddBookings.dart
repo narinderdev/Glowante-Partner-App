@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'SelectServices.dart';
@@ -55,6 +57,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   List<Map<String, dynamic>> _branchServices =
       []; // flat items: {id, name, priceMinor, durationMin, path}
   bool _loadingServices = true;
+  bool _isSaving = false;
 
   // Focused/active service (drives Professional filtering)
   int? _selectedServiceId;
@@ -1112,11 +1115,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final initial = _selectedDate ?? now;
+    final today = DateTime(now.year, now.month, now.day);
+    final initial = _selectedDate != null && !_selectedDate!.isBefore(today)
+        ? _selectedDate!
+        : today;
     final picked = await showDatePicker(
       context: context,
       initialDate: initial,
-      firstDate: DateTime(now.year, now.month, now.day), // today onwards
+      firstDate: today, // today onwards
       lastDate: DateTime(now.year + 3),
     );
     if (picked != null) {
@@ -1159,6 +1165,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   int _toMinutes(TimeOfDay t) => t.hour * 60 + t.minute;
 
   void _save() async {
+    if (_isSaving) return;
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedServiceId == null || _selectedServices.isEmpty) {
@@ -1212,6 +1219,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       }).toList(),
     };
     print("Booking payload: $payload");
+    setState(() {
+      _isSaving = true;
+    });
     try {
       final result =
           await ApiService().createManualBooking(widget.branchId!, payload);
@@ -1220,13 +1230,57 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
       Navigator.pop(context, result); // send back API response
     } catch (e) {
-      _showError("Failed to create appointment: $e");
+      _showError(_extractApiErrorMessage(e));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
   String capitalizeFirstLetter(String input) {
     if (input.isEmpty) return input;
     return input[0].toUpperCase() + input.substring(1);
+  }
+
+  String _extractApiErrorMessage(Object error) {
+    var text = error.toString().trim();
+    const exceptionPrefix = 'Exception:';
+    if (text.startsWith(exceptionPrefix)) {
+      text = text.substring(exceptionPrefix.length).trim();
+    }
+
+    for (final prefix in const [
+      'Failed to create manual booking:',
+      'Failed to create appointment:',
+    ]) {
+      if (text.startsWith(prefix)) {
+        text = text.substring(prefix.length).trim();
+      }
+    }
+
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is Map<String, dynamic>) {
+        final message = decoded['message'];
+        if (message is List && message.isNotEmpty) {
+          return message.first.toString();
+        }
+        if (message is String && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+        final errorValue = decoded['error'];
+        if (errorValue is String && errorValue.trim().isNotEmpty) {
+          return errorValue.trim();
+        }
+      }
+    } catch (_) {
+      // Leave the original text when the payload is not JSON.
+    }
+
+    return text;
   }
 
   void _showError(String msg) {
@@ -1597,28 +1651,35 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 //   ),
                 // ),
                 _FieldLabel(translateText('Date *')),
-                Container(
-                  height: 48,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color:
-                        Colors.grey.shade100, // Light grey to indicate disabled
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 18, color: Colors.grey),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _selectedDate == null
-                              ? translateText('Select date')
-                              : _formatDate(_selectedDate),
-                          style: const TextStyle(color: Colors.grey),
+                InkWell(
+                  onTap: _pickDate,
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today,
+                          size: 18,
+                          color: Colors.grey,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _selectedDate == null
+                                ? translateText('Select date')
+                                : _formatDate(_selectedDate),
+                            style: const TextStyle(color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 12),
@@ -1636,6 +1697,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                   ),
 
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Column(
@@ -1643,13 +1705,27 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         children: [
                           _FieldLabel(translateText('Start Time *')),
                           InkWell(
-                            onTap: () => _pickTime(isStart: true),
+                            onTap: chipServices.isEmpty
+                                ? null
+                                : () => _pickTime(isStart: true),
                             child: _TimeBox(
                               text: _startTime == null
                                   ? translateText('Start Time')
                                   : _formatTimeOfDay(_startTime),
+                              enabled: chipServices.isNotEmpty,
                             ),
                           ),
+                          if (chipServices.isEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              translateText(
+                                  'Select at least one service to choose start time'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF6B7280),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1661,15 +1737,26 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           _FieldLabel(translateText('End Time *')),
                           Container(
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
+                              color: const Color(0xFFF3F4F6),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: _TimeBox(
                               text: _endTime == null
                                   ? translateText('End Time')
                                   : _formatTimeOfDay(_endTime),
+                              enabled: false,
+                              trailingText: translateText('Auto'),
                             ),
                           ),
+                          const SizedBox(height: 6),
+                          // Text(
+                          //   translateText(
+                          //       'End time is auto-adjusted from start time and selected services'),
+                          //   style: const TextStyle(
+                          //     fontSize: 12,
+                          //     color: Color(0xFF6B7280),
+                          //   ),
+                          // ),
                         ],
                       ),
                     ),
@@ -1716,7 +1803,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _save,
+                    onPressed: _isSaving ? null : _save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.starColor,
                       foregroundColor: AppColors.white,
@@ -1725,8 +1812,19 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: Text(translateText('Save'),
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: _isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            translateText('Save'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
                   ),
                 ),
               ],
@@ -1818,22 +1916,50 @@ class _Dropdown<T> extends StatelessWidget {
 
 class _TimeBox extends StatelessWidget {
   final String text;
-  const _TimeBox({Key? key, required this.text}) : super(key: key);
+  final bool enabled;
+  final String? trailingText;
+  const _TimeBox({
+    Key? key,
+    required this.text,
+    this.enabled = true,
+    this.trailingText,
+  }) : super(key: key);
   @override
   Widget build(BuildContext context) {
+    final borderColor =
+        enabled ? Colors.grey.shade300 : const Color(0xFFD1D5DB);
+    final backgroundColor = enabled ? Colors.white : const Color(0xFFF3F4F6);
+    final iconColor = enabled ? Colors.black87 : const Color(0xFF9CA3AF);
+    final textColor = enabled ? Colors.black87 : const Color(0xFF6B7280);
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
-          Icon(Icons.calendar_today, size: 18),
-          SizedBox(width: 8),
-          Expanded(child: Text(text.isEmpty ? 'Select' : text)),
+          Icon(Icons.calendar_today, size: 18, color: iconColor),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text.isEmpty ? 'Select' : text,
+              style: TextStyle(color: textColor),
+            ),
+          ),
+          if (trailingText != null && trailingText!.trim().isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(
+              trailingText!,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ],
         ],
       ),
     );
