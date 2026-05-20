@@ -8,34 +8,41 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final ApiService apiService;
 
   AuthBloc(this.apiService) : super(AuthInitial()) {
-   on<AuthLoginEvent>((event, emit) async {
-  emit(AuthLoading());
-  try {
-    final response = await apiService.loginUser(
-      event.phoneNumber,
-      deviceToken: event.deviceToken,
-    );
+    on<AuthLoginEvent>((event, emit) async {
+      emit(AuthLoading());
+      try {
+        final response = await apiService.loginUser(
+          event.phoneNumber,
+          deviceToken: event.deviceToken,
+        );
 
-    if (response['success'] == true) {
-      final phoneNumber = response['data']['phoneNumber'];
-      final otp = response['data']['otp'];
+        if (response['success'] == true) {
+          final data = response['data'];
+          final dynamic rawPhone =
+              data is Map<String, dynamic> ? data['phoneNumber'] : null;
+          final String phoneNumber =
+              (rawPhone is String && rawPhone.trim().isNotEmpty)
+                  ? rawPhone.trim()
+                  : event.phoneNumber.trim();
 
-      if (phoneNumber != null && otp != null) {
-        emit(AuthLoginSuccess({'phoneNumber': phoneNumber, 'otp': otp}));
-      } else {
-        emit(AuthError("Login failed: Missing phoneNumber or otp"));
+          emit(AuthLoginSuccess({
+            'phoneNumber': phoneNumber,
+            'message': extractMessage(
+              response,
+              fallback: 'OTP sent successfully',
+            ),
+          }));
+        } else {
+          final errorMessage =
+              extractMessage(response, fallback: 'Login failed');
+          emit(AuthError(errorMessage));
+        }
+      } catch (e, stacktrace) {
+        print("Error during login: $e");
+        print("Stacktrace: $stacktrace");
+        final errorMessage = extractErrorMessage(e, fallback: 'Login failed');
+        emit(AuthError(errorMessage));
       }
-    } else {
-      final errorMessage = extractMessage(response, fallback: 'Login failed');
-      emit(AuthError(errorMessage));
-    }
-  } catch (e, stacktrace) {
-    print("Error during login: $e");
-    print("Stacktrace: $stacktrace");
-    final errorMessage = extractErrorMessage(e, fallback: 'Login failed');
-    emit(AuthError(errorMessage));
-  }
-});
-
+    });
   }
 }

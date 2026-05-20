@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:country_code_picker/country_code_picker.dart';
 import 'package:bloc_onboarding/bloc/auth/auth_bloc.dart';
 import 'package:bloc_onboarding/bloc/auth/auth_event.dart';
 import 'package:bloc_onboarding/bloc/auth/auth_state.dart';
@@ -126,8 +125,10 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
 
               // ✨ Tagline Row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 6,
                 children: [
                   _buildDotText(translateText('Shine bright')),
                   _buildDotText(translateText('Feel radiant')),
@@ -323,6 +324,7 @@ class _LoginScreenState extends State<LoginScreen> {
   // 🟡 Reusable bullet text for tagline
   Widget _buildDotText(String text) {
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.circle,
             size: 8, color: AppColors.starColor.withOpacity(0.8)),
@@ -331,7 +333,6 @@ class _LoginScreenState extends State<LoginScreen> {
           text,
           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
         ),
-        const SizedBox(width: 8),
       ],
     );
   }
