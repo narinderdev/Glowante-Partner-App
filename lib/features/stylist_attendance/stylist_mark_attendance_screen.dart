@@ -1,5 +1,6 @@
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_attendance_models.dart';
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_face_attendance_service.dart';
+import 'package:bloc_onboarding/features/stylist_attendance/stylist_attendance_history_screen.dart';
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_live_face_scan_screen.dart';
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_stored_enrollment_images_screen.dart';
 import 'package:bloc_onboarding/services/stylist_branch_selection.dart';
@@ -25,6 +26,7 @@ class _StylistMarkAttendanceScreenState
   bool _isLoading = true;
   bool _isBusy = false;
   String? _activeAttendanceActionId;
+  int? _userId;
   String _userKey = '';
   String _displayName = '';
   StylistBranchSelection _branchSelection = const StylistBranchSelection();
@@ -53,6 +55,7 @@ class _StylistMarkAttendanceScreenState
     try {
       final prefs = await SharedPreferences.getInstance();
       final branchSelection = await StylistBranchSelectionStore.load();
+      final userId = _resolveUserId(prefs);
       final userKey = _resolveUserKey(prefs);
       final displayName = _resolveDisplayName(prefs);
 
@@ -74,6 +77,7 @@ class _StylistMarkAttendanceScreenState
       }
 
       setState(() {
+        _userId = userId;
         _userKey = userKey;
         _displayName = displayName;
         _branchSelection = branchSelection;
@@ -104,6 +108,14 @@ class _StylistMarkAttendanceScreenState
       return phone;
     }
     return 'stylist_local_user';
+  }
+
+  int? _resolveUserId(SharedPreferences prefs) {
+    final rawUserId = prefs.get('user_id');
+    if (rawUserId is int) {
+      return rawUserId;
+    }
+    return int.tryParse(rawUserId?.toString() ?? '');
   }
 
   String _resolveDisplayName(SharedPreferences prefs) {
@@ -212,6 +224,13 @@ class _StylistMarkAttendanceScreenState
       _showSnackBar(translateText('Select a branch to continue'));
       return;
     }
+    final userId = _userId;
+    if (userId == null) {
+      _showSnackBar(
+        translateText('Unable to resolve your account. Please sign in again.'),
+      );
+      return;
+    }
     if (_enrollment?.isComplete != true) {
       _showSnackBar(translateText('Complete face setup first'));
       return;
@@ -258,6 +277,7 @@ class _StylistMarkAttendanceScreenState
     try {
       final record = await _attendanceService.markAttendanceFromCapture(
         userKey: _userKey,
+        userId: userId,
         branchId: branchId,
         capturedFile: capturedFile,
         action: action,
@@ -365,6 +385,34 @@ class _StylistMarkAttendanceScreenState
     );
   }
 
+  Future<void> _openAttendanceHistory() async {
+    final branchId = _branchSelection.branchId;
+    final userId = _userId;
+    if (branchId == null) {
+      _showSnackBar(translateText('Select a branch to continue'));
+      return;
+    }
+    if (userId == null) {
+      _showSnackBar(
+        translateText('Unable to resolve your account. Please sign in again.'),
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StylistAttendanceHistoryScreen(
+          service: _attendanceService,
+          branchId: branchId,
+          userId: userId,
+          displayName: _displayName,
+          branchName: _branchSelection.label.trim(),
+        ),
+      ),
+    );
+  }
+
   void _showSnackBar(String message) {
     if (!mounted) {
       return;
@@ -401,6 +449,16 @@ class _StylistMarkAttendanceScreenState
             color: Color(0xFFB45309),
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: context.t('Attendance History'),
+            onPressed: _openAttendanceHistory,
+            icon: const Icon(
+              Icons.calendar_month_outlined,
+              color: Color(0xFFB45309),
+            ),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

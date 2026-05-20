@@ -382,7 +382,9 @@ class StylistSharedFaceRecognition {
   static const int _mobileNetImageSize = 224;
   static const double _imageMean = 128.0;
   static const double _imageStd = 128.0;
-  static const double _defaultSimilarity = 0.80;
+  // Tuned against real attendance captures. Scores for the same person can
+  // land around 0.70 with the current shared model and ML Kit alignment.
+  static const double _defaultSimilarity = 0.69;
 }
 
 class _CropRect {

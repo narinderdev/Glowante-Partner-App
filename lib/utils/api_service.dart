@@ -1,18 +1,14 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io'; // 👈 needed for File
-import 'package:path/path.dart'; // 👈 needed for basename(file.path)
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../utils/aws_s3_uploader.dart'; // 👈 import uploader
 import 'package:image_picker/image_picker.dart'; // 👈 add this
 import '../services/auth_session_manager.dart';
 import '../services/token_expiration_service.dart';
 import '../Viewmodels/AddCategory.dart';
-import '../Viewmodels/AddSalonServiceRequest.dart';
-import '../Viewmodels/AddSalonBranchRequest.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
 import 'dart:async';
 
@@ -81,8 +77,8 @@ class ApiService {
 
   // static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
-  static const String baseUrl = "https://dev-api.glowante.com/";
-  // static const String baseUrl = "https://eb8b-203-190-154-162.ngrok-free.app/";
+  // static const String baseUrl = "https://dev-api.glowante.com/";
+  static const String baseUrl = "https://c990-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String registerUserEndpoint = "auth/register";
@@ -170,6 +166,14 @@ class ApiService {
 
   static String deactivateTeamMemberEndpoint(int branchId, int userId) {
     return "branches/$branchId/team/$userId/deactivate";
+  }
+
+  static String teamAttendanceCheckInOutEndpoint(int branchId, int userId) {
+    return "branches/$branchId/team/$userId/check-in-out";
+  }
+
+  static String teamAttendanceHistoryEndpoint(int branchId, int userId) {
+    return "branches/$branchId/team/$userId/check-in-out-history";
   }
 
   static String getBranchServicesAPI(int branchId) =>
@@ -1077,6 +1081,32 @@ class ApiService {
     } catch (e) {
       return time;
     }
+  }
+
+  Future<Map<String, dynamic>> markTeamAttendance({
+    required int branchId,
+    required int userId,
+    required String action,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: teamAttendanceCheckInOutEndpoint(branchId, userId),
+      body: <String, dynamic>{
+        'action': action,
+      },
+      debugTag: 'MarkTeamAttendance',
+    );
+  }
+
+  Future<Map<String, dynamic>> getTeamAttendanceHistory({
+    required int branchId,
+    required int userId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: teamAttendanceHistoryEndpoint(branchId, userId),
+      debugTag: 'TeamAttendanceHistory',
+    );
   }
 
   Future<Map<String, dynamic>> addCategory({

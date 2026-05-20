@@ -34,6 +34,16 @@ class StylistAttendanceAction {
     checkOut,
   ];
 
+  String get apiValue {
+    switch (id) {
+      case 'check_out':
+        return 'CHECK_OUT';
+      case 'check_in':
+      default:
+        return 'CHECK_IN';
+    }
+  }
+
   static StylistAttendanceAction fromId(String? id) {
     return values.firstWhere(
       (action) => action.id == id,
@@ -183,6 +193,39 @@ class StylistAttendanceRecord {
       markedAtIso: (json['markedAtIso'] ?? '').toString(),
       status: (json['status'] ?? 'Marked').toString(),
       attendanceType: (json['attendanceType'] ?? 'check_in').toString(),
+    );
+  }
+}
+
+class StylistAttendanceHistoryEntry {
+  StylistAttendanceHistoryEntry({
+    required this.id,
+    required this.branchId,
+    required this.userId,
+    required this.checkedInAtIso,
+    required this.checkedOutAtIso,
+    required this.updatedByUserId,
+  });
+
+  final int id;
+  final int branchId;
+  final int userId;
+  final String? checkedInAtIso;
+  final String? checkedOutAtIso;
+  final int? updatedByUserId;
+
+  DateTime? get checkedInAt => DateTime.tryParse(checkedInAtIso ?? '');
+  DateTime? get checkedOutAt => DateTime.tryParse(checkedOutAtIso ?? '');
+
+  factory StylistAttendanceHistoryEntry.fromJson(Map<String, dynamic> json) {
+    return StylistAttendanceHistoryEntry(
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      branchId: (json['branchId'] as num?)?.toInt() ?? 0,
+      userId: (json['userId'] as num?)?.toInt() ?? 0,
+      checkedInAtIso: json['checkedInAt']?.toString(),
+      checkedOutAtIso: json['checkedOutAt']?.toString(),
+      updatedByUserId: (json['updatedByUserId'] as num?)?.toInt() ??
+          (json['attendanceUpdatedByUserId'] as num?)?.toInt(),
     );
   }
 }

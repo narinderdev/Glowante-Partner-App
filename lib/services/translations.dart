@@ -284,8 +284,18 @@ class AppTranslations {
       'Complete face setup first': 'Complete face setup first',
       'Complete Setup': 'Complete Setup',
       'Latest Attendance': 'Latest Attendance',
+      'Attendance History': 'Attendance History',
       'Recent Attendance': 'Recent Attendance',
       'No attendance marked yet': 'No attendance marked yet',
+      'No attendance history found.': 'No attendance history found.',
+      'Pull down to refresh your attendance history.':
+          'Pull down to refresh your attendance history.',
+      'Still checked in': 'Still checked in',
+      'Checked In': 'Checked In',
+      'Checked Out': 'Checked Out',
+      'Updated By': 'Updated By',
+      'Unable to load attendance history right now.':
+          'Unable to load attendance history right now.',
       'Once you scan your face, local attendance entries will appear here.':
           'Once you scan your face, local attendance entries will appear here.',
       'Once auto face scan succeeds, local attendance entries will appear here.':
@@ -1039,8 +1049,18 @@ class AppTranslations {
       'Complete face setup first': 'पहले फेस सेटअप पूरा करें',
       'Complete Setup': 'सेटअप पूरा करें',
       'Latest Attendance': 'नवीनतम उपस्थिति',
+      'Attendance History': 'उपस्थिति इतिहास',
       'Recent Attendance': 'हाल की उपस्थिति',
       'No attendance marked yet': 'अभी तक कोई उपस्थिति दर्ज नहीं हुई',
+      'No attendance history found.': 'कोई उपस्थिति इतिहास नहीं मिला।',
+      'Pull down to refresh your attendance history.':
+          'अपना उपस्थिति इतिहास रिफ्रेश करने के लिए नीचे खींचें।',
+      'Still checked in': 'अभी भी चेक-इन है',
+      'Checked In': 'चेक-इन',
+      'Checked Out': 'चेक-आउट',
+      'Updated By': 'अपडेट किया',
+      'Unable to load attendance history right now.':
+          'अभी उपस्थिति इतिहास लोड नहीं हो सका।',
       'Once you scan your face, local attendance entries will appear here.':
           'जैसे ही आप चेहरा स्कैन करेंगे, लोकल उपस्थिति एंट्री यहां दिखाई देंगी।',
       'Once auto face scan succeeds, local attendance entries will appear here.':
