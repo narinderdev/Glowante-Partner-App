@@ -175,23 +175,15 @@ class ApiService {
   static String teamAttendanceHistoryEndpoint(
     int branchId,
     int userId, {
-    int? month,
-    int? year,
+    required int month,
+    required int year,
   }) {
-    final endpoint = "branches/$branchId/team/$userId/check-in-out-history";
-    if (month == null && year == null) {
-      return endpoint;
-    }
-    final queryParameters = <String, String>{};
-    if (month != null) {
-      queryParameters['month'] = month.toString();
-    }
-    if (year != null) {
-      queryParameters['year'] = year.toString();
-    }
     return Uri(
-      path: endpoint,
-      queryParameters: queryParameters,
+      path: "branches/$branchId/team/$userId/check-in-out-history",
+      queryParameters: <String, String>{
+        'month': month.toString(),
+        'year': year.toString(),
+      },
     ).toString();
   }
 
@@ -1120,8 +1112,8 @@ class ApiService {
   Future<Map<String, dynamic>> getTeamAttendanceHistory({
     required int branchId,
     required int userId,
-    int? month,
-    int? year,
+    required int month,
+    required int year,
   }) {
     return _authorizedJsonRequest(
       method: 'GET',

@@ -224,8 +224,8 @@ class StylistFaceAttendanceService {
   Future<List<StylistAttendanceHistoryEntry>> loadAttendanceHistory({
     required int branchId,
     required int userId,
-    int? month,
-    int? year,
+    required int month,
+    required int year,
   }) async {
     final response = await _apiService.getTeamAttendanceHistory(
       branchId: branchId,
