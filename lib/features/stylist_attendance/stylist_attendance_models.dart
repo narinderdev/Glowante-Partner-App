@@ -202,28 +202,49 @@ class StylistAttendanceHistoryEntry {
     required this.id,
     required this.branchId,
     required this.userId,
+    required this.attendanceDateIso,
     required this.checkedInAtIso,
     required this.checkedOutAtIso,
+    required this.status,
     required this.updatedByUserId,
   });
 
   final int id;
   final int branchId;
   final int userId;
+  final String? attendanceDateIso;
   final String? checkedInAtIso;
   final String? checkedOutAtIso;
+  final String? status;
   final int? updatedByUserId;
 
+  DateTime? get attendanceDate => DateTime.tryParse(attendanceDateIso ?? '');
   DateTime? get checkedInAt => DateTime.tryParse(checkedInAtIso ?? '');
   DateTime? get checkedOutAt => DateTime.tryParse(checkedOutAtIso ?? '');
+  bool get hasAttendance {
+    if (checkedInAt != null || checkedOutAt != null) {
+      return true;
+    }
+    final normalizedStatus = status?.trim().toLowerCase();
+    return normalizedStatus == 'present' ||
+        normalizedStatus == 'marked' ||
+        normalizedStatus == 'checked_in' ||
+        normalizedStatus == 'checked_out';
+  }
 
   factory StylistAttendanceHistoryEntry.fromJson(Map<String, dynamic> json) {
     return StylistAttendanceHistoryEntry(
       id: (json['id'] as num?)?.toInt() ?? 0,
       branchId: (json['branchId'] as num?)?.toInt() ?? 0,
       userId: (json['userId'] as num?)?.toInt() ?? 0,
+      attendanceDateIso: (json['attendanceDate'] ??
+              json['date'] ??
+              json['day'] ??
+              json['markedDate'])
+          ?.toString(),
       checkedInAtIso: json['checkedInAt']?.toString(),
       checkedOutAtIso: json['checkedOutAt']?.toString(),
+      status: json['status']?.toString(),
       updatedByUserId: (json['updatedByUserId'] as num?)?.toInt() ??
           (json['attendanceUpdatedByUserId'] as num?)?.toInt(),
     );

@@ -224,17 +224,21 @@ class StylistFaceAttendanceService {
   Future<List<StylistAttendanceHistoryEntry>> loadAttendanceHistory({
     required int branchId,
     required int userId,
+    int? month,
+    int? year,
   }) async {
     final response = await _apiService.getTeamAttendanceHistory(
       branchId: branchId,
       userId: userId,
+      month: month,
+      year: year,
     );
     if (response['success'] == false) {
       throw StateError(_resolveRemoteAttendanceError(response));
     }
 
-    final rawData = response['data'];
-    if (rawData is! List) {
+    final rawData = _extractRemoteHistoryList(response['data']);
+    if (rawData == null) {
       return const <StylistAttendanceHistoryEntry>[];
     }
 
@@ -263,6 +267,32 @@ class StylistFaceAttendanceService {
     });
 
     return history;
+  }
+
+  List<dynamic>? _extractRemoteHistoryList(Object? rawData) {
+    if (rawData is List) {
+      return rawData;
+    }
+    if (rawData is Map<String, dynamic>) {
+      for (final key in <String>[
+        'attendance',
+        'history',
+        'records',
+        'items',
+        'data',
+      ]) {
+        final value = rawData[key];
+        if (value is List) {
+          return value;
+        }
+      }
+    }
+    if (rawData is Map) {
+      return _extractRemoteHistoryList(
+        rawData.map((key, value) => MapEntry(key.toString(), value)),
+      );
+    }
+    return null;
   }
 
   Map<String, dynamic> _extractRemoteAttendanceData(

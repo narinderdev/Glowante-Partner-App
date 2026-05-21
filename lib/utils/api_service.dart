@@ -78,7 +78,7 @@ class ApiService {
   // static const String baseUrl = "http://64.227.148.231:3000/";
   // static const String baseUrl = "https://api.glowante.com/";
   // static const String baseUrl = "https://dev-api.glowante.com/";
-  static const String baseUrl = "https://c990-203-190-154-162.ngrok-free.app/";
+  static const String baseUrl = "https://68b4-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String registerUserEndpoint = "auth/register";
@@ -172,8 +172,27 @@ class ApiService {
     return "branches/$branchId/team/$userId/check-in-out";
   }
 
-  static String teamAttendanceHistoryEndpoint(int branchId, int userId) {
-    return "branches/$branchId/team/$userId/check-in-out-history";
+  static String teamAttendanceHistoryEndpoint(
+    int branchId,
+    int userId, {
+    int? month,
+    int? year,
+  }) {
+    final endpoint = "branches/$branchId/team/$userId/check-in-out-history";
+    if (month == null && year == null) {
+      return endpoint;
+    }
+    final queryParameters = <String, String>{};
+    if (month != null) {
+      queryParameters['month'] = month.toString();
+    }
+    if (year != null) {
+      queryParameters['year'] = year.toString();
+    }
+    return Uri(
+      path: endpoint,
+      queryParameters: queryParameters,
+    ).toString();
   }
 
   static String getBranchServicesAPI(int branchId) =>
@@ -1101,10 +1120,17 @@ class ApiService {
   Future<Map<String, dynamic>> getTeamAttendanceHistory({
     required int branchId,
     required int userId,
+    int? month,
+    int? year,
   }) {
     return _authorizedJsonRequest(
       method: 'GET',
-      endpoint: teamAttendanceHistoryEndpoint(branchId, userId),
+      endpoint: teamAttendanceHistoryEndpoint(
+        branchId,
+        userId,
+        month: month,
+        year: year,
+      ),
       debugTag: 'TeamAttendanceHistory',
     );
   }
