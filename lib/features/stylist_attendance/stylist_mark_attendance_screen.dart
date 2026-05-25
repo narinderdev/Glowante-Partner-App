@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_attendance_models.dart';
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_face_attendance_service.dart';
 import 'package:bloc_onboarding/features/stylist_attendance/stylist_attendance_history_screen.dart';
@@ -247,34 +249,38 @@ class _StylistMarkAttendanceScreenState
       _showSnackBar(translateText('Check-out is already marked for today.'));
       return;
     }
-
-    final result = await Navigator.push<StylistLiveFaceScanResult>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StylistLiveFaceScanScreen(
-          request: StylistLiveFaceScanRequest.attendance(
-            action: action,
-            userKey: _userKey,
-            branchId: branchId,
-          ),
-          service: _attendanceService,
-        ),
-      ),
-    );
-    if (result == null) {
-      return;
-    }
-    final capturedFile = result.capturedFile;
-    if (capturedFile == null) {
-      _showSnackBar(translateText('Unable to capture attendance image.'));
+    if (_isBusy || _activeAttendanceActionId != null) {
       return;
     }
 
+    File? capturedFile;
     setState(() {
       _isBusy = true;
       _activeAttendanceActionId = action.id;
     });
     try {
+      final result = await Navigator.push<StylistLiveFaceScanResult>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => StylistLiveFaceScanScreen(
+            request: StylistLiveFaceScanRequest.attendance(
+              action: action,
+              userKey: _userKey,
+              branchId: branchId,
+            ),
+            service: _attendanceService,
+          ),
+        ),
+      );
+      if (result == null) {
+        return;
+      }
+      capturedFile = result.capturedFile;
+      if (capturedFile == null) {
+        _showSnackBar(translateText('Unable to capture attendance image.'));
+        return;
+      }
+
       final record = await _attendanceService.markAttendanceFromCapture(
         userKey: _userKey,
         userId: userId,
@@ -297,7 +303,7 @@ class _StylistMarkAttendanceScreenState
     } catch (error) {
       _showSnackBar(_friendlyErrorMessage(error));
     } finally {
-      if (await capturedFile.exists()) {
+      if (capturedFile != null && await capturedFile.exists()) {
         await capturedFile.delete();
       }
       if (mounted) {
