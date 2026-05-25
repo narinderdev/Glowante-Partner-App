@@ -135,6 +135,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _openAttendance() {
+    _logProfile('open_attendance');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProfileCompensationScreen(
+          initialModule: CompensationModule.attendance,
+        ),
+      ),
+    );
+  }
+
+  void _openLeaves() {
+    _logProfile('open_leaves');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProfileCompensationScreen(
+          initialModule: CompensationModule.leaves,
+        ),
+      ),
+    );
+  }
+
+  void _openHolidaysCalendar() {
+    _logProfile('open_holidays_calendar');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ProfileCompensationScreen(
+          initialModule: CompensationModule.holidays,
+        ),
+      ),
+    );
+  }
+
   void _openVendor() {
     _logProfile('open_vendor');
     Navigator.push(
@@ -428,6 +464,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           icon: Icons.account_balance_wallet_outlined,
           label: context.t('Advance'),
           onTap: _openAdvance,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.event_available_outlined,
+          label: context.t('Attendance'),
+          onTap: _openAttendance,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.beach_access_outlined,
+          label: context.t('Leaves'),
+          onTap: _openLeaves,
+          showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.calendar_month_outlined,
+          label: context.t('Holidays Calendar'),
+          onTap: _openHolidaysCalendar,
           showLeftAccent: true,
         ),
         ProfileMenuItemData(

@@ -208,8 +208,18 @@ class ApiService {
       "v2/branches/$branchId/dashboard";
   static String payrollSetupTeamMembersAPI(int branchId) =>
       "v2/branches/$branchId/payroll-setup/team-members";
+  static String employeeSalaryHistoryAPI(int employeeId) =>
+      "v2/employees/$employeeId/salary";
   static String employeeSalaryConfigAPI(int employeeId, int salaryId) =>
       "v2/employees/$employeeId/salary/$salaryId";
+  static String generatePayrollAPI(
+    int branchId, {
+    required int month,
+    required int year,
+  }) =>
+      "v2/branches/$branchId/payroll/generate?month=$month&year=$year";
+  static String cancelPayrollAPI(int branchId, String payrollId) =>
+      "v2/branches/$branchId/payroll/$payrollId/cancel";
   static String branchAdvancesAPI(
     int branchId, {
     required int month,
@@ -238,6 +248,13 @@ class ApiService {
       "payroll/additional-charges";
   static String payrollReviewDetailsAPI(int branchId, String payrollId) =>
       "v2/branches/$branchId/review/payroll/$payrollId";
+  static String payrollPaidLeavesReviewAPI(
+    int branchId, {
+    String? payrollId,
+  }) =>
+      payrollId == null || payrollId.trim().isEmpty
+          ? "v2/branches/$branchId/review/paid-leaves"
+          : "v2/branches/$branchId/review/paid-leaves?payrollId=$payrollId";
   static String payrollEmployeeAdjustmentsAPI(int payrollEmployeeId) =>
       "v2/payroll/$payrollEmployeeId/adjustments";
   static String payrollEmployeeAdjustmentDetailsAPI(
@@ -245,6 +262,31 @@ class ApiService {
     String adjustmentId,
   ) =>
       "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
+  static String payrollEmployeePaidLeaveAPI(int payrollEmployeeId) =>
+      "v2/payroll/$payrollEmployeeId/paid-leave";
+  static String branchPayrollPaidLeaveConfigAPI(int branchId) =>
+      "v2/branches/$branchId/payroll/paid-leave-config";
+  static String branchTeamAttendanceHistoryAPI(
+    int branchId, {
+    required int month,
+    required int year,
+  }) =>
+      "branches/$branchId/team/check-in-out-history?month=$month&year=$year";
+  static String salonHolidayCalendarAPI(
+    int salonId, {
+    int? month,
+    int? year,
+  }) {
+    final hasMonth = month != null;
+    final hasYear = year != null;
+    if (!hasMonth && !hasYear) {
+      return "salons/$salonId/holiday-calendar";
+    }
+    return "salons/$salonId/holiday-calendar?month=${month ?? ''}&year=${year ?? ''}";
+  }
+
+  static String salonHolidayCalendarDetailsAPI(int salonId, int holidayId) =>
+      "salons/$salonId/holiday-calendar/$holidayId";
   static String payrollAdditionalChargeDetailsAPI(String chargeId) =>
       "payroll/additional-charges/$chargeId";
   static const String payrollDeductionsAPI = "payroll/deductions";
@@ -3396,6 +3438,17 @@ class ApiService {
     );
   }
 
+  Future<Map<String, dynamic>> getPayrollPaidLeavesReview({
+    required int branchId,
+    String? payrollId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollPaidLeavesReviewAPI(branchId, payrollId: payrollId),
+      debugTag: 'PayrollPaidLeavesReviewAPI',
+    );
+  }
+
   Future<Map<String, dynamic>> getPayrollSetupTeamMembers({
     required int branchId,
   }) {
@@ -3403,6 +3456,18 @@ class ApiService {
       method: 'GET',
       endpoint: payrollSetupTeamMembersAPI(branchId),
       debugTag: 'PayrollSetupTeamMembersAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createEmployeeSalaryConfig({
+    required int employeeId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: employeeSalaryHistoryAPI(employeeId),
+      body: payload,
+      debugTag: 'CreateEmployeeSalaryConfigAPI',
     );
   }
 
@@ -3416,6 +3481,29 @@ class ApiService {
       endpoint: employeeSalaryConfigAPI(employeeId, salaryId),
       body: payload,
       debugTag: 'UpdateEmployeeSalaryConfigAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> generatePayroll({
+    required int branchId,
+    required int month,
+    required int year,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: generatePayrollAPI(branchId, month: month, year: year),
+      debugTag: 'GeneratePayrollAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> cancelPayroll({
+    required int branchId,
+    required String payrollId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: cancelPayrollAPI(branchId, payrollId),
+      debugTag: 'CancelPayrollAPI',
     );
   }
 
@@ -3489,6 +3577,158 @@ class ApiService {
       endpoint:
           payrollEmployeeAdjustmentDetailsAPI(payrollEmployeeId, adjustmentId),
       debugTag: 'DeletePayrollEmployeeAdjustmentAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getPayrollEmployeePaidLeave({
+    required int payrollEmployeeId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: payrollEmployeePaidLeaveAPI(payrollEmployeeId),
+      debugTag: 'PayrollEmployeePaidLeaveAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> setPayrollEmployeePaidLeave({
+    required int payrollEmployeeId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: payrollEmployeePaidLeaveAPI(payrollEmployeeId),
+      body: payload,
+      debugTag: 'SetPayrollEmployeePaidLeaveAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createPayrollEmployeePaidLeave({
+    required int payrollEmployeeId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: payrollEmployeePaidLeaveAPI(payrollEmployeeId),
+      body: payload,
+      debugTag: 'CreatePayrollEmployeePaidLeaveAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deletePayrollEmployeePaidLeave({
+    required int payrollEmployeeId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: payrollEmployeePaidLeaveAPI(payrollEmployeeId),
+      debugTag: 'DeletePayrollEmployeePaidLeaveAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getBranchPayrollPaidLeaveConfig({
+    required int branchId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: branchPayrollPaidLeaveConfigAPI(branchId),
+      debugTag: 'BranchPayrollPaidLeaveConfigAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createBranchPayrollPaidLeaveConfig({
+    required int branchId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: branchPayrollPaidLeaveConfigAPI(branchId),
+      body: payload,
+      debugTag: 'CreateBranchPayrollPaidLeaveConfigAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updateBranchPayrollPaidLeaveConfig({
+    required int branchId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: branchPayrollPaidLeaveConfigAPI(branchId),
+      body: payload,
+      debugTag: 'UpdateBranchPayrollPaidLeaveConfigAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteBranchPayrollPaidLeaveConfig({
+    required int branchId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: branchPayrollPaidLeaveConfigAPI(branchId),
+      debugTag: 'DeleteBranchPayrollPaidLeaveConfigAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getBranchTeamAttendanceHistory({
+    required int branchId,
+    required int month,
+    required int year,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: branchTeamAttendanceHistoryAPI(
+        branchId,
+        month: month,
+        year: year,
+      ),
+      debugTag: 'BranchTeamAttendanceHistoryAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> getSalonHolidayCalendar({
+    required int salonId,
+    required int month,
+    required int year,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: salonHolidayCalendarAPI(salonId, month: month, year: year),
+      debugTag: 'SalonHolidayCalendarAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> createSalonHoliday({
+    required int salonId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: salonHolidayCalendarAPI(salonId),
+      body: payload,
+      debugTag: 'CreateSalonHolidayAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> updateSalonHoliday({
+    required int salonId,
+    required int holidayId,
+    required Map<String, dynamic> payload,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: salonHolidayCalendarDetailsAPI(salonId, holidayId),
+      body: payload,
+      debugTag: 'UpdateSalonHolidayAPI',
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteSalonHoliday({
+    required int salonId,
+    required int holidayId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: salonHolidayCalendarDetailsAPI(salonId, holidayId),
+      debugTag: 'DeleteSalonHolidayAPI',
     );
   }
 

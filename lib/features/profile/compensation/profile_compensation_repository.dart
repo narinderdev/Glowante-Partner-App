@@ -194,25 +194,45 @@ class ProfileCompensationRepository {
 
   Future<void> savePayrollSetup(int branchId, PayrollSetupRecord setup) async {
     final prefs = await SharedPreferences.getInstance();
-    if (setup.salaryConfigId != null && setup.salaryConfigId! > 0) {
-      final response = await _apiService.updateEmployeeSalaryConfig(
-        employeeId: setup.userId,
-        salaryId: setup.salaryConfigId!,
-        payload: <String, dynamic>{
-          'salaryType': setup.payrollType,
-          'baseSalary': setup.salaryMinor,
-          'commissionPercentage': setup.commissionPercent,
-          'effectiveFrom': DateFormat('yyyy-MM-dd').format(setup.effectiveDate),
-          'effectiveTo': null,
-          'notes': 'Updated from mobile payroll setup',
-        },
-      );
-      _requireSuccess(response);
-    }
+    final payload = <String, dynamic>{
+      'salaryType': setup.payrollType,
+      'baseSalary': setup.salaryMinor,
+      'commissionPercentage': setup.commissionPercent,
+      'effectiveFrom': DateFormat('yyyy-MM-dd').format(setup.effectiveDate),
+      'effectiveTo': null,
+      'notes': setup.salaryConfigId != null && setup.salaryConfigId! > 0
+          ? 'Updated from mobile payroll setup'
+          : 'Initial salary from mobile payroll setup',
+    };
+    final response = setup.salaryConfigId != null && setup.salaryConfigId! > 0
+        ? await _apiService.updateEmployeeSalaryConfig(
+            employeeId: setup.userId,
+            salaryId: setup.salaryConfigId!,
+            payload: payload,
+          )
+        : await _apiService.createEmployeeSalaryConfig(
+            employeeId: setup.userId,
+            payload: payload,
+          );
+    _requireSuccess(response);
+
+    final responseData = response['data'];
+    final responseMap = responseData is Map<String, dynamic>
+        ? responseData
+        : responseData is Map
+            ? Map<String, dynamic>.from(responseData)
+            : const <String, dynamic>{};
+    final savedSetup = setup.copyWith(
+      salaryConfigId: _asInt(
+        responseMap['salaryConfigId'] ??
+            responseMap['salaryId'] ??
+            responseMap['id'],
+      ),
+    );
 
     final setups = await loadPayrollSetups(branchId);
     final next = setups.where((item) => item.userId != setup.userId).toList()
-      ..add(setup);
+      ..add(savedSetup);
     next.sort(
       (a, b) => a.userName.toLowerCase().compareTo(b.userName.toLowerCase()),
     );
@@ -348,6 +368,340 @@ class ProfileCompensationRepository {
     _requireSuccess(response);
   }
 
+  Future<BranchAttendanceOverview> loadBranchAttendanceOverview({
+    required int branchId,
+    required DateTime month,
+  }) async {
+    final response = await _apiService.getBranchTeamAttendanceHistory(
+      branchId: branchId,
+      month: month.month,
+      year: month.year,
+    );
+    _requireSuccess(response);
+    final data = response['data'];
+    final map = data is Map<String, dynamic>
+        ? data
+        : data is Map
+            ? Map<String, dynamic>.from(data)
+            : const <String, dynamic>{};
+    return BranchAttendanceOverview.fromJson(map);
+  }
+
+  Future<BranchPaidLeaveConfig> loadBranchPaidLeaveConfig({
+    required int branchId,
+    String branchName = '',
+  }) async {
+    final response = await _apiService.getBranchPayrollPaidLeaveConfig(
+      branchId: branchId,
+    );
+    if (response['success'] != true &&
+        _looksLikeMissingPaidLeaveConfigResponse(response)) {
+      return BranchPaidLeaveConfig(
+        branchId: branchId,
+        branchName: branchName,
+        paidLeaveDays: 0,
+      );
+    }
+    _requireSuccess(response);
+    final data = response['data'];
+    final map = data is Map<String, dynamic>
+        ? data
+        : data is Map
+            ? Map<String, dynamic>.from(data)
+            : const <String, dynamic>{};
+    final config = BranchPaidLeaveConfig.fromJson(map);
+    return BranchPaidLeaveConfig(
+      branchId: config.branchId == 0 ? branchId : config.branchId,
+      branchName: config.branchName.isEmpty ? branchName : config.branchName,
+      paidLeaveDays: config.paidLeaveDays,
+    );
+  }
+
+  Future<void> setBranchPaidLeaveConfig({
+    required int branchId,
+    required int paidLeaveDays,
+  }) async {
+    if (paidLeaveDays <= 0) {
+      final deleteResponse =
+          await _apiService.deleteBranchPayrollPaidLeaveConfig(
+        branchId: branchId,
+      );
+      if (deleteResponse['success'] != true &&
+          !_looksLikeMissingPaidLeaveConfigResponse(deleteResponse)) {
+        _requireSuccess(deleteResponse);
+      }
+      return;
+    }
+
+    var response = await _apiService.updateBranchPayrollPaidLeaveConfig(
+      branchId: branchId,
+      payload: <String, dynamic>{'paidLeaveDays': paidLeaveDays},
+    );
+    if (response['success'] != true &&
+        _looksLikeMissingPaidLeaveConfigResponse(response)) {
+      response = await _apiService.createBranchPayrollPaidLeaveConfig(
+        branchId: branchId,
+        payload: <String, dynamic>{'paidLeaveDays': paidLeaveDays},
+      );
+    }
+    _requireSuccess(response);
+  }
+
+  Future<PayrollPaidLeavesReview> loadPayrollPaidLeavesReview({
+    required int branchId,
+    String? payrollId,
+    BranchAttendanceOverview? attendanceOverview,
+  }) async {
+    final response = await _apiService.getPayrollPaidLeavesReview(
+      branchId: branchId,
+      payrollId: payrollId,
+    );
+    if (response['success'] != true &&
+        _looksLikeMissingPaidLeavesEndpoint(response)) {
+      return _buildPayrollPaidLeavesReviewFallback(
+        branchId: branchId,
+        payrollId: payrollId,
+        attendanceOverview: attendanceOverview,
+      );
+    }
+    _requireSuccess(response);
+    final data = response['data'];
+    final map = data is Map<String, dynamic>
+        ? data
+        : data is Map
+            ? Map<String, dynamic>.from(data)
+            : const <String, dynamic>{};
+    return PayrollPaidLeavesReview.fromJson(map);
+  }
+
+  Future<void> setPayrollEmployeePaidLeave({
+    required int payrollEmployeeId,
+    required int paidLeaveDays,
+  }) async {
+    var response = await _apiService.setPayrollEmployeePaidLeave(
+      payrollEmployeeId: payrollEmployeeId,
+      payload: <String, dynamic>{'paidLeaveDays': paidLeaveDays},
+    );
+    if (response['success'] != true &&
+        _looksLikeMissingPaidLeaveWriteEndpoint(response)) {
+      response = await _apiService.createPayrollEmployeePaidLeave(
+        payrollEmployeeId: payrollEmployeeId,
+        payload: <String, dynamic>{'paidLeaveDays': paidLeaveDays},
+      );
+      if (response['success'] != true &&
+          _looksLikeMissingPaidLeaveWriteEndpoint(response)) {
+        throw Exception(
+          'Paid leave update API is not available on the backend yet.',
+        );
+      }
+    }
+    _requireSuccess(response);
+  }
+
+  Future<void> deletePayrollEmployeePaidLeave({
+    required int payrollEmployeeId,
+  }) async {
+    final response = await _apiService.deletePayrollEmployeePaidLeave(
+      payrollEmployeeId: payrollEmployeeId,
+    );
+    _requireSuccess(response);
+  }
+
+  Future<PayrollPaidLeavesReview> _buildPayrollPaidLeavesReviewFallback({
+    required int branchId,
+    String? payrollId,
+    BranchAttendanceOverview? attendanceOverview,
+  }) async {
+    if (payrollId == null || payrollId.trim().isEmpty) {
+      return const PayrollPaidLeavesReview(
+        branchId: 0,
+        branchName: '',
+        payrollId: null,
+        payrollName: '',
+        month: 0,
+        year: 0,
+        periodStart: null,
+        periodEnd: null,
+        payrollStatus: '',
+        totalTeamMembersCount: 0,
+        membersWithPayrollSetup: 0,
+        totalPaidLeaveDays: 0,
+        employees: <PayrollPaidLeaveEmployeeRecord>[],
+      );
+    }
+
+    final reviewResponse = await _apiService.getPayrollReviewDetails(
+      branchId: branchId,
+      payrollId: payrollId,
+    );
+    _requireSuccess(reviewResponse);
+
+    final data = reviewResponse['data'];
+    final map = data is Map<String, dynamic>
+        ? data
+        : data is Map
+            ? Map<String, dynamic>.from(data)
+            : const <String, dynamic>{};
+    final branch = map['branch'] is Map
+        ? Map<String, dynamic>.from(map['branch'] as Map)
+        : const <String, dynamic>{};
+    final payroll = map['payroll'] is Map
+        ? Map<String, dynamic>.from(map['payroll'] as Map)
+        : const <String, dynamic>{};
+    final summary = map['summary'] is Map
+        ? Map<String, dynamic>.from(map['summary'] as Map)
+        : const <String, dynamic>{};
+    final includedTeamMembers =
+        (map['includedTeamMembers'] as List?) ?? const <dynamic>[];
+    final attendanceByUserId = <int, BranchAttendanceEmployeeRecord>{
+      for (final item in attendanceOverview?.employees ??
+          const <BranchAttendanceEmployeeRecord>[])
+        item.userId: item,
+    };
+
+    final employees = await Future.wait<PayrollPaidLeaveEmployeeRecord>(
+      includedTeamMembers.whereType<Map>().map((item) async {
+        final employeeMap = Map<String, dynamic>.from(item);
+        final payrollEmployeeId = _asInt(employeeMap['payrollEmployeeId']) ?? 0;
+        final employeeId = _asInt(
+              employeeMap['employeeId'] ??
+                  employeeMap['teamMemberId'] ??
+                  employeeMap['userId'],
+            ) ??
+            0;
+        final reviewPaidLeaveDays = _asInt(
+          employeeMap['paidLeaveDays'] ?? employeeMap['paid_leave_days'],
+        );
+        final paidLeaveResponse =
+            reviewPaidLeaveDays == null && payrollEmployeeId > 0
+                ? await _apiService.getPayrollEmployeePaidLeave(
+                    payrollEmployeeId: payrollEmployeeId,
+                  )
+                : const <String, dynamic>{
+                    'success': true,
+                    'data': <String, dynamic>{'paidLeaveDays': 0},
+                  };
+        final paidLeaveDays = reviewPaidLeaveDays ??
+            (paidLeaveResponse['success'] == true
+                ? _extractPaidLeaveDays(paidLeaveResponse)
+                : 0);
+        final reviewLeaveDays = _asInt(
+          employeeMap['leaveDays'] ?? employeeMap['leave_days'],
+        );
+        final attendanceEmployee = attendanceByUserId[employeeId];
+        return PayrollPaidLeaveEmployeeRecord(
+          payrollEmployeeId: payrollEmployeeId,
+          employeeId: employeeId,
+          employeeName: _cleanText(
+            employeeMap['employeeName'] ??
+                employeeMap['teamMemberName'] ??
+                employeeMap['name'],
+          ),
+          role: _cleanText(employeeMap['role'], fallback: 'Team Member'),
+          profileImage: _cleanText(employeeMap['profileImage']).isEmpty
+              ? null
+              : _cleanText(employeeMap['profileImage']),
+          salaryAmount: _asInt(employeeMap['salaryAmount']) ?? 0,
+          commissionPercentage:
+              _asDouble(employeeMap['commissionPercentage']) ?? 0,
+          paidLeaveDays: paidLeaveDays,
+          leaveDays: reviewLeaveDays ?? attendanceEmployee?.leaves ?? 0,
+          status: _cleanText(employeeMap['status']),
+        );
+      }),
+    );
+
+    final totalPaidLeaveDays = employees.fold<int>(
+      0,
+      (sum, item) => sum + item.paidLeaveDays,
+    );
+
+    return PayrollPaidLeavesReview(
+      branchId: _asInt(branch['id']) ?? branchId,
+      branchName: _cleanText(branch['name']),
+      payrollId: _cleanText(payroll['payrollId']).isEmpty
+          ? payrollId
+          : _cleanText(payroll['payrollId']),
+      payrollName: _cleanText(payroll['payrollName']),
+      month: _asInt(payroll['month']) ?? 0,
+      year: _asInt(payroll['year']) ?? 0,
+      periodStart: DateTime.tryParse(_cleanText(payroll['periodStart'])),
+      periodEnd: DateTime.tryParse(_cleanText(payroll['periodEnd'])),
+      payrollStatus: _cleanText(payroll['status']),
+      totalTeamMembersCount: _asInt(summary['totalTeamMembersCount']) ?? 0,
+      membersWithPayrollSetup:
+          _asInt(summary['membersWithPayrollSetup']) ?? employees.length,
+      totalPaidLeaveDays: totalPaidLeaveDays,
+      employees: employees,
+    );
+  }
+
+  Future<HolidayCalendarOverview> loadHolidayCalendar({
+    required int salonId,
+    required DateTime month,
+  }) async {
+    final response = await _apiService.getSalonHolidayCalendar(
+      salonId: salonId,
+      month: month.month,
+      year: month.year,
+    );
+    _requireSuccess(response);
+    final data = response['data'];
+    final map = data is Map<String, dynamic>
+        ? data
+        : data is Map
+            ? Map<String, dynamic>.from(data)
+            : const <String, dynamic>{};
+    return HolidayCalendarOverview.fromJson(map);
+  }
+
+  Future<void> createHoliday({
+    required int salonId,
+    required DateTime holidayDate,
+    required String title,
+    required String description,
+  }) async {
+    final response = await _apiService.createSalonHoliday(
+      salonId: salonId,
+      payload: <String, dynamic>{
+        'holidayDate': DateFormat('yyyy-MM-dd').format(holidayDate),
+        'title': title,
+        'description': description,
+      },
+    );
+    _requireSuccess(response);
+  }
+
+  Future<void> updateHoliday({
+    required int salonId,
+    required int holidayId,
+    required DateTime holidayDate,
+    required String title,
+    required String description,
+  }) async {
+    final response = await _apiService.updateSalonHoliday(
+      salonId: salonId,
+      holidayId: holidayId,
+      payload: <String, dynamic>{
+        'holidayDate': DateFormat('yyyy-MM-dd').format(holidayDate),
+        'title': title,
+        'description': description,
+      },
+    );
+    _requireSuccess(response);
+  }
+
+  Future<void> deleteHoliday({
+    required int salonId,
+    required int holidayId,
+  }) async {
+    final response = await _apiService.deleteSalonHoliday(
+      salonId: salonId,
+      holidayId: holidayId,
+    );
+    _requireSuccess(response);
+  }
+
   Future<List<PayrollRunRecord>> loadPayrollRuns(
     int branchId, {
     List<ProfileTeamMember> teamMembers = const <ProfileTeamMember>[],
@@ -380,7 +734,8 @@ class ProfileCompensationRepository {
     final completedMonths =
         (dashboardMap['completedMonths'] as List?) ?? const <dynamic>[];
     if (completedMonths.isEmpty) {
-      return localRuns;
+      await _persistPayrollRuns(branchId, const <PayrollRunRecord>[]);
+      return const <PayrollRunRecord>[];
     }
 
     final setupByUser = <int, PayrollSetupRecord>{
@@ -443,40 +798,66 @@ class ProfileCompensationRepository {
 
     final periodKey = DateFormat('yyyy-MM').format(period);
     final periodLabel = DateFormat('MMMM yyyy').format(period);
-    final runs = await loadPayrollRuns(branchId);
+    final runs = await loadPayrollRuns(
+      branchId,
+      teamMembers: activeMembers,
+      setups: setups,
+    );
     if (runs.any((item) => item.periodKey == periodKey)) {
       throw Exception('Payroll already generated for $periodLabel.');
     }
 
-    final employees = activeMembers.map((member) {
-      final setup = setupByUser[member.id]!;
-      return PayrollRunEmployeeRecord(
-        userId: member.id,
-        payrollEmployeeId: member.id,
-        userName: member.name,
-        role: member.role.isEmpty ? 'Team Member' : member.role,
-        payrollType: setup.payrollType,
-        salaryMinor: setup.payrollType == PayrollTypes.commissionOnly
-            ? 0
-            : setup.salaryMinor,
-        commissionPercent: setup.commissionPercent,
-        commissionAmountMinor: 0,
-        effectiveDate: setup.effectiveDate,
-        adjustments: const <PayrollAdjustmentRecord>[],
-      );
-    }).toList();
-
-    final run = PayrollRunRecord(
-      id: '${periodKey}_${DateTime.now().millisecondsSinceEpoch}',
-      periodKey: periodKey,
-      periodLabel: periodLabel,
-      generatedAt: DateTime.now(),
-      employees: employees,
+    final response = await _apiService.generatePayroll(
+      branchId: branchId,
+      month: period.month,
+      year: period.year,
     );
+    _requireSuccess(response);
 
-    final next = <PayrollRunRecord>[run, ...runs];
-    await _persistPayrollRuns(branchId, next);
-    return run;
+    final refreshedRuns = await loadPayrollRuns(
+      branchId,
+      teamMembers: activeMembers,
+      setups: setups,
+    );
+    final responseData = response['data'];
+    final responseMap = responseData is Map<String, dynamic>
+        ? responseData
+        : responseData is Map
+            ? Map<String, dynamic>.from(responseData)
+            : const <String, dynamic>{};
+    final generatedPayrollId = _asInt(
+      responseMap['payrollId'] ?? responseMap['id'],
+    )?.toString();
+
+    final generatedRun = refreshedRuns.cast<PayrollRunRecord?>().firstWhere(
+          (item) =>
+              item?.periodKey == periodKey ||
+              (generatedPayrollId != null && item?.id == generatedPayrollId),
+          orElse: () => null,
+        );
+    if (generatedRun == null) {
+      throw Exception(
+          'Payroll generated for $periodLabel but could not reload it.');
+    }
+    return generatedRun;
+  }
+
+  Future<void> cancelPayroll({
+    required int branchId,
+    required String payrollId,
+    required List<ProfileTeamMember> teamMembers,
+  }) async {
+    final setups = await loadPayrollSetups(branchId);
+    final response = await _apiService.cancelPayroll(
+      branchId: branchId,
+      payrollId: payrollId,
+    );
+    _requireSuccess(response);
+    await loadPayrollRuns(
+      branchId,
+      teamMembers: teamMembers,
+      setups: setups,
+    );
   }
 
   Future<PayrollRunRecord> approvePayroll({
@@ -528,21 +909,14 @@ class ProfileCompensationRepository {
     final payrollEmployeeId = adjustment.payrollEmployeeId > 0
         ? adjustment.payrollEmployeeId
         : userId;
-    final response = adjustment.type == AdjustmentTypes.deduction
-        ? await _apiService.createPayrollDeduction(
-            payload: <String, dynamic>{
-              'payrollEmployeeId': payrollEmployeeId,
-              'amount': adjustment.amountMinor,
-              'remarks': adjustment.remarks,
-            },
-          )
-        : await _apiService.createPayrollAdditionalCharge(
-            payload: <String, dynamic>{
-              'payrollEmployeeId': payrollEmployeeId,
-              'amount': adjustment.amountMinor,
-              'remarks': adjustment.remarks,
-            },
-          );
+    final response = await _apiService.createPayrollEmployeeAdjustment(
+      payrollEmployeeId: payrollEmployeeId,
+      payload: <String, dynamic>{
+        'type': adjustment.type,
+        'amount': adjustment.amountMinor,
+        'remarks': adjustment.remarks,
+      },
+    );
     _requireSuccess(response);
     return refreshEmployeeAdjustments(
       branchId: branchId,
@@ -558,21 +932,17 @@ class ProfileCompensationRepository {
     required int userId,
     required PayrollAdjustmentRecord adjustment,
   }) async {
-    final response = adjustment.type == AdjustmentTypes.deduction
-        ? await _apiService.updatePayrollDeduction(
-            deductionId: adjustment.id,
-            payload: <String, dynamic>{
-              'amount': adjustment.amountMinor,
-              'remarks': adjustment.remarks,
-            },
-          )
-        : await _apiService.updatePayrollAdditionalCharge(
-            chargeId: adjustment.id,
-            payload: <String, dynamic>{
-              'amount': adjustment.amountMinor,
-              'remarks': adjustment.remarks,
-            },
-          );
+    final response = await _apiService.updatePayrollEmployeeAdjustment(
+      payrollEmployeeId: adjustment.payrollEmployeeId > 0
+          ? adjustment.payrollEmployeeId
+          : userId,
+      adjustmentId: adjustment.id,
+      payload: <String, dynamic>{
+        'type': adjustment.type,
+        'amount': adjustment.amountMinor,
+        'remarks': adjustment.remarks,
+      },
+    );
     _requireSuccess(response);
     return refreshEmployeeAdjustments(
       branchId: branchId,
@@ -590,11 +960,12 @@ class ProfileCompensationRepository {
     required int userId,
     required PayrollAdjustmentRecord adjustment,
   }) async {
-    final response = adjustment.type == AdjustmentTypes.deduction
-        ? await _apiService.deletePayrollDeduction(deductionId: adjustment.id)
-        : await _apiService.deletePayrollAdditionalCharge(
-            chargeId: adjustment.id,
-          );
+    final response = await _apiService.deletePayrollEmployeeAdjustment(
+      payrollEmployeeId: adjustment.payrollEmployeeId > 0
+          ? adjustment.payrollEmployeeId
+          : userId,
+      adjustmentId: adjustment.id,
+    );
     _requireSuccess(response);
     return refreshEmployeeAdjustments(
       branchId: branchId,
@@ -610,27 +981,34 @@ class ProfileCompensationRepository {
     required int userId,
     required int payrollEmployeeId,
   }) async {
-    final responses = await Future.wait<Map<String, dynamic>>([
-      _apiService.getPayrollAdditionalCharges(),
-      _apiService.getPayrollDeductions(),
-    ]);
-    final additions = _extractPayrollAdjustments(
-      responses[0],
-      type: AdjustmentTypes.addition,
-      userId: userId,
+    final response = await _apiService.getPayrollEmployeeAdjustments(
       payrollEmployeeId: payrollEmployeeId,
     );
-    final deductions = _extractPayrollAdjustments(
-      responses[1],
-      type: AdjustmentTypes.deduction,
-      userId: userId,
-      payrollEmployeeId: payrollEmployeeId,
-    );
-    final all = <PayrollAdjustmentRecord>[
-      ...additions,
-      ...deductions,
-    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return all;
+    _requireSuccess(response);
+    final data = response['data'];
+    final rawItems = data is List
+        ? data
+        : data is Map<String, dynamic>
+            ? (data['items'] as List?) ??
+                (data['data'] as List?) ??
+                (data['rows'] as List?) ??
+                (data['results'] as List?) ??
+                (data['adjustments'] as List?) ??
+                (data.isEmpty ? const <dynamic>[] : <dynamic>[data])
+            : const <dynamic>[];
+    final adjustments = rawItems
+        .whereType<Map>()
+        .map(
+          (item) => PayrollAdjustmentRecord.fromJson(
+            Map<String, dynamic>.from(item),
+          ),
+        )
+        .where((item) => item.payrollEmployeeId == 0
+            ? true
+            : item.payrollEmployeeId == payrollEmployeeId)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return adjustments;
   }
 
   Future<PayrollRunRecord> refreshEmployeeAdjustments({
@@ -954,8 +1332,10 @@ class ProfileCompensationRepository {
               );
       return PayrollRunEmployeeRecord.fromJson(<String, dynamic>{
         'userId': userId,
-        'payrollEmployeeId':
-            employeeMap['salaryConfigId'] ?? employeeMap['salaryId'] ?? userId,
+        'payrollEmployeeId': employeeMap['payrollEmployeeId'] ??
+            employeeMap['salaryConfigId'] ??
+            employeeMap['salaryId'] ??
+            userId,
         'teamMemberName': employeeMap['teamMemberName'],
         'name': employeeMap['name'],
         'role': employeeMap['role'] ?? localEmployee?.role ?? 'Team Member',
@@ -1017,46 +1397,6 @@ class ProfileCompensationRepository {
       'branchId=$branchId payrollId=$payrollId employees=${employees.length}',
     );
     return reviewRun;
-  }
-
-  List<PayrollAdjustmentRecord> _extractPayrollAdjustments(
-    Map<String, dynamic> response, {
-    required String type,
-    required int userId,
-    required int payrollEmployeeId,
-  }) {
-    _requireSuccess(response);
-    final data = response['data'];
-    final rawItems = data is List
-        ? data
-        : data is Map<String, dynamic>
-            ? (data['items'] as List?) ??
-                (data['data'] as List?) ??
-                (data['rows'] as List?) ??
-                (data['results'] as List?) ??
-                (data.isEmpty ? const <dynamic>[] : <dynamic>[data])
-            : const <dynamic>[];
-    return rawItems
-        .whereType<Map>()
-        .map((item) {
-          final map = Map<String, dynamic>.from(item);
-          final itemPayrollEmployeeId =
-              _asInt(map['payrollEmployeeId'] ?? map['payroll_employee_id']) ??
-                  0;
-          final itemEmployeeId = _asInt(
-                  map['employeeId'] ?? map['employee_id'] ?? map['userId']) ??
-              0;
-          if (itemPayrollEmployeeId != payrollEmployeeId &&
-              itemEmployeeId != userId) {
-            return null;
-          }
-          return PayrollAdjustmentRecord.fromJson(<String, dynamic>{
-            ...map,
-            'type': type,
-          });
-        })
-        .whereType<PayrollAdjustmentRecord>()
-        .toList();
   }
 
   void _requireSuccess(Map<String, dynamic> response) {
@@ -1228,5 +1568,97 @@ class ProfileCompensationRepository {
       return false;
     }
     return fallback;
+  }
+
+  bool _looksLikeMissingPaidLeavesEndpoint(Map<String, dynamic> response) {
+    final message = _cleanText(response['message']).toLowerCase();
+    final data = response['data'];
+    final nestedMessage =
+        data is Map ? _cleanText(data['message']).toLowerCase() : '';
+    final statusCode = _asInt(response['statusCode']) ??
+        (data is Map ? _asInt(data['statusCode']) : null) ??
+        (data is Map ? _asInt(data['status']) : null);
+    return statusCode == 404 ||
+        message.contains('cannot get') ||
+        nestedMessage.contains('cannot get') ||
+        message.contains('not found') ||
+        nestedMessage.contains('not found');
+  }
+
+  bool _looksLikeMissingPaidLeaveConfigResponse(
+    Map<String, dynamic> response,
+  ) {
+    final message = _cleanText(response['message']).toLowerCase();
+    final data = response['data'];
+    final nestedMessage =
+        data is Map ? _cleanText(data['message']).toLowerCase() : '';
+    final statusCode = _asInt(response['statusCode']) ??
+        (data is Map ? _asInt(data['statusCode']) : null) ??
+        (data is Map ? _asInt(data['status']) : null);
+    return statusCode == 404 ||
+        message.contains('cannot get') ||
+        message.contains('cannot patch') ||
+        message.contains('cannot post') ||
+        message.contains('cannot delete') ||
+        nestedMessage.contains('cannot get') ||
+        nestedMessage.contains('cannot patch') ||
+        nestedMessage.contains('cannot post') ||
+        nestedMessage.contains('cannot delete') ||
+        message.contains('not found') ||
+        nestedMessage.contains('not found');
+  }
+
+  bool _looksLikeMissingPaidLeaveWriteEndpoint(Map<String, dynamic> response) {
+    final message = _cleanText(response['message']).toLowerCase();
+    final data = response['data'];
+    final nestedMessage =
+        data is Map ? _cleanText(data['message']).toLowerCase() : '';
+    final statusCode = _asInt(response['statusCode']) ??
+        (data is Map ? _asInt(data['statusCode']) : null) ??
+        (data is Map ? _asInt(data['status']) : null);
+    return statusCode == 404 ||
+        message.contains('cannot patch') ||
+        message.contains('cannot post') ||
+        nestedMessage.contains('cannot patch') ||
+        nestedMessage.contains('cannot post') ||
+        message.contains('not found') ||
+        nestedMessage.contains('not found');
+  }
+
+  int _extractPaidLeaveDays(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is Map<String, dynamic>) {
+      return _asInt(
+            data['paidLeaveDays'] ??
+                data['paid_leave_days'] ??
+                data['days'] ??
+                data['value'] ??
+                (data['paidLeave'] is Map
+                    ? (data['paidLeave'] as Map)['paidLeaveDays']
+                    : null),
+          ) ??
+          0;
+    }
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      return _asInt(
+            map['paidLeaveDays'] ??
+                map['paid_leave_days'] ??
+                map['days'] ??
+                map['value'],
+          ) ??
+          0;
+    }
+    if (data is List && data.isNotEmpty && data.first is Map) {
+      final map = Map<String, dynamic>.from(data.first as Map);
+      return _asInt(
+            map['paidLeaveDays'] ??
+                map['paid_leave_days'] ??
+                map['days'] ??
+                map['value'],
+          ) ??
+          0;
+    }
+    return 0;
   }
 }

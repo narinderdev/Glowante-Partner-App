@@ -13,8 +13,17 @@ import 'profile_compensation_repository.dart';
 part 'owner_payroll.dart';
 part 'owner_commission.dart';
 part 'owner_advance.dart';
+part 'owner_leave_calendar.dart';
 
-enum CompensationModule { payroll, commission, advance }
+enum CompensationModule {
+  payroll,
+  commission,
+  advance,
+  attendance,
+  leaves,
+  holidays,
+  leaveCalendar,
+}
 
 enum _CommissionTab { services, overrides }
 
@@ -58,20 +67,40 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   List<CommissionServiceRule> _serviceRules = const <CommissionServiceRule>[];
   List<StaffCommissionOverride> _staffOverrides =
       const <StaffCommissionOverride>[];
+  BranchAttendanceOverview? _attendanceOverview;
+  BranchPaidLeaveConfig? _branchPaidLeaveConfig;
+  PayrollPaidLeavesReview? _paidLeavesReview;
+  HolidayCalendarOverview? _holidayCalendar;
 
   bool _isLoadingBranches = true;
   bool _isLoadingContent = false;
+  bool _isRefreshingContent = false;
   bool _isActionInProgress = false;
   bool _isOpeningPayrollSetup = false;
   String? _branchError;
   String? _contentError;
   int? _selectedServiceId;
   DateTime _advanceMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  DateTime _leaveMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  String? _selectedLeavePayrollId;
 
   String get _moduleLogLabel => switch (_module) {
         CompensationModule.payroll => 'payroll',
         CompensationModule.commission => 'commission',
         CompensationModule.advance => 'advance',
+        CompensationModule.attendance => 'attendance',
+        CompensationModule.leaves => 'leaves',
+        CompensationModule.holidays => 'holidays',
+        CompensationModule.leaveCalendar => 'leave_calendar',
+      };
+
+  bool get _usesLeaveCalendarData => switch (_module) {
+        CompensationModule.attendance ||
+        CompensationModule.leaves ||
+        CompensationModule.holidays ||
+        CompensationModule.leaveCalendar =>
+          true,
+        _ => false,
       };
 
   void _logCompensation(String event, {Object? details}) {
@@ -171,6 +200,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       setState(() {
         _contentError = null;
         _isLoadingContent = false;
+        _isRefreshingContent = false;
       });
       return;
     }
@@ -178,10 +208,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     if (showLoader) {
       setState(() {
         _isLoadingContent = true;
+        _isRefreshingContent = false;
         _contentError = null;
       });
     } else {
       setState(() {
+        _isRefreshingContent = true;
         _contentError = null;
       });
     }
@@ -191,6 +223,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         await _loadPayrollData(selectedBranch.branchId);
       } else if (_module == CompensationModule.advance) {
         await _loadAdvanceData(selectedBranch.branchId);
+      } else if (_usesLeaveCalendarData) {
+        await _loadLeaveData(selectedBranch);
       } else {
         await _loadCommissionData(selectedBranch.branchId);
       }
@@ -199,6 +233,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       }
       setState(() {
         _isLoadingContent = false;
+        _isRefreshingContent = false;
       });
       _logCompensation(
         'reload_content_success',
@@ -211,6 +246,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       }
       setState(() {
         _isLoadingContent = false;
+        _isRefreshingContent = false;
         _contentError = _errorText(error);
       });
       _logCompensation(
@@ -312,6 +348,143 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     );
   }
 
+  Future<void> _loadLeaveData(ProfileBranchOption branch) async {
+    _logCompensation(
+      'load_leave_data_started',
+      details:
+          'branchId=${branch.branchId}, salonId=${branch.salonId}, month=${_leaveMonth.toIso8601String()}, payrollId=$_selectedLeavePayrollId',
+    );
+    if (_module == CompensationModule.attendance) {
+      final attendanceOverview = await _repository.loadBranchAttendanceOverview(
+        branchId: branch.branchId,
+        month: _leaveMonth,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _teamMembers = const <ProfileTeamMember>[];
+        _attendanceOverview = attendanceOverview;
+      });
+      _logCompensation(
+        'load_leave_data_success',
+        details:
+            'branchId=${branch.branchId}, attendanceEmployees=${attendanceOverview.employees.length}, month=${DateFormat('yyyy-MM').format(_leaveMonth)}',
+      );
+      return;
+    }
+
+    if (_module == CompensationModule.leaves) {
+      final branchPaidLeaveConfig = await _repository.loadBranchPaidLeaveConfig(
+        branchId: branch.branchId,
+        branchName: branch.label,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _teamMembers = const <ProfileTeamMember>[];
+        _branchPaidLeaveConfig = branchPaidLeaveConfig;
+      });
+      _logCompensation(
+        'load_leave_data_success',
+        details:
+            'branchId=${branch.branchId}, paidLeaveDays=${branchPaidLeaveConfig.paidLeaveDays}',
+      );
+      return;
+    }
+
+    if (_module == CompensationModule.holidays) {
+      final holidayCalendar = await _repository.loadHolidayCalendar(
+        salonId: branch.salonId,
+        month: _leaveMonth,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _teamMembers = const <ProfileTeamMember>[];
+        _holidayCalendar = holidayCalendar;
+      });
+      _logCompensation(
+        'load_leave_data_success',
+        details:
+            'branchId=${branch.branchId}, holidays=${holidayCalendar.holidays.length}, month=${DateFormat('yyyy-MM').format(_leaveMonth)}',
+      );
+      return;
+    }
+
+    final teamMembers = await _repository.loadTeamMembers(branch.branchId);
+    final payrollSetups = await _repository.loadPayrollSetups(branch.branchId);
+    final payrollRuns = await _repository.loadPayrollRuns(
+      branch.branchId,
+      teamMembers: teamMembers,
+      setups: payrollSetups,
+    );
+
+    PayrollRunRecord? selectedRun;
+    if (_selectedLeavePayrollId != null) {
+      selectedRun = payrollRuns.cast<PayrollRunRecord?>().firstWhere(
+            (item) => item?.id == _selectedLeavePayrollId,
+            orElse: () => null,
+          );
+    }
+    selectedRun ??= payrollRuns.cast<PayrollRunRecord?>().firstWhere(
+          (item) =>
+              item?.periodKey == DateFormat('yyyy-MM').format(_leaveMonth),
+          orElse: () => null,
+        );
+    selectedRun ??= payrollRuns.isEmpty ? null : payrollRuns.first;
+
+    final effectiveMonth = selectedRun == null
+        ? _leaveMonth
+        : DateTime.tryParse('${selectedRun.periodKey}-01') ?? _leaveMonth;
+    final attendanceOverview = await _repository.loadBranchAttendanceOverview(
+      branchId: branch.branchId,
+      month: effectiveMonth,
+    );
+    final branchPaidLeaveConfig = await _repository.loadBranchPaidLeaveConfig(
+      branchId: branch.branchId,
+      branchName: branch.label,
+    );
+    final paidLeavesReview = await _repository.loadPayrollPaidLeavesReview(
+      branchId: branch.branchId,
+      payrollId: selectedRun?.id,
+      attendanceOverview: attendanceOverview,
+    );
+    final holidayCalendar = await _repository.loadHolidayCalendar(
+      salonId: branch.salonId,
+      month: effectiveMonth,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _teamMembers = List<ProfileTeamMember>.from(teamMembers);
+      _payrollSetups = List<PayrollSetupRecord>.from(payrollSetups);
+      _payrollRuns = List<PayrollRunRecord>.from(payrollRuns);
+      _attendanceOverview = attendanceOverview;
+      _branchPaidLeaveConfig = branchPaidLeaveConfig;
+      _paidLeavesReview = paidLeavesReview;
+      _holidayCalendar = holidayCalendar;
+      _selectedLeavePayrollId = selectedRun?.id;
+      _leaveMonth = effectiveMonth;
+    });
+    _logCompensation(
+      'load_leave_data_success',
+      details:
+          'branchId=${branch.branchId}, attendanceEmployees=${attendanceOverview.employees.length}, paidLeaveEmployees=${paidLeavesReview.employees.length}, holidays=${holidayCalendar.holidays.length}',
+    );
+  }
+
   Future<void> _switchBranch(ProfileBranchOption option) async {
     if (_selectedBranch?.branchId == option.branchId) {
       return;
@@ -394,6 +567,150 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         details: 'branchId=$branchId, period=${period.toIso8601String()}',
       );
       _showToast('Payroll generated successfully');
+    });
+  }
+
+  Future<void> _cancelPayroll(String payrollId) async {
+    final branch = _selectedBranch;
+    if (branch == null) {
+      return;
+    }
+    _logCompensation(
+      'cancel_payroll_requested',
+      details: 'branchId=${branch.branchId}, payrollId=$payrollId',
+    );
+    await _performAction(() async {
+      await _repository.cancelPayroll(
+        branchId: branch.branchId,
+        payrollId: payrollId,
+        teamMembers: _activeTeamMembers,
+      );
+      await _loadPayrollData(branch.branchId);
+      _showToast('Payroll cancelled successfully');
+    });
+  }
+
+  Future<void> _setPaidLeaveDays({
+    required int payrollEmployeeId,
+    required int paidLeaveDays,
+  }) async {
+    final branch = _selectedBranch;
+    if (branch == null) {
+      return;
+    }
+    await _performAction(() async {
+      if (paidLeaveDays <= 0) {
+        await _repository.deletePayrollEmployeePaidLeave(
+          payrollEmployeeId: payrollEmployeeId,
+        );
+      } else {
+        await _repository.setPayrollEmployeePaidLeave(
+          payrollEmployeeId: payrollEmployeeId,
+          paidLeaveDays: paidLeaveDays,
+        );
+      }
+      await _loadLeaveData(branch);
+      _showToast('Paid leaves updated successfully');
+    });
+  }
+
+  Future<void> _setBranchPaidLeaveDays({
+    required int branchId,
+    required int paidLeaveDays,
+  }) async {
+    final branch = _selectedBranch;
+    if (branch == null) {
+      return;
+    }
+    await _performAction(() async {
+      await _repository.setBranchPaidLeaveConfig(
+        branchId: branchId,
+        paidLeaveDays: paidLeaveDays,
+      );
+      await _loadLeaveData(branch);
+      _showToast('Default paid leaves updated successfully');
+    });
+  }
+
+  Future<void> _changeLeaveMonth(DateTime month) async {
+    final branch = _selectedBranch;
+    if (branch == null) {
+      return;
+    }
+    setState(() {
+      _leaveMonth = DateTime(month.year, month.month);
+      _selectedLeavePayrollId = null;
+    });
+    await _reloadContent(showLoader: false);
+  }
+
+  Future<void> _changeLeavePayroll(String? payrollId) async {
+    final branch = _selectedBranch;
+    if (branch == null) {
+      return;
+    }
+    final selectedRun = _payrollRuns.cast<PayrollRunRecord?>().firstWhere(
+          (item) => item?.id == payrollId,
+          orElse: () => null,
+        );
+    setState(() {
+      _selectedLeavePayrollId = payrollId;
+      if (selectedRun != null) {
+        _leaveMonth =
+            DateTime.tryParse('${selectedRun.periodKey}-01') ?? _leaveMonth;
+      }
+    });
+    await _reloadContent(showLoader: false);
+  }
+
+  Future<void> _saveHoliday({
+    required DateTime holidayDate,
+    required String title,
+    required String description,
+    int? holidayId,
+  }) async {
+    final branch = _selectedBranch;
+    if (branch == null) {
+      return;
+    }
+    await _performAction(() async {
+      if (holidayId == null) {
+        await _repository.createHoliday(
+          salonId: branch.salonId,
+          holidayDate: holidayDate,
+          title: title,
+          description: description,
+        );
+      } else {
+        await _repository.updateHoliday(
+          salonId: branch.salonId,
+          holidayId: holidayId,
+          holidayDate: holidayDate,
+          title: title,
+          description: description,
+        );
+      }
+      await _loadLeaveData(branch);
+      _showToast(
+        holidayId == null
+            ? 'Holiday added successfully'
+            : 'Holiday updated successfully',
+      );
+    });
+  }
+
+  Future<void> _deleteHoliday(int holidayId) async {
+    final branch = _selectedBranch;
+    if (branch == null) {
+      return;
+    }
+    await _performAction(() async {
+      await _repository.deleteHoliday(
+        salonId: branch.salonId,
+        holidayId: holidayId,
+      );
+      await _loadLeaveData(branch);
+      _showToast('Holiday deleted successfully');
     });
   }
 
@@ -649,6 +966,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     switch (status.toLowerCase()) {
       case 'paid':
         return const Color(0xFF157347);
+      case 'cancelled':
+        return const Color(0xFF6B7280);
+      case 'reviewed':
       case 'approved':
         return const Color(0xFF0D6EFD);
       default:
@@ -847,6 +1167,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
         builder: (screenContext) {
           String searchQuery = '';
           String selectedStatus = 'All Status';
+          bool isReviewBusy = false;
+          String? reviewBusyAction;
 
           Future<void> refreshRun(PayrollRunRecord updatedRun) async {
             currentRun = updatedRun;
@@ -855,6 +1177,15 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
 
           return StatefulBuilder(
             builder: (context, setSheetState) {
+              final reviewStatus = currentRun.statusLabel.toLowerCase();
+              final paidEmployeesCount = currentRun.employees
+                  .where((employee) =>
+                      employee.statusLabel.toLowerCase() == 'paid')
+                  .length;
+              final unpaidEmployeesCount = currentRun.employees
+                  .where((employee) =>
+                      employee.statusLabel.toLowerCase() != 'paid')
+                  .length;
               return Scaffold(
                 backgroundColor: const Color(0xFFFBF9F8),
                 appBar: buildProfileSubpageAppBar(title: 'Payroll'),
@@ -892,20 +1223,22 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                               value: _formatCurrency(
                                 currentRun.paidAmountMinor,
                               ),
-                              subtitle:
-                                  '(${currentRun.employees.where((employee) => employee.statusLabel.toLowerCase() == 'paid').length})',
+                              subtitle: '($paidEmployeesCount)',
                             ),
                           ),
                           const SizedBox(width: 12),
                           SizedBox(
                             width: 190,
                             child: _MetricCard(
-                              label: 'Pending',
+                              label: reviewStatus == 'cancelled'
+                                  ? 'Cancelled'
+                                  : 'Pending',
                               value: _formatCurrency(
                                 currentRun.outstandingAmountMinor,
                               ),
-                              subtitle:
-                                  '(${currentRun.employees.where((employee) => employee.statusLabel.toLowerCase() != 'paid').length})',
+                              subtitle: reviewStatus == 'cancelled'
+                                  ? '($unpaidEmployeesCount) unpaid'
+                                  : '($unpaidEmployeesCount)',
                             ),
                           ),
                         ],
@@ -921,6 +1254,40 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (isReviewBusy) ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.fromLTRB(
+                                14,
+                                12,
+                                14,
+                                10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF7ED),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFF6D7B8),
+                                ),
+                              ),
+                              child: const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Updating payroll review...',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF9A3412),
+                                    ),
+                                  ),
+                                  SizedBox(height: 10),
+                                  LinearProgressIndicator(),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                           Row(
                             children: [
                               Expanded(
@@ -953,13 +1320,104 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                             runSpacing: 10,
                             children: [
                               _ActionChipButton(
-                                label: 'Mark Reviewed',
-                                onTap: () {},
+                                label: 'Refresh Review',
+                                isLoading: reviewBusyAction == 'refresh_review',
+                                onTap: () async {
+                                  if (isReviewBusy) {
+                                    return;
+                                  }
+                                  setSheetState(() {
+                                    isReviewBusy = true;
+                                    reviewBusyAction = 'refresh_review';
+                                  });
+                                  try {
+                                    final refreshed = await _repository
+                                        .fetchPayrollReviewDetails(
+                                      branchId: branchId,
+                                      payrollId: currentRun.id,
+                                      fallbackRun: currentRun,
+                                    );
+                                    await refreshRun(refreshed);
+                                    if (context.mounted) {
+                                      setSheetState(
+                                          () => currentRun = refreshed);
+                                    }
+                                  } catch (error) {
+                                    _showToast(
+                                      _errorText(error),
+                                      isError: true,
+                                    );
+                                  } finally {
+                                    if (context.mounted) {
+                                      setSheetState(() {
+                                        isReviewBusy = false;
+                                        reviewBusyAction = null;
+                                      });
+                                    }
+                                  }
+                                },
                                 filled: true,
                               ),
                               _ActionChipButton(
                                 label: 'Cancel Payroll',
-                                onTap: () {},
+                                isLoading: reviewBusyAction == 'cancel_payroll',
+                                onTap: () async {
+                                  if (isReviewBusy) {
+                                    return;
+                                  }
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (dialogContext) {
+                                      return AlertDialog(
+                                        title: const Text('Cancel payroll'),
+                                        content: const Text(
+                                          'This will cancel the payroll run for this period.',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(
+                                              dialogContext,
+                                              false,
+                                            ),
+                                            child: const Text('No'),
+                                          ),
+                                          ElevatedButton(
+                                            onPressed: () => Navigator.pop(
+                                              dialogContext,
+                                              true,
+                                            ),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  const Color(0xFFB02A37),
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            child: const Text('Yes, cancel'),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                  if (confirmed != true) {
+                                    return;
+                                  }
+                                  setSheetState(() {
+                                    isReviewBusy = true;
+                                    reviewBusyAction = 'cancel_payroll';
+                                  });
+                                  try {
+                                    await _cancelPayroll(currentRun.id);
+                                    if (screenContext.mounted) {
+                                      Navigator.of(screenContext).pop();
+                                    }
+                                  } finally {
+                                    if (context.mounted) {
+                                      setSheetState(() {
+                                        isReviewBusy = false;
+                                        reviewBusyAction = null;
+                                      });
+                                    }
+                                  }
+                                },
                               ),
                             ],
                           ),
@@ -1019,10 +1477,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                               DropdownMenuItem(
                                 value: 'All Status',
                                 child: Text('All Status'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'Reviewed',
-                                child: Text('Reviewed'),
                               ),
                               DropdownMenuItem(
                                 value: 'Paid',
@@ -2459,6 +2913,10 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       CompensationModule.payroll => context.t('Payroll'),
       CompensationModule.commission => context.t('Commission Setup'),
       CompensationModule.advance => context.t('Advance'),
+      CompensationModule.attendance => context.t('Attendance'),
+      CompensationModule.leaves => context.t('Leaves'),
+      CompensationModule.holidays => context.t('Holidays Calendar'),
+      CompensationModule.leaveCalendar => context.t('Leaves & Holidays'),
     };
 
     return Scaffold(
@@ -2521,6 +2979,14 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                 },
               ),
             ),
+          if (!_isLoadingBranches &&
+              (_isRefreshingContent || _isActionInProgress)) ...[
+            const SizedBox(height: 12),
+            const LinearProgressIndicator(
+              minHeight: 2,
+              color: AppColors.starColor,
+            ),
+          ],
         ],
       ),
     );
@@ -2569,6 +3035,22 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
 
     if (_module == CompensationModule.advance) {
       return _buildAdvanceScreen();
+    }
+
+    if (_module == CompensationModule.attendance) {
+      return _buildAttendanceScreen();
+    }
+
+    if (_module == CompensationModule.leaves) {
+      return _buildLeavesScreen();
+    }
+
+    if (_module == CompensationModule.holidays) {
+      return _buildHolidaysScreen();
+    }
+
+    if (_module == CompensationModule.leaveCalendar) {
+      return _buildLeaveCalendarScreen();
     }
 
     return _buildCommissionScreen();

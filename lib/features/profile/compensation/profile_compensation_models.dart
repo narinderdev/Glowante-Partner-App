@@ -549,13 +549,10 @@ class PayrollRunEmployeeRecord {
 
   String get statusLabel {
     final normalizedStatus = _asString(backendStatus).trim().toLowerCase();
-    if (normalizedStatus == 'paid') {
+    if (payment != null) {
       return 'Paid';
     }
-    if (normalizedStatus == 'reviewed' || normalizedStatus == 'approved') {
-      return 'Reviewed';
-    }
-    if (payment != null) {
+    if (normalizedStatus == 'paid') {
       return 'Paid';
     }
     return 'Pending';
@@ -722,6 +719,9 @@ class PayrollRunRecord {
   final String? noteDescription;
 
   bool get isApproved => approvedAt != null;
+  String get normalizedBackendStatus =>
+      _asString(backendStatus).trim().toLowerCase();
+  bool get isCancelled => normalizedBackendStatus == 'cancelled';
 
   int get employeeCount => summaryEmployeeCount ?? employees.length;
 
@@ -729,18 +729,21 @@ class PayrollRunRecord {
       employees.isNotEmpty && employees.every((item) => item.payment != null);
 
   String get statusLabel {
-    final normalizedStatus = _asString(backendStatus).trim().toLowerCase();
-    if (normalizedStatus == 'paid') {
-      return 'Paid';
+    final normalizedStatus = normalizedBackendStatus;
+    if (normalizedStatus == 'cancelled') {
+      return 'Cancelled';
     }
-    if (normalizedStatus == 'reviewed' || normalizedStatus == 'approved') {
+    if (normalizedStatus == 'reviewed') {
       return 'Reviewed';
+    }
+    if (normalizedStatus == 'approved') {
+      return 'Approved';
     }
     if (payment != null || allEmployeesPaid) {
       return 'Paid';
     }
-    if (isApproved) {
-      return 'Approved';
+    if (normalizedStatus == 'paid') {
+      return 'Paid';
     }
     return 'Pending';
   }
@@ -845,6 +848,382 @@ class PayrollRunRecord {
           _asInt(json['summaryEmployeeCount'] ?? json['employeeCount']),
       noteTitle: _asString(json['noteTitle']),
       noteDescription: _asString(json['noteDescription']),
+    );
+  }
+}
+
+@immutable
+class AttendanceDayRecord {
+  const AttendanceDayRecord({
+    required this.id,
+    required this.branchId,
+    required this.userId,
+    required this.checkedInAt,
+    required this.checkedInAtIndianTime,
+    required this.checkedOutAt,
+    required this.checkedOutAtIndianTime,
+    required this.updatedByUserId,
+  });
+
+  final int id;
+  final int branchId;
+  final int userId;
+  final DateTime? checkedInAt;
+  final String checkedInAtIndianTime;
+  final DateTime? checkedOutAt;
+  final String checkedOutAtIndianTime;
+  final int? updatedByUserId;
+
+  factory AttendanceDayRecord.fromJson(Map<String, dynamic> json) {
+    return AttendanceDayRecord(
+      id: _asInt(json['id']) ?? 0,
+      branchId: _asInt(json['branchId']) ?? 0,
+      userId: _asInt(json['userId']) ?? 0,
+      checkedInAt: DateTime.tryParse(_asString(json['checkedInAt'])),
+      checkedInAtIndianTime: _asString(json['checkedInAtIndianTime']),
+      checkedOutAt: DateTime.tryParse(_asString(json['checkedOutAt'])),
+      checkedOutAtIndianTime: _asString(json['checkedOutAtIndianTime']),
+      updatedByUserId: _asInt(json['updatedByUserId']),
+    );
+  }
+}
+
+@immutable
+class BranchAttendanceEmployeeRecord {
+  const BranchAttendanceEmployeeRecord({
+    required this.userId,
+    required this.userName,
+    required this.role,
+    required this.active,
+    required this.month,
+    required this.year,
+    required this.totalDays,
+    required this.daysAttended,
+    required this.leaves,
+    required this.recordsCount,
+    required this.records,
+  });
+
+  final int userId;
+  final String userName;
+  final String role;
+  final bool active;
+  final int month;
+  final int year;
+  final int totalDays;
+  final int daysAttended;
+  final int leaves;
+  final int recordsCount;
+  final List<AttendanceDayRecord> records;
+
+  factory BranchAttendanceEmployeeRecord.fromJson(Map<String, dynamic> json) {
+    final summary = json['summary'] is Map
+        ? Map<String, dynamic>.from(json['summary'] as Map)
+        : const <String, dynamic>{};
+    return BranchAttendanceEmployeeRecord(
+      userId: _asInt(json['userId']) ?? 0,
+      userName: _asString(json['userName'] ?? json['name']),
+      role: _asString(json['role'], fallback: 'Team Member'),
+      active: _asBool(json['active'], fallback: true),
+      month: _asInt(summary['month']) ?? 0,
+      year: _asInt(summary['year']) ?? 0,
+      totalDays: _asInt(summary['totalDays']) ?? 0,
+      daysAttended: _asInt(summary['daysAttended']) ?? 0,
+      leaves: _asInt(summary['leaves']) ?? 0,
+      recordsCount: _asInt(summary['recordsCount']) ?? 0,
+      records: ((json['records'] as List?) ?? const <dynamic>[])
+          .whereType<Map>()
+          .map(
+            (item) => AttendanceDayRecord.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+@immutable
+class BranchAttendanceOverview {
+  const BranchAttendanceOverview({
+    required this.month,
+    required this.year,
+    required this.totalDays,
+    required this.totalEmployees,
+    required this.employeesWithAttendance,
+    required this.recordsCount,
+    required this.daysAttended,
+    required this.leaves,
+    required this.employees,
+  });
+
+  final int month;
+  final int year;
+  final int totalDays;
+  final int totalEmployees;
+  final int employeesWithAttendance;
+  final int recordsCount;
+  final int daysAttended;
+  final int leaves;
+  final List<BranchAttendanceEmployeeRecord> employees;
+
+  factory BranchAttendanceOverview.fromJson(Map<String, dynamic> json) {
+    final summary = json['summary'] is Map
+        ? Map<String, dynamic>.from(json['summary'] as Map)
+        : const <String, dynamic>{};
+    return BranchAttendanceOverview(
+      month: _asInt(summary['month']) ?? 0,
+      year: _asInt(summary['year']) ?? 0,
+      totalDays: _asInt(summary['totalDays']) ?? 0,
+      totalEmployees: _asInt(summary['totalEmployees']) ?? 0,
+      employeesWithAttendance: _asInt(summary['employeesWithAttendance']) ?? 0,
+      recordsCount: _asInt(summary['recordsCount']) ?? 0,
+      daysAttended: _asInt(summary['daysAttended']) ?? 0,
+      leaves: _asInt(summary['leaves']) ?? 0,
+      employees: ((json['employees'] as List?) ?? const <dynamic>[])
+          .whereType<Map>()
+          .map(
+            (item) => BranchAttendanceEmployeeRecord.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+@immutable
+class BranchPaidLeaveConfig {
+  const BranchPaidLeaveConfig({
+    required this.branchId,
+    required this.branchName,
+    required this.paidLeaveDays,
+  });
+
+  final int branchId;
+  final String branchName;
+  final int paidLeaveDays;
+
+  factory BranchPaidLeaveConfig.fromJson(Map<String, dynamic> json) {
+    final branch = json['branch'] is Map
+        ? Map<String, dynamic>.from(json['branch'] as Map)
+        : const <String, dynamic>{};
+    final config = json['config'] is Map
+        ? Map<String, dynamic>.from(json['config'] as Map)
+        : const <String, dynamic>{};
+    return BranchPaidLeaveConfig(
+      branchId: _asInt(
+            branch['id'] ??
+                json['branchId'] ??
+                json['id'] ??
+                config['branchId'],
+          ) ??
+          0,
+      branchName: _asString(
+        branch['name'] ?? json['branchName'] ?? config['branchName'],
+      ),
+      paidLeaveDays: _asInt(
+            json['paidLeaveDays'] ??
+                json['defaultPaidLeaveDays'] ??
+                json['defaultPaidLeaves'] ??
+                config['paidLeaveDays'] ??
+                config['defaultPaidLeaveDays'] ??
+                config['defaultPaidLeaves'] ??
+                config['days'] ??
+                json['days'] ??
+                json['value'],
+          ) ??
+          0,
+    );
+  }
+}
+
+@immutable
+class PayrollPaidLeaveEmployeeRecord {
+  const PayrollPaidLeaveEmployeeRecord({
+    required this.payrollEmployeeId,
+    required this.employeeId,
+    required this.employeeName,
+    required this.role,
+    required this.profileImage,
+    required this.salaryAmount,
+    required this.commissionPercentage,
+    required this.paidLeaveDays,
+    required this.leaveDays,
+    required this.status,
+  });
+
+  final int payrollEmployeeId;
+  final int employeeId;
+  final String employeeName;
+  final String role;
+  final String? profileImage;
+  final int salaryAmount;
+  final double commissionPercentage;
+  final int paidLeaveDays;
+  final int leaveDays;
+  final String status;
+
+  factory PayrollPaidLeaveEmployeeRecord.fromJson(Map<String, dynamic> json) {
+    return PayrollPaidLeaveEmployeeRecord(
+      payrollEmployeeId: _asInt(json['payrollEmployeeId']) ?? 0,
+      employeeId: _asInt(json['employeeId'] ?? json['teamMemberId']) ?? 0,
+      employeeName: _asString(json['employeeName'] ?? json['teamMemberName']),
+      role: _asString(json['role'], fallback: 'Team Member'),
+      profileImage: _asString(json['profileImage']).isEmpty
+          ? null
+          : _asString(json['profileImage']),
+      salaryAmount: _asInt(json['salaryAmount']) ?? 0,
+      commissionPercentage: _asDouble(json['commissionPercentage']) ?? 0,
+      paidLeaveDays: _asInt(json['paidLeaveDays']) ?? 0,
+      leaveDays: _asInt(json['leaveDays']) ?? 0,
+      status: _asString(json['status']),
+    );
+  }
+}
+
+@immutable
+class PayrollPaidLeavesReview {
+  const PayrollPaidLeavesReview({
+    required this.branchId,
+    required this.branchName,
+    required this.payrollId,
+    required this.payrollName,
+    required this.month,
+    required this.year,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.payrollStatus,
+    required this.totalTeamMembersCount,
+    required this.membersWithPayrollSetup,
+    required this.totalPaidLeaveDays,
+    required this.employees,
+  });
+
+  final int branchId;
+  final String branchName;
+  final String? payrollId;
+  final String payrollName;
+  final int month;
+  final int year;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+  final String payrollStatus;
+  final int totalTeamMembersCount;
+  final int membersWithPayrollSetup;
+  final int totalPaidLeaveDays;
+  final List<PayrollPaidLeaveEmployeeRecord> employees;
+
+  factory PayrollPaidLeavesReview.fromJson(Map<String, dynamic> json) {
+    final branch = json['branch'] is Map
+        ? Map<String, dynamic>.from(json['branch'] as Map)
+        : const <String, dynamic>{};
+    final payroll = json['payroll'] is Map
+        ? Map<String, dynamic>.from(json['payroll'] as Map)
+        : const <String, dynamic>{};
+    final summary = json['summary'] is Map
+        ? Map<String, dynamic>.from(json['summary'] as Map)
+        : const <String, dynamic>{};
+    return PayrollPaidLeavesReview(
+      branchId: _asInt(branch['id']) ?? 0,
+      branchName: _asString(branch['name']),
+      payrollId: _asString(payroll['payrollId']).isEmpty
+          ? null
+          : _asString(payroll['payrollId']),
+      payrollName: _asString(payroll['payrollName']),
+      month: _asInt(payroll['month']) ?? 0,
+      year: _asInt(payroll['year']) ?? 0,
+      periodStart: DateTime.tryParse(_asString(payroll['periodStart'])),
+      periodEnd: DateTime.tryParse(_asString(payroll['periodEnd'])),
+      payrollStatus: _asString(payroll['status']),
+      totalTeamMembersCount: _asInt(summary['totalTeamMembersCount']) ?? 0,
+      membersWithPayrollSetup: _asInt(summary['membersWithPayrollSetup']) ?? 0,
+      totalPaidLeaveDays: _asInt(summary['totalPaidLeaveDays']) ?? 0,
+      employees: ((json['employees'] as List?) ?? const <dynamic>[])
+          .whereType<Map>()
+          .map(
+            (item) => PayrollPaidLeaveEmployeeRecord.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+@immutable
+class HolidayCalendarEntry {
+  const HolidayCalendarEntry({
+    required this.id,
+    required this.salonId,
+    required this.holidayDate,
+    required this.title,
+    required this.description,
+    required this.createdByUserId,
+  });
+
+  final int id;
+  final int salonId;
+  final DateTime holidayDate;
+  final String title;
+  final String description;
+  final int? createdByUserId;
+
+  factory HolidayCalendarEntry.fromJson(Map<String, dynamic> json) {
+    return HolidayCalendarEntry(
+      id: _asInt(json['id']) ?? 0,
+      salonId: _asInt(json['salonId']) ?? 0,
+      holidayDate:
+          DateTime.tryParse(_asString(json['holidayDate'])) ?? DateTime.now(),
+      title: _asString(json['title']),
+      description: _asString(json['description']),
+      createdByUserId: _asInt(json['createdByUserId']),
+    );
+  }
+}
+
+@immutable
+class HolidayCalendarOverview {
+  const HolidayCalendarOverview({
+    required this.salonId,
+    required this.salonName,
+    required this.month,
+    required this.year,
+    required this.totalHolidays,
+    required this.totalDays,
+    required this.holidays,
+  });
+
+  final int salonId;
+  final String salonName;
+  final int month;
+  final int year;
+  final int totalHolidays;
+  final int totalDays;
+  final List<HolidayCalendarEntry> holidays;
+
+  factory HolidayCalendarOverview.fromJson(Map<String, dynamic> json) {
+    final salon = json['salon'] is Map
+        ? Map<String, dynamic>.from(json['salon'] as Map)
+        : const <String, dynamic>{};
+    final summary = json['summary'] is Map
+        ? Map<String, dynamic>.from(json['summary'] as Map)
+        : const <String, dynamic>{};
+    return HolidayCalendarOverview(
+      salonId: _asInt(salon['id']) ?? 0,
+      salonName: _asString(salon['name']),
+      month: _asInt(summary['month']) ?? 0,
+      year: _asInt(summary['year']) ?? 0,
+      totalHolidays: _asInt(summary['totalHolidays']) ?? 0,
+      totalDays: _asInt(summary['totalDays']) ?? 0,
+      holidays: ((json['holidays'] as List?) ?? const <dynamic>[])
+          .whereType<Map>()
+          .map(
+            (item) => HolidayCalendarEntry.fromJson(
+              Map<String, dynamic>.from(item),
+            ),
+          )
+          .toList(),
     );
   }
 }
