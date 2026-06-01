@@ -25,7 +25,7 @@ class SalonFlowStepHeader extends StatelessWidget {
       children: [
         for (int index = 0; index < steps.length; index++) ...[
           SizedBox(
-            width: 54,
+            width: 72,
             child: _FlowStepIndicator(
               number: steps[index].number,
               label: steps[index].label,
@@ -119,15 +119,23 @@ class _FlowStepIndicator extends StatelessWidget {
                 ),
         ),
         const SizedBox(height: 7),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 11,
-            height: 1.1,
-            fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-            color: active ? accent : const Color(0xFF3B332B),
+        SizedBox(
+          width: 72,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 11,
+                height: 1.1,
+                fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                color: active ? accent : const Color(0xFF3B332B),
+              ),
+            ),
           ),
         ),
       ],
