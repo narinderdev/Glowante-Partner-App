@@ -534,9 +534,9 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   String _normalizeDisplayTime(String input) {
     final text = input.trim();
     if (text.isEmpty) return '08:00 AM';
-    final twelveMatch =
-        RegExp(r'^(\d{1,2}):(\d{2})\s*([AP]M)$', caseSensitive: false)
-            .firstMatch(text);
+    final twelveMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+            caseSensitive: false)
+        .firstMatch(text);
     if (twelveMatch != null) {
       final hour = int.parse(twelveMatch.group(1)!);
       final minute = int.parse(twelveMatch.group(2)!);
@@ -546,7 +546,8 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       return '$normalizedHour:$normalizedMinute $suffix';
     }
 
-    final twentyFourMatch = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(text);
+    final twentyFourMatch =
+        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
     if (twentyFourMatch != null) {
       final hour = int.parse(twentyFourMatch.group(1)!);
       final minute = int.parse(twentyFourMatch.group(2)!);

@@ -1035,6 +1035,54 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return '';
   }
 
+  String _formatDisplayTime(
+    dynamic value, {
+    String fallback = '',
+  }) {
+    final text = (value ?? '').toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return fallback;
+
+    String formatParts(String hourText, String minuteText, [String? suffix]) {
+      var hour = int.tryParse(hourText) ?? 0;
+      final minute = int.tryParse(minuteText) ?? 0;
+      if (suffix != null) {
+        final normalizedSuffix = suffix.toUpperCase();
+        if (normalizedSuffix == 'PM' && hour != 12) hour += 12;
+        if (normalizedSuffix == 'AM' && hour == 12) hour = 0;
+      }
+      final displaySuffix = hour >= 12 ? 'PM' : 'AM';
+      final hour12 = ((hour + 11) % 12) + 1;
+      return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $displaySuffix';
+    }
+
+    final twelveHourMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+            caseSensitive: false)
+        .firstMatch(text);
+    if (twelveHourMatch != null) {
+      return formatParts(
+        twelveHourMatch.group(1)!,
+        twelveHourMatch.group(2)!,
+        twelveHourMatch.group(3)!,
+      );
+    }
+
+    final twentyFourHourMatch =
+        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    if (twentyFourHourMatch != null) {
+      return formatParts(
+        twentyFourHourMatch.group(1)!,
+        twentyFourHourMatch.group(2)!,
+      );
+    }
+
+    final isoTimeMatch = RegExp(r'T(\d{1,2}):(\d{2})').firstMatch(text);
+    if (isoTimeMatch != null) {
+      return formatParts(isoTimeMatch.group(1)!, isoTimeMatch.group(2)!);
+    }
+
+    return fallback.isNotEmpty ? fallback : text;
+  }
+
   double _readDoubleValue(List<dynamic> values) {
     for (final value in values) {
       if (value is num) return value.toDouble();
@@ -1059,10 +1107,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         result[day] = slots
             .whereType<Map>()
             .map((slot) => <String, String>{
-                  'startTime':
-                      _firstNonEmptyValue([slot['startTime'], slot['start']]),
-                  'endTime':
-                      _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                  'startTime': _formatDisplayTime(
+                    _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                  ),
+                  'endTime': _formatDisplayTime(
+                    _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                  ),
                 })
             .where((slot) =>
                 slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
@@ -1077,10 +1127,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         result[day] = slots
             .whereType<Map>()
             .map((slot) => <String, String>{
-                  'startTime':
-                      _firstNonEmptyValue([slot['startTime'], slot['start']]),
-                  'endTime':
-                      _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                  'startTime': _formatDisplayTime(
+                    _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                  ),
+                  'endTime': _formatDisplayTime(
+                    _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                  ),
                 })
             .where((slot) =>
                 slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
@@ -1222,10 +1274,16 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         primaryBranch?['endTime'],
       ]);
       if (startTime.isNotEmpty) {
-        _startTimeController.text = startTime;
+        _startTimeController.text = _formatDisplayTime(
+          startTime,
+          fallback: _startTimeController.text,
+        );
       }
       if (endTime.isNotEmpty) {
-        _endTimeController.text = endTime;
+        _endTimeController.text = _formatDisplayTime(
+          endTime,
+          fallback: _endTimeController.text,
+        );
       }
     }
 
