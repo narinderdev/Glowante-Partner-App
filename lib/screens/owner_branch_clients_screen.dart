@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -21,11 +23,12 @@ class OwnerBranchClientsScreen extends StatefulWidget {
 }
 
 class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
-  static const double _serialColWidth = 72;
   static const double _nameColWidth = 220;
-  static const double _mobileColWidth = 180;
+  static const double _visitsColWidth = 120;
+  static const double _spendColWidth = 140;
+  static const double _lastVisitColWidth = 160;
   static const double _statusColWidth = 120;
-  static const double _actionColWidth = 140;
+  static const double _actionColWidth = 120;
   static const double _tableHorizontalPadding = 16;
 
   final TextEditingController _searchController = TextEditingController();
@@ -39,7 +42,11 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
 
   List<_OwnerBranchOption> _branchOptions = const [];
   List<Map<String, dynamic>> _clients = const [];
+  Map<String, dynamic>? _dashboardData;
   int? _selectedBranchId;
+  String _selectedDateRange = 'this_month';
+  String _activeCustomerTab = 'all_customers';
+  int _currentPage = 1;
   bool _isLoadingBranches = true;
   bool _isLoadingClients = false;
   bool _isExporting = false;
@@ -177,6 +184,23 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   }
 
   List<Map<String, dynamic>> _extractClients(dynamic raw) {
+    if (raw is Map) {
+      final dashboard = Map<String, dynamic>.from(raw);
+      final customerManagement = dashboard['customerManagement'];
+      if (customerManagement is Map) {
+        final table = customerManagement['table'];
+        if (table is Map) {
+          final rows = table['rows'];
+          if (rows is List) {
+            return rows
+                .whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item))
+                .toList();
+          }
+        }
+      }
+    }
+
     if (raw is List) {
       return raw
           .whereType<Map>()
@@ -198,6 +222,63 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     return const [];
   }
 
+  List<Map<String, dynamic>> _dashboardList(String key) {
+    final value = _dashboardData?[key];
+    if (value is List) {
+      return value
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    return const [];
+  }
+
+  List<Map<String, dynamic>> get _summaryCards =>
+      _dashboardList('summaryCards');
+
+  List<Map<String, dynamic>> get _dateRanges {
+    final filters = _dashboardData?['filters'];
+    final ranges = filters is Map ? filters['availableDateRanges'] : null;
+    if (ranges is List) {
+      return ranges
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    return const [
+      {'label': 'Today', 'value': 'today'},
+      {'label': 'This Week', 'value': 'this_week'},
+      {'label': 'This Month', 'value': 'this_month'},
+      {'label': 'This Year', 'value': 'this_year'},
+    ];
+  }
+
+  List<Map<String, dynamic>> get _customerTabs {
+    final management = _dashboardData?['customerManagement'];
+    final tabs = management is Map ? management['tabs'] : null;
+    if (tabs is List) {
+      return tabs
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    return const [
+      {'label': 'All Customers', 'value': 'all_customers'},
+      {'label': 'New Customers', 'value': 'new_customers'},
+      {'label': 'Loyal Customers', 'value': 'loyal_customers'},
+      {'label': 'Inactive Customers', 'value': 'inactive_customers'},
+    ];
+  }
+
+  Map<String, dynamic> get _pagination {
+    final management = _dashboardData?['customerManagement'];
+    final table = management is Map ? management['table'] : null;
+    final pagination = table is Map ? table['pagination'] : null;
+    return pagination is Map
+        ? Map<String, dynamic>.from(pagination)
+        : const <String, dynamic>{};
+  }
+
   Future<void> _loadClientsForBranch(
     int branchId, {
     bool saveSelection = true,
@@ -212,8 +293,16 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     });
 
     try {
-      final response = await _apiService.getBranchClients(branchId);
-      final clients = _extractClients(response['data']);
+      final response = await _apiService.getBranchClients(
+        branchId,
+        selectedDateRange: _selectedDateRange,
+        tab: _activeCustomerTab,
+        page: _currentPage,
+      );
+      final dashboardData = response['data'] is Map
+          ? Map<String, dynamic>.from(response['data'] as Map)
+          : <String, dynamic>{};
+      final clients = _extractClients(dashboardData);
       if (saveSelection) {
         final selected = _branchOptions.firstWhere(
           (option) => option.branchId == branchId,
@@ -229,6 +318,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       if (!mounted) return;
       setState(() {
         _selectedBranchId = branchId;
+        _dashboardData = dashboardData;
         _clients = clients;
         _isLoadingClients = false;
       });
@@ -246,34 +336,103 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     }
   }
 
+  Future<void> _reloadSelectedBranch({bool resetPage = true}) async {
+    final branchId = _selectedBranchId;
+    if (branchId == null) return;
+    if (resetPage) _currentPage = 1;
+    await _loadClientsForBranch(branchId, saveSelection: false);
+  }
+
   List<Map<String, dynamic>> get _filteredClients {
     final query = _searchController.text.trim().toLowerCase();
     if (query.isEmpty) return _clients;
     return _clients.where((client) {
       final first = _cleanText(client['firstName']).toLowerCase();
       final last = _cleanText(client['lastName']).toLowerCase();
+      final customerName = _clientName(client).toLowerCase();
       final email = _cleanText(client['email']).toLowerCase();
       final phone = _cleanText(
         client['phoneNumber'] ?? client['fullPhoneNumber'],
       ).toLowerCase();
       final fullName = '$first $last'.trim();
-      return fullName.contains(query) ||
+      return customerName.contains(query) ||
+          fullName.contains(query) ||
           email.contains(query) ||
           phone.contains(query);
     }).toList();
   }
 
+  String _clientName(Map<String, dynamic> client) {
+    final customer = client['customer'];
+    if (customer is Map) {
+      final name = _cleanText(customer['name']);
+      if (name.isNotEmpty) return name;
+    }
+
+    final name = [
+      _cleanText(client['firstName']),
+      _cleanText(client['lastName']),
+    ].where((part) => part.isNotEmpty).join(' ');
+    if (name.isNotEmpty) return name;
+    return _cleanText(client['name']).isEmpty
+        ? context.t('Customer')
+        : _cleanText(client['name']);
+  }
+
+  String _clientInitials(Map<String, dynamic> client) {
+    final customer = client['customer'];
+    if (customer is Map) {
+      final initials = _cleanText(customer['initials']);
+      if (initials.isNotEmpty) return initials;
+    }
+    final words = _clientName(client)
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty)
+        .toList();
+    if (words.isEmpty) return 'C';
+    return words.take(2).map((word) => word[0].toUpperCase()).join();
+  }
+
+  String _clientStatusLabel(Map<String, dynamic> client) {
+    final status = client['status'];
+    if (status is Map) {
+      final label = _cleanText(status['label']);
+      if (label.isNotEmpty) return label;
+    }
+    return client['active'] == false
+        ? context.t('Inactive')
+        : context.t('Active');
+  }
+
+  bool _isClientActive(Map<String, dynamic> client) {
+    final status = client['status'];
+    if (status is Map) {
+      final value = _cleanText(status['value']).toLowerCase();
+      if (value.isNotEmpty) return value != 'inactive';
+    }
+    return client['active'] != false;
+  }
+
+  String _clientTotalVisits(Map<String, dynamic> client) =>
+      _cleanText(client['totalVisits']).isEmpty
+          ? '0'
+          : _cleanText(client['totalVisits']);
+
+  String _clientTotalSpend(Map<String, dynamic> client) {
+    final display = _cleanText(client['displayTotalSpend']);
+    if (display.isNotEmpty) return display;
+    return _formatAmount(client['totalSpend']);
+  }
+
+  String _clientLastVisit(Map<String, dynamic> client) {
+    final display = _cleanText(client['displayLastVisit']);
+    if (display.isNotEmpty) return display;
+    return _formatDateValue(client['lastVisit']);
+  }
+
   String _csvCell(String value) {
     final escaped = value.replaceAll('"', '""');
     return '"$escaped"';
-  }
-
-  String _formatCreatedAt(dynamic value) {
-    final raw = _cleanText(value);
-    if (raw.isEmpty) return '';
-    final parsed = DateTime.tryParse(raw);
-    if (parsed == null) return raw;
-    return DateFormat('yyyy-MM-dd HH:mm').format(parsed.toLocal());
   }
 
   String _formatDateValue(dynamic value) {
@@ -293,6 +452,12 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       return _cleanText(value).isEmpty ? 'N/A' : _cleanText(value);
     }
     return '₹${parsed.toStringAsFixed(0)}';
+  }
+
+  double _asDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    return double.tryParse(_cleanText(value)) ?? 0;
   }
 
   String _formatMinorAmount(dynamic value, {String currency = 'INR'}) {
@@ -495,10 +660,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
       details: 'branchId=$branchId, clientId=$clientId',
     );
 
-    final clientName = [
-      _cleanText(client['firstName']),
-      _cleanText(client['lastName']),
-    ].where((part) => part.isNotEmpty).join(' ');
+    final clientName = _clientName(client);
     final phone =
         _cleanText(client['phoneNumber'] ?? client['fullPhoneNumber']);
 
@@ -689,34 +851,22 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     try {
       final rows = <String>[
         [
-          'ID',
-          'First Name',
-          'Last Name',
-          'Email',
-          'Phone Number',
+          'Customer',
+          'Total Visits',
+          'Total Spend',
+          'Last Visit',
           'Status',
-          'Role',
-          'Created At',
         ].map(_csvCell).join(','),
       ];
 
       for (final client in _clients) {
         rows.add(
           [
-            _cleanText(client['id']),
-            _cleanText(client['firstName']),
-            _cleanText(client['lastName']),
-            _cleanText(client['email']),
-            _cleanText(client['phoneNumber'] ?? client['fullPhoneNumber']),
-            client['active'] == false
-                ? translateText('Inactive')
-                : translateText('Active'),
-            _cleanText(client['role'] ?? client['userType'] ?? 'App User'),
-            _formatCreatedAt(
-              client['createdAt'] ??
-                  client['created_at'] ??
-                  client['updatedAt'],
-            ),
+            _clientName(client),
+            _clientTotalVisits(client),
+            _clientTotalSpend(client),
+            _clientLastVisit(client),
+            _clientStatusLabel(client),
           ].map(_csvCell).join(','),
         );
       }
@@ -753,6 +903,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     }
   }
 
+  // ignore: unused_element
   Future<void> _showImportClientsModal() async {
     if (_selectedBranchId == null) {
       _showSnack(translateText('Please select a branch first.'));
@@ -1002,6 +1153,316 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
     );
   }
 
+  Widget _buildDateRangeDropdown() {
+    return DropdownButtonHideUnderline(
+      child: Container(
+        height: 44,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE6D6C6)),
+        ),
+        child: DropdownButton<String>(
+          value: _selectedDateRange,
+          iconEnabledColor: AppColors.starColor,
+          items: _dateRanges.map((range) {
+            final label = _cleanText(range['label']);
+            final value = _cleanText(range['value']);
+            return DropdownMenuItem<String>(
+              value: value.isEmpty ? 'this_month' : value,
+              child: Text(label.isEmpty ? value : label),
+            );
+          }).toList(),
+          onChanged: _isLoadingClients
+              ? null
+              : (value) async {
+                  if (value == null || value == _selectedDateRange) return;
+                  setState(() => _selectedDateRange = value);
+                  await _reloadSelectedBranch();
+                },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExportButton() {
+    return SizedBox(
+      height: 44,
+      child: ElevatedButton(
+        onPressed: _isExporting ? null : _exportClients,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.starColor,
+          disabledBackgroundColor: const Color(0xFFB8A06D),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: Colors.white,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        child: _isExporting
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                context.t('Export'),
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCards() {
+    final cards = _summaryCards;
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 700;
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: cards.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isWide ? 4 : 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            mainAxisExtent: isWide ? 126 : 130,
+          ),
+          itemBuilder: (context, index) => _buildMetricCard(cards[index]),
+        );
+      },
+    );
+  }
+
+  Widget _buildMetricCard(Map<String, dynamic> card) {
+    final title = _cleanText(card['title']);
+    final value = _cleanText(card['displayValue']).isEmpty
+        ? _cleanText(card['value'])
+        : _cleanText(card['displayValue']);
+    final change = card['change'];
+    final changeText = change is Map ? _cleanText(change['displayValue']) : '';
+    final iconSource = _cleanText(card['icon']).isEmpty
+        ? (title.isEmpty ? 'C' : title)
+        : _cleanText(card['icon']);
+    final iconText = iconSource.substring(0, 1).toUpperCase();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8D8C8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 0.4,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF8A6F58),
+                  ),
+                ),
+              ),
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF4E8D1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  iconText,
+                  style: const TextStyle(
+                    color: Color(0xFF8B6500),
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            value.isEmpty ? '0' : value,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: const LinearProgressIndicator(
+                    value: 0,
+                    minHeight: 4,
+                    backgroundColor: Color(0xFFF1EBE4),
+                    valueColor: AlwaysStoppedAnimation(Color(0xFF8B6500)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                changeText.isEmpty ? '0%' : changeText,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Color(0xFF8A6F58),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrowthTrendCard() {
+    final trend = _dashboardData?['customerGrowthTrend'];
+    if (trend is! Map) return const SizedBox.shrink();
+    final data = trend['data'] is List
+        ? (trend['data'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
+        : <Map<String, dynamic>>[];
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8D8C8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _cleanText(trend['title']).isEmpty
+                          ? 'Customer Growth Trend'
+                          : _cleanText(trend['title']),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _cleanText(trend['subtitle']).isEmpty
+                          ? 'Daily customer acquisition and retention over the selected date range.'
+                          : _cleanText(trend['subtitle']),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF6B5B4D),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              const _GrowthTrendLegend(),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final chartWidth =
+                  constraints.maxWidth < 720 ? 720.0 : constraints.maxWidth;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: chartWidth,
+                  height: 260,
+                  child: CustomPaint(
+                    painter: _CustomerGrowthTrendPainter(
+                      data: data,
+                      asDouble: _asDouble,
+                      cleanText: _cleanText,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerManagementTitle() {
+    final title = _cleanText(
+      (_dashboardData?['customerManagement'] is Map
+          ? (_dashboardData!['customerManagement'] as Map)['title']
+          : null),
+    );
+    return Text(
+      title.isEmpty ? context.t('Customer Management') : title,
+      style: const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+
+  Widget _buildCustomerTabs() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _customerTabs.map((tab) {
+          final value = _cleanText(tab['value']);
+          final label = _cleanText(tab['label']);
+          final isSelected = value == _activeCustomerTab;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(label.isEmpty ? value : label),
+              selected: isSelected,
+              selectedColor: AppColors.starColor,
+              backgroundColor: const Color(0xFFF8F1E9),
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : const Color(0xFF6B5B4D),
+                fontWeight: FontWeight.w700,
+              ),
+              side: BorderSide.none,
+              onSelected: _isLoadingClients
+                  ? null
+                  : (_) async {
+                      if (value.isEmpty || value == _activeCustomerTab) return;
+                      setState(() => _activeCustomerTab = value);
+                      await _reloadSelectedBranch();
+                    },
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   void _showSnack(String text) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
@@ -1094,10 +1555,60 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
             const SizedBox(height: 18),
             LayoutBuilder(
               builder: (context, constraints) {
+                final pageTitle = _cleanText(
+                  _dashboardData?['page'] is Map
+                      ? (_dashboardData!['page'] as Map)['title']
+                      : null,
+                );
+                final title = Text(
+                  pageTitle.isEmpty ? context.t('Clients') : pageTitle,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                );
+                final actions = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildDateRangeDropdown(),
+                    const SizedBox(width: 10),
+                    _buildExportButton(),
+                  ],
+                );
+
+                if (constraints.maxWidth < 520) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      title,
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: actions,
+                      ),
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: title),
+                    actions,
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 12),
+            _buildSummaryCards(),
+            const SizedBox(height: 14),
+            _buildGrowthTrendCard(),
+            const SizedBox(height: 18),
+            LayoutBuilder(
+              builder: (context, constraints) {
                 final isCompact = constraints.maxWidth < 760;
 
                 final searchField = SizedBox(
-                  width: isCompact ? double.infinity : 220,
+                  width: isCompact ? null : 220,
                   child: TextField(
                     controller: _searchController,
                     onChanged: (_) => setState(() {}),
@@ -1119,57 +1630,32 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                   ),
                 );
 
-                final exportButton = OutlinedButton.icon(
-                  onPressed: _isExporting ? null : _exportClients,
-                  icon: _isExporting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.file_download_outlined, size: 18),
-                  label: Text(context.t('Export')),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF16A34A),
-                    side: const BorderSide(color: Color(0xFF22C55E)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                );
+                final exportButton = _buildExportButton();
 
-                final importButton = ElevatedButton(
-                  onPressed: _showImportClientsModal,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                  child: Text(context.t('Import Clients')),
-                );
+                // Import clients is intentionally hidden for now.
+                // final importButton = ElevatedButton(
+                //   onPressed: _showImportClientsModal,
+                //   style: ElevatedButton.styleFrom(
+                //     backgroundColor: AppColors.starColor,
+                //     foregroundColor: Colors.white,
+                //     shape: RoundedRectangleBorder(
+                //       borderRadius: BorderRadius.circular(999),
+                //     ),
+                //   ),
+                //   child: Text(context.t('Import Clients')),
+                // );
 
                 if (isCompact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '${context.t('Branch Clients')}: ${filteredClients.length}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      _buildCustomerManagementTitle(),
                       const SizedBox(height: 12),
-                      searchField,
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
+                      Row(
                         children: [
+                          Expanded(child: searchField),
+                          const SizedBox(width: 10),
                           exportButton,
-                          importButton,
                         ],
                       ),
                     ],
@@ -1179,24 +1665,16 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: Text(
-                        '${context.t('Branch Clients')}: ${filteredClients.length}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                    Expanded(child: _buildCustomerManagementTitle()),
                     searchField,
                     const SizedBox(width: 10),
                     exportButton,
-                    const SizedBox(width: 10),
-                    importButton,
                   ],
                 );
               },
             ),
+            const SizedBox(height: 12),
+            _buildCustomerTabs(),
             const SizedBox(height: 14),
             if (selectedOption != null && selectedOption.address.isNotEmpty)
               Padding(
@@ -1244,24 +1722,28 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                   }
 
                   final tableWidth =
-                      constraints.maxWidth < 820 ? 820.0 : constraints.maxWidth;
+                      constraints.maxWidth < 900 ? 900.0 : constraints.maxWidth;
                   final rowContentWidth =
                       tableWidth - (_tableHorizontalPadding * 2);
                   final baseFlexibleWidth = _nameColWidth +
-                      _mobileColWidth +
+                      _visitsColWidth +
+                      _spendColWidth +
+                      _lastVisitColWidth +
                       _statusColWidth +
                       _actionColWidth;
-                  final extraWidth = rowContentWidth >
-                          (_serialColWidth + baseFlexibleWidth)
-                      ? rowContentWidth - (_serialColWidth + baseFlexibleWidth)
+                  final extraWidth = rowContentWidth > baseFlexibleWidth
+                      ? rowContentWidth - baseFlexibleWidth
                       : 0.0;
-                  final nameColumnWidth = _nameColWidth + (extraWidth * 0.45);
-                  final mobileColumnWidth =
-                      _mobileColWidth + (extraWidth * 0.25);
+                  final nameColumnWidth = _nameColWidth + (extraWidth * 0.5);
+                  final visitsColumnWidth =
+                      _visitsColWidth + (extraWidth * 0.1);
+                  final spendColumnWidth = _spendColWidth + (extraWidth * 0.1);
+                  final lastVisitColumnWidth =
+                      _lastVisitColWidth + (extraWidth * 0.15);
                   final statusColumnWidth =
-                      _statusColWidth + (extraWidth * 0.15);
+                      _statusColWidth + (extraWidth * 0.08);
                   final actionColumnWidth =
-                      _actionColWidth + (extraWidth * 0.15);
+                      _actionColWidth + (extraWidth * 0.07);
 
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -1283,14 +1765,21 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                             ),
                             child: Row(
                               children: [
-                                _buildClientHeaderCell('S.NO', _serialColWidth),
                                 _buildClientHeaderCell(
-                                  'NAME',
+                                  'CUSTOMER',
                                   nameColumnWidth,
                                 ),
                                 _buildClientHeaderCell(
-                                  'MOBILE',
-                                  mobileColumnWidth,
+                                  'TOTAL VISITS',
+                                  visitsColumnWidth,
+                                ),
+                                _buildClientHeaderCell(
+                                  'TOTAL SPEND',
+                                  spendColumnWidth,
+                                ),
+                                _buildClientHeaderCell(
+                                  'LAST VISIT',
+                                  lastVisitColumnWidth,
                                 ),
                                 _buildClientHeaderCell(
                                   'STATUS',
@@ -1305,17 +1794,9 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                             ),
                           ),
                           ...filteredClients.asMap().entries.map((entry) {
-                            final index = entry.key;
                             final client = entry.value;
-                            final name = [
-                              _cleanText(client['firstName']),
-                              _cleanText(client['lastName']),
-                            ].where((part) => part.isNotEmpty).join(' ');
-                            final contact = _cleanText(
-                              client['phoneNumber'] ??
-                                  client['fullPhoneNumber'],
-                            );
-                            final isActive = client['active'] != false;
+                            final name = _clientName(client);
+                            final isActive = _isClientActive(client);
                             return Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: _tableHorizontalPadding,
@@ -1329,37 +1810,70 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                               child: Row(
                                 children: [
                                   _buildClientBodyCell(
-                                    Text('${index + 1}'),
-                                    _serialColWidth,
-                                  ),
-                                  _buildClientBodyCell(
-                                    Text(
-                                      name.isEmpty
-                                          ? context.t('Customer')
-                                          : name,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 18,
+                                          backgroundColor:
+                                              const Color(0xFFF4E8D1),
+                                          child: Text(
+                                            _clientInitials(client),
+                                            style: const TextStyle(
+                                              color: Color(0xFF8B6500),
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     nameColumnWidth,
                                   ),
                                   _buildClientBodyCell(
-                                    Text(
-                                      contact.isEmpty ? 'N/A' : contact,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    mobileColumnWidth,
+                                    Text(_clientTotalVisits(client)),
+                                    visitsColumnWidth,
                                   ),
                                   _buildClientBodyCell(
-                                    Text(
-                                      isActive
-                                          ? context.t('Active')
-                                          : context.t('Inactive'),
-                                      style: TextStyle(
+                                    Text(_clientTotalSpend(client)),
+                                    spendColumnWidth,
+                                  ),
+                                  _buildClientBodyCell(
+                                    Text(_clientLastVisit(client)),
+                                    lastVisitColumnWidth,
+                                  ),
+                                  _buildClientBodyCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
                                         color: isActive
-                                            ? const Color(0xFF22C55E)
-                                            : const Color(0xFFEF4444),
-                                        fontWeight: FontWeight.w600,
+                                            ? const Color(0xFFEFFAF3)
+                                            : const Color(0xFFFFEEF3),
+                                        borderRadius:
+                                            BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        _clientStatusLabel(client),
+                                        style: TextStyle(
+                                          color: isActive
+                                              ? const Color(0xFF15803D)
+                                              : const Color(0xFFE11D48),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
                                     statusColumnWidth,
@@ -1404,9 +1918,9 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
               ),
             ),
             const SizedBox(height: 14),
-            const Text(
-              'Page 1 of 1',
-              style: TextStyle(
+            Text(
+              'Showing ${_cleanText(_pagination['from']).isEmpty ? 0 : _pagination['from']} to ${_cleanText(_pagination['to']).isEmpty ? filteredClients.length : _pagination['to']} of ${_cleanText(_pagination['totalRecords']).isEmpty ? filteredClients.length : _pagination['totalRecords']} results',
+              style: const TextStyle(
                 fontSize: 14,
                 color: Color(0xFF6B7280),
               ),
@@ -1415,6 +1929,239 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
         ),
       ),
     );
+  }
+}
+
+class _GrowthTrendLegend extends StatelessWidget {
+  const _GrowthTrendLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: const [
+        _GrowthLegendItem(label: 'New', color: Color(0xFF7A5A10)),
+        SizedBox(width: 14),
+        _GrowthLegendItem(label: 'Returning', color: Color(0xFFB48A45)),
+      ],
+    );
+  }
+}
+
+class _GrowthLegendItem extends StatelessWidget {
+  const _GrowthLegendItem({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 9,
+          height: 9,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF8A6F58)),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomerGrowthTrendPainter extends CustomPainter {
+  const _CustomerGrowthTrendPainter({
+    required this.data,
+    required this.asDouble,
+    required this.cleanText,
+  });
+
+  final List<Map<String, dynamic>> data;
+  final double Function(dynamic value) asDouble;
+  final String Function(dynamic value) cleanText;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = const Color(0xFFF1E4D7)
+      ..strokeWidth = 1;
+    final newPaint = Paint()
+      ..color = const Color(0xFF7A5A10)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final returningPaint = Paint()
+      ..color = const Color(0xFFB48A45)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final textPainter = TextPainter(textDirection: ui.TextDirection.ltr);
+
+    const leftPadding = 34.0;
+    const topPadding = 12.0;
+    const rightPadding = 10.0;
+    const bottomPadding = 28.0;
+    final chartWidth = size.width - leftPadding - rightPadding;
+    final chartHeight = size.height - topPadding - bottomPadding;
+    final pointsData = data.isEmpty ? <Map<String, dynamic>>[const {}] : data;
+    final maxObserved = pointsData.fold<double>(0, (maxValue, item) {
+      return math.max(
+        maxValue,
+        math.max(_newValue(item), _returningValue(item)),
+      );
+    });
+    final maxValue = math.max(4, maxObserved.ceil()).toDouble();
+
+    for (var index = 0; index <= 4; index++) {
+      final value = maxValue * index / 4;
+      final y = topPadding + chartHeight - chartHeight * index / 4;
+      _drawDashedLine(
+        canvas,
+        Offset(leftPadding, y),
+        Offset(size.width - rightPadding, y),
+        gridPaint,
+      );
+      textPainter.text = TextSpan(
+        text: value.round().toString(),
+        style: const TextStyle(fontSize: 10, color: Color(0xFF8A6F58)),
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(leftPadding - textPainter.width - 8, y - 6),
+      );
+    }
+
+    _drawDashedLine(
+      canvas,
+      Offset(leftPadding + chartWidth / 2, topPadding),
+      Offset(leftPadding + chartWidth / 2, topPadding + chartHeight),
+      gridPaint,
+    );
+
+    final newPoints = <Offset>[];
+    final returningPoints = <Offset>[];
+    final slotCount = pointsData.length <= 1 ? 1 : pointsData.length - 1;
+
+    for (var index = 0; index < pointsData.length; index++) {
+      final item = pointsData[index];
+      final x = pointsData.length <= 1
+          ? leftPadding + chartWidth / 2
+          : leftPadding + chartWidth * index / slotCount;
+      newPoints.add(Offset(x, _valueY(_newValue(item), maxValue, chartHeight)));
+      returningPoints.add(
+        Offset(x, _valueY(_returningValue(item), maxValue, chartHeight)),
+      );
+
+      final label = _pointLabel(item, index);
+      if (label.isNotEmpty) {
+        textPainter.text = TextSpan(
+          text: label,
+          style: const TextStyle(fontSize: 10, color: Color(0xFF8A6F58)),
+        );
+        textPainter.layout(maxWidth: 80);
+        textPainter.paint(
+          canvas,
+          Offset(
+            x - textPainter.width / 2,
+            topPadding + chartHeight + 9,
+          ),
+        );
+      }
+    }
+
+    _drawPath(canvas, newPoints, newPaint);
+    _drawPath(canvas, returningPoints, returningPaint);
+
+    final newDotPaint = Paint()..color = const Color(0xFF7A5A10);
+    final returningDotPaint = Paint()..color = const Color(0xFFB48A45);
+    for (final point in newPoints) {
+      canvas.drawCircle(point, 3, newDotPaint);
+    }
+    for (final point in returningPoints) {
+      canvas.drawCircle(point, 3, returningDotPaint);
+    }
+  }
+
+  double _valueY(double value, double maxValue, double chartHeight) {
+    const topPadding = 12.0;
+    return topPadding + chartHeight - (value / maxValue) * chartHeight;
+  }
+
+  double _newValue(Map<String, dynamic> item) {
+    for (final key in const [
+      'new',
+      'newCustomers',
+      'new_customers',
+      'newCustomerCount',
+      'new_count',
+    ]) {
+      final value = asDouble(item[key]);
+      if (value != 0) return value;
+    }
+    return 0;
+  }
+
+  double _returningValue(Map<String, dynamic> item) {
+    for (final key in const [
+      'returning',
+      'returningCustomers',
+      'returning_customers',
+      'returningCustomerCount',
+      'returning_count',
+    ]) {
+      final value = asDouble(item[key]);
+      if (value != 0) return value;
+    }
+    return 0;
+  }
+
+  String _pointLabel(Map<String, dynamic> item, int index) {
+    for (final key in const ['label', 'displayDate', 'dateLabel', 'date']) {
+      final text = cleanText(item[key]);
+      if (text.isEmpty) continue;
+      final parsed = DateTime.tryParse(text);
+      if (parsed != null) return DateFormat('d MMM').format(parsed.toLocal());
+      return text;
+    }
+    return index == 0 ? '1 Jun' : '';
+  }
+
+  void _drawPath(Canvas canvas, List<Offset> points, Paint paint) {
+    if (points.length < 2) return;
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
+    const dashWidth = 4.0;
+    const dashSpace = 4.0;
+    final isVertical = (start.dx - end.dx).abs() < 0.01;
+    var current = isVertical ? start.dy : start.dx;
+    final endValue = isVertical ? end.dy : end.dx;
+    while (current < endValue) {
+      final next = math.min(current + dashWidth, endValue);
+      canvas.drawLine(
+        isVertical ? Offset(start.dx, current) : Offset(current, start.dy),
+        isVertical ? Offset(end.dx, next) : Offset(next, end.dy),
+        paint,
+      );
+      current += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CustomerGrowthTrendPainter oldDelegate) {
+    return oldDelegate.data != data;
   }
 }
 

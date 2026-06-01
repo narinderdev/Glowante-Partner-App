@@ -27,14 +27,26 @@ class ProfileMenuItemData {
   const ProfileMenuItemData({
     required this.icon,
     required this.label,
-    required this.onTap,
+    this.onTap,
     this.showLeftAccent = false,
+    this.children = const <ProfileSubMenuItemData>[],
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool showLeftAccent;
+  final List<ProfileSubMenuItemData> children;
+}
+
+class ProfileSubMenuItemData {
+  const ProfileSubMenuItemData({
+    required this.label,
+    this.onTap,
+  });
+
+  final String label;
+  final VoidCallback? onTap;
 }
 
 class SharedProfileScreen extends StatelessWidget {
@@ -442,19 +454,31 @@ class _LanguageOptionButton extends StatelessWidget {
   }
 }
 
-class _ProfileMenuCard extends StatelessWidget {
+class _ProfileMenuCard extends StatefulWidget {
   const _ProfileMenuCard({required this.item});
 
   final ProfileMenuItemData item;
 
   @override
+  State<_ProfileMenuCard> createState() => _ProfileMenuCardState();
+}
+
+class _ProfileMenuCardState extends State<_ProfileMenuCard> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final item = widget.item;
+    final hasChildren = item.children.isNotEmpty;
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: item.onTap,
+        onTap: hasChildren
+            ? () => setState(() => _isExpanded = !_isExpanded)
+            : item.onTap,
         child: Ink(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -477,39 +501,87 @@ class _ProfileMenuCard extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F5F2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    item.icon,
-                    size: 20,
-                    color: const Color(0xFF78716C),
-                  ),
+                Row(
+                  children: [
+                    Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F5F2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        item.icon,
+                        size: 20,
+                        color: const Color(0xFF78716C),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        item.label,
+                        style: _profileTextStyle(
+                          size: 16,
+                          weight: FontWeight.w600,
+                          color: const Color(0xFF1C1917),
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      hasChildren
+                          ? (_isExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded)
+                          : Icons.chevron_right_rounded,
+                      size: hasChildren ? 20 : 16,
+                      color: const Color(0xFF78716C),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    item.label,
-                    style: _profileTextStyle(
-                      size: 16,
-                      weight: FontWeight.w600,
-                      color: const Color(0xFF1C1917),
+                if (hasChildren && _isExpanded) ...[
+                  const SizedBox(height: 14),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 46),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: item.children
+                          .map(
+                            (child) => _ProfileSubMenuItem(item: child),
+                          )
+                          .toList(),
                     ),
                   ),
-                ),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  size: 16,
-                  color: Color(0xFF78716C),
-                ),
+                ],
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileSubMenuItem extends StatelessWidget {
+  const _ProfileSubMenuItem({required this.item});
+
+  final ProfileSubMenuItemData item;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: item.onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 2),
+        child: Text(
+          item.label,
+          style: _profileTextStyle(
+            size: 14,
+            weight: FontWeight.w500,
+            color: const Color(0xFF5F574F),
           ),
         ),
       ),

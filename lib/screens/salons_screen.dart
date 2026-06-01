@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
@@ -13,6 +15,7 @@ import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
+import '../widgets/animated_typing_hint.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 class SalonsScreen extends StatefulWidget {
@@ -32,6 +35,9 @@ class SalonsScreenState extends State<SalonsScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   String _searchQuery = '';
+  Timer? _searchActivityTimer;
+  bool _isSearchActivityVisible = false;
+  final Set<int> _collapsedSalonIds = <int>{};
   final GlobalKey _fabKey = GlobalKey();
   final GlobalKey _fabPanelKey = GlobalKey();
 
@@ -56,6 +62,7 @@ class SalonsScreenState extends State<SalonsScreen> {
 
   @override
   void dispose() {
+    _searchActivityTimer?.cancel();
     _searchFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
@@ -67,18 +74,32 @@ class SalonsScreenState extends State<SalonsScreen> {
   }
 
   void _handleSearchChanged(String value) {
+    _searchActivityTimer?.cancel();
+    final query = value.trim().toLowerCase();
     setState(() {
-      _searchQuery = value.trim().toLowerCase();
+      _searchQuery = query;
+      _isSearchActivityVisible = query.isNotEmpty;
       if (fabExpanded) fabExpanded = false;
     });
+    if (query.isNotEmpty) {
+      _searchActivityTimer = Timer(const Duration(milliseconds: 450), () {
+        if (!mounted) return;
+        setState(() => _isSearchActivityVisible = false);
+      });
+    }
   }
 
   void _clearSearch() {
     if (_searchQuery.isEmpty) {
       return;
     }
+    _searchActivityTimer?.cancel();
     _searchController.clear();
-    _handleSearchChanged('');
+    setState(() {
+      _searchQuery = '';
+      _isSearchActivityVisible = false;
+      if (fabExpanded) fabExpanded = false;
+    });
   }
 
   void _collapseFab() {
@@ -188,6 +209,16 @@ class SalonsScreenState extends State<SalonsScreen> {
 
   Future<void> _refreshSalons() async {
     await context.read<SalonListCubit>().loadSalons();
+  }
+
+  void _toggleSalonBranches(int salonId) {
+    setState(() {
+      if (_collapsedSalonIds.contains(salonId)) {
+        _collapsedSalonIds.remove(salonId);
+      } else {
+        _collapsedSalonIds.add(salonId);
+      }
+    });
   }
 
   Future<void> _goToAddSalon() async {
@@ -497,113 +528,120 @@ class SalonsScreenState extends State<SalonsScreen> {
           builder: (context, state) {
             final salons = _applySearch(state.salons);
 
-            return RefreshIndicator(
-              onRefresh: _refreshSalons,
-              color: (AppColors.starColor),
-              displacement: 32,
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
+            return Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: _refreshSalons,
+                  color: (AppColors.starColor),
+                  displacement: 32,
+                  child: CustomScrollView(
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    slivers: [
+                      if (state.isLoading && state.salons.isNotEmpty)
+                        const SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(20, 10, 20, 12),
+                            child: _InlineLoadingBanner(),
+                          ),
+                        ),
+                      if (state.isLoading && state.salons.isEmpty)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (state.hasError && state.salons.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _ErrorView(
+                            message:
+                                state.errorMessage ?? 'Failed to load salons',
+                            onRetry: _refreshSalons,
+                          ),
+                        )
+                      else if (salons.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptySalonsView(
+                            hasSearchQuery: _searchQuery.isNotEmpty,
+                            onAddSalon: _goToAddSalon,
+                            readOnly: widget.readOnly,
+                            onClearSearch: _clearSearch,
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
+                          sliver: SliverList(
+                            delegate:
+                                SliverChildBuilderDelegate((context, index) {
+                              final salon = salons[index];
+                              final dynamic rawId = salon['id'];
+                              final salonId = _resolveId(rawId, index);
+                              final isExpanded =
+                                  !_collapsedSalonIds.contains(salonId);
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  bottom: index == salons.length - 1 ? 0 : 16,
+                                ),
+                                child: _SalonCard(
+                                  salon: salon,
+                                  salonId: salonId,
+                                  isExpanded: isExpanded,
+                                  onToggle: () => _toggleSalonBranches(salonId),
+                                  onAddBranch: widget.readOnly
+                                      ? null
+                                      : () => _goToAddBranch(salonId),
+                                  onEditSalon: widget.readOnly
+                                      ? null
+                                      : () => _goToEditSalon(salon),
+                                  onToggleSalonActive: widget.readOnly
+                                      ? null
+                                      : (active) => _setSalonActive(
+                                            salonId: salonId,
+                                            active: active,
+                                          ),
+                                  onDeleteSalon: widget.readOnly
+                                      ? null
+                                      : () => _deleteSalon(salonId),
+                                  onEditBranch: widget.readOnly
+                                      ? null
+                                      : (branch) => _goToEditBranch(
+                                            salonId: salonId,
+                                            branch: branch,
+                                          ),
+                                  onToggleBranchActive: widget.readOnly
+                                      ? null
+                                      : (branchId, active) => _setBranchActive(
+                                            branchId: branchId,
+                                            active: active,
+                                          ),
+                                  onDeleteBranch: widget.readOnly
+                                      ? null
+                                      : (branchId) => _deleteBranch(branchId),
+                                  onOpenBranch: (branchId) => _openBranchDetail(
+                                    salonId: salonId,
+                                    branchId: branchId,
+                                  ),
+                                ),
+                              );
+                            }, childCount: salons.length),
+                          ),
+                        ),
+                      if (!widget.readOnly && _searchQuery.isEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(0, 2, 0, 28),
+                            child: _AddMainSalonCard(onTap: _goToAddSalon),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                slivers: [
-                  if (state.isLoading && state.salons.isNotEmpty)
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(20, 10, 20, 12),
-                        child: _InlineLoadingBanner(),
-                      ),
-                    ),
-                  if (state.isLoading && state.salons.isEmpty)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (state.hasError && state.salons.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _ErrorView(
-                        message: state.errorMessage ?? 'Failed to load salons',
-                        onRetry: _refreshSalons,
-                      ),
-                    )
-                  else if (salons.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: _EmptySalonsView(
-                        hasSearchQuery: _searchQuery.isNotEmpty,
-                        onAddSalon: _goToAddSalon,
-                        readOnly: widget.readOnly,
-                        onClearSearch: _clearSearch,
-                      ),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final salon = salons[index];
-                          final dynamic rawId = salon['id'];
-                          final salonId = _resolveId(rawId, index);
-                          final isExpanded = state.expandedSalonId == salonId;
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              bottom: index == salons.length - 1 ? 0 : 16,
-                            ),
-                            child: _SalonCard(
-                              salon: salon,
-                              salonId: salonId,
-                              isExpanded: isExpanded,
-                              onToggle: () => context
-                                  .read<SalonListCubit>()
-                                  .toggleExpanded(salonId),
-                              onAddBranch: widget.readOnly
-                                  ? null
-                                  : () => _goToAddBranch(salonId),
-                              onEditSalon: widget.readOnly
-                                  ? null
-                                  : () => _goToEditSalon(salon),
-                              onToggleSalonActive: widget.readOnly
-                                  ? null
-                                  : (active) => _setSalonActive(
-                                        salonId: salonId,
-                                        active: active,
-                                      ),
-                              onDeleteSalon: widget.readOnly
-                                  ? null
-                                  : () => _deleteSalon(salonId),
-                              onEditBranch: widget.readOnly
-                                  ? null
-                                  : (branch) => _goToEditBranch(
-                                        salonId: salonId,
-                                        branch: branch,
-                                      ),
-                              onToggleBranchActive: widget.readOnly
-                                  ? null
-                                  : (branchId, active) => _setBranchActive(
-                                        branchId: branchId,
-                                        active: active,
-                                      ),
-                              onDeleteBranch: widget.readOnly
-                                  ? null
-                                  : (branchId) => _deleteBranch(branchId),
-                              onOpenBranch: (branchId) => _openBranchDetail(
-                                salonId: salonId,
-                                branchId: branchId,
-                              ),
-                            ),
-                          );
-                        }, childCount: salons.length),
-                      ),
-                    ),
-                  if (!widget.readOnly && _searchQuery.isEmpty)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 2, 0, 28),
-                        child: _AddMainSalonCard(onTap: _goToAddSalon),
-                      ),
-                    ),
-                ],
-              ),
+                if (_isSearchActivityVisible)
+                  const Positioned.fill(child: _SearchActivityOverlay()),
+              ],
             );
           },
         ),
@@ -784,86 +822,107 @@ class _AppBarSearchField extends StatelessWidget {
           valueListenable: controller,
           builder: (context, value, _) {
             final hasQuery = value.text.isNotEmpty;
-            return TextField(
-              controller: controller,
-              focusNode: focusNode,
-              autofocus: false,
-              onChanged: onChanged,
-              onTap: onTap,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => FocusScope.of(context).unfocus(),
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF37474F),
-              ),
-              decoration: InputDecoration(
-                hintText: translateText('Search salons or location'),
-                hintStyle: const TextStyle(
-                  color: Color(0xFFB8AEA6),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                ),
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.only(left: 14, right: 8),
-                  child: Icon(
-                    Icons.search_rounded,
-                    color: Color(0xFFD0A244),
-                    size: 18,
+            return Stack(
+              children: [
+                TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  autofocus: false,
+                  onChanged: onChanged,
+                  onTap: onTap,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF37474F),
                   ),
-                ),
-                prefixIconConstraints: const BoxConstraints(
-                  minWidth: 40,
-                  minHeight: 48,
-                ),
-                suffixIcon: hasQuery
-                    ? SizedBox(
-                        width: 46,
-                        height: 48,
-                        child: IconButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () {
-                            controller.clear();
-                            onChanged('');
-                          },
-                          icon: const Icon(
-                            Icons.close_rounded,
-                            color: Color(0xFF90A4AE),
-                            size: 18,
-                          ),
-                        ),
-                      )
-                    : SizedBox(
-                        width: 46,
-                        height: 48,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Color(0xFFF4E8D1),
-                                borderRadius: BorderRadius.circular(6),
+                  decoration: InputDecoration(
+                    prefixIcon: const Padding(
+                      padding: EdgeInsets.only(left: 14, right: 8),
+                      child: Icon(
+                        Icons.search_rounded,
+                        color: Color(0xFFD0A244),
+                        size: 18,
+                      ),
+                    ),
+                    prefixIconConstraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 48,
+                    ),
+                    suffixIcon: hasQuery
+                        ? SizedBox(
+                            width: 46,
+                            height: 48,
+                            child: IconButton(
+                              padding: EdgeInsets.zero,
+                              onPressed: () {
+                                controller.clear();
+                                onChanged('');
+                              },
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: Color(0xFF90A4AE),
+                                size: 18,
                               ),
-                              child: const Icon(
-                                Icons.location_on_outlined,
-                                color: Color(0xFF8B6500),
-                                size: 16,
+                            ),
+                          )
+                        : SizedBox(
+                            width: 46,
+                            height: 48,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Color(0xFFF4E8D1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Icon(
+                                    Icons.location_on_outlined,
+                                    color: Color(0xFF8B6500),
+                                    size: 16,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
+                    suffixIconConstraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 48,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                if (!hasQuery)
+                  Positioned.fill(
+                    left: 50,
+                    right: 54,
+                    child: IgnorePointer(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: AnimatedTypingHint(
+                          hints: [
+                            translateText('Search "salons near me"'),
+                            translateText('Search "bridal makeup"'),
+                            translateText('Search "spa in Chandigarh"'),
+                            translateText('Search "haircut"'),
+                          ],
+                          style: const TextStyle(
+                            color: Color(0xFFB8AEA6),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                       ),
-                suffixIconConstraints: const BoxConstraints(
-                  minWidth: 44,
-                  minHeight: 48,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 14),
-              ),
+                    ),
+                  ),
+              ],
             );
           },
         ),
@@ -911,6 +970,56 @@ class _InlineLoadingBanner extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchActivityOverlay extends StatelessWidget {
+  const _SearchActivityOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return AbsorbPointer(
+      child: Container(
+        color: Colors.white.withValues(alpha: 0.58),
+        alignment: Alignment.topCenter,
+        padding: const EdgeInsets.only(top: 28),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x18000000),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.starColor,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                translateText('Searching salons...'),
+                style: const TextStyle(
+                  color: Color(0xFF546E7A),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -219,7 +219,7 @@ class ApiService {
   }) =>
       "v2/branches/$branchId/payroll/generate?month=$month&year=$year";
   static String cancelPayrollAPI(int branchId, String payrollId) =>
-      "v2/branches/$branchId/payroll/$payrollId/cancel";
+      "v2/branches/$branchId/payroll/${Uri.encodeComponent(payrollId)}/cancel";
   static String branchAdvancesAPI(
     int branchId, {
     required int month,
@@ -451,6 +451,7 @@ class ApiService {
   }
 
   static const String reportsDashboardAPI = "reports/dashboard";
+  static const String salonOwnerDashboardAPI = "reports/salon-owner-dashboard";
 
   // / ---------------------- IMAGE UPLOAD ----------------------
 
@@ -684,16 +685,31 @@ class ApiService {
     throw Exception("Failed register customer: ${response.body}");
   }
 
-  Future<Map<String, dynamic>> getBranchClients(int branchId) async {
+  Future<Map<String, dynamic>> getBranchClients(
+    int branchId, {
+    String? selectedDateRange,
+    String? tab,
+    int? page,
+  }) async {
     final token = await getAuthToken();
+    final queryParameters = <String, String>{
+      if (selectedDateRange != null) 'selectedDateRange': selectedDateRange,
+      if (tab != null) 'tab': tab,
+      if (page != null) 'page': page.toString(),
+    };
+    final baseUri = Uri.parse(baseUrl + getBranchClientsAPI(branchId));
+    final uri = queryParameters.isEmpty
+        ? baseUri
+        : baseUri.replace(queryParameters: queryParameters);
     final response = await _sharedClient.get(
-      Uri.parse(baseUrl + getBranchClientsAPI(branchId)),
+      uri,
       headers: {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token",
       },
     );
 
+    debugPrint("[GetBranchClients] url=$uri");
     debugPrint("[GetBranchClients] status=${response.statusCode}");
     _debugPrintChunked("GetBranchClients body", response.body);
 
@@ -4553,9 +4569,21 @@ class ApiService {
     throw Exception("Failed to import clients file: $body");
   }
 
-  Future<Map<String, dynamic>> getReportsDashboard() async {
+  Future<Map<String, dynamic>> getReportsDashboard({
+    int? branchId,
+    String? date,
+  }) async {
     final token = await getAuthToken();
-    final url = Uri.parse('$baseUrl$reportsDashboardAPI');
+    final endpoint =
+        branchId == null ? reportsDashboardAPI : salonOwnerDashboardAPI;
+    final baseUri = Uri.parse('$baseUrl$endpoint');
+    final queryParameters = <String, String>{
+      if (branchId != null) 'branchId': branchId.toString(),
+      if (date != null && date.trim().isNotEmpty) 'date': date,
+    };
+    final url = queryParameters.isEmpty
+        ? baseUri
+        : baseUri.replace(queryParameters: queryParameters);
     final response = await _sharedClient.get(
       url,
       headers: {
@@ -4563,6 +4591,10 @@ class ApiService {
         "Authorization": "Bearer $token",
       },
     );
+
+    debugPrint("[ReportsDashboard] url=$url");
+    debugPrint("[ReportsDashboard] status=${response.statusCode}");
+    _debugPrintChunked("ReportsDashboard body", response.body);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;

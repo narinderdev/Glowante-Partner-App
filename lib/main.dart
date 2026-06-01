@@ -213,6 +213,7 @@ class _CrashlyticsDebugButton extends StatefulWidget {
 class _CrashlyticsDebugButtonState extends State<_CrashlyticsDebugButton> {
   bool _isSending = false;
 
+  // ignore: unused_element
   Future<void> _sendPing() async {
     if (_isSending) {
       return;

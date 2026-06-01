@@ -77,6 +77,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _showProfilePlaceholder(String label) {
+    _logProfile('open_placeholder', details: label);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.t('$label is coming soon'))),
+    );
+  }
+
   void _openClients() {
     _logProfile('open_clients');
     Navigator.push(
@@ -443,10 +450,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
           showLeftAccent: true,
         ),
         ProfileMenuItemData(
-          icon: Icons.dashboard_outlined,
-          label: context.t('Dashboard'),
+          icon: Icons.insert_chart_outlined_rounded,
+          label: context.t('Reports'),
           onTap: _openDashboard,
           showLeftAccent: true,
+        ),
+        ProfileMenuItemData(
+          icon: Icons.bar_chart_rounded,
+          label: context.t('Sales & Reports'),
+          showLeftAccent: true,
+          children: [
+            ProfileSubMenuItemData(
+              label: context.t('Revenue & Sales'),
+            ),
+            ProfileSubMenuItemData(
+              label: context.t('Staff Performance'),
+              onTap: () => _showProfilePlaceholder('Staff Performance'),
+            ),
+            ProfileSubMenuItemData(
+              label: context.t('Operations'),
+              onTap: () => _showProfilePlaceholder('Operations'),
+            ),
+          ],
         ),
         ProfileMenuItemData(
           icon: Icons.inventory_2_outlined,

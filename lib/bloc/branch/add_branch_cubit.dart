@@ -73,10 +73,15 @@ class AddBranchCubit extends Cubit<AddBranchState> {
   void setImages(List<File> images) {
     emit(
       state.copyWith(
-        images: images,
+        images: images.take(10).toList(),
         status: BranchFormStatus.ready,
       ),
     );
+  }
+
+  void removeImage(File image) {
+    final updated = List<File>.from(state.images)..remove(image);
+    emit(state.copyWith(images: updated, status: BranchFormStatus.ready));
   }
 
   Future<void> submit(AddBranchFormData formData) async {

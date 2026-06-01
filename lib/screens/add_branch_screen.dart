@@ -1024,11 +1024,36 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   }
 
   Future<void> _pickImages() async {
-    final files = await _picker.pickMultiImage();
+    final existing = context.read<AddBranchCubit>().state.images;
+    final remainingSlots = 10 - existing.length;
+    if (remainingSlots <= 0) {
+      _showImageLimitSnackBar();
+      return;
+    }
+
+    final files = await _picker.pickMultiImage(limit: remainingSlots);
     if (!mounted) return;
     if (files.isEmpty) return;
-    final images = files.map((file) => File(file.path)).toList();
+    if (files.length > remainingSlots) {
+      _showImageLimitSnackBar();
+    }
+    final images = [
+      ...existing,
+      ...files.map((file) => File(file.path)),
+    ].take(10).toList();
     context.read<AddBranchCubit>().setImages(images);
+  }
+
+  void _showImageLimitSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText(
+            'You can add up to 10 photos. Remove a photo before choosing another.',
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadSourceBranches() async {
@@ -1208,6 +1233,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       }
     }
 
+    if (!mounted) return;
+
     if (widget.isEdit && widget.initialBranch != null) {
       final branchId = (widget.initialBranch!['id'] as num?)?.toInt();
       if (branchId == null) {
@@ -1351,14 +1378,14 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         final address = state.address;
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFFBF9F8),
           appBar: buildProfileSubpageAppBar(
             title: translateText(widget.isEdit ? 'Edit Branch' : 'Add Branch'),
           ),
           body: Stack(
             children: [
               SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -1369,38 +1396,55 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                         detailsLabel: translateText('Branch Details'),
                         totalSteps: widget.isEdit ? 2 : 3,
                       ),
-                      const SizedBox(height: 24),
-                      _buildTextField(
-                        field: _BranchField.name,
-                        controller: _branchNameController,
-                        label: translateText('Branch Name *'),
-                        hint: translateText('Enter Branch Name'),
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.sentences,
-                        maxLength: 30,
-                        inputFormatters: const [_FirstLetterUpperFormatter()],
+                      const SizedBox(height: 22),
+                      _buildHeroCard(
+                        quote:
+                            '"Every branch should deliver the same signature experience."',
                       ),
-                      _buildTextField(
-                        field: _BranchField.phone,
-                        controller: _phoneController,
-                        label: translateText('Phone Number *'),
-                        hint: translateText('Enter phone number'),
-                        maxLength: 10,
-                        enabled: false,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
-                        ],
-                      ),
-                      if (widget.isEdit) ...[
-                        IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    _buildTimePickerField(
+                      const SizedBox(height: 34),
+                      _buildSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              translateText('Branch Information'),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF161616),
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            _buildTextField(
+                              field: _BranchField.name,
+                              controller: _branchNameController,
+                              label: 'Branch Name *',
+                              hint: 'Enter branch name',
+                              keyboardType: TextInputType.text,
+                              textCapitalization: TextCapitalization.sentences,
+                              maxLength: 50,
+                              inputFormatters: const [
+                                _FirstLetterUpperFormatter()
+                              ],
+                            ),
+                            _buildTextField(
+                              field: _BranchField.phone,
+                              controller: _phoneController,
+                              label: 'Phone Number *',
+                              hint: '9855096207',
+                              maxLength: 10,
+                              enabled: false,
+                              keyboardType: TextInputType.number,
+                              prefixText: '+91',
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                            ),
+                            if (widget.isEdit) ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTimePickerField(
                                       field: _BranchField.startTime,
                                       controller: _startTimeController,
                                       label: 'Start Time *',
@@ -1409,14 +1453,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                         _startTimeController,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  children: [
-                                    _buildTimePickerField(
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildTimePickerField(
                                       field: _BranchField.endTime,
                                       controller: _endTimeController,
                                       label: 'End Time *',
@@ -1425,178 +1465,66 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                         _endTimeController,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                      ],
-                      Text(
-                        translateText('Branch Address'),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-
-                      // 🟢 If no address, prompt to add
-                      if (address == null)
-                        InkWell(
-                          onTap: () => _chooseLocation(state),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(
-                                  color: AppColors.darkGrey, width: 1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    translateText("Add Location"),
-                                    style: const TextStyle(
-                                      color: AppColors.black,
-                                      fontWeight: FontWeight.bold,
-                                    ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Text(
-                                    '*',
-                                    style: TextStyle(
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.bold,
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                            _buildAddressField(address, state),
+                            _buildTextField(
+                              field: _BranchField.description,
+                              controller: _descriptionController,
+                              label: 'Description *',
+                              hint:
+                                  "Tell us about this branch's unique experience...",
+                              maxLines: 4,
+                              maxLength: 250,
+                              keyboardType: TextInputType.multiline,
+                              textCapitalization: TextCapitalization.sentences,
+                              inputFormatters: const [
+                                _FirstLetterUpperFormatter()
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      _buildSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RichText(
+                              text: TextSpan(
+                                text: translateText('Branch Images'),
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF161616),
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: ' (${translateText('Optional')})',
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFF7F7974),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        )
-                      else
-                        // 🟢 If address exists, show the complete address only
-                        InkWell(
-                          onTap: () => _chooseLocation(state),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: AppColors.darkGrey),
-                              borderRadius: BorderRadius.circular(8),
+                            const SizedBox(height: 18),
+                            _buildImageGrid(
+                              images,
+                              _existingImageUrl?.trim() ?? '',
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        address.buildingName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.darkGrey,
-                                        ),
-                                      ),
-
-// Line 2: Optional fields if present (we stored them in city & pincode)
-                                      if (address.city.trim().isNotEmpty ||
-                                          address.pincode.trim().isNotEmpty)
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(top: 4),
-                                          child: Text(
-                                            [
-                                              address.city
-                                                  .trim(), // SCO / Flat / House
-                                              address.pincode
-                                                  .trim(), // Street / Sector / Area
-                                            ]
-                                                .where((s) => s.isNotEmpty)
-                                                .join(', '),
-                                            style: const TextStyle(
-                                                color: AppColors.darkGrey),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                const Icon(Icons.edit,
-                                    color: AppColors.darkGrey),
-                              ],
-                            ),
-                          ),
+                          ],
                         ),
-
-                      const SizedBox(height: 20),
-                      _buildTextField(
-                        field: _BranchField.description,
-                        controller: _descriptionController,
-                        label: translateText('Description *'),
-                        hint: translateText('Enter description'),
-                        maxLines: 1,
-                        maxLength: 50,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.sentences,
-                        inputFormatters: const [_FirstLetterUpperFormatter()],
                       ),
-
-                      const SizedBox(height: 20),
-                      Text(
-                        translateText('Branch Images(Optional)'),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (images.isEmpty &&
-                              (_existingImageUrl?.isNotEmpty ?? false))
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                _existingImageUrl!,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          for (final image in images)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.file(
-                                image,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          GestureDetector(
-                            onTap: _pickImages,
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.darkGrey),
-                              ),
-                              child: const Icon(
-                                Icons.add,
-                                color: AppColors.darkGrey,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 22),
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
+                        height: 52,
                         child: ElevatedButton(
                           onPressed: (state.isSubmitting || _isNextLoading)
                               ? null
@@ -1642,6 +1570,304 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     );
   }
 
+  Widget _buildHeroCard({required String quote}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        height: 178,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/salonImage.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+            Container(color: Colors.black.withValues(alpha: 0.52)),
+            Image.asset(
+              'assets/images/salonImage.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+            ),
+            Container(color: Colors.black.withValues(alpha: 0.24)),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(26, 0, 26, 22),
+                child: Text(
+                  translateText(quote),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    height: 1.35,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFFEAE0D7)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildFieldLabel(String label) {
+    final normalizedLabel = label.replaceAll('*', '').trim();
+    final translatedLabel = translateText(normalizedLabel);
+    final localizedLabel =
+        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+    final hasAsterisk = label.contains('*');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: RichText(
+        text: TextSpan(
+          text: localizedLabel.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 10,
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF463E37),
+          ),
+          children: hasAsterisk
+              ? const [
+                  TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: Color(0xFF7B1E11)),
+                  ),
+                ]
+              : null,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddressField(BranchAddress? address, AddBranchState state) {
+    final hasAddress =
+        address != null && address.buildingName.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel('Branch Address *'),
+          InkWell(
+            onTap: () => _chooseLocation(state),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 54),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFD3A94C),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    color: Color(0xFF7A4A09),
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: hasAddress
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                address.buildingName,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF3B332B),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              if (address.city.trim().isNotEmpty ||
+                                  address.pincode.trim().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    [
+                                      address.city.trim(),
+                                      address.pincode.trim(),
+                                    ]
+                                        .where((part) => part.isNotEmpty)
+                                        .join(', '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF8A8178),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          )
+                        : Text(
+                            translateText('Add Location'),
+                            style: const TextStyle(
+                              color: Color(0xFF7A4A09),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageGrid(List<File> images, String existingImageUrl) {
+    final slots = <Widget>[];
+    final selectedImages = images.take(10).toList();
+    final canAddMore = selectedImages.length < 10;
+
+    slots.add(_buildImageSlot(isAddSlot: true, isEnabled: canAddMore));
+
+    if (images.isEmpty && existingImageUrl.isNotEmpty) {
+      slots.add(_buildImageSlot(networkUrl: existingImageUrl));
+    }
+    for (final image in selectedImages) {
+      slots.add(_buildImageSlot(file: image));
+    }
+
+    while (slots.length < 4) {
+      slots.add(_buildImageSlot());
+    }
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1,
+      children: slots,
+    );
+  }
+
+  Widget _buildImageSlot({
+    File? file,
+    String? networkUrl,
+    bool isAddSlot = false,
+    bool isEnabled = true,
+  }) {
+    final hasImage = file != null || (networkUrl ?? '').isNotEmpty;
+    return GestureDetector(
+      onTap: isAddSlot && isEnabled ? _pickImages : null,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAF8F7),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color:
+                isAddSlot ? const Color(0xFFD3A94C) : const Color(0xFFE8E1DC),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: hasImage
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (file != null)
+                      Image.file(file, fit: BoxFit.cover)
+                    else
+                      Image.network(networkUrl!, fit: BoxFit.cover),
+                    if (file != null)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: GestureDetector(
+                          onTap: () =>
+                              context.read<AddBranchCubit>().removeImage(file),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                )
+              : Center(
+                  child: isAddSlot
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.add_a_photo_outlined,
+                              color: isEnabled
+                                  ? const Color(0xFF7A4A09)
+                                  : const Color(0xFFCFC8C2),
+                              size: 30,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              translateText(
+                                isEnabled ? 'Add Photo' : 'Max 10 Photos',
+                              ),
+                              style: TextStyle(
+                                color: isEnabled
+                                    ? const Color(0xFF6A4A20)
+                                    : const Color(0xFFAAA39C),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Icon(
+                          Icons.image_outlined,
+                          color: Color(0xFFD9D6D3),
+                          size: 42,
+                        ),
+                ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTextField({
     required _BranchField field,
     required TextEditingController controller,
@@ -1654,103 +1880,133 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged,
+    String? prefixText,
   }) {
-    final localizedLabel = translateText(label);
-    final localizedHint = translateText(hint);
-    final isRequired = localizedLabel.contains('*');
+    final normalizedLabel = label.replaceAll('*', '').trim();
+    final normalizedHint = hint.trim();
+    final translatedLabel = translateText(normalizedLabel);
+    final translatedHint = translateText(normalizedHint);
+    final localizedLabel =
+        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+    final localizedHint =
+        translatedHint != normalizedHint ? translatedHint : normalizedHint;
+    final isRequired = label.contains('*');
 
-    final sanitizedField =
-        localizedLabel.replaceAll('*', '').replaceAll(':', '').trim();
+    final sanitizedField = label.replaceAll('*', '').replaceAll(':', '').trim();
     final fieldForMessage =
-        sanitizedField.isEmpty ? localizedLabel : sanitizedField;
-
-    controller.addListener(() {
-      setState(() {}); // live counter color update
-    });
+        sanitizedField.isEmpty ? localizedLabel : translateText(sanitizedField);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines,
-        maxLength: maxLength,
-        enabled: enabled,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        textCapitalization: textCapitalization,
-        autovalidateMode:
-            _submitted ? AutovalidateMode.always : AutovalidateMode.disabled,
-        onChanged: (value) {
-          _resetFieldError(field);
-          onChanged?.call(value);
-        },
-        validator: (value) {
-          if (!(_fieldValidationVisibility[field] ?? false)) {
-            return null;
-          }
-          if (isRequired && (value == null || value.trim().isEmpty)) {
-            return translateText('{field} is required',
-                params: {'field': fieldForMessage});
-          }
-          return null;
-        },
-        decoration: InputDecoration(
-          counterText: '',
-          suffixIcon: (maxLength != null)
-              ? Padding(
-                  padding: const EdgeInsets.only(right: 10, top: 14),
-                  child: Text(
-                    '${controller.text.length}/$maxLength',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: controller.text.length >= maxLength
-                          ? Colors.red
-                          : Colors.grey,
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel(label),
+          TextFormField(
+            controller: controller,
+            maxLines: maxLines,
+            maxLength: maxLength,
+            enabled: enabled,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            textCapitalization: textCapitalization,
+            autovalidateMode: _submitted
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            onChanged: (value) {
+              _resetFieldError(field);
+              onChanged?.call(value);
+            },
+            validator: (value) {
+              if (!(_fieldValidationVisibility[field] ?? false)) {
+                return null;
+              }
+              if (isRequired && (value == null || value.trim().isEmpty)) {
+                return translateText('{field} is required',
+                    params: {'field': fieldForMessage});
+              }
+              return null;
+            },
+            decoration: InputDecoration(
+              counterText: '',
+              prefixIcon: prefixText == null
+                  ? null
+                  : Container(
+                      width: 48,
+                      alignment: Alignment.center,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          right: BorderSide(color: Color(0xFFE4DDD8)),
+                        ),
+                      ),
+                      child: Text(
+                        prefixText,
+                        style: const TextStyle(
+                          color: Color(0xFF5B5149),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+              hintText: localizedHint,
+              hintStyle: const TextStyle(
+                color: Color(0xFF948C84),
+                fontSize: 13,
+              ),
+              filled: true,
+              fillColor:
+                  enabled ? const Color(0xFFF6F3F2) : const Color(0xFFF1EEEE),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide:
+                    const BorderSide(color: Color(0xFFD1A24A), width: 1.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorStyle: const TextStyle(color: AppColors.red),
+            ),
+          ),
+          if (maxLength != null)
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${value.text.length} / $maxLength',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: value.text.length >= maxLength
+                            ? Colors.red
+                            : const Color(0xFF8A8178),
+                      ),
                     ),
                   ),
-                )
-              : null,
-          label: _requiredLabel(localizedLabel, required: isRequired),
-          hintText: localizedHint,
-          labelStyle: const TextStyle(color: AppColors.darkGrey),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          focusedBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 2),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          errorStyle: const TextStyle(
-            color: Colors.red,
-            fontSize: 13,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _requiredLabel(String text, {bool required = true}) {
-    final t = translateText(text).replaceAll('*', '').trim();
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(color: AppColors.darkGrey, fontSize: 16),
-        children: [
-          TextSpan(text: t),
-          if (required) const TextSpan(text: ' '),
-          if (required)
-            const TextSpan(
-              text: '*',
-              style: TextStyle(color: Colors.red),
+                );
+              },
             ),
         ],
       ),

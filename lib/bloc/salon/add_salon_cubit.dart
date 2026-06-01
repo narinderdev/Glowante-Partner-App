@@ -77,7 +77,8 @@ class AddSalonCubit extends Cubit<AddSalonState> {
   }
 
   void setImages(List<File> images) {
-    emit(state.copyWith(images: images, status: AddSalonStatus.ready));
+    emit(state.copyWith(
+        images: images.take(10).toList(), status: AddSalonStatus.ready));
   }
 
   void updateSelectedServiceCodes(List<String> codes) {
