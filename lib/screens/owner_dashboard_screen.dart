@@ -243,49 +243,50 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(title: context.t('Dashboard')),
-      body: RefreshIndicator(
-        color: AppColors.starColor,
-        onRefresh: _loadData,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            _buildBranchSelector(),
-            const SizedBox(height: 18),
-            if (_isLoadingDashboard && _dashboard.isEmpty)
-              const Padding(
-                padding: EdgeInsets.only(top: 60),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_errorMessage != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 60),
-                child: Text(
-                  _errorMessage!,
-                  textAlign: TextAlign.center,
-                ),
-              )
-            else if (_selectedBranchId == null)
-              Padding(
-                padding: const EdgeInsets.only(top: 60),
-                child: Text(
-                  context.t('No branches available'),
-                  textAlign: TextAlign.center,
-                ),
-              )
-            else ...[
-              _buildHeader(),
-              const SizedBox(height: 16),
-              _buildKpiCards(),
-              const SizedBox(height: 16),
-              _buildRevenueSection(),
-              const SizedBox(height: 16),
-              _buildTodayAndStaffSection(),
-              const SizedBox(height: 16),
-              _buildNotificationsSection(),
-            ],
-          ],
-        ),
+      body: Stack(
+        children: [
+          RefreshIndicator(
+            color: AppColors.starColor,
+            onRefresh: _loadData,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                _buildBranchSelector(),
+                const SizedBox(height: 18),
+                if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 60),
+                    child: Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else if (_selectedBranchId == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 60),
+                    child: Text(
+                      context.t('No branches available'),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else ...[
+                  _buildHeader(),
+                  const SizedBox(height: 16),
+                  _buildKpiCards(),
+                  const SizedBox(height: 16),
+                  _buildRevenueSection(),
+                  const SizedBox(height: 16),
+                  _buildTodayAndStaffSection(),
+                  const SizedBox(height: 16),
+                  _buildNotificationsSection(),
+                ],
+              ],
+            ),
+          ),
+          if (_isLoadingDashboard)
+            const Positioned.fill(child: _DashboardLoadingOverlay()),
+        ],
       ),
     );
   }
@@ -562,6 +563,37 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _DashboardLoadingOverlay extends StatelessWidget {
+  const _DashboardLoadingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return AbsorbPointer(
+      child: Container(
+        color: const Color(0x66FBF9F8),
+        alignment: Alignment.center,
+        child: Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A000000),
+                blurRadius: 18,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
+          child: const CircularProgressIndicator(
+            color: AppColors.starColor,
+          ),
+        ),
       ),
     );
   }
