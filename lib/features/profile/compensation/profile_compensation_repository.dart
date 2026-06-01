@@ -842,7 +842,7 @@ class ProfileCompensationRepository {
     return generatedRun;
   }
 
-  Future<void> cancelPayroll({
+  Future<bool> cancelPayroll({
     required int branchId,
     required String payrollId,
     String? periodKey,
@@ -862,10 +862,17 @@ class ProfileCompensationRepository {
         setups: setups,
       );
       final refreshedRun = refreshedRuns.cast<PayrollRunRecord?>().firstWhere(
-            (run) => run?.periodKey == periodKey && run?.id != payrollId,
+            (run) => run?.periodKey == periodKey || run?.id == payrollId,
             orElse: () => null,
           );
-      if (refreshedRun != null) {
+      if (refreshedRun?.isCancelled == true) {
+        debugPrint(
+          '[ProfileCompensationRepository] cancelPayroll already_cancelled | '
+          'branchId=$branchId payrollId=$payrollId',
+        );
+        return false;
+      }
+      if (refreshedRun != null && refreshedRun.id != payrollId) {
         debugPrint(
           '[ProfileCompensationRepository] cancelPayroll retry_with_refreshed_id | '
           'branchId=$branchId stalePayrollId=$payrollId refreshedPayrollId=${refreshedRun.id}',
@@ -882,6 +889,7 @@ class ProfileCompensationRepository {
       teamMembers: teamMembers,
       setups: setups,
     );
+    return true;
   }
 
   Future<PayrollRunRecord> approvePayroll({

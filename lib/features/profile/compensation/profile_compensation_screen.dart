@@ -580,14 +580,18 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       details: 'branchId=${branch.branchId}, payrollId=${payrollRun.id}',
     );
     await _performAction(() async {
-      await _repository.cancelPayroll(
+      final didCancel = await _repository.cancelPayroll(
         branchId: branch.branchId,
         payrollId: payrollRun.id,
         periodKey: payrollRun.periodKey,
         teamMembers: _activeTeamMembers,
       );
       await _loadPayrollData(branch.branchId);
-      _showToast('Payroll cancelled successfully');
+      _showToast(
+        didCancel
+            ? 'Payroll cancelled successfully'
+            : 'Payroll is already cancelled',
+      );
     });
   }
 
