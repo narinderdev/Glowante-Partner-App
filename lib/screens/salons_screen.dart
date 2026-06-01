@@ -8,6 +8,9 @@ import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import 'add_branch_screen.dart';
 import 'add_salon_screen.dart';
 import 'branch_screen.dart';
+import 'SalonDeal.dart';
+import 'SalonPackage.dart';
+import 'SalonTeams.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -605,7 +608,98 @@ class SalonsScreenState extends State<SalonsScreen> {
           },
         ),
       ),
-      floatingActionButton: null,
+      floatingActionButton: widget.readOnly
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(right: 4, bottom: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    transitionBuilder: (child, animation) {
+                      final offsetAnimation = Tween<Offset>(
+                        begin: const Offset(0, 0.18),
+                        end: Offset.zero,
+                      ).animate(animation);
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: offsetAnimation,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: fabExpanded
+                        ? KeyedSubtree(
+                            key: const ValueKey('fab-panel'),
+                            child: _FabActionPanel(
+                              key: _fabPanelKey,
+                              onTeam: () {
+                                _collapseFab();
+                                _dismissKeyboard();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => TeamScreen(),
+                                  ),
+                                );
+                              },
+                              onDeals: () {
+                                _collapseFab();
+                                _dismissKeyboard();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => DealScreen(),
+                                  ),
+                                );
+                              },
+                              onPackages: () {
+                                _collapseFab();
+                                _dismissKeyboard();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => PackageScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          )
+                        : const SizedBox.shrink(key: ValueKey('fab-empty')),
+                  ),
+                  const SizedBox(height: 10),
+                  FloatingActionButton.extended(
+                    key: _fabKey,
+                    backgroundColor: const Color(0xFF8B6500),
+                    foregroundColor: Colors.white,
+                    icon: Icon(
+                      fabExpanded ? Icons.close : Icons.menu_rounded,
+                      size: 20,
+                    ),
+                    label: Text(
+                      translateText(fabExpanded ? 'Close' : 'Quick actions'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    onPressed: () {
+                      _dismissKeyboard();
+                      setState(() => fabExpanded = !fabExpanded);
+                    },
+                    extendedPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    elevation: 4,
+                  ),
+                ],
+              ),
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
@@ -1988,6 +2082,128 @@ class _AddMainSalonCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FabActionPanel extends StatelessWidget {
+  const _FabActionPanel({
+    super.key,
+    required this.onTeam,
+    required this.onDeals,
+    required this.onPackages,
+  });
+
+  final VoidCallback onTeam;
+  final VoidCallback onDeals;
+  final VoidCallback onPackages;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      elevation: 12,
+      shadowColor: const Color(0x22000000),
+      borderRadius: BorderRadius.circular(18),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 220),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _FabActionTile(
+                icon: Icons.groups_2_rounded,
+                label: translateText('Team members'),
+                subtitle: translateText('Manage stylists & staff'),
+                onTap: onTeam,
+              ),
+              const Divider(height: 1, color: Color(0xFFE8DED4)),
+              _FabActionTile(
+                icon: Icons.local_offer_outlined,
+                label: translateText('Deals'),
+                subtitle: translateText('Create offers'),
+                onTap: onDeals,
+              ),
+              const Divider(height: 1, color: Color(0xFFE8DED4)),
+              _FabActionTile(
+                icon: Icons.card_giftcard_outlined,
+                label: translateText('Packages'),
+                subtitle: translateText('Bundle services'),
+                onTap: onPackages,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FabActionTile extends StatelessWidget {
+  const _FabActionTile({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF4E8D1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: const Color(0xFF8B6500), size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      color: Color(0xFF201B17),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF8A8178),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 14,
+              color: Color(0xFFB8AEA6),
+            ),
+          ],
         ),
       ),
     );

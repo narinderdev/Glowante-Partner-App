@@ -180,9 +180,22 @@ class _OtpScreenState extends State<OtpScreen> {
           print("Last Name saved: $lastName");
 
           debugPrint(
-            '[HomeReach] OTP verified. Opening role selection for userId=$userId, phone=${widget.phoneNumber}',
+            '[HomeReach] OTP verified. Resolving role entry for userId=$userId, phone=${widget.phoneNumber}',
           );
           if (!mounted) return;
+          final selectableRoleCount = RoleSelectionScreen.selectableRoleCount(
+            user,
+          );
+          if (selectableRoleCount <= 1) {
+            await RoleSelectionScreen.continueWithSingleRole(
+              context: context,
+              token: token,
+              user: user,
+              profileComplete: hasFullName,
+            );
+            return;
+          }
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(

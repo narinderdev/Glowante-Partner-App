@@ -22,6 +22,35 @@ class RoleSelectionScreen extends StatelessWidget {
   final Map<String, dynamic> user;
   final bool profileComplete;
 
+  static int selectableRoleCount(Map<String, dynamic> user) {
+    return _visibleRoles(user['roles']).length;
+  }
+
+  static Future<void> continueWithSingleRole({
+    required BuildContext context,
+    required String token,
+    required Map<String, dynamic> user,
+    required bool profileComplete,
+  }) async {
+    final roles = _visibleRoles(user['roles']);
+    final role = roles.length == 1
+        ? roles.first
+        : const _SelectableRole(
+            id: null,
+            code: 'app_user',
+            label: 'App User',
+            destination: _RoleDestination.owner,
+          );
+
+    await _continueWithRole(
+      context,
+      token: token,
+      user: user,
+      profileComplete: profileComplete,
+      role: role,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final roles = _visibleRoles(user['roles']);
@@ -81,7 +110,13 @@ class RoleSelectionScreen extends StatelessWidget {
                     final role = roles[index];
                     return _RoleCard(
                       role: role,
-                      onTap: () => _continueWithRole(context, role),
+                      onTap: () => _continueWithRole(
+                        context,
+                        token: token,
+                        user: user,
+                        profileComplete: profileComplete,
+                        role: role,
+                      ),
                     );
                   },
                 ),
@@ -93,7 +128,7 @@ class RoleSelectionScreen extends StatelessWidget {
     );
   }
 
-  List<_SelectableRole> _visibleRoles(dynamic rawRoles) {
+  static List<_SelectableRole> _visibleRoles(dynamic rawRoles) {
     if (rawRoles is! List) return const <_SelectableRole>[];
 
     final roles = rawRoles
@@ -119,10 +154,13 @@ class RoleSelectionScreen extends StatelessWidget {
         : roles;
   }
 
-  Future<void> _continueWithRole(
-    BuildContext context,
-    _SelectableRole role,
-  ) async {
+  static Future<void> _continueWithRole(
+    BuildContext context, {
+    required String token,
+    required Map<String, dynamic> user,
+    required bool profileComplete,
+    required _SelectableRole role,
+  }) async {
     await UserRoleSession.instance.persistPrimaryRole(
       roleId: role.id,
       roleCode: role.code,
