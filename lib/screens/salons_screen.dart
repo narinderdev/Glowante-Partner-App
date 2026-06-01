@@ -96,25 +96,71 @@ class SalonsScreenState extends State<SalonsScreen> {
     }
     final query = _searchQuery;
     return salons.where((salon) {
-      final salonName = (salon['name'] ?? '').toString().toLowerCase();
-      if (salonName.contains(query)) {
+      if (_containsSearchQuery([
+        salon['name'],
+        salon['description'],
+        salon['tagline'],
+        salon['phone'],
+        salon['phoneNumber'],
+        _composeSearchLocation(salon['address']),
+        _composeSearchLocation(salon),
+      ], query)) {
         return true;
       }
       final branches =
           (salon['branches'] as List?)?.cast<Map<String, dynamic>>() ?? [];
       for (final branch in branches) {
-        final branchName = (branch['name'] ?? '').toString().toLowerCase();
-        if (branchName.contains(query)) {
-          return true;
-        }
-        final address = (branch['address'] as Map<String, dynamic>?) ?? {};
-        final addressLine = (address['line1'] ?? '').toString().toLowerCase();
-        if (addressLine.contains(query)) {
+        if (_containsSearchQuery([
+          branch['name'],
+          branch['description'],
+          branch['phone'],
+          branch['phoneNumber'],
+          branch['contactNumber'],
+          _composeSearchLocation(branch['address']),
+          _composeSearchLocation(branch),
+        ], query)) {
           return true;
         }
       }
       return false;
     }).toList();
+  }
+
+  bool _containsSearchQuery(List<dynamic> values, String query) {
+    return values.any((value) {
+      final text = (value ?? '').toString().trim().toLowerCase();
+      return text.isNotEmpty && text.contains(query);
+    });
+  }
+
+  String _composeSearchLocation(dynamic value) {
+    if (value is! Map) return '';
+    final parts = <String>[];
+    for (final key in const [
+      'line1',
+      'addressLine1',
+      'buildingName',
+      'line2',
+      'addressLine2',
+      'village',
+      'district',
+      'city',
+      'state',
+      'country',
+      'postalCode',
+      'pincode',
+      'zip',
+      'latitude',
+      'longitude',
+      'lat',
+      'lng',
+    ]) {
+      final text = (value[key] ?? '').toString().trim();
+      if (text.isNotEmpty && text.toLowerCase() != 'null') {
+        parts.add(text);
+      }
+    }
+    return parts.join(' ');
   }
 
   int _resolveId(dynamic value, int fallback) {
@@ -465,7 +511,7 @@ class SalonsScreenState extends State<SalonsScreen> {
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 18),
+                      padding: const EdgeInsets.fromLTRB(0, 0, 0, 18),
                       sliver: SliverList(
                         delegate: SliverChildBuilderDelegate((context, index) {
                           final salon = salons[index];
@@ -525,7 +571,7 @@ class SalonsScreenState extends State<SalonsScreen> {
                   if (!widget.readOnly && _searchQuery.isEmpty)
                     SliverToBoxAdapter(
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 2, 14, 28),
+                        padding: const EdgeInsets.fromLTRB(0, 2, 0, 28),
                         child: _AddMainSalonCard(onTap: _goToAddSalon),
                       ),
                     ),
@@ -554,7 +600,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onHeaderTap;
 
   @override
-  Size get preferredSize => const Size.fromHeight(78);
+  Size get preferredSize => const Size.fromHeight(58);
 
   @override
   Widget build(BuildContext context) {
@@ -566,7 +612,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onHeaderTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+            padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -602,12 +648,12 @@ class _AppBarSearchField extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.zero,
           boxShadow: const [
             BoxShadow(
               color: Color(0x10212121),
-              blurRadius: 16,
-              offset: Offset(0, 8),
+              blurRadius: 12,
+              offset: Offset(0, 6),
             ),
           ],
         ),
@@ -627,27 +673,71 @@ class _AppBarSearchField extends StatelessWidget {
                 color: Color(0xFF37474F),
               ),
               decoration: InputDecoration(
-                hintText: translateText('Search salons'),
+                hintText: translateText('Search salons or location'),
                 hintStyle: const TextStyle(
-                  color: Color(0xFFC8C0BA),
-                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFB8AEA6),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
                 ),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: Color(0xFFD0A244),
-                  size: 21,
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 14, right: 8),
+                  child: Icon(
+                    Icons.search_rounded,
+                    color: Color(0xFFD0A244),
+                    size: 18,
+                  ),
+                ),
+                prefixIconConstraints: const BoxConstraints(
+                  minWidth: 40,
+                  minHeight: 48,
                 ),
                 suffixIcon: hasQuery
-                    ? IconButton(
-                        onPressed: () {
-                          controller.clear();
-                          onChanged('');
-                        },
-                        icon: const Icon(Icons.close, color: Color(0xFF90A4AE)),
+                    ? SizedBox(
+                        width: 46,
+                        height: 48,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            controller.clear();
+                            onChanged('');
+                          },
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Color(0xFF90A4AE),
+                            size: 18,
+                          ),
+                        ),
                       )
-                    : null, // 🔹 No filter icon anymore
+                    : SizedBox(
+                        width: 46,
+                        height: 48,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 12),
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Color(0xFFF4E8D1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(
+                                Icons.location_on_outlined,
+                                color: Color(0xFF8B6500),
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 44,
+                  minHeight: 48,
+                ),
                 border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 13),
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
             );
           },
@@ -889,7 +979,7 @@ class _SalonCard extends StatelessWidget {
     final usableImageUrl = _usableSalonImageUrl(imageUrl);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.zero,
       child: usableImageUrl != null
           ? Image.network(
               usableImageUrl,
@@ -1198,7 +1288,7 @@ class _SalonCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: const Color(0xFFE8DED4)),
         boxShadow: const [
           BoxShadow(
@@ -1212,7 +1302,7 @@ class _SalonCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+            padding: EdgeInsets.zero,
             child: Stack(
               children: [
                 _heroImage(imageUrl),
@@ -1275,14 +1365,14 @@ class _SalonCard extends StatelessWidget {
             margin: const EdgeInsets.fromLTRB(10, 0, 10, 12),
             decoration: BoxDecoration(
               color: const Color(0xFFFBFAF8),
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFECE4DC)),
             ),
             child: Column(
               children: [
                 InkWell(
                   onTap: onToggle,
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(10),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
                     child: Row(
@@ -1493,16 +1583,16 @@ class _SalonRatingBadgeState extends State<_SalonRatingBadge> {
             : (summary?.average ?? 0).toStringAsFixed(1);
 
         return Container(
-          height: 28,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          height: 22,
+          padding: const EdgeInsets.symmetric(horizontal: 7),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(6),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x18000000),
-                blurRadius: 8,
-                offset: Offset(0, 3),
+                color: Color(0x14000000),
+                blurRadius: 6,
+                offset: Offset(0, 2),
               ),
             ],
           ),
@@ -1511,14 +1601,14 @@ class _SalonRatingBadgeState extends State<_SalonRatingBadge> {
             children: [
               const Icon(
                 Icons.star_rounded,
-                size: 15,
+                size: 13,
                 color: Color(0xFFD0A244),
               ),
-              const SizedBox(width: 3),
+              const SizedBox(width: 2),
               Text(
                 label,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF8B6500),
                 ),
@@ -1643,14 +1733,14 @@ class _BranchTileState extends State<_BranchTile> {
 
     return InkWell(
       onTap: widget.onOpen == null ? null : _handleTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(7),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(7),
           border: Border.all(
             color: isLoading
                 ? accentColor.withValues(alpha: 0.35)
@@ -1776,7 +1866,7 @@ class _AddMainSalonCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.zero,
         border: Border.all(color: const Color(0xFFE8DED4)),
       ),
       child: Material(
