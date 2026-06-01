@@ -27,6 +27,7 @@ class SalonsScreen extends StatefulWidget {
 class SalonsScreenState extends State<SalonsScreen> {
   bool fabExpanded = false;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String _searchQuery = '';
   final GlobalKey _fabKey = GlobalKey();
   final GlobalKey _fabPanelKey = GlobalKey();
@@ -52,8 +53,14 @@ class SalonsScreenState extends State<SalonsScreen> {
 
   @override
   void dispose() {
+    _searchFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _dismissKeyboard() {
+    _searchFocusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   void _handleSearchChanged(String value) {
@@ -182,6 +189,7 @@ class SalonsScreenState extends State<SalonsScreen> {
 
   Future<void> _goToAddSalon() async {
     _collapseFab();
+    _dismissKeyboard();
     final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -192,6 +200,9 @@ class SalonsScreenState extends State<SalonsScreen> {
       ),
     );
 
+    if (mounted) {
+      _dismissKeyboard();
+    }
     if (added == true && mounted) {
       await _refreshSalons();
     }
@@ -199,6 +210,7 @@ class SalonsScreenState extends State<SalonsScreen> {
 
   Future<void> _goToEditSalon(Map<String, dynamic> salon) async {
     _collapseFab();
+    _dismissKeyboard();
     debugPrint('[SalonAction] Edit salon tapped -> salonId=${salon['id']}');
     final updated = await Navigator.push<bool>(
       context,
@@ -213,6 +225,9 @@ class SalonsScreenState extends State<SalonsScreen> {
       ),
     );
 
+    if (mounted) {
+      _dismissKeyboard();
+    }
     if (updated == true && mounted) {
       await _refreshSalons();
     }
@@ -295,6 +310,7 @@ class SalonsScreenState extends State<SalonsScreen> {
   }
 
   Future<void> _goToAddBranch(int salonId) async {
+    _dismissKeyboard();
     final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -306,6 +322,9 @@ class SalonsScreenState extends State<SalonsScreen> {
       ),
     );
 
+    if (mounted) {
+      _dismissKeyboard();
+    }
     if (added == true && mounted) {
       await _refreshSalons();
     }
@@ -315,6 +334,7 @@ class SalonsScreenState extends State<SalonsScreen> {
     required int salonId,
     required Map<String, dynamic> branch,
   }) async {
+    _dismissKeyboard();
     debugPrint(
       '[BranchAction] Edit branch tapped -> salonId=$salonId branchId=${branch['id']}',
     );
@@ -333,6 +353,9 @@ class SalonsScreenState extends State<SalonsScreen> {
       ),
     );
 
+    if (mounted) {
+      _dismissKeyboard();
+    }
     if (updated == true && mounted) {
       await _refreshSalons();
     }
@@ -454,6 +477,7 @@ class SalonsScreenState extends State<SalonsScreen> {
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: _SalonsAppBar(
         searchController: _searchController,
+        searchFocusNode: _searchFocusNode,
         onSearchChanged: _handleSearchChanged,
         onSearchTap: _collapseFab,
         onHeaderTap: _collapseFab,
@@ -589,12 +613,14 @@ class SalonsScreenState extends State<SalonsScreen> {
 class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _SalonsAppBar({
     required this.searchController,
+    required this.searchFocusNode,
     required this.onSearchChanged,
     required this.onSearchTap,
     this.onHeaderTap,
   });
 
   final TextEditingController searchController;
+  final FocusNode searchFocusNode;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchTap;
   final VoidCallback? onHeaderTap;
@@ -618,6 +644,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
               children: [
                 _AppBarSearchField(
                   controller: searchController,
+                  focusNode: searchFocusNode,
                   onChanged: onSearchChanged,
                   onTap: onSearchTap,
                 ),
@@ -633,11 +660,13 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
 class _AppBarSearchField extends StatelessWidget {
   const _AppBarSearchField({
     required this.controller,
+    required this.focusNode,
     required this.onChanged,
     required this.onTap,
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final ValueChanged<String> onChanged;
   final VoidCallback onTap;
 
@@ -663,6 +692,8 @@ class _AppBarSearchField extends StatelessWidget {
             final hasQuery = value.text.isNotEmpty;
             return TextField(
               controller: controller,
+              focusNode: focusNode,
+              autofocus: false,
               onChanged: onChanged,
               onTap: onTap,
               textInputAction: TextInputAction.done,
