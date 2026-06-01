@@ -1779,7 +1779,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),
-            Container(color: Colors.black.withValues(alpha: 0.38)),
+            Container(color: Colors.black.withValues(alpha: 0.52)),
+            Image.asset(
+              'assets/images/salonImage.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+            ),
+            Container(color: Colors.black.withValues(alpha: 0.24)),
             Align(
               alignment: Alignment.bottomLeft,
               child: Padding(

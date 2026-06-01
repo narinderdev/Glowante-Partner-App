@@ -892,7 +892,13 @@ class _AddSalonServicesState extends State<AddSalonServices> {
               fit: BoxFit.cover,
               alignment: Alignment.center,
             ),
-            Container(color: const Color(0xAA3A240B)),
+            Container(color: const Color(0xCC3A240B)),
+            Image.asset(
+              'assets/images/salonImage.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+            ),
+            Container(color: const Color(0x773A240B)),
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
