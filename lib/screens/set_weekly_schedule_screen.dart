@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
-import '../utils/colors.dart';
 import '../widgets/salon_flow_step_header.dart';
 
 class ScheduleStepResult {
@@ -90,13 +89,13 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
-        title: translateText('Set Schedule'),
+        title: translateText('Add Salon'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 34),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -105,39 +104,67 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                 detailsLabel: translateText(widget.detailsStepLabel),
                 totalSteps: widget.totalSteps,
               ),
-              const SizedBox(height: 22),
-              Center(
-                child: Text(
-                  translateText('Set Weekly Working Hours'),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937),
-                  ),
+              const SizedBox(height: 44),
+              Text(
+                translateText('Set Weekly Working Hours'),
+                style: const TextStyle(
+                  fontSize: 22,
+                  height: 1.2,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1F1B18),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 10),
+              Text(
+                translateText(
+                  "Configure your salon's operational hours for a seamless booking experience.",
+                ),
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.45,
+                  color: Color(0xFF5F574F),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 28),
+              _buildCopyMondayControl(),
+              const SizedBox(height: 28),
               for (final day in _days) ...[
                 _buildDayCard(day),
-                const SizedBox(height: 10),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 54),
+              _buildScheduleQuote(),
+              const SizedBox(height: 38),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: const EdgeInsets.symmetric(vertical: 17),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        side: BorderSide.none,
-                        backgroundColor: const Color(0xFFE5E7EB),
-                        foregroundColor: const Color(0xFF374151),
+                        side: const BorderSide(
+                          color: Color(0xFFD0A244),
+                          width: 1.4,
+                        ),
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFFD0A244),
                       ),
-                      child: Text(translateText('Back')),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.chevron_left_rounded, size: 22),
+                          const SizedBox(width: 6),
+                          Text(
+                            translateText('Back'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -145,18 +172,35 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                     child: ElevatedButton(
                       onPressed: _submit,
                       style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        backgroundColor: AppColors.starColor,
+                        padding: const EdgeInsets.symmetric(vertical: 17),
+                        backgroundColor: const Color(0xFF8B6500),
                         foregroundColor: Colors.white,
+                        elevation: 10,
+                        shadowColor: const Color(0x338B6500),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: Text(
-                        translateText(
-                          widget.submitLabel ??
-                              (widget.totalSteps == 2 ? 'Save' : 'Next'),
-                        ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              translateText(
+                                widget.submitLabel ??
+                                    (widget.totalSteps == 2
+                                        ? 'Save'
+                                        : 'Save & Continue'),
+                              ),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward_rounded, size: 20),
+                        ],
                       ),
                     ),
                   ),
@@ -171,138 +215,236 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
 
   Widget _buildDayCard(String day) {
     final config = _scheduleByDay[day]!;
-    final isMonday = day == 'monday';
 
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFD1D5DB)),
-        borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(vertical: 17),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFEDE6DF)),
+        ),
       ),
-      child: Column(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 82,
-                child: Text(
-                  translateText(_capitalize(day)),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1F2937),
-                  ),
-                ),
+          SizedBox(
+            width: 94,
+            child: Text(
+              translateText(_capitalize(day)),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF201B17),
               ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _TimeDropdown(
-                        value: config.startTime,
-                        enabled: !config.isClosed,
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _applyDayConfig(
-                              day,
-                              config.copyWith(startTime: value),
-                            );
-                          });
-                        },
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('to'),
-                    ),
-                    Expanded(
-                      child: _TimeDropdown(
-                        value: config.endTime,
-                        enabled: !config.isClosed,
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() {
-                            _applyDayConfig(
-                              day,
-                              config.copyWith(endTime: value),
-                            );
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _applyDayConfig(
-                      day,
-                      config.copyWith(isClosed: !config.isClosed),
-                    );
-                  });
-                },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  translateText(config.isClosed ? 'Open' : 'Closed'),
-                  style: const TextStyle(
-                    decoration: TextDecoration.underline,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-          if (isMonday) ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: InkWell(
-                onTap: () {
-                  setState(() {
-                    _copyMondayToAll = !_copyMondayToAll;
-                    if (_copyMondayToAll) {
-                      for (final dayName in _days.skip(1)) {
-                        _scheduleByDay[dayName] = config.copyWith();
-                      }
-                    }
-                  });
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      _copyMondayToAll
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      size: 18,
-                      color: _copyMondayToAll
-                          ? AppColors.starColor
-                          : const Color(0xFF6B7280),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      translateText('Copy Monday schedule to all days'),
-                      style: const TextStyle(
-                        color: Color(0xFF374151),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _TimeDropdown(
+                    value: config.startTime,
+                    enabled: !config.isClosed,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _applyDayConfig(
+                          day,
+                          config.copyWith(startTime: value),
+                        );
+                      });
+                    },
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 5),
+                  child: Text(
+                    '-',
+                    style: TextStyle(color: Color(0xFF9B928A)),
+                  ),
+                ),
+                Expanded(
+                  child: _TimeDropdown(
+                    value: config.endTime,
+                    enabled: !config.isClosed,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _applyDayConfig(
+                          day,
+                          config.copyWith(endTime: value),
+                        );
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          if (config.isClosed)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text(
+                translateText('CLOSED'),
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF4B4038),
                 ),
               ),
             ),
-          ],
+          Transform.scale(
+            scale: 0.78,
+            child: Switch(
+              value: !config.isClosed,
+              activeThumbColor: Colors.white,
+              activeTrackColor: const Color(0xFF8B6500),
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: const Color(0xFFE1DFDD),
+              onChanged: (enabled) {
+                setState(() {
+                  _applyDayConfig(
+                    day,
+                    config.copyWith(isClosed: !enabled),
+                  );
+                });
+              },
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCopyMondayControl() {
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _copyMondayToAll = !_copyMondayToAll;
+          if (_copyMondayToAll) {
+            final mondayConfig = _scheduleByDay['monday']!;
+            for (final dayName in _days.skip(1)) {
+              _scheduleByDay[dayName] = mondayConfig.copyWith();
+            }
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: _copyMondayToAll ? const Color(0xFF8B6500) : Colors.white,
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(
+                color: _copyMondayToAll
+                    ? const Color(0xFF8B6500)
+                    : const Color(0xFFD7C9BC),
+              ),
+            ),
+            child: _copyMondayToAll
+                ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              translateText('Copy Monday schedule to all days'),
+              style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF2F2924),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScheduleQuote() {
+    return Column(
+      children: [
+        Center(
+          child: Container(
+            width: 174,
+            height: 174,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x26936D00),
+                  blurRadius: 24,
+                  offset: Offset(0, 12),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: ColorFiltered(
+                colorFilter: const ColorFilter.matrix(<double>[
+                  0.2126,
+                  0.7152,
+                  0.0722,
+                  0,
+                  0,
+                  0.2126,
+                  0.7152,
+                  0.0722,
+                  0,
+                  0,
+                  0.2126,
+                  0.7152,
+                  0.0722,
+                  0,
+                  0,
+                  0,
+                  0,
+                  0,
+                  1,
+                  0,
+                ]),
+                child: Image.asset(
+                  'assets/images/salonImage.png',
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
+        Text(
+          translateText(
+            '"Time is the ultimate luxury.\nManage it with precision."',
+          ),
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontSize: 20,
+            height: 1.25,
+            color: Color(0xFF8B6500),
+            fontStyle: FontStyle.italic,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: 72,
+          height: 2,
+          color: const Color(0xFFD0A244),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          translateText('SALON EXCELLENCE STANDARD'),
+          style: const TextStyle(
+            fontSize: 11,
+            letterSpacing: 1.4,
+            color: Color(0xFF4B4038),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 
@@ -481,23 +623,28 @@ class _TimeDropdown extends StatelessWidget {
     ];
 
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: enabled ? Colors.white : const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFD1D5DB)),
+        color: enabled ? Colors.white : const Color(0xFFF7F5F3),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFFE8E1DC)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
+          isDense: true,
           style: const TextStyle(
-            fontSize: 14,
-            color: Color(0xFF111827),
+            fontSize: 10,
+            color: Color(0xFF2B2520),
             overflow: TextOverflow.ellipsis,
           ),
-          icon: const Icon(Icons.arrow_drop_down),
+          icon: const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 13,
+            color: Color(0xFF8A8178),
+          ),
           items: items
               .map(
                 (option) => DropdownMenuItem<String>(
@@ -519,8 +666,8 @@ class _TimeDropdown extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF111827),
+                      fontSize: 10,
+                      color: Color(0xFF2B2520),
                     ),
                   ),
                 ),

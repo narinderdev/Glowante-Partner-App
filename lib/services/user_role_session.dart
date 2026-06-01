@@ -7,9 +7,12 @@ class UserRoleSession {
   static final UserRoleSession instance = UserRoleSession._();
 
   static const int ownerRoleId = 2;
+  static const int receptionistRoleId = 4;
   static const int stylistRoleId = 5;
   static const int staffRoleId = 6;
 
+  static const String ownerRoleCode = 'salon_owner';
+  static const String receptionistRoleCode = 'salon_receptionist';
   static const String stylistRoleCode = 'salon_stylist';
   static const String staffRoleCode = 'salon_staff';
 
@@ -44,8 +47,10 @@ class UserRoleSession {
 
     return ids.contains(stylistRoleId) ||
         ids.contains(staffRoleId) ||
+        ids.contains(receptionistRoleId) ||
         codes.contains(stylistRoleCode) ||
-        codes.contains(staffRoleCode);
+        codes.contains(staffRoleCode) ||
+        codes.contains(receptionistRoleCode);
   }
 
   Future<void> persistUserRoles(Map<String, dynamic>? user) async {
@@ -174,22 +179,48 @@ class UserRoleSession {
     final primaryRoleCode =
         prefs.getString(_primaryRoleCodeKey)?.trim().toLowerCase();
 
-    if (primaryRoleId == stylistRoleId || primaryRoleId == staffRoleId) {
-      return true;
+    if (primaryRoleId != null) {
+      return primaryRoleId == stylistRoleId ||
+          primaryRoleId == staffRoleId ||
+          primaryRoleId == receptionistRoleId;
     }
-    if (primaryRoleCode == stylistRoleCode ||
-        primaryRoleCode == staffRoleCode) {
-      return true;
+    if (primaryRoleCode != null && primaryRoleCode.isNotEmpty) {
+      return primaryRoleCode == stylistRoleCode ||
+          primaryRoleCode == staffRoleCode ||
+          primaryRoleCode == receptionistRoleCode;
     }
 
     return roleIds.contains('$stylistRoleId') ||
         roleIds.contains('$staffRoleId') ||
+        roleIds.contains('$receptionistRoleId') ||
         roleCodes
             .map((code) => code.trim().toLowerCase())
             .contains(stylistRoleCode) ||
         roleCodes
             .map((code) => code.trim().toLowerCase())
-            .contains(staffRoleCode);
+            .contains(staffRoleCode) ||
+        roleCodes
+            .map((code) => code.trim().toLowerCase())
+            .contains(receptionistRoleCode);
+  }
+
+  Future<void> persistPrimaryRole({
+    required int? roleId,
+    required String? roleCode,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (roleId != null) {
+      await prefs.setInt(_primaryRoleIdKey, roleId);
+    } else {
+      await prefs.remove(_primaryRoleIdKey);
+    }
+
+    final normalizedCode = roleCode?.trim().toLowerCase();
+    if (normalizedCode != null && normalizedCode.isNotEmpty) {
+      await prefs.setString(_primaryRoleCodeKey, normalizedCode);
+    } else {
+      await prefs.remove(_primaryRoleCodeKey);
+    }
   }
 
   static int? _asInt(dynamic value) {
@@ -201,6 +232,7 @@ class UserRoleSession {
   static int? _resolvePrimaryRoleId(List<String> roleIds) {
     if (roleIds.contains('$stylistRoleId')) return stylistRoleId;
     if (roleIds.contains('$staffRoleId')) return staffRoleId;
+    if (roleIds.contains('$receptionistRoleId')) return receptionistRoleId;
     if (roleIds.contains('$ownerRoleId')) return ownerRoleId;
     return roleIds.isEmpty ? null : int.tryParse(roleIds.first);
   }
@@ -211,6 +243,8 @@ class UserRoleSession {
   ) {
     if (primaryRoleId == stylistRoleId) return stylistRoleCode;
     if (primaryRoleId == staffRoleId) return staffRoleCode;
+    if (primaryRoleId == receptionistRoleId) return receptionistRoleCode;
+    if (primaryRoleId == ownerRoleId) return ownerRoleCode;
     return roleCodes.isEmpty ? null : roleCodes.first.trim().toLowerCase();
   }
 }

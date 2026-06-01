@@ -905,7 +905,6 @@ import 'dart:io';
 import '../utils/colors.dart';
 import '../services/language_listener.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
@@ -1254,8 +1253,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                 city: '', // not used now
                 pincode: '', // not used now
                 state: '', // not used now
-                latitude: latitude!,
-                longitude: longitude!,
+                latitude: latitude,
+                longitude: longitude,
               ),
             );
       }
@@ -1278,7 +1277,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   Future<void> _pickImages() async {
     final files = await _picker.pickMultiImage();
-    if (!mounted || files == null) return;
+    if (!mounted) return;
     final images = files.map((file) => File(file.path)).toList();
     context.read<AddSalonCubit>().setImages(images);
   }
@@ -1568,14 +1567,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         ]);
 
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFFBFAF8),
           appBar: buildProfileSubpageAppBar(
             title: translateText(widget.isEdit ? 'Edit Salon' : 'Add Salon'),
           ),
           body: Stack(
             children: [
               SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -1586,244 +1585,138 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         detailsLabel: translateText('Salon Details'),
                         totalSteps: widget.isEdit ? 2 : 3,
                       ),
-                      const SizedBox(height: 24),
-                      _buildTextField(
-                        controller: _salonNameController,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.sentences,
-                        label: 'Salon Name *',
-                        hint: 'Enter your salon name',
-                        maxLength: 50,
-                        inputFormatters: const [_FirstLetterUpperFormatter()],
+                      const SizedBox(height: 22),
+                      _buildHeroCard(
+                        quote:
+                            '"The foundation of luxury is the precision of your process."',
                       ),
-                      _buildTextField(
-                        controller: _phoneController,
-                        label: 'Phone Number *',
-                        maxLength: 10,
-                        hint: 'Enter phone number',
-                        enabled: true,
-                        keyboardType: TextInputType.phone,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                      ),
-                      if (widget.isEdit) ...[
-                        Row(
+                      const SizedBox(height: 34),
+                      _buildSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: _buildTimePickerField(
-                                controller: _startTimeController,
-                                label: 'Start Time *',
-                                onTap: () => _selectTime(_startTimeController),
+                            Text(
+                              translateText('Basic Information'),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF161616),
                               ),
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildTimePickerField(
-                                controller: _endTimeController,
-                                label: 'End Time *',
-                                onTap: () => _selectTime(_endTimeController),
+                            const SizedBox(height: 18),
+                            _buildTextField(
+                              controller: _salonNameController,
+                              keyboardType: TextInputType.text,
+                              textCapitalization: TextCapitalization.sentences,
+                              label: 'Salon Name *',
+                              hint: 'Enter your business name',
+                              maxLength: 50,
+                              inputFormatters: const [
+                                _FirstLetterUpperFormatter()
+                              ],
+                            ),
+                            _buildTextField(
+                              controller: _phoneController,
+                              label: 'Phone Number *',
+                              maxLength: 10,
+                              hint: '9855096207',
+                              enabled: true,
+                              keyboardType: TextInputType.phone,
+                              prefixText: '+91',
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
+                              ],
+                            ),
+                            if (widget.isEdit) ...[
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTimePickerField(
+                                      controller: _startTimeController,
+                                      label: 'Start Time *',
+                                      onTap: () =>
+                                          _selectTime(_startTimeController),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildTimePickerField(
+                                      controller: _endTimeController,
+                                      label: 'End Time *',
+                                      onTap: () =>
+                                          _selectTime(_endTimeController),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 10),
+                            ],
+                            _buildAddressField(address, state),
+                            _buildTextField(
+                              controller: _descriptionController,
+                              keyboardType: TextInputType.multiline,
+                              textCapitalization: TextCapitalization.sentences,
+                              label: 'Description *',
+                              hint:
+                                  "Tell us about your salon's unique experience...",
+                              maxLines: 4,
+                              maxLength: 250,
+                              inputFormatters: const [
+                                _FirstLetterUpperFormatter()
+                              ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 20),
-                      ],
-                      Text(
-                        translateText('Salon Address'),
-                        style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 8),
-                      InkWell(
-                        onTap: () => _chooseLocation(state),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            border:
-                                Border.all(color: AppColors.darkGrey, width: 1),
-                          ),
-                          child: (address == null ||
-                                  address.buildingName
-                                      .trim()
-                                      .isEmpty) // 🟢 CHANGED: only check completeAddress holder
-                              ? Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    RichText(
-                                      text: TextSpan(
-                                        children: [
-                                          TextSpan(
-                                            text: translateText('Add Location'),
-                                            style: const TextStyle(
-                                              color: AppColors.black,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          const TextSpan(
-                                            text: ' *',
-                                            style: TextStyle(
-                                              color: Colors.red,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                )
-                              : Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // 🟢 CHANGED: show complete address (stored in buildingName)
-                                          // Line 1: Complete address (from buildingName)
-                                          Text(
-                                            address.buildingName,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.darkGrey,
-                                            ),
-                                          ),
-
-// Line 2: Optional fields if present (we stored them in city & pincode)
-                                          if (address.city.trim().isNotEmpty ||
-                                              address.pincode.trim().isNotEmpty)
-                                            Padding(
-                                              padding:
-                                                  const EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                [
-                                                  address.city
-                                                      .trim(), // SCO / Flat / House
-                                                  address.pincode
-                                                      .trim(), // Street / Sector / Area
-                                                ]
-                                                    .where((s) => s.isNotEmpty)
-                                                    .join(', '),
-                                                style: const TextStyle(
-                                                    color: AppColors.darkGrey),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(Icons.edit,
-                                        color: AppColors.darkGrey),
-                                  ],
+                      const SizedBox(height: 22),
+                      _buildSectionCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            RichText(
+                              text: TextSpan(
+                                text: translateText('Salon Images'),
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w500,
+                                  color: Color(0xFF161616),
                                 ),
+                                children: [
+                                  TextSpan(
+                                    text: ' (${translateText('Optional')})',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Color(0xFF8A8178),
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            _buildImageGrid(images, existingImageUrl),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _buildTextField(
-                        controller: _descriptionController,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.sentences,
-                        label: 'Description *',
-                        hint: 'Enter a description about your salon',
-                        maxLines: 1,
-                        maxLength: 50,
-                        inputFormatters: const [_FirstLetterUpperFormatter()],
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        translateText('Salon Images(Optional)'),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (images.isEmpty && existingImageUrl.isNotEmpty)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                existingImageUrl,
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          for (final image in images)
-                            Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(
-                                    image,
-                                    width: 80,
-                                    height: 80,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                Positioned(
-                                  top: -6,
-                                  right: -6,
-                                  child: GestureDetector(
-                                    onTap: () {
-                                      setState(() {
-                                        context
-                                            .read<AddSalonCubit>()
-                                            .removeImage(image);
-                                      });
-                                    },
-                                    child: Container(
-                                      decoration: const BoxDecoration(
-                                        color: Colors.black54,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      padding: const EdgeInsets.all(3),
-                                      child: const Icon(
-                                        Icons.close,
-                                        color: Colors.white,
-                                        size: 14,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          GestureDetector(
-                            onTap: _pickImages,
-                            child: Container(
-                              width: 80,
-                              height: 80,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.darkGrey),
-                              ),
-                              child: const Icon(
-                                Icons.add,
-                                color: AppColors.darkGrey,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
+                      _buildEmpireCard(),
+                      const SizedBox(height: 18),
+                      _buildProTipCard(),
+                      const SizedBox(height: 28),
                       SizedBox(
                         width: double.infinity,
-                        height: 48,
+                        height: 54,
                         child: ElevatedButton(
                           onPressed:
                               state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
-                            foregroundColor: AppColors.white,
+                            backgroundColor: const Color(0xFF8B6500),
+                            foregroundColor: Colors.white,
+                            elevation: 8,
+                            shadowColor: const Color(0x338B6500),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(7),
                             ),
                           ),
                           child: state.isSubmitting
@@ -1835,7 +1728,23 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                     color: Colors.white,
                                   ),
                                 )
-                              : Text(translateText('Next')),
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      translateText(widget.isEdit
+                                          ? 'Save Changes'
+                                          : 'Next Step'),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Icon(Icons.arrow_forward_rounded,
+                                        size: 20),
+                                  ],
+                                ),
                         ),
                       ),
                     ],
@@ -1856,6 +1765,414 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     );
   }
 
+  Widget _buildHeroCard({required String quote}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        height: 178,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/salonImage.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+            Container(color: Colors.black.withValues(alpha: 0.38)),
+            Align(
+              alignment: Alignment.bottomLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(26, 0, 26, 22),
+                child: Text(
+                  translateText(quote),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    height: 1.35,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFFEAE0D7)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _buildAddressField(AddSalonAddress? address, AddSalonState state) {
+    final hasAddress =
+        address != null && address.buildingName.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel('Salon Address *'),
+          InkWell(
+            onTap: () => _chooseLocation(state),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 54),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFD3A94C),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.location_on_outlined,
+                    color: Color(0xFF7A4A09),
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: hasAddress
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                address.buildingName,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF3B332B),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              if (address.city.trim().isNotEmpty ||
+                                  address.pincode.trim().isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    [
+                                      address.city.trim(),
+                                      address.pincode.trim(),
+                                    ]
+                                        .where((part) => part.isNotEmpty)
+                                        .join(', '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Color(0xFF8A8178),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          )
+                        : Text(
+                            translateText('Add Location'),
+                            style: const TextStyle(
+                              color: Color(0xFF7A4A09),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                  ),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Color(0xFF7A4A09),
+                    size: 22,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImageGrid(List<File> images, String existingImageUrl) {
+    final slots = <Widget>[];
+    if (images.isEmpty && existingImageUrl.isNotEmpty) {
+      slots.add(_buildImageSlot(networkUrl: existingImageUrl));
+    }
+    for (final image in images.take(4)) {
+      slots.add(_buildImageSlot(file: image));
+    }
+    if (slots.length < 4) {
+      slots.insert(0, _buildImageSlot(isAddSlot: true));
+    }
+    while (slots.length < 4) {
+      slots.add(_buildImageSlot());
+    }
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 1,
+      children: slots.take(4).toList(),
+    );
+  }
+
+  Widget _buildImageSlot({
+    File? file,
+    String? networkUrl,
+    bool isAddSlot = false,
+  }) {
+    final hasImage = file != null || (networkUrl ?? '').isNotEmpty;
+    return GestureDetector(
+      onTap: isAddSlot ? _pickImages : null,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAF8F7),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color:
+                isAddSlot ? const Color(0xFFD3A94C) : const Color(0xFFE8E1DC),
+            style: isAddSlot ? BorderStyle.solid : BorderStyle.solid,
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: hasImage
+              ? Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (file != null)
+                      Image.file(file, fit: BoxFit.cover)
+                    else
+                      Image.network(networkUrl!, fit: BoxFit.cover),
+                    if (file != null)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: GestureDetector(
+                          onTap: () =>
+                              context.read<AddSalonCubit>().removeImage(file),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                )
+              : Center(
+                  child: isAddSlot
+                      ? Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.add_a_photo_outlined,
+                              color: Color(0xFF7A4A09),
+                              size: 30,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              translateText('Add Photo'),
+                              style: const TextStyle(
+                                color: Color(0xFF6A4A20),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const Icon(
+                          Icons.image_outlined,
+                          color: Color(0xFFD9D6D3),
+                          size: 42,
+                        ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpireCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD0A947),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.auto_awesome, color: Color(0xFF5D4200)),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            translateText('Build Your Empire'),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF2A2117),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            translateText(
+              "Your vision, our platform. Let's create a space where beauty meets business excellence.",
+            ),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.45,
+              color: Color(0xFF4B3825),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 22),
+            child: Divider(color: Color(0x55FFFFFF)),
+          ),
+          _buildEmpireBenefit('Optimized Search Presence'),
+          _buildEmpireBenefit('Premium Booking Experience'),
+          _buildEmpireBenefit('Inventory & Staff Management'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmpireBenefit(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline, color: Colors.white, size: 17),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              translateText(label),
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF2A2117),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProTipCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEAE0D7)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lightbulb_outline,
+              color: Color(0xFF7A4A09), size: 22),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  translateText('Pro Tip'),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1E1E1E),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  translateText(
+                    'Salons with clear descriptions and high-quality photos receive 40% more bookings.',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: Color(0xFF5F5A55),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String label) {
+    final normalizedLabel = label.replaceAll('*', '').trim();
+    final translatedLabel = translateText(normalizedLabel);
+    final localizedLabel =
+        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+    final hasAsterisk = label.contains('*');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: RichText(
+        text: TextSpan(
+          text: localizedLabel.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 10,
+            letterSpacing: 0.8,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF463E37),
+          ),
+          children: hasAsterisk
+              ? const [
+                  TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: Color(0xFF7B1E11)),
+                  ),
+                ]
+              : null,
+        ),
+      ),
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -1868,6 +2185,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     List<TextInputFormatter>? inputFormatters,
     bool forceCapitalize = false,
     int? maxWords,
+    String? prefixText,
   }) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final normalizedHint = hint.trim();
@@ -1880,7 +2198,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final localizedHint =
         translatedHint != normalizedHint ? translatedHint : normalizedHint;
 
-    final bool hasAsterisk = label.contains('*');
     final String cleanLabel = localizedLabel.trim();
 
     if (forceCapitalize) {
@@ -1902,108 +2219,125 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       });
     }
 
-    controller.addListener(() {
-      setState(() {});
-    });
-
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: TextFormField(
-        controller: controller,
-        maxLines: maxLines,
-        maxLength: maxLength,
-        enabled: enabled,
-        textCapitalization: textCapitalization,
-        keyboardType: keyboardType,
-        inputFormatters: inputFormatters,
-        autovalidateMode:
-            _submitted ? AutovalidateMode.always : AutovalidateMode.disabled,
-        validator: (value) {
-          final text = value?.trim() ?? '';
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel(label),
+          TextFormField(
+            controller: controller,
+            maxLines: maxLines,
+            maxLength: maxLength,
+            enabled: enabled,
+            textCapitalization: textCapitalization,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            autovalidateMode: _submitted
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            validator: (value) {
+              final text = value?.trim() ?? '';
 
-          if (text.isEmpty) {
-            return translateText('{field} is required')
-                .replaceAll('{field}', cleanLabel);
-          }
+              if (text.isEmpty) {
+                return translateText('{field} is required')
+                    .replaceAll('{field}', cleanLabel);
+              }
 
-          if (label.toLowerCase().contains('phone') ||
-              label.toLowerCase().contains('mobile')) {
-            if (text.length != 10) {
-              return translateText('Phone number must be 10 digits');
-            }
-            if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
-              return translateText('Invalid phone number');
-            }
-          }
+              if (label.toLowerCase().contains('phone') ||
+                  label.toLowerCase().contains('mobile')) {
+                if (text.length != 10) {
+                  return translateText('Phone number must be 10 digits');
+                }
+                if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
+                  return translateText('Invalid phone number');
+                }
+              }
 
-          if (maxWords != null &&
-              text.split(RegExp(r'\s+')).length > maxWords) {
-            return translateText('Maximum $maxWords words allowed');
-          }
+              if (maxWords != null &&
+                  text.split(RegExp(r'\s+')).length > maxWords) {
+                return translateText('Maximum $maxWords words allowed');
+              }
 
-          return null;
-        },
-        decoration: InputDecoration(
-          counterText: '',
-          suffixIcon: (maxLength != null)
-              ? Padding(
-                  padding: const EdgeInsets.only(right: 10, top: 14),
-                  child: Text(
-                    '${controller.text.length}/$maxLength',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: controller.text.length >= (maxLength ?? 0)
-                          ? Colors.red
-                          : Colors.grey,
-                    ),
-                  ),
-                )
-              : null,
-          hintText: localizedHint,
-          label: RichText(
-            text: TextSpan(
-              text: cleanLabel,
-              style: const TextStyle(
-                color: AppColors.darkGrey,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-              children: hasAsterisk
-                  ? const [
-                      TextSpan(
-                        text: ' *',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontWeight: FontWeight.bold,
+              return null;
+            },
+            decoration: InputDecoration(
+              counterText: '',
+              prefixIcon: prefixText == null
+                  ? null
+                  : Container(
+                      width: 48,
+                      alignment: Alignment.center,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          right: BorderSide(color: Color(0xFFE4DDD8)),
                         ),
                       ),
-                    ]
-                  : null,
+                      child: Text(
+                        prefixText,
+                        style: const TextStyle(
+                          color: Color(0xFF5B5149),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+              hintText: localizedHint,
+              hintStyle: const TextStyle(
+                color: Color(0xFF948C84),
+                fontSize: 13,
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF6F3F2),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide:
+                    const BorderSide(color: Color(0xFFD1A24A), width: 1.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorStyle: const TextStyle(color: AppColors.red),
             ),
           ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: Colors.grey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.darkGrey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          errorStyle: const TextStyle(
-            color: AppColors.red,
-          ),
-        ),
+          if (maxLength != null)
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${value.text.length} / $maxLength',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: value.text.length >= maxLength
+                            ? Colors.red
+                            : const Color(0xFF8A8178),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
     );
   }

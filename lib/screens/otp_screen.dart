@@ -4,15 +4,13 @@ import 'package:otp_autofill/otp_autofill.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:bloc_onboarding/utils/api_service.dart'; // Import ApiService for OTP verification
 import 'package:bloc_onboarding/utils/error_parser.dart';
-import 'bottom_nav.dart'; // Import BottomNav (for your 4-tab navigation)
-import 'stylist_bottom_nav.dart';
 import 'login_screen.dart'; // Import the LoginScreen
-import '../screens/UpdateProfileScreen.dart'; // Import UpdateUserProfileScreen
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../services/user_role_session.dart';
+import 'role_selection_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
@@ -97,7 +95,9 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void _clearOtpAndFocus() {
     _isProgrammaticFill = true;
-    for (final c in otpControllers) c.clear();
+    for (final c in otpControllers) {
+      c.clear();
+    }
     _isProgrammaticFill = false;
 
     setState(() {
@@ -139,8 +139,6 @@ class _OtpScreenState extends State<OtpScreen> {
           final int? userId = user['id'] is int
               ? user['id'] as int
               : int.tryParse('${user['id']}');
-          final bool usesStylistShell =
-              UserRoleSession.usesStylistShellForUser(user);
 
           SharedPreferences prefs = await SharedPreferences.getInstance();
           await prefs.setString('user_token', token);
@@ -181,33 +179,20 @@ class _OtpScreenState extends State<OtpScreen> {
           print("First Name saved: $firstName");
           print("Last Name saved: $lastName");
 
-          // Navigate
-          if (hasFullName) {
-            debugPrint(
-              '[HomeReach] OTP verified. Navigating to ${usesStylistShell ? 'stylist' : 'owner'} home shell for userId=$userId, phone=${widget.phoneNumber}',
-            );
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => usesStylistShell
-                    ? const StylistBottomNav(tabIndex: 0)
-                    : const BottomNav(tabIndex: 1),
+          debugPrint(
+            '[HomeReach] OTP verified. Opening role selection for userId=$userId, phone=${widget.phoneNumber}',
+          );
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => RoleSelectionScreen(
+                token: token,
+                user: user,
+                profileComplete: hasFullName,
               ),
-            );
-          } else {
-            debugPrint(
-              '[HomeReach] OTP verified but profile incomplete for userId=$userId. Redirecting to profile update.',
-            );
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (_) => UpdateUserProfileScreen(
-                  token: token,
-                  isStylist: usesStylistShell,
-                ),
-              ),
-            );
-          }
+            ),
+          );
         } else {
           setState(() {
             errorMessage = translateText('User data or token is missing');
@@ -391,16 +376,6 @@ class _OtpScreenState extends State<OtpScreen> {
         // print('Timer finished');  // Log when timer finishes
       }
     });
-  }
-
-  // Function to reset the countdown and go back to the LoginScreen when back is pressed
-  void _onBackPressed() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) => LoginScreen(),
-      ), // Navigate back to LoginScreen
-    );
   }
 
   @override

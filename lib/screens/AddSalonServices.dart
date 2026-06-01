@@ -570,14 +570,14 @@ class _AddSalonServicesState extends State<AddSalonServices> {
       },
       builder: (context, state) {
         return Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFFBFAF8),
           appBar: buildProfileSubpageAppBar(
-            title: translateText('Select Services'),
+            title: translateText('Add Salon'),
           ),
           body: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(18, 24, 18, 28),
                   child: SingleChildScrollView(
                     child: Column(
                       children: [
@@ -589,19 +589,44 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                 : 'Salon Details',
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 26),
                         Text(
                           translateText(
-                            'Choose the services that best describe your salon.\nYou can select multiple options.',
+                            '"Excellence is in every detail of the service\nyou provide."',
+                          ),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            height: 1.5,
+                            color: Color(0xFF6C625A),
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          translateText('Choose Your Specialties'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF191817),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          translateText(
+                            "Select the categories that define your salon's professional catalog.",
                           ),
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontSize: 14,
-                            color: Colors.grey,
+                            height: 1.45,
+                            color: Color(0xFF5E554E),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 34),
                         if (widget.branchFormData != null &&
                             widget.sourceBranches.isNotEmpty) ...[
                           Align(
@@ -665,10 +690,10 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                               physics: const NeverScrollableScrollPhysics(),
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                childAspectRatio: 0.9,
-                                crossAxisSpacing: 16,
-                                mainAxisSpacing: 16,
+                                crossAxisCount: 2,
+                                childAspectRatio: 0.86,
+                                crossAxisSpacing: 20,
+                                mainAxisSpacing: 22,
                               ),
                               itemCount: _services.length,
                               itemBuilder: (context, index) {
@@ -691,152 +716,61 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                       }
                                     });
                                   },
-                                  child: Column(
-                                    children: [
-                                      Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          Container(
-                                            width: 75,
-                                            height: 75,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: isSelected
-                                                    ? AppColors.starColor
-                                                    : Colors.transparent,
-                                                width: 3,
-                                              ),
-                                              boxShadow: const [
-                                                BoxShadow(
-                                                  color: Colors.black12,
-                                                  blurRadius: 6,
-                                                ),
-                                              ],
-                                            ),
-                                            child: ClipOval(
-                                              child: imageUrl.isEmpty
-                                                  ? const Icon(
-                                                      Icons.image_not_supported)
-                                                  : Image(
-                                                      image: _imageProviders
-                                                          .putIfAbsent(
-                                                        imageUrl,
-                                                        () =>
-                                                            CachedNetworkImageProvider(
-                                                                imageUrl),
-                                                      ),
-                                                      fit: BoxFit.cover,
-                                                      gaplessPlayback: true,
-                                                      filterQuality:
-                                                          FilterQuality.high,
-                                                      errorBuilder:
-                                                          (_, __, ___) =>
-                                                              const Icon(
-                                                        Icons
-                                                            .image_not_supported,
-                                                      ),
-                                                    ),
-                                            ),
-                                          ),
-                                          if (isSelected)
-                                            Container(
-                                              width: 75,
-                                              height: 75,
-                                              decoration: BoxDecoration(
-                                                color: Colors.black
-                                                    .withOpacity(0.35),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: const Icon(
-                                                Icons.check_circle,
-                                                color: Colors.white,
-                                                size: 32,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        name,
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w500,
-                                          color: isSelected
-                                              ? Colors.black
-                                              : Colors.grey[700],
-                                        ),
-                                      ),
-                                    ],
+                                  child: _buildSpecialtyCard(
+                                    name: name,
+                                    imageUrl: imageUrl,
+                                    isSelected: isSelected,
                                   ),
                                 );
                               },
                             ),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: _isSubmitting
-                                    ? null
-                                    : () => Navigator.pop(context),
-                                style: OutlinedButton.styleFrom(
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  side: BorderSide.none,
-                                  backgroundColor: const Color(0xFFE5E7EB),
-                                  foregroundColor: const Color(0xFF374151),
-                                ),
-                                child: Text(translateText('Back')),
+                        const SizedBox(height: 42),
+                        _buildLaunchQuote(),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => _submitSelection(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8B6500),
+                              foregroundColor: Colors.white,
+                              elevation: 9,
+                              shadowColor: const Color(0x338B6500),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(7),
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: SizedBox(
-                                height: 52,
-                                child: ElevatedButton(
-                                  onPressed: _isSubmitting
-                                      ? null
-                                      : () => _submitSelection(context),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.starColor,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 300),
+                              child: _isSubmitting
+                                  ? const SizedBox(
+                                      key: ValueKey('loader'),
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      translateText(
+                                          widget.branchFormData != null
+                                              ? widget.submitLabel
+                                              : 'Finish & Launch Salon'),
+                                      key: const ValueKey('text'),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                    elevation: 3,
-                                  ),
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
-                                    child: _isSubmitting
-                                        ? const SizedBox(
-                                            key: ValueKey('loader'),
-                                            width: 22,
-                                            height: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.5,
-                                              color: Colors.white,
-                                            ),
-                                          )
-                                        : Text(
-                                            translateText(widget.submitLabel),
-                                            key: const ValueKey('text'),
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                              ),
                             ),
-                          ],
+                          ),
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -845,6 +779,141 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                 ),
         );
       },
+    );
+  }
+
+  Widget _buildSpecialtyCard({
+    required String name,
+    required String imageUrl,
+    required bool isSelected,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(
+          color: isSelected ? const Color(0xFFD0A244) : const Color(0xFFE2D6CC),
+          width: isSelected ? 1.2 : 1,
+        ),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 82,
+                height: 82,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF8B6500)
+                        : Colors.transparent,
+                    width: 2,
+                  ),
+                ),
+                child: ClipOval(
+                  child: imageUrl.isEmpty
+                      ? const Icon(
+                          Icons.image_not_supported_outlined,
+                          color: Color(0xFFBDB5AE),
+                        )
+                      : Image(
+                          image: _imageProviders.putIfAbsent(
+                            imageUrl,
+                            () => CachedNetworkImageProvider(imageUrl),
+                          ),
+                          fit: BoxFit.cover,
+                          gaplessPlayback: true,
+                          filterQuality: FilterQuality.high,
+                          errorBuilder: (_, __, ___) => const Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Color(0xFFBDB5AE),
+                          ),
+                        ),
+                ),
+              ),
+              if (isSelected)
+                Positioned(
+                  left: 0,
+                  bottom: -8,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFEF8),
+                      border: Border.all(
+                        color: const Color(0xFF8B6500),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.check_circle_outline_rounded,
+                      color: Color(0xFF8B6500),
+                      size: 20,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Text(
+            name,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.3,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF24211E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLaunchQuote() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        height: 198,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              'assets/images/salonImage.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+            ),
+            Container(color: const Color(0xAA3A240B)),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  translateText(
+                    '"Your artistry defines the experience. Choose the specialties that will become your salon\'s signature."',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFD0A244),
+                    fontSize: 18,
+                    height: 1.4,
+                    fontWeight: FontWeight.w800,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
