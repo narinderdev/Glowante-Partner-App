@@ -570,19 +570,20 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     });
   }
 
-  Future<void> _cancelPayroll(String payrollId) async {
+  Future<void> _cancelPayroll(PayrollRunRecord payrollRun) async {
     final branch = _selectedBranch;
     if (branch == null) {
       return;
     }
     _logCompensation(
       'cancel_payroll_requested',
-      details: 'branchId=${branch.branchId}, payrollId=$payrollId',
+      details: 'branchId=${branch.branchId}, payrollId=${payrollRun.id}',
     );
     await _performAction(() async {
       await _repository.cancelPayroll(
         branchId: branch.branchId,
-        payrollId: payrollId,
+        payrollId: payrollRun.id,
+        periodKey: payrollRun.periodKey,
         teamMembers: _activeTeamMembers,
       );
       await _loadPayrollData(branch.branchId);
@@ -1405,7 +1406,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                     reviewBusyAction = 'cancel_payroll';
                                   });
                                   try {
-                                    await _cancelPayroll(currentRun.id);
+                                    await _cancelPayroll(currentRun);
                                     if (screenContext.mounted) {
                                       Navigator.of(screenContext).pop();
                                     }

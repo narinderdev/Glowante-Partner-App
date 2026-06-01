@@ -845,13 +845,37 @@ class ProfileCompensationRepository {
   Future<void> cancelPayroll({
     required int branchId,
     required String payrollId,
+    String? periodKey,
     required List<ProfileTeamMember> teamMembers,
   }) async {
     final setups = await loadPayrollSetups(branchId);
-    final response = await _apiService.cancelPayroll(
+    var response = await _apiService.cancelPayroll(
       branchId: branchId,
       payrollId: payrollId,
     );
+    if (response['success'] == false &&
+        _cleanText(response['message']).toLowerCase().contains('not found') &&
+        _cleanText(periodKey).isNotEmpty) {
+      final refreshedRuns = await loadPayrollRuns(
+        branchId,
+        teamMembers: teamMembers,
+        setups: setups,
+      );
+      final refreshedRun = refreshedRuns.cast<PayrollRunRecord?>().firstWhere(
+            (run) => run?.periodKey == periodKey && run?.id != payrollId,
+            orElse: () => null,
+          );
+      if (refreshedRun != null) {
+        debugPrint(
+          '[ProfileCompensationRepository] cancelPayroll retry_with_refreshed_id | '
+          'branchId=$branchId stalePayrollId=$payrollId refreshedPayrollId=${refreshedRun.id}',
+        );
+        response = await _apiService.cancelPayroll(
+          branchId: branchId,
+          payrollId: refreshedRun.id,
+        );
+      }
+    }
     _requireSuccess(response);
     await loadPayrollRuns(
       branchId,

@@ -8,6 +8,7 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import 'bottom_nav.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -219,6 +220,13 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       if (subtext.isNotEmpty) return subtext;
     }
     return context.t("Here's what's happening at your salon today.");
+  }
+
+  void _openBookingsTab() {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 0)),
+      (route) => false,
+    );
   }
 
   List<Map<String, dynamic>> _mapList(String key) {
@@ -499,10 +507,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           data: _mapValue('todays_appointments'),
           cleanText: _cleanText,
           asInt: _asInt,
+          onOpenBookings: _openBookingsTab,
         );
         final staffCard = _StaffLiveStatusCard(
           data: _mapValue('staff_live_status'),
           cleanText: _cleanText,
+          onOpenBookings: _openBookingsTab,
         );
 
         if (!isWide) {
@@ -943,11 +953,13 @@ class _TodayAppointmentsCard extends StatelessWidget {
     required this.data,
     required this.cleanText,
     required this.asInt,
+    required this.onOpenBookings,
   });
 
   final Map<String, dynamic> data;
   final String Function(dynamic value) cleanText;
   final int Function(dynamic value) asInt;
+  final VoidCallback onOpenBookings;
 
   @override
   Widget build(BuildContext context) {
@@ -979,14 +991,24 @@ class _TodayAppointmentsCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
-                cleanText(data['cta_label']).isEmpty
-                    ? context.t('View all appointments →')
-                    : cleanText(data['cta_label']),
-                style: TextStyle(
-                  color: AppColors.starColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onOpenBookings,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    cleanText(data['cta_label']).isEmpty
+                        ? context.t('View all appointments →')
+                        : cleanText(data['cta_label']),
+                    style: TextStyle(
+                      color: AppColors.starColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1081,10 +1103,12 @@ class _StaffLiveStatusCard extends StatelessWidget {
   const _StaffLiveStatusCard({
     required this.data,
     required this.cleanText,
+    required this.onOpenBookings,
   });
 
   final Map<String, dynamic> data;
   final String Function(dynamic value) cleanText;
+  final VoidCallback onOpenBookings;
 
   @override
   Widget build(BuildContext context) {
@@ -1110,12 +1134,22 @@ class _StaffLiveStatusCard extends StatelessWidget {
                   ),
                 ),
               ),
-              Text(
-                context.t('View live status →'),
-                style: TextStyle(
-                  color: AppColors.starColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: onOpenBookings,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    context.t('View live status →'),
+                    style: TextStyle(
+                      color: AppColors.starColor,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ),
             ],
