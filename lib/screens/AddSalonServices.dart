@@ -423,6 +423,8 @@
 // }
 
 import 'dart:convert';
+// ignore_for_file: file_names
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -561,7 +563,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(translateText('Salon added successfully'))),
           );
-          Future.microtask(() => context.read<AddSalonCubit>().resetStatus());
+          context.read<AddSalonCubit>().resetStatus();
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 1)),
             (route) => false,
@@ -650,8 +652,21 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                               final branchId = (branch['id'] as num?)?.toInt();
                               final isSelected = branchId != null &&
                                   branchId == _selectedSourceBranchId;
-                              final branchName =
-                                  (branch['name'] ?? '').toString().trim();
+                              final branchName = [
+                                branch['name'],
+                                branch['branchName'],
+                                branch['displayName'],
+                                branch['title'],
+                              ]
+                                  .map(
+                                    (value) => (value ?? '').toString().trim(),
+                                  )
+                                  .firstWhere(
+                                    (value) =>
+                                        value.isNotEmpty &&
+                                        value.toLowerCase() != 'null',
+                                    orElse: () => '',
+                                  );
                               return ChoiceChip(
                                 label: Text(
                                   branchName.isEmpty
@@ -939,6 +954,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
 
     setState(() => _isSubmitting = true);
 
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final salonCubit = context.read<AddSalonCubit>();
     salonCubit.updateSelectedServiceCodes(List<String>.from(_selectedCodes));
 
@@ -949,7 +966,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           _selectedSourceBranchId,
         );
         if (!mounted) return;
-        Navigator.pop(context, true);
+        navigator.pop(true);
         return;
       }
 
@@ -973,16 +990,17 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           longitude: address.longitude,
           images: images,
           imageUrl: branch.imageUrl ?? widget.branchImageUrl,
+          imageUrls: branch.imageUrls,
           selectedCategoryCodes: _selectedCodes, // ✅ FIXED
           sourceBranchId: _selectedSourceBranchId,
         );
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text(translateText('Branch added successfully!'))),
         );
 
-        Navigator.of(context).pushAndRemoveUntil(
+        navigator.pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 1)),
           (route) => false,
         );
@@ -995,7 +1013,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
       }
     } catch (e) {
       debugPrint('❌ Failed to add branch: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text(translateText('Failed: $e'))),
       );
     } finally {

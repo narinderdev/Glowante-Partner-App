@@ -13,7 +13,6 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'AddSalonServices.dart';
 import 'set_weekly_schedule_screen.dart';
 import '../widgets/salon_flow_step_header.dart';
-import '../widgets/animated_typing_hint.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 
 class _FirstLetterUpperFormatter extends TextInputFormatter {
@@ -95,6 +94,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final _phoneController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
+  final Set<String> _removedExistingImageUrls = <String>{};
 
   Map<String, dynamic>? _asStringKeyedMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
@@ -123,6 +123,16 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return branches.first;
   }
 
+  int? _readIntValue(List<dynamic> values) {
+    for (final value in values) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      final parsed = int.tryParse((value ?? '').toString().trim());
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
   String _firstNonEmptyValue(List<dynamic> values) {
     for (final value in values) {
       final text = (value ?? '').toString().trim();
@@ -131,6 +141,99 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       }
     }
     return '';
+  }
+
+  String _cleanImageUrl(dynamic value) {
+    if (value is Map) {
+      return _firstNonEmptyValue([
+        value['url'],
+        value['imageUrl'],
+        value['publicUrl'],
+        value['cdnUrl'],
+      ]);
+    }
+    return _firstNonEmptyValue([value]);
+  }
+
+  List<String> _extractImageUrls(dynamic source) {
+    final urls = <String>[];
+    void add(dynamic value) {
+      final url = _cleanImageUrl(value);
+      if (url.isNotEmpty && !urls.contains(url)) {
+        urls.add(url);
+      }
+    }
+
+    if (source is List) {
+      for (final entry in source) {
+        add(entry);
+      }
+    } else {
+      add(source);
+    }
+
+    return urls
+        .where((url) => !_removedExistingImageUrls.contains(url))
+        .take(10)
+        .toList();
+  }
+
+  List<String> _resolveExistingImageUrls() {
+    final salon = widget.initialSalon;
+    final primaryBranch = salon == null ? null : _resolvePrimaryBranch(salon);
+    final urls = <String>[];
+    void addAll(Iterable<String> values) {
+      for (final url in values) {
+        if (url.isNotEmpty && !urls.contains(url)) {
+          urls.add(url);
+        }
+      }
+    }
+
+    if (salon != null) {
+      addAll(_extractImageUrls(salon['imageUrls']));
+      addAll(_extractImageUrls(salon['imageUrl']));
+    }
+    if (primaryBranch != null) {
+      addAll(_extractImageUrls(primaryBranch['imageUrls']));
+      addAll(_extractImageUrls(primaryBranch['imageUrl']));
+    }
+    addAll(_extractImageUrls(widget.imageUrl));
+
+    return urls.take(10).toList();
+  }
+
+  String _composeAddressLine1(AddSalonAddress address) {
+    final leadingParts = [
+      address.city.trim(),
+      address.pincode.trim(),
+    ].where((part) => part.isNotEmpty).toList();
+    final leadingPartsLower =
+        leadingParts.map((part) => part.toLowerCase()).toSet();
+    final baseParts = address.buildingName
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) =>
+            part.isNotEmpty && !leadingPartsLower.contains(part.toLowerCase()))
+        .toList();
+    return [...leadingParts, ...baseParts].join(', ');
+  }
+
+  Map<String, dynamic>? _addressPayload(AddSalonAddress? address) {
+    if (address == null) return null;
+    return {
+      'line1': _composeAddressLine1(address),
+      'line2': [
+        address.city.trim(),
+        address.pincode.trim(),
+      ].where((part) => part.isNotEmpty).join(', '),
+      'village': '',
+      'district': '',
+      'city': '',
+      'state': address.state,
+      'country': 'India',
+      'postalCode': '',
+    };
   }
 
   String _formatDisplayTime(
@@ -352,10 +455,23 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final initialSalon = widget.initialSalon;
     if (initialSalon != null) {
       final primaryBranch = _resolvePrimaryBranch(initialSalon);
-      _salonNameController.text =
-          (initialSalon['name'] ?? '').toString().trim();
+      _salonNameController.text = _firstNonEmptyValue([
+        initialSalon['name'],
+        initialSalon['salonName'],
+        initialSalon['businessName'],
+        initialSalon['displayName'],
+        initialSalon['title'],
+      ]);
       _descriptionController.text = _firstNonEmptyValue(
-          [initialSalon['description'], primaryBranch?['description']]);
+        [
+          initialSalon['description'],
+          initialSalon['salonDescription'],
+          initialSalon['about'],
+          initialSalon['details'],
+          primaryBranch?['description'],
+          primaryBranch?['branchDescription'],
+        ],
+      );
       _phoneController.text = _normalizePhone(
         _firstNonEmptyValue([
           initialSalon['phone'],
@@ -439,7 +555,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       return;
     }
 
-    final files = await _picker.pickMultiImage(limit: remainingSlots);
+    final List<XFile> files;
+    if (remainingSlots == 1) {
+      final file = await _picker.pickImage(source: ImageSource.gallery);
+      files = file == null ? <XFile>[] : <XFile>[file];
+    } else {
+      files = await _picker.pickMultiImage(limit: remainingSlots);
+    }
     if (!mounted) return;
     if (files.isEmpty) return;
     if (files.length > remainingSlots) {
@@ -462,6 +584,23 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         ),
       ),
     );
+  }
+
+  Future<List<String>> _uploadSelectedImageUrls(List<File> images) async {
+    final uploadedUrls = <String>[];
+    final uploader = AwsS3Uploader();
+
+    for (final image in images.take(10)) {
+      final result = await uploader
+          .uploadImageResult(XFile(image.path))
+          .timeout(const Duration(seconds: 45), onTimeout: () => null);
+      final url = result?.cdnUrl ?? result?.publicUrl;
+      if (url != null && url.trim().isNotEmpty) {
+        uploadedUrls.add(url.trim());
+      }
+    }
+
+    return uploadedUrls;
   }
 
   // 🟢 CHANGED: Now “complete” means we have a completeAddress (in buildingName) and coordinates
@@ -595,17 +734,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     try {
       final images = cubit.state.images;
-      String? imageUrl = _firstNonEmptyValue([
-        widget.initialSalon?['imageUrl'],
-        widget.imageUrl,
-      ]);
-      if (images.isNotEmpty) {
-        final res = await AwsS3Uploader()
-            .uploadImageResult(XFile(images.first.path))
-            .timeout(const Duration(seconds: 45), onTimeout: () => null);
-
-        imageUrl = res?.cdnUrl ?? res?.publicUrl ?? imageUrl;
-      }
+      final existingImageUrls = _resolveExistingImageUrls();
+      final existingImageUrl =
+          existingImageUrls.isEmpty ? '' : existingImageUrls.first;
 
       if (!mounted) return;
       if (widget.isEdit && widget.initialSalon != null) {
@@ -613,7 +744,69 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         if (salonId == null) {
           throw Exception('Missing salon id');
         }
-        final scheduleResult = await Navigator.push<ScheduleStepResult>(
+        Future<void> saveSalonEdit(ScheduleStepResult scheduleResult) async {
+          var imageUrl = existingImageUrl;
+          var imageUrls = List<String>.from(existingImageUrls);
+          if (images.isNotEmpty) {
+            final uploadedImageUrls = await _uploadSelectedImageUrls(images);
+            for (final uploadedUrl in uploadedImageUrls) {
+              if (!imageUrls.contains(uploadedUrl)) {
+                imageUrls.add(uploadedUrl);
+              }
+            }
+            imageUrls = imageUrls.take(10).toList();
+            if (imageUrls.isNotEmpty) imageUrl = imageUrls.first;
+          }
+          final name = _salonNameController.text.trim();
+          final phone = _normalizePhone(_phoneController.text);
+          final description = _descriptionController.text.trim();
+          final addressPayload = _addressPayload(address);
+          try {
+            await cubit.repository.updateSalon(
+              salonId: salonId,
+              name: name,
+              phone: phone,
+              startTime: scheduleResult.startTime,
+              endTime: scheduleResult.endTime,
+              description: description,
+              schedule: scheduleResult.schedule,
+              imageUrl: imageUrl,
+              imageUrls: imageUrls,
+              address: addressPayload,
+              latitude: address?.latitude,
+              longitude: address?.longitude,
+            );
+          } catch (error) {
+            final primaryBranch = _resolvePrimaryBranch(widget.initialSalon!);
+            final branchId = _readIntValue([
+              primaryBranch?['id'],
+              widget.initialSalon!['branchId'],
+              widget.initialSalon!['mainBranchId'],
+            ]);
+            final isForbidden = error.toString().contains('Forbidden') ||
+                error.toString().contains('Access denied') ||
+                error.toString().contains('403');
+            if (!isForbidden || branchId == null || addressPayload == null) {
+              rethrow;
+            }
+            await cubit.repository.updateBranch(
+              branchId: branchId,
+              name: name,
+              phone: phone,
+              startTime: scheduleResult.startTime,
+              endTime: scheduleResult.endTime,
+              description: description,
+              schedule: scheduleResult.schedule,
+              address: addressPayload,
+              latitude: address?.latitude ?? 0,
+              longitude: address?.longitude ?? 0,
+              imageUrl: imageUrl,
+              imageUrls: imageUrls,
+            );
+          }
+        }
+
+        final saved = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (_) => SetWeeklyScheduleScreen(
@@ -623,34 +816,11 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               initialSchedule: _extractInitialSchedule(widget.initialSalon),
               totalSteps: 2,
               submitLabel: 'Save',
+              onSubmit: saveSalonEdit,
             ),
           ),
         );
-        if (!mounted || scheduleResult == null) return;
-        await cubit.repository.updateSalon(
-          salonId: salonId,
-          name: _salonNameController.text.trim(),
-          phone: _normalizePhone(_phoneController.text),
-          startTime: scheduleResult.startTime,
-          endTime: scheduleResult.endTime,
-          description: _descriptionController.text.trim(),
-          schedule: scheduleResult.schedule,
-          imageUrl: imageUrl,
-          address: address == null
-              ? null
-              : {
-                  'line1': address.buildingName,
-                  'line2': address.city,
-                  'village': '',
-                  'district': '',
-                  'city': '',
-                  'state': address.state,
-                  'country': 'India',
-                  'postalCode': address.pincode,
-                },
-          latitude: address?.latitude,
-          longitude: address?.longitude,
-        );
+        if (!mounted || saved != true) return;
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -668,7 +838,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         endTime: _endTimeController.text.trim(),
         description: _descriptionController.text.trim(),
         schedule: const <String, List<Map<String, String>>>{},
-        imageUrl: imageUrl,
+        imageUrl: existingImageUrl.isEmpty ? null : existingImageUrl,
       );
 
       if (!mounted) return;
@@ -701,6 +871,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                 description: formData.description,
                 schedule: scheduleResult.schedule,
                 imageUrl: formData.imageUrl,
+                imageUrls: formData.imageUrls,
               ),
             ),
           ),
@@ -746,10 +917,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       builder: (context, state) {
         final images = state.images;
         final address = state.address;
-        final existingImageUrl = _firstNonEmptyValue([
-          widget.initialSalon?['imageUrl'],
-          widget.imageUrl,
-        ]);
+        final existingImageUrls = _resolveExistingImageUrls();
 
         return Scaffold(
           backgroundColor: const Color(0xFFFBFAF8),
@@ -795,6 +963,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               textCapitalization: TextCapitalization.sentences,
                               label: 'Salon Name *',
                               hint: 'Enter your business name',
+                              enabled: true,
                               maxLength: 50,
                               inputFormatters: const [
                                 _FirstLetterUpperFormatter()
@@ -840,12 +1009,11 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                             _buildAddressField(address, state),
                             _buildTextField(
                               controller: _descriptionController,
-                              keyboardType: TextInputType.multiline,
+                              keyboardType: TextInputType.text,
                               textCapitalization: TextCapitalization.sentences,
                               label: 'Description *',
-                              hint:
-                                  "Tell us about your salon's unique experience...",
-                              maxLines: 4,
+                              hint: "Tell us more...",
+                              maxLines: 1,
                               maxLength: 250,
                               inputFormatters: const [
                                 _FirstLetterUpperFormatter()
@@ -880,7 +1048,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               ),
                             ),
                             const SizedBox(height: 18),
-                            _buildImageGrid(images, existingImageUrl),
+                            _buildImageGrid(images, existingImageUrls),
                           ],
                         ),
                       ),
@@ -1099,15 +1267,19 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     );
   }
 
-  Widget _buildImageGrid(List<File> images, String existingImageUrl) {
+  Widget _buildImageGrid(List<File> images, List<String> existingImageUrls) {
     final slots = <Widget>[];
     final selectedImages = images.take(10).toList();
-    final canAddMore = selectedImages.length < 10;
+    final visibleExistingUrls = images.isEmpty
+        ? existingImageUrls.take(10).toList()
+        : existingImageUrls.take(10 - selectedImages.length).toList();
+    final visibleItemCount = visibleExistingUrls.length + selectedImages.length;
+    final canAddMore = visibleItemCount < 10;
 
     slots.add(_buildImageSlot(isAddSlot: true, isEnabled: canAddMore));
 
-    if (images.isEmpty && existingImageUrl.isNotEmpty) {
-      slots.add(_buildImageSlot(networkUrl: existingImageUrl));
+    for (final url in visibleExistingUrls) {
+      slots.add(_buildImageSlot(networkUrl: url));
     }
     for (final image in selectedImages) {
       slots.add(_buildImageSlot(file: image));
@@ -1157,13 +1329,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                       Image.file(file, fit: BoxFit.cover)
                     else
                       Image.network(networkUrl!, fit: BoxFit.cover),
-                    if (file != null)
+                    if (file != null || networkUrl != null)
                       Positioned(
                         top: 6,
                         right: 6,
                         child: GestureDetector(
-                          onTap: () =>
-                              context.read<AddSalonCubit>().removeImage(file),
+                          onTap: () {
+                            if (file != null) {
+                              context.read<AddSalonCubit>().removeImage(file);
+                              return;
+                            }
+                            final url = networkUrl;
+                            if (url == null) return;
+                            setState(() {
+                              _removedExistingImageUrls.add(url);
+                            });
+                          },
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
@@ -1369,35 +1550,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     );
   }
 
-  List<String> _animatedHintsForField({
-    required String label,
-    required String hint,
-  }) {
-    final lowerLabel = label.toLowerCase();
-    if (lowerLabel.contains('salon name')) {
-      return [
-        hint,
-        translateText('Glowante Studio'),
-        translateText('Pearl Beauty Lounge'),
-      ];
-    }
-    if (lowerLabel.contains('description')) {
-      return [
-        hint,
-        translateText('Premium beauty services with expert care...'),
-        translateText('A relaxing salon experience for every client...'),
-      ];
-    }
-    if (lowerLabel.contains('phone') || lowerLabel.contains('mobile')) {
-      return [
-        hint,
-        '9876543210',
-        '9855096207',
-      ];
-    }
-    return [hint];
-  }
-
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -1424,10 +1576,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         translatedHint != normalizedHint ? translatedHint : normalizedHint;
 
     final String cleanLabel = localizedLabel.trim();
-    final animatedHints = _animatedHintsForField(
-      label: cleanLabel,
-      hint: localizedHint,
-    );
 
     if (forceCapitalize) {
       controller.addListener(() {
@@ -1454,160 +1602,135 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFieldLabel(label),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              final hasText = value.text.isNotEmpty;
-              final showInlineCounter = maxLength != null && enabled;
-              final leftInset = prefixText == null ? 16.0 : 64.0;
-              final rightInset = showInlineCounter ? 74.0 : 16.0;
-              final hint = IgnorePointer(
-                child: AnimatedTypingHint(
-                  hints: animatedHints,
-                  maxLines: maxLines,
-                  style: const TextStyle(
-                    color: Color(0xFF948C84),
-                    fontSize: 13,
-                    height: 1.6,
-                  ),
-                ),
-              );
+          TextFormField(
+            controller: controller,
+            maxLines: maxLines,
+            maxLength: maxLength,
+            enabled: enabled,
+            readOnly: false,
+            showCursor: true,
+            cursorColor: const Color(0xFF7A4A09),
+            cursorWidth: 1.6,
+            style: const TextStyle(
+              color: Color(0xFF201A16),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+            textCapitalization: textCapitalization,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            autovalidateMode: _submitted
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            validator: (value) {
+              final text = value?.trim() ?? '';
 
-              return Stack(
-                children: [
-                  TextFormField(
-                    controller: controller,
-                    maxLines: maxLines,
-                    maxLength: maxLength,
-                    enabled: enabled,
-                    textCapitalization: textCapitalization,
-                    keyboardType: keyboardType,
-                    inputFormatters: inputFormatters,
-                    autovalidateMode: _submitted
-                        ? AutovalidateMode.always
-                        : AutovalidateMode.disabled,
-                    validator: (value) {
-                      final text = value?.trim() ?? '';
+              if (text.isEmpty) {
+                return translateText('{field} is required')
+                    .replaceAll('{field}', cleanLabel);
+              }
 
-                      if (text.isEmpty) {
-                        return translateText('{field} is required')
-                            .replaceAll('{field}', cleanLabel);
-                      }
+              if (label.toLowerCase().contains('phone') ||
+                  label.toLowerCase().contains('mobile')) {
+                if (text.length != 10) {
+                  return translateText('Phone number must be 10 digits');
+                }
+                if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
+                  return translateText('Invalid phone number');
+                }
+              }
 
-                      if (label.toLowerCase().contains('phone') ||
-                          label.toLowerCase().contains('mobile')) {
-                        if (text.length != 10) {
-                          return translateText(
-                              'Phone number must be 10 digits');
-                        }
-                        if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
-                          return translateText('Invalid phone number');
-                        }
-                      }
+              if (maxWords != null &&
+                  text.split(RegExp(r'\s+')).length > maxWords) {
+                return translateText('Maximum $maxWords words allowed');
+              }
 
-                      if (maxWords != null &&
-                          text.split(RegExp(r'\s+')).length > maxWords) {
-                        return translateText('Maximum $maxWords words allowed');
-                      }
-
-                      return null;
-                    },
-                    decoration: InputDecoration(
-                      counterText: '',
-                      suffixIcon: showInlineCounter
-                          ? Padding(
-                              padding:
-                                  const EdgeInsets.only(right: 10, bottom: 2),
-                              child: Align(
-                                alignment: Alignment.bottomRight,
-                                child: Text(
-                                  '${value.text.length} / $maxLength',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF8A8178),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : null,
-                      suffixIconConstraints: showInlineCounter
-                          ? const BoxConstraints(minWidth: 62, minHeight: 28)
-                          : null,
-                      prefixIcon: prefixText == null
-                          ? null
-                          : Container(
-                              width: 48,
-                              alignment: Alignment.center,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Color(0xFFE4DDD8)),
-                                ),
-                              ),
-                              child: Text(
-                                prefixText,
-                                style: const TextStyle(
-                                  color: Color(0xFF5B5149),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                      filled: true,
-                      fillColor: const Color(0xFFF6F3F2),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(
-                          color: Color(0xFFD1A24A),
-                          width: 1.2,
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderSide:
-                            const BorderSide(color: AppColors.red, width: 1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderSide:
-                            const BorderSide(color: AppColors.red, width: 1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      errorStyle: const TextStyle(color: AppColors.red),
-                    ),
-                  ),
-                  if (!hasText && enabled && maxLines == 1)
-                    Positioned.fill(
-                      left: leftInset,
-                      right: rightInset,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: hint,
-                      ),
-                    )
-                  else if (!hasText && enabled)
-                    Positioned(
-                      left: leftInset,
-                      right: rightInset,
-                      top: 13,
-                      child: hint,
-                    ),
-                ],
-              );
+              return null;
             },
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: localizedHint,
+              hintStyle: const TextStyle(
+                color: Color(0xFF948C84),
+                fontSize: 13,
+                height: 1.6,
+              ),
+              prefixIcon: prefixText == null
+                  ? null
+                  : Container(
+                      width: 48,
+                      alignment: Alignment.center,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          right: BorderSide(color: Color(0xFFE4DDD8)),
+                        ),
+                      ),
+                      child: Text(
+                        prefixText,
+                        style: const TextStyle(
+                          color: Color(0xFF5B5149),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+              filled: true,
+              fillColor: enabled ? Colors.white : const Color(0xFFF1EEEE),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(
+                  color: Color(0xFFD1A24A),
+                  width: 1.2,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorStyle: const TextStyle(color: AppColors.red),
+            ),
           ),
+          if (maxLength != null)
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${value.text.length} / $maxLength',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF8A8178),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

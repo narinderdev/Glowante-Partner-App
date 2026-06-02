@@ -25,6 +25,7 @@ class SetWeeklyScheduleScreen extends StatefulWidget {
     this.initialSchedule,
     this.totalSteps = 3,
     this.submitLabel,
+    this.onSubmit,
   });
 
   final String detailsStepLabel;
@@ -33,6 +34,7 @@ class SetWeeklyScheduleScreen extends StatefulWidget {
   final Map<String, List<Map<String, String>>>? initialSchedule;
   final int totalSteps;
   final String? submitLabel;
+  final Future<void> Function(ScheduleStepResult result)? onSubmit;
 
   @override
   State<SetWeeklyScheduleScreen> createState() =>
@@ -52,6 +54,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
 
   late final Map<String, _DayScheduleConfig> _scheduleByDay;
   bool _copyMondayToAll = false;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -170,7 +173,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _submit,
+                      onPressed: _isSubmitting ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 17),
                         backgroundColor: const Color(0xFF8B6500),
@@ -184,22 +187,33 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Flexible(
-                            child: Text(
-                              translateText(
-                                widget.submitLabel ??
-                                    (widget.totalSteps == 2
-                                        ? 'Save'
-                                        : 'Save & Continue'),
+                          if (_isSubmitting)
+                            const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
                               ),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
+                            )
+                          else ...[
+                            Flexible(
+                              child: Text(
+                                translateText(
+                                  widget.submitLabel ??
+                                      (widget.totalSteps == 2
+                                          ? 'Save'
+                                          : 'Save & Continue'),
+                                ),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward_rounded, size: 20),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_rounded, size: 20),
+                          ],
                         ],
                       ),
                     ),
@@ -457,7 +471,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     }
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final openDays = _scheduleByDay.entries
         .where((entry) => !entry.value.isClosed)
         .toList(growable: false);
@@ -518,14 +532,31 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       ];
     }
 
-    Navigator.pop(
-      context,
-      ScheduleStepResult(
-        startTime: _minutesToApiTime(overallStartMinutes),
-        endTime: _minutesToApiTime(overallEndMinutes),
-        schedule: schedule,
-      ),
+    final result = ScheduleStepResult(
+      startTime: _minutesToApiTime(overallStartMinutes),
+      endTime: _minutesToApiTime(overallEndMinutes),
+      schedule: schedule,
     );
+
+    final onSubmit = widget.onSubmit;
+    if (onSubmit == null) {
+      Navigator.pop(context, result);
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    try {
+      await onSubmit(result);
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Failed: $error'))),
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   String _capitalize(String value) =>

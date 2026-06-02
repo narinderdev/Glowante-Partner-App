@@ -68,9 +68,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   final _descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
-  bool _isNextLoading = false;
   List<Map<String, dynamic>> _sourceBranches = const [];
-  String? _existingImageUrl;
+  List<String> _existingImageUrls = const <String>[];
   final Map<_BranchField, bool> _fieldValidationVisibility = {
     for (final field in _BranchField.values) field: false,
   };
@@ -93,6 +92,38 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       }
     }
     return '';
+  }
+
+  String _cleanImageUrl(dynamic value) {
+    if (value is Map) {
+      return _firstNonEmptyValue([
+        value['url'],
+        value['imageUrl'],
+        value['publicUrl'],
+        value['cdnUrl'],
+      ]);
+    }
+    return _firstNonEmptyValue([value]);
+  }
+
+  List<String> _extractImageUrls(dynamic source) {
+    final urls = <String>[];
+    void add(dynamic value) {
+      final url = _cleanImageUrl(value);
+      if (url.isNotEmpty && !urls.contains(url)) {
+        urls.add(url);
+      }
+    }
+
+    if (source is List) {
+      for (final entry in source) {
+        add(entry);
+      }
+    } else {
+      add(source);
+    }
+
+    return urls.take(10).toList();
   }
 
   String _formatDisplayTime(
@@ -278,8 +309,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     _endTimeController.text = "08:00 PM";
     final initialBranch = widget.initialBranch;
     if (initialBranch != null) {
-      _branchNameController.text =
-          (initialBranch['name'] ?? '').toString().trim();
+      _branchNameController.text = _firstNonEmptyValue([
+        initialBranch['name'],
+        initialBranch['branchName'],
+        initialBranch['displayName'],
+        initialBranch['title'],
+      ]);
       _phoneController.text = _normalizePhone(
         _firstNonEmptyValue([
           initialBranch['phone'],
@@ -287,8 +322,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           initialBranch['contactNumber'],
         ]),
       );
-      _descriptionController.text =
-          (initialBranch['description'] ?? '').toString().trim();
+      _descriptionController.text = _firstNonEmptyValue([
+        initialBranch['description'],
+        initialBranch['branchDescription'],
+        initialBranch['about'],
+        initialBranch['details'],
+      ]);
       final startTime = _firstNonEmptyValue([initialBranch['startTime']]);
       final endTime = _firstNonEmptyValue([initialBranch['endTime']]);
       if (startTime.isNotEmpty) {
@@ -303,10 +342,16 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           fallback: _endTimeController.text,
         );
       }
-      final imageUrl = (initialBranch['imageUrl'] ?? '').toString().trim();
-      if (imageUrl.isNotEmpty) {
-        _existingImageUrl = imageUrl;
-      }
+      _existingImageUrls = [
+        ..._extractImageUrls(initialBranch['imageUrls']),
+        ..._extractImageUrls(initialBranch['imageUrl']),
+      ]
+          .fold<List<String>>(
+            <String>[],
+            (urls, url) => urls.contains(url) ? urls : (urls..add(url)),
+          )
+          .take(10)
+          .toList();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AddBranchCubit>().loadSavedPhone();
@@ -340,7 +385,13 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       return;
     }
 
-    final files = await _picker.pickMultiImage(limit: remainingSlots);
+    final List<XFile> files;
+    if (remainingSlots == 1) {
+      final file = await _picker.pickImage(source: ImageSource.gallery);
+      files = file == null ? <XFile>[] : <XFile>[file];
+    } else {
+      files = await _picker.pickMultiImage(limit: remainingSlots);
+    }
     if (!mounted) return;
     if (files.isEmpty) return;
     if (files.length > remainingSlots) {
@@ -363,6 +414,23 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         ),
       ),
     );
+  }
+
+  Future<List<String>> _uploadSelectedImageUrls(List<File> images) async {
+    final uploadedUrls = <String>[];
+    final uploader = AwsS3Uploader();
+
+    for (final image in images.take(10)) {
+      final result = await uploader
+          .uploadImageResult(XFile(image.path))
+          .timeout(const Duration(seconds: 45), onTimeout: () => null);
+      final url = result?.cdnUrl ?? result?.publicUrl;
+      if (url != null && url.trim().isNotEmpty) {
+        uploadedUrls.add(url.trim());
+      }
+    }
+
+    return uploadedUrls;
   }
 
   Future<void> _loadSourceBranches() async {
@@ -512,35 +580,11 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     FocusScope.of(context).unfocus();
 
+    final branchCubit = context.read<AddBranchCubit>();
     final images = state.images;
-    String? imageUrl = _existingImageUrl;
-
-    if (images.isNotEmpty) {
-      setState(() => _isNextLoading = true);
-      try {
-        final result = await AwsS3Uploader()
-            .uploadImageResult(XFile(images.first.path))
-            .timeout(const Duration(seconds: 45), onTimeout: () => null);
-        imageUrl = result?.cdnUrl ?? result?.publicUrl;
-      } catch (error, stack) {
-        debugPrint('❌ Branch image upload failed: $error');
-        debugPrintStack(stackTrace: stack);
-        if (mounted) {
-          scaffoldMessenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                translateText(
-                    'Unable to upload branch image right now. We will retry on submit.'),
-              ),
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() => _isNextLoading = false);
-        }
-      }
-    }
+    final existingImageUrls = List<String>.from(_existingImageUrls);
+    final existingImageUrl =
+        existingImageUrls.isEmpty ? '' : existingImageUrls.first;
 
     if (!mounted) return;
 
@@ -552,7 +596,36 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         );
         return;
       }
-      final scheduleResult = await Navigator.push<ScheduleStepResult>(
+      Future<void> saveBranchEdit(ScheduleStepResult scheduleResult) async {
+        var imageUrl = existingImageUrl;
+        var imageUrls = List<String>.from(existingImageUrls);
+        if (images.isNotEmpty) {
+          final uploadedImageUrls = await _uploadSelectedImageUrls(images);
+          for (final uploadedUrl in uploadedImageUrls) {
+            if (!imageUrls.contains(uploadedUrl)) {
+              imageUrls.add(uploadedUrl);
+            }
+          }
+          imageUrls = imageUrls.take(10).toList();
+          if (imageUrls.isNotEmpty) imageUrl = imageUrls.first;
+        }
+        await branchCubit.repository.updateBranch(
+          branchId: branchId,
+          name: _branchNameController.text.trim(),
+          phone: _normalizePhone(_phoneController.text),
+          startTime: scheduleResult.startTime,
+          endTime: scheduleResult.endTime,
+          description: _descriptionController.text.trim(),
+          schedule: scheduleResult.schedule,
+          address: state.address!.toJson(),
+          latitude: state.address!.latitude,
+          longitude: state.address!.longitude,
+          imageUrl: imageUrl,
+          imageUrls: imageUrls,
+        );
+      }
+
+      final saved = await Navigator.push<bool>(
         context,
         MaterialPageRoute(
           builder: (_) => SetWeeklyScheduleScreen(
@@ -562,23 +635,11 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
             initialSchedule: _extractInitialSchedule(widget.initialBranch),
             totalSteps: 2,
             submitLabel: 'Save',
+            onSubmit: saveBranchEdit,
           ),
         ),
       );
-      if (!mounted || scheduleResult == null) return;
-      await context.read<AddBranchCubit>().repository.updateBranch(
-            branchId: branchId,
-            name: _branchNameController.text.trim(),
-            phone: _normalizePhone(_phoneController.text),
-            startTime: scheduleResult.startTime,
-            endTime: scheduleResult.endTime,
-            description: _descriptionController.text.trim(),
-            schedule: scheduleResult.schedule,
-            address: state.address!.toJson(),
-            latitude: state.address!.latitude,
-            longitude: state.address!.longitude,
-            imageUrl: imageUrl,
-          );
+      if (!mounted || saved != true) return;
 
       if (!mounted) return;
       scaffoldMessenger.showSnackBar(
@@ -595,7 +656,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       endTime: _endTimeController.text.trim(),
       description: _descriptionController.text.trim(),
       schedule: const <String, List<Map<String, String>>>{},
-      imageUrl: imageUrl,
+      imageUrl: null,
     );
 
     if (!mounted) return;
@@ -635,11 +696,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
               description: branchFormData.description,
               schedule: scheduleResult.schedule,
               imageUrl: branchFormData.imageUrl,
+              imageUrls: branchFormData.imageUrls,
             ),
             branchAddress: state.address!,
             branchImages: images,
             salonId: widget.salonId,
-            branchImageUrl: imageUrl,
+            branchImageUrl: branchFormData.imageUrl,
             sourceBranches: _sourceBranches,
           ),
         ),
@@ -729,6 +791,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               controller: _branchNameController,
                               label: 'Branch Name *',
                               hint: 'Enter branch name',
+                              enabled: true,
                               keyboardType: TextInputType.text,
                               textCapitalization: TextCapitalization.sentences,
                               maxLength: 50,
@@ -742,11 +805,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               label: 'Phone Number *',
                               hint: '9855096207',
                               maxLength: 10,
-                              enabled: false,
-                              keyboardType: TextInputType.number,
+                              enabled: true,
+                              keyboardType: TextInputType.phone,
                               prefixText: '+91',
                               inputFormatters: [
                                 FilteringTextInputFormatter.digitsOnly,
+                                LengthLimitingTextInputFormatter(10),
                               ],
                             ),
                             if (widget.isEdit) ...[
@@ -784,11 +848,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               field: _BranchField.description,
                               controller: _descriptionController,
                               label: 'Description *',
-                              hint:
-                                  "Tell us about this branch's unique experience...",
-                              maxLines: 4,
+                              hint: "Tell us more...",
+                              maxLines: 1,
                               maxLength: 250,
-                              keyboardType: TextInputType.multiline,
+                              keyboardType: TextInputType.text,
                               textCapitalization: TextCapitalization.sentences,
                               inputFormatters: const [
                                 _FirstLetterUpperFormatter()
@@ -825,7 +888,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                             const SizedBox(height: 18),
                             _buildImageGrid(
                               images,
-                              _existingImageUrl?.trim() ?? '',
+                              _existingImageUrls,
                             ),
                           ],
                         ),
@@ -835,9 +898,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                         width: double.infinity,
                         height: 52,
                         child: ElevatedButton(
-                          onPressed: (state.isSubmitting || _isNextLoading)
-                              ? null
-                              : () => _submit(state),
+                          onPressed:
+                              state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.starColor,
                             foregroundColor: AppColors.white,
@@ -845,7 +907,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: (state.isSubmitting || _isNextLoading)
+                          child: state.isSubmitting
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
@@ -1059,15 +1121,19 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     );
   }
 
-  Widget _buildImageGrid(List<File> images, String existingImageUrl) {
+  Widget _buildImageGrid(List<File> images, List<String> existingImageUrls) {
     final slots = <Widget>[];
     final selectedImages = images.take(10).toList();
-    final canAddMore = selectedImages.length < 10;
+    final visibleExistingUrls = images.isEmpty
+        ? existingImageUrls.take(10).toList()
+        : existingImageUrls.take(10 - selectedImages.length).toList();
+    final visibleItemCount = visibleExistingUrls.length + selectedImages.length;
+    final canAddMore = visibleItemCount < 10;
 
     slots.add(_buildImageSlot(isAddSlot: true, isEnabled: canAddMore));
 
-    if (images.isEmpty && existingImageUrl.isNotEmpty) {
-      slots.add(_buildImageSlot(networkUrl: existingImageUrl));
+    for (final url in visibleExistingUrls) {
+      slots.add(_buildImageSlot(networkUrl: url));
     }
     for (final image in selectedImages) {
       slots.add(_buildImageSlot(file: image));
@@ -1116,13 +1182,24 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       Image.file(file, fit: BoxFit.cover)
                     else
                       Image.network(networkUrl!, fit: BoxFit.cover),
-                    if (file != null)
+                    if (file != null || networkUrl != null)
                       Positioned(
                         top: 6,
                         right: 6,
                         child: GestureDetector(
-                          onTap: () =>
-                              context.read<AddBranchCubit>().removeImage(file),
+                          onTap: () {
+                            if (file != null) {
+                              context.read<AddBranchCubit>().removeImage(file);
+                              return;
+                            }
+                            final url = networkUrl;
+                            if (url == null) return;
+                            setState(() {
+                              _existingImageUrls = _existingImageUrls
+                                  .where((existingUrl) => existingUrl != url)
+                                  .toList();
+                            });
+                          },
                           child: Container(
                             padding: const EdgeInsets.all(4),
                             decoration: const BoxDecoration(
@@ -1211,121 +1288,120 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFieldLabel(label),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              final showInlineCounter = maxLength != null && enabled;
-              return TextFormField(
-                controller: controller,
-                maxLines: maxLines,
-                maxLength: maxLength,
-                enabled: enabled,
-                keyboardType: keyboardType,
-                inputFormatters: inputFormatters,
-                textCapitalization: textCapitalization,
-                autovalidateMode: _submitted
-                    ? AutovalidateMode.always
-                    : AutovalidateMode.disabled,
-                onChanged: (changedValue) {
-                  _resetFieldError(field);
-                  onChanged?.call(changedValue);
-                },
-                validator: (inputValue) {
-                  if (!(_fieldValidationVisibility[field] ?? false)) {
-                    return null;
-                  }
-                  if (isRequired &&
-                      (inputValue == null || inputValue.trim().isEmpty)) {
-                    return translateText('{field} is required',
-                        params: {'field': fieldForMessage});
-                  }
-                  return null;
-                },
-                decoration: InputDecoration(
-                  counterText: '',
-                  suffixIcon: showInlineCounter
-                      ? Padding(
-                          padding:
-                              const EdgeInsets.only(right: 10, bottom: 2),
-                          child: Align(
-                            alignment: Alignment.bottomRight,
-                            child: Text(
-                              '${value.text.length} / $maxLength',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF8A8178),
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        )
-                      : null,
-                  suffixIconConstraints: showInlineCounter
-                      ? const BoxConstraints(minWidth: 62, minHeight: 28)
-                      : null,
-                  prefixIcon: prefixText == null
-                      ? null
-                      : Container(
-                          width: 48,
-                          alignment: Alignment.center,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              right: BorderSide(color: Color(0xFFE4DDD8)),
-                            ),
-                          ),
-                          child: Text(
-                            prefixText,
-                            style: const TextStyle(
-                              color: Color(0xFF5B5149),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                  hintText: localizedHint,
-                  hintStyle: const TextStyle(
-                    color: Color(0xFF948C84),
-                    fontSize: 13,
-                  ),
-                  filled: true,
-                  fillColor: enabled
-                      ? const Color(0xFFF6F3F2)
-                      : const Color(0xFFF1EEEE),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide:
-                        const BorderSide(color: Color(0xFFD1A24A), width: 1.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  disabledBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  errorBorder: OutlineInputBorder(
-                    borderSide:
-                        const BorderSide(color: AppColors.red, width: 1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  focusedErrorBorder: OutlineInputBorder(
-                    borderSide:
-                        const BorderSide(color: AppColors.red, width: 1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  errorStyle: const TextStyle(color: AppColors.red),
-                ),
-              );
+          TextFormField(
+            controller: controller,
+            maxLines: maxLines,
+            maxLength: maxLength,
+            enabled: enabled,
+            readOnly: false,
+            showCursor: true,
+            cursorColor: const Color(0xFF7A4A09),
+            cursorWidth: 1.6,
+            style: const TextStyle(
+              color: Color(0xFF201A16),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            textCapitalization: textCapitalization,
+            autovalidateMode: _submitted
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            onChanged: (changedValue) {
+              _resetFieldError(field);
+              onChanged?.call(changedValue);
             },
+            validator: (inputValue) {
+              if (!(_fieldValidationVisibility[field] ?? false)) {
+                return null;
+              }
+              if (isRequired &&
+                  (inputValue == null || inputValue.trim().isEmpty)) {
+                return translateText('{field} is required',
+                    params: {'field': fieldForMessage});
+              }
+              return null;
+            },
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: localizedHint,
+              hintStyle: const TextStyle(
+                color: Color(0xFF948C84),
+                fontSize: 13,
+              ),
+              prefixIcon: prefixText == null
+                  ? null
+                  : Container(
+                      width: 48,
+                      alignment: Alignment.center,
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          right: BorderSide(color: Color(0xFFE4DDD8)),
+                        ),
+                      ),
+                      child: Text(
+                        prefixText,
+                        style: const TextStyle(
+                          color: Color(0xFF5B5149),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+              filled: true,
+              fillColor: enabled ? Colors.white : const Color(0xFFF1EEEE),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide:
+                    const BorderSide(color: Color(0xFFD1A24A), width: 1.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorStyle: const TextStyle(color: AppColors.red),
+            ),
           ),
+          if (maxLength != null)
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      '${value.text.length} / $maxLength',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF8A8178),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

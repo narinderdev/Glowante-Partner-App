@@ -303,6 +303,7 @@ class SalonsScreenState extends State<SalonsScreen> {
   }
 
   Future<void> _deleteSalon(int salonId) async {
+    final repository = context.read<SalonRepository>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -329,7 +330,7 @@ class SalonsScreenState extends State<SalonsScreen> {
 
     try {
       debugPrint('[SalonAction] Delete salon -> salonId=$salonId');
-      await context.read<SalonRepository>().deleteSalon(salonId);
+      await repository.deleteSalon(salonId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(translateText('Salon deleted successfully'))),
@@ -431,6 +432,7 @@ class SalonsScreenState extends State<SalonsScreen> {
   }
 
   Future<void> _deleteBranch(int branchId) async {
+    final repository = context.read<SalonRepository>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -457,7 +459,7 @@ class SalonsScreenState extends State<SalonsScreen> {
 
     try {
       debugPrint('[BranchAction] Delete branch -> branchId=$branchId');
-      await context.read<SalonRepository>().deleteBranch(branchId);
+      await repository.deleteBranch(branchId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(translateText('Branch deleted successfully'))),
@@ -1189,12 +1191,26 @@ class _SalonCard extends StatelessWidget {
   Widget _heroImage(String? imageUrl) {
     final usableImageUrl = _usableSalonImageUrl(imageUrl);
     if (usableImageUrl == null) return _localHeroImage();
-    return Image.network(
-      usableImageUrl,
+    return SizedBox(
       height: 154,
       width: double.infinity,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _localHeroImage(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            usableImageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _localHeroImage(),
+          ),
+          Container(color: Colors.white.withValues(alpha: 0.18)),
+          Image.network(
+            usableImageUrl,
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            errorBuilder: (_, __, ___) => _localHeroImage(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1225,8 +1241,7 @@ class _SalonCard extends StatelessWidget {
     final url = imageUrl?.trim() ?? '';
     if (url.isEmpty) return null;
     final lowerUrl = url.toLowerCase();
-    if (lowerUrl.contains('/uploads/public/') ||
-        lowerUrl.contains('image_picker')) {
+    if (lowerUrl.contains('image_picker')) {
       return null;
     }
     return url;
@@ -1825,32 +1840,38 @@ class _AutoSlidingHeroImageState extends State<_AutoSlidingHeroImage> {
               if (!mounted) return;
               setState(() => _currentPage = index);
             },
-            itemBuilder: (_, index) => widget.imageBuilder(widget.imageUrls[index]),
+            itemBuilder: (_, index) =>
+                widget.imageBuilder(widget.imageUrls[index]),
           ),
           Positioned(
             bottom: 8,
             left: 0,
             right: 0,
             child: Center(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  child: Text(
-                    '${_currentPage + 1}/${widget.imageUrls.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(widget.imageUrls.length, (index) {
+                  final isActive = index == _currentPage;
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: isActive ? 14 : 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(
+                        alpha: isActive ? 1 : 0.78,
+                      ),
+                      borderRadius: BorderRadius.circular(999),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
                     ),
-                  ),
-                ),
+                  );
+                }),
               ),
             ),
           ),
@@ -2016,8 +2037,7 @@ class _BranchTile extends StatefulWidget {
     this.onDelete,
     this.hideViewButton = false,
     this.hideTitle = false,
-    Key? key,
-  }) : super(key: key);
+  });
 
   final Map<String, dynamic> branch;
   final Future<void> Function()? onOpen;
@@ -2100,10 +2120,12 @@ class _BranchTileState extends State<_BranchTile> {
         .toString()
         .trim();
     final isActive = branch['active'] != false;
-// ? decide the left title for this tile
-
-// ADD this instead:
-    final String title = (branch['name'] ?? '').toString().trim();
+    final String title = [
+      branch['name'],
+      branch['branchName'],
+      branch['displayName'],
+      branch['title'],
+    ].map(_cleanText).firstWhere((value) => value.isNotEmpty, orElse: () => '');
     final bool showTitle = !widget.hideTitle && title.isNotEmpty;
 
     return InkWell(

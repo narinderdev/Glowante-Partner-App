@@ -15,6 +15,7 @@ class AddBranchFormData {
     required this.description,
     required this.schedule,
     this.imageUrl,
+    this.imageUrls = const <String>[],
     this.sourceBranchId,
   });
 
@@ -25,6 +26,7 @@ class AddBranchFormData {
   final String description;
   final Map<String, List<Map<String, String>>> schedule;
   final String? imageUrl;
+  final List<String> imageUrls;
   final int? sourceBranchId;
 }
 
@@ -112,6 +114,7 @@ class AddBranchCubit extends Cubit<AddBranchState> {
         longitude: address.longitude,
         images: state.images,
         imageUrl: formData.imageUrl,
+        imageUrls: formData.imageUrls,
         sourceBranchId: formData.sourceBranchId,
       );
 

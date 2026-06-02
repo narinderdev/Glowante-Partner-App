@@ -22,15 +22,30 @@ class BranchAddress {
   final double longitude;
 
   Map<String, dynamic> toJson() {
+    final leadingParts = [
+      city.trim(),
+      pincode.trim(),
+    ].where((part) => part.isNotEmpty).toList();
+    final leadingPartsLower =
+        leadingParts.map((part) => part.toLowerCase()).toSet();
+    final baseParts = buildingName
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) =>
+            part.isNotEmpty && !leadingPartsLower.contains(part.toLowerCase()))
+        .toList();
     return {
-      'line1': buildingName,
-      'line2': '',
+      'line1': [...leadingParts, ...baseParts].join(', '),
+      'line2': [
+        city.trim(),
+        pincode.trim(),
+      ].where((part) => part.isNotEmpty).join(', '),
       'village': '',
       'district': '',
-      'city': city,
+      'city': '',
       'state': state,
       'country': 'India',
-      'postalCode': pincode,
+      'postalCode': '',
     };
   }
 }

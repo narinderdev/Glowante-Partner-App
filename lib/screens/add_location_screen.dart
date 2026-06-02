@@ -1724,7 +1724,15 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
     if (baseAddress.isEmpty) return extraParts.join(', ');
     if (extraParts.isEmpty) return baseAddress;
-    return '$baseAddress, ${extraParts.join(', ')}';
+    final extraPartsLower =
+        extraParts.map((part) => part.toLowerCase()).toSet();
+    final baseParts = baseAddress
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) =>
+            part.isNotEmpty && !extraPartsLower.contains(part.toLowerCase()))
+        .toList();
+    return [...extraParts, ...baseParts].join(', ');
   }
 
   Widget _buildCompleteAddressInfo() {

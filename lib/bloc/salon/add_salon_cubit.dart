@@ -16,6 +16,7 @@ class AddSalonFormData {
     required this.description,
     required this.schedule,
     this.imageUrl,
+    this.imageUrls = const <String>[],
   });
 
   final String name;
@@ -25,6 +26,7 @@ class AddSalonFormData {
   final String description;
   final Map<String, List<Map<String, String>>> schedule;
   final String? imageUrl;
+  final List<String> imageUrls;
 }
 
 class AddSalonCubit extends Cubit<AddSalonState> {
@@ -172,12 +174,14 @@ class AddSalonCubit extends Cubit<AddSalonState> {
         description: formData.description,
         schedule: formData.schedule,
         imageUrl: formData.imageUrl,
+        imageUrls: formData.imageUrls,
         buildingName: address.buildingName,
         city: address.city,
         pincode: address.pincode,
         state: address.state,
         latitude: address.latitude,
         longitude: address.longitude,
+        images: state.images,
         serviceCodes: state.selectedServiceCodes,
         selectedCategoryCodes: state.selectedServiceCodes,
       );

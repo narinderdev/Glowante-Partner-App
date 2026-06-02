@@ -134,23 +134,58 @@ class SalonRepository {
     List<String> selectedCategoryCodes = const [],
     List<File> images = const [],
     String? imageUrl,
+    List<String> imageUrls = const [],
   }) async {
-    // Upload if needed
-    if ((imageUrl == null || imageUrl.isEmpty) && images.isNotEmpty) {
-      final urls = await _apiService.uploadMultipleImages(images);
-      if (urls.isNotEmpty) imageUrl = urls.first;
+    final resolvedImageUrls = <String>[];
+    void addImageUrl(String? value) {
+      final url = value?.trim() ?? '';
+      if (url.isNotEmpty && !resolvedImageUrls.contains(url)) {
+        resolvedImageUrls.add(url);
+      }
     }
 
+    addImageUrl(imageUrl);
+    for (final url in imageUrls) {
+      addImageUrl(url);
+    }
+    if (images.isNotEmpty) {
+      final uploadedUrls = await _apiService.uploadMultipleImages(images);
+      for (final url in uploadedUrls) {
+        addImageUrl(url);
+      }
+    }
+    final resolvedImageUrl =
+        resolvedImageUrls.isEmpty ? null : resolvedImageUrls.first;
+
     // Helper to join non-empty parts with ", "
-    String _joinNonEmpty(List<String> parts) =>
+    String joinNonEmpty(List<String> parts) =>
         parts.where((s) => s.trim().isNotEmpty).map((s) => s.trim()).join(', ');
+    String composeLine1(String baseAddress, List<String> leadingParts) {
+      final cleanLeadingParts = leadingParts
+          .map((part) => part.trim())
+          .where((part) => part.isNotEmpty)
+          .toList();
+      if (baseAddress.trim().isEmpty) return cleanLeadingParts.join(', ');
+      if (cleanLeadingParts.isEmpty) return baseAddress.trim();
+      final leadingPartsLower =
+          cleanLeadingParts.map((part) => part.toLowerCase()).toSet();
+      final baseParts = baseAddress
+          .split(',')
+          .map((part) => part.trim())
+          .where((part) =>
+              part.isNotEmpty &&
+              !leadingPartsLower.contains(part.toLowerCase()))
+          .toList();
+      return [...cleanLeadingParts, ...baseParts].join(', ');
+    }
 
     // 🔑 Re-interpret the incoming params from new flow
     final completeAddress = buildingName.trim(); // line1
     final scoFlatHouse = city.trim(); // optional
     final streetSector = pincode.trim(); // optional
 
-    final line2 = _joinNonEmpty([scoFlatHouse, streetSector]);
+    final line2 = joinNonEmpty([scoFlatHouse, streetSector]);
+    final line1 = composeLine1(completeAddress, [scoFlatHouse, streetSector]);
 
     // We DO NOT guess city/state/postalCode to avoid wrong values
     final body = <String, dynamic>{
@@ -159,13 +194,12 @@ class SalonRepository {
       'startTime': startTime,
       'endTime': endTime,
       'description': description,
-      'imageUrl': imageUrl,
-      'imageUrls':
-          imageUrl == null || imageUrl.isEmpty ? <String>[] : [imageUrl],
+      'imageUrl': resolvedImageUrl,
+      'imageUrls': resolvedImageUrls,
       'schedule': schedule,
       'address': {
-        'line1': completeAddress,
-        'line2': line2, // optional extras land here
+        'line1': line1.isEmpty ? completeAddress : line1,
+        'line2': line2,
         'village': '',
         'district': '',
         'city': '', // leave blank unless you parse it
@@ -230,14 +264,29 @@ class SalonRepository {
     List<File> images = const [],
     List<String> selectedCategoryCodes = const [],
     String? imageUrl,
+    List<String> imageUrls = const [],
     int? sourceBranchId,
   }) async {
-    String resolvedImageUrl = imageUrl?.trim() ?? '';
-
-    if (resolvedImageUrl.isEmpty && images.isNotEmpty) {
-      final urls = await _apiService.uploadMultipleImages(images);
-      if (urls.isNotEmpty) resolvedImageUrl = urls.first;
+    final resolvedImageUrls = <String>[];
+    void addImageUrl(String? value) {
+      final url = value?.trim() ?? '';
+      if (url.isNotEmpty && !resolvedImageUrls.contains(url)) {
+        resolvedImageUrls.add(url);
+      }
     }
+
+    addImageUrl(imageUrl);
+    for (final url in imageUrls) {
+      addImageUrl(url);
+    }
+    if (images.isNotEmpty) {
+      final uploadedUrls = await _apiService.uploadMultipleImages(images);
+      for (final url in uploadedUrls) {
+        addImageUrl(url);
+      }
+    }
+    final resolvedImageUrl =
+        resolvedImageUrls.isEmpty ? '' : resolvedImageUrls.first;
 
     final body = <String, dynamic>{
       'name': name,
@@ -246,8 +295,7 @@ class SalonRepository {
       'phone': phone,
       'description': description,
       'imageUrl': resolvedImageUrl,
-      'imageUrls':
-          resolvedImageUrl.isEmpty ? <String>[] : <String>[resolvedImageUrl],
+      'imageUrls': resolvedImageUrls,
       'schedule': schedule,
       'address': address,
       'latitude': latitude,
@@ -272,10 +320,13 @@ class SalonRepository {
     Map<String, List<Map<String, String>>>? schedule,
     List<String>? selectedCategoryCodes,
     String? imageUrl,
+    List<String>? imageUrls,
     Map<String, dynamic>? address,
     double? latitude,
     double? longitude,
   }) {
+    final resolvedImageUrl = imageUrl ??
+        (imageUrls != null && imageUrls.isNotEmpty ? imageUrls.first : null);
     return _apiService.updateSalon(salonId, {
       'name': name,
       'phone': phone,
@@ -285,7 +336,8 @@ class SalonRepository {
       if (schedule != null) 'schedule': schedule,
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
-      if (imageUrl != null) 'imageUrl': imageUrl,
+      if (resolvedImageUrl != null) 'imageUrl': resolvedImageUrl,
+      if (imageUrls != null) 'imageUrls': imageUrls,
       if (address != null) 'address': address,
       if (latitude != null) 'latitude': latitude,
       if (longitude != null) 'longitude': longitude,
@@ -306,7 +358,10 @@ class SalonRepository {
     required double latitude,
     required double longitude,
     String? imageUrl,
+    List<String>? imageUrls,
   }) {
+    final resolvedImageUrl = imageUrl ??
+        (imageUrls != null && imageUrls.isNotEmpty ? imageUrls.first : null);
     return _apiService.updateBranch(branchId, {
       'name': name,
       'phone': phone,
@@ -317,7 +372,8 @@ class SalonRepository {
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
       if (sourceBranchId != null) 'sourceBranchId': sourceBranchId,
-      'imageUrl': imageUrl,
+      'imageUrl': resolvedImageUrl,
+      if (imageUrls != null) 'imageUrls': imageUrls,
       'address': address,
       'latitude': latitude,
       'longitude': longitude,
@@ -379,11 +435,11 @@ class SalonRepository {
 
   Future<Map<String, dynamic>> deleteCategory({
     required int branchId,
-    required int CategoryId,
+    required int categoryId,
   }) {
     return _apiService.deleteCategoryApi(
       branchId: branchId,
-      CategoryId: CategoryId,
+      CategoryId: categoryId,
     );
   }
 
