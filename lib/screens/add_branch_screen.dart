@@ -860,34 +860,38 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                 LengthLimitingTextInputFormatter(10),
                               ],
                             ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildTimePickerField(
-                                    field: _BranchField.startTime,
-                                    controller: _startTimeController,
-                                    label: 'Start Time *',
-                                    onTap: () => _selectTime(
-                                      _BranchField.startTime,
-                                      _startTimeController,
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 18),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTimePickerField(
+                                      field: _BranchField.startTime,
+                                      controller: _startTimeController,
+                                      label: 'Start Time *',
+                                      onTap: () => _selectTime(
+                                        _BranchField.startTime,
+                                        _startTimeController,
+                                      ),
+                                      bottomSpacing: 0,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildTimePickerField(
-                                    field: _BranchField.endTime,
-                                    controller: _endTimeController,
-                                    label: 'End Time *',
-                                    onTap: () => _selectTime(
-                                      _BranchField.endTime,
-                                      _endTimeController,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildTimePickerField(
+                                      field: _BranchField.endTime,
+                                      controller: _endTimeController,
+                                      label: 'End Time *',
+                                      onTap: () => _selectTime(
+                                        _BranchField.endTime,
+                                        _endTimeController,
+                                      ),
+                                      bottomSpacing: 0,
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 10),
                             _buildAddressField(address, state),
                             _buildTextField(
                               field: _BranchField.description,
@@ -1087,7 +1091,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         ? _composeAddressLine1(address)
         : translateText('Add Location');
     return Padding(
-      padding: const EdgeInsets.only(bottom: 22),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1297,6 +1301,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     ValueChanged<String>? onChanged,
     String? prefixText,
     bool reserveCounterSpace = false,
+    double bottomSpacing = 18,
   }) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final normalizedHint = hint.trim();
@@ -1315,7 +1320,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1455,6 +1460,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     required TextEditingController controller,
     required String label,
     required VoidCallback onTap,
+    double bottomSpacing = 18,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -1465,6 +1471,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           label: label,
           hint: 'Select time',
           reserveCounterSpace: true,
+          bottomSpacing: bottomSpacing,
         ),
       ),
     );

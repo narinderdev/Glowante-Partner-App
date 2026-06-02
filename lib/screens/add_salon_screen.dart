@@ -1013,28 +1013,32 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 LengthLimitingTextInputFormatter(10),
                               ],
                             ),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildTimePickerField(
-                                    controller: _startTimeController,
-                                    label: 'Start Time *',
-                                    onTap: () =>
-                                        _selectTime(_startTimeController),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 18),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTimePickerField(
+                                      controller: _startTimeController,
+                                      label: 'Start Time *',
+                                      onTap: () =>
+                                          _selectTime(_startTimeController),
+                                      bottomSpacing: 0,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: _buildTimePickerField(
-                                    controller: _endTimeController,
-                                    label: 'End Time *',
-                                    onTap: () =>
-                                        _selectTime(_endTimeController),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildTimePickerField(
+                                      controller: _endTimeController,
+                                      label: 'End Time *',
+                                      onTap: () =>
+                                          _selectTime(_endTimeController),
+                                      bottomSpacing: 0,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                            const SizedBox(height: 10),
                             _buildAddressField(address, state),
                             _buildTextField(
                               controller: _descriptionController,
@@ -1217,7 +1221,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         ? _composeAddressLine1(address)
         : translateText('Add Location');
     return Padding(
-      padding: const EdgeInsets.only(bottom: 22),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1577,6 +1581,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     int? maxWords,
     String? prefixText,
     bool reserveCounterSpace = false,
+    double bottomSpacing = 18,
   }) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final normalizedHint = hint.trim();
@@ -1613,7 +1618,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
+      padding: EdgeInsets.only(bottom: bottomSpacing),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1766,6 +1771,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     required TextEditingController controller,
     required String label,
     required VoidCallback onTap,
+    double bottomSpacing = 18,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -1775,6 +1781,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           label: label,
           hint: 'Select time',
           reserveCounterSpace: true,
+          bottomSpacing: bottomSpacing,
         ),
       ),
     );
