@@ -896,10 +896,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                           onPressed:
                               state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8B6500),
+                            backgroundColor: AppColors.starColor,
                             foregroundColor: Colors.white,
                             elevation: 8,
-                            shadowColor: const Color(0x338B6500),
+                            shadowColor: const Color(0x33D27C17),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(7),
                             ),
@@ -1041,7 +1041,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                 children: [
                   const Icon(
                     Icons.location_on_outlined,
-                    color: Color(0xFF7A4A09),
+                    color: Color(0xFF2563EB),
                     size: 22,
                   ),
                   const SizedBox(width: 12),
@@ -1458,8 +1458,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             valueListenable: controller,
             builder: (context, value, _) {
               final hasText = value.text.isNotEmpty;
+              final showInlineCounter = maxLength != null && enabled;
               final leftInset = prefixText == null ? 16.0 : 64.0;
-              final rightInset = 16.0;
+              final rightInset = showInlineCounter ? 74.0 : 16.0;
               final hint = IgnorePointer(
                 child: AnimatedTypingHint(
                   hints: animatedHints,
@@ -1513,6 +1514,26 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                     },
                     decoration: InputDecoration(
                       counterText: '',
+                      suffixIcon: showInlineCounter
+                          ? Padding(
+                              padding:
+                                  const EdgeInsets.only(right: 10, bottom: 2),
+                              child: Align(
+                                alignment: Alignment.bottomRight,
+                                child: Text(
+                                  '${value.text.length} / $maxLength',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF8A8178),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : null,
+                      suffixIconConstraints: showInlineCounter
+                          ? const BoxConstraints(minWidth: 62, minHeight: 28)
+                          : null,
                       prefixIcon: prefixText == null
                           ? null
                           : Container(
@@ -1587,27 +1608,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               );
             },
           ),
-          if (maxLength != null)
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      '${value.text.length} / $maxLength',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: value.text.length >= maxLength
-                            ? Colors.red
-                            : const Color(0xFF8A8178),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
         ],
       ),
     );

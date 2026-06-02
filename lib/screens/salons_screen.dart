@@ -867,29 +867,7 @@ class _AppBarSearchField extends StatelessWidget {
                               ),
                             ),
                           )
-                        : SizedBox(
-                            width: 46,
-                            height: 48,
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 12),
-                                child: Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFFF4E8D1),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Icon(
-                                    Icons.location_on_outlined,
-                                    color: Color(0xFF8B6500),
-                                    size: 16,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
+                        : null,
                     suffixIconConstraints: const BoxConstraints(
                       minWidth: 44,
                       minHeight: 48,
@@ -902,7 +880,7 @@ class _AppBarSearchField extends StatelessWidget {
                 if (!hasQuery)
                   Positioned.fill(
                     left: 50,
-                    right: 54,
+                    right: 14,
                     child: IgnorePointer(
                       child: Align(
                         alignment: Alignment.centerLeft,
@@ -1209,20 +1187,14 @@ class _SalonCard extends StatelessWidget {
   }
 
   Widget _heroImage(String? imageUrl) {
-    final fallback = _localHeroImage();
     final usableImageUrl = _usableSalonImageUrl(imageUrl);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.zero,
-      child: usableImageUrl != null
-          ? Image.network(
-              usableImageUrl,
-              height: 154,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => fallback,
-            )
-          : fallback,
+    if (usableImageUrl == null) return _localHeroImage();
+    return Image.network(
+      usableImageUrl,
+      height: 154,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _localHeroImage(),
     );
   }
 
@@ -1258,6 +1230,44 @@ class _SalonCard extends StatelessWidget {
       return null;
     }
     return url;
+  }
+
+  List<String> _extractImageUrls(dynamic source) {
+    if (source is! List) return const <String>[];
+    final urls = <String>[];
+    for (final entry in source) {
+      final url = _usableSalonImageUrl(_cleanText(entry));
+      if (url != null && !urls.contains(url)) {
+        urls.add(url);
+      }
+    }
+    return urls;
+  }
+
+  List<String> _resolveHeroImageUrls({
+    required String fallbackImageUrl,
+    required Map<String, dynamic> salon,
+    required Map<String, dynamic>? primaryBranch,
+  }) {
+    final urls = <String>[];
+
+    void pushUrl(String? rawUrl) {
+      final usable = _usableSalonImageUrl(rawUrl);
+      if (usable != null && !urls.contains(usable)) {
+        urls.add(usable);
+      }
+    }
+
+    urls.addAll(_extractImageUrls(salon['imageUrls']));
+    if (primaryBranch != null) {
+      urls.addAll(_extractImageUrls(primaryBranch['imageUrls']));
+    }
+    pushUrl(fallbackImageUrl);
+    if (primaryBranch != null) {
+      pushUrl(_cleanText(primaryBranch['imageUrl']));
+    }
+
+    return urls;
   }
 
   Widget _badge(String label, IconData icon, {bool light = false}) {
@@ -1479,6 +1489,11 @@ class _SalonCard extends StatelessWidget {
     if (imageUrl.isEmpty && primaryBranch != null) {
       imageUrl = _cleanText(primaryBranch['imageUrl']);
     }
+    final heroImageUrls = _resolveHeroImageUrls(
+      fallbackImageUrl: imageUrl,
+      salon: salon,
+      primaryBranch: primaryBranch,
+    );
 
     String addressLabel = '';
     if (salon['address'] is Map<String, dynamic>) {
@@ -1539,7 +1554,11 @@ class _SalonCard extends StatelessWidget {
             padding: EdgeInsets.zero,
             child: Stack(
               children: [
-                _heroImage(imageUrl),
+                _AutoSlidingHeroImage(
+                  imageUrls: heroImageUrls,
+                  fallback: _localHeroImage(),
+                  imageBuilder: _heroImage,
+                ),
                 Positioned(
                   top: 8,
                   left: 8,
@@ -1713,6 +1732,128 @@ class _SalonCard extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AutoSlidingHeroImage extends StatefulWidget {
+  const _AutoSlidingHeroImage({
+    required this.imageUrls,
+    required this.fallback,
+    required this.imageBuilder,
+  });
+
+  final List<String> imageUrls;
+  final Widget fallback;
+  final Widget Function(String imageUrl) imageBuilder;
+
+  @override
+  State<_AutoSlidingHeroImage> createState() => _AutoSlidingHeroImageState();
+}
+
+class _AutoSlidingHeroImageState extends State<_AutoSlidingHeroImage> {
+  late final PageController _pageController;
+  Timer? _autoScrollTimer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    _startAutoScroll();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AutoSlidingHeroImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrls.length != widget.imageUrls.length) {
+      _currentPage = 0;
+      _stopAutoScroll();
+      _startAutoScroll();
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
+    }
+  }
+
+  void _startAutoScroll() {
+    if (widget.imageUrls.length <= 1) return;
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted || !_pageController.hasClients || widget.imageUrls.isEmpty) {
+        return;
+      }
+      final nextPage = (_currentPage + 1) % widget.imageUrls.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _stopAutoScroll() {
+    _autoScrollTimer?.cancel();
+    _autoScrollTimer = null;
+  }
+
+  @override
+  void dispose() {
+    _stopAutoScroll();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageUrls.isEmpty) return widget.fallback;
+    if (widget.imageUrls.length == 1) {
+      return widget.imageBuilder(widget.imageUrls.first);
+    }
+
+    return SizedBox(
+      height: 154,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            itemCount: widget.imageUrls.length,
+            onPageChanged: (index) {
+              if (!mounted) return;
+              setState(() => _currentPage = index);
+            },
+            itemBuilder: (_, index) => widget.imageBuilder(widget.imageUrls[index]),
+          ),
+          Positioned(
+            bottom: 8,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    '${_currentPage + 1}/${widget.imageUrls.length}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

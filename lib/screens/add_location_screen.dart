@@ -1667,7 +1667,6 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     ),
                     onTap: () async {
                       await _onPredictionSelected(p.placeId);
-                      searchLocationController.clear();
                       _removeOverlay();
                     },
                   );
@@ -1707,12 +1706,80 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       setState(() {
         // Push full selected address into Complete Address
         completeAddressController.text = address.trim();
+        searchLocationController.text = address.trim();
         latitude = lat;
         longitude = lng;
       });
     } catch (e) {
       debugPrint("Error fetching place details: $e");
     }
+  }
+
+  String _composedAddress() {
+    final baseAddress = completeAddressController.text.trim();
+    final extraParts = [
+      scoFlatHouseController.text.trim(),
+      streetSectorAreaController.text.trim(),
+    ].where((value) => value.isNotEmpty).toList();
+
+    if (baseAddress.isEmpty) return extraParts.join(', ');
+    if (extraParts.isEmpty) return baseAddress;
+    return '$baseAddress, ${extraParts.join(', ')}';
+  }
+
+  Widget _buildCompleteAddressInfo() {
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        completeAddressController,
+        scoFlatHouseController,
+        streetSectorAreaController,
+      ]),
+      builder: (context, _) {
+        final displayText = _composedAddress();
+        final hasAddress = displayText.isNotEmpty;
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9F7F6),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE3DCD7)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.info_outline_rounded,
+                  size: 18,
+                  color: Color(0xFF8A8178),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  hasAddress
+                      ? displayText
+                      : translateText(
+                          'Search and select a location to view the complete address.',
+                        ),
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.45,
+                    color: hasAddress
+                        ? const Color(0xFF3B332B)
+                        : const Color(0xFF8A8178),
+                    fontWeight: hasAddress ? FontWeight.w600 : FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -1744,9 +1811,29 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                       focusNode: _searchFocus,
                       decoration: InputDecoration(
                         labelText: translateText('Search Location'),
+                        labelStyle: const TextStyle(
+                          color: Color(0xFF8A8178),
+                          fontWeight: FontWeight.w600,
+                        ),
                         hintText: translateText('Search for a location'),
+                        filled: true,
+                        fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE3DCD7)),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: Color(0xFFE3DCD7)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                            color: AppColors.starColor,
+                            width: 1.2,
+                          ),
                         ),
                         suffixIcon: searchLocationController.text.isNotEmpty
                             ? IconButton(
@@ -1847,16 +1934,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                             maxLength: 120,
                           ),
 
-                          // Required: Complete Address
-                          _buildTextField(
-                            controller: completeAddressController,
-                            label: 'Complete Address',
-                            hint: 'Full address will appear here',
-                            isRequired: true,
-                            minLines: 2,
-                            maxLines: 4,
-                            textCapitalization: TextCapitalization.sentences,
-                          ),
+                          _buildCompleteAddressInfo(),
                         ],
                       ),
                     ),
@@ -1865,9 +1943,21 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                   ElevatedButton(
                     onPressed: () {
                       if (_formKey.currentState?.validate() ?? false) {
+                        final composedAddress = _composedAddress();
+                        if (composedAddress.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                translateText(
+                                  'Please select a location to capture complete address.',
+                                ),
+                              ),
+                            ),
+                          );
+                          return;
+                        }
                         Navigator.pop(context, {
-                          'completeAddress':
-                              completeAddressController.text.trim(),
+                          'completeAddress': composedAddress,
                           'scoFlatHouse': scoFlatHouseController.text.trim(),
                           'streetSectorArea':
                               streetSectorAreaController.text.trim(),
