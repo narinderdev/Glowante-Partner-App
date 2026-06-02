@@ -167,6 +167,7 @@ class SalonsScreenState extends State<SalonsScreen> {
   String _composeSearchLocation(dynamic value) {
     if (value is! Map) return '';
     final parts = <String>[];
+    final seenParts = <String>{};
     for (final key in const [
       'line1',
       'addressLine1',
@@ -188,7 +189,13 @@ class SalonsScreenState extends State<SalonsScreen> {
     ]) {
       final text = (value[key] ?? '').toString().trim();
       if (text.isNotEmpty && text.toLowerCase() != 'null') {
-        parts.add(text);
+        for (final part in text.split(',')) {
+          final cleanedPart = part.trim();
+          final key = cleanedPart.toLowerCase();
+          if (cleanedPart.isNotEmpty && seenParts.add(key)) {
+            parts.add(cleanedPart);
+          }
+        }
       }
     }
     return parts.join(' ');
@@ -1171,10 +1178,18 @@ class _SalonCard extends StatelessWidget {
   String _composeAddress(Map<String, dynamic>? data) {
     if (data == null || data.isEmpty) return '';
     final segments = <String>[];
+    final seenParts = <String>{};
 
     void push(dynamic value) {
       final text = _cleanText(value);
-      if (text.isNotEmpty && !segments.contains(text)) segments.add(text);
+      if (text.isEmpty) return;
+      for (final part in text.split(',')) {
+        final cleanedPart = _cleanText(part);
+        final key = cleanedPart.toLowerCase();
+        if (cleanedPart.isNotEmpty && seenParts.add(key)) {
+          segments.add(cleanedPart);
+        }
+      }
     }
 
     push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
@@ -2072,11 +2087,17 @@ class _BranchTileState extends State<_BranchTile> {
     }
 
     final segments = <String>[];
+    final seenParts = <String>{};
 
     void push(dynamic value) {
       final text = _cleanText(value);
-      if (text.isNotEmpty && !segments.contains(text)) {
-        segments.add(text);
+      if (text.isEmpty) return;
+      for (final part in text.split(',')) {
+        final cleanedPart = _cleanText(part);
+        final key = cleanedPart.toLowerCase();
+        if (cleanedPart.isNotEmpty && seenParts.add(key)) {
+          segments.add(cleanedPart);
+        }
       }
     }
 

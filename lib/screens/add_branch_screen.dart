@@ -243,6 +243,39 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     return digits.substring(digits.length - 10);
   }
 
+  String _addressWithoutManualParts(
+    String address,
+    List<String> manualParts,
+  ) {
+    final manualPartsLower = manualParts
+        .map((part) => part.trim().toLowerCase())
+        .where((part) => part.isNotEmpty)
+        .toSet();
+    if (manualPartsLower.isEmpty) return address.trim();
+    return address
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) =>
+            part.isNotEmpty && !manualPartsLower.contains(part.toLowerCase()))
+        .join(', ');
+  }
+
+  String _composeAddressLine1(BranchAddress address) {
+    final leadingParts = [
+      address.city.trim(),
+      address.pincode.trim(),
+    ].where((part) => part.isNotEmpty).toList();
+    final leadingPartsLower =
+        leadingParts.map((part) => part.toLowerCase()).toSet();
+    final baseParts = address.buildingName
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) =>
+            part.isNotEmpty && !leadingPartsLower.contains(part.toLowerCase()))
+        .toList();
+    return [...leadingParts, ...baseParts].join(', ');
+  }
+
   BranchAddress? _extractInitialAddress(Map<String, dynamic> branch) {
     final address = _asStringKeyedMap(branch['address']) ?? branch;
 
@@ -281,7 +314,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
 
     return BranchAddress(
-      buildingName: completeAddress.join(', '),
+      buildingName: _addressWithoutManualParts(
+        completeAddress.join(', '),
+        [scoFlatHouse, streetSectorArea],
+      ),
       city: scoFlatHouse,
       pincode: streetSectorArea,
       state: _firstNonEmptyValue([address['state']]),
@@ -522,6 +558,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     // 🟢 Read new keys from AddLocationScreen
     final completeAddress =
         (result['completeAddress'] as String?)?.trim() ?? '';
+    final baseCompleteAddress =
+        (result['baseCompleteAddress'] as String?)?.trim() ?? '';
     final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
     final streetSectorArea =
         (result['streetSectorArea'] as String?)?.trim() ?? '';
@@ -531,7 +569,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     // 🟢 Store completeAddress into buildingName (back-compat with existing model)
     branchCubit.updateAddress(
       BranchAddress(
-        buildingName: completeAddress, // complete address here
+        buildingName: baseCompleteAddress.isNotEmpty
+            ? baseCompleteAddress
+            : _addressWithoutManualParts(
+                completeAddress,
+                [scoFlatHouse, streetSectorArea],
+              ),
         city: scoFlatHouse, // optional mapping to keep the value
         pincode: streetSectorArea, // optional mapping to keep the value
         state: '', // not used in new flow
@@ -1040,6 +1083,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   Widget _buildAddressField(BranchAddress? address, AddBranchState state) {
     final hasAddress =
         address != null && address.buildingName.trim().isNotEmpty;
+    final displayAddress = hasAddress
+        ? _composeAddressLine1(address)
+        : translateText('Add Location');
     return Padding(
       padding: const EdgeInsets.only(bottom: 22),
       child: Column(
@@ -1075,7 +1121,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                address.buildingName,
+                                displayAddress,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -1084,25 +1130,6 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                   fontSize: 13,
                                 ),
                               ),
-                              if (address.city.trim().isNotEmpty ||
-                                  address.pincode.trim().isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    [
-                                      address.city.trim(),
-                                      address.pincode.trim(),
-                                    ]
-                                        .where((part) => part.isNotEmpty)
-                                        .join(', '),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF8A8178),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
                             ],
                           )
                         : Text(

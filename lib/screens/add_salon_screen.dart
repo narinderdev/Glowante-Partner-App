@@ -219,6 +219,23 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return [...leadingParts, ...baseParts].join(', ');
   }
 
+  String _addressWithoutManualParts(
+    String address,
+    List<String> manualParts,
+  ) {
+    final manualPartsLower = manualParts
+        .map((part) => part.trim().toLowerCase())
+        .where((part) => part.isNotEmpty)
+        .toSet();
+    if (manualPartsLower.isEmpty) return address.trim();
+    return address
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) =>
+            part.isNotEmpty && !manualPartsLower.contains(part.toLowerCase()))
+        .join(', ');
+  }
+
   Map<String, dynamic>? _addressPayload(AddSalonAddress? address) {
     if (address == null) return null;
     return {
@@ -399,7 +416,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
 
     return AddSalonAddress(
-      buildingName: completeAddress.join(', '),
+      buildingName: _addressWithoutManualParts(
+        completeAddress.join(', '),
+        [scoFlatHouse, streetSectorArea],
+      ),
       city: scoFlatHouse,
       pincode: streetSectorArea,
       state: _firstNonEmptyValue([
@@ -683,6 +703,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     final completeAddress =
         (result['completeAddress'] as String?)?.trim() ?? '';
+    final baseCompleteAddress =
+        (result['baseCompleteAddress'] as String?)?.trim() ?? '';
     final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
     final streetSectorArea =
         (result['streetSectorArea'] as String?)?.trim() ?? '';
@@ -691,7 +713,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     context.read<AddSalonCubit>().updateAddress(
           AddSalonAddress(
-            buildingName: completeAddress, // line1
+            buildingName: baseCompleteAddress.isNotEmpty
+                ? baseCompleteAddress
+                : _addressWithoutManualParts(
+                    completeAddress,
+                    [scoFlatHouse, streetSectorArea],
+                  ),
             city: scoFlatHouse, // line2 part A (SCO/Flat/House)
             pincode: streetSectorArea, // line2 part B (Street/Sector/Area)
             state: '', // unused in the new flow
@@ -1186,6 +1213,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   Widget _buildAddressField(AddSalonAddress? address, AddSalonState state) {
     final hasAddress =
         address != null && address.buildingName.trim().isNotEmpty;
+    final displayAddress = hasAddress
+        ? _composeAddressLine1(address)
+        : translateText('Add Location');
     return Padding(
       padding: const EdgeInsets.only(bottom: 22),
       child: Column(
@@ -1221,7 +1251,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                address.buildingName,
+                                displayAddress,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
@@ -1230,25 +1260,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                   fontSize: 13,
                                 ),
                               ),
-                              if (address.city.trim().isNotEmpty ||
-                                  address.pincode.trim().isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    [
-                                      address.city.trim(),
-                                      address.pincode.trim(),
-                                    ]
-                                        .where((part) => part.isNotEmpty)
-                                        .join(', '),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF8A8178),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
                             ],
                           )
                         : Text(
