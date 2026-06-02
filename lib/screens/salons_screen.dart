@@ -18,6 +18,8 @@ import '../utils/api_service.dart';
 import '../widgets/animated_typing_hint.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
+const double _salonHeroImageHeight = 240;
+
 class SalonsScreen extends StatefulWidget {
   const SalonsScreen({
     super.key,
@@ -1207,22 +1209,15 @@ class _SalonCard extends StatelessWidget {
     final usableImageUrl = _usableSalonImageUrl(imageUrl);
     if (usableImageUrl == null) return _localHeroImage();
     return SizedBox(
-      height: 154,
+      height: _salonHeroImageHeight,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            usableImageUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _localHeroImage(),
-          ),
-          Container(color: Colors.white.withValues(alpha: 0.18)),
-          Image.network(
-            usableImageUrl,
-            fit: BoxFit.contain,
-            alignment: Alignment.center,
-            errorBuilder: (_, __, ___) => _localHeroImage(),
+          const ColoredBox(color: Color(0xFFF1EFEC)),
+          _AdaptiveSalonNetworkImage(
+            imageUrl: usableImageUrl,
+            fallback: _localHeroImage(),
           ),
         ],
       ),
@@ -1231,17 +1226,12 @@ class _SalonCard extends StatelessWidget {
 
   Widget _localHeroImage() {
     return SizedBox(
-      height: 154,
+      height: _salonHeroImageHeight,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            'assets/images/salonImage.png',
-            fit: BoxFit.cover,
-            alignment: Alignment.center,
-          ),
-          Container(color: Colors.white.withValues(alpha: 0.24)),
+          const ColoredBox(color: Color(0xFFF1EFEC)),
           Image.asset(
             'assets/images/salonImage.png',
             fit: BoxFit.contain,
@@ -1768,6 +1758,102 @@ class _SalonCard extends StatelessWidget {
   }
 }
 
+class _AdaptiveSalonNetworkImage extends StatefulWidget {
+  const _AdaptiveSalonNetworkImage({
+    required this.imageUrl,
+    required this.fallback,
+  });
+
+  final String imageUrl;
+  final Widget fallback;
+
+  @override
+  State<_AdaptiveSalonNetworkImage> createState() =>
+      _AdaptiveSalonNetworkImageState();
+}
+
+class _AdaptiveSalonNetworkImageState
+    extends State<_AdaptiveSalonNetworkImage> {
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
+  double? _aspectRatio;
+  bool _hasError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AdaptiveSalonNetworkImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _removeImageListener();
+      _aspectRatio = null;
+      _hasError = false;
+      _resolveImage();
+    }
+  }
+
+  void _resolveImage() {
+    final provider = NetworkImage(widget.imageUrl);
+    final stream = provider.resolve(const ImageConfiguration());
+    final listener = ImageStreamListener(
+      (info, _) {
+        final height = info.image.height;
+        if (!mounted || height == 0) return;
+        setState(() {
+          _aspectRatio = info.image.width / height;
+        });
+      },
+      onError: (_, __) {
+        if (!mounted) return;
+        setState(() => _hasError = true);
+      },
+    );
+
+    _imageStream = stream;
+    _imageStreamListener = listener;
+    stream.addListener(listener);
+  }
+
+  void _removeImageListener() {
+    final stream = _imageStream;
+    final listener = _imageStreamListener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    _imageStream = null;
+    _imageStreamListener = null;
+  }
+
+  @override
+  void dispose() {
+    _removeImageListener();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) return widget.fallback;
+
+    final aspectRatio = _aspectRatio;
+    final fit = aspectRatio == null
+        ? BoxFit.cover
+        : aspectRatio >= 1.1
+            ? BoxFit.cover
+            : BoxFit.contain;
+
+    return Image.network(
+      widget.imageUrl,
+      fit: fit,
+      alignment: Alignment.center,
+      errorBuilder: (_, __, ___) => widget.fallback,
+    );
+  }
+}
+
 class _AutoSlidingHeroImage extends StatefulWidget {
   const _AutoSlidingHeroImage({
     required this.imageUrls,
@@ -1843,7 +1929,7 @@ class _AutoSlidingHeroImageState extends State<_AutoSlidingHeroImage> {
     }
 
     return SizedBox(
-      height: 154,
+      height: _salonHeroImageHeight,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
