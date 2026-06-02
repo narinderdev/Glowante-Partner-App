@@ -455,6 +455,7 @@ class AddSalonServices extends StatefulWidget {
     this.initialSourceBranchId,
     this.onSubmit,
     this.submitLabel = 'Submit',
+    this.title,
   });
 
   final AddSalonFormData? formData;
@@ -469,6 +470,7 @@ class AddSalonServices extends StatefulWidget {
   final Future<void> Function(List<String> selectedCodes, int? sourceBranchId)?
       onSubmit;
   final String submitLabel;
+  final String? title;
 
   @override
   State<AddSalonServices> createState() => _AddSalonServicesState();
@@ -574,7 +576,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         return Scaffold(
           backgroundColor: const Color(0xFFFBFAF8),
           appBar: buildProfileSubpageAppBar(
-            title: translateText('Add Salon'),
+            title: translateText(widget.title ?? 'Add Salon'),
           ),
           body: _isLoading
               ? const Center(child: CircularProgressIndicator())

@@ -22,18 +22,22 @@ class SetWeeklyScheduleScreen extends StatefulWidget {
     required this.detailsStepLabel,
     required this.initialStartTime,
     required this.initialEndTime,
+    this.title,
     this.initialSchedule,
     this.totalSteps = 3,
     this.submitLabel,
+    this.onContinue,
     this.onSubmit,
   });
 
   final String detailsStepLabel;
   final String initialStartTime;
   final String initialEndTime;
+  final String? title;
   final Map<String, List<Map<String, String>>>? initialSchedule;
   final int totalSteps;
   final String? submitLabel;
+  final Future<void> Function(ScheduleStepResult result)? onContinue;
   final Future<void> Function(ScheduleStepResult result)? onSubmit;
 
   @override
@@ -94,7 +98,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
-        title: translateText('Add Salon'),
+        title: translateText(widget.title ?? 'Add Salon'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -538,6 +542,22 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       schedule: schedule,
     );
 
+    final onContinue = widget.onContinue;
+    if (onContinue != null) {
+      setState(() => _isSubmitting = true);
+      try {
+        await onContinue(result);
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(translateText('Failed: $error'))),
+        );
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
+      return;
+    }
+
     final onSubmit = widget.onSubmit;
     if (onSubmit == null) {
       Navigator.pop(context, result);
@@ -667,6 +687,7 @@ class _TimeDropdown extends StatelessWidget {
           value: value,
           isExpanded: true,
           isDense: true,
+          menuMaxHeight: 220,
           style: const TextStyle(
             fontSize: 10,
             color: Color(0xFF2B2520),

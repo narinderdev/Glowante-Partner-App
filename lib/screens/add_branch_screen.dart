@@ -629,6 +629,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         context,
         MaterialPageRoute(
           builder: (_) => SetWeeklyScheduleScreen(
+            title: 'Edit Branch',
             detailsStepLabel: 'Branch Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
@@ -661,49 +662,52 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     if (!mounted) return;
 
-    final scheduleResult = await Navigator.push<ScheduleStepResult>(
+    await Navigator.push<void>(
       context,
       MaterialPageRoute(
         builder: (_) => SetWeeklyScheduleScreen(
+          title: 'Add Branch',
           detailsStepLabel: 'Branch Details',
           initialStartTime: _startTimeController.text.trim(),
           initialEndTime: _endTimeController.text.trim(),
           initialSchedule: const <String, List<Map<String, String>>>{},
           totalSteps: 3,
-        ),
-      ),
-    );
-    if (!mounted || scheduleResult == null) return;
-
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => MultiBlocProvider(
-          providers: [
-            BlocProvider(
-              create: (_) => AddSalonCubit(SalonRepository()),
-            ),
-            BlocProvider.value(
-              value: context.read<AddBranchCubit>(),
-            ),
-          ],
-          child: AddSalonServices(
-            branchFormData: AddBranchFormData(
-              name: branchFormData.name,
-              phone: branchFormData.phone,
-              startTime: scheduleResult.startTime,
-              endTime: scheduleResult.endTime,
-              description: branchFormData.description,
-              schedule: scheduleResult.schedule,
-              imageUrl: branchFormData.imageUrl,
-              imageUrls: branchFormData.imageUrls,
-            ),
-            branchAddress: state.address!,
-            branchImages: images,
-            salonId: widget.salonId,
-            branchImageUrl: branchFormData.imageUrl,
-            sourceBranches: _sourceBranches,
-          ),
+          onContinue: (scheduleResult) async {
+            if (!mounted) return;
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MultiBlocProvider(
+                  providers: [
+                    BlocProvider(
+                      create: (_) => AddSalonCubit(SalonRepository()),
+                    ),
+                    BlocProvider.value(
+                      value: branchCubit,
+                    ),
+                  ],
+                  child: AddSalonServices(
+                    title: 'Add Branch',
+                    branchFormData: AddBranchFormData(
+                      name: branchFormData.name,
+                      phone: branchFormData.phone,
+                      startTime: scheduleResult.startTime,
+                      endTime: scheduleResult.endTime,
+                      description: branchFormData.description,
+                      schedule: scheduleResult.schedule,
+                      imageUrl: branchFormData.imageUrl,
+                      imageUrls: branchFormData.imageUrls,
+                    ),
+                    branchAddress: state.address!,
+                    branchImages: images,
+                    salonId: widget.salonId,
+                    branchImageUrl: branchFormData.imageUrl,
+                    sourceBranches: _sourceBranches,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
@@ -813,36 +817,34 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                 LengthLimitingTextInputFormatter(10),
                               ],
                             ),
-                            if (widget.isEdit) ...[
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTimePickerField(
-                                      field: _BranchField.startTime,
-                                      controller: _startTimeController,
-                                      label: 'Start Time *',
-                                      onTap: () => _selectTime(
-                                        _BranchField.startTime,
-                                        _startTimeController,
-                                      ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTimePickerField(
+                                    field: _BranchField.startTime,
+                                    controller: _startTimeController,
+                                    label: 'Start Time *',
+                                    onTap: () => _selectTime(
+                                      _BranchField.startTime,
+                                      _startTimeController,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildTimePickerField(
-                                      field: _BranchField.endTime,
-                                      controller: _endTimeController,
-                                      label: 'End Time *',
-                                      onTap: () => _selectTime(
-                                        _BranchField.endTime,
-                                        _endTimeController,
-                                      ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildTimePickerField(
+                                    field: _BranchField.endTime,
+                                    controller: _endTimeController,
+                                    label: 'End Time *',
+                                    onTap: () => _selectTime(
+                                      _BranchField.endTime,
+                                      _endTimeController,
                                     ),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                            ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
                             _buildAddressField(address, state),
                             _buildTextField(
                               field: _BranchField.description,
@@ -901,8 +903,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                           onPressed:
                               state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
-                            foregroundColor: AppColors.white,
+                            backgroundColor: const Color(0xFF8B6500),
+                            foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -1049,7 +1051,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
             borderRadius: BorderRadius.circular(8),
             child: Container(
               width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 54),
+              constraints: const BoxConstraints(minHeight: 58),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -1267,6 +1269,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged,
     String? prefixText,
+    bool reserveCounterSpace = false,
   }) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final normalizedHint = hint.trim();
@@ -1281,6 +1284,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final sanitizedField = label.replaceAll('*', '').replaceAll(':', '').trim();
     final fieldForMessage =
         sanitizedField.isEmpty ? localizedLabel : translateText(sanitizedField);
+    final hasInsideCounter = maxLength != null;
+    final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 18),
@@ -1288,120 +1293,131 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFieldLabel(label),
-          TextFormField(
-            controller: controller,
-            maxLines: maxLines,
-            maxLength: maxLength,
-            enabled: enabled,
-            readOnly: false,
-            showCursor: true,
-            cursorColor: const Color(0xFF7A4A09),
-            cursorWidth: 1.6,
-            style: const TextStyle(
-              color: Color(0xFF201A16),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-            keyboardType: keyboardType,
-            inputFormatters: inputFormatters,
-            textCapitalization: textCapitalization,
-            autovalidateMode: _submitted
-                ? AutovalidateMode.always
-                : AutovalidateMode.disabled,
-            onChanged: (changedValue) {
-              _resetFieldError(field);
-              onChanged?.call(changedValue);
-            },
-            validator: (inputValue) {
-              if (!(_fieldValidationVisibility[field] ?? false)) {
-                return null;
-              }
-              if (isRequired &&
-                  (inputValue == null || inputValue.trim().isEmpty)) {
-                return translateText('{field} is required',
-                    params: {'field': fieldForMessage});
-              }
-              return null;
-            },
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: localizedHint,
-              hintStyle: const TextStyle(
-                color: Color(0xFF948C84),
-                fontSize: 13,
-              ),
-              prefixIcon: prefixText == null
-                  ? null
-                  : Container(
-                      width: 48,
-                      alignment: Alignment.center,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          right: BorderSide(color: Color(0xFFE4DDD8)),
-                        ),
-                      ),
-                      child: Text(
-                        prefixText,
-                        style: const TextStyle(
-                          color: Color(0xFF5B5149),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              return Stack(
+                children: [
+                  TextFormField(
+                    controller: controller,
+                    maxLines: maxLines,
+                    maxLength: maxLength,
+                    enabled: enabled,
+                    readOnly: false,
+                    showCursor: true,
+                    cursorColor: const Color(0xFF7A4A09),
+                    cursorWidth: 1.6,
+                    style: const TextStyle(
+                      color: Color(0xFF201A16),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
-              filled: true,
-              fillColor: enabled ? Colors.white : const Color(0xFFF1EEEE),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide:
-                    const BorderSide(color: Color(0xFFD1A24A), width: 1.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              disabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.red, width: 1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.red, width: 1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              errorStyle: const TextStyle(color: AppColors.red),
-            ),
-          ),
-          if (maxLength != null)
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      '${value.text.length} / $maxLength',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF8A8178),
-                        fontWeight: FontWeight.w500,
+                    keyboardType: keyboardType,
+                    inputFormatters: inputFormatters,
+                    textCapitalization: textCapitalization,
+                    autovalidateMode: _submitted
+                        ? AutovalidateMode.always
+                        : AutovalidateMode.disabled,
+                    onChanged: (changedValue) {
+                      _resetFieldError(field);
+                      onChanged?.call(changedValue);
+                    },
+                    validator: (inputValue) {
+                      if (!(_fieldValidationVisibility[field] ?? false)) {
+                        return null;
+                      }
+                      if (isRequired &&
+                          (inputValue == null || inputValue.trim().isEmpty)) {
+                        return translateText('{field} is required',
+                            params: {'field': fieldForMessage});
+                      }
+                      return null;
+                    },
+                    decoration: InputDecoration(
+                      counterText: '',
+                      hintText: localizedHint,
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF948C84),
+                        fontSize: 13,
                       ),
+                      prefixIcon: prefixText == null
+                          ? null
+                          : Container(
+                              width: 48,
+                              alignment: Alignment.center,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(color: Color(0xFFE4DDD8)),
+                                ),
+                              ),
+                              child: Text(
+                                prefixText,
+                                style: const TextStyle(
+                                  color: Color(0xFF5B5149),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                      filled: true,
+                      fillColor:
+                          enabled ? Colors.white : const Color(0xFFF1EEEE),
+                      contentPadding: EdgeInsets.fromLTRB(
+                        16,
+                        14,
+                        hasInsideCounter ? 82 : 16,
+                        shouldReserveCounterSpace ? 30 : 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(
+                            color: Color(0xFFD1A24A), width: 1.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderSide:
+                            const BorderSide(color: AppColors.red, width: 1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderSide:
+                            const BorderSide(color: AppColors.red, width: 1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      errorStyle: const TextStyle(color: AppColors.red),
                     ),
                   ),
-                );
-              },
-            ),
+                  if (hasInsideCounter)
+                    Positioned(
+                      right: 12,
+                      bottom: 8,
+                      child: IgnorePointer(
+                        child: Text(
+                          '${value.text.length} / $maxLength',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF8A8178),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1421,6 +1437,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           controller: controller,
           label: label,
           hint: 'Select time',
+          reserveCounterSpace: true,
         ),
       ),
     );

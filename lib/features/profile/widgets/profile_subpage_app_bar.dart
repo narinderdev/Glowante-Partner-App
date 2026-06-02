@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 const Color _profileSubpageBackground = Color(0xFFFBF9F8);
 const Color _profileSubpageDivider = Color(0xFFF1EBE6);
-const Color _profileSubpageTitle = Color(0xFFB45309);
+const Color _profileSubpageTitle = Color(0xFF8B6500);
 
 TextStyle _profileSubpageTitleStyle() {
   return const TextStyle(

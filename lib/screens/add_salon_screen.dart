@@ -810,6 +810,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           context,
           MaterialPageRoute(
             builder: (_) => SetWeeklyScheduleScreen(
+              title: 'Edit Salon',
               detailsStepLabel: 'Salon Details',
               initialStartTime: _startTimeController.text.trim(),
               initialEndTime: _endTimeController.text.trim(),
@@ -842,38 +843,41 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       );
 
       if (!mounted) return;
-      final scheduleResult = await Navigator.push<ScheduleStepResult>(
+      await Navigator.push<void>(
         context,
         MaterialPageRoute(
           builder: (_) => SetWeeklyScheduleScreen(
+            title: 'Add Salon',
             detailsStepLabel: 'Salon Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
             initialSchedule: const <String, List<Map<String, String>>>{},
             totalSteps: 3,
-          ),
-        ),
-      );
-      if (!mounted || scheduleResult == null) return;
-
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => BlocProvider.value(
-            value: cubit,
-            child: AddSalonServices(
-              initialCodes: state.selectedServiceCodes,
-              formData: AddSalonFormData(
-                name: formData.name,
-                phone: formData.phone,
-                startTime: scheduleResult.startTime,
-                endTime: scheduleResult.endTime,
-                description: formData.description,
-                schedule: scheduleResult.schedule,
-                imageUrl: formData.imageUrl,
-                imageUrls: formData.imageUrls,
-              ),
-            ),
+            onContinue: (scheduleResult) async {
+              if (!mounted) return;
+              await Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BlocProvider.value(
+                    value: cubit,
+                    child: AddSalonServices(
+                      title: 'Add Salon',
+                      initialCodes: state.selectedServiceCodes,
+                      formData: AddSalonFormData(
+                        name: formData.name,
+                        phone: formData.phone,
+                        startTime: scheduleResult.startTime,
+                        endTime: scheduleResult.endTime,
+                        description: formData.description,
+                        schedule: scheduleResult.schedule,
+                        imageUrl: formData.imageUrl,
+                        imageUrls: formData.imageUrls,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       );
@@ -982,30 +986,28 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 LengthLimitingTextInputFormatter(10),
                               ],
                             ),
-                            if (widget.isEdit) ...[
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTimePickerField(
-                                      controller: _startTimeController,
-                                      label: 'Start Time *',
-                                      onTap: () =>
-                                          _selectTime(_startTimeController),
-                                    ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildTimePickerField(
+                                    controller: _startTimeController,
+                                    label: 'Start Time *',
+                                    onTap: () =>
+                                        _selectTime(_startTimeController),
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildTimePickerField(
-                                      controller: _endTimeController,
-                                      label: 'End Time *',
-                                      onTap: () =>
-                                          _selectTime(_endTimeController),
-                                    ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildTimePickerField(
+                                    controller: _endTimeController,
+                                    label: 'End Time *',
+                                    onTap: () =>
+                                        _selectTime(_endTimeController),
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                            ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
                             _buildAddressField(address, state),
                             _buildTextField(
                               controller: _descriptionController,
@@ -1064,10 +1066,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                           onPressed:
                               state.isSubmitting ? null : () => _submit(state),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
+                            backgroundColor: const Color(0xFF8B6500),
                             foregroundColor: Colors.white,
                             elevation: 8,
-                            shadowColor: const Color(0x33D27C17),
+                            shadowColor: const Color(0x338B6500),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(7),
                             ),
@@ -1195,7 +1197,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             borderRadius: BorderRadius.circular(8),
             child: Container(
               width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 54),
+              constraints: const BoxConstraints(minHeight: 58),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -1563,6 +1565,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     bool forceCapitalize = false,
     int? maxWords,
     String? prefixText,
+    bool reserveCounterSpace = false,
   }) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final normalizedHint = hint.trim();
@@ -1576,6 +1579,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         translatedHint != normalizedHint ? translatedHint : normalizedHint;
 
     final String cleanLabel = localizedLabel.trim();
+    final hasInsideCounter = maxLength != null;
+    final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
 
     if (forceCapitalize) {
       controller.addListener(() {
@@ -1602,135 +1607,145 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildFieldLabel(label),
-          TextFormField(
-            controller: controller,
-            maxLines: maxLines,
-            maxLength: maxLength,
-            enabled: enabled,
-            readOnly: false,
-            showCursor: true,
-            cursorColor: const Color(0xFF7A4A09),
-            cursorWidth: 1.6,
-            style: const TextStyle(
-              color: Color(0xFF201A16),
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-            textCapitalization: textCapitalization,
-            keyboardType: keyboardType,
-            inputFormatters: inputFormatters,
-            autovalidateMode: _submitted
-                ? AutovalidateMode.always
-                : AutovalidateMode.disabled,
-            validator: (value) {
-              final text = value?.trim() ?? '';
-
-              if (text.isEmpty) {
-                return translateText('{field} is required')
-                    .replaceAll('{field}', cleanLabel);
-              }
-
-              if (label.toLowerCase().contains('phone') ||
-                  label.toLowerCase().contains('mobile')) {
-                if (text.length != 10) {
-                  return translateText('Phone number must be 10 digits');
-                }
-                if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
-                  return translateText('Invalid phone number');
-                }
-              }
-
-              if (maxWords != null &&
-                  text.split(RegExp(r'\s+')).length > maxWords) {
-                return translateText('Maximum $maxWords words allowed');
-              }
-
-              return null;
-            },
-            decoration: InputDecoration(
-              counterText: '',
-              hintText: localizedHint,
-              hintStyle: const TextStyle(
-                color: Color(0xFF948C84),
-                fontSize: 13,
-                height: 1.6,
-              ),
-              prefixIcon: prefixText == null
-                  ? null
-                  : Container(
-                      width: 48,
-                      alignment: Alignment.center,
-                      margin: const EdgeInsets.only(right: 8),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          right: BorderSide(color: Color(0xFFE4DDD8)),
-                        ),
-                      ),
-                      child: Text(
-                        prefixText,
-                        style: const TextStyle(
-                          color: Color(0xFF5B5149),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              return Stack(
+                children: [
+                  TextFormField(
+                    controller: controller,
+                    maxLines: maxLines,
+                    maxLength: maxLength,
+                    enabled: enabled,
+                    readOnly: false,
+                    showCursor: true,
+                    cursorColor: const Color(0xFF7A4A09),
+                    cursorWidth: 1.6,
+                    style: const TextStyle(
+                      color: Color(0xFF201A16),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
-              filled: true,
-              fillColor: enabled ? Colors.white : const Color(0xFFF1EEEE),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(
-                  color: Color(0xFFD1A24A),
-                  width: 1.2,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              disabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.red, width: 1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.red, width: 1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              errorStyle: const TextStyle(color: AppColors.red),
-            ),
-          ),
-          if (maxLength != null)
-            ValueListenableBuilder<TextEditingValue>(
-              valueListenable: controller,
-              builder: (context, value, _) {
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      '${value.text.length} / $maxLength',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF8A8178),
-                        fontWeight: FontWeight.w500,
+                    textCapitalization: textCapitalization,
+                    keyboardType: keyboardType,
+                    inputFormatters: inputFormatters,
+                    autovalidateMode: _submitted
+                        ? AutovalidateMode.always
+                        : AutovalidateMode.disabled,
+                    validator: (value) {
+                      final text = value?.trim() ?? '';
+
+                      if (text.isEmpty) {
+                        return translateText('{field} is required')
+                            .replaceAll('{field}', cleanLabel);
+                      }
+
+                      if (label.toLowerCase().contains('phone') ||
+                          label.toLowerCase().contains('mobile')) {
+                        if (text.length != 10) {
+                          return translateText(
+                              'Phone number must be 10 digits');
+                        }
+                        if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
+                          return translateText('Invalid phone number');
+                        }
+                      }
+
+                      if (maxWords != null &&
+                          text.split(RegExp(r'\s+')).length > maxWords) {
+                        return translateText('Maximum $maxWords words allowed');
+                      }
+
+                      return null;
+                    },
+                    decoration: InputDecoration(
+                      counterText: '',
+                      hintText: localizedHint,
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF948C84),
+                        fontSize: 13,
+                        height: 1.6,
                       ),
+                      prefixIcon: prefixText == null
+                          ? null
+                          : Container(
+                              width: 48,
+                              alignment: Alignment.center,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(color: Color(0xFFE4DDD8)),
+                                ),
+                              ),
+                              child: Text(
+                                prefixText,
+                                style: const TextStyle(
+                                  color: Color(0xFF5B5149),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                      filled: true,
+                      fillColor:
+                          enabled ? Colors.white : const Color(0xFFF1EEEE),
+                      contentPadding: EdgeInsets.fromLTRB(
+                        16,
+                        14,
+                        hasInsideCounter ? 82 : 16,
+                        shouldReserveCounterSpace ? 30 : 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(
+                          color: Color(0xFFD1A24A),
+                          width: 1.2,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      disabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderSide:
+                            const BorderSide(color: AppColors.red, width: 1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderSide:
+                            const BorderSide(color: AppColors.red, width: 1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      errorStyle: const TextStyle(color: AppColors.red),
                     ),
                   ),
-                );
-              },
-            ),
+                  if (hasInsideCounter)
+                    Positioned(
+                      right: 12,
+                      bottom: 8,
+                      child: IgnorePointer(
+                        child: Text(
+                          '${value.text.length} / $maxLength',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF8A8178),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -1748,6 +1763,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           controller: controller,
           label: label,
           hint: 'Select time',
+          reserveCounterSpace: true,
         ),
       ),
     );
