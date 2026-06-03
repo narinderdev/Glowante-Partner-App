@@ -419,6 +419,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         members.add({
           'label': name,
           'userBranchId': userBranchId,
+          'userId': member['id'] is int
+              ? member['id'] as int
+              : int.tryParse('${member['id'] ?? ''}'),
         });
         break;
       }
@@ -1987,7 +1990,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   Future<void> _continueToSchedule() async {
     if (_isSaving || !_validateBeforeSchedule()) return;
 
-    final schedule = await Navigator.push<_BookingScheduleSelection>(
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (_) => _BookingScheduleScreen(
@@ -1995,6 +1998,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           customerPhone: _mobileCtrl.text.trim(),
           services: _selectedServices,
           professionals: _professionalByService,
+          selectedUserBranchIds: _selectedAssignedUserBranchIds(),
+          selectedUserIds: _selectedAssignedUserIds(),
+          branchId: widget.branchId,
           totalPrice: _selectedTotalPrice(),
           initialDate: _selectedDate,
           initialStartTime: _startTime,
@@ -2002,33 +2008,54 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           branchEndTime: _branchEndTime,
           durationMinutes: _totalSelectedDurationMinutes(),
           selectedProfessionals: _selectedProfessionalLabels(),
+          onConfirmBooking: (schedule) async {
+            if (!mounted) return null;
+            setState(() {
+              _selectedDate = schedule.date;
+              _startTime = schedule.startTime;
+              _endTime = schedule.endTime;
+            });
+            return _submitBooking(popOnSuccess: false);
+          },
         ),
       ),
     );
-    if (schedule == null || !mounted) return;
-
-    setState(() {
-      _selectedDate = schedule.date;
-      _startTime = schedule.startTime;
-      _endTime = schedule.endTime;
-    });
-
-    final result = await _submitBooking(popOnSuccess: false);
     if (result == null || !mounted) return;
-
-    await Navigator.push<void>(
-      context,
-      MaterialPageRoute(builder: (_) => const _BookingSuccessScreen()),
-    );
-    if (mounted) {
-      Navigator.pop(context, result);
-    }
+    Navigator.pop(context, result);
   }
 
   List<String> _selectedProfessionalLabels() {
     return _selectedServices
         .map((service) => _professionalByService[service['id'] as int] ?? '')
         .where((label) => label.trim().isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
+  List<int> _selectedAssignedUserBranchIds() {
+    return _selectedServices
+        .map((service) => _resolveAssignedUserBranchId(service['id'] as int))
+        .whereType<int>()
+        .toSet()
+        .toList();
+  }
+
+  List<int> _selectedAssignedUserIds() {
+    return _selectedServices
+        .map((service) {
+          final selectedProfessional =
+              _professionalByService[service['id'] as int];
+          if (selectedProfessional == null || selectedProfessional.isEmpty) {
+            return null;
+          }
+          for (final option in _membersForService(service['id'] as int)) {
+            if (option['label'] == selectedProfessional) {
+              return option['userId'] as int?;
+            }
+          }
+          return null;
+        })
+        .whereType<int>()
         .toSet()
         .toList();
   }
@@ -2475,7 +2502,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               height: 130,
               width: double.infinity,
               child: Image.asset(
-                'assets/images/salon1.png',
+                'assets/images/salon2.jpeg',
                 fit: BoxFit.cover,
                 alignment: Alignment.center,
               ),
@@ -2811,12 +2838,22 @@ class _BookingScheduleSelection {
   final TimeOfDay endTime;
 }
 
+class _BookedInterval {
+  const _BookedInterval(this.start, this.end);
+
+  final DateTime start;
+  final DateTime end;
+}
+
 class _BookingScheduleScreen extends StatefulWidget {
   const _BookingScheduleScreen({
     required this.customerName,
     required this.customerPhone,
     required this.services,
     required this.professionals,
+    required this.selectedUserBranchIds,
+    required this.selectedUserIds,
+    required this.branchId,
     required this.totalPrice,
     required this.initialDate,
     required this.initialStartTime,
@@ -2824,12 +2861,16 @@ class _BookingScheduleScreen extends StatefulWidget {
     required this.branchEndTime,
     required this.durationMinutes,
     required this.selectedProfessionals,
+    required this.onConfirmBooking,
   });
 
   final String customerName;
   final String customerPhone;
   final List<Map<String, dynamic>> services;
   final Map<int, String> professionals;
+  final List<int> selectedUserBranchIds;
+  final List<int> selectedUserIds;
+  final int? branchId;
   final num totalPrice;
   final DateTime? initialDate;
   final TimeOfDay? initialStartTime;
@@ -2837,6 +2878,8 @@ class _BookingScheduleScreen extends StatefulWidget {
   final TimeOfDay? branchEndTime;
   final int durationMinutes;
   final List<String> selectedProfessionals;
+  final Future<Map<String, dynamic>?> Function(_BookingScheduleSelection)
+      onConfirmBooking;
 
   @override
   State<_BookingScheduleScreen> createState() => _BookingScheduleScreenState();
@@ -2844,15 +2887,21 @@ class _BookingScheduleScreen extends StatefulWidget {
 
 class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   late DateTime _selectedDate;
+  late DateTime _visibleWeekStart;
   TimeOfDay? _selectedTime;
+  bool _loadingAppointments = false;
+  List<_BookedInterval> _bookedIntervals = [];
 
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     _selectedDate =
-        widget.initialDate ?? DateTime(now.year, now.month, now.day);
+        widget.initialDate == null ? today : _dateOnly(widget.initialDate!);
+    _visibleWeekStart = _selectedDate.isAfter(today) ? _selectedDate : today;
     _selectedTime = widget.initialStartTime;
+    _loadAppointmentsForDate();
   }
 
   int _toMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
@@ -2871,17 +2920,150 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
         hour: (totalMinutes ~/ 60) % 24, minute: totalMinutes % 60);
   }
 
+  DateTime _dateWithMinutes(int minutes) {
+    return DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      minutes ~/ 60,
+      minutes % 60,
+    );
+  }
+
+  int? _idFrom(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('$value');
+  }
+
+  DateTime? _parseAppointmentDate(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return null;
+    return DateTime.tryParse(raw)?.toLocal();
+  }
+
+  bool _isActiveAppointment(Map<String, dynamic> appointment) {
+    final status = (appointment['status'] ?? '').toString().toUpperCase();
+    return !const {'CANCELLED', 'CANCELED', 'COMPLETED', 'NO_SHOW'}
+        .contains(status);
+  }
+
+  Map<String, dynamic> _mapFrom(dynamic value) {
+    return value is Map ? Map<String, dynamic>.from(value) : {};
+  }
+
+  List<_BookedInterval> _extractBookedIntervals(dynamic responseData) {
+    final selectedUserBranchIds = widget.selectedUserBranchIds.toSet();
+    final selectedUserIds = widget.selectedUserIds.toSet();
+    final appointments = responseData is List
+        ? responseData
+        : responseData is Map && responseData['data'] is List
+            ? responseData['data'] as List
+            : const [];
+    final intervals = <_BookedInterval>[];
+
+    for (final rawAppointment in appointments) {
+      if (rawAppointment is! Map) continue;
+      final appointment = Map<String, dynamic>.from(rawAppointment);
+      if (!_isActiveAppointment(appointment)) continue;
+      final items = appointment['items'] is List
+          ? appointment['items'] as List
+          : const [];
+
+      for (final rawItem in items) {
+        if (rawItem is! Map) continue;
+        final item = Map<String, dynamic>.from(rawItem);
+        final assignedMap = _mapFrom(item['assignedUserBranch']);
+        final assignedUserMap = _mapFrom(assignedMap['user']);
+        final assignedUserBranchId = _idFrom(assignedMap['id']);
+        final assignedUserId = _idFrom(assignedUserMap['id']);
+        final itemUserBranchId =
+            assignedUserBranchId ?? _idFrom(item['assignedUserBranchId']);
+        final itemUserId = assignedUserId ?? _idFrom(item['assignedUserId']);
+
+        final hasSelectedProfessionals =
+            selectedUserBranchIds.isNotEmpty || selectedUserIds.isNotEmpty;
+        final matchesSelectedProfessional = !hasSelectedProfessionals ||
+            (itemUserBranchId != null &&
+                selectedUserBranchIds.contains(itemUserBranchId)) ||
+            (itemUserId != null && selectedUserIds.contains(itemUserId));
+        if (!matchesSelectedProfessional) {
+          continue;
+        }
+        final start = _parseAppointmentDate(item['startAt']);
+        final end = _parseAppointmentDate(item['endAt']);
+        if (start == null || end == null || !end.isAfter(start)) continue;
+        intervals.add(_BookedInterval(start, end));
+      }
+
+      if (items.isEmpty &&
+          selectedUserBranchIds.isEmpty &&
+          selectedUserIds.isEmpty) {
+        final start = _parseAppointmentDate(appointment['startAt']);
+        final end = _parseAppointmentDate(appointment['endAt']);
+        if (start != null && end != null && end.isAfter(start)) {
+          intervals.add(_BookedInterval(start, end));
+        }
+      }
+    }
+
+    return intervals;
+  }
+
+  Future<void> _loadAppointmentsForDate() async {
+    final branchId = widget.branchId;
+    if (branchId == null) return;
+    setState(() => _loadingAppointments = true);
+    try {
+      final response = await ApiService().fetchAppointments(
+        branchId,
+        DateFormat('yyyy-MM-dd').format(_selectedDate),
+      );
+      if (!mounted) return;
+      final intervals = _extractBookedIntervals(response['data']);
+      setState(() {
+        _bookedIntervals = intervals;
+        _loadingAppointments = false;
+        final current = _selectedTime;
+        if (current != null && !_isSlotAvailable(current)) {
+          _selectedTime = null;
+        }
+      });
+    } catch (e) {
+      debugPrint('[AddBookingSlots] failed=$e');
+      if (!mounted) return;
+      setState(() {
+        _bookedIntervals = [];
+        _loadingAppointments = false;
+      });
+    }
+  }
+
+  bool _isSlotAvailable(TimeOfDay slot) {
+    final duration = widget.durationMinutes <= 0 ? 30 : widget.durationMinutes;
+    final startMinutes = _toMinutes(slot);
+    final proposedStart = _dateWithMinutes(startMinutes);
+    final proposedEnd = proposedStart.add(Duration(minutes: duration));
+    return !_bookedIntervals.any(
+      (booked) =>
+          proposedStart.isBefore(booked.end) &&
+          proposedEnd.isAfter(booked.start),
+    );
+  }
+
   List<TimeOfDay> _availableSlots() {
     final start = widget.branchStartTime ?? const TimeOfDay(hour: 9, minute: 0);
     final end = widget.branchEndTime ?? const TimeOfDay(hour: 18, minute: 30);
     final duration = widget.durationMinutes <= 0 ? 30 : widget.durationMinutes;
     final slots = <TimeOfDay>[];
     for (var minutes = _toMinutes(start);
-        minutes + duration <= _toMinutes(end) && slots.length < 12;
-        minutes += 90) {
-      slots.add(TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60));
+        minutes + duration <= _toMinutes(end);
+        minutes += 30) {
+      final slot = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+      if (_isSlotAvailable(slot)) {
+        slots.add(slot);
+      }
     }
-    if (slots.isEmpty) slots.add(start);
     return slots;
   }
 
@@ -2894,7 +3076,12 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       return;
     }
     final endTime = _endTimeFor(start);
-    final confirm = await Navigator.push<bool>(
+    final schedule = _BookingScheduleSelection(
+      date: _selectedDate,
+      startTime: start,
+      endTime: endTime,
+    );
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (_) => _BookingSummaryScreen(
@@ -2907,17 +3094,62 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
           endTime: endTime,
           totalPrice: widget.totalPrice,
           durationMinutes: widget.durationMinutes,
+          onConfirmBooking: () => widget.onConfirmBooking(schedule),
         ),
       ),
     );
-    if (confirm != true || !mounted) return;
+    if (result == null || !mounted) return;
 
-    Navigator.pop(
-      context,
-      _BookingScheduleSelection(
-        date: _selectedDate,
-        startTime: start,
-        endTime: endTime,
+    Navigator.pop(context, result);
+  }
+
+  void _selectScheduleDate(DateTime date) {
+    setState(() {
+      _selectedDate = DateTime(date.year, date.month, date.day);
+      _selectedTime = null;
+    });
+    _loadAppointmentsForDate();
+  }
+
+  DateTime _dateOnly(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+
+  void _shiftVisibleWeek(int dayDelta) {
+    final today = _dateOnly(DateTime.now());
+    final nextStart = _dateOnly(
+      DateTime(
+        _visibleWeekStart.year,
+        _visibleWeekStart.month,
+        _visibleWeekStart.day + dayDelta,
+      ),
+    );
+    setState(() {
+      _visibleWeekStart = nextStart.isBefore(today) ? today : nextStart;
+    });
+  }
+
+  Widget _calendarArrowButton(
+    IconData icon, {
+    required VoidCallback onTap,
+    bool enabled = true,
+  }) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 28,
+        height: 28,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: _bookingBorder),
+        ),
+        child: Icon(
+          icon,
+          size: 17,
+          color: enabled ? _bookingMuted : _bookingMuted.withValues(alpha: .35),
+        ),
       ),
     );
   }
@@ -2925,10 +3157,15 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   @override
   Widget build(BuildContext context) {
     final slots = _availableSlots();
-    final today = DateTime.now();
+    final today = _dateOnly(DateTime.now());
+    final canGoBack = _visibleWeekStart.isAfter(today);
     final days = List.generate(
       7,
-      (index) => DateTime(today.year, today.month, today.day + index),
+      (index) => DateTime(
+        _visibleWeekStart.year,
+        _visibleWeekStart.month,
+        _visibleWeekStart.day + index,
+      ),
     );
 
     return Scaffold(
@@ -2940,13 +3177,29 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                DateFormat('MMMM yyyy').format(_selectedDate),
-                style: const TextStyle(
-                  color: _bookingInk,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      DateFormat('MMMM yyyy').format(_selectedDate),
+                      style: const TextStyle(
+                        color: _bookingInk,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  _calendarArrowButton(
+                    Icons.chevron_left_rounded,
+                    enabled: canGoBack,
+                    onTap: () => _shiftVisibleWeek(-7),
+                  ),
+                  const SizedBox(width: 6),
+                  _calendarArrowButton(
+                    Icons.chevron_right_rounded,
+                    onTap: () => _shiftVisibleWeek(7),
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
               SingleChildScrollView(
@@ -2957,7 +3210,12 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: InkWell(
-                        onTap: () => setState(() => _selectedDate = day),
+                        onTap: () {
+                          if (DateUtils.isSameDay(day, _selectedDate)) {
+                            return;
+                          }
+                          _selectScheduleDate(day);
+                        },
                         borderRadius: BorderRadius.circular(7),
                         child: Container(
                           width: 50,
@@ -3042,96 +3300,250 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              Wrap(
-                spacing: 9,
-                runSpacing: 9,
-                children: slots.map((slot) {
-                  final selected = _selectedTime != null &&
-                      _toMinutes(_selectedTime!) == _toMinutes(slot);
-                  return InkWell(
-                    onTap: () => setState(() => _selectedTime = slot),
-                    borderRadius: BorderRadius.circular(6),
-                    child: Container(
-                      width: 100,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: selected ? _bookingGold : Colors.white,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: selected ? _bookingGold : _bookingBorder,
-                        ),
-                      ),
-                      child: Text(
-                        _formatTime(slot),
-                        style: TextStyle(
-                          color: selected ? Colors.white : _bookingInk,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 26),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(9),
-                child: Image.asset(
-                  'assets/images/salon1.png',
-                  height: 150,
+              if (_loadingAppointments)
+                Container(
                   width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              const SizedBox(height: 14),
-              _bookingInfoCard(
-                title: translateText('Treatment Focus'),
-                body: translateText(
-                  'Ensure your client arrives 15 minutes before the selected time slot.',
-                ),
-              ),
-              const SizedBox(height: 18),
-              _bookingInfoCard(
-                title: translateText('Duration'),
-                body:
-                    '${translateText('Total')}: ${widget.durationMinutes} min',
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _bookingInk,
-                        side: const BorderSide(color: _bookingBorder),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                      ),
-                      child: Text(translateText('Back')),
-                    ),
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: _bookingBorder),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: _confirm,
-                      icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                      label: Text(translateText('Confirm Time')),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _bookingGold,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(7),
-                        ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        color: _bookingGold,
+                        strokeWidth: 2,
                       ),
                     ),
                   ),
-                ],
+                )
+              else if (slots.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: _bookingBorder),
+                  ),
+                  child: Text(
+                    translateText(
+                      'No available slots for the selected date and artisan.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _bookingMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.4,
+                    ),
+                  ),
+                )
+              else
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const columns = 3;
+                    const gap = 9.0;
+                    final slotWidth =
+                        (constraints.maxWidth - (gap * (columns - 1))) /
+                            columns;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: 9,
+                      children: slots.map((slot) {
+                        final selected = _selectedTime != null &&
+                            _toMinutes(_selectedTime!) == _toMinutes(slot);
+                        return InkWell(
+                          onTap: () => setState(() => _selectedTime = slot),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            width: slotWidth,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: selected ? _bookingGold : Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: selected ? _bookingGold : _bookingBorder,
+                              ),
+                            ),
+                            child: Text(
+                              _formatTime(slot),
+                              style: TextStyle(
+                                color: selected ? Colors.white : _bookingInk,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              const SizedBox(height: 26),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _bookingBorder),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0A000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Image.asset(
+                      'assets/images/salon2.jpeg',
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            translateText('Treatment Focus').toUpperCase(),
+                            style: const TextStyle(
+                              color: _bookingGold,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: .6,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            translateText(
+                              'Ensure your client arrives 15 minutes before the selected time slot.',
+                            ),
+                            style: const TextStyle(
+                              color: _bookingMuted,
+                              fontSize: 12,
+                              height: 1.45,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _bookingBorder),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0A000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5EAD2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.timer_outlined,
+                            color: _bookingGold,
+                            size: 18,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                translateText('Duration').toUpperCase(),
+                                style: const TextStyle(
+                                  color: _bookingMuted,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: .7,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${translateText('Total')}: ${widget.durationMinutes} min',
+                                style: const TextStyle(
+                                  color: _bookingInk,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _bookingInk,
+                              side: const BorderSide(color: _bookingBorder),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                            ),
+                            child: Text(translateText('Back')),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            onPressed: _confirm,
+                            icon: const Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 18,
+                            ),
+                            label: Text(translateText('Confirm Time')),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _bookingGold,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -3170,45 +3582,9 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       ],
     );
   }
-
-  Widget _bookingInfoCard({required String title, required String body}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(9),
-        border: Border.all(color: _bookingBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title.toUpperCase(),
-            style: const TextStyle(
-              color: _bookingGold,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.6,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            body,
-            style: const TextStyle(
-              color: _bookingMuted,
-              fontSize: 12,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
-class _BookingSummaryScreen extends StatelessWidget {
+class _BookingSummaryScreen extends StatefulWidget {
   const _BookingSummaryScreen({
     required this.customerName,
     required this.customerPhone,
@@ -3219,6 +3595,7 @@ class _BookingSummaryScreen extends StatelessWidget {
     required this.endTime,
     required this.totalPrice,
     required this.durationMinutes,
+    required this.onConfirmBooking,
   });
 
   final String customerName;
@@ -3230,12 +3607,44 @@ class _BookingSummaryScreen extends StatelessWidget {
   final TimeOfDay endTime;
   final num totalPrice;
   final int durationMinutes;
+  final Future<Map<String, dynamic>?> Function() onConfirmBooking;
+
+  @override
+  State<_BookingSummaryScreen> createState() => _BookingSummaryScreenState();
+}
+
+class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
+  bool _submitting = false;
+
+  String get customerName => widget.customerName;
+  String get customerPhone => widget.customerPhone;
+  List<Map<String, dynamic>> get services => widget.services;
+  Map<int, String> get professionals => widget.professionals;
+  DateTime get date => widget.date;
+  TimeOfDay get startTime => widget.startTime;
+  TimeOfDay get endTime => widget.endTime;
+  num get totalPrice => widget.totalPrice;
+  int get durationMinutes => widget.durationMinutes;
 
   String _formatTime(TimeOfDay time) {
     final now = DateTime.now();
     return DateFormat('h:mm a').format(
       DateTime(now.year, now.month, now.day, time.hour, time.minute),
     );
+  }
+
+  Future<void> _handleConfirmBooking() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final result = await widget.onConfirmBooking();
+      if (!mounted || result == null) return;
+      Navigator.pop(context, result);
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
   }
 
   @override
@@ -3248,194 +3657,210 @@ class _BookingSummaryScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFFBFAF8),
       appBar:
           buildProfileSubpageAppBar(title: translateText('Booking Summary')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
-          child: Column(
-            children: [
-              _summaryCard(
-                title: translateText('Client Identity'),
-                trailing: Icons.person_rounded,
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: const Color(0xFFF5EAD2),
-                      child: Text(
-                        customerName.isNotEmpty
-                            ? customerName.characters.first.toUpperCase()
-                            : 'G',
-                        style: const TextStyle(
-                          color: _bookingGold,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            customerName,
-                            style: const TextStyle(
-                              color: _bookingInk,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            customerPhone,
-                            style: const TextStyle(
-                              color: _bookingMuted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _summaryCard(
-                title: translateText('Assigned Artisan'),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 22,
-                      backgroundColor: _bookingInk,
-                      child: Icon(Icons.person_rounded, color: Colors.white),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            firstProfessional,
-                            style: const TextStyle(
-                              color: _bookingInk,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            translateText('Lead Stylist'),
-                            style: const TextStyle(
-                              color: _bookingMuted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE9F8EF),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Text(
-                        translateText('Verified').toUpperCase(),
-                        style: const TextStyle(
-                          color: Color(0xFF168546),
-                          fontSize: 9,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _summaryCard(
-                title: translateText('Schedule'),
-                trailing: Icons.calendar_month_rounded,
-                child: Column(
-                  children: [
-                    _summaryBlock(
-                      translateText('Date'),
-                      DateFormat('EEEE, MMM d\nyyyy').format(date),
-                    ),
-                    _summaryBlock(
-                      translateText('Commences'),
-                      _formatTime(startTime),
-                    ),
-                    _summaryBlock(
-                      translateText('Concludes'),
-                      _formatTime(endTime),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              _summaryCard(
-                title: translateText('Services Portfolio'),
-                trailing: Icons.content_cut_rounded,
-                subtitle: '$durationMinutes min total',
-                child: Column(
-                  children: [
-                    for (final service in services) _serviceLine(service),
-                    const Divider(height: 24, color: _bookingBorder),
-                    Row(
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
+              child: Column(
+                children: [
+                  _summaryCard(
+                    title: translateText('Client Identity'),
+                    trailing: Icons.person_rounded,
+                    child: Row(
                       children: [
-                        const Spacer(),
-                        Text(
-                          translateText('Total Investment').toUpperCase(),
-                          style: const TextStyle(
-                            color: _bookingMuted,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.7,
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: const Color(0xFFF5EAD2),
+                          child: Text(
+                            customerName.isNotEmpty
+                                ? customerName.characters.first.toUpperCase()
+                                : 'G',
+                            style: const TextStyle(
+                              color: _bookingGold,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                customerName,
+                                style: const TextStyle(
+                                  color: _bookingInk,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                customerPhone,
+                                style: const TextStyle(
+                                  color: _bookingMuted,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        '₹${totalPrice.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: _bookingGold,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
+                  ),
+                  const SizedBox(height: 12),
+                  _summaryCard(
+                    title: translateText('Assigned Artisan'),
+                    titleTrailing: _verifiedBadge(),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 22,
+                          backgroundColor: _bookingInk,
+                          child:
+                              Icon(Icons.person_rounded, color: Colors.white),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                firstProfessional,
+                                style: const TextStyle(
+                                  color: _bookingInk,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                translateText('Lead Stylist'),
+                                style: const TextStyle(
+                                  color: _bookingMuted,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _summaryCard(
+                    title: translateText('Schedule'),
+                    trailing: Icons.calendar_month_rounded,
+                    child: Column(
+                      children: [
+                        _summaryBlock(
+                          translateText('Date'),
+                          DateFormat('EEEE, MMM d\nyyyy').format(date),
+                        ),
+                        _summaryBlock(
+                          translateText('Commences'),
+                          _formatTime(startTime),
+                        ),
+                        _summaryBlock(
+                          translateText('Concludes'),
+                          _formatTime(endTime),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _summaryCard(
+                    title: translateText('Services Portfolio'),
+                    subtitle: '$durationMinutes min total',
+                    child: Column(
+                      children: [
+                        for (final service in services) _serviceLine(service),
+                        const Divider(height: 24, color: _bookingBorder),
+                        Row(
+                          children: [
+                            const Spacer(),
+                            Text(
+                              translateText('Total Investment').toUpperCase(),
+                              style: const TextStyle(
+                                color: _bookingMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.7,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '₹${totalPrice.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              color: _bookingGold,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton.icon(
+                      onPressed: _submitting ? null : _handleConfirmBooking,
+                      icon: _submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.check_circle_rounded, size: 18),
+                      label: Text(
+                        _submitting
+                            ? translateText('Confirming...')
+                            : translateText('Confirm Booking'),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _bookingGold,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        elevation: 8,
+                        shadowColor: const Color(0x338B6500),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(context, true),
-                  icon: const Icon(Icons.check_circle_rounded, size: 18),
-                  label: Text(translateText('Confirm Booking')),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _bookingGold,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          if (_submitting)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: .12),
+                child: const Center(
+                  child: SizedBox(
+                    width: 42,
+                    height: 42,
+                    child: CircularProgressIndicator(
+                      color: _bookingGold,
+                      strokeWidth: 3,
                     ),
-                    elevation: 8,
-                    shadowColor: const Color(0x338B6500),
                   ),
                 ),
               ),
-            ],
-          ),
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -3445,6 +3870,7 @@ class _BookingSummaryScreen extends StatelessWidget {
     required Widget child,
     IconData? trailing,
     String? subtitle,
+    Widget? titleTrailing,
   }) {
     return Container(
       width: double.infinity,
@@ -3468,8 +3894,8 @@ class _BookingSummaryScreen extends StatelessWidget {
                   letterSpacing: 0.7,
                 ),
               ),
+              const Spacer(),
               if (subtitle != null) ...[
-                const Spacer(),
                 Text(
                   subtitle,
                   style: const TextStyle(
@@ -3478,8 +3904,11 @@ class _BookingSummaryScreen extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-              ] else
-                const Spacer(),
+              ],
+              if (titleTrailing != null) ...[
+                if (subtitle != null) const SizedBox(width: 8),
+                titleTrailing,
+              ],
               if (trailing != null)
                 Icon(trailing, size: 15, color: _bookingGold),
             ],
@@ -3487,6 +3916,24 @@ class _BookingSummaryScreen extends StatelessWidget {
           const SizedBox(height: 12),
           child,
         ],
+      ),
+    );
+  }
+
+  Widget _verifiedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE9F8EF),
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        translateText('Verified').toUpperCase(),
+        style: const TextStyle(
+          color: Color(0xFF168546),
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
@@ -3581,75 +4028,6 @@ class _BookingSummaryScreen extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _BookingSuccessScreen extends StatelessWidget {
-  const _BookingSuccessScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFFBFAF8),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircleAvatar(
-                radius: 42,
-                backgroundColor: Color(0xFFF5EAD2),
-                child: Icon(
-                  Icons.check_circle_rounded,
-                  color: _bookingGold,
-                  size: 54,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                translateText('Booking Confirmed'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _bookingInk,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                translateText(
-                  'The appointment has been scheduled successfully.',
-                ),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _bookingMuted,
-                  fontSize: 13,
-                  height: 1.45,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _bookingGold,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                  child: Text(translateText('Done')),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
