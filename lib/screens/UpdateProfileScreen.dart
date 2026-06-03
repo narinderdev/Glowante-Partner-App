@@ -1,3 +1,5 @@
+// ignore_for_file: file_names
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Import for FilteringTextInputFormatter
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,14 +17,14 @@ class UpdateUserProfileScreen extends StatefulWidget {
   final bool isStylist;
 
   // Constructor to accept the token
-  UpdateUserProfileScreen({
+  const UpdateUserProfileScreen({
     super.key,
     required this.token,
     this.isStylist = false,
   });
 
   @override
-  _UpdateUserProfileScreenState createState() =>
+  State<UpdateUserProfileScreen> createState() =>
       _UpdateUserProfileScreenState();
 }
 
@@ -39,114 +41,6 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
 
   // API service instance
   final ApiService apiService = ApiService();
-
-  // Function to update user profile
-//   Future<void> _updateProfile() async {
-// String firstName = _capitalizeFirstLetter(firstNameController.text.trim());
-//   String lastName = _capitalizeFirstLetter(lastNameController.text.trim());
-// String email = emailController.text.trim();
-
-//     // Reset errors
-//     setState(() {
-//       firstNameError = '';
-//       lastNameError = '';
-//       emailError = '';
-//     });
-
-//     // Validate input
-//     bool isValid = true;
-//     if (firstName.isEmpty) {
-//       setState(() {
-//         firstNameError = translateText('First Name is required');
-//       });
-//       isValid = false;
-//     }
-//     if (lastName.isEmpty) {
-//       setState(() {
-//         lastNameError = translateText('Last Name is required');
-//       });
-//       isValid = false;
-//     }
-//    if (email.isEmpty) {
-//   setState(() => emailError = 'Email is required');
-//   isValid = false;
-// } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-//   setState(() => emailError = 'Enter a valid email');
-//   isValid = false;
-// }
-
-//     if (!isValid) return; // Don't proceed if validation fails
-
-//     setState(() {
-//       isLoading = true;
-//     });
-
-//  try {
-//       final response = await apiService.updateUserProfileDetails(
-//         firstName,
-//         lastName,
-//         email,
-//         widget.token,
-//       );
-//  SharedPreferences prefs = await SharedPreferences.getInstance();
-//     await prefs.setString('firstName', firstName);
-//     await prefs.setString('lastName', lastName);
-//     await prefs.setString('email', email);
-//     await prefs.setString('first_name', firstName);
-//     await prefs.setString('last_name', lastName);
-//     await prefs.setBool('profile_complete', true);
-//     await prefs.setBool('profile_pending', false);
-//     print('Saved firstName: $firstName');
-//   print('Saved lastName: $lastName');
-//   print('Saved email: $email');
-//       // Check for success
-//       if (response['success'] == true) {
-//         var userData = response['data'];
-//         int salonId = userData['salonId'] ?? 0;
-
-//         // Retrieve latitude and longitude from user data or set defaults if they don't exist
-//         double? latitude = userData['latitude'] ?? 0.0;
-//         double? longitude = userData['longitude'] ?? 0.0;
-
-//         Navigator.pushReplacement(
-//           context,
-//           MaterialPageRoute(
-//             builder: (context) => BlocProvider(
-//               create: (context) =>
-//                   AddSalonCubit(context.read<SalonRepository>()),
-//               child: AddSalonScreen(
-//                 id: userData['id'].toString(),
-//                 phoneNumber: userData['phoneNumber'],
-//                 fullPhoneNumber: userData['fullPhoneNumber'],
-//                 firstName: userData['firstName'] ?? '',
-//                 lastName: userData['lastName'] ?? '',
-//                 email: userData['email'] ?? '',
-//                 isProceedFrom: "onboarding",
-//                 buildingName: userData['buildingName'] ?? '',
-//                 city: userData['city'] ?? '',
-//                 pincode: userData['pincode'] ?? '',
-//                 state: userData['state'] ?? '',
-//                 latitude: latitude,
-//                 longitude: longitude,
-//               ),
-//             ),
-//           ),
-//         );
-//       } else {
-//         // Handle API response error and show an alert dialog with validation messages
-//         List<String> errorMessages = List<String>.from(response['message'] ?? []);
-//         _showErrorDialog(errorMessages);
-//       }
-//     } catch (e) {
-//       setState(() {
-//         emailError = 'Error updating profile: $e';
-//       });
-//     } finally {
-//       setState(() {
-//         isLoading = false;
-//       });
-//     }
-//   }
   Future<void> _updateProfile() async {
     String firstName = _capitalizeFirstLetter(firstNameController.text.trim());
     String lastName = _capitalizeFirstLetter(lastNameController.text.trim());
@@ -216,6 +110,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
         var userData = response['data'];
         double? latitude = userData['latitude'] ?? 0.0;
         double? longitude = userData['longitude'] ?? 0.0;
+        if (!mounted) return;
 
         if (widget.isStylist) {
           Navigator.pushReplacement(
@@ -382,94 +277,66 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              final text = value.text;
-              return TextField(
-                controller: controller,
-                textInputAction: TextInputAction.next,
-                onChanged: (_) {
-                  setState(() {
-                    if (fieldType == 'firstName') firstNameError = '';
-                    if (fieldType == 'lastName') lastNameError = '';
-                    if (fieldType == 'email') emailError = '';
-                  });
-                },
-                keyboardType: fieldType == 'email'
-                    ? TextInputType.emailAddress
-                    : TextInputType.text,
-                inputFormatters: [
-                  if (fieldType == 'email')
-                    FilteringTextInputFormatter.deny(RegExp(r'\s')),
-                  if (isNameField)
-                    FilteringTextInputFormatter.allow(RegExp('[a-zA-Z ]')),
-                  if (isNameField) LengthLimitingTextInputFormatter(50),
-                ],
-                textCapitalization: isNameField
-                    ? TextCapitalization.words
-                    : TextCapitalization.none,
-                // decoration: InputDecoration(
-                //   labelText: label,
-                //   hintText: hint,
-                //   counterText: '',
-                //   suffixIcon: isNameField && text.isNotEmpty
-                //       ? Padding(
-                //           padding: const EdgeInsets.only(right: 10, top: 14),
-                //           child: Text(
-                //             '${text.length}/30',
-                //             style: TextStyle(
-                //               fontSize: 12,
-                //               color: text.length >= 30
-                //                   ? Colors.red
-                //                   : Colors.grey,
-                //             ),
-                //           ),
-                //         )
-                //       : null,
-                //   border: OutlineInputBorder(
-                //     borderRadius: BorderRadius.circular(8),
-                //     borderSide: const BorderSide(color: Colors.black),
-                //   ),
-                //   focusedBorder: OutlineInputBorder(
-                //     borderRadius: BorderRadius.circular(8),
-                //     borderSide:
-                //         const BorderSide(color: Colors.black, width: 2),
-                //   ),
-                // ),
-                decoration: InputDecoration(
-                  labelText: label,
-                  hintText: hint,
-                  counterText: '',
-
-                  // ✅ Always show counter, even when empty
-                  suffixIcon: isNameField
-                      ? Padding(
-                          padding: const EdgeInsets.only(right: 10, top: 14),
-                          child: Text(
-                            '${text.length}/50',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color:
-                                  text.length >= 50 ? Colors.red : Colors.grey,
-                            ),
-                          ),
-                        )
-                      : null,
-
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide:
-                        const BorderSide(color: AppColors.getStartedButton),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(
-                        color: AppColors.getStartedButton, width: 2),
-                  ),
-                ),
-              );
+          TextField(
+            key: ValueKey('create_profile_$fieldType'),
+            controller: controller,
+            textInputAction: fieldType == 'email'
+                ? TextInputAction.done
+                : TextInputAction.next,
+            onChanged: (_) {
+              if (fieldType == 'firstName' && firstNameError.isNotEmpty) {
+                setState(() => firstNameError = '');
+              } else if (fieldType == 'lastName' && lastNameError.isNotEmpty) {
+                setState(() => lastNameError = '');
+              } else if (fieldType == 'email' && emailError.isNotEmpty) {
+                setState(() => emailError = '');
+              }
             },
+            keyboardType: fieldType == 'email'
+                ? TextInputType.emailAddress
+                : TextInputType.text,
+            maxLength: isNameField ? 50 : null,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            inputFormatters: [
+              if (fieldType == 'email')
+                FilteringTextInputFormatter.deny(RegExp(r'\s')),
+            ],
+            textCapitalization: isNameField
+                ? TextCapitalization.words
+                : TextCapitalization.none,
+            buildCounter: isNameField
+                ? (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    maxLength,
+                  }) =>
+                    Text(
+                      '$currentLength/${maxLength ?? 50}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: currentLength >= (maxLength ?? 50)
+                            ? Colors.red
+                            : Colors.grey,
+                      ),
+                    )
+                : null,
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              counterText: isNameField ? null : '',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.getStartedButton),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: AppColors.getStartedButton,
+                  width: 2,
+                ),
+              ),
+            ),
           ),
           if (fieldError.isNotEmpty) ...[
             const SizedBox(height: 5),
