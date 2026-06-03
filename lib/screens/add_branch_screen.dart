@@ -800,190 +800,197 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           appBar: buildProfileSubpageAppBar(
             title: translateText(widget.isEdit ? 'Edit Branch' : 'Add Branch'),
           ),
-          body: Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SalonFlowStepHeader(
-                        currentStep: 1,
-                        detailsLabel: translateText('Branch Details'),
-                        totalSteps: widget.isEdit ? 2 : 3,
-                      ),
-                      const SizedBox(height: 22),
-                      _buildHeroCard(
-                        quote:
-                            '"Every branch should deliver the same signature experience."',
-                      ),
-                      const SizedBox(height: 34),
-                      _buildSectionCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              translateText('Branch Information'),
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF161616),
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            _buildTextField(
-                              field: _BranchField.name,
-                              controller: _branchNameController,
-                              label: 'Branch Name *',
-                              hint: 'Enter branch name',
-                              enabled: true,
-                              keyboardType: TextInputType.text,
-                              textCapitalization: TextCapitalization.sentences,
-                              maxLength: 50,
-                              inputFormatters: const [
-                                _FirstLetterUpperFormatter()
-                              ],
-                            ),
-                            _buildTextField(
-                              field: _BranchField.phone,
-                              controller: _phoneController,
-                              label: 'Phone Number *',
-                              hint: '9855096207',
-                              maxLength: 10,
-                              enabled: true,
-                              keyboardType: TextInputType.phone,
-                              prefixText: '+91',
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(10),
-                              ],
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 18),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTimePickerField(
-                                      field: _BranchField.startTime,
-                                      controller: _startTimeController,
-                                      label: 'Start Time *',
-                                      onTap: () => _selectTime(
-                                        _BranchField.startTime,
-                                        _startTimeController,
-                                      ),
-                                      bottomSpacing: 0,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildTimePickerField(
-                                      field: _BranchField.endTime,
-                                      controller: _endTimeController,
-                                      label: 'End Time *',
-                                      onTap: () => _selectTime(
-                                        _BranchField.endTime,
-                                        _endTimeController,
-                                      ),
-                                      bottomSpacing: 0,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            _buildAddressField(address, state),
-                            _buildTextField(
-                              field: _BranchField.description,
-                              controller: _descriptionController,
-                              label: 'Description *',
-                              hint: "Tell us more...",
-                              maxLines: 1,
-                              maxLength: 250,
-                              keyboardType: TextInputType.text,
-                              textCapitalization: TextCapitalization.sentences,
-                              inputFormatters: const [
-                                _FirstLetterUpperFormatter()
-                              ],
-                            ),
-                          ],
+          body: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(14, 16, 14, 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SalonFlowStepHeader(
+                          currentStep: 1,
+                          detailsLabel: translateText('Branch Details'),
+                          totalSteps: widget.isEdit ? 2 : 3,
                         ),
-                      ),
-                      const SizedBox(height: 22),
-                      _buildSectionCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            RichText(
-                              text: TextSpan(
-                                text: translateText('Branch Images'),
+                        const SizedBox(height: 22),
+                        _buildHeroCard(
+                          quote:
+                              '"Every branch should deliver the same signature experience."',
+                        ),
+                        const SizedBox(height: 34),
+                        _buildSectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                translateText('Branch Information'),
                                 style: const TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF161616),
                                 ),
-                                children: [
-                                  TextSpan(
-                                    text: ' (${translateText('Optional')})',
-                                    style: const TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w400,
-                                      color: Color(0xFF7F7974),
-                                    ),
-                                  ),
+                              ),
+                              const SizedBox(height: 18),
+                              _buildTextField(
+                                field: _BranchField.name,
+                                controller: _branchNameController,
+                                label: 'Branch Name *',
+                                hint: 'Enter branch name',
+                                enabled: true,
+                                keyboardType: TextInputType.text,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                maxLength: 50,
+                                inputFormatters: const [
+                                  _FirstLetterUpperFormatter()
                                 ],
                               ),
-                            ),
-                            const SizedBox(height: 18),
-                            _buildImageGrid(
-                              images,
-                              _existingImageUrls,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          onPressed:
-                              state.isSubmitting ? null : () => _submit(state),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8B6500),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: state.isSubmitting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text(
-                                  translateText(
-                                    widget.isEdit ? 'Save' : 'Next',
-                                  ),
+                              _buildTextField(
+                                field: _BranchField.phone,
+                                controller: _phoneController,
+                                label: 'Phone Number *',
+                                hint: '9855096207',
+                                maxLength: 10,
+                                enabled: true,
+                                keyboardType: TextInputType.phone,
+                                prefixText: '+91',
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(10),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 18),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildTimePickerField(
+                                        field: _BranchField.startTime,
+                                        controller: _startTimeController,
+                                        label: 'Start Time *',
+                                        onTap: () => _selectTime(
+                                          _BranchField.startTime,
+                                          _startTimeController,
+                                        ),
+                                        bottomSpacing: 0,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildTimePickerField(
+                                        field: _BranchField.endTime,
+                                        controller: _endTimeController,
+                                        label: 'End Time *',
+                                        onTap: () => _selectTime(
+                                          _BranchField.endTime,
+                                          _endTimeController,
+                                        ),
+                                        bottomSpacing: 0,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                              _buildAddressField(address, state),
+                              _buildTextField(
+                                field: _BranchField.description,
+                                controller: _descriptionController,
+                                label: 'Description *',
+                                hint: "Tell us more...",
+                                maxLines: 1,
+                                maxLength: 250,
+                                keyboardType: TextInputType.text,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                inputFormatters: const [
+                                  _FirstLetterUpperFormatter()
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 22),
+                        _buildSectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              RichText(
+                                text: TextSpan(
+                                  text: translateText('Branch Images'),
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF161616),
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: ' (${translateText('Optional')})',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w400,
+                                        color: Color(0xFF7F7974),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              _buildImageGrid(
+                                images,
+                                _existingImageUrls,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 52,
+                          child: ElevatedButton(
+                            onPressed: state.isSubmitting
+                                ? null
+                                : () => _submit(state),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8B6500),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: state.isSubmitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    translateText(
+                                      widget.isEdit ? 'Save' : 'Next',
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (state.status == BranchFormStatus.loading)
-                const ColoredBox(
-                  color: Colors.black54,
-                  child: Center(
-                    child: CircularProgressIndicator(color: Colors.white),
+                if (state.status == BranchFormStatus.loading)
+                  const ColoredBox(
+                    color: Colors.black54,
+                    child: Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -1114,8 +1121,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
               child: Row(
                 children: [
                   const Icon(
-                    Icons.location_on_outlined,
-                    color: Color(0xFF2563EB),
+                    Icons.add_location_alt_rounded,
+                    color: Color(0xFF8B6500),
                     size: 22,
                   ),
                   const SizedBox(width: 12),
@@ -1300,6 +1307,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     List<TextInputFormatter>? inputFormatters,
     ValueChanged<String>? onChanged,
     String? prefixText,
+    IconData? prefixIconData,
     bool reserveCounterSpace = false,
     double bottomSpacing = 18,
   }) {
@@ -1372,9 +1380,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                         color: Color(0xFF948C84),
                         fontSize: 13,
                       ),
-                      prefixIcon: prefixText == null
-                          ? null
-                          : Container(
+                      prefixIcon: prefixText != null
+                          ? Container(
                               width: 48,
                               alignment: Alignment.center,
                               margin: const EdgeInsets.only(right: 8),
@@ -1391,7 +1398,25 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ),
+                            )
+                          : prefixIconData == null
+                              ? null
+                              : Container(
+                                  width: 48,
+                                  alignment: Alignment.center,
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: const BoxDecoration(
+                                    border: Border(
+                                      right:
+                                          BorderSide(color: Color(0xFFE4DDD8)),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    prefixIconData,
+                                    color: const Color(0xFF8B6500),
+                                    size: 19,
+                                  ),
+                                ),
                       filled: true,
                       fillColor:
                           enabled ? Colors.white : const Color(0xFFF1EEEE),
@@ -1470,6 +1495,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           controller: controller,
           label: label,
           hint: 'Select time',
+          prefixIconData: Icons.access_time_rounded,
           reserveCounterSpace: true,
           bottomSpacing: bottomSpacing,
         ),

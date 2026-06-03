@@ -955,196 +955,203 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           appBar: buildProfileSubpageAppBar(
             title: translateText(widget.isEdit ? 'Edit Salon' : 'Add Salon'),
           ),
-          body: Stack(
-            children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SalonFlowStepHeader(
-                        currentStep: 1,
-                        detailsLabel: translateText('Salon Details'),
-                        totalSteps: widget.isEdit ? 2 : 3,
-                      ),
-                      const SizedBox(height: 22),
-                      _buildHeroCard(
-                        quote:
-                            '"The foundation of luxury is the precision of your process."',
-                      ),
-                      const SizedBox(height: 34),
-                      _buildSectionCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              translateText('Basic Information'),
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF161616),
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            _buildTextField(
-                              controller: _salonNameController,
-                              keyboardType: TextInputType.text,
-                              textCapitalization: TextCapitalization.sentences,
-                              label: 'Salon Name *',
-                              hint: 'Enter your business name',
-                              enabled: true,
-                              maxLength: 50,
-                              inputFormatters: const [
-                                _FirstLetterUpperFormatter()
-                              ],
-                            ),
-                            _buildTextField(
-                              controller: _phoneController,
-                              label: 'Phone Number *',
-                              maxLength: 10,
-                              hint: '9855096207',
-                              enabled: true,
-                              keyboardType: TextInputType.phone,
-                              prefixText: '+91',
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(10),
-                              ],
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 18),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildTimePickerField(
-                                      controller: _startTimeController,
-                                      label: 'Start Time *',
-                                      onTap: () =>
-                                          _selectTime(_startTimeController),
-                                      bottomSpacing: 0,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: _buildTimePickerField(
-                                      controller: _endTimeController,
-                                      label: 'End Time *',
-                                      onTap: () =>
-                                          _selectTime(_endTimeController),
-                                      bottomSpacing: 0,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            _buildAddressField(address, state),
-                            _buildTextField(
-                              controller: _descriptionController,
-                              keyboardType: TextInputType.text,
-                              textCapitalization: TextCapitalization.sentences,
-                              label: 'Description *',
-                              hint: "Tell us more...",
-                              maxLines: 1,
-                              maxLength: 250,
-                              inputFormatters: const [
-                                _FirstLetterUpperFormatter()
-                              ],
-                            ),
-                          ],
+          body: GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: Stack(
+              children: [
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SalonFlowStepHeader(
+                          currentStep: 1,
+                          detailsLabel: translateText('Salon Details'),
+                          totalSteps: widget.isEdit ? 2 : 3,
                         ),
-                      ),
-                      const SizedBox(height: 22),
-                      _buildSectionCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            RichText(
-                              text: TextSpan(
-                                text: translateText('Salon Images'),
+                        const SizedBox(height: 22),
+                        _buildHeroCard(
+                          quote:
+                              '"The foundation of luxury is the precision of your process."',
+                        ),
+                        const SizedBox(height: 34),
+                        _buildSectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                translateText('Basic Information'),
                                 style: const TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w500,
                                   color: Color(0xFF161616),
                                 ),
-                                children: [
-                                  TextSpan(
-                                    text: ' (${translateText('Optional')})',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Color(0xFF8A8178),
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
+                              ),
+                              const SizedBox(height: 18),
+                              _buildTextField(
+                                controller: _salonNameController,
+                                keyboardType: TextInputType.text,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                label: 'Salon Name *',
+                                hint: 'Enter your business name',
+                                enabled: true,
+                                maxLength: 50,
+                                inputFormatters: const [
+                                  _FirstLetterUpperFormatter()
                                 ],
                               ),
-                            ),
-                            const SizedBox(height: 18),
-                            _buildImageGrid(images, existingImageUrls),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      _buildEmpireCard(),
-                      const SizedBox(height: 18),
-                      _buildProTipCard(),
-                      const SizedBox(height: 28),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton(
-                          onPressed:
-                              state.isSubmitting ? null : () => _submit(state),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8B6500),
-                            foregroundColor: Colors.white,
-                            elevation: 8,
-                            shadowColor: const Color(0x338B6500),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                          ),
-                          child: state.isSubmitting
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                              _buildTextField(
+                                controller: _phoneController,
+                                label: 'Phone Number *',
+                                maxLength: 10,
+                                hint: '9855096207',
+                                enabled: true,
+                                keyboardType: TextInputType.phone,
+                                prefixText: '+91',
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(10),
+                                ],
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 18),
+                                child: Row(
                                   children: [
-                                    Text(
-                                      translateText(widget.isEdit
-                                          ? 'Save Changes'
-                                          : 'Next Step'),
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w800,
+                                    Expanded(
+                                      child: _buildTimePickerField(
+                                        controller: _startTimeController,
+                                        label: 'Start Time *',
+                                        onTap: () =>
+                                            _selectTime(_startTimeController),
+                                        bottomSpacing: 0,
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
-                                    const Icon(Icons.arrow_forward_rounded,
-                                        size: 20),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildTimePickerField(
+                                        controller: _endTimeController,
+                                        label: 'End Time *',
+                                        onTap: () =>
+                                            _selectTime(_endTimeController),
+                                        bottomSpacing: 0,
+                                      ),
+                                    ),
                                   ],
                                 ),
+                              ),
+                              _buildAddressField(address, state),
+                              _buildTextField(
+                                controller: _descriptionController,
+                                keyboardType: TextInputType.text,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                label: 'Description *',
+                                hint: "Tell us more...",
+                                maxLines: 1,
+                                maxLength: 250,
+                                inputFormatters: const [
+                                  _FirstLetterUpperFormatter()
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 22),
+                        _buildSectionCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              RichText(
+                                text: TextSpan(
+                                  text: translateText('Salon Images'),
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF161616),
+                                  ),
+                                  children: [
+                                    TextSpan(
+                                      text: ' (${translateText('Optional')})',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF8A8178),
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 18),
+                              _buildImageGrid(images, existingImageUrls),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildEmpireCard(),
+                        const SizedBox(height: 18),
+                        _buildProTipCard(),
+                        const SizedBox(height: 28),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 54,
+                          child: ElevatedButton(
+                            onPressed: state.isSubmitting
+                                ? null
+                                : () => _submit(state),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF8B6500),
+                              foregroundColor: Colors.white,
+                              elevation: 8,
+                              shadowColor: const Color(0x338B6500),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(7),
+                              ),
+                            ),
+                            child: state.isSubmitting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        translateText(widget.isEdit
+                                            ? 'Save Changes'
+                                            : 'Next Step'),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      const Icon(Icons.arrow_forward_rounded,
+                                          size: 20),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              if (state.status == AddSalonStatus.loading)
-                const ColoredBox(
-                  color: Colors.black54,
-                  child: Center(
-                    child: CircularProgressIndicator(color: Colors.white),
+                if (state.status == AddSalonStatus.loading)
+                  const ColoredBox(
+                    color: Colors.black54,
+                    child: Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -1244,8 +1251,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               child: Row(
                 children: [
                   const Icon(
-                    Icons.location_on_outlined,
-                    color: Color(0xFF2563EB),
+                    Icons.add_location_alt_rounded,
+                    color: Color(0xFF8B6500),
                     size: 22,
                   ),
                   const SizedBox(width: 12),
@@ -1580,6 +1587,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     bool forceCapitalize = false,
     int? maxWords,
     String? prefixText,
+    IconData? prefixIconData,
     bool reserveCounterSpace = false,
     double bottomSpacing = 18,
   }) {
@@ -1682,9 +1690,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         fontSize: 13,
                         height: 1.6,
                       ),
-                      prefixIcon: prefixText == null
-                          ? null
-                          : Container(
+                      prefixIcon: prefixText != null
+                          ? Container(
                               width: 48,
                               alignment: Alignment.center,
                               margin: const EdgeInsets.only(right: 8),
@@ -1701,7 +1708,25 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ),
+                            )
+                          : prefixIconData == null
+                              ? null
+                              : Container(
+                                  width: 48,
+                                  alignment: Alignment.center,
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: const BoxDecoration(
+                                    border: Border(
+                                      right:
+                                          BorderSide(color: Color(0xFFE4DDD8)),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    prefixIconData,
+                                    color: const Color(0xFF8B6500),
+                                    size: 19,
+                                  ),
+                                ),
                       filled: true,
                       fillColor:
                           enabled ? Colors.white : const Color(0xFFF1EEEE),
@@ -1780,6 +1805,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           controller: controller,
           label: label,
           hint: 'Select time',
+          prefixIconData: Icons.access_time_rounded,
           reserveCounterSpace: true,
           bottomSpacing: bottomSpacing,
         ),

@@ -100,131 +100,135 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       appBar: buildProfileSubpageAppBar(
         title: translateText(widget.title ?? 'Add Salon'),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 34),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SalonFlowStepHeader(
-                currentStep: 2,
-                detailsLabel: translateText(widget.detailsStepLabel),
-                totalSteps: widget.totalSteps,
-              ),
-              const SizedBox(height: 44),
-              Text(
-                translateText('Set Weekly Working Hours'),
-                style: const TextStyle(
-                  fontSize: 22,
-                  height: 1.2,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1F1B18),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 24, 16, 34),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SalonFlowStepHeader(
+                  currentStep: 2,
+                  detailsLabel: translateText(widget.detailsStepLabel),
+                  totalSteps: widget.totalSteps,
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                translateText(
-                  "Configure your salon's operational hours for a seamless booking experience.",
-                ),
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.45,
-                  color: Color(0xFF5F574F),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 28),
-              _buildCopyMondayControl(),
-              const SizedBox(height: 28),
-              for (final day in _days) ...[
-                _buildDayCard(day),
-              ],
-              const SizedBox(height: 54),
-              _buildScheduleQuote(),
-              const SizedBox(height: 38),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 17),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        side: const BorderSide(
-                          color: Color(0xFFD0A244),
-                          width: 1.4,
-                        ),
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFFD0A244),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.chevron_left_rounded, size: 22),
-                          const SizedBox(width: 6),
-                          Text(
-                            translateText('Back'),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                const SizedBox(height: 44),
+                Text(
+                  translateText('Set Weekly Working Hours'),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    height: 1.2,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1F1B18),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 17),
-                        backgroundColor: const Color(0xFF8B6500),
-                        foregroundColor: Colors.white,
-                        elevation: 10,
-                        shadowColor: const Color(0x338B6500),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_isSubmitting)
-                            const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          else ...[
-                            Flexible(
-                              child: Text(
-                                translateText(
-                                  widget.submitLabel ??
-                                      (widget.totalSteps == 2
-                                          ? 'Save'
-                                          : 'Save & Continue'),
-                                ),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_rounded, size: 20),
-                          ],
-                        ],
-                      ),
-                    ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  translateText(
+                    "Configure your salon's operational hours for a seamless booking experience.",
                   ),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.45,
+                    color: Color(0xFF5F574F),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                _buildCopyMondayControl(),
+                const SizedBox(height: 28),
+                for (final day in _days) ...[
+                  _buildDayCard(day),
                 ],
-              ),
-            ],
+                const SizedBox(height: 54),
+                _buildScheduleQuote(),
+                const SizedBox(height: 38),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 17),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          side: const BorderSide(
+                            color: Color(0xFFD0A244),
+                            width: 1.4,
+                          ),
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFFD0A244),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.chevron_left_rounded, size: 22),
+                            const SizedBox(width: 6),
+                            Text(
+                              translateText('Back'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isSubmitting ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 17),
+                          backgroundColor: const Color(0xFF8B6500),
+                          foregroundColor: Colors.white,
+                          elevation: 10,
+                          shadowColor: const Color(0x338B6500),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (_isSubmitting)
+                              const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            else ...[
+                              Flexible(
+                                child: Text(
+                                  translateText(
+                                    widget.submitLabel ??
+                                        (widget.totalSteps == 2
+                                            ? 'Save'
+                                            : 'Save & Continue'),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.arrow_forward_rounded, size: 20),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

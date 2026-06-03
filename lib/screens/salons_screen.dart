@@ -1252,15 +1252,41 @@ class _SalonCard extends StatelessWidget {
     return url;
   }
 
+  String _cleanImageUrl(dynamic value) {
+    if (value is Map) {
+      for (final key in const [
+        'url',
+        'imageUrl',
+        'publicUrl',
+        'cdnUrl',
+        'src',
+      ]) {
+        final text = _cleanText(value[key]);
+        if (text.isNotEmpty) return text;
+      }
+      return '';
+    }
+    return _cleanText(value);
+  }
+
   List<String> _extractImageUrls(dynamic source) {
-    if (source is! List) return const <String>[];
     final urls = <String>[];
-    for (final entry in source) {
-      final url = _usableSalonImageUrl(_cleanText(entry));
+
+    void add(dynamic value) {
+      final url = _usableSalonImageUrl(_cleanImageUrl(value));
       if (url != null && !urls.contains(url)) {
         urls.add(url);
       }
     }
+
+    if (source is List) {
+      for (final entry in source) {
+        add(entry);
+      }
+    } else {
+      add(source);
+    }
+
     return urls;
   }
 

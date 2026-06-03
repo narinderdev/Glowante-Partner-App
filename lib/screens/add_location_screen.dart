@@ -1436,6 +1436,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   OverlayEntry? overlayEntry;
   final LayerLink _searchFieldLink = LayerLink();
   final FocusNode _searchFocus = FocusNode();
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _completeAddressKey = GlobalKey();
   final Duration _debounceDuration = const Duration(milliseconds: 150);
   DateTime _lastType = DateTime.fromMillisecondsSinceEpoch(0);
   String _latestQuery = '';
@@ -1484,6 +1486,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   void dispose() {
     _removeOverlay();
     _searchFocus.dispose();
+    _scrollController.dispose();
     scoFlatHouseController.removeListener(_syncCompleteAddressFromParts);
     streetSectorAreaController.removeListener(_syncCompleteAddressFromParts);
     completeAddressController.removeListener(_captureManualCompleteAddress);
@@ -1495,6 +1498,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 
   Future<void> _getCurrentLocation() async {
+    FocusScope.of(context).unfocus();
+    _removeOverlay();
     setState(() => _isLoading = true);
 
     // Do not fill search when using current location
@@ -1568,11 +1573,24 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         desiredAccuracy: LocationAccuracy.high,
       );
       await _getAddressFromCoordinates(pos.latitude, pos.longitude);
+      await _scrollToCompleteAddress();
     } catch (e) {
       debugPrint("Location error: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _scrollToCompleteAddress() async {
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    final fieldContext = _completeAddressKey.currentContext;
+    if (fieldContext == null || !fieldContext.mounted) return;
+    await Scrollable.ensureVisible(
+      fieldContext,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
+      alignment: 0.35,
+    );
   }
 
   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
@@ -1822,6 +1840,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
+              controller: _scrollController,
               padding: const EdgeInsets.fromLTRB(16, 18, 16, 32),
               child: Center(
                 child: ConstrainedBox(
@@ -1982,26 +2001,14 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.verified_outlined,
-                color: _gold,
-                size: 19,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  translateText('Manually Enter Address'),
-                  style: const TextStyle(
-                    color: _ink,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    height: 1.12,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            translateText('Manually Enter Address'),
+            style: const TextStyle(
+              color: Color(0xFF161616),
+              fontSize: 22,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
+            ),
           ),
           const SizedBox(height: 22),
           _buildTextField(
@@ -2018,28 +2025,31 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             isRequired: false,
             maxLength: 120,
           ),
-          _buildTextField(
-            controller: completeAddressController,
-            label: 'Complete Address',
-            hint: 'Start typing above to auto-suggest full address...',
-            isRequired: true,
-            minLines: 3,
-            maxLines: 3,
-            textCapitalization: TextCapitalization.sentences,
-            suffix: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome, color: _gold, size: 13),
-                const SizedBox(width: 4),
-                Text(
-                  translateText('Autofill active'),
-                  style: const TextStyle(
-                    color: _gold,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
+          KeyedSubtree(
+            key: _completeAddressKey,
+            child: _buildTextField(
+              controller: completeAddressController,
+              label: 'Complete Address',
+              hint: 'Start typing above to auto-suggest full address...',
+              isRequired: true,
+              minLines: 3,
+              maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+              suffix: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.auto_awesome, color: _gold, size: 13),
+                  const SizedBox(width: 4),
+                  Text(
+                    translateText('Autofill active'),
+                    style: const TextStyle(
+                      color: _gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
