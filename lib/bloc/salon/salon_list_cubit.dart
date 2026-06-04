@@ -47,9 +47,4 @@ class SalonListCubit extends Cubit<SalonListState> {
   void setSelectedSalon(Map<String, dynamic> salon) {
     emit(state.copyWith(selectedSalon: salon));
   }
-
-  /// Optional helper to reset selection
-  // void clearSelectedSalon() {
-  //   emit(state.copyWith(clearSelectedSalon: true));
-  // }
 }

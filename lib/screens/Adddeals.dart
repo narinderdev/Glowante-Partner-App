@@ -114,91 +114,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       if (_showErrors && !_sMaxDiscount) setState(() => _sMaxDiscount = true);
     });
 
-// if (widget.isEdit && widget.existingOffer != null) {
-//   final o = widget.existingOffer!;
-
-//   // UPPERCASE on prefill
-//   dealTitleController.text = (o['name'] ?? '').toString();
-//   termsController.text = (o['terms'] ?? '').toString();
-
-//   // Format valid dates
-//   String? fmtIn(dynamic v) {
-//     if (v == null) return null;
-//     try {
-//       return DateFormat('dd-MM-yyyy').format(DateTime.parse(v.toString()));
-//     } catch (_) {
-//       return null;
-//     }
-//   }
-
-//   final vf = fmtIn(o['validFrom']);
-//   final vt = fmtIn(o['validTo']);
-//   if (vf != null) validFromController.text = vf;
-//   if (vt != null) validTillController.text = vt;
-
-//   // Set Pricing Mode
-//   final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
-//   pricingMode = pmRaw == 'DISCOUNT' ? 'Discount' : 'Fixed';
-
-//   // Set Discount Type and Amount Off
-//   final dtRaw = (o['discountType'] ?? '').toString().toUpperCase(); // AMOUNT | PERCENT | NONE
-//   if (pricingMode == 'Discount') {
-//     if (dtRaw == 'PERCENT') {
-//       discountType = 'Percent';
-//       final pct = (o['discountPct'] as num?)?.toDouble() ?? 0.0;
-//       if (pct > 0) amountOffController.text = pct.toStringAsFixed(0);
-//       final maxD = (o['maxDiscount'] as num?)?.toDouble();
-//       if (maxD != null && maxD > 0) {
-//         maxDiscountController.text = maxD.toStringAsFixed(2);
-//       }
-//     } else {
-//       discountType = 'Flat';
-//       final amt = (o['discount'] as num?)?.toDouble()
-//           ?? (o['amount'] as num?)?.toDouble()
-//           ?? 0.0;
-//       if (amt > 0) amountOffController.text = amt.toStringAsFixed(2);
-//     }
-//   } else {
-//     // FIXED Pricing - set the flat amount off from discount or amount field
-//     final amt = (o['discount'] as num?)?.toDouble()
-//         ?? (o['amount'] as num?)?.toDouble()
-//         ?? 0.0;
-
-//     // If discount is null, check 'amount' and assign 0 if null
-//     if (amt != null && amt > 0) {
-//       amountOffController.text = amt.toStringAsFixed(2);  // Fill for Fixed
-//     } else if (amt == null || amt == 0.0) {
-//       // Ensure the value doesn't remain empty
-//       amountOffController.text = '0.00';  // Default to 0 if no amount/discount is provided
-//     }
-//   }
-
-//   // items -> selected
-//   final items = (o['items'] as List?) ?? const [];
-//   _selectedServices = items.map<Map<String, dynamic>>((e) {
-//     final m = Map<String, dynamic>.from(e as Map);
-//     final id = (m['salonServiceId'] ?? m['id']) as int?;
-//     final qty = (m['qty'] ?? 1) as int;
-//     final name = m['name'] ?? m['displayName'] ?? 'Service';
-//     final price = m['price'] ?? m['priceMinor'] ?? 0;
-//     return {
-//       'id': id ?? 0,
-//       'name': name,
-//       'price': (price is num) ? price.toInt() : int.tryParse(price.toString()) ?? 0,
-//       'qty': qty,
-//     };
-//   }).toList();
-
-//   originalPriceController.text = _originalTotal().toStringAsFixed(2);
-
-//   final price = (o['price'] as num?)?.toDouble();
-//   if (price != null) discountedPriceController.text = price.toStringAsFixed(2);
-
-//   _recalcDiscounted();
-//   setState(() {});
-// }
-//   }
-
     if (widget.isEdit && widget.existingOffer != null) {
       final o = widget.existingOffer!;
 
@@ -369,42 +284,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       return null;
     }
   }
-
-  // Future<void> _pickDate(TextEditingController c,
-  //     {required bool isFrom}) async {
-  //   final now = DateTime.now();
-  //   final picked = await showDatePicker(
-  //     context: context,
-  //     initialDate: now,
-  //     firstDate: DateTime(now.year - 1),
-  //     lastDate: DateTime(now.year + 5),
-  //     builder: (ctx, child) => Theme(
-  //       data: Theme.of(ctx).copyWith(
-  //         colorScheme: const ColorScheme.light(
-  //           primary: Colors.black,
-  //           onPrimary: Colors.white,
-  //           onSurface: Colors.black87,
-  //         ),
-  //       ),
-  //       child: child!,
-  //     ),
-  //   );
-  //   if (picked != null) {
-  //     setState(() {
-  //       c.text = _formatDate(picked);
-  //       if (isFrom) {
-  //         _sValidFrom = true;
-  //       } else {
-  //         _sValidTill = true;
-  //       }
-  //     });
-
-  //     // âœ… Only revalidate if errors are currently visible
-  //     if (_showErrors) {
-  //       _formKey.currentState?.validate();
-  //     }
-  //   }
-  // }
   Future<void> _pickDate(TextEditingController c,
       {required bool isFrom}) async {
     final now = DateTime.now();
@@ -1000,27 +879,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _section(translateText('Deal Information')),
-
-                // TextFormField(
-                //   controller: dealTitleController,
-                //   textCapitalization: TextCapitalization.none,
-                //   inputFormatters: [_SentenceCaseTextFormatter()],
-                //   autovalidateMode: _showErrors
-                //       ? AutovalidateMode.always
-                //       : AutovalidateMode.disabled,
-                //   decoration: _decor(
-                //     label: widget.source.toUpperCase() == 'PACKAGE'
-                //         ? '${translateText('Package Title')} *'
-                //         : '${translateText('Deal Title')} *',
-                //     hint: widget.source.toUpperCase() == 'PACKAGE'
-                //         ? translateText("E.G. MEN'S GROOMING PACKAGE")
-                //         : translateText("E.G. FESTIVE DEAL"),
-                //   ),
-                //   validator: _vTitle,
-                //   onChanged: (_) {
-                //     if (!_sTitle) setState(() => _sTitle = true);
-                //   },
-                // ),
                 TextFormField(
                   controller: dealTitleController,
                   keyboardType: TextInputType.text, // 👈 text keyboard
@@ -1061,52 +919,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                 ),
 
                 SizedBox(height: 14),
-
-                // Row(
-                //   children: [
-                //     Expanded(
-                //       child: TextFormField(
-                //         controller: validFromController,
-                //         readOnly: true,
-                //         autovalidateMode: _showErrors
-                //             ? AutovalidateMode.onUserInteraction
-                //             : AutovalidateMode.disabled,
-                //         decoration: _decor(
-                //           label: '${translateText('Valid From')} *',
-                //           hint: 'dd-MM-yyyy',
-                //           prefix: Icons.calendar_today_outlined,
-                //           suffix: IconButton(
-                //             icon: Icon(Icons.date_range, color: Colors.black),
-                //             onPressed: () => _pickDate(validFromController, isFrom: true),
-                //           ),
-                //         ),
-                //         validator: _vValidFrom,
-                //         onTap: () => _pickDate(validFromController, isFrom: true),
-                //       ),
-                //     ),
-                //     SizedBox(width: 12),
-                //     Expanded(
-                //       child: TextFormField(
-                //         controller: validTillController,
-                //         readOnly: true,
-                //         autovalidateMode: _showErrors
-                //             ? AutovalidateMode.onUserInteraction
-                //             : AutovalidateMode.disabled,
-                //         decoration: _decor(
-                //           label: '${translateText('Valid Till')} *',
-                //           hint: 'dd-MM-yyyy',
-                //           prefix: Icons.calendar_today_outlined,
-                //           suffix: IconButton(
-                //             icon: Icon(Icons.date_range, color: Colors.black),
-                //             onPressed: () => _pickDate(validTillController, isFrom: false),
-                //           ),
-                //         ),
-                //         validator: _vValidTill,
-                //         onTap: () => _pickDate(validTillController, isFrom: false),
-                //       ),
-                //     ),
-                //   ],
-                // ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1231,24 +1043,13 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                         .map((e) => DropdownMenuItem(
                             value: e, child: Text(translateText(e))))
                         .toList(),
-                    // onChanged: (v) {
-                    //   setState(() {
-                    //     pricingMode = v ?? 'Fixed';
-                    //     _autoSetMaxFromPercent = true;
-                    //   });
-                    //   _recalcDiscounted();
-                    // },
                     onChanged: (v) {
                       setState(() {
                         pricingMode = v ?? 'Fixed';
                         _autoSetMaxFromPercent = true;
-
-                        // âœ… Reset fields when switching pricing type
                         amountOffController.clear();
                         maxDiscountController.clear();
                         discountedPriceController.clear();
-
-                        // âœ… Force discount type to Flat for Fixed pricing
                         if (pricingMode == 'Fixed') {
                           discountType = 'Flat';
                         }
@@ -1290,8 +1091,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                         ),
                       ),
                       SizedBox(width: 12),
-
-                      // ðŸ‘‡ Show discount type only when pricingMode == 'Discount'
                       if (pricingMode == 'Discount')
                         Expanded(
                           child: DropdownButtonFormField<String>(
@@ -1303,19 +1102,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                                 .map((e) => DropdownMenuItem(
                                     value: e, child: Text(translateText(e))))
                                 .toList(),
-                            // onChanged: (v) {
-                            //   setState(() {
-                            //     discountType = v ?? 'Flat';
-                            //     _autoSetMaxFromPercent = true;
-                            //   });
-                            //   _recalcDiscounted();
-                            // },
                             onChanged: (v) {
                               setState(() {
                                 discountType = v ?? 'Flat';
                                 _autoSetMaxFromPercent = true;
-
-                                // âœ… Reset both values when switching between Flat â†” Percent
                                 amountOffController.clear();
                                 maxDiscountController.clear();
                                 discountedPriceController.clear();
@@ -1546,20 +1336,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                 ),
 
                 SizedBox(height: 14),
-
-                // TextFormField(
-                //   controller: termsController,
-                //   textCapitalization: TextCapitalization.none,
-                //   inputFormatters: [
-                //     _SentenceCaseTextFormatter(),
-                //     NoSpecialCharsFormatter(), // ðŸ”¥ prevents special characters
-                //   ],
-                //   decoration: _decor(
-                //     label: translateText('Terms (optional)'),
-                //     hint: translateText('ANY TERMS & CONDITIONSâ€¦'),
-                //     prefix: Icons.article_outlined,
-                //   ),
-                // ),
                 TextFormField(
                   controller: termsController,
                   keyboardType: TextInputType.text, // 👈 text keyboard
@@ -1627,8 +1403,6 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     );
   }
 }
-
-/// Blocks special characters in "Terms" field
 class NoSpecialCharsFormatter extends TextInputFormatter {
   // Allow letters, digits, spaces, commas, periods, and basic punctuation
   final RegExp _allowed = RegExp(r"[a-zA-Z0-9\s,.\-']");

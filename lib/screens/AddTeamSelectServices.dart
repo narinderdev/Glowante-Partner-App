@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
-import 'package:intl/intl.dart';
-import '../utils/colors.dart';
-import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-import 'dart:convert';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'team_online_availability_screen.dart';
@@ -13,8 +9,7 @@ import 'team_online_availability_screen.dart';
 class AddTeamSelectServices extends StatefulWidget {
   final Map<String, dynamic> teamMemberData;
 
-  const AddTeamSelectServices({Key? key, required this.teamMemberData})
-      : super(key: key);
+  const AddTeamSelectServices({super.key, required this.teamMemberData});
 
   @override
   State<AddTeamSelectServices> createState() => _AddTeamSelectServicesState();
@@ -33,16 +28,46 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   @override
   void initState() {
     super.initState();
-    final initialSelected =
-        (widget.teamMemberData['branchServiceIds'] as List? ?? const [])
-            .map((e) {
-      if (e is num) return e.toInt();
-      return int.tryParse(e.toString());
-    }).whereType<int>();
-    for (final serviceId in initialSelected) {
+    for (final serviceId in _initialSelectedServiceIds()) {
       _selected[serviceId] = true;
     }
     _fetchServices();
+  }
+
+  List<int> _initialSelectedServiceIds() {
+    final ids = <int>{};
+
+    void addId(dynamic value) {
+      if (value is int) {
+        ids.add(value);
+      } else if (value is num) {
+        ids.add(value.toInt());
+      } else if (value != null) {
+        final parsed = int.tryParse(value.toString());
+        if (parsed != null) ids.add(parsed);
+      }
+    }
+
+    final directIds = widget.teamMemberData['branchServiceIds'];
+    if (directIds is List) {
+      for (final id in directIds) {
+        addId(id);
+      }
+    }
+
+    final userBranchServices = widget.teamMemberData['userBranchServices'];
+    if (userBranchServices is List) {
+      for (final item in userBranchServices) {
+        if (item is! Map) continue;
+        addId(item['branchServiceId']);
+        final branchService = item['branchService'];
+        if (branchService is Map) {
+          addId(branchService['id']);
+        }
+      }
+    }
+
+    return ids.toList();
   }
 
   Future<void> _fetchServices() async {
@@ -94,7 +119,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
   /// Map UI display names to API enum codes. Adjust to your backend’s values.
   String _roleToCode(String name) {
-    final n = (name ?? '').toString().trim().toLowerCase();
+    final n = name.toString().trim().toLowerCase();
     const map = {
       'salon worker': 'salon_worker',
       'worker': 'salon_worker',
@@ -106,7 +131,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   }
 
   String _specToCode(String name) {
-    final n = (name ?? '').toString().trim().toLowerCase();
+    final n = name.toString().trim().toLowerCase();
     const map = {
       'hair cut': 'hair_cut',
       'haircut': 'hair_cut',
@@ -204,6 +229,21 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     return all.isNotEmpty && all.every((id) => _selected[id] == true);
   }
 
+  bool? _selectionValue(List<int> ids) {
+    if (ids.isEmpty) return false;
+    final selectedCount = ids.where((id) => _selected[id] == true).length;
+    if (selectedCount == 0) return false;
+    if (selectedCount == ids.length) return true;
+    return null;
+  }
+
+  void _setServiceIds(List<int> ids, bool selected) {
+    for (final id in ids) {
+      _selected[id] = selected;
+    }
+    setState(() {});
+  }
+
   void _toggleAll(bool? value) {
     for (final id in _allServiceIds()) {
       _selected[id] = value == true;
@@ -233,9 +273,18 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     final List services = cat['services'] as List? ?? [];
     final List subs = cat['subCategories'] as List? ?? [];
 
+    final visibleSubs = subs.where((sub) {
+      if (sub is! Map) return false;
+      return ((sub['services'] as List?) ?? const []).isNotEmpty;
+    }).toList();
+
+    if (services.isEmpty && visibleSubs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     final allIds = <int>[
       ...services.map((s) => (s as Map)['id'] as int),
-      ...subs.expand((sub) => ((sub as Map)['services'] ?? [])
+      ...visibleSubs.expand((sub) => ((sub as Map)['services'] ?? [])
           .map<int>((s) => (s as Map)['id'] as int)),
     ];
 
@@ -244,10 +293,16 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: ExpansionTile(
+        initiallyExpanded: true,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            Checkbox(
+              value: _selectionValue(allIds),
+              tristate: true,
+              onChanged: (value) => _setServiceIds(allIds, value == true),
+              visualDensity: VisualDensity.compact,
+            ),
             Expanded(
               child: Text(
                 (cat['displayName'] ?? '').toString(),
@@ -262,27 +317,44 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         ),
         children: [
           // top-level services
-          ...services
-              .map<Widget>(
-                  (s) => _buildServiceItem((s as Map).cast<String, dynamic>()))
-              .toList(),
+          ...services.map<Widget>(
+            (s) => _buildServiceItem((s as Map).cast<String, dynamic>()),
+          ),
 
           // subcategories
-          ...subs.map<Widget>((sub) {
+          ...visibleSubs.map<Widget>((sub) {
             final subMap = (sub as Map).cast<String, dynamic>();
             final List subServices = subMap['services'] as List? ?? [];
+            final subIds = subServices
+                .map((s) => (s as Map)['id'])
+                .whereType<int>()
+                .toList();
             return ExpansionTile(
+              initiallyExpanded: true,
               tilePadding: const EdgeInsets.only(left: 24, right: 12),
-              title: Text(
-                (subMap['displayName'] ?? '').toString(),
-                style: const TextStyle(fontWeight: FontWeight.w500),
+              title: Row(
+                children: [
+                  Checkbox(
+                    value: _selectionValue(subIds),
+                    tristate: true,
+                    onChanged: (value) =>
+                        _setServiceIds(subIds, value == true),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  Expanded(
+                    child: Text(
+                      (subMap['displayName'] ?? '').toString(),
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
               ),
               children: subServices
                   .map<Widget>((s) =>
                       _buildServiceItem((s as Map).cast<String, dynamic>()))
                   .toList(),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

@@ -642,41 +642,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       controller.text = formatted;
     }
   }
-
-  // Future<void> _chooseLocation(AddSalonState state) async {
-  //   final result = await Navigator.push<Map<String, dynamic>?>(
-  //     context,
-  //     MaterialPageRoute(
-  //       builder: (_) => const AddLocationScreen(
-  //         // we can pass initialCompleteAddress if we later extend state to carry it,
-  //         // current AddLocationScreen accepts legacy params too, but they’re unused.
-  //       ),
-  //     ),
-  //   );
-
-  //   if (!mounted || result == null) return;
-
-  //   // 🟢 CHANGED: Read new keys from AddLocationScreen
-  //   final completeAddress   = (result['completeAddress'] as String?)?.trim() ?? '';
-  //   final scoFlatHouse      = (result['scoFlatHouse'] as String?)?.trim() ?? '';
-  //   final streetSectorArea  = (result['streetSectorArea'] as String?)?.trim() ?? '';
-  //   final latitude          = (result['latitude'] as num?)?.toDouble() ?? 0;
-  //   final longitude         = (result['longitude'] as num?)?.toDouble() ?? 0;
-
-  //   // For now, keep using AddSalonAddress but store the full address
-  //   // in buildingName (back-compat with existing Cubit/Model).
-  //   // If you want, I can extend the model to add dedicated fields.
-  //   context.read<AddSalonCubit>().updateAddress(
-  //     AddSalonAddress(
-  //       buildingName: completeAddress, // 🟢 store full address here
-  //       city: scoFlatHouse,            // optional mapping (so you don’t lose it)
-  //       pincode: streetSectorArea,     // optional mapping (so you don’t lose it)
-  //       state: '',                     // not used in new flow
-  //       latitude: latitude,
-  //       longitude: longitude,
-  //     ),
-  //   );
-  // }
   Future<void> _chooseLocation(AddSalonState state) async {
     final addr = state.address;
 

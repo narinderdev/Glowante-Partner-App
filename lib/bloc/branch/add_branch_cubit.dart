@@ -36,8 +36,6 @@ class AddBranchCubit extends Cubit<AddBranchState> {
 
   final int salonId;
   final SalonRepository _repository;
-
-  // ✅ Add this line to expose repository publicly
   SalonRepository get repository => _repository;
 
   Future<void> loadSavedPhone() async {

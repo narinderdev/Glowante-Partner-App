@@ -92,53 +92,6 @@ class AddSalonCubit extends Cubit<AddSalonState> {
     );
   }
 
-  // Future<void> submit(AddSalonFormData formData) async {
-  //   final address = state.address;
-  //   if (address == null) {
-  //     emit(
-  //       state.copyWith(
-  //         status: AddSalonStatus.failure,
-  //         errorMessage: 'Please select the salon location before submitting.',
-  //       ),
-  //     );
-  //     return;
-  //   }
-
-  //   emit(state.copyWith(status: AddSalonStatus.submitting, clearError: true));
-
-  //   try {
-  //     await _repository.createSalon(
-  //       name: formData.name,
-  //       phone: formData.phone,
-  //       startTime: formData.startTime,
-  //       endTime: formData.endTime,
-  //       description: formData.description,
-  //       buildingName: address.buildingName,
-  //       city: address.city,
-  //       pincode: address.pincode,
-  //       state: address.state,
-  //       latitude: address.latitude,
-  //       longitude: address.longitude,
-  //       images: state.images,
-  //     );
-
-  //     emit(
-  //       state.copyWith(
-  //         status: AddSalonStatus.success,
-  //         clearError: true,
-  //         clearImages: true,
-  //         clearAddress: true,
-  //       ),
-  //     );
-  //   } catch (error) {
-  //     emit(
-  //       state.copyWith(
-  //         status: AddSalonStatus.failure,
-  //         errorMessage: error.toString(),
-  //       ),
-  //     );
-  //   }
-  // }
   void setSubmitting(bool submitting) {
     emit(state.copyWith(
       status: submitting ? AddSalonStatus.submitting : AddSalonStatus.ready,

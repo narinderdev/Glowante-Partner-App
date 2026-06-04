@@ -1,5 +1,3 @@
-// otp_state.dart
-
 abstract class OtpState {}
 
 class OtpInitial extends OtpState {}

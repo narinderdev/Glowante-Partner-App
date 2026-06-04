@@ -358,7 +358,6 @@ class _StylistLiveFaceScanScreenState extends State<StylistLiveFaceScanScreen> {
           await file.delete();
         }
       } catch (_) {
-        // Temporary capture cleanup should not affect camera teardown.
       }
     }
   }

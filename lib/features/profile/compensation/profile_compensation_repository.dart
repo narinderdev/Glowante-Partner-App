@@ -1161,7 +1161,6 @@ class ProfileCompensationRepository {
         },
       );
     } catch (_) {
-      // Keep the local source of truth available for the profile module.
     }
   }
 

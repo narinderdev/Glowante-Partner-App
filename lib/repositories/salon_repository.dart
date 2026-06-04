@@ -27,90 +27,6 @@ class SalonRepository {
     return items.cast<Map<String, dynamic>>();
   }
 
-  // ------------------------------------------------------------
-  // 2️⃣ Create salon
-  // ------------------------------------------------------------
-// Future<Map<String, dynamic>> createSalon({
-//   required String name,
-//   required String phone,
-//   required String startTime,
-//   required String endTime,
-//   required String description,
-//   required String buildingName,
-//   required String city,
-//   required String pincode,
-//   required String state,
-//   required double latitude,
-//   required double longitude,
-//   required List<String> serviceCodes,
-//   List<String> selectedCategoryCodes = const [],
-//   List<File> images = const [],
-//   String? imageUrl, // ✅ new optional parameter
-// }) async {
-//   // ✅ If imageUrl is not passed but local files exist, upload them
-//   if ((imageUrl == null || imageUrl.isEmpty) && images.isNotEmpty) {
-//     final urls = await _apiService.uploadMultipleImages(images);
-//     if (urls.isNotEmpty) imageUrl = urls.first;
-//   }
-
-//   final body = <String, dynamic>{
-//     'name': name,
-//     'phone': phone,
-//     'startTime': startTime,
-//     'endTime': endTime,
-//     'description': description,
-//     'image_url': imageUrl, // ✅ now correctly included
-//     'address': {
-//       'line1': '$buildingName, $city'.trim(),
-//       'line2': pincode.isNotEmpty ? '$pincode, ' : '',
-//       'village': '',
-//       'district': '',
-//       'city': city,
-//       'state': state,
-//       'country': 'India',
-//       'postalCode': pincode,
-//       'latitude': latitude,
-//       'longitude': longitude,
-//     },
-//     'selectedCategoryCodes': selectedCategoryCodes,
-//   };
-
-//   // 🔍 Debug Log
-//   final encoder = const JsonEncoder.withIndent('  ');
-//   final payloadLog = encoder.convert(body);
-//   debugPrint('[SalonRepository] createSalon payload ->\n$payloadLog');
-//   FirebaseCrashlytics.instance
-//       .log('[SalonRepository] createSalon payload -> $payloadLog');
-
-//   final endpoint =
-//       Uri.parse(ApiService.baseUrl + ApiService.createSalonEndpoint);
-//   final token = await _apiService.getAuthToken();
-
-//   final response = await http.post(
-//     endpoint,
-//     headers: {
-//       'Content-Type': 'application/json',
-//       'Authorization': 'Bearer $token',
-//     },
-//     body: jsonEncode(body),
-//   );
-
-//   debugPrint(
-//       '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
-//   FirebaseCrashlytics.instance.log(
-//       '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
-
-//   if (response.statusCode < 200 || response.statusCode >= 300) {
-//     throw HttpException(
-//       'createSalon failed (${response.statusCode}): ${response.body}',
-//       uri: endpoint,
-//     );
-//   }
-
-//   final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-//   return decoded;
-// }
-
   Future<Map<String, dynamic>> createSalon({
     required String name,
     required String phone,
@@ -119,11 +35,6 @@ class SalonRepository {
     required String description,
     required Map<String, List<Map<String, String>>> schedule,
 
-    // ⚠️ These are from the new flow:
-    // buildingName => completeAddress
-    // city         => sco/flat/house (optional)
-    // pincode      => street/sector/area (optional)
-    // state        => (unused for now)
     required String buildingName,
     required String city,
     required String pincode,
@@ -179,15 +90,12 @@ class SalonRepository {
       return [...cleanLeadingParts, ...baseParts].join(', ');
     }
 
-    // 🔑 Re-interpret the incoming params from new flow
-    final completeAddress = buildingName.trim(); // line1
-    final scoFlatHouse = city.trim(); // optional
-    final streetSector = pincode.trim(); // optional
+    final completeAddress = buildingName.trim(); 
+    final scoFlatHouse = city.trim(); 
+    final streetSector = pincode.trim(); 
 
     final line2 = joinNonEmpty([scoFlatHouse, streetSector]);
     final line1 = composeLine1(completeAddress, [scoFlatHouse, streetSector]);
-
-    // We DO NOT guess city/state/postalCode to avoid wrong values
     final body = <String, dynamic>{
       'name': name,
       'phone': phone,
@@ -212,7 +120,6 @@ class SalonRepository {
       'selectedCategoryCodes': selectedCategoryCodes,
     };
 
-    // Debug + Crashlytics logs
     final encoder = const JsonEncoder.withIndent('  ');
     final payloadLog = encoder.convert(body);
     debugPrint('[SalonRepository] createSalon payload ->\n$payloadLog');
@@ -247,9 +154,6 @@ class SalonRepository {
     return jsonDecode(response.body) as Map<String, dynamic>;
   }
 
-  // ------------------------------------------------------------
-  // 3️⃣ Add branch under a salon
-  // ------------------------------------------------------------
   Future<Map<String, dynamic>> addBranch({
     required int salonId,
     required String name,
@@ -403,17 +307,9 @@ class SalonRepository {
   Future<Map<String, dynamic>> deleteBranch(int branchId) {
     return _apiService.deleteBranch(branchId);
   }
-
-  // ------------------------------------------------------------
-  // 4️⃣ Fetch Branch Catalog (categories & services)
-  // ------------------------------------------------------------
   Future<Map<String, dynamic>> fetchSalonCatalog(int branchId) {
     return _apiService.getService(branchId: branchId);
   }
-
-  // ------------------------------------------------------------
-  // 5️⃣ Category CRUD
-  // ------------------------------------------------------------
   Future<Map<String, dynamic>> addCategory({
     required int branchId,
     required AddCategoryRequest request,
@@ -443,9 +339,6 @@ class SalonRepository {
     );
   }
 
-  // ------------------------------------------------------------
-  // 6️⃣ SubCategory CRUD
-  // ------------------------------------------------------------
   Future<Map<String, dynamic>> addSubCategory({
     required int branchId,
     required int categoryId,

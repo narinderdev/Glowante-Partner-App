@@ -141,8 +141,6 @@ class _MyAppState extends State<MyApp> {
             create: (context) =>
                 CategoryCubit(context.read<SalonRepository>())),
         ChangeNotifierProvider(create: (_) => BranchViewModel()),
-
-        // Language listener
         ChangeNotifierProvider(create: (_) => LanguageListener()),
       ],
       builder: (context, child) {
@@ -160,8 +158,6 @@ class _MyAppState extends State<MyApp> {
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
-            // Add your custom translations if any
-            // AppTranslations.delegate,
           ],
           builder: (context, child) => CrashlyticsDebugOverlay(
             child: NetworkListener(
@@ -212,8 +208,6 @@ class _CrashlyticsDebugButton extends StatefulWidget {
 
 class _CrashlyticsDebugButtonState extends State<_CrashlyticsDebugButton> {
   bool _isSending = false;
-
-  // ignore: unused_element
   Future<void> _sendPing() async {
     if (_isSending) {
       return;
@@ -248,26 +242,6 @@ class _CrashlyticsDebugButtonState extends State<_CrashlyticsDebugButton> {
       elevation: 6,
       borderRadius: BorderRadius.circular(999),
       clipBehavior: Clip.antiAlias,
-      // child: InkWell(
-      //   onTap: _isSending ? null : _sendPing,
-      //   child: Container(
-      //     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      //     color: Colors.redAccent,
-      //     child: Row(
-      //       mainAxisSize: MainAxisSize.min,
-      //       children: [
-      //         Icon(_isSending ? Icons.hourglass_top : Icons.bug_report,
-      //             color: Colors.white),
-      //         const SizedBox(width: 8),
-      //         Text(
-      //           _isSending ? 'Sending...' : 'Ping Crashlytics',
-      //           style: const TextStyle(
-      //               color: Colors.white, fontWeight: FontWeight.w600),
-      //         ),
-      //       ],
-      //     ),
-      //   ),
-      // ),
     );
   }
 }
@@ -322,142 +296,3 @@ class _StartupLogger {
     _crashlytics?.log(message);
   }
 }
-
-// import 'dart:async';
-// import 'dart:ui';
-
-// import 'package:firebase_core/firebase_core.dart';
-// import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-// import 'package:flutter/foundation.dart';
-// import 'package:flutter/material.dart';
-// import 'package:flutter_bloc/flutter_bloc.dart';
-// import 'package:flutter_dotenv/flutter_dotenv.dart';
-// import 'package:flutter_localizations/flutter_localizations.dart';
-// import 'package:provider/provider.dart';
-// import './services/network_listener.dart';
-// import './services/language_listener.dart';
-// import './screens/splash_screen.dart';
-
-// import 'package:bloc_onboarding/bloc/auth/auth_bloc.dart';
-// import 'package:bloc_onboarding/bloc/otp/otp_bloc.dart';
-// import 'package:bloc_onboarding/bloc/home/home_bloc.dart';
-// import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
-// import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
-// import 'package:bloc_onboarding/utils/api_service.dart';
-// import 'package:bloc_onboarding/repositories/salon_repository.dart';
-// import 'package:bloc_onboarding/repositories/branch_repository.dart';
-// import './Viewmodels/BranchViewModel.dart';
-// import 'services/push_notification_service.dart';
-
-// Future<void> main() async {
-//   await runZonedGuarded<Future<void>>(() async {
-//     WidgetsFlutterBinding.ensureInitialized();
-//     final startupLogger = _StartupLogger();
-//     startupLogger.log('[Startup] Widgets binding initialised');
-
-//     await dotenv.load();
-//     startupLogger.log('[Startup] .env loaded');
-
-//     startupLogger.log('[Startup] Initialising Firebase core...');
-//     await Firebase.initializeApp();
-//     startupLogger.log('[Startup] Firebase core initialised');
-
-//     final crashlytics = await _configureCrashlytics();
-//     startupLogger.attachCrashlytics(crashlytics);
-//     startupLogger.log('[Crashlytics] Crashlytics configured (collection ${kDebugMode ? 'disabled in debug' : 'enabled'})');
-
-//     startupLogger.log('[Startup] Initialising push notification service...');
-//     await PushNotificationService.instance.initialize();
-//     startupLogger.log('[Startup] Push notification service ready');
-
-//     NetworkManager.initialize();
-//     startupLogger.log('[Startup] Network listener initialised');
-
-//     runApp(const MyApp());
-//   }, (error, stack) {
-//     FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-//   });
-// }
-
-// class MyApp extends StatelessWidget {
-//   const MyApp({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return MultiProvider(
-//       providers: [
-//         RepositoryProvider<ApiService>(create: (_) => ApiService()),
-//         RepositoryProvider<SalonRepository>(create: (_) => SalonRepository()),
-//         RepositoryProvider<BranchRepository>(create: (_) => BranchRepository()),
-//         BlocProvider<AuthBloc>(create: (context) => AuthBloc(context.read<ApiService>())),
-//         BlocProvider<OtpBloc>(create: (context) => OtpBloc(context.read<ApiService>())),
-//         BlocProvider<HomeBloc>(create: (_) => HomeBloc()),
-//         BlocProvider<SalonListCubit>(create: (context) => SalonListCubit(context.read<SalonRepository>())),
-//         BlocProvider<CategoryCubit>(create: (context) => CategoryCubit(context.read<SalonRepository>())),
-//         ChangeNotifierProvider(create: (_) => BranchViewModel()),
-
-//         // Language listener
-//         ChangeNotifierProvider(create: (_) => LanguageListener()),
-//       ],
-//       builder: (context, child) {
-//         final langListener = Provider.of<LanguageListener>(context);
-
-// return MaterialApp(
-//   debugShowCheckedModeBanner: false,
-//   locale: langListener.currentLocale,
-//   supportedLocales: const [
-//     Locale('en'),
-//     Locale('hi'),
-//   ],
-//   localizationsDelegates: const [
-//     GlobalMaterialLocalizations.delegate,
-//     GlobalWidgetsLocalizations.delegate,
-//     GlobalCupertinoLocalizations.delegate,
-//     // Add your custom translations if any
-//     // AppTranslations.delegate,
-//   ],
-//   builder: (context, child) => NetworkListener(
-//     child: child ?? const SizedBox.shrink(),
-//   ),
-//   home: const SplashScreen(),
-// );
-
-//       },
-//     );
-//   }
-// }
-
-// Future<FirebaseCrashlytics> _configureCrashlytics() async {
-//   final crashlytics = FirebaseCrashlytics.instance;
-//   final collectionEnabled = !kDebugMode;
-
-//   await crashlytics.setCrashlyticsCollectionEnabled(collectionEnabled);
-//   await crashlytics.setUserIdentifier('developer@glowante.com');
-//   await crashlytics.setCustomKey('build_mode', kDebugMode ? 'debug' : 'release');
-
-//   final FlutterExceptionHandler? originalOnError = FlutterError.onError;
-//   FlutterError.onError = (FlutterErrorDetails details) {
-//     originalOnError?.call(details);
-//     crashlytics.recordFlutterFatalError(details);
-//   };
-
-//   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-//     crashlytics.recordError(error, stack, fatal: true);
-//     return true;
-//   };
-
-//   return crashlytics;
-// }
-
-// class _StartupLogger {
-//   FirebaseCrashlytics? _crashlytics;
-
-//   void attachCrashlytics(FirebaseCrashlytics crashlytics) {
-//     _crashlytics = crashlytics;
-//   }
-
-//   void log(String message) {
-//     debugPrint(message);
-//     _crashlytics?.log(message);
-//   }
-// }

@@ -44,17 +44,14 @@ class CategoryCubit extends Cubit<CategoryState> {
       ));
       return true;
     } catch (error) {
-      // Ã¢ÂÂ Special-case the backendÃ¢ÂÂs Ã¢ÂÂno categoriesÃ¢ÂÂ response
       if (_isNoCategories404(error)) {
         emit(state.copyWith(
-          status: CategoryStatus.success, // success, not failure
-          categories: const [], // empty list -> your UI shows empty state
+          status: CategoryStatus.success, 
+          categories: const [], 
           clearMessage: true,
         ));
-        return true; // treat as a successful (empty) load
+        return true; 
       }
-
-      // Real error path
       emit(state.copyWith(
         status: CategoryStatus.failure,
         message: _extractErrorMessage(error),
@@ -109,10 +106,6 @@ class CategoryCubit extends Cubit<CategoryState> {
   }
 
   bool _isNoCategories404(Object error) {
-    // Try to detect common http client types first (optional),
-    // but keep it generic so it works with your current repo.
-
-    // 1) Parse JSON object embedded in error.toString()
     final raw = error.toString();
     final match = RegExp(r'\{.*\}', dotAll: true).firstMatch(raw);
     if (match != null) {
@@ -130,7 +123,6 @@ class CategoryCubit extends Cubit<CategoryState> {
       } catch (_) {/* ignore */}
     }
 
-    // 2) Fallback: plain-text check (in case repo throws a simple string)
     final lower = raw.toLowerCase();
     if (lower.contains('statuscode":404') ||
         lower.contains('status: 404') ||
@@ -216,41 +208,6 @@ class CategoryCubit extends Cubit<CategoryState> {
 
     emit(state.copyWith(status: normalizedStatus, clearMessage: true));
   }
-
-  // Future<void> _performMutation(
-  //   int salonId,
-  //   Future<Map<String, dynamic>> Function() action, {
-  //   required String fallbackMessage,
-  // }) async {
-  //   emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
-
-  //   try {
-  //     final result = await action();
-  //     final success =
-  //         result['success'] == true || !result.containsKey('success');
-  //     if (!success) {
-  //       final reason = _messageFromPayload(result) ?? 'Request failed';
-  //       throw Exception(reason);
-  //     }
-
-  //     final loaded = await loadCategories(salonId);
-  //     if (loaded) {
-  //       emit(
-  //         state.copyWith(
-  //           status: CategoryStatus.actionSuccess,
-  //           message: _messageFromPayload(result) ?? fallbackMessage,
-  //         ),
-  //       );
-  //     }
-  //   } catch (error) {
-  //     emit(
-  //       state.copyWith(
-  //         status: CategoryStatus.actionFailure,
-  //         message: _extractErrorMessage(error),
-  //       ),
-  //     );
-  //   }
-  // }
   Future<void> _performMutation(
     int branchId,
     Future<Map<String, dynamic>> Function() action, {
@@ -268,14 +225,10 @@ class CategoryCubit extends Cubit<CategoryState> {
       }
 
       final successMessage = _messageFromPayload(result) ?? fallbackMessage;
-
-      // Emit success message first so UI shows toast once
       emit(state.copyWith(
         status: CategoryStatus.actionSuccess,
         message: successMessage,
       ));
-
-      // Then refresh silently
       await loadCategories(branchId, silent: true);
     } catch (error) {
       emit(
@@ -301,8 +254,6 @@ class CategoryCubit extends Cubit<CategoryState> {
             .where((s) => s.isNotEmpty),
       );
     }
-
-    // Fall back to 'error' if present and we still have nothing
     final error = payload['error'];
     if (parts.isEmpty && error is String && error.trim().isNotEmpty) {
       parts.add(error.trim());
@@ -337,7 +288,6 @@ class CategoryCubit extends Cubit<CategoryState> {
           }
         }
       } catch (_) {
-        // ignore JSON parse issues and fall back to raw message
       }
     }
 

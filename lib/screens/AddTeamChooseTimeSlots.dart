@@ -354,6 +354,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "otp": widget.formData['otp']?.toString(),
         "allowOnlineBooking": widget.formData['allowOnlineBooking'] ?? true,
         "branchServiceIds": widget.formData['branchServiceIds'] ?? const [],
+        "userBranchServices":
+            widget.formData['userBranchServices'] ?? const [],
         "address": widget.formData['address'],
         "branchId": widget.formData['branchId'],
         // If you also need to pass the original form data (e.g., image file), include it:
@@ -542,11 +544,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                 i++)
                               Row(
                                 children: [
-                                  // Time Slot
                                   Expanded(
                                     child: Row(
                                       children: [
-                                        // Start time
                                         Expanded(
                                           child: GestureDetector(
                                             onTap: () {
@@ -601,14 +601,12 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                       ],
                                     ),
                                   ),
-                                  // Delete button
                                   IconButton(
                                     icon: Icon(Icons.delete),
                                     onPressed: () => deleteSlot('Monday', i),
                                   ),
                                 ],
                               ),
-                            // Add Slot button for Monday
                             ElevatedButton(
                               onPressed: () => addSlot('Monday'),
                               child: Text(translateText('+ Add Slot')),

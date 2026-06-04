@@ -66,20 +66,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       return translateText('Phone number must be 10 digits.');
     return null;
   }
-
-  // exact string requested
-  // String? _vPhoneVerified() {
-  //   if (_suppressVerifyError) return null;
-  //   return _phoneVerified ? null : translateText('Please verify phone number');
-  // }
-
   String? _vFirstName(String? v) {
     if (_suppressFirstNameError) return null;
     final x = (v ?? '').trim();
     if (x.isEmpty) return translateText('First Name is required');
-    // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
-    //   return translateText('First name must start with a capital letter.');
-    // }
     return null;
   }
 
@@ -87,9 +77,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     if (_suppressLastNameError) return null;
     final x = (v ?? '').trim();
     if (x.isEmpty) return translateText('Last Name is required');
-    // if (!RegExp(r'^[A-Z]').hasMatch(x)) {
-    //   return translateText('Last name must start with a capital letter.');
-    // }
     return null;
   }
 
@@ -121,18 +108,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         ? translateText('Select specialization')
         : null;
   }
-
-  // String? _vOtp(String? v) {
-  //   if (_suppressOtpError) return null;
-  //   final x = (v ?? '').trim();
-  //   return x.isEmpty ? translateText('OTP is required.') : null;
-  // }
-
-  // Data for roles/specializations
   List<Map<String, dynamic>> _allRoles = [];
   List<Map<String, dynamic>> _allSpecs = [];
-
-  // Controllers
   final _phoneCtrl = TextEditingController();
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
@@ -151,22 +128,14 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   final List<String> _selectedRoles = [];
   final List<String> _selectedSpecs = [];
   bool _phoneVerified = false;
-
-  // Verify button loader
   bool _isVerifying = false;
-
-  // Theme (black & white)
   final Color _bg = Colors.white;
   final Color _fieldFill = Colors.grey.shade100;
   final BorderRadius _radius = BorderRadius.circular(12);
   final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-
-  // Image
   File? _cameraImage;
   String? imageUrl;
   String? _existingImageUrl;
-
-  // Button submit loader
   bool _isSubmitting = false;
 
   @override
@@ -262,6 +231,42 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return null;
   }
 
+  List<int> _branchServiceIdsFromAssignment(Map<String, dynamic>? assignment) {
+    final ids = <int>{};
+
+    void addId(dynamic value) {
+      if (value is int) {
+        ids.add(value);
+      } else if (value is num) {
+        ids.add(value.toInt());
+      } else if (value != null) {
+        final parsed = int.tryParse(value.toString());
+        if (parsed != null) ids.add(parsed);
+      }
+    }
+
+    final directIds = assignment?['branchServiceIds'];
+    if (directIds is List) {
+      for (final id in directIds) {
+        addId(id);
+      }
+    }
+
+    final userBranchServices = assignment?['userBranchServices'];
+    if (userBranchServices is List) {
+      for (final item in userBranchServices) {
+        if (item is! Map) continue;
+        addId(item['branchServiceId']);
+        final branchService = item['branchService'];
+        if (branchService is Map) {
+          addId(branchService['id']);
+        }
+      }
+    }
+
+    return ids.toList();
+  }
+
   List<String> _extractLabels(dynamic raw) {
     if (raw is! List) return const [];
     return raw
@@ -330,27 +335,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         return value;
     }
   }
-
-  // Future<void> _pickImage() async {
-  //   final picker = ImagePicker();
-  //   final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
-  //   if (picked == null) return;
-
-  //   setState(() {
-  //     _cameraImage = File(picked.path);
-  //   });
-
-  //   imageUrl = await _uploadImageToS3(_cameraImage!);
-  // }
-
-  // Future<String?> _uploadImageToS3(File image) async {
-  //   try {
-  //     return await ApiService().uploadImage(image);
-  //   } catch (e) {
-  //     debugPrint('Image upload error: $e');
-  //     return null;
-  //   }
-  // }
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
@@ -359,8 +343,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     setState(() {
       _cameraImage = File(picked.path);
     });
-
-    // show temporary feedback
     _toast('Uploading image...');
 
     final uploaded =
@@ -517,36 +499,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _emailFocus.unfocus();
     _brieftFocus.unfocus();
   }
-
-  // Future<void> _pickJoiningDate() async {
-  //   _dismissKeyboard();
-  //   final now = DateTime.now();
-  //   final res = await showDatePicker(
-  //     context: context,
-  //     firstDate: DateTime(now.year - 5),
-  //     lastDate: DateTime(now.year + 5),
-  //     initialDate: _joiningDate ?? now,
-  //     builder: (ctx, child) {
-  //       return Theme(
-  //         data: Theme.of(ctx).copyWith(
-  //           colorScheme: const ColorScheme.light(
-  //             primary: Colors.black,
-  //             onPrimary: Colors.white,
-  //             onSurface: Colors.black87,
-  //           ),
-  //         ),
-  //         child: child!,
-  //       );
-  //     },
-  //   );
-  //   _dismissKeyboard();
-  //   if (res != null) {
-  //     setState(() {
-  //       _joiningDate = res;
-  //       _suppressDateError = true; // hide inline error after selection
-  //     });
-  //   }
-  // }
   Future<void> _pickJoiningDate() async {
     _dismissKeyboard();
     final now = DateTime.now();
@@ -558,7 +510,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       lastDate: DateTime(now.year + 5),
       initialDate: _joiningDate != null && _joiningDate!.isAfter(today)
           ? _joiningDate!
-          : today, // ✅ default to today if past or null
+          : today, 
       builder: (ctx, child) {
         return Theme(
           data: Theme.of(ctx).copyWith(
@@ -663,9 +615,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         target
                           ..clear()
                           ..addAll(temp);
-
-                        // Hide inline error after user selection interaction
-                        if (identical(target, _selectedRoles)) {
+                          if (identical(target, _selectedRoles)) {
                           _suppressRolesError = true;
                         } else if (identical(target, _selectedSpecs)) {
                           _suppressSpecsError = true;
@@ -727,6 +677,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     try {
       final branchAssignment =
           _branchAssignment(widget.initialMember ?? const {});
+      final branchServiceIds = _branchServiceIdsFromAssignment(
+        branchAssignment ?? widget.initialMember,
+      );
       final payload = <String, dynamic>{
         "countryCode": "+91",
         "phoneNumber": _phoneCtrl.text.trim(),
@@ -744,8 +697,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         "schedules": branchAssignment?['schedules'] ??
             widget.initialMember?['schedules'] ??
             const [],
-        "branchServiceIds": branchAssignment?['branchServiceIds'] ??
-            widget.initialMember?['branchServiceIds'] ??
+        "branchServiceIds": branchServiceIds,
+        "userBranchServices": branchAssignment?['userBranchServices'] ??
+            widget.initialMember?['userBranchServices'] ??
             const [],
         "allowOnlineBooking": branchAssignment?['allowOnlineBooking'] ??
             widget.initialMember?['allowOnlineBooking'] ??
@@ -796,8 +750,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       _suppressSpecsError = false;
       _suppressDateError = false;
     });
-
-    // âœ… Wait for the UI to rebuild, THEN validate so errors appear on first tap
     await _afterRebuild();
     _formKey.currentState?.validate();
 
@@ -805,10 +757,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     void push(String? e) {
       if (e != null && e.trim().isNotEmpty) errors.add(e);
     }
-
-    // Collect same messages for Alert using shared helpers
     push(_vPhone(_phoneCtrl.text));
-    // push(_vPhoneVerified()); // verify state
     push(_vFirstName(_firstNameCtrl.text));
     push(_vLastName(_lastNameCtrl.text));
     push(_vEmail(_emailCtrl.text));
@@ -816,9 +765,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     push(_vRoles());
     push(_vSpecs());
     push(_vJoiningDate());
-    // push(_vOtp(_otpCtrl.text));
-    // Brief excluded by requirement
-
     if (errors.isNotEmpty) {
       await _showValidationDialog(errors);
       return false;
@@ -1318,6 +1264,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                         final branchAssignment =
                             _branchAssignment(widget.initialMember ?? const {});
+                        final branchServiceIds =
+                            _branchServiceIdsFromAssignment(
+                          branchAssignment ?? widget.initialMember,
+                        );
                         final payload = <String, dynamic>{
                           if (widget.isEdit)
                             "userId":
@@ -1345,9 +1295,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                               branchAssignment?['allowOnlineBooking'] ??
                                   widget.initialMember?['allowOnlineBooking'] ??
                                   true,
-                          "branchServiceIds":
-                              branchAssignment?['branchServiceIds'] ??
-                                  widget.initialMember?['branchServiceIds'] ??
+                          "branchServiceIds": branchServiceIds,
+                          "userBranchServices":
+                              branchAssignment?['userBranchServices'] ??
+                                  widget.initialMember?['userBranchServices'] ??
                                   const [],
                           "schedules": branchAssignment?['schedules'] ??
                               widget.initialMember?['schedules'] ??

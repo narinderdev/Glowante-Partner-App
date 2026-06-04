@@ -1,4 +1,3 @@
-// otp_bloc.dart
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'otp_event.dart';
 import 'otp_state.dart';
@@ -13,23 +12,21 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
   }
 
   void _onOtpVerifyEvent(OtpVerifyEvent event, Emitter<OtpState> emit) async {
-    emit(OtpLoading()); // Emit loading state before verification
+    emit(OtpLoading()); 
 
     try {
       final response = await apiService.verifyOTP(event.phoneNumber, event.otp);
 
-      print('API Response: $response'); // Debugging output
-
-      // Ensure success is true before emitting success state
+      print('API Response: $response'); 
       if (response['success'] == true) {
         print("Emitting OtpVerifySuccess: $response");
-        emit(OtpVerifySuccess(response)); // Emit success state
+        emit(OtpVerifySuccess(response)); 
       } else {
         final errorMessage = extractMessage(
           response,
           fallback: 'Invalid or expired OTP',
         );
-        emit(OtpVerifyError(errorMessage)); // Emit error state
+        emit(OtpVerifyError(errorMessage));
       }
     } catch (e) {
       print("Error during OTP verification: $e");
@@ -37,7 +34,7 @@ class OtpBloc extends Bloc<OtpEvent, OtpState> {
         e,
         fallback: 'Invalid or expired OTP',
       );
-      emit(OtpVerifyError(errorMessage)); // Emit error state on failure
+      emit(OtpVerifyError(errorMessage)); 
     }
   }
 }
