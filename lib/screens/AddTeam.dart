@@ -918,7 +918,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                 : AutovalidateMode.disabled,
                             textCapitalization: TextCapitalization.none,
                             decoration: _decor(
-                              hint: translateText('Phone Number'),
+                              hint: translateText('Enter phone no'),
                               prefix: Icon(Icons.search),
                             ),
                             validator:

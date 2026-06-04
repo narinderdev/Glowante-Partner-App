@@ -857,7 +857,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                 field: _BranchField.phone,
                                 controller: _phoneController,
                                 label: 'Phone Number *',
-                                hint: '9855096207',
+                                hint: 'Enter phone no',
                                 maxLength: 10,
                                 enabled: true,
                                 keyboardType: TextInputType.phone,

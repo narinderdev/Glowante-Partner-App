@@ -806,11 +806,13 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                   key: ValueKey(_selectedSourceBranchId),
                   initialValue: _selectedSourceBranchId,
                   isExpanded: true,
-                  icon: const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: Color(0xFF8B6500),
-                    size: 18,
-                  ),
+                  icon: _selectedSourceBranchId == null
+                      ? const Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: Color(0xFF8B6500),
+                          size: 18,
+                        )
+                      : const SizedBox.shrink(),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0xFFF5F1ED),
@@ -818,6 +820,22 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                       horizontal: 12,
                       vertical: 8,
                     ),
+                    suffixIcon: _selectedSourceBranchId == null
+                        ? null
+                        : IconButton(
+                            padding: EdgeInsets.zero,
+                            tooltip: translateText('Clear selection'),
+                            onPressed: () {
+                              setState(() {
+                                _selectedSourceBranchId = null;
+                              });
+                            },
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Color(0xFF8B6500),
+                              size: 20,
+                            ),
+                          ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
                       borderSide: const BorderSide(color: Color(0xFFE0D6CD)),

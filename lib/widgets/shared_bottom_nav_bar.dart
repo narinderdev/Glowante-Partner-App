@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 const String _navFontFamily = 'Manrope';
@@ -37,54 +35,34 @@ class SharedBottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          height: 64 + bottomInset,
-          padding: EdgeInsets.fromLTRB(
-              12, 8, 12, bottomInset > 0 ? bottomInset : 10),
-          decoration: BoxDecoration(
-            color: const Color(0xE6FFFFFF),
-            border: const Border(
-              top: BorderSide(
-                color: Color(0xFFF5F3F3),
-                width: 1,
+    return Container(
+      height: 64 + bottomInset,
+      padding:
+          EdgeInsets.fromLTRB(18, 8, 18, bottomInset > 0 ? bottomInset : 8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Color(0xFFE8DED6), width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x10000000),
+            blurRadius: 12,
+            offset: Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          for (int i = 0; i < destinations.length; i++)
+            Expanded(
+              child: _SharedBottomNavButton(
+                destination: destinations[i],
+                isActive: currentIndex == i,
+                onTap: () => onSelect(i),
               ),
             ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x0A000000),
-                blurRadius: 10,
-                offset: Offset(0, -4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              for (int i = 0; i < destinations.length; i++)
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _SharedBottomNavButton(
-                          destination: destinations[i],
-                          isActive: currentIndex == i,
-                          onTap: () => onSelect(i),
-                        ),
-                      ),
-                      if (i != destinations.length - 1)
-                        Container(
-                          width: 1,
-                          height: 28,
-                          color: const Color(0xFFF0EBE7),
-                        ),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
+        ],
       ),
     );
   }
@@ -103,13 +81,13 @@ class _SharedBottomNavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const inactiveColor = Color(0xFFA8A29E);
-    const activeColor = Color(0xFFB45309);
+    const inactiveColor = Color(0xFF776E67);
+    const activeColor = Color(0xFF8B6500);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
@@ -119,12 +97,9 @@ class _SharedBottomNavButton extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          margin: const EdgeInsets.symmetric(horizontal: 6),
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
-          ),
+          margin: EdgeInsets.zero,
+          padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+          decoration: const BoxDecoration(color: Colors.transparent),
           child: Center(
             child: FittedBox(
               fit: BoxFit.scaleDown,
@@ -138,28 +113,28 @@ class _SharedBottomNavButton extends StatelessWidget {
                       isActive
                           ? destination.activeIconPath!
                           : destination.iconPath!,
-                      width: 24,
-                      height: 24,
+                      width: 20,
+                      height: 20,
                     )
                   else
                     Icon(
                       isActive
                           ? (destination.activeIcon ?? destination.icon)
                           : (destination.icon ?? destination.activeIcon),
-                      size: 24,
+                      size: 21,
                       color: isActive ? activeColor : inactiveColor,
                     ),
-                  const SizedBox(height: 1),
+                  const SizedBox(height: 2),
                   Text(
-                    destination.label.toUpperCase(),
+                    destination.label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: _navFontFamily,
                       fontFamilyFallback: _navFontFallback,
                       fontSize: 9.5,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.1,
                       color: isActive ? activeColor : inactiveColor,
                     ),
                   ),

@@ -1005,7 +1005,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 controller: _phoneController,
                                 label: 'Phone Number *',
                                 maxLength: 10,
-                                hint: '9855096207',
+                                hint: 'Enter phone no',
                                 enabled: true,
                                 keyboardType: TextInputType.phone,
                                 prefixText: '+91',

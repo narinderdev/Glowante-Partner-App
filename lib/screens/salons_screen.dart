@@ -784,7 +784,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
             child: Row(
               children: [
                 Image.asset(
-                  'assets/images/logo.png',
+                  'assets/images/finallogo.png',
                   height: 34,
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) => Text(

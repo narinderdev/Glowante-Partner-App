@@ -126,12 +126,12 @@ class _BottomNavState extends State<BottomNav> {
       SharedBottomNavDestination(
         iconPath: 'assets/images/service.png',
         activeIconPath: 'assets/images/service1.png',
-        label: context.t('Catalog'),
+        label: context.t('Services'),
       ),
       SharedBottomNavDestination(
-        iconPath: 'assets/images/user.png',
-        activeIconPath: 'assets/images/user1.png',
-        label: context.t('Profile'),
+        icon: Icons.more_horiz_rounded,
+        activeIcon: Icons.more_horiz_rounded,
+        label: context.t('More'),
       ),
     ];
 

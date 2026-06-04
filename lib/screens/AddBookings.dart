@@ -884,7 +884,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       _dialogLabel('Phone Number'),
                       _dialogTextField(
                         controller: phoneCtrl,
-                        hint: '8654356543',
+                        hint: 'Enter phone no',
                         keyboardType: TextInputType.phone,
                         maxLength: 10,
                         inputFormatters: [
