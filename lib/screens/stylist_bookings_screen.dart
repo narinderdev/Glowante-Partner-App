@@ -2271,17 +2271,20 @@ class _TeamMemberSlotsRowState extends State<_TeamMemberSlotsRow> {
             ],
           ),
           const SizedBox(height: 14),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: visibleSlots.map((slot) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 14),
-                  child: slot,
-                );
-              }).toList(),
+          if (widget.bookings.isEmpty)
+            _TeamMemberNoBookingsCard(staffName: widget.staffName)
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: visibleSlots.map((slot) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 14),
+                    child: slot,
+                  );
+                }).toList(),
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -2504,7 +2507,7 @@ class _TeamMemberNoBookingsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: _TeamMemberSlotCard._width,
+      width: double.infinity,
       height: _TeamMemberSlotCard._height,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
