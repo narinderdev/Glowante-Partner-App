@@ -381,6 +381,26 @@ List<String> _assignedStaffNames(Map<String, dynamic> booking) {
   return names;
 }
 
+List<String> _professionalStatuses(Map<String, dynamic> booking) {
+  final statuses = <String>[];
+
+  void addStatus(dynamic value) {
+    final status = value?.toString().trim().toLowerCase() ?? '';
+    if (status.isEmpty || status == 'null') return;
+    statuses.add(status.replaceAll('-', '_').replaceAll(' ', '_'));
+  }
+
+  addStatus(booking['professionalStatus']);
+  addStatus(booking['assignedUserBranch']?['professionalStatus']);
+
+  for (final item in _bookingItems(booking)) {
+    addStatus(item['professionalStatus']);
+    addStatus(item['assignedUserBranch']?['professionalStatus']);
+  }
+
+  return statuses;
+}
+
 String _assignedStaffSummary(
     BuildContext context, Map<String, dynamic> booking) {
   final names = _assignedStaffNames(booking);
@@ -749,6 +769,18 @@ bool _isBusyBooking(Map<String, dynamic> booking) {
 }
 
 Color _professionalAvailabilityColor(List<Map<String, dynamic>> bookings) {
+  final statuses = bookings.expand(_professionalStatuses).toList();
+  if (statuses.any((status) =>
+      status == 'busy' ||
+      status == 'unavailable' ||
+      status == 'in_progress' ||
+      status == 'occupied')) {
+    return const Color(0xFFDC2626);
+  }
+  if (statuses.any((status) => status == 'available')) {
+    return const Color(0xFF22C55E);
+  }
+
   return bookings.any(_isBusyBooking)
       ? const Color(0xFFDC2626)
       : const Color(0xFF22C55E);
