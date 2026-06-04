@@ -768,41 +768,44 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback? onHeaderTap;
 
   @override
-  Size get preferredSize => const Size.fromHeight(58);
+  Size get preferredSize => const Size.fromHeight(70);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFFBFAF8),
+      color: Colors.white,
       child: SafeArea(
         bottom: false,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: onHeaderTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/images/finallogo.png',
-                  height: 34,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Image.asset(
-                    'assets/images/logo.png',
+          child: SizedBox(
+            height: 70,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 6),
+              child: Row(
+                children: [
+                  Image.asset(
+                    'assets/images/finallogo.png',
                     height: 34,
                     fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => Image.asset(
+                      'assets/images/logo.png',
+                      height: 34,
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: onHeaderTap,
-                  icon: const Icon(
-                    Icons.notifications_none_rounded,
-                    color: Color(0xFF8B6500),
-                    size: 24,
+                  const Spacer(),
+                  IconButton(
+                    onPressed: onHeaderTap,
+                    icon: const Icon(
+                      Icons.notifications_none_rounded,
+                      color: Color(0xFF8B6500),
+                      size: 24,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

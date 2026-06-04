@@ -1627,19 +1627,24 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               color: _bookingsAccent,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
+                padding: const EdgeInsets.fromLTRB(0, 0, 0, 96),
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: _HeaderBranchSelector(
-                      key: _branchSelectorKey,
-                      label: selectedLabel,
-                      addressSummary: selectedAddressSummary,
-                      isInteractive: canChangeBranch,
-                      onTap: canChangeBranch ? _openBranchPicker : null,
+                  SizedBox(
+                    height: 70,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(color: Colors.white),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+                        child: _HeaderBranchSelector(
+                          key: _branchSelectorKey,
+                          label: selectedLabel,
+                          addressSummary: selectedAddressSummary,
+                          isInteractive: canChangeBranch,
+                          onTap: canChangeBranch ? _openBranchPicker : null,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 10),
                   const Divider(
                     height: 1,
                     thickness: 1,
@@ -4020,10 +4025,11 @@ class _HeaderBranchSelector extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: isInteractive ? onTap : null,
         child: Container(
+          height: double.infinity,
           constraints: const BoxConstraints(minWidth: 164),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: _bookingsPage,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -5002,6 +5008,7 @@ class _StylistBookingDetailScreenState
         elapsedMinutes: elapsed.inMinutes,
         scheduledMinutes: scheduledMinutes,
         timeRange: timeRange,
+        customerName: _customerName(context, _booking),
         serviceSummary: serviceSummary,
         assignedStaffLabel: assignedStaffLabel,
         serviceSegments: serviceSegments,
