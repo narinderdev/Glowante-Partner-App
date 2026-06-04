@@ -1852,65 +1852,6 @@ class ApiService {
       rethrow;
     }
   }
-
-  // ---------------------- ADD SUBCATEGORY ----------------------
-  // Future<Map<String, dynamic>> addSubCategoryApi({
-  //   required int salonId,
-  //   required int categoryId,
-  //   required String name,
-  // }) async {
-  //   // Fix the URL to avoid double slashes
-  //   final url = Uri.parse(
-  //     '$baseUrl${addSubCategory.replaceFirst(RegExp(r'^/'), '')}'
-  //         .replaceAll("{salonId}", salonId.toString())
-  //         .replaceAll("{categoryId}", categoryId.toString()),
-  //   );
-
-  //   try {
-  //     final token = await getAuthToken(); // Fetch the token using your method
-
-  //     if (token.isEmpty) {
-  //       throw Exception("Token is missing");
-  //     }
-
-  //     // Print request details for debugging
-  //     print("Sending request to URL: $url");
-  //     print(
-  //       "Request body: ${json.encode({
-  //         'name': name,
-  //         'sortOrder': 200, // Fixed sortOrder value
-  //       })}",
-  //     );
-
-  //     final response = await _sharedClient.post(
-  //       url,
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         "Authorization":
-  //             "Bearer $token", // Pass the token in the Authorization header
-  //       },
-  //       body: json.encode({
-  //         "name": name,
-  //         "sortOrder": 200, // Fixed sortOrder value
-  //       }),
-  //     );
-
-  //     // Print response details for debugging
-  //     print("Response status: ${response.statusCode}");
-  //     print("Response body: ${response.body}");
-
-  //     if (response.statusCode == 200 || response.statusCode == 201) {
-  //       // Return the response data if successful
-  //       return json.decode(response.body);
-  //     } else {
-  //       // If the status code is not 200 or 201, throw an exception
-  //       throw Exception("Failed to create subcategory");
-  //     }
-  //   } catch (e) {
-  //     print("Error adding subcategory: $e"); // Print the error for debugging
-  //     throw Exception("Error adding subcategory: $e");
-  //   }
-  // }
   Future<Map<String, dynamic>> addSubCategoryApi({
     required int branchId,
     required int categoryId,
