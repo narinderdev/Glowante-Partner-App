@@ -2167,13 +2167,24 @@ class ApiService {
         // If successful, parse the response JSON
         return json.decode(response.body);
       } else {
-        // If request fails, throw an error
-        throw Exception('Failed to add user');
+        final decoded = json.decode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        return {
+          'success': false,
+          'message': response.body.isNotEmpty
+              ? response.body
+              : 'Failed to add user',
+        };
       }
     } catch (e) {
       // Handle errors (e.g., network issues)
       print('Error: $e');
-      return {'success': false, 'message': 'Error: $e'};
+      return {
+        'success': false,
+        'message': e.toString().replaceFirst(RegExp(r'^Exception:\\s*'), ''),
+      };
     }
   }
 

@@ -383,8 +383,12 @@ class _TeamOnlineAvailabilityScreenState
       );
     } catch (error) {
       if (!mounted) return;
+      final message = error.toString().replaceFirst(
+            RegExp(r'^Exception:\s*'),
+            '',
+          );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
+        SnackBar(content: Text(message)),
       );
     } finally {
       if (mounted) {
