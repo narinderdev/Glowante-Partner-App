@@ -152,10 +152,15 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             flat.add(svcMap);
             (subNode['services'] as List).add(svcMap);
           }
-          (catNode['subs'] as List).add(subNode);
+          if ((subNode['services'] as List).isNotEmpty) {
+            (catNode['subs'] as List).add(subNode);
+          }
         }
 
-        tree.add(catNode);
+        if ((catNode['services'] as List).isNotEmpty ||
+            (catNode['subs'] as List).isNotEmpty) {
+          tree.add(catNode);
+        }
       }
 
       setState(() {
@@ -1404,10 +1409,11 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         builder: (context, setSheetState) {
           final query = searchCtrl.text.trim().toLowerCase();
           final visibleCategories = _svcTree.where((cat) {
-            if (query.isEmpty) return true;
             final catName = (cat['name'] ?? '').toString().toLowerCase();
             final catServices = (cat['services'] as List?) ?? const [];
             final subs = (cat['subs'] as List?) ?? const [];
+            if (catServices.isEmpty && subs.isEmpty) return false;
+            if (query.isEmpty) return true;
             final serviceMatch = catServices.any(
               (svc) =>
                   (svc['name'] ?? '').toString().toLowerCase().contains(query),
@@ -1634,10 +1640,38 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final catName = (category['name'] ?? '').toString();
     final catServices = (category['services'] as List?) ?? const [];
     final subs = (category['subs'] as List?) ?? const [];
+    final normalizedQuery = query.toLowerCase();
+    final catMatches =
+        normalizedQuery.isNotEmpty && catName.toLowerCase().contains(query);
 
     bool serviceVisible(Map service) =>
-        query.isEmpty ||
+        normalizedQuery.isEmpty ||
+        catMatches ||
         (service['name'] ?? '').toString().toLowerCase().contains(query);
+    bool subVisible(Map sub) {
+      final subName = (sub['name'] ?? '').toString().toLowerCase();
+      final subMatches =
+          normalizedQuery.isNotEmpty && subName.contains(normalizedQuery);
+      final services =
+          ((sub['services'] as List?) ?? const []).whereType<Map>();
+      return services.any(
+        (service) =>
+            normalizedQuery.isEmpty ||
+            catMatches ||
+            subMatches ||
+            (service['name'] ?? '')
+                .toString()
+                .toLowerCase()
+                .contains(normalizedQuery),
+      );
+    }
+
+    final visibleCatServices =
+        catServices.whereType<Map>().where(serviceVisible).toList();
+    final visibleSubs = subs.whereType<Map>().where(subVisible).toList();
+    if (visibleCatServices.isEmpty && visibleSubs.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1661,14 +1695,13 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 ),
               ),
               children: [
-                for (final service in catServices.whereType<Map>())
-                  if (serviceVisible(service))
-                    _serviceSheetTile(
-                      Map<String, dynamic>.from(service),
-                      pendingIds,
-                      onToggle,
-                    ),
-                for (final sub in subs.whereType<Map>()) ...[
+                for (final service in visibleCatServices)
+                  _serviceSheetTile(
+                    Map<String, dynamic>.from(service),
+                    pendingIds,
+                    onToggle,
+                  ),
+                for (final sub in visibleSubs) ...[
                   Padding(
                     padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
                     child: Row(
@@ -1875,11 +1908,20 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     if (_isSaving) return null;
     if (!_formKey.currentState!.validate()) return null;
 
+    final userId = int.tryParse(_clientIdCtrl.text.trim());
+    if (userId == null) {
+      setState(() {
+        _serviceError = null;
+      });
+      _showError(translateText('Please select or verify a customer first'));
+      return null;
+    }
+
     if (_selectedServiceId == null || _selectedServices.isEmpty) {
       setState(() {
-        _serviceError = translateText('Service is required');
+        _serviceError = null;
       });
-      _showError(translateText('Please select Service'));
+      _showError(translateText('Service is required'));
       return null;
     } else {
       setState(() {
@@ -1889,11 +1931,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
     if (_selectedDate == null) {
       _showError(translateText('Please select a date'));
-      return null;
-    }
-    final userId = int.tryParse(_clientIdCtrl.text.trim());
-    if (userId == null) {
-      _showError(translateText('Please select or verify a customer first'));
       return null;
     }
     if (_startTime == null || _endTime == null) {
@@ -1958,13 +1995,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
     final userId = int.tryParse(_clientIdCtrl.text.trim());
     if (userId == null) {
+      setState(() => _serviceError = null);
       _showError(translateText('Please select or verify a customer first'));
       return false;
     }
 
     if (_selectedServices.isEmpty) {
-      setState(() => _serviceError = translateText('Service is required'));
-      _showError(translateText('Please select Service'));
+      setState(() => _serviceError = null);
+      _showError(translateText('Service is required'));
       return false;
     }
 

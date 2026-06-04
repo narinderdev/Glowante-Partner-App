@@ -372,7 +372,7 @@ class SalonRepository {
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
       if (sourceBranchId != null) 'sourceBranchId': sourceBranchId,
-      'imageUrl': resolvedImageUrl,
+      if (resolvedImageUrl != null) 'imageUrl': resolvedImageUrl,
       if (imageUrls != null) 'imageUrls': imageUrls,
       'address': address,
       'latitude': latitude,

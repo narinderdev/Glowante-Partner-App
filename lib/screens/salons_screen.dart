@@ -15,7 +15,6 @@ import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
-import '../widgets/animated_typing_hint.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 const double _salonHeroImageHeight = 240;
@@ -781,139 +780,34 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onHeaderTap,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 10, 0, 0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+            padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
+            child: Row(
               children: [
-                _AppBarSearchField(
-                  controller: searchController,
-                  focusNode: searchFocusNode,
-                  onChanged: onSearchChanged,
-                  onTap: onSearchTap,
+                Image.asset(
+                  'assets/images/logo.png',
+                  height: 34,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Text(
+                    translateText('Glowante'),
+                    style: const TextStyle(
+                      color: Color(0xFF8B6500),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: onHeaderTap,
+                  icon: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: Color(0xFF8B6500),
+                    size: 24,
+                  ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AppBarSearchField extends StatelessWidget {
-  const _AppBarSearchField({
-    required this.controller,
-    required this.focusNode,
-    required this.onChanged,
-    required this.onTap,
-  });
-
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.zero,
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x10212121),
-              blurRadius: 12,
-              offset: Offset(0, 6),
-            ),
-          ],
-        ),
-        child: ValueListenableBuilder<TextEditingValue>(
-          valueListenable: controller,
-          builder: (context, value, _) {
-            final hasQuery = value.text.isNotEmpty;
-            return Stack(
-              children: [
-                TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  autofocus: false,
-                  onChanged: onChanged,
-                  onTap: onTap,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => FocusScope.of(context).unfocus(),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF37474F),
-                  ),
-                  decoration: InputDecoration(
-                    prefixIcon: const Padding(
-                      padding: EdgeInsets.only(left: 14, right: 8),
-                      child: Icon(
-                        Icons.search_rounded,
-                        color: Color(0xFFD0A244),
-                        size: 18,
-                      ),
-                    ),
-                    prefixIconConstraints: const BoxConstraints(
-                      minWidth: 40,
-                      minHeight: 48,
-                    ),
-                    suffixIcon: hasQuery
-                        ? SizedBox(
-                            width: 46,
-                            height: 48,
-                            child: IconButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () {
-                                controller.clear();
-                                onChanged('');
-                              },
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                color: Color(0xFF90A4AE),
-                                size: 18,
-                              ),
-                            ),
-                          )
-                        : null,
-                    suffixIconConstraints: const BoxConstraints(
-                      minWidth: 44,
-                      minHeight: 48,
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-                if (!hasQuery)
-                  Positioned.fill(
-                    left: 50,
-                    right: 14,
-                    child: IgnorePointer(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: AnimatedTypingHint(
-                          hints: [
-                            translateText('Search "salons near me"'),
-                            translateText('Search "bridal makeup"'),
-                            translateText('Search "spa in Chandigarh"'),
-                            translateText('Search "haircut"'),
-                          ],
-                          style: const TextStyle(
-                            color: Color(0xFFB8AEA6),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
         ),
       ),
     );
@@ -1246,7 +1140,12 @@ class _SalonCard extends StatelessWidget {
     final url = imageUrl?.trim() ?? '';
     if (url.isEmpty) return null;
     final lowerUrl = url.toLowerCase();
-    if (lowerUrl.contains('image_picker')) {
+    final isNetworkUrl =
+        lowerUrl.startsWith('http://') || lowerUrl.startsWith('https://');
+    if (!isNetworkUrl &&
+        (lowerUrl.contains('image_picker') ||
+            lowerUrl.startsWith('file://') ||
+            lowerUrl.startsWith('/'))) {
       return null;
     }
     return url;
@@ -1293,7 +1192,6 @@ class _SalonCard extends StatelessWidget {
   List<String> _resolveHeroImageUrls({
     required String fallbackImageUrl,
     required Map<String, dynamic> salon,
-    required Map<String, dynamic>? primaryBranch,
   }) {
     final urls = <String>[];
 
@@ -1304,14 +1202,10 @@ class _SalonCard extends StatelessWidget {
       }
     }
 
-    urls.addAll(_extractImageUrls(salon['imageUrls']));
-    if (primaryBranch != null) {
-      urls.addAll(_extractImageUrls(primaryBranch['imageUrls']));
+    for (final url in _extractImageUrls(salon['imageUrls'])) {
+      pushUrl(url);
     }
     pushUrl(fallbackImageUrl);
-    if (primaryBranch != null) {
-      pushUrl(_cleanText(primaryBranch['imageUrl']));
-    }
 
     return urls;
   }
@@ -1532,13 +1426,9 @@ class _SalonCard extends StatelessWidget {
       }
     }
 
-    if (imageUrl.isEmpty && primaryBranch != null) {
-      imageUrl = _cleanText(primaryBranch['imageUrl']);
-    }
     final heroImageUrls = _resolveHeroImageUrls(
       fallbackImageUrl: imageUrl,
       salon: salon,
-      primaryBranch: primaryBranch,
     );
 
     String addressLabel = '';

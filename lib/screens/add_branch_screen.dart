@@ -68,6 +68,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   final _descriptionController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
+  bool _savedPhoneApplied = false;
   List<Map<String, dynamic>> _sourceBranches = const [];
   List<String> _existingImageUrls = const <String>[];
   final Map<_BranchField, bool> _fieldValidationVisibility = {
@@ -763,8 +764,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
         if (!widget.isEdit &&
+            !_savedPhoneApplied &&
             state.savedPhone != null &&
             _phoneController.text.isEmpty) {
+          _savedPhoneApplied = true;
           _phoneController.text = state.savedPhone!;
           _resetFieldError(_BranchField.phone);
         }
@@ -1308,6 +1311,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     ValueChanged<String>? onChanged,
     String? prefixText,
     IconData? prefixIconData,
+    IconData? suffixIconData,
     bool reserveCounterSpace = false,
     double bottomSpacing = 18,
   }) {
@@ -1417,13 +1421,24 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                     size: 19,
                                   ),
                                 ),
+                      suffixIcon: suffixIconData == null
+                          ? null
+                          : Icon(
+                              suffixIconData,
+                              color: const Color(0xFF8B6500),
+                              size: 19,
+                            ),
                       filled: true,
                       fillColor:
                           enabled ? Colors.white : const Color(0xFFF1EEEE),
                       contentPadding: EdgeInsets.fromLTRB(
                         16,
                         14,
-                        hasInsideCounter ? 82 : 16,
+                        hasInsideCounter
+                            ? 82
+                            : suffixIconData == null
+                                ? 16
+                                : 4,
                         shouldReserveCounterSpace ? 30 : 14,
                       ),
                       border: OutlineInputBorder(
@@ -1495,8 +1510,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           controller: controller,
           label: label,
           hint: 'Select time',
-          prefixIconData: Icons.access_time_rounded,
-          reserveCounterSpace: true,
+          suffixIconData: Icons.access_time_rounded,
           bottomSpacing: bottomSpacing,
         ),
       ),

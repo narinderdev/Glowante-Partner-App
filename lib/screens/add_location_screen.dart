@@ -1479,6 +1479,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
     _searchFocus.addListener(() {
       if (!_searchFocus.hasFocus) _removeOverlay();
+      if (mounted) setState(() {});
     });
   }
 
@@ -1864,6 +1865,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 
   Widget _buildSearchCard() {
+    final showSearchEllipsis = !_searchFocus.hasFocus &&
+        searchLocationController.text.trim().isNotEmpty;
     return _ThemedCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1874,67 +1877,93 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             link: _searchFieldLink,
             child: SizedBox(
               height: 48,
-              child: TextFormField(
-                controller: searchLocationController,
-                focusNode: _searchFocus,
-                textAlignVertical: TextAlignVertical.center,
-                style: const TextStyle(
-                  color: _ink,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-                decoration: InputDecoration(
-                  hintText: translateText('Search your location...'),
-                  hintStyle: const TextStyle(
-                    color: Color(0xFF9A928B),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+              child: Stack(
+                children: [
+                  TextFormField(
+                    controller: searchLocationController,
+                    focusNode: _searchFocus,
+                    maxLines: 1,
+                    textAlignVertical: TextAlignVertical.center,
+                    style: TextStyle(
+                      color: showSearchEllipsis ? Colors.transparent : _ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: translateText('Search your location...'),
+                      hintStyle: const TextStyle(
+                        color: Color(0xFF9A928B),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: _gold,
+                        size: 20,
+                      ),
+                      suffixIcon: searchLocationController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.close, color: Colors.grey),
+                              splashRadius: 18,
+                              onPressed: () {
+                                FocusScope.of(context).unfocus();
+                                searchLocationController.clear();
+                                setState(() => predictions.clear());
+                                _removeOverlay();
+                              },
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: _fieldFill,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 0,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: _border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: _border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: _goldLight, width: 1.3),
+                      ),
+                    ),
+                    onChanged: (val) async {
+                      setState(() {});
+                      if (val.trim().isEmpty) {
+                        _removeOverlay();
+                        setState(() => predictions.clear());
+                        return;
+                      }
+                      await _getPredictions(val);
+                    },
                   ),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    color: _gold,
-                    size: 20,
-                  ),
-                  suffixIcon: searchLocationController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.close, color: Colors.grey),
-                          splashRadius: 18,
-                          onPressed: () {
-                            FocusScope.of(context).unfocus();
-                            searchLocationController.clear();
-                            setState(() => predictions.clear());
-                            _removeOverlay();
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: _fieldFill,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 0,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: _border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: _border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: _goldLight, width: 1.3),
-                  ),
-                ),
-                onChanged: (val) async {
-                  setState(() {});
-                  if (val.trim().isEmpty) {
-                    _removeOverlay();
-                    setState(() => predictions.clear());
-                    return;
-                  }
-                  await _getPredictions(val);
-                },
+                  if (showSearchEllipsis)
+                    Positioned.fill(
+                      left: 48,
+                      right: 48,
+                      child: IgnorePointer(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            searchLocationController.text.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _ink,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),

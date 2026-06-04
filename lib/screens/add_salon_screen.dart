@@ -94,6 +94,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final _phoneController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
+  bool _savedPhoneApplied = false;
   final Set<String> _removedExistingImageUrls = <String>{};
 
   Map<String, dynamic>? _asStringKeyedMap(dynamic value) {
@@ -180,7 +181,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   List<String> _resolveExistingImageUrls() {
     final salon = widget.initialSalon;
-    final primaryBranch = salon == null ? null : _resolvePrimaryBranch(salon);
     final urls = <String>[];
     void addAll(Iterable<String> values) {
       for (final url in values) {
@@ -193,10 +193,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     if (salon != null) {
       addAll(_extractImageUrls(salon['imageUrls']));
       addAll(_extractImageUrls(salon['imageUrl']));
-    }
-    if (primaryBranch != null) {
-      addAll(_extractImageUrls(primaryBranch['imageUrls']));
-      addAll(_extractImageUrls(primaryBranch['imageUrl']));
     }
     addAll(_extractImageUrls(widget.imageUrl));
 
@@ -827,8 +823,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               address: addressPayload,
               latitude: address?.latitude ?? 0,
               longitude: address?.longitude ?? 0,
-              imageUrl: imageUrl,
-              imageUrls: imageUrls,
             );
           }
         }
@@ -919,7 +913,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return BlocConsumer<AddSalonCubit, AddSalonState>(
       listenWhen: (previous, current) => previous.status != current.status,
       listener: (context, state) {
-        if (state.savedPhone != null && _phoneController.text.isEmpty) {
+        if (!_savedPhoneApplied &&
+            state.savedPhone != null &&
+            _phoneController.text.isEmpty) {
+          _savedPhoneApplied = true;
           _phoneController.text = state.savedPhone!;
         }
 
@@ -1588,6 +1585,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     int? maxWords,
     String? prefixText,
     IconData? prefixIconData,
+    IconData? suffixIconData,
     bool reserveCounterSpace = false,
     double bottomSpacing = 18,
   }) {
@@ -1727,13 +1725,24 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                     size: 19,
                                   ),
                                 ),
+                      suffixIcon: suffixIconData == null
+                          ? null
+                          : Icon(
+                              suffixIconData,
+                              color: const Color(0xFF8B6500),
+                              size: 19,
+                            ),
                       filled: true,
                       fillColor:
                           enabled ? Colors.white : const Color(0xFFF1EEEE),
                       contentPadding: EdgeInsets.fromLTRB(
                         16,
                         14,
-                        hasInsideCounter ? 82 : 16,
+                        hasInsideCounter
+                            ? 82
+                            : suffixIconData == null
+                                ? 16
+                                : 4,
                         shouldReserveCounterSpace ? 30 : 14,
                       ),
                       border: OutlineInputBorder(
@@ -1805,8 +1814,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           controller: controller,
           label: label,
           hint: 'Select time',
-          prefixIconData: Icons.access_time_rounded,
-          reserveCounterSpace: true,
+          suffixIconData: Icons.access_time_rounded,
           bottomSpacing: bottomSpacing,
         ),
       ),
