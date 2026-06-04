@@ -45,6 +45,10 @@ class UserRoleSession {
       }
     }
 
+    if (ids.contains(ownerRoleId) || codes.contains(ownerRoleCode)) {
+      return false;
+    }
+
     return ids.contains(stylistRoleId) ||
         ids.contains(staffRoleId) ||
         ids.contains(receptionistRoleId) ||
@@ -230,10 +234,10 @@ class UserRoleSession {
   }
 
   static int? _resolvePrimaryRoleId(List<String> roleIds) {
+    if (roleIds.contains('$ownerRoleId')) return ownerRoleId;
     if (roleIds.contains('$stylistRoleId')) return stylistRoleId;
     if (roleIds.contains('$staffRoleId')) return staffRoleId;
     if (roleIds.contains('$receptionistRoleId')) return receptionistRoleId;
-    if (roleIds.contains('$ownerRoleId')) return ownerRoleId;
     return roleIds.isEmpty ? null : int.tryParse(roleIds.first);
   }
 

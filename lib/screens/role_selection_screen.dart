@@ -33,14 +33,13 @@ class RoleSelectionScreen extends StatelessWidget {
     required bool profileComplete,
   }) async {
     final roles = _visibleRoles(user['roles']);
-    final role = roles.length == 1
-        ? roles.first
-        : const _SelectableRole(
-            id: null,
-            code: 'app_user',
-            label: 'App User',
-            destination: _RoleDestination.owner,
-          );
+    final role = _primaryRole(roles) ??
+        const _SelectableRole(
+          id: null,
+          code: 'app_user',
+          label: 'App User',
+          destination: _RoleDestination.owner,
+        );
 
     await _continueWithRole(
       context,
@@ -152,6 +151,17 @@ class RoleSelectionScreen extends StatelessWidget {
             ),
           ]
         : roles;
+  }
+
+  static _SelectableRole? _primaryRole(List<_SelectableRole> roles) {
+    if (roles.isEmpty) return null;
+    for (final role in roles) {
+      if (role.id == UserRoleSession.ownerRoleId ||
+          role.code == UserRoleSession.ownerRoleCode) {
+        return role;
+      }
+    }
+    return roles.first;
   }
 
   static Future<void> _continueWithRole(

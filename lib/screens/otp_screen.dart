@@ -188,29 +188,38 @@ class _OtpScreenState extends State<OtpScreen> {
             '[HomeReach] OTP verified. Resolving role entry for userId=$userId, phone=${widget.phoneNumber}',
           );
           if (!mounted) return;
-          final selectableRoleCount = RoleSelectionScreen.selectableRoleCount(
-            user,
+          await RoleSelectionScreen.continueWithSingleRole(
+            context: context,
+            token: token,
+            user: user,
+            profileComplete: hasFullName,
           );
-          if (selectableRoleCount <= 1) {
-            await RoleSelectionScreen.continueWithSingleRole(
-              context: context,
-              token: token,
-              user: user,
-              profileComplete: hasFullName,
-            );
-            return;
-          }
+          return;
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => RoleSelectionScreen(
-                token: token,
-                user: user,
-                profileComplete: hasFullName,
-              ),
-            ),
-          );
+          // Role selection is intentionally skipped after login.
+          // final selectableRoleCount = RoleSelectionScreen.selectableRoleCount(
+          //   user,
+          // );
+          // if (selectableRoleCount <= 1) {
+          //   await RoleSelectionScreen.continueWithSingleRole(
+          //     context: context,
+          //     token: token,
+          //     user: user,
+          //     profileComplete: hasFullName,
+          //   );
+          //   return;
+          // }
+          //
+          // Navigator.pushReplacement(
+          //   context,
+          //   MaterialPageRoute(
+          //     builder: (_) => RoleSelectionScreen(
+          //       token: token,
+          //       user: user,
+          //       profileComplete: hasFullName,
+          //     ),
+          //   ),
+          // );
         } else {
           setState(() {
             errorMessage = translateText('User data or token is missing');
