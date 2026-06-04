@@ -4155,7 +4155,7 @@ class _BookingQuoteCard extends StatelessWidget {
             ),
           ),
           SizedBox(
-            height: 118,
+            height: 218,
             width: double.infinity,
             child: Image.asset(
               'assets/images/salon2.jpeg',
