@@ -735,6 +735,25 @@ Color _scheduleStatusAccentColor(String status) {
   }
 }
 
+bool _isBusyBooking(Map<String, dynamic> booking) {
+  final status = _normalizeStatus(booking['status']);
+  if (status == 'IN_PROGRESS') return true;
+  if (status == 'COMPLETED' || status == 'CANCELLED') return false;
+
+  final start = _bookingStart(booking);
+  if (start == null) return false;
+  final end = _bookingEnd(booking) ??
+      start.add(Duration(minutes: _bookingDurationMinutes(booking)));
+  final now = DateTime.now();
+  return _isSameDay(start, now) && !now.isBefore(start) && now.isBefore(end);
+}
+
+Color _professionalAvailabilityColor(List<Map<String, dynamic>> bookings) {
+  return bookings.any(_isBusyBooking)
+      ? const Color(0xFFDC2626)
+      : const Color(0xFF22C55E);
+}
+
 Future<Map<String, dynamic>?> _showStartJobOtpDialog(
   BuildContext context, {
   required int branchId,
@@ -1849,7 +1868,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                           labels: [
                             context.t('Team Members'),
                             context.t('Schedule'),
-                            context.t('Recent'),
+                            // context.t('Recent'),
                           ],
                           onChanged: (index) {
                             setState(() => _selectedBookingView = index);
@@ -2130,6 +2149,8 @@ class _TeamMemberSlotsRowState extends State<_TeamMemberSlotsRow> {
 
   @override
   Widget build(BuildContext context) {
+    final availabilityColor =
+        _professionalAvailabilityColor(widget.bookings);
     final selectedBooking = _selectedBookingIndex == null ||
             _selectedBookingIndex! >= widget.bookings.length
         ? null
@@ -2167,19 +2188,32 @@ class _TeamMemberSlotsRowState extends State<_TeamMemberSlotsRow> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: const Color(0xFFF4EAD4),
-                child: Text(
-                  _initials(widget.staffName).isEmpty
-                      ? '—'
-                      : _initials(widget.staffName),
-                  style: _bookingTextStyle(
-                    size: 13,
-                    weight: FontWeight.w900,
-                    color: _bookingsGold,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: const Color(0xFFF4EAD4),
+                    child: Text(
+                      _initials(widget.staffName).isEmpty
+                          ? '—'
+                          : _initials(widget.staffName),
+                      style: _bookingTextStyle(
+                        size: 13,
+                        weight: FontWeight.w900,
+                        color: _bookingsGold,
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned(
+                    right: 0,
+                    bottom: 1,
+                    child: CircleAvatar(
+                      radius: 6,
+                      backgroundColor: availabilityColor,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -2555,31 +2589,49 @@ class _TeamMemberNoBookingsCard extends StatelessWidget {
 }
 
 class _ScheduleStaffNameLabel extends StatelessWidget {
-  const _ScheduleStaffNameLabel({required this.staffName});
+  const _ScheduleStaffNameLabel({
+    required this.staffName,
+    required this.bookings,
+  });
 
   final String staffName;
+  final List<Map<String, dynamic>> bookings;
 
   @override
   Widget build(BuildContext context) {
     final firstLetter = staffName.trim().isEmpty
         ? '—'
         : staffName.trim().characters.first.toUpperCase();
+    final availabilityColor = _professionalAvailabilityColor(bookings);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 13,
-            backgroundColor: const Color(0xFFFFDC82),
-            child: Text(
-              firstLetter,
-              style: _bookingTextStyle(
-                size: 11,
-                weight: FontWeight.w900,
-                color: _bookingsGold,
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              CircleAvatar(
+                radius: 13,
+                backgroundColor: const Color(0xFFFFDC82),
+                child: Text(
+                  firstLetter,
+                  style: _bookingTextStyle(
+                    size: 11,
+                    weight: FontWeight.w900,
+                    color: _bookingsGold,
+                  ),
+                ),
               ),
-            ),
+              Positioned(
+                right: -1,
+                bottom: -1,
+                child: CircleAvatar(
+                  radius: 4,
+                  backgroundColor: availabilityColor,
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2689,9 +2741,13 @@ class _ScheduleGridCell extends StatelessWidget {
 }
 
 class _ScheduleMemberCell extends StatelessWidget {
-  const _ScheduleMemberCell({required this.staffName});
+  const _ScheduleMemberCell({
+    required this.staffName,
+    required this.bookings,
+  });
 
   final String staffName;
+  final List<Map<String, dynamic>> bookings;
 
   @override
   Widget build(BuildContext context) {
@@ -2705,7 +2761,10 @@ class _ScheduleMemberCell extends StatelessWidget {
           bottom: BorderSide(color: _ScheduleBoard._gridBorder),
         ),
       ),
-      child: _ScheduleStaffNameLabel(staffName: staffName),
+      child: _ScheduleStaffNameLabel(
+        staffName: staffName,
+        bookings: bookings,
+      ),
     );
   }
 }
@@ -3057,6 +3116,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
         return firstStart.compareTo(secondStart);
       });
     final initials = _initials(widget.staffName);
+    final availabilityColor = _professionalAvailabilityColor(sortedBookings);
     final startLabel = widget.branchStartMinute == null
         ? null
         : _formatMinutesLabel(widget.branchStartMinute!);
@@ -3118,12 +3178,12 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                           ),
                         ),
                       ),
-                      const Positioned(
+                      Positioned(
                         right: 1,
                         bottom: 1,
                         child: CircleAvatar(
                           radius: 6,
-                          backgroundColor: Color(0xFF22C55E),
+                          backgroundColor: availabilityColor,
                         ),
                       ),
                     ],
@@ -3803,7 +3863,10 @@ class _ScheduleBoard extends StatelessWidget {
                 children: [
                   const _ScheduleTeamHeaderCell(),
                   ...staffGroups.entries.map(
-                    (entry) => _ScheduleMemberCell(staffName: entry.key),
+                    (entry) => _ScheduleMemberCell(
+                      staffName: entry.key,
+                      bookings: entry.value,
+                    ),
                   ),
                 ],
               ),
