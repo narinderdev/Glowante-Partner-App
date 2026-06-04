@@ -773,7 +773,12 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFF1EBE6)),
+        ),
+      ),
       child: SafeArea(
         bottom: false,
         child: GestureDetector(

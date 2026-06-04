@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../features/stylist_appointments/widgets/stylist_appointment_details_component.dart';
 import '../services/language_listener.dart';
@@ -257,6 +258,63 @@ String _customerName(BuildContext context, Map<String, dynamic> booking) {
   return context.t('Customer');
 }
 
+String _customerPhone(Map<String, dynamic> booking) {
+  final user = booking['user'];
+  if (user is! Map) return '';
+  final map = Map<String, dynamic>.from(user);
+  const keys = [
+    'phoneNumber',
+    'phone',
+    'mobileNumber',
+    'mobile',
+    'contactNumber',
+    'phone_number',
+  ];
+  for (final key in keys) {
+    final value = map[key]?.toString().trim() ?? '';
+    if (value.isNotEmpty && value.toLowerCase() != 'null') {
+      return value;
+    }
+  }
+  return '';
+}
+
+String _phoneLaunchValue(String phone) {
+  final trimmed = phone.trim();
+  if (trimmed.isEmpty) return '';
+  final prefix = trimmed.startsWith('+') ? '+' : '';
+  final digits = trimmed.replaceAll(RegExp(r'[^0-9]'), '');
+  return digits.isEmpty ? '' : '$prefix$digits';
+}
+
+Future<void> _openCustomerPhoneAction(
+  BuildContext context,
+  Map<String, dynamic> booking, {
+  required bool message,
+}) async {
+  final phone = _phoneLaunchValue(_customerPhone(booking));
+  if (phone.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.t('Customer phone number not available'))),
+    );
+    return;
+  }
+
+  final uri = Uri(scheme: message ? 'sms' : 'tel', path: phone);
+  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!opened && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message
+              ? context.t('Unable to open messages app')
+              : context.t('Unable to open phone app'),
+        ),
+      ),
+    );
+  }
+}
+
 String _branchAddressSummary(dynamic rawAddress) {
   if (rawAddress is! Map) return '';
   final address = Map<String, dynamic>.from(rawAddress);
@@ -328,6 +386,62 @@ String _assignedStaffSummary(
   final names = _assignedStaffNames(booking);
   if (names.isEmpty) return '';
   return names.join(', ');
+}
+
+void _logBookingDetailsSnapshot(
+  BuildContext context,
+  Map<String, dynamic> booking, {
+  String source = 'open_detail',
+}) {
+  final services = _detailServiceSegments(context, booking)
+      .map(
+        (service) => {
+          'title': service.title,
+          'time': service.timeLabel,
+          'duration': service.metaLabel,
+        },
+      )
+      .toList();
+  final items = _bookingItems(booking);
+  final rawServices = _bookingServices(booking);
+
+  debugPrint('[BookingDetailsLog] source=$source');
+  debugPrint('[BookingDetailsLog] id=${booking['id']}');
+  debugPrint(
+      '[BookingDetailsLog] status=${_normalizeStatus(booking['status'])}');
+  debugPrint('[BookingDetailsLog] customer=${_customerName(context, booking)}');
+  debugPrint('[BookingDetailsLog] customerPhone=${_customerPhone(booking)}');
+  debugPrint(
+    '[BookingDetailsLog] assignedStaff=${_assignedStaffSummary(context, booking)}',
+  );
+  debugPrint('[BookingDetailsLog] timeRange=${_bookingTimeRange(booking)}');
+  debugPrint(
+    '[BookingDetailsLog] durationMinutes=${_bookingDurationMinutes(booking)}',
+  );
+  debugPrint('[BookingDetailsLog] totalAmount=${_bookingTotalPrice(booking)}');
+  debugPrint(
+      '[BookingDetailsLog] serviceSummary=${_serviceCardSummary(context, booking)}');
+  debugPrint('[BookingDetailsLog] derivedServices=$services');
+  debugPrint('[BookingDetailsLog] itemCount=${items.length}');
+  debugPrint('[BookingDetailsLog] rawServiceCount=${rawServices.length}');
+  debugPrint('[BookingDetailsLog] rawKeys=${booking.keys.toList()}');
+}
+
+void _logBookingsFetchSnapshot(
+  BuildContext context,
+  List<Map<String, dynamic>> bookings, {
+  required String source,
+}) {
+  debugPrint('[BookingDetailsLog] source=$source count=${bookings.length}');
+  if (bookings.isEmpty) {
+    debugPrint('[BookingDetailsLog] source=$source no bookings returned');
+    return;
+  }
+  _logBookingDetailsSnapshot(
+    context,
+    bookings.first,
+    source: '$source:first_booking',
+  );
 }
 
 String _serviceLabel(BuildContext context, Map<String, dynamic> booking) {
@@ -1182,6 +1296,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
 
     if (!mounted) return;
+    _logBookingsFetchSnapshot(context, bookings, source: 'load_options');
     setState(() {
       _options = options;
       _selectedOption = selected;
@@ -1208,6 +1323,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         : _teamMemberNames;
 
     if (!mounted) return;
+    _logBookingsFetchSnapshot(
+      context,
+      result.bookings,
+      source: 'reload_bookings',
+    );
     setState(() {
       _bookings = result.bookings;
       _teamMemberNames = teamMemberNames;
@@ -1243,6 +1363,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
 
     if (!mounted) return;
+    _logBookingsFetchSnapshot(context, bookings, source: 'select_branch');
     setState(() {
       _bookings = bookings;
       _errorMessage = errorMessage;
@@ -1274,6 +1395,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
 
     if (!mounted) return;
+    _logBookingsFetchSnapshot(context, bookings, source: 'select_date');
     setState(() {
       _bookings = bookings;
       _errorMessage = errorMessage;
@@ -1415,6 +1537,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   Future<void> _openBookingDetail(Map<String, dynamic> booking) async {
     final selected = _selectedOption;
     if (selected == null) return;
+
+    _logBookingDetailsSnapshot(context, booking);
 
     final shouldRefresh = await Navigator.push<bool>(
       context,
@@ -2310,12 +2434,20 @@ class _TeamMemberSlotCard extends StatelessWidget {
                   const Spacer(),
                   _TeamMemberCardIconButton(
                     icon: Icons.phone_outlined,
-                    onTap: () {},
+                    onTap: () => _openCustomerPhoneAction(
+                      context,
+                      booking,
+                      message: false,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   _TeamMemberCardIconButton(
                     icon: Icons.chat_bubble_outline_rounded,
-                    onTap: () {},
+                    onTap: () => _openCustomerPhoneAction(
+                      context,
+                      booking,
+                      message: true,
+                    ),
                   ),
                 ],
               ),
@@ -2690,10 +2822,21 @@ class _ScheduleBookingContent extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              const Icon(
-                Icons.chat_bubble_outline_rounded,
-                size: 15,
-                color: _bookingsGold,
+              InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: () => _openCustomerPhoneAction(
+                  context,
+                  booking,
+                  message: true,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    size: 15,
+                    color: _bookingsGold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -2757,10 +2900,21 @@ class _ScheduleBookingCompactContent extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              const Icon(
-                Icons.chat_bubble_outline_rounded,
-                size: 13,
-                color: _bookingsGold,
+              InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: () => _openCustomerPhoneAction(
+                  context,
+                  booking,
+                  message: true,
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(3),
+                  child: Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    size: 13,
+                    color: _bookingsGold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -3502,7 +3656,11 @@ class _TeamMemberTimelineBookingCard extends StatelessWidget {
               Expanded(
                 child: _TeamMemberCardIconButton(
                   icon: Icons.phone_outlined,
-                  onTap: () {},
+                  onTap: () => _openCustomerPhoneAction(
+                    context,
+                    booking,
+                    message: false,
+                  ),
                   expand: true,
                 ),
               ),
@@ -3510,7 +3668,11 @@ class _TeamMemberTimelineBookingCard extends StatelessWidget {
               Expanded(
                 child: _TeamMemberCardIconButton(
                   icon: Icons.chat_bubble_outline_rounded,
-                  onTap: () {},
+                  onTap: () => _openCustomerPhoneAction(
+                    context,
+                    booking,
+                    message: true,
+                  ),
                   expand: true,
                 ),
               ),
@@ -5009,6 +5171,7 @@ class _StylistBookingDetailScreenState
         scheduledMinutes: scheduledMinutes,
         timeRange: timeRange,
         customerName: _customerName(context, _booking),
+        customerPhone: _customerPhone(_booking),
         serviceSummary: serviceSummary,
         assignedStaffLabel: assignedStaffLabel,
         serviceSegments: serviceSegments,

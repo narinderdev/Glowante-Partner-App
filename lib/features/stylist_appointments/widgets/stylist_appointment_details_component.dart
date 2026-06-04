@@ -83,6 +83,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
     required this.scheduledMinutes,
     required this.timeRange,
     required this.customerName,
+    required this.customerPhone,
     required this.serviceSummary,
     required this.assignedStaffLabel,
     required this.serviceSegments,
@@ -110,6 +111,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   final int scheduledMinutes;
   final String timeRange;
   final String customerName;
+  final String customerPhone;
   final String serviceSummary;
   final String assignedStaffLabel;
   final List<StylistAppointmentServiceSegment> serviceSegments;
@@ -209,6 +211,30 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                           Expanded(
                             child: Text(
                               '${context.t('Customer')}: $customerName',
+                              style: _detailsTextStyle(
+                                size: 12,
+                                weight: FontWeight.w700,
+                                color: _detailsSecondaryText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (customerPhone.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.phone_outlined,
+                            size: 16,
+                            color: _detailsSecondaryText,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${context.t('Phone')}: $customerPhone',
                               style: _detailsTextStyle(
                                 size: 12,
                                 weight: FontWeight.w700,

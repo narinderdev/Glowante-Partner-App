@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-const Color _profileSubpageBackground = Color(0xFFFBF9F8);
+const Color _profileSubpageBackground = Colors.white;
 const Color _profileSubpageDivider = Color(0xFFF1EBE6);
 const Color _profileSubpageTitle = Color(0xFF8B6500);
 
@@ -23,6 +23,7 @@ AppBar buildProfileSubpageAppBar({
 }) {
   return AppBar(
     backgroundColor: _profileSubpageBackground,
+    toolbarHeight: 70,
     elevation: 0,
     centerTitle: centerTitle,
     automaticallyImplyLeading: automaticallyImplyLeading,

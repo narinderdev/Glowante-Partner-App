@@ -129,7 +129,8 @@ class SharedProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFBF9F8),
+        backgroundColor: Colors.white,
+        toolbarHeight: 70,
         elevation: 0,
         centerTitle: true,
         surfaceTintColor: Colors.transparent,
