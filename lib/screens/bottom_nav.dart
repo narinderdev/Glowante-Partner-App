@@ -114,18 +114,18 @@ class _BottomNavState extends State<BottomNav> {
 
     final destinations = [
       SharedBottomNavDestination(
-        iconPath: 'assets/images/bookings.png',
-        activeIconPath: 'assets/images/bookings1.png',
+        icon: Icons.calendar_month_outlined,
+        activeIcon: Icons.calendar_month_outlined,
         label: context.t('Bookings'),
       ),
       SharedBottomNavDestination(
-        iconPath: 'assets/images/salon.png',
-        activeIconPath: 'assets/images/salon1.png',
+        icon: Icons.storefront_outlined,
+        activeIcon: Icons.storefront_outlined,
         label: context.t('Salons'),
       ),
       SharedBottomNavDestination(
-        iconPath: 'assets/images/service.png',
-        activeIconPath: 'assets/images/service1.png',
+        icon: Icons.content_cut_rounded,
+        activeIcon: Icons.content_cut_rounded,
         label: context.t('Services'),
       ),
       SharedBottomNavDestination(

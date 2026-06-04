@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
-
 class AddStylistScreen extends StatefulWidget {
   final int branchId;
   const AddStylistScreen({super.key, required this.branchId});
@@ -134,8 +133,8 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
   Future<void> _fetchRolesAndSpecializations() async {
     try {
       // Fetch data from the API
-      Map<String, dynamic> data = await ApiService()
-          .getRolesAndSpecializations();
+      Map<String, dynamic> data =
+          await ApiService().getRolesAndSpecializations();
 
       // Log the data to check the response
       print('Fetched roles and specializations: $data');
@@ -183,7 +182,8 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
           // Optionally, you can show a message indicating the user doesn't exist
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(translateText('No user found.'))));
+          ).showSnackBar(
+              SnackBar(content: Text(translateText('No user found.'))));
         }
 
         // Set the OTP in the OTP field
@@ -198,18 +198,23 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
         // Optionally, you can display a success message
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(translateText('Phone Verified Successfully'))));
+        ).showSnackBar(SnackBar(
+            content: Text(translateText('Phone Verified Successfully'))));
       } else {
         // Handle failure (e.g., OTP error, invalid phone)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("${translateText('Error')}: ${response['message']}")),
+          SnackBar(
+              content:
+                  Text("${translateText('Error')}: ${response['message']}")),
         );
       }
     } catch (e) {
       // Handle network or other errors
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(translateText('An error occurred: {error}', params: {'error': e.toString()}))));
+      ).showSnackBar(SnackBar(
+          content: Text(translateText('An error occurred: {error}',
+              params: {'error': e.toString()}))));
     }
   }
 
@@ -294,8 +299,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (_, i) {
                     final item = source[i];
-                    final itemName =
-                        item['label'] ??
+                    final itemName = item['label'] ??
                         item['name'] ??
                         ''; // Extract label or name
                     final itemId = item['id']; // Extract id
@@ -403,12 +407,14 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
 
     final firstName = _firstNameCtrl.text.trim();
     if (firstName.isEmpty) {
-      errors.add(translateText('First Name is required & Must start with a capital letter.'));
+      errors.add(translateText(
+          'First Name is required & Must start with a capital letter.'));
     }
 
     final lastName = _lastNameCtrl.text.trim();
     if (lastName.isEmpty) {
-      errors.add(translateText('Last Name is required & Must start with a capital letter.'));
+      errors.add(translateText(
+          'Last Name is required & Must start with a capital letter.'));
     }
 
     final email = _emailCtrl.text.trim();
@@ -511,10 +517,9 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _phoneCtrl,
-
                             keyboardType: TextInputType.phone,
                             decoration: _decor(
-                              hint: 'Verify phone number',
+                              hint: 'Enter phone no',
                               prefix: Icon(Icons.search),
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
@@ -534,7 +539,9 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                           width: 110,
                           height: 48,
                           child: _GradientButton(
-                            text: _phoneVerified ? translateText('Verified') : translateText('Verify'),
+                            text: _phoneVerified
+                                ? translateText('Verified')
+                                : translateText('Verify'),
                             onPressed: _phoneVerified
                                 ? () {} // Provide an empty function when disabled
                                 : () async {
@@ -560,21 +567,25 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                               _reqLabel('First Name'),
                               SizedBox(height: 8),
                               TextFormField(
-  controller: _firstNameCtrl,
-keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, // helps user type caps
-  decoration: _decor(hint: 'Enter first name'),
-  autovalidateMode: AutovalidateMode.onUserInteraction,
-  validator: (v) {
-    final s = (v ?? '').trim();
-    if (s.isEmpty) return translateText('First Name is required');
-    if (!RegExp(r'^[A-Z]').hasMatch(s)) {
-      return translateText('Must start with a capital letter');
-    }
-    return null;
-  },
-),
-
+                                controller: _firstNameCtrl,
+                                keyboardType: TextInputType.text,
+                                textCapitalization: TextCapitalization
+                                    .sentences, // helps user type caps
+                                decoration: _decor(hint: 'Enter first name'),
+                                autovalidateMode:
+                                    AutovalidateMode.onUserInteraction,
+                                validator: (v) {
+                                  final s = (v ?? '').trim();
+                                  if (s.isEmpty)
+                                    return translateText(
+                                        'First Name is required');
+                                  if (!RegExp(r'^[A-Z]').hasMatch(s)) {
+                                    return translateText(
+                                        'Must start with a capital letter');
+                                  }
+                                  return null;
+                                },
+                              ),
                             ],
                           ),
                         ),
@@ -586,21 +597,25 @@ keyboardType: TextInputType.text,
                               _reqLabel('Last Name'),
                               SizedBox(height: 8),
                               TextFormField(
-  controller: _lastNameCtrl,
-keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences, 
-  decoration: _decor(hint: 'Enter last name'),
-  autovalidateMode: AutovalidateMode.onUserInteraction,
-  validator: (v) {
-    final s = (v ?? '').trim();
-    if (s.isEmpty) return translateText('Last Name is required');
-    if (!RegExp(r'^[A-Z]').hasMatch(s)) {
-      return translateText('Must start with a capital letter');
-    }
-    return null;
-  },
-),
-
+                                controller: _lastNameCtrl,
+                                keyboardType: TextInputType.text,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                decoration: _decor(hint: 'Enter last name'),
+                                autovalidateMode:
+                                    AutovalidateMode.onUserInteraction,
+                                validator: (v) {
+                                  final s = (v ?? '').trim();
+                                  if (s.isEmpty)
+                                    return translateText(
+                                        'Last Name is required');
+                                  if (!RegExp(r'^[A-Z]').hasMatch(s)) {
+                                    return translateText(
+                                        'Must start with a capital letter');
+                                  }
+                                  return null;
+                                },
+                              ),
                             ],
                           ),
                         ),
@@ -624,7 +639,8 @@ keyboardType: TextInputType.text,
                     SizedBox(height: 16),
 
                     // OTP Field
-                    Text(translateText('Otp'),
+                    Text(
+                      translateText('Otp'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -641,7 +657,8 @@ keyboardType: TextInputType.text,
                     SizedBox(height: 16),
 
                     // Gender Radio Buttons
-                    Text(translateText('Gender'),
+                    Text(
+                      translateText('Gender'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -713,17 +730,16 @@ keyboardType: TextInputType.text,
                       child: AbsorbPointer(
                         child: TextFormField(
                           readOnly: true,
-                          decoration:
-                              _decor(
-                                hint: 'Select joining date',
-                                prefix: Icon(
-                                  Icons.calendar_today_outlined,
-                                ),
-                              ).copyWith(
-                                hintText: _joiningDate == null
-                                    ? translateText('Select joining date')
-                                    : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-                              ),
+                          decoration: _decor(
+                            hint: 'Select joining date',
+                            prefix: Icon(
+                              Icons.calendar_today_outlined,
+                            ),
+                          ).copyWith(
+                            hintText: _joiningDate == null
+                                ? translateText('Select joining date')
+                                : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
+                          ),
                           validator: (_) => _joiningDate == null
                               ? translateText('Joining date is required')
                               : null,
@@ -734,7 +750,8 @@ keyboardType: TextInputType.text,
                     SizedBox(height: 16),
 
                     // Brief About Member Field
-                    Text(translateText('Brief About Member'),
+                    Text(
+                      translateText('Brief About Member'),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -843,8 +860,9 @@ class _PickField extends StatelessWidget {
               ),
             ),
           ),
-          validator: (_) =>
-              values.isEmpty ? translateText('Please select at least one') : null,
+          validator: (_) => values.isEmpty
+              ? translateText('Please select at least one')
+              : null,
         ),
       ),
     );

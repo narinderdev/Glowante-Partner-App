@@ -787,13 +787,10 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                   'assets/images/finallogo.png',
                   height: 34,
                   fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Text(
-                    translateText('Glowante'),
-                    style: const TextStyle(
-                      color: Color(0xFF8B6500),
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  errorBuilder: (_, __, ___) => Image.asset(
+                    'assets/images/logo.png',
+                    height: 34,
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const Spacer(),

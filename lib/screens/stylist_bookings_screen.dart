@@ -11,12 +11,12 @@ import '../services/stylist_branch_selection.dart';
 import '../services/user_role_session.dart';
 import '../features/stylist_item_entry/stylist_item_entry_feature.dart';
 import '../utils/api_service.dart';
-import '../utils/colors.dart';
 import 'AddBookings.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 const String _bookingsFontFamily = 'Manrope';
 const Color _bookingsAccent = Color(0xFFC19A6B);
+const Color _bookingsGold = Color(0xFF8B6500);
 const Color _bookingsPrimaryText = Color(0xFF1C1917);
 const Color _bookingsSecondaryText = Color(0xFF78716C);
 const Color _bookingsDateText = Color(0xFF44403C);
@@ -64,6 +64,8 @@ class _SalonBranchOption {
     required this.branchName,
     this.addressSummary = '',
     this.isMain = false,
+    this.startMinute,
+    this.endMinute,
   });
 
   final int salonId;
@@ -72,6 +74,8 @@ class _SalonBranchOption {
   final String branchName;
   final String addressSummary;
   final bool isMain;
+  final int? startMinute;
+  final int? endMinute;
 
   String get label {
     if (branchName.isNotEmpty) return branchName;
@@ -134,11 +138,73 @@ String _formatShortWeekday(DateTime value) {
   return names[value.weekday - 1];
 }
 
+String _formatScheduleDate(DateTime value) {
+  const weekdays = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${weekdays[value.weekday - 1]}, ${months[value.month - 1]} ${value.day}';
+}
+
 String _formatTime(DateTime value) {
   final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
   final minute = _twoDigits(value.minute);
   final suffix = value.hour >= 12 ? 'PM' : 'AM';
   return '${_twoDigits(hour)}:$minute $suffix';
+}
+
+int? _clockMinutes(dynamic value) {
+  final raw = value?.toString().trim();
+  if (raw == null || raw.isEmpty) return null;
+  final match =
+      RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([aApP][mM])?$').firstMatch(raw);
+  if (match == null) return null;
+  var hour = int.tryParse(match.group(1) ?? '');
+  final minute = int.tryParse(match.group(2) ?? '');
+  if (hour == null || minute == null || minute > 59) return null;
+  final suffix = match.group(3)?.toUpperCase();
+  if (suffix != null) {
+    if (hour < 1 || hour > 12) return null;
+    if (suffix == 'PM' && hour != 12) hour += 12;
+    if (suffix == 'AM' && hour == 12) hour = 0;
+  } else if (hour > 23) {
+    return null;
+  }
+  return hour * 60 + minute;
+}
+
+String _formatMinutesLabel(int minutes) {
+  final normalized = minutes % (24 * 60);
+  return _formatTime(DateTime(0, 1, 1, normalized ~/ 60, normalized % 60));
+}
+
+String _formatMinutesShortLabel(int minutes) {
+  final normalized = minutes % (24 * 60);
+  final hour24 = normalized ~/ 60;
+  final minute = normalized % 60;
+  final suffix = hour24 >= 12 ? 'PM' : 'AM';
+  final hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12;
+  if (minute == 0) return '$hour12 $suffix';
+  return '$hour12:${minute.toString().padLeft(2, '0')} $suffix';
 }
 
 bool _isSameDay(DateTime first, DateTime second) {
@@ -223,6 +289,16 @@ String _personName(dynamic raw) {
   final full = '$first $last'.trim();
   if (full.isNotEmpty) return full;
   return map['name']?.toString().trim() ?? '';
+}
+
+String _initials(String value) {
+  return value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .take(2)
+      .map((part) => part.substring(0, 1).toUpperCase())
+      .join();
 }
 
 List<String> _assignedStaffNames(Map<String, dynamic> booking) {
@@ -530,6 +606,21 @@ bool _showsStartAction(String status) => status == 'CONFIRMED';
 
 bool _showsFinishAction(String status) => status == 'IN_PROGRESS';
 
+Color _scheduleStatusAccentColor(String status) {
+  switch (status) {
+    case 'IN_PROGRESS':
+      return const Color(0xFFE9B5C9);
+    case 'COMPLETED':
+      return const Color(0xFF86CFA3);
+    case 'CANCELLED':
+      return const Color(0xFFE0B1B1);
+    case 'PENDING':
+      return const Color(0xFFDCE8F6);
+    default:
+      return _bookingsGold;
+  }
+}
+
 Future<Map<String, dynamic>?> _showStartJobOtpDialog(
   BuildContext context, {
   required int branchId,
@@ -812,6 +903,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
   List<_SalonBranchOption> _options = const [];
   List<Map<String, dynamic>> _bookings = const [];
+  List<String> _teamMemberNames = const [];
   _SalonBranchOption? _selectedOption;
   DateTime _selectedDate = DateTime.now();
   DateTime _visibleDateStart = DateTime.now();
@@ -821,6 +913,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   int? _confirmingAppointmentId;
   int? _startingAppointmentId;
   int? _completingAppointmentId;
+  int _selectedBookingView = 0;
   String? _errorMessage;
 
   @override
@@ -865,6 +958,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                   : branchName,
               addressSummary: _branchAddressSummary(branch['address']),
               isMain: branch['isMain'] == true,
+              startMinute: _clockMinutes(branch['startTime']),
+              endMinute: _clockMinutes(branch['endTime']),
             ),
           );
         }
@@ -887,6 +982,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                   : (salonName.isEmpty ? 'Salon #$salonId' : salonName),
           addressSummary: _branchAddressSummary(salon['address']),
           isMain: salon['isMain'] == true,
+          startMinute: _clockMinutes(salon['startTime']),
+          endMinute: _clockMinutes(salon['endTime']),
         ),
       );
     }
@@ -927,6 +1024,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               : branchName,
           addressSummary: _branchAddressSummary(branch['address']),
           isMain: branch['isMain'] == true,
+          startMinute: _clockMinutes(branch['startTime']),
+          endMinute: _clockMinutes(branch['endTime']),
         ),
       );
     }
@@ -1002,6 +1101,29 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
   }
 
+  Future<List<String>> _fetchTeamMemberNames(int branchId) async {
+    try {
+      final response = await ApiService.getTeamMembers(branchId);
+      final data = (response['data'] as List?) ?? const [];
+      final names = <String>[];
+      final seen = <String>{};
+      for (final item in data) {
+        if (item is! Map) continue;
+        final map = Map<String, dynamic>.from(item);
+        final name = _personName(map).trim();
+        if (name.isEmpty) continue;
+        final key = name.toLowerCase();
+        if (seen.add(key)) {
+          names.add(name);
+        }
+      }
+      return names;
+    } catch (e) {
+      debugPrint('[BookingsTeamMembers] failed=$e');
+      return const [];
+    }
+  }
+
   Future<void> _loadOptions({
     bool showPageLoader = true,
     bool showInlineLoader = false,
@@ -1044,6 +1166,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
 
     List<Map<String, dynamic>> bookings = const [];
+    List<String> teamMemberNames = const [];
     if (selected != null && (widget.isOwnerMode || userId != null)) {
       final result = await _fetchBookingsForBranch(
         branchId: selected.branchId,
@@ -1051,6 +1174,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       );
       bookings = result.bookings;
       errorMessage ??= result.errorMessage;
+      if (widget.isOwnerMode) {
+        teamMemberNames = await _fetchTeamMemberNames(selected.branchId);
+      }
     } else if (selected != null && !widget.isOwnerMode && userId == null) {
       errorMessage ??= 'Unable to load stylist bookings';
     }
@@ -1061,6 +1187,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _selectedOption = selected;
       _userId = widget.isOwnerMode ? null : userId;
       _bookings = bookings;
+      _teamMemberNames = teamMemberNames;
       _errorMessage = errorMessage;
       _isLoading = false;
       _loadingDate = false;
@@ -1076,10 +1203,14 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       branchId: selected.branchId,
       userId: _userId,
     );
+    final teamMemberNames = widget.isOwnerMode
+        ? await _fetchTeamMemberNames(selected.branchId)
+        : _teamMemberNames;
 
     if (!mounted) return;
     setState(() {
       _bookings = result.bookings;
+      _teamMemberNames = teamMemberNames;
       _errorMessage = result.errorMessage;
     });
   }
@@ -1169,6 +1300,66 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return items;
   }
 
+  List<Map<String, dynamic>> _bookingsForCurrentView(
+    List<Map<String, dynamic>> sortedBookings,
+  ) {
+    if (_selectedBookingView == 2) {
+      return sortedBookings
+          .where((booking) {
+            final status = _normalizeStatus(booking['status']);
+            return status == 'COMPLETED' || status == 'COMPLETE';
+          })
+          .toList()
+          .reversed
+          .toList();
+    }
+    return sortedBookings;
+  }
+
+  Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
+      BuildContext context, List<Map<String, dynamic>> bookings,
+      {bool includeEmptyTeamMembers = false}) {
+    final groups = <String, List<Map<String, dynamic>>>{};
+    for (final booking in bookings) {
+      final label = _assignedStaffSummary(context, booking).trim();
+      final key = label.isEmpty ? context.t('Unassigned') : label;
+      groups.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(booking);
+    }
+    if (includeEmptyTeamMembers) {
+      for (final name in _teamMemberNames) {
+        groups.putIfAbsent(name, () => <Map<String, dynamic>>[]);
+      }
+    }
+    return groups;
+  }
+
+  Widget _buildBookingCard(Map<String, dynamic> booking) {
+    final status = _normalizeStatus(booking['status']);
+    return _BookingListCard(
+      booking: booking,
+      assignedStaffLabel:
+          widget.isOwnerMode ? _assignedStaffSummary(context, booking) : '',
+      isOwnerMode: widget.isOwnerMode,
+      onTap: () => _openBookingDetail(booking),
+      onPrimaryActionTap: _showsConfirmAction(
+        status,
+        isOwnerMode: widget.isOwnerMode,
+      )
+          ? () => _handleConfirmFromList(booking)
+          : _showsStartAction(status)
+              ? () => _handleStartFromList(booking)
+              : _showsFinishAction(status)
+                  ? () => _handleCompleteFromList(booking)
+                  : null,
+      isProcessing: (_confirmingAppointmentId != null &&
+              _confirmingAppointmentId == _asInt(booking['id'])) ||
+          (_startingAppointmentId != null &&
+              _startingAppointmentId == _asInt(booking['id'])) ||
+          (_completingAppointmentId != null &&
+              _completingAppointmentId == _asInt(booking['id'])),
+    );
+  }
+
   Future<void> _openBranchPicker() async {
     if (_options.isEmpty) return;
 
@@ -1241,6 +1432,26 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
   }
 
+  void _openTeamMemberSchedule(
+    String staffName,
+    List<Map<String, dynamic>> bookings,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _TeamMemberScheduleScreen(
+          staffName: staffName,
+          bookings: bookings,
+          selectedDate: _selectedDate,
+          branchId: _selectedOption?.branchId,
+          branchStartMinute: _selectedOption?.startMinute,
+          branchEndMinute: _selectedOption?.endMinute,
+          onBookingTap: _openBookingDetail,
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleConfirmFromList(Map<String, dynamic> booking) async {
     final selected = _selectedOption;
     final appointmentId = _asInt(booking['id']);
@@ -1302,6 +1513,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     );
 
     if (!mounted || result == null) return;
+    setState(() => _selectedBookingView = 0);
     await _reloadBookingsForSelectedOption();
   }
 
@@ -1394,6 +1606,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     final selectedAddressSummary = _selectedOption?.addressSummary ?? '';
     final canChangeBranch = _options.length > 1;
     final sortedBookings = _sortedBookings();
+    final visibleBookings = _bookingsForCurrentView(sortedBookings);
     final dateRailStart = _visibleDateStart;
     final dateRail = List.generate(
       7,
@@ -1414,10 +1627,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               color: _bookingsAccent,
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
+                padding: const EdgeInsets.fromLTRB(0, 8, 0, 96),
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _HeaderBranchSelector(
                       key: _branchSelectorKey,
                       label: selectedLabel,
@@ -1432,52 +1645,86 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     thickness: 1,
                     color: _bookingsBorder,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 18),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    context.t('Daily Schedule'),
+                                    style: _bookingTextStyle(
+                                      size: 22,
+                                      weight: FontWeight.w800,
+                                      color: _bookingsPrimaryText,
+                                      height: 1.05,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _formatScheduleDate(_selectedDate),
+                                    style: _bookingTextStyle(
+                                      size: 11,
+                                      weight: FontWeight.w600,
+                                      color: _bookingsSecondaryText,
+                                      height: 1.2,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            _DateRailArrowButton(
+                              icon: Icons.keyboard_arrow_left_rounded,
+                              onTap: () => _shiftVisibleDates(-7),
+                            ),
+                            const SizedBox(width: 8),
+                            _DateRailArrowButton(
+                              icon: Icons.keyboard_arrow_right_rounded,
+                              onTap: () => _shiftVisibleDates(7),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
                         IgnorePointer(
                           ignoring: _loadingDate,
-                          child: Row(
-                            children: [
-                              _DateRailArrowButton(
-                                icon: Icons.keyboard_arrow_left_rounded,
-                                onTap: () => _shiftVisibleDates(-7),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SingleChildScrollView(
-                                  scrollDirection: Axis.horizontal,
-                                  child: Row(
-                                    children:
-                                        List.generate(dateRail.length, (index) {
-                                      final date = dateRail[index];
-                                      return Padding(
-                                        padding: EdgeInsets.only(
-                                          right: index == dateRail.length - 1
-                                              ? 0
-                                              : 6,
-                                        ),
-                                        child: _CalendarDateCard(
-                                          date: date,
-                                          isSelected:
-                                              _isSameDay(date, _selectedDate),
-                                          onTap: () => _setSelectedDate(date),
-                                        ),
-                                      );
-                                    }),
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: List.generate(dateRail.length, (index) {
+                                final date = dateRail[index];
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    right: index == dateRail.length - 1 ? 0 : 8,
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              _DateRailArrowButton(
-                                icon: Icons.keyboard_arrow_right_rounded,
-                                onTap: () => _shiftVisibleDates(7),
-                              ),
-                            ],
+                                  child: _CalendarDateCard(
+                                    date: date,
+                                    isSelected: _isSameDay(date, _selectedDate),
+                                    onTap: () => _setSelectedDate(date),
+                                  ),
+                                );
+                              }),
+                            ),
                           ),
+                        ),
+                        const SizedBox(height: 18),
+                        _BookingViewTabs(
+                          selectedIndex: _selectedBookingView,
+                          labels: [
+                            context.t('Team Members'),
+                            context.t('Schedule'),
+                            context.t('Recent'),
+                          ],
+                          onChanged: (index) {
+                            setState(() => _selectedBookingView = index);
+                          },
                         ),
                         if (!_isLoading &&
                             (_errorMessage != null || _options.isEmpty))
@@ -1492,64 +1739,69 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                               ),
                             ),
                           ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: 18),
                       ],
                     ),
                   ),
-                  if (!_isLoading && sortedBookings.isEmpty)
+                  if (!_isLoading &&
+                      visibleBookings.isEmpty &&
+                      !(widget.isOwnerMode &&
+                          _selectedBookingView == 0 &&
+                          _teamMemberNames.isNotEmpty))
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _BookingEmptyState(),
+                    )
+                  else if (widget.isOwnerMode && _selectedBookingView == 0)
+                    _TeamMembersBoard(
+                      staffGroups: _groupBookingsByStaff(
+                        context,
+                        visibleBookings,
+                        includeEmptyTeamMembers: true,
+                      ),
+                      onStaffTap: _openTeamMemberSchedule,
+                      onBookingTap: _openBookingDetail,
+                      onAddBookingTap: _openAddBooking,
+                    )
+                  else if (widget.isOwnerMode && _selectedBookingView == 1)
+                    _ScheduleBoard(
+                      staffGroups: _groupBookingsByStaff(
+                        context,
+                        visibleBookings,
+                      ),
+                      onBookingTap: _openBookingDetail,
+                      onAddBookingTap: _openAddBooking,
+                      branchStartMinute: _selectedOption?.startMinute,
+                      branchEndMinute: _selectedOption?.endMinute,
                     )
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Column(
-                        children: sortedBookings
+                        children: visibleBookings
                             .map(
                               (booking) => Padding(
                                 padding: const EdgeInsets.only(bottom: 14),
-                                child: _BookingListCard(
-                                  booking: booking,
-                                  assignedStaffLabel: widget.isOwnerMode
-                                      ? _assignedStaffSummary(context, booking)
-                                      : '',
-                                  isOwnerMode: widget.isOwnerMode,
-                                  onTap: () => _openBookingDetail(booking),
-                                  onPrimaryActionTap: _showsConfirmAction(
-                                    _normalizeStatus(booking['status']),
-                                    isOwnerMode: widget.isOwnerMode,
-                                  )
-                                      ? () => _handleConfirmFromList(booking)
-                                      : _showsStartAction(
-                                          _normalizeStatus(booking['status']),
-                                        )
-                                          ? () => _handleStartFromList(booking)
-                                          : _showsFinishAction(
-                                              _normalizeStatus(
-                                                booking['status'],
-                                              ),
-                                            )
-                                              ? () => _handleCompleteFromList(
-                                                    booking,
-                                                  )
-                                              : null,
-                                  isProcessing:
-                                      (_confirmingAppointmentId != null &&
-                                              _confirmingAppointmentId ==
-                                                  _asInt(booking['id'])) ||
-                                          (_startingAppointmentId != null &&
-                                              _startingAppointmentId ==
-                                                  _asInt(booking['id'])) ||
-                                          (_completingAppointmentId != null &&
-                                              _completingAppointmentId ==
-                                                  _asInt(booking['id'])),
-                                ),
+                                child: _buildBookingCard(booking),
                               ),
                             )
                             .toList(),
                       ),
                     ),
+                  if (widget.isOwnerMode && _selectedBookingView == 1) ...[
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _ScheduleClientButton(
+                        onTap: _openAddBooking,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: _BookingQuoteCard(),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1580,23 +1832,14 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             ),
         ],
       ),
-      floatingActionButton: widget.isOwnerMode
-          ? FloatingActionButton.extended(
-              heroTag: 'owner_add_booking_fab',
+      floatingActionButton: widget.isOwnerMode && _selectedBookingView == 0
+          ? FloatingActionButton(
+              heroTag: 'owner_team_add_booking_fab',
               onPressed: _openAddBooking,
-              backgroundColor: AppColors.white,
-              foregroundColor: AppColors.grey,
-              icon: Image.asset(
-                'assets/images/plusIcn.png',
-                width: 18,
-                height: 18,
-              ),
-              label: Text(
-                translateText('Add Booking'),
-                style: TextStyle(
-                  color: AppColors.darkGrey,
-                ),
-              ),
+              backgroundColor: _bookingsGold,
+              foregroundColor: Colors.white,
+              elevation: 8,
+              child: const Icon(Icons.add_rounded, size: 30),
             )
           : null,
       floatingActionButtonLocation:
@@ -1613,6 +1856,2146 @@ class _BookingsFetchResult {
 
   final List<Map<String, dynamic>> bookings;
   final String? errorMessage;
+}
+
+class _BookingViewTabs extends StatelessWidget {
+  const _BookingViewTabs({
+    required this.selectedIndex,
+    required this.labels,
+    required this.onChanged,
+  });
+
+  final int selectedIndex;
+  final List<String> labels;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDEBE9),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: List.generate(labels.length, (index) {
+          final isSelected = selectedIndex == index;
+          return Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => onChanged(index),
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    boxShadow: isSelected
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x0F000000),
+                              blurRadius: 5,
+                              offset: Offset(0, 2),
+                            ),
+                          ]
+                        : const [],
+                  ),
+                  child: Text(
+                    labels[index],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _bookingTextStyle(
+                      size: 11,
+                      weight: FontWeight.w800,
+                      letterSpacing: 0.2,
+                      color: isSelected ? _bookingsGold : _bookingsDateText,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _TeamMembersBoard extends StatelessWidget {
+  const _TeamMembersBoard({
+    required this.staffGroups,
+    required this.onStaffTap,
+    required this.onBookingTap,
+    required this.onAddBookingTap,
+  });
+
+  final Map<String, List<Map<String, dynamic>>> staffGroups;
+  final void Function(String staffName, List<Map<String, dynamic>> bookings)
+      onStaffTap;
+  final ValueChanged<Map<String, dynamic>> onBookingTap;
+  final VoidCallback onAddBookingTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Column(
+        children: staffGroups.entries.map((entry) {
+          final sortedBookings = [...entry.value]..sort((first, second) {
+              final firstStart = _bookingStart(first);
+              final secondStart = _bookingStart(second);
+              if (firstStart == null && secondStart == null) return 0;
+              if (firstStart == null) return 1;
+              if (secondStart == null) return -1;
+              return firstStart.compareTo(secondStart);
+            });
+
+          return _TeamMemberSlotsRow(
+            staffName: entry.key,
+            bookings: sortedBookings,
+            onStaffTap: () => onStaffTap(entry.key, sortedBookings),
+            onBookingTap: onBookingTap,
+            onAddBookingTap: onAddBookingTap,
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _TeamMemberSlotsRow extends StatefulWidget {
+  const _TeamMemberSlotsRow({
+    required this.staffName,
+    required this.bookings,
+    required this.onStaffTap,
+    required this.onBookingTap,
+    required this.onAddBookingTap,
+  });
+
+  final String staffName;
+  final List<Map<String, dynamic>> bookings;
+  final VoidCallback onStaffTap;
+  final ValueChanged<Map<String, dynamic>> onBookingTap;
+  final VoidCallback onAddBookingTap;
+
+  @override
+  State<_TeamMemberSlotsRow> createState() => _TeamMemberSlotsRowState();
+}
+
+class _TeamMemberSlotsRowState extends State<_TeamMemberSlotsRow> {
+  int? _selectedBookingIndex;
+
+  @override
+  void didUpdateWidget(covariant _TeamMemberSlotsRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_selectedBookingIndex != null &&
+        _selectedBookingIndex! >= widget.bookings.length) {
+      _selectedBookingIndex = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedBooking = _selectedBookingIndex == null ||
+            _selectedBookingIndex! >= widget.bookings.length
+        ? null
+        : widget.bookings[_selectedBookingIndex!];
+    final bookingsToShow = selectedBooking == null
+        ? widget.bookings
+        : <Map<String, dynamic>>[selectedBooking];
+    final visibleSlots = widget.bookings.isEmpty
+        ? <Widget>[_TeamMemberNoBookingsCard(staffName: widget.staffName)]
+        : bookingsToShow
+            .map(
+              (booking) => _TeamMemberSlotCard(
+                booking: booking,
+                onTap: () => widget.onBookingTap(booking),
+              ),
+            )
+            .toList();
+    final slotBookings = widget.bookings
+        .asMap()
+        .entries
+        .where((entry) => _bookingStart(entry.value) != null)
+        .toList();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFF0E9E4)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 26,
+                backgroundColor: const Color(0xFFF4EAD4),
+                child: Text(
+                  _initials(widget.staffName).isEmpty
+                      ? '—'
+                      : _initials(widget.staffName),
+                  style: _bookingTextStyle(
+                    size: 13,
+                    weight: FontWeight.w900,
+                    color: _bookingsGold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.staffName.split(',').first.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _bookingTextStyle(
+                        size: 22,
+                        weight: FontWeight.w900,
+                        color: _bookingsPrimaryText,
+                        height: 1.05,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      context.t('TEAM MEMBER'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _bookingTextStyle(
+                        size: 9,
+                        weight: FontWeight.w900,
+                        color: _bookingsSecondaryText,
+                        letterSpacing: 1.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: slotBookings.map((entry) {
+                      final label = _formatTime(_bookingStart(entry.value)!);
+                      final isSelected = _selectedBookingIndex == entry.key;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: _TeamMemberSlotChip(
+                          label: label,
+                          isSelected: isSelected,
+                          onTap: () {
+                            setState(() {
+                              _selectedBookingIndex =
+                                  isSelected ? null : entry.key;
+                            });
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              TextButton(
+                onPressed: widget.onStaffTap,
+                style: TextButton.styleFrom(
+                  foregroundColor: _bookingsGold,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.t('View Schedule'),
+                      style: _bookingTextStyle(
+                        size: 11,
+                        weight: FontWeight.w900,
+                        color: _bookingsGold,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right_rounded, size: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: visibleSlots.map((slot) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 14),
+                  child: slot,
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeamMemberSlotChip extends StatelessWidget {
+  const _TeamMemberSlotChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          width: 84,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? _bookingsGold : const Color(0xFFFAF7F3),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? _bookingsGold : _bookingsBorder,
+            ),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _bookingTextStyle(
+              size: 10,
+              weight: FontWeight.w900,
+              color: isSelected ? Colors.white : _bookingsDateText,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamMemberSlotCard extends StatelessWidget {
+  const _TeamMemberSlotCard({
+    required this.booking,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> booking;
+  final VoidCallback onTap;
+
+  static const double _width = 244;
+  static const double _height = 172;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _normalizeStatus(booking['status']);
+    final visuals = _statusVisuals(context, status);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          width: _width,
+          height: _height,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: visuals.cardBorderColor),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0D000000),
+                blurRadius: 8,
+                offset: Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  _StatusPill(
+                    label: visuals.label,
+                    backgroundColor: visuals.pillBackgroundColor,
+                    borderColor: visuals.pillBorderColor,
+                    textColor: visuals.pillTextColor,
+                  ),
+                  const Spacer(),
+                  Text(
+                    _bookingStart(booking) == null
+                        ? '--'
+                        : _formatTime(_bookingStart(booking)!),
+                    style: _bookingTextStyle(
+                      size: 10,
+                      weight: FontWeight.w900,
+                      color: _bookingsSecondaryText,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Text(
+                _customerName(context, booking),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _bookingTextStyle(
+                  size: 14,
+                  weight: FontWeight.w900,
+                  color: _bookingsPrimaryText,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text(
+                _serviceCardSummary(context, booking),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: _bookingTextStyle(
+                  size: 10,
+                  weight: FontWeight.w700,
+                  color: _bookingsSecondaryText,
+                  height: 1.25,
+                ),
+              ),
+              const Spacer(),
+              const Divider(color: _bookingsBorder, height: 18),
+              Row(
+                children: [
+                  Text(
+                    '${_bookingDurationMinutes(booking)} Mins',
+                    style: _bookingTextStyle(
+                      size: 10,
+                      weight: FontWeight.w900,
+                      color: _bookingsSecondaryText,
+                    ),
+                  ),
+                  const Spacer(),
+                  _TeamMemberCardIconButton(
+                    icon: Icons.phone_outlined,
+                    onTap: () {},
+                  ),
+                  const SizedBox(width: 8),
+                  _TeamMemberCardIconButton(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamMemberCardIconButton extends StatelessWidget {
+  const _TeamMemberCardIconButton({
+    required this.icon,
+    required this.onTap,
+    this.expand = false,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool expand;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF7F3EE),
+      shape: expand
+          ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))
+          : const CircleBorder(),
+      child: InkWell(
+        customBorder: expand
+            ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(999))
+            : const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(
+          width: expand ? double.infinity : 34,
+          height: 34,
+          child: Icon(
+            icon,
+            color: _bookingsGold,
+            size: 16,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamMemberNoBookingsCard extends StatelessWidget {
+  const _TeamMemberNoBookingsCard({required this.staffName});
+
+  final String staffName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _TeamMemberSlotCard._width,
+      height: _TeamMemberSlotCard._height,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF7F3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE7D8C7)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.event_busy_outlined,
+            color: _bookingsGold,
+            size: 24,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            staffName.split(',').first.trim(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: _bookingTextStyle(
+              size: 13,
+              weight: FontWeight.w900,
+              color: _bookingsPrimaryText,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            context.t('No bookings for today'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: _bookingTextStyle(
+              size: 11,
+              weight: FontWeight.w700,
+              color: _bookingsSecondaryText,
+              height: 1.25,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleStaffNameLabel extends StatelessWidget {
+  const _ScheduleStaffNameLabel({required this.staffName});
+
+  final String staffName;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstLetter = staffName.trim().isEmpty
+        ? '—'
+        : staffName.trim().characters.first.toUpperCase();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 13,
+            backgroundColor: const Color(0xFFFFDC82),
+            child: Text(
+              firstLetter,
+              style: _bookingTextStyle(
+                size: 11,
+                weight: FontWeight.w900,
+                color: _bookingsGold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              staffName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: _bookingTextStyle(
+                size: 12,
+                weight: FontWeight.w900,
+                color: _bookingsGold,
+                height: 1.15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleTeamHeaderCell extends StatelessWidget {
+  const _ScheduleTeamHeaderCell();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: _ScheduleBoard._headerHeight,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      alignment: Alignment.centerLeft,
+      decoration: const BoxDecoration(
+        color: _ScheduleBoard._headerBackground,
+        border: Border(
+          right: BorderSide(color: _ScheduleBoard._gridBorder),
+          bottom: BorderSide(color: _ScheduleBoard._gridBorder),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.groups_2_outlined,
+            color: _bookingsGold,
+            size: 17,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            context.t('Team'),
+            style: _bookingTextStyle(
+              size: 12,
+              weight: FontWeight.w900,
+              color: _bookingsGold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleTimeHeaderCell extends StatelessWidget {
+  const _ScheduleTimeHeaderCell({required this.minute});
+
+  final int minute;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _ScheduleBoard._slotWidth,
+      height: _ScheduleBoard._headerHeight,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: _ScheduleBoard._headerBackground,
+        border: Border(
+          right: BorderSide(color: _ScheduleBoard._gridBorder),
+          bottom: BorderSide(color: _ScheduleBoard._gridBorder),
+        ),
+      ),
+      child: Text(
+        _formatMinutesShortLabel(minute),
+        textAlign: TextAlign.center,
+        style: _bookingTextStyle(
+          size: 9,
+          weight: FontWeight.w800,
+          color: _bookingsGold,
+          letterSpacing: 0.1,
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleGridCell extends StatelessWidget {
+  const _ScheduleGridCell();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: _ScheduleBoard._slotWidth,
+      decoration: const BoxDecoration(
+        border: Border(
+          right: BorderSide(color: _ScheduleBoard._gridBorder),
+          bottom: BorderSide(color: _ScheduleBoard._gridBorder),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleMemberCell extends StatelessWidget {
+  const _ScheduleMemberCell({required this.staffName});
+
+  final String staffName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: _ScheduleBoard._rowHeight,
+      width: _ScheduleBoard._staffColumnWidth,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          right: BorderSide(color: _ScheduleBoard._gridBorder),
+          bottom: BorderSide(color: _ScheduleBoard._gridBorder),
+        ),
+      ),
+      child: _ScheduleStaffNameLabel(staffName: staffName),
+    );
+  }
+}
+
+class _ScheduleBookingSideBar extends StatelessWidget {
+  const _ScheduleBookingSideBar({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 0,
+      top: 0,
+      bottom: 0,
+      child: Container(
+        width: 4,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleBookingStatusLabel extends StatelessWidget {
+  const _ScheduleBookingStatusLabel({required this.visuals});
+
+  final _BookingStatusVisuals visuals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: visuals.pillBackgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: visuals.pillBorderColor),
+      ),
+      child: Text(
+        visuals.label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _bookingTextStyle(
+          size: 8,
+          weight: FontWeight.w900,
+          color: visuals.pillTextColor,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleBookingContent extends StatelessWidget {
+  const _ScheduleBookingContent({
+    required this.booking,
+    required this.visuals,
+  });
+
+  final Map<String, dynamic> booking;
+  final _BookingStatusVisuals visuals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  _customerName(context, booking),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _bookingTextStyle(
+                    size: 12,
+                    weight: FontWeight.w900,
+                    color: _bookingsPrimaryText,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _ScheduleBookingStatusLabel(visuals: visuals),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _serviceCardSummary(context, booking),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: _bookingTextStyle(
+              size: 10,
+              weight: FontWeight.w700,
+              color: _bookingsSecondaryText,
+              height: 1.2,
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Text(
+                '${_bookingDurationMinutes(booking)} ${context.t('Mins')}',
+                style: _bookingTextStyle(
+                  size: 10,
+                  weight: FontWeight.w900,
+                  color: _bookingsSecondaryText,
+                  height: 1,
+                ),
+              ),
+              const Spacer(),
+              const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 15,
+                color: _bookingsGold,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleBookingCompactContent extends StatelessWidget {
+  const _ScheduleBookingCompactContent({
+    required this.booking,
+    required this.visuals,
+  });
+
+  final Map<String, dynamic> booking;
+  final _BookingStatusVisuals visuals;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _customerName(context, booking),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _bookingTextStyle(
+              size: 10,
+              weight: FontWeight.w900,
+              color: _bookingsPrimaryText,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          _ScheduleBookingStatusLabel(visuals: visuals),
+          const SizedBox(height: 4),
+          Text(
+            _serviceCardSummary(context, booking),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _bookingTextStyle(
+              size: 8,
+              weight: FontWeight.w700,
+              color: _bookingsSecondaryText,
+              height: 1,
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Text(
+                '${_bookingDurationMinutes(booking)}M',
+                style: _bookingTextStyle(
+                  size: 8,
+                  weight: FontWeight.w900,
+                  color: _bookingsSecondaryText,
+                  height: 1,
+                ),
+              ),
+              const Spacer(),
+              const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 13,
+                color: _bookingsGold,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleBookingTinyContent extends StatelessWidget {
+  const _ScheduleBookingTinyContent({required this.booking});
+
+  final Map<String, dynamic> booking;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: RotatedBox(
+        quarterTurns: 3,
+        child: Text(
+          _customerName(context, booking),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _bookingTextStyle(
+            size: 9,
+            weight: FontWeight.w900,
+            color: _bookingsPrimaryText,
+            height: 1,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamMemberScheduleScreen extends StatefulWidget {
+  const _TeamMemberScheduleScreen({
+    required this.staffName,
+    required this.bookings,
+    required this.selectedDate,
+    required this.onBookingTap,
+    this.branchId,
+    this.branchStartMinute,
+    this.branchEndMinute,
+  });
+
+  final String staffName;
+  final List<Map<String, dynamic>> bookings;
+  final DateTime selectedDate;
+  final int? branchId;
+  final int? branchStartMinute;
+  final int? branchEndMinute;
+  final ValueChanged<Map<String, dynamic>> onBookingTap;
+
+  @override
+  State<_TeamMemberScheduleScreen> createState() =>
+      _TeamMemberScheduleScreenState();
+}
+
+class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
+  late DateTime _selectedScheduleDate;
+  late DateTime _visibleScheduleDateStart;
+  late List<Map<String, dynamic>> _scheduleBookings;
+  bool _loadingScheduleBookings = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final date = widget.selectedDate;
+    final today = DateTime.now();
+    _selectedScheduleDate = DateTime(date.year, date.month, date.day);
+    _visibleScheduleDateStart = DateTime(today.year, today.month, today.day);
+    _scheduleBookings = List<Map<String, dynamic>>.from(widget.bookings);
+  }
+
+  void _shiftScheduleDate(int days) {
+    setState(() {
+      _visibleScheduleDateStart =
+          _visibleScheduleDateStart.add(Duration(days: days));
+    });
+  }
+
+  Future<void> _selectScheduleDate(DateTime date) async {
+    final normalized = DateTime(date.year, date.month, date.day);
+    setState(() {
+      _selectedScheduleDate = normalized;
+      _loadingScheduleBookings = true;
+    });
+
+    final branchId = widget.branchId;
+    if (branchId == null) {
+      if (!mounted) return;
+      setState(() => _loadingScheduleBookings = false);
+      return;
+    }
+
+    try {
+      final response = await ApiService().fetchAppointments(
+        branchId,
+        _formatApiDate(normalized),
+      );
+      final rawData = response['data'];
+      final allBookings = rawData is List
+          ? rawData
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList()
+          : const <Map<String, dynamic>>[];
+      final staffKey = widget.staffName.trim().toLowerCase();
+      final staffBookings = allBookings.where((booking) {
+        return _assignedStaffSummary(context, booking).trim().toLowerCase() ==
+            staffKey;
+      }).toList();
+      if (!mounted) return;
+      setState(() {
+        _scheduleBookings = staffBookings;
+        _loadingScheduleBookings = false;
+      });
+    } catch (e) {
+      debugPrint('[TeamScheduleBookings] failed=$e');
+      if (!mounted) return;
+      setState(() {
+        _scheduleBookings = const [];
+        _loadingScheduleBookings = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedBookings = [..._scheduleBookings]..sort((first, second) {
+        final firstStart = _bookingStart(first);
+        final secondStart = _bookingStart(second);
+        if (firstStart == null && secondStart == null) return 0;
+        if (firstStart == null) return 1;
+        if (secondStart == null) return -1;
+        return firstStart.compareTo(secondStart);
+      });
+    final initials = _initials(widget.staffName);
+    final startLabel = widget.branchStartMinute == null
+        ? null
+        : _formatMinutesLabel(widget.branchStartMinute!);
+    final endLabel = widget.branchEndMinute == null
+        ? null
+        : _formatMinutesLabel(widget.branchEndMinute!);
+
+    return Scaffold(
+      backgroundColor: _bookingsPage,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: _bookingsGold,
+            size: 24,
+          ),
+        ),
+        title: Text(
+          context.t('Schedule'),
+          style: _bookingTextStyle(
+            size: 22,
+            weight: FontWeight.w900,
+            color: _bookingsGold,
+          ),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(
+            height: 1,
+            thickness: 1,
+            color: _bookingsBorder,
+          ),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: 30,
+                        backgroundColor: const Color(0xFFF4EAD4),
+                        child: Text(
+                          initials.isEmpty ? '—' : initials,
+                          style: _bookingTextStyle(
+                            size: 16,
+                            weight: FontWeight.w900,
+                            color: _bookingsGold,
+                          ),
+                        ),
+                      ),
+                      const Positioned(
+                        right: 1,
+                        bottom: 1,
+                        child: CircleAvatar(
+                          radius: 6,
+                          backgroundColor: Color(0xFF22C55E),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.staffName.split(',').first,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _bookingTextStyle(
+                            size: 22,
+                            weight: FontWeight.w900,
+                            color: _bookingsPrimaryText,
+                            height: 1.05,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          context.t('TEAM MEMBER'),
+                          style: _bookingTextStyle(
+                            size: 9,
+                            weight: FontWeight.w900,
+                            color: _bookingsSecondaryText,
+                            letterSpacing: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            ...List.generate(
+                              5,
+                              (_) => const Icon(
+                                Icons.star_rounded,
+                                color: _bookingsGold,
+                                size: 14,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '4.9',
+                              style: _bookingTextStyle(
+                                size: 11,
+                                weight: FontWeight.w800,
+                                color: _bookingsPrimaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (startLabel != null && endLabel != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAF7F3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _bookingsBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time_rounded,
+                        color: _bookingsGold,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${context.t('Salon Hours')}: $startLabel - $endLabel',
+                          style: _bookingTextStyle(
+                            size: 12,
+                            weight: FontWeight.w800,
+                            color: _bookingsDateText,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  _DateRailArrowButton(
+                    icon: Icons.keyboard_arrow_left_rounded,
+                    onTap: () => _shiftScheduleDate(-7),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: List.generate(7, (index) {
+                          final date = _visibleScheduleDateStart
+                              .add(Duration(days: index));
+                          final isSelected =
+                              _isSameDay(date, _selectedScheduleDate);
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              right: index == 6 ? 0 : 8,
+                            ),
+                            child: _CalendarDateCard(
+                              date: date,
+                              isSelected: isSelected,
+                              onTap: () => _selectScheduleDate(date),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _DateRailArrowButton(
+                    icon: Icons.keyboard_arrow_right_rounded,
+                    onTap: () => _shiftScheduleDate(7),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          if (_loadingScheduleBookings)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 28),
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: _bookingsAccent,
+                ),
+              ),
+            )
+          else
+            _TeamMemberTimeline(
+              bookings: sortedBookings,
+              selectedDate: _selectedScheduleDate,
+              branchStartMinute: widget.branchStartMinute,
+              branchEndMinute: widget.branchEndMinute,
+              onBookingTap: widget.onBookingTap,
+            ),
+          if (endLabel != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              '${context.t('Salon closes at')} $endLabel',
+              textAlign: TextAlign.center,
+              style: _bookingTextStyle(
+                size: 11,
+                weight: FontWeight.w800,
+                color: _bookingsSecondaryText,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TeamMemberTimelineItem {
+  const _TeamMemberTimelineItem({
+    required this.startMinute,
+    required this.endMinute,
+    this.booking,
+    this.message,
+    this.isTailGap = false,
+  });
+
+  final int startMinute;
+  final int endMinute;
+  final Map<String, dynamic>? booking;
+  final String? message;
+  final bool isTailGap;
+
+  bool get isBooking => booking != null;
+  int get durationMinutes => (endMinute - startMinute).clamp(0, 24 * 60);
+}
+
+class _TeamMemberTimeline extends StatelessWidget {
+  const _TeamMemberTimeline({
+    required this.bookings,
+    required this.selectedDate,
+    required this.onBookingTap,
+    this.branchStartMinute,
+    this.branchEndMinute,
+  });
+
+  final List<Map<String, dynamic>> bookings;
+  final DateTime selectedDate;
+  final int? branchStartMinute;
+  final int? branchEndMinute;
+  final ValueChanged<Map<String, dynamic>> onBookingTap;
+
+  List<_TeamMemberTimelineItem> _items(BuildContext context) {
+    final sortedBookings = [...bookings]..sort((first, second) {
+        final firstStart = _bookingStart(first);
+        final secondStart = _bookingStart(second);
+        if (firstStart == null && secondStart == null) return 0;
+        if (firstStart == null) return 1;
+        if (secondStart == null) return -1;
+        return firstStart.compareTo(secondStart);
+      });
+    final bookingsWithStart = sortedBookings
+        .where((booking) => _bookingStart(booking) != null)
+        .toList();
+
+    var startMinute = branchStartMinute ?? 9 * 60;
+    var endMinute = branchEndMinute ?? 20 * 60;
+    if (bookingsWithStart.isNotEmpty) {
+      final firstStart = _bookingStart(bookingsWithStart.first)!;
+      final lastBooking = bookingsWithStart.last;
+      final lastStart = _bookingStart(lastBooking)!;
+      final lastEnd = _bookingEnd(lastBooking);
+      final lastEndMinute = lastEnd == null
+          ? lastStart.hour * 60 +
+              lastStart.minute +
+              _bookingDurationMinutes(lastBooking)
+          : lastEnd.hour * 60 + lastEnd.minute;
+      startMinute = branchStartMinute ?? (firstStart.hour * 60);
+      endMinute = branchEndMinute ?? ((lastEndMinute + 59) ~/ 60) * 60;
+    }
+
+    if (endMinute <= startMinute) {
+      endMinute = startMinute + 8 * 60;
+    }
+
+    if (bookingsWithStart.isEmpty) {
+      return [
+        _TeamMemberTimelineItem(
+          startMinute: startMinute,
+          endMinute: endMinute,
+          message: context.t('No bookings for today'),
+          isTailGap: true,
+        ),
+      ];
+    }
+
+    final items = <_TeamMemberTimelineItem>[];
+    var cursor = startMinute;
+    for (final booking in bookingsWithStart) {
+      final start = _bookingStart(booking)!;
+      final bookingStartMinute = start.hour * 60 + start.minute;
+      final end = _bookingEnd(booking);
+      final bookingEndMinute = end == null
+          ? bookingStartMinute + _bookingDurationMinutes(booking)
+          : end.hour * 60 + end.minute;
+
+      if (bookingStartMinute > cursor) {
+        items.add(
+          _TeamMemberTimelineItem(
+            startMinute: cursor,
+            endMinute: bookingStartMinute,
+            message: context.t('No bookings'),
+          ),
+        );
+      }
+
+      items.add(
+        _TeamMemberTimelineItem(
+          startMinute: bookingStartMinute,
+          endMinute: bookingEndMinute,
+          booking: booking,
+        ),
+      );
+      if (bookingEndMinute > cursor) {
+        cursor = bookingEndMinute;
+      }
+    }
+
+    if (cursor < endMinute) {
+      items.add(
+        _TeamMemberTimelineItem(
+          startMinute: cursor,
+          endMinute: endMinute,
+          message: context.t('No bookings for today further'),
+          isTailGap: true,
+        ),
+      );
+    }
+
+    return items;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timelineItems = _items(context);
+    return Column(
+      children: List.generate(timelineItems.length, (index) {
+        final item = timelineItems[index];
+        return _TeamMemberTimelineEntry(
+          item: item,
+          isLast: index == timelineItems.length - 1,
+          onTap:
+              item.booking == null ? null : () => onBookingTap(item.booking!),
+        );
+      }),
+    );
+  }
+}
+
+class _TeamMemberTimelineEntry extends StatelessWidget {
+  const _TeamMemberTimelineEntry({
+    required this.item,
+    required this.isLast,
+    required this.onTap,
+  });
+
+  final _TeamMemberTimelineItem item;
+  final bool isLast;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final booking = item.booking;
+    final visuals = booking == null
+        ? null
+        : _statusVisuals(context, _normalizeStatus(booking['status']));
+    final lineHeight = item.isBooking ? 174.0 : 72.0;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 56,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatMinutesLabel(item.startMinute),
+                textAlign: TextAlign.right,
+                style: _bookingTextStyle(
+                  size: 11,
+                  weight: FontWeight.w900,
+                  color:
+                      item.isBooking ? _bookingsGold : _bookingsSecondaryText,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                item.isBooking
+                    ? '${_bookingDurationMinutes(booking!)} ${context.t('mins')}'
+                    : '${item.durationMinutes} ${context.t('mins')}',
+                textAlign: TextAlign.right,
+                style: _bookingTextStyle(
+                  size: 10,
+                  weight: FontWeight.w800,
+                  color: _bookingsSecondaryText,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          children: [
+            Container(
+              width: item.isBooking ? 10 : 8,
+              height: item.isBooking ? 10 : 8,
+              decoration: BoxDecoration(
+                color: item.isBooking ? _bookingsGold : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color:
+                      item.isBooking ? _bookingsGold : const Color(0xFFD8C9B7),
+                  width: 1.2,
+                ),
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 1,
+                height: lineHeight,
+                color: const Color(0xFFE8DED6),
+              ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: item.isBooking ? 18 : 14),
+            child: item.isBooking
+                ? _TeamMemberTimelineBookingCard(
+                    booking: booking!,
+                    visuals: visuals!,
+                    onTap: onTap!,
+                  )
+                : _TeamMemberTimelineGapCard(
+                    message: item.message ?? context.t('No bookings'),
+                    isTailGap: item.isTailGap,
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TeamMemberTimelineGapCard extends StatelessWidget {
+  const _TeamMemberTimelineGapCard({
+    required this.message,
+    required this.isTailGap,
+  });
+
+  final String message;
+  final bool isTailGap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        minHeight: isTailGap ? 50 : 44,
+        maxWidth: isTailGap ? 190 : double.infinity,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAF7F3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE9DED4)),
+      ),
+      child: Text(
+        message,
+        style: _bookingTextStyle(
+          size: 11,
+          weight: FontWeight.w800,
+          color: _bookingsSecondaryText,
+          height: 1.25,
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamMemberTimelineBookingCard extends StatelessWidget {
+  const _TeamMemberTimelineBookingCard({
+    required this.booking,
+    required this.visuals,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> booking;
+  final _BookingStatusVisuals visuals;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 156),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: visuals.cardBorderColor),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: const Color(0xFFE9E4DD),
+                child: Text(
+                  _initials(_customerName(context, booking)),
+                  style: _bookingTextStyle(
+                    size: 11,
+                    weight: FontWeight.w900,
+                    color: _bookingsGold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _customerName(context, booking),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _bookingTextStyle(
+                        size: 12,
+                        weight: FontWeight.w900,
+                        color: _bookingsPrimaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _serviceCardSummary(context, booking),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: _bookingTextStyle(
+                        size: 10,
+                        weight: FontWeight.w700,
+                        color: _bookingsSecondaryText,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.only(left: 52),
+            child: _StatusPill(
+              label: visuals.label,
+              backgroundColor: visuals.pillBackgroundColor,
+              borderColor: visuals.pillBorderColor,
+              textColor: visuals.pillTextColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _TeamMemberCardIconButton(
+                  icon: Icons.phone_outlined,
+                  onTap: () {},
+                  expand: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _TeamMemberCardIconButton(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  onTap: () {},
+                  expand: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 3,
+                child: TextButton(
+                  onPressed: onTap,
+                  style: TextButton.styleFrom(
+                    backgroundColor: _bookingsDark,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  child: Text(
+                    context.t('VIEW DETAILS'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: _bookingTextStyle(
+                      size: 10,
+                      weight: FontWeight.w900,
+                      color: Colors.white,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleBoard extends StatelessWidget {
+  const _ScheduleBoard({
+    required this.staffGroups,
+    required this.onBookingTap,
+    required this.onAddBookingTap,
+    this.branchStartMinute,
+    this.branchEndMinute,
+  });
+
+  final Map<String, List<Map<String, dynamic>>> staffGroups;
+  final ValueChanged<Map<String, dynamic>> onBookingTap;
+  final VoidCallback onAddBookingTap;
+  final int? branchStartMinute;
+  final int? branchEndMinute;
+
+  static const double _staffColumnWidth = 112;
+  static const double _headerHeight = 62;
+  static const int _slotMinutes = 15;
+  static const double _slotWidth = 80;
+  static const double _rowHeight = 146;
+  static const double _cardWidth = 148;
+  static const double _cardHeight = 126;
+  static const Color _gridBorder = Color(0xFFD8C9B7);
+  static const Color _headerBackground = Color(0xFFFFF8F2);
+
+  @override
+  Widget build(BuildContext context) {
+    var earliestMinute = branchStartMinute ?? 9 * 60;
+    var latestMinute = branchEndMinute ?? 20 * 60;
+    var hasTime = false;
+
+    for (final booking in staffGroups.values.expand((bookings) => bookings)) {
+      final start = _bookingStart(booking);
+      final end = _bookingEnd(booking);
+      if (start == null) continue;
+      final startMinute = start.hour * 60 + start.minute;
+      final endMinute = end == null
+          ? startMinute + _bookingDurationMinutes(booking)
+          : end.hour * 60 + end.minute;
+      if (branchStartMinute != null && branchEndMinute != null) {
+        hasTime = true;
+        continue;
+      }
+      if (!hasTime) {
+        earliestMinute = (startMinute ~/ 60) * 60;
+        latestMinute = ((endMinute + 59) ~/ 60) * 60;
+        hasTime = true;
+      } else {
+        if (startMinute < earliestMinute) {
+          earliestMinute = (startMinute ~/ 60) * 60;
+        }
+        if (endMinute > latestMinute) {
+          latestMinute = ((endMinute + 59) ~/ 60) * 60;
+        }
+      }
+    }
+
+    if (latestMinute - earliestMinute < 180) {
+      latestMinute = earliestMinute + 180;
+    }
+
+    var timeLabelCount =
+        ((latestMinute - earliestMinute) / _slotMinutes).ceil() + 1;
+    if (timeLabelCount < 3) timeLabelCount = 3;
+    if (timeLabelCount > 64) timeLabelCount = 64;
+    final boardWidth = timeLabelCount * _slotWidth;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            top: BorderSide(color: _bookingsBorder),
+            bottom: BorderSide(color: _bookingsBorder),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: _staffColumnWidth,
+              child: Column(
+                children: [
+                  const _ScheduleTeamHeaderCell(),
+                  ...staffGroups.entries.map(
+                    (entry) => _ScheduleMemberCell(staffName: entry.key),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: boardWidth,
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: _headerHeight,
+                        child: Row(
+                          children: List.generate(timeLabelCount, (index) {
+                            final minute =
+                                earliestMinute + index * _slotMinutes;
+                            return _ScheduleTimeHeaderCell(minute: minute);
+                          }),
+                        ),
+                      ),
+                      ...staffGroups.entries.map(
+                        (entry) => _ScheduleBoardRow(
+                          bookings: entry.value,
+                          earliestMinute: earliestMinute,
+                          boardWidth: boardWidth,
+                          onBookingTap: onBookingTap,
+                          onAddBookingTap: onAddBookingTap,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleBoardRow extends StatelessWidget {
+  const _ScheduleBoardRow({
+    required this.bookings,
+    required this.earliestMinute,
+    required this.boardWidth,
+    required this.onBookingTap,
+    required this.onAddBookingTap,
+  });
+
+  final List<Map<String, dynamic>> bookings;
+  final int earliestMinute;
+  final double boardWidth;
+  final ValueChanged<Map<String, dynamic>> onBookingTap;
+  final VoidCallback onAddBookingTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedBookings = [...bookings]..sort((first, second) {
+        final firstStart = _bookingStart(first);
+        final secondStart = _bookingStart(second);
+        if (firstStart == null && secondStart == null) return 0;
+        if (firstStart == null) return 1;
+        if (secondStart == null) return -1;
+        return firstStart.compareTo(secondStart);
+      });
+    // final addSlotLeft =
+    //     _addSlotLeft(sortedBookings, earliestMinute, boardWidth);
+
+    return SizedBox(
+      height: _ScheduleBoard._rowHeight,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Row(
+              children: List.generate(
+                (boardWidth / _ScheduleBoard._slotWidth).ceil(),
+                (_) => const _ScheduleGridCell(),
+              ),
+            ),
+          ),
+          ...sortedBookings.map((booking) {
+            final start = _bookingStart(booking);
+            if (start == null) return const SizedBox.shrink();
+            final startMinute = start.hour * 60 + start.minute;
+            final end = _bookingEnd(booking);
+            var endMinute = end == null
+                ? startMinute + _bookingDurationMinutes(booking)
+                : end.hour * 60 + end.minute;
+            if (endMinute <= startMinute) {
+              endMinute = startMinute + _bookingDurationMinutes(booking);
+            }
+            final visibleStartMinute =
+                startMinute < earliestMinute ? earliestMinute : startMinute;
+            final left = (((visibleStartMinute - earliestMinute) /
+                        _ScheduleBoard._slotMinutes) *
+                    _ScheduleBoard._slotWidth)
+                .clamp(0.0, boardWidth)
+                .toDouble();
+            final availableWidth = boardWidth - left - 8;
+            final durationWidth = ((endMinute - visibleStartMinute) /
+                    _ScheduleBoard._slotMinutes) *
+                _ScheduleBoard._slotWidth;
+            if (availableWidth <= 0 || durationWidth <= 0) {
+              return const SizedBox.shrink();
+            }
+            final width = durationWidth > availableWidth
+                ? availableWidth
+                : durationWidth.toDouble();
+
+            return Positioned(
+              left: left,
+              top: 14,
+              width: width,
+              child: _ScheduleBoardAppointmentCard(
+                booking: booking,
+                onTap: () => onBookingTap(booking),
+              ),
+            );
+          }),
+          // if (addSlotLeft != null)
+          //   Positioned(
+          //     left: addSlotLeft,
+          //     top: 16,
+          //     width: 118,
+          //     child: _ScheduleEmptySlot(
+          //       onTap: onAddBookingTap,
+          //     ),
+          //   ),
+        ],
+      ),
+    );
+  }
+
+  // ignore: unused_element
+  double? _addSlotLeft(
+    List<Map<String, dynamic>> sortedBookings,
+    int earliestMinute,
+    double boardWidth,
+  ) {
+    if (sortedBookings.isEmpty) return 12;
+    var latestEndMinute = earliestMinute;
+    for (final booking in sortedBookings) {
+      final start = _bookingStart(booking);
+      if (start == null) continue;
+      final endMinute =
+          start.hour * 60 + start.minute + _bookingDurationMinutes(booking);
+      if (endMinute > latestEndMinute) {
+        latestEndMinute = endMinute;
+      }
+    }
+    final left =
+        (((latestEndMinute - earliestMinute) / _ScheduleBoard._slotMinutes) *
+                _ScheduleBoard._slotWidth) +
+            12;
+    if (left > boardWidth - _ScheduleBoard._cardWidth - 8) return null;
+    return left
+        .clamp(12.0, boardWidth - _ScheduleBoard._cardWidth - 8)
+        .toDouble();
+  }
+}
+
+class _ScheduleBoardAppointmentCard extends StatelessWidget {
+  const _ScheduleBoardAppointmentCard({
+    required this.booking,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> booking;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = _normalizeStatus(booking['status']);
+    final visuals = _statusVisuals(context, status);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isCompact = constraints.maxWidth < 120;
+            final isTiny = constraints.maxWidth < 56;
+            return Container(
+              height: _ScheduleBoard._cardHeight,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: visuals.cardBorderColor),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0A000000),
+                    blurRadius: 6,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Stack(
+                children: [
+                  _ScheduleBookingSideBar(
+                    color: _scheduleStatusAccentColor(status),
+                  ),
+                  if (isTiny)
+                    _ScheduleBookingTinyContent(booking: booking)
+                  else if (isCompact)
+                    _ScheduleBookingCompactContent(
+                      booking: booking,
+                      visuals: visuals,
+                    )
+                  else
+                    _ScheduleBookingContent(
+                      booking: booking,
+                      visuals: visuals,
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ignore: unused_element
+class _ScheduleEmptySlot extends StatelessWidget {
+  const _ScheduleEmptySlot({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          height: _ScheduleBoard._cardHeight,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAF7F3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE7D8C7)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.add_rounded,
+                color: _bookingsGold,
+                size: 18,
+              ),
+              const SizedBox(height: 5),
+              Text(
+                context.t('ADD BOOKING'),
+                style: _bookingTextStyle(
+                  size: 8,
+                  weight: FontWeight.w900,
+                  color: _bookingsGold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScheduleClientButton extends StatelessWidget {
+  const _ScheduleClientButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 54,
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.group_add_outlined, size: 18),
+        label: Text(
+          context.t('Schedule a Client'),
+          style: _bookingTextStyle(
+            size: 13,
+            weight: FontWeight.w900,
+            color: Colors.white,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _bookingsGold,
+          foregroundColor: Colors.white,
+          elevation: 6,
+          shadowColor: const Color(0x338B6500),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BookingQuoteCard extends StatelessWidget {
+  const _BookingQuoteCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _bookingsBorder),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+            child: Column(
+              children: [
+                Text(
+                  '”',
+                  style: _bookingTextStyle(
+                    size: 30,
+                    weight: FontWeight.w900,
+                    color: _bookingsAccent,
+                    height: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '"Beauty begins the moment\nyou decide to be yourself."',
+                  textAlign: TextAlign.center,
+                  style: _bookingTextStyle(
+                    size: 15,
+                    weight: FontWeight.w900,
+                    color: _bookingsPrimaryText,
+                    height: 1.25,
+                  ).copyWith(fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 118,
+            width: double.infinity,
+            child: Image.asset(
+              'assets/images/salon2.jpeg',
+              fit: BoxFit.cover,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _HeaderBranchSelector extends StatelessWidget {
@@ -1817,17 +4200,17 @@ class _DateRailArrowButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          width: 36,
-          height: 64,
+          width: 32,
+          height: 32,
           decoration: BoxDecoration(
             color: _bookingsCard,
-            borderRadius: BorderRadius.circular(14),
+            shape: BoxShape.circle,
             border: Border.all(color: _bookingsBorder),
           ),
           child: Icon(
             icon,
-            color: _bookingsSecondaryText,
-            size: 20,
+            color: _bookingsGold,
+            size: 18,
           ),
         ),
       ),
@@ -1851,7 +4234,7 @@ class _CalendarDateCard extends StatelessWidget {
     final now = DateTime.now();
     final isToday = _isSameDay(date, now);
     final backgroundColor = isSelected
-        ? _bookingsAccent
+        ? _bookingsGold
         : (isToday ? const Color(0xFFEAF4FF) : _bookingsCard);
     final dayColor = isSelected ? Colors.white : _bookingsSecondaryText;
     final dateColor = isSelected ? Colors.white : _bookingsDateText;
@@ -1863,12 +4246,15 @@ class _CalendarDateCard extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          width: 58,
-          padding: const EdgeInsets.symmetric(vertical: 2),
+          width: 44,
+          height: 56,
+          padding: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
             color: backgroundColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _bookingsBorder),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? _bookingsGold : _bookingsBorder,
+            ),
             boxShadow: isSelected
                 ? const [
                     BoxShadow(
@@ -1883,21 +4269,21 @@ class _CalendarDateCard extends StatelessWidget {
           child: Column(
             children: [
               Text(
-                _formatShortWeekday(date).toUpperCase(),
+                isToday ? context.t('TODAY') : _formatShortWeekday(date),
                 style: _bookingTextStyle(
                   color: dayColor,
-                  size: 10,
-                  weight: FontWeight.w600,
-                  letterSpacing: 0.5,
+                  size: 8,
+                  weight: FontWeight.w800,
+                  letterSpacing: 0.2,
                 ),
               ),
-              // const SizedBox(height: 2),
+              const SizedBox(height: 3),
               Text(
                 date.day.toString(),
                 style: _bookingTextStyle(
                   color: dateColor,
-                  size: 18,
-                  weight: FontWeight.w500,
+                  size: 16,
+                  weight: FontWeight.w800,
                 ),
               ),
             ],
