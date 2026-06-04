@@ -67,7 +67,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   List<Map<String, dynamic>> _teamMembers = [];
 
-  /// NEW: per-service professional selection (key = serviceId, value = professional name or "Any")
+  /// Per-service professional selection (key = serviceId, value = assigned professional name)
   final Map<int, String> _professionalByService = {};
 
   @override
@@ -433,6 +433,22 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
 
     return members;
+  }
+
+  bool _isValidProfessionalForService(int serviceId) {
+    final selectedProfessional = _professionalByService[serviceId];
+    if (selectedProfessional == null || selectedProfessional.isEmpty) {
+      return false;
+    }
+    return _membersForService(serviceId).any(
+      (member) => member['label'] == selectedProfessional,
+    );
+  }
+
+  void _removeInvalidProfessionalSelections() {
+    _professionalByService.removeWhere(
+      (serviceId, _) => !_isValidProfessionalForService(serviceId),
+    );
   }
 
   void _syncEndTimeWithDuration() {
@@ -1828,6 +1844,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           .whereType<int>()
           .toSet();
       _professionalByService.removeWhere((id, _) => !validIds.contains(id));
+      _removeInvalidProfessionalSelections();
       _selectedServiceId = _selectedServices.isNotEmpty
           ? _selectedServices.first['id'] as int
           : null;
@@ -1846,6 +1863,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         final List members = response['data'] ?? [];
         setState(() {
           _teamMembers = members.cast<Map<String, dynamic>>();
+          _removeInvalidProfessionalSelections();
         });
       }
     } catch (e) {
@@ -1938,7 +1956,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       return null;
     }
     if (_selectedServices.any(
-      (service) => (_professionalByService[service['id'] as int] ?? '').isEmpty,
+      (service) => !_isValidProfessionalForService(service['id'] as int),
     )) {
       setState(() {
         _professionalError =
@@ -2007,7 +2025,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
 
     final missingProfessional = _selectedServices.any(
-      (service) => (_professionalByService[service['id'] as int] ?? '').isEmpty,
+      (service) => !_isValidProfessionalForService(service['id'] as int),
     );
     if (missingProfessional) {
       setState(() {
@@ -2395,6 +2413,11 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final price = service['price'];
     final members = _membersForService(id);
     final selectedMember = _professionalByService[id];
+    final validSelectedMember = members.any(
+      (member) => member['label'] == selectedMember,
+    )
+        ? selectedMember
+        : null;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
@@ -2446,24 +2469,20 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: selectedMember,
+                value: validSelectedMember,
                 isExpanded: true,
                 hint: Text(
                   translateText('Select Team Member'),
                   style: const TextStyle(fontSize: 12),
                 ),
-                items: [
-                  DropdownMenuItem<String>(
-                    value: 'Any Stylist',
-                    child: Text(translateText('Any Stylist')),
-                  ),
-                  ...members.map(
-                    (member) => DropdownMenuItem<String>(
-                      value: member['label'] as String,
-                      child: Text(member['label'] as String),
-                    ),
-                  ),
-                ],
+                items: members
+                    .map(
+                      (member) => DropdownMenuItem<String>(
+                        value: member['label'] as String,
+                        child: Text(member['label'] as String),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) {
                   setState(() {
                     if (value == null) {
@@ -2482,7 +2501,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               padding: const EdgeInsets.only(top: 7, left: 2),
               child: Text(
                 translateText(
-                    'No team members found. You can use Any Stylist.'),
+                    'No team member available for this service.'),
                 style: const TextStyle(
                   fontSize: 11,
                   color: _bookingMuted,
@@ -3307,7 +3326,6 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  _artisanChip(translateText('Any Stylist'), true),
                   for (final professional in widget.selectedProfessionals)
                     _artisanChip(professional, false),
                 ],
@@ -3689,7 +3707,7 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
   Widget build(BuildContext context) {
     final firstProfessional = professionals.values.isNotEmpty
         ? professionals.values.first
-        : translateText('Any Stylist');
+        : translateText('Team Member');
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
