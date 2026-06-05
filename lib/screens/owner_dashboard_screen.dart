@@ -301,7 +301,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildBranchSelector() {
     return _DashboardSection(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -539,6 +539,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildNotificationsSection() {
     final notifications = _mapValue('notifications');
+    final unreadCount = _asInt(notifications['unread_count']);
     final items = notifications['items'] is List
         ? (notifications['items'] as List)
             .whereType<Map>()
@@ -550,9 +551,39 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            context.t('Notifications'),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  context.t('Notifications'),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (unreadCount > 0)
+                Container(
+                  constraints: const BoxConstraints(minWidth: 22),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.starColor,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$unreadCount',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 16),
           if (items.isEmpty)
@@ -562,14 +593,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             )
           else
             ...items.map(
-              (item) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  Icons.notifications_none_outlined,
-                  color: AppColors.starColor,
-                ),
-                title: Text(_cleanText(item['title'])),
-                subtitle: Text(_cleanText(item['message'])),
+              (item) => _NotificationDashboardRow(
+                item: item,
+                cleanText: _cleanText,
               ),
             ),
         ],
@@ -639,7 +665,7 @@ class _DashboardSection extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE8D8C8)),
         boxShadow: const [
           BoxShadow(
@@ -669,10 +695,10 @@ class _DateButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFFE6D6C6)),
         ),
         child: Row(
@@ -682,7 +708,7 @@ class _DateButton extends StatelessWidget {
               context.t('Date'),
               style: TextStyle(
                 color: AppColors.starColor,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w900,
               ),
             ),
             const SizedBox(width: 12),
@@ -715,9 +741,20 @@ class _KpiCard extends StatelessWidget {
         : cleanText(data['formatted_value']);
     final changeLabel = cleanText(data['change_label']);
     final hasChange = data.containsKey('change_percent');
+    final direction = cleanText(data['change_direction']).toLowerCase();
+    final changeColor = direction == 'up'
+        ? const Color(0xFF047857)
+        : direction == 'down'
+            ? const Color(0xFFBE123C)
+            : const Color(0xFF6B5B4D);
+    final changeIcon = direction == 'up'
+        ? '↑'
+        : direction == 'down'
+            ? '↓'
+            : '•';
 
     return _DashboardSection(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -727,30 +764,31 @@ class _KpiCard extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
-              color: Color(0xFF8A6F58),
+              letterSpacing: 0.7,
+              color: Color(0xFFA08F7F),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             value.isEmpty ? '0' : value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 26,
+              fontSize: 24,
               fontWeight: FontWeight.w900,
               color: Colors.black,
             ),
           ),
           if (hasChange) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              '— ${percentBuilder(data['change_percent'])} $changeLabel',
-              style: const TextStyle(
+              '$changeIcon ${percentBuilder(data['change_percent'])} $changeLabel',
+              style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF6B5B4D),
+                fontWeight: FontWeight.w700,
+                color: changeColor,
               ),
             ),
           ],
@@ -782,9 +820,11 @@ class _RevenueOverviewCard extends StatelessWidget {
             .toList()
         : <Map<String, dynamic>>[];
     final periodLabel = cleanText(data['period_label']);
-    final total = cleanText(data['formatted_total']).isEmpty
-        ? '₹0'
-        : cleanText(data['formatted_total']);
+    final total = _plainNumber(data['total']);
+    final direction = cleanText(data['change_direction']).toLowerCase();
+    final changeColor =
+        direction == 'down' ? const Color(0xFFBE123C) : const Color(0xFF047857);
+    final changeIcon = direction == 'down' ? '↓' : '↑';
 
     return _DashboardSection(
       child: Column(
@@ -832,8 +872,12 @@ class _RevenueOverviewCard extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '— ${percentBuilder(data['change_percent'])} ${cleanText(data['change_label'])}',
-                style: const TextStyle(color: Color(0xFF6B5B4D)),
+                '$changeIcon ${percentBuilder(data['change_percent'])} ${cleanText(data['change_label'])}',
+                style: TextStyle(
+                  color: changeColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
             ],
           ),
@@ -852,6 +896,16 @@ class _RevenueOverviewCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _plainNumber(dynamic value) {
+    final text = cleanText(value);
+    if (text.isEmpty) return '0';
+    final parsed = asDouble(value);
+    if (parsed == parsed.roundToDouble()) {
+      return parsed.toStringAsFixed(0);
+    }
+    return parsed.toStringAsFixed(2);
   }
 }
 
@@ -892,17 +946,30 @@ class _RevenueSourceCard extends StatelessWidget {
               context.t('No data available'),
               style: const TextStyle(color: Color(0xFF78716C)),
             )
-          else
+          else ...[
+            Center(
+              child: SizedBox(
+                width: 140,
+                height: 140,
+                child: CustomPaint(
+                  painter: _RevenueSourceDonutPainter(
+                    sources: sources,
+                    colors: colors,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
             ...sources.asMap().entries.map((entry) {
               final source = entry.value;
               final color = colors[entry.key % colors.length];
               return Padding(
-                padding: const EdgeInsets.only(bottom: 22),
+                padding: const EdgeInsets.only(bottom: 18),
                 child: Row(
                   children: [
                     Container(
-                      width: 10,
-                      height: 10,
+                      width: 9,
+                      height: 9,
                       decoration: BoxDecoration(
                         color: color,
                         shape: BoxShape.circle,
@@ -942,13 +1009,14 @@ class _RevenueSourceCard extends StatelessWidget {
                 ),
               );
             }),
+          ],
         ],
       ),
     );
   }
 }
 
-class _TodayAppointmentsCard extends StatelessWidget {
+class _TodayAppointmentsCard extends StatefulWidget {
   const _TodayAppointmentsCard({
     required this.data,
     required this.cleanText,
@@ -962,19 +1030,42 @@ class _TodayAppointmentsCard extends StatelessWidget {
   final VoidCallback onOpenBookings;
 
   @override
+  State<_TodayAppointmentsCard> createState() => _TodayAppointmentsCardState();
+}
+
+class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
+  String _selectedFilterKey = 'all';
+
+  @override
   Widget build(BuildContext context) {
-    final filters = data['filters'] is List
-        ? (data['filters'] as List)
+    final filters = widget.data['filters'] is List
+        ? (widget.data['filters'] as List)
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
             .toList()
         : <Map<String, dynamic>>[];
-    final appointments = data['appointments'] is List
-        ? (data['appointments'] as List)
+    if (filters.isNotEmpty &&
+        !filters.any(
+          (filter) => widget.cleanText(filter['key']) == _selectedFilterKey,
+        )) {
+      _selectedFilterKey = widget.cleanText(filters.first['key']).isEmpty
+          ? 'all'
+          : widget.cleanText(filters.first['key']);
+    }
+    final appointments = widget.data['appointments'] is List
+        ? (widget.data['appointments'] as List)
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
             .toList()
         : <Map<String, dynamic>>[];
+    final visibleAppointments = _selectedFilterKey == 'all'
+        ? appointments
+        : appointments
+            .where(
+              (appointment) =>
+                  _appointmentFilterKey(appointment) == _selectedFilterKey,
+            )
+            .toList();
 
     return _DashboardSection(
       child: Column(
@@ -993,16 +1084,16 @@ class _TodayAppointmentsCard extends StatelessWidget {
               ),
               InkWell(
                 borderRadius: BorderRadius.circular(8),
-                onTap: onOpenBookings,
+                onTap: widget.onOpenBookings,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 4,
                     vertical: 4,
                   ),
                   child: Text(
-                    cleanText(data['cta_label']).isEmpty
+                    widget.cleanText(widget.data['cta_label']).isEmpty
                         ? context.t('View all appointments →')
-                        : cleanText(data['cta_label']),
+                        : widget.cleanText(widget.data['cta_label']),
                     style: TextStyle(
                       color: AppColors.starColor,
                       fontWeight: FontWeight.w700,
@@ -1020,62 +1111,69 @@ class _TodayAppointmentsCard extends StatelessWidget {
               child: Row(
                 children: filters.asMap().entries.map((entry) {
                   final filter = entry.value;
-                  return Container(
-                    width: 150,
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _appointmentFilterColor(cleanText(filter['key'])),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: entry.key == 0
-                            ? AppColors.starColor
-                            : Colors.transparent,
-                        width: entry.key == 0 ? 1.5 : 1,
+                  final key = widget.cleanText(filter['key']).isEmpty
+                      ? 'all'
+                      : widget.cleanText(filter['key']);
+                  final selected = key == _selectedFilterKey;
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => setState(() => _selectedFilterKey = key),
+                    child: Container(
+                      width: 150,
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
                       ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          cleanText(filter['label']).toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF9A8A7A),
-                          ),
+                      decoration: BoxDecoration(
+                        color: _appointmentFilterColor(key),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: selected
+                              ? AppColors.starColor
+                              : Colors.transparent,
+                          width: selected ? 1.5 : 1,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${asInt(filter['count'])}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            widget.cleanText(filter['label']).toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF9A8A7A),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(
+                            '${widget.asInt(filter['count'])}',
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }).toList(),
               ),
             ),
           const SizedBox(height: 16),
-          if (appointments.isEmpty)
+          if (visibleAppointments.isEmpty)
             const _EmptyDashedBox(
               icon: Icons.calendar_month_outlined,
               message: 'No appointments found for the selected day.',
             )
           else
-            ...appointments.map(
-              (appointment) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_month_outlined),
-                title: Text(cleanText(appointment['client_name'])),
-                subtitle: Text(cleanText(appointment['status'])),
+            ...visibleAppointments.map(
+              (appointment) => _AppointmentDashboardRow(
+                appointment: appointment,
+                cleanText: widget.cleanText,
+                onTap: () => _showAppointmentDetails(context, appointment),
               ),
             ),
         ],
@@ -1096,6 +1194,98 @@ class _TodayAppointmentsCard extends StatelessWidget {
       default:
         return const Color(0xFFFAF6F0);
     }
+  }
+
+  String _appointmentFilterKey(Map<String, dynamic> appointment) {
+    final status = widget.cleanText(appointment['status']).toLowerCase();
+    final label = widget.cleanText(appointment['status_label']).toLowerCase();
+    if (status.contains('cancel') || label.contains('cancel')) {
+      return 'cancelled';
+    }
+    if (status.contains('complete') || label.contains('complete')) {
+      return 'completed';
+    }
+    if (status.contains('progress') || label.contains('progress')) {
+      return 'in_progress';
+    }
+    return 'upcoming';
+  }
+
+  void _showAppointmentDetails(
+    BuildContext context,
+    Map<String, dynamic> appointment,
+  ) {
+    final details = <String, String>{
+      'Time': widget.cleanText(appointment['time_label']),
+      'Customer': widget.cleanText(appointment['customer_name']),
+      'Service': widget.cleanText(appointment['service_name']),
+      'Professional': widget.cleanText(appointment['professional_name']),
+      'Status': widget.cleanText(appointment['status_label']).isEmpty
+          ? widget.cleanText(appointment['status'])
+          : widget.cleanText(appointment['status_label']),
+    };
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.t('Appointment Details'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const Divider(height: 22),
+              ...details.entries.map(
+                (entry) => Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        entry.key.toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.7,
+                          color: Color(0xFF9A8A7A),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        entry.value.isEmpty ? '-' : entry.value,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1162,16 +1352,323 @@ class _StaffLiveStatusCard extends StatelessWidget {
             )
           else
             ...staff.map(
-              (member) => ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-                title: Text(cleanText(member['name'])),
-                subtitle: Text(cleanText(member['status'])),
+              (member) => _StaffDashboardRow(
+                member: member,
+                cleanText: cleanText,
               ),
             ),
         ],
       ),
     );
+  }
+}
+
+class _AppointmentDashboardRow extends StatelessWidget {
+  const _AppointmentDashboardRow({
+    required this.appointment,
+    required this.cleanText,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic> appointment;
+  final String Function(dynamic value) cleanText;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final timeLabel = cleanText(appointment['time_label']);
+    final customerName = cleanText(appointment['customer_name']);
+    final serviceName = cleanText(appointment['service_name']);
+    final professionalName = cleanText(appointment['professional_name']);
+    final statusLabel = cleanText(appointment['status_label']).isEmpty
+        ? cleanText(appointment['status'])
+        : cleanText(appointment['status_label']);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(9),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFCF8),
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: const Color(0xFFE8D8C8)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 78,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    timeLabel.split(' - ').first,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    timeLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF8A7A6C),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    customerName.isEmpty ? 'Customer' : customerName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    serviceName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF6B5B4D),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                professionalName.isEmpty ? '' : 'with $professionalName',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF8A7A6C),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _DashboardStatusPill(label: statusLabel),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StaffDashboardRow extends StatelessWidget {
+  const _StaffDashboardRow({
+    required this.member,
+    required this.cleanText,
+  });
+
+  final Map<String, dynamic> member;
+  final String Function(dynamic value) cleanText;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = cleanText(member['name']);
+    final status = cleanText(member['professional_status']);
+    final completed = cleanText(member['completed_items']).isEmpty
+        ? '0'
+        : cleanText(member['completed_items']);
+    final initial = name.isEmpty ? '?' : name.substring(0, 1).toUpperCase();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8D8C8)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: const Color(0xFFF1E6D7),
+            child: Text(
+              initial,
+              style: TextStyle(
+                color: AppColors.starColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              name.isEmpty ? 'Team Member' : name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _DashboardStatusPill(label: status),
+              const SizedBox(height: 4),
+              Text(
+                '$completed completed',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF9A8A7A),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationDashboardRow extends StatelessWidget {
+  const _NotificationDashboardRow({
+    required this.item,
+    required this.cleanText,
+  });
+
+  final Map<String, dynamic> item;
+  final String Function(dynamic value) cleanText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE6C987)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8E7CC),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              Icons.calendar_month_outlined,
+              size: 16,
+              color: AppColors.starColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cleanText(item['title']),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  cleanText(item['message']),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF6B5B4D),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 7,
+            height: 7,
+            margin: const EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(
+              color: AppColors.starColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardStatusPill extends StatelessWidget {
+  const _DashboardStatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final normalized = label.toLowerCase().replaceAll('_', ' ');
+    final isAvailable = normalized.contains('available');
+    final isCompleted = normalized.contains('completed');
+    final isCancelled = normalized.contains('cancelled');
+    final background = isAvailable || isCompleted
+        ? const Color(0xFFE8FFF5)
+        : isCancelled
+            ? const Color(0xFFFDEDEF)
+            : const Color(0xFFFFF7E6);
+    final foreground = isAvailable || isCompleted
+        ? const Color(0xFF059669)
+        : isCancelled
+            ? const Color(0xFFE11D48)
+            : AppColors.starColor;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: foreground.withValues(alpha: 0.22)),
+      ),
+      child: Text(
+        label.isEmpty ? 'Upcoming' : _titleCase(normalized),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: foreground,
+        ),
+      ),
+    );
+  }
+
+  String _titleCase(String value) {
+    return value
+        .split(' ')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
   }
 }
 
@@ -1209,6 +1706,61 @@ class _EmptyDashedBox extends StatelessWidget {
   }
 }
 
+class _RevenueSourceDonutPainter extends CustomPainter {
+  const _RevenueSourceDonutPainter({
+    required this.sources,
+    required this.colors,
+  });
+
+  final List<Map<String, dynamic>> sources;
+  final List<Color> colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - 8;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final total = sources.fold<double>(0, (sum, source) {
+      final value = source['percent'];
+      if (value is num) return sum + value.toDouble();
+      return sum + (double.tryParse('${value ?? ''}') ?? 0);
+    });
+    final strokeWidth = math.max(14.0, radius * 0.28);
+    var startAngle = -math.pi / 2;
+
+    final backgroundPaint = Paint()
+      ..color = const Color(0xFFF1E6D7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
+    canvas.drawArc(rect, 0, math.pi * 2, false, backgroundPaint);
+
+    if (total <= 0) return;
+
+    for (var index = 0; index < sources.length; index++) {
+      final source = sources[index];
+      final rawPercent = source['percent'];
+      final percent = rawPercent is num
+          ? rawPercent.toDouble()
+          : double.tryParse('${rawPercent ?? ''}') ?? 0;
+      if (percent <= 0) continue;
+      final sweep = (percent / total) * math.pi * 2;
+      final paint = Paint()
+        ..color = colors[index % colors.length]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.butt;
+      canvas.drawArc(rect, startAngle, sweep - 0.045, false, paint);
+      startAngle += sweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RevenueSourceDonutPainter oldDelegate) {
+    return oldDelegate.sources != sources;
+  }
+}
+
 class _RevenueChartPainter extends CustomPainter {
   const _RevenueChartPainter({
     required this.chartData,
@@ -1233,13 +1785,13 @@ class _RevenueChartPainter extends CustomPainter {
     final chartWidth = size.width - leftPadding - rightPadding;
     final chartHeight = size.height - topPadding - bottomPadding;
     final values = chartData.map((item) => asDouble(item['value'])).toList();
-    final maxValue = math.max(
-      4,
-      values.fold<double>(0, (max, value) => math.max(max, value)).ceil(),
+    final maxValue = _niceMaxValue(
+      values.fold<double>(0, (max, value) => math.max(max, value)),
     );
 
     for (var i = 0; i <= 4; i++) {
       final y = topPadding + chartHeight - (chartHeight * i / 4);
+      final tick = maxValue * i / 4;
       _drawDashedLine(
         canvas,
         Offset(leftPadding, y),
@@ -1247,7 +1799,7 @@ class _RevenueChartPainter extends CustomPainter {
         gridPaint,
       );
       axisTextPainter.text = TextSpan(
-        text: '${(maxValue * i / 4).round()}',
+        text: _formatTick(tick),
         style: const TextStyle(fontSize: 10, color: Color(0xFF8A6F58)),
       );
       axisTextPainter.layout();
@@ -1260,22 +1812,23 @@ class _RevenueChartPainter extends CustomPainter {
     if (chartData.isEmpty) return;
 
     final slotWidth = chartWidth / chartData.length;
-    final barPaint = Paint()..color = const Color(0xFFC9C9C9);
-    final linePaint = Paint()
-      ..color = AppColors.starColor
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-    final points = <Offset>[];
+    final barPaint = Paint()..color = const Color(0xFF7A5A10);
 
     for (var index = 0; index < chartData.length; index++) {
       final item = chartData[index];
       final value = asDouble(item['value']);
       final x = leftPadding + slotWidth * index + slotWidth / 2;
       final y = topPadding + chartHeight - (value / maxValue) * chartHeight;
-      points.add(Offset(x, y));
+
+      _drawDashedLine(
+        canvas,
+        Offset(x + slotWidth / 2, topPadding),
+        Offset(x + slotWidth / 2, topPadding + chartHeight),
+        gridPaint,
+      );
 
       if (value > 0) {
-        final barWidth = math.min(42.0, slotWidth * 0.55);
+        final barWidth = math.min(170.0, slotWidth * 0.72);
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromLTRB(
@@ -1303,19 +1856,6 @@ class _RevenueChartPainter extends CustomPainter {
         ),
       );
     }
-
-    if (points.length > 1) {
-      final path = Path()..moveTo(points.first.dx, points.first.dy);
-      for (final point in points.skip(1)) {
-        path.lineTo(point.dx, point.dy);
-      }
-      canvas.drawPath(path, linePaint);
-    }
-
-    final dotPaint = Paint()..color = AppColors.starColor;
-    for (final point in points) {
-      canvas.drawCircle(point, 3, dotPaint);
-    }
   }
 
   void _drawDashedLine(
@@ -1335,6 +1875,19 @@ class _RevenueChartPainter extends CustomPainter {
       );
       currentX += dashWidth + dashSpace;
     }
+  }
+
+  double _niceMaxValue(double value) {
+    if (value <= 0) return 4;
+    if (value <= 100) return (value / 10).ceil() * 10;
+    return (value / 100).ceil() * 100;
+  }
+
+  String _formatTick(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toStringAsFixed(1);
   }
 
   @override

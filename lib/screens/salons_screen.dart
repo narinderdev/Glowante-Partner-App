@@ -779,7 +779,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onNotificationTap;
 
   @override
-  Size get preferredSize => const Size.fromHeight(70);
+  Size get preferredSize => const Size.fromHeight(52);
 
   @override
   Widget build(BuildContext context) {
@@ -796,9 +796,9 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onHeaderTap,
           child: SizedBox(
-            height: 70,
+            height: 52,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 6, 18, 6),
+              padding: const EdgeInsets.fromLTRB(18, 2, 18, 2),
               child: Row(
                 children: [
                   Image.asset(
