@@ -107,13 +107,22 @@ class _FlowNode extends StatelessWidget {
                 ),
         ),
         const SizedBox(height: 8),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: active ? const Color(0xFFE4900F) : const Color(0xFF6B7280),
+        SizedBox(
+          width: double.infinity,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              maxLines: 1,
+              softWrap: false,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color:
+                    active ? const Color(0xFFE4900F) : const Color(0xFF6B7280),
+              ),
+            ),
           ),
         ),
       ],

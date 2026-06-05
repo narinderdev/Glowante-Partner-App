@@ -229,6 +229,8 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     return all.isNotEmpty && all.every((id) => _selected[id] == true);
   }
 
+  bool get _hasAssignableServices => _allServiceIds().isNotEmpty;
+
   bool? _selectionValue(List<int> ids) {
     if (ids.isEmpty) return false;
     final selectedCount = ids.where((id) => _selected[id] == true).length;
@@ -337,8 +339,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                   Checkbox(
                     value: _selectionValue(subIds),
                     tristate: true,
-                    onChanged: (value) =>
-                        _setServiceIds(subIds, value == true),
+                    onChanged: (value) => _setServiceIds(subIds, value == true),
                     visualDensity: VisualDensity.compact,
                   ),
                   Expanded(
@@ -398,11 +399,6 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   // }
 
   Future<void> _goToOnlineAvailability() async {
-    if (_selectedServiceIds.isEmpty) {
-      _showError('Please select at least one service.');
-      return;
-    }
-
     setState(() => _submitting = true);
     try {
       // Build normalized body
@@ -480,7 +476,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                   ),
                 ),
                 // Summary
-                if (fullName.isNotEmpty)
+                if (fullName.isNotEmpty && _hasAssignableServices)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Align(
@@ -496,24 +492,27 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                   ),
 
                 // Select All
-                Card(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  child: CheckboxListTile(
-                    value: _allSelected,
-                    onChanged: _toggleAll,
-                    title: Text(translateText('Select All Services')),
-                    controlAffinity: ListTileControlAffinity.trailing,
+                if (_hasAssignableServices)
+                  Card(
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    child: CheckboxListTile(
+                      value: _allSelected,
+                      onChanged: _toggleAll,
+                      title: Text(translateText('Select All Services')),
+                      controlAffinity: ListTileControlAffinity.trailing,
+                    ),
                   ),
-                ),
 
                 // Categories
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: _categories.length,
-                    itemBuilder: (ctx, i) => _buildCategory(
-                        (_categories[i] as Map).cast<String, dynamic>()),
-                  ),
+                  child: _hasAssignableServices
+                      ? ListView.builder(
+                          itemCount: _categories.length,
+                          itemBuilder: (ctx, i) => _buildCategory(
+                              (_categories[i] as Map).cast<String, dynamic>()),
+                        )
+                      : const _NoAssignableServicesState(),
                 ),
               ],
             ),
@@ -571,6 +570,62 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NoAssignableServicesState extends StatelessWidget {
+  const _NoAssignableServicesState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: const BoxDecoration(
+                color: Color(0xFFF6EFE3),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.design_services_outlined,
+                color: AppColors.starColor,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              translateText(
+                'No services are available for this branch to assign.',
+              ),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF1F2937),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              translateText(
+                'Please select a different branch or add branch services.',
+              ),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 13,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

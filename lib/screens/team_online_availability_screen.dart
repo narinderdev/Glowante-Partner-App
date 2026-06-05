@@ -254,41 +254,46 @@ class _TeamOnlineAvailabilityScreenState
                           ? null
                           : () => Navigator.pop(context, false),
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        minimumSize: const Size(double.infinity, 50),
                         backgroundColor: const Color(0xFFE5E7EB),
                         foregroundColor: const Color(0xFF374151),
                         side: BorderSide.none,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       child: Text(translateText('Previous')),
                     ),
                   ),
-                  const SizedBox(width: 18),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
                       onPressed: _isSubmitting ? null : _submit,
                       style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 50),
                         backgroundColor: AppColors.starColor,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
+                          borderRadius: BorderRadius.circular(6),
                         ),
+                        elevation: 2,
                       ),
                       child: _isSubmitting
                           ? const SizedBox(
-                              width: 20,
-                              height: 20,
+                              width: 22,
+                              height: 22,
                               child: CircularProgressIndicator(
-                                strokeWidth: 2,
                                 color: Colors.white,
+                                strokeWidth: 2.5,
                               ),
                             )
                           : Text(
                               translateText(
                                 isAssign ? 'Submit' : (isEdit ? 'Save' : 'Add'),
+                              ),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
                               ),
                             ),
                     ),
