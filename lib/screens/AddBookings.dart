@@ -123,6 +123,15 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             'name': (svc['displayName'] ?? '').toString(),
             'priceMinor': svc['priceMinor'],
             'durationMin': svc['durationMin'],
+            'masterServiceId': svc['masterService'] is Map
+                ? (svc['masterService'] as Map)['id']
+                : null,
+            'masterServiceName': svc['masterService'] is Map
+                ? (svc['masterService'] as Map)['name']
+                : null,
+            'masterServiceCode': svc['masterService'] is Map
+                ? (svc['masterService'] as Map)['code']
+                : null,
             'path': [catName, (svc['displayName'] ?? '').toString()]
                 .where((e) => e.isNotEmpty)
                 .join(' • '),
@@ -145,6 +154,15 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               'name': (svc['displayName'] ?? '').toString(),
               'priceMinor': svc['priceMinor'],
               'durationMin': svc['durationMin'],
+              'masterServiceId': svc['masterService'] is Map
+                  ? (svc['masterService'] as Map)['id']
+                  : null,
+              'masterServiceName': svc['masterService'] is Map
+                  ? (svc['masterService'] as Map)['name']
+                  : null,
+              'masterServiceCode': svc['masterService'] is Map
+                  ? (svc['masterService'] as Map)['code']
+                  : null,
               'path': [catName, subName, (svc['displayName'] ?? '').toString()]
                   .where((e) => e.isNotEmpty)
                   .join(' • '),
@@ -399,27 +417,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             : int.tryParse('${branchMap['id'] ?? ''}');
         if (currentBranchId != null && branchId != currentBranchId) continue;
 
-        final services = branchEntry['userBranchServices'] as List? ?? const [];
-        final hasService = services.any((item) {
-          if (item is! Map) return false;
-          final branchService = item['branchService'];
-          if (branchService is! Map) return false;
-          final id = branchService['id'];
-          if (id is int) return id == serviceId;
-          if (id is num) return id.toInt() == serviceId;
-          return int.tryParse('$id') == serviceId;
-        });
+        final hasService =
+            _hasAssignedServiceForSelection(member, branchEntry, serviceId);
         if (!hasService) continue;
 
         final name =
             "${member['firstName'] ?? ''} ${member['lastName'] ?? ''}".trim();
-        final userBranchId = branchEntry['id'] is int
-            ? branchEntry['id'] as int
-            : int.tryParse('${branchEntry['id'] ?? ''}') ??
-                (member['id'] is int
-                    ? member['id'] as int
-                    : int.tryParse('${member['id'] ?? ''}'));
-        if (name.isEmpty || userBranchId == null) continue;
+        final userBranchId = _resolveUserBranchAssignmentId(
+          branchEntry: branchEntry,
+          member: member,
+          branchId: branchId,
+        );
+        if (name.isEmpty) continue;
 
         members.add({
           'label': name,
@@ -433,6 +442,155 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
 
     return members;
+  }
+
+  bool _idsMatch(dynamic value, int expected) {
+    final parsed = _intValue(value);
+    return parsed != null && parsed == expected;
+  }
+
+  int? _intValue(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? ''}');
+  }
+
+  List<dynamic> _listValue(dynamic value) {
+    if (value is List) return value;
+    return const [];
+  }
+
+  Map<String, dynamic>? _serviceById(int serviceId) {
+    for (final service in _branchServices) {
+      if (_idsMatch(service['id'], serviceId)) return service;
+    }
+    for (final service in _selectedServices) {
+      if (_idsMatch(service['id'], serviceId)) return service;
+    }
+    return null;
+  }
+
+  bool _hasAssignedServiceForSelection(
+    Map<String, dynamic> member,
+    Map<String, dynamic> branchEntry,
+    int serviceId,
+  ) {
+    final service = _serviceById(serviceId);
+    final masterServiceId = _intValue(service?['masterServiceId']);
+    final serviceName =
+        (service?['name'] ?? '').toString().trim().toLowerCase();
+    final masterServiceName =
+        (service?['masterServiceName'] ?? '').toString().trim().toLowerCase();
+    final masterServiceCode =
+        (service?['masterServiceCode'] ?? '').toString().trim().toLowerCase();
+
+    bool matchesId(dynamic value) {
+      return _idsMatch(value, serviceId) ||
+          (masterServiceId != null && _idsMatch(value, masterServiceId));
+    }
+
+    bool matchesText(dynamic value) {
+      final text = value?.toString().trim().toLowerCase() ?? '';
+      if (text.isEmpty) return false;
+      return text == serviceName ||
+          (masterServiceName.isNotEmpty && text == masterServiceName) ||
+          (masterServiceCode.isNotEmpty && text == masterServiceCode);
+    }
+
+    bool matchesItem(dynamic item) {
+      if (item is int || item is num || item is String) {
+        return matchesId(item) || matchesText(item);
+      }
+      if (item is! Map) return false;
+      final map = Map<String, dynamic>.from(item);
+      for (final key in const [
+        'branchServiceId',
+        'branch_service_id',
+        'serviceId',
+        'service_id',
+        'masterServiceId',
+        'master_service_id',
+        'id',
+        'code',
+        'name',
+        'displayName',
+      ]) {
+        if (matchesId(map[key]) || matchesText(map[key])) return true;
+      }
+
+      for (final key in const [
+        'branchService',
+        'service',
+        'masterService',
+      ]) {
+        final nested = map[key];
+        if (nested is Map && matchesItem(nested)) return true;
+      }
+
+      return false;
+    }
+
+    final assignments = <dynamic>[
+      ..._listValue(branchEntry['userBranchServices']),
+      ..._listValue(branchEntry['services']),
+      ..._listValue(branchEntry['branchServices']),
+      ..._listValue(branchEntry['assignedServices']),
+      ..._listValue(branchEntry['assignedBranchServices']),
+      ..._listValue(branchEntry['serviceIds']),
+      ..._listValue(branchEntry['branchServiceIds']),
+      ..._listValue(branchEntry['assignedServiceIds']),
+      ..._listValue(branchEntry['assignedBranchServiceIds']),
+      ..._listValue(member['userBranchServices']),
+      ..._listValue(member['services']),
+      ..._listValue(member['branchServices']),
+      ..._listValue(member['assignedServices']),
+      ..._listValue(member['assignedBranchServices']),
+      ..._listValue(member['serviceIds']),
+      ..._listValue(member['branchServiceIds']),
+      ..._listValue(member['assignedServiceIds']),
+      ..._listValue(member['assignedBranchServiceIds']),
+    ];
+
+    return assignments.any(matchesItem);
+  }
+
+  int? _resolveUserBranchAssignmentId({
+    required Map<String, dynamic> branchEntry,
+    required Map<String, dynamic> member,
+    required int? branchId,
+  }) {
+    final branch = branchEntry['branch'];
+    final branchMap = branch is Map ? Map<String, dynamic>.from(branch) : {};
+    final memberId = _intValue(member['id']);
+    final candidates = [
+      branchEntry['userBranchId'],
+      branchEntry['user_branch_id'],
+      branchEntry['assignedUserBranchId'],
+      branchEntry['assigned_user_branch_id'],
+      branchEntry['assignmentId'],
+      branchEntry['assignment_id'],
+      branchEntry['userBranch'] is Map
+          ? (branchEntry['userBranch'] as Map)['id']
+          : null,
+      branchEntry['assignedUserBranch'] is Map
+          ? (branchEntry['assignedUserBranch'] as Map)['id']
+          : null,
+      member['userBranchId'],
+      member['assignedUserBranchId'],
+      member['assignmentId'],
+      branchEntry['id'],
+    ];
+
+    for (final candidate in candidates) {
+      final id = _intValue(candidate);
+      if (id == null) continue;
+      if (branchId != null && id == branchId) continue;
+      if (memberId != null && id == memberId) continue;
+      if (_idsMatch(id, branchMap['id'])) continue;
+      return id;
+    }
+
+    return null;
   }
 
   bool _isValidProfessionalForService(int serviceId) {
@@ -1836,6 +1994,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 'price': service['priceMinor'],
                 'qty': 1,
                 'durationMin': service['durationMin'],
+                'masterServiceId': service['masterServiceId'],
+                'masterServiceName': service['masterServiceName'],
+                'masterServiceCode': service['masterServiceCode'],
               })
           .toList();
 
@@ -1880,6 +2041,20 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     for (final option in _membersForService(serviceId)) {
       if (option['label'] == selectedProfessional) {
         return option['userBranchId'] as int?;
+      }
+    }
+    return null;
+  }
+
+  int? _resolveAssignedUserId(int serviceId) {
+    final selectedProfessional = _professionalByService[serviceId];
+    if (selectedProfessional == null || selectedProfessional.isEmpty) {
+      return null;
+    }
+
+    for (final option in _membersForService(serviceId)) {
+      if (option['label'] == selectedProfessional) {
+        return option['userId'] as int?;
       }
     }
     return null;
@@ -1974,10 +2149,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       "endAt":
           '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}',
       "services": _selectedServices.map((s) {
-        return {
-          "branchServiceId": s['id'],
-          "assignedUserBranchId": _resolveAssignedUserBranchId(s['id'] as int),
+        final serviceId = s['id'] as int;
+        final servicePayload = <String, dynamic>{
+          "branchServiceId": serviceId,
         };
+        final assignedUserBranchId = _resolveAssignedUserBranchId(serviceId);
+        final assignedUserId = _resolveAssignedUserId(serviceId);
+        if (assignedUserBranchId != null) {
+          servicePayload["assignedUserBranchId"] = assignedUserBranchId;
+        } else if (assignedUserId != null) {
+          servicePayload["assignedUserId"] = assignedUserId;
+        }
+        return servicePayload;
       }).toList(),
     };
     debugPrint("Booking payload: $payload");
@@ -2500,8 +2683,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 7, left: 2),
               child: Text(
-                translateText(
-                    'No team member available for this service.'),
+                translateText('No team member available for this service.'),
                 style: const TextStyle(
                   fontSize: 11,
                   color: _bookingMuted,

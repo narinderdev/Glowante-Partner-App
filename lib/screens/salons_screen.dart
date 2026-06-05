@@ -993,6 +993,58 @@ class _SalonActionLoadingOverlay extends StatelessWidget {
   }
 }
 
+class _ActionPopupRow extends StatelessWidget {
+  const _ActionPopupRow({
+    required this.icon,
+    required this.label,
+    this.destructive = false,
+    this.enabled = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool destructive;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = !enabled
+        ? const Color(0xFFB8AEA6)
+        : destructive
+            ? const Color(0xFFB42318)
+            : const Color(0xFF4B3A2A);
+
+    return Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: !enabled
+                ? const Color(0xFFF2F0EE)
+                : destructive
+                    ? const Color(0xFFFFEFEF)
+                    : const Color(0xFFF4E8D1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 16),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            translateText(label),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _EmptySalonsView extends StatelessWidget {
   const _EmptySalonsView({
     required this.hasSearchQuery,
@@ -1374,6 +1426,29 @@ class _SalonCard extends StatelessWidget {
     );
   }
 
+  Widget _statusTag(String label, {required bool active}) {
+    final textColor =
+        active ? const Color(0xFF047857) : const Color(0xFFB42318);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFE8FFF5) : const Color(0xFFFFEFEF),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: active ? const Color(0xFFB7F0D0) : const Color(0xFFF5C2C7),
+        ),
+      ),
+      child: Text(
+        translateText(label),
+        style: TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
   Widget _addBranchButton() {
     if (onAddBranch == null) return const SizedBox.shrink();
     return Center(
@@ -1400,7 +1475,8 @@ class _SalonCard extends StatelessWidget {
     );
   }
 
-  Widget _salonMenuButton(bool isActive) {
+  Widget _salonMenuButton(BuildContext context, bool isActive) {
+    final canEdit = isActive && onEditSalon != null;
     if (onEditSalon == null &&
         onToggleSalonActive == null &&
         onDeleteSalon == null) {
@@ -1417,10 +1493,17 @@ class _SalonCard extends StatelessWidget {
           size: 20,
           color: Color(0xFF8B6500),
         ),
+        color: Colors.white,
+        elevation: 10,
+        offset: const Offset(-8, 34),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFE8DED4)),
+        ),
         onSelected: (value) {
           switch (value) {
             case 'edit':
-              onEditSalon?.call();
+              if (isActive) onEditSalon?.call();
               break;
             case 'toggle':
               onToggleSalonActive?.call(!isActive);
@@ -1434,21 +1517,31 @@ class _SalonCard extends StatelessWidget {
           if (onEditSalon != null)
             PopupMenuItem<String>(
               value: 'edit',
-              child: Text(translateText('Edit Salon')),
+              enabled: canEdit,
+              child: _ActionPopupRow(
+                icon: Icons.edit_outlined,
+                label: 'Edit Salon',
+                enabled: canEdit,
+              ),
             ),
           if (onToggleSalonActive != null)
             PopupMenuItem<String>(
               value: 'toggle',
-              child: Text(
-                translateText(
-                  isActive ? 'Deactivate Salon' : 'Activate Salon',
-                ),
+              child: _ActionPopupRow(
+                icon: isActive
+                    ? Icons.block_outlined
+                    : Icons.check_circle_outline,
+                label: isActive ? 'Deactivate Salon' : 'Activate Salon',
               ),
             ),
           if (onDeleteSalon != null)
             PopupMenuItem<String>(
               value: 'delete',
-              child: Text(translateText('Delete Salon')),
+              child: _ActionPopupRow(
+                icon: Icons.delete_outline,
+                label: 'Delete Salon',
+                destructive: true,
+              ),
             ),
         ],
       ),
@@ -1602,19 +1695,30 @@ class _SalonCard extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          salonName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFF201B17),
-                          ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                salonName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF201B17),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _statusTag(
+                              isActive ? 'Activated' : 'Deactivated',
+                              active: isActive,
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _salonMenuButton(isActive),
+                      _salonMenuButton(context, isActive),
                     ],
                   ),
                   _infoLine(Icons.location_on_outlined, addressLabel),
@@ -2212,6 +2316,98 @@ class _BranchTileState extends State<_BranchTile> {
     }
   }
 
+  Widget _branchMenuButton(bool isActive) {
+    final canEdit = isActive && widget.onEdit != null;
+
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: PopupMenuButton<String>(
+        padding: EdgeInsets.zero,
+        icon: const Icon(
+          Icons.more_vert_rounded,
+          size: 18,
+          color: Color(0xFF8A8178),
+        ),
+        color: Colors.white,
+        elevation: 10,
+        offset: const Offset(-8, 30),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: Color(0xFFE8DED4)),
+        ),
+        onSelected: (value) {
+          switch (value) {
+            case 'edit':
+              if (isActive) widget.onEdit?.call();
+              break;
+            case 'toggle':
+              widget.onToggleActive?.call(!isActive);
+              break;
+            case 'delete':
+              widget.onDelete?.call();
+              break;
+          }
+        },
+        itemBuilder: (context) => [
+          if (widget.onEdit != null)
+            PopupMenuItem<String>(
+              value: 'edit',
+              enabled: canEdit,
+              child: _ActionPopupRow(
+                icon: Icons.edit_outlined,
+                label: 'Edit Branch',
+                enabled: canEdit,
+              ),
+            ),
+          if (widget.onToggleActive != null)
+            PopupMenuItem<String>(
+              value: 'toggle',
+              child: _ActionPopupRow(
+                icon: isActive
+                    ? Icons.block_outlined
+                    : Icons.check_circle_outline,
+                label: isActive ? 'Deactivate Branch' : 'Activate Branch',
+              ),
+            ),
+          if (widget.onDelete != null)
+            const PopupMenuItem<String>(
+              value: 'delete',
+              child: _ActionPopupRow(
+                icon: Icons.delete_outline,
+                label: 'Delete Branch',
+                destructive: true,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _branchStatusTag(bool isActive) {
+    final textColor =
+        isActive ? const Color(0xFF047857) : const Color(0xFFB42318);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFFE8FFF5) : const Color(0xFFFFEFEF),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: isActive ? const Color(0xFFB7F0D0) : const Color(0xFFF5C2C7),
+        ),
+      ),
+      child: Text(
+        translateText(isActive ? 'Activated' : 'Deactivated'),
+        style: TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w900,
+          color: textColor,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final branch = widget.branch;
@@ -2259,13 +2455,23 @@ class _BranchTileState extends State<_BranchTile> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (showTitle)
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF201B17),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFF201B17),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        _branchStatusTag(isActive),
+                      ],
                     ),
                   if (fullAddress.isNotEmpty) ...[
                     if (showTitle) const SizedBox(height: 4),
@@ -2300,48 +2506,7 @@ class _BranchTileState extends State<_BranchTile> {
             if (widget.onEdit != null ||
                 widget.onToggleActive != null ||
                 widget.onDelete != null)
-              PopupMenuButton<String>(
-                padding: EdgeInsets.zero,
-                icon: const Icon(
-                  Icons.more_vert_rounded,
-                  size: 18,
-                  color: Color(0xFF8A8178),
-                ),
-                onSelected: (value) {
-                  switch (value) {
-                    case 'edit':
-                      widget.onEdit?.call();
-                      break;
-                    case 'toggle':
-                      widget.onToggleActive?.call(!isActive);
-                      break;
-                    case 'delete':
-                      widget.onDelete?.call();
-                      break;
-                  }
-                },
-                itemBuilder: (context) => [
-                  if (widget.onEdit != null)
-                    PopupMenuItem<String>(
-                      value: 'edit',
-                      child: Text(translateText('Edit Branch')),
-                    ),
-                  if (widget.onToggleActive != null)
-                    PopupMenuItem<String>(
-                      value: 'toggle',
-                      child: Text(
-                        translateText(
-                          isActive ? 'Deactivate Branch' : 'Activate Branch',
-                        ),
-                      ),
-                    ),
-                  if (widget.onDelete != null)
-                    PopupMenuItem<String>(
-                      value: 'delete',
-                      child: Text(translateText('Delete Branch')),
-                    ),
-                ],
-              ),
+              _branchMenuButton(isActive),
             if (isLoading)
               SizedBox(
                 width: 20,

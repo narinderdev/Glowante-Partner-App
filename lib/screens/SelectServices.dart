@@ -189,10 +189,6 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
 
     final String q = searchQuery.toLowerCase();
 
-    // Category matches search?
-    final bool matchesCategory = q.isEmpty ||
-        (cat['displayName']?.toString().toLowerCase() ?? '').contains(q);
-
     // Filter category-level services
     final filteredServices = services.where((s) {
       final name = (s['displayName'] ?? '').toString().toLowerCase();
@@ -204,6 +200,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
       final subMap = (sub as Map).cast<String, dynamic>();
       final subName = (subMap['displayName'] ?? '').toString().toLowerCase();
       final subServices = (subMap['services'] ?? []) as List;
+      if (subServices.isEmpty) return false;
 
       // check if subcategory name matches or if any service name matches
       final bool hasMatchingService = subServices.any((svc) =>
@@ -213,7 +210,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
     }).toList();
 
     // Hide category if nothing matches
-    if (!matchesCategory && filteredServices.isEmpty && filteredSubs.isEmpty) {
+    if (filteredServices.isEmpty && filteredSubs.isEmpty) {
       return const SizedBox.shrink();
     }
 

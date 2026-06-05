@@ -207,18 +207,40 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
   List<int> _allServiceIds() {
     final ids = <int>[];
-    for (final c in _categories) {
-      final cat = c as Map<String, dynamic>;
+    for (final cat in _visibleCategories()) {
       for (final s in (cat['services'] ?? [])) {
         ids.add((s as Map)['id'] as int); // branch service id
       }
-      for (final sub in (cat['subCategories'] ?? [])) {
-        for (final s in ((sub as Map)['services'] ?? [])) {
+      for (final sub in _visibleSubCategories(cat)) {
+        for (final s in ((sub['services'] ?? []) as List)) {
           ids.add((s as Map)['id'] as int); // branch service id
         }
       }
     }
     return ids;
+  }
+
+  List<Map<String, dynamic>> _visibleCategories() {
+    return _categories
+        .whereType<Map>()
+        .map((cat) => Map<String, dynamic>.from(cat))
+        .where(_categoryHasServices)
+        .toList();
+  }
+
+  bool _categoryHasServices(Map<String, dynamic> cat) {
+    final services = cat['services'] as List? ?? const [];
+    if (services.isNotEmpty) return true;
+    return _visibleSubCategories(cat).isNotEmpty;
+  }
+
+  List<Map<String, dynamic>> _visibleSubCategories(Map<String, dynamic> cat) {
+    final subs = cat['subCategories'] as List? ?? const [];
+    return subs
+        .whereType<Map>()
+        .map((sub) => Map<String, dynamic>.from(sub))
+        .where((sub) => ((sub['services'] as List?) ?? const []).isNotEmpty)
+        .toList();
   }
 
   List<int> get _selectedServiceIds =>
@@ -273,12 +295,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
   Widget _buildCategory(Map<String, dynamic> cat) {
     final List services = cat['services'] as List? ?? [];
-    final List subs = cat['subCategories'] as List? ?? [];
-
-    final visibleSubs = subs.where((sub) {
-      if (sub is! Map) return false;
-      return ((sub['services'] as List?) ?? const []).isNotEmpty;
-    }).toList();
+    final visibleSubs = _visibleSubCategories(cat);
 
     if (services.isEmpty && visibleSubs.isEmpty) {
       return const SizedBox.shrink();
@@ -286,7 +303,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
     final allIds = <int>[
       ...services.map((s) => (s as Map)['id'] as int),
-      ...visibleSubs.expand((sub) => ((sub as Map)['services'] ?? [])
+      ...visibleSubs.expand((sub) => ((sub['services'] ?? []) as List)
           .map<int>((s) => (s as Map)['id'] as int)),
     ];
 
@@ -324,8 +341,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
           ),
 
           // subcategories
-          ...visibleSubs.map<Widget>((sub) {
-            final subMap = (sub as Map).cast<String, dynamic>();
+          ...visibleSubs.map<Widget>((subMap) {
             final List subServices = subMap['services'] as List? ?? [];
             final subIds = subServices
                 .map((s) => (s as Map)['id'])
@@ -508,9 +524,9 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                 Expanded(
                   child: _hasAssignableServices
                       ? ListView.builder(
-                          itemCount: _categories.length,
-                          itemBuilder: (ctx, i) => _buildCategory(
-                              (_categories[i] as Map).cast<String, dynamic>()),
+                          itemCount: _visibleCategories().length,
+                          itemBuilder: (ctx, i) =>
+                              _buildCategory(_visibleCategories()[i]),
                         )
                       : const _NoAssignableServicesState(),
                 ),

@@ -82,6 +82,32 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
     return assignedBranchIds;
   }
 
+  int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? ''}');
+  }
+
+  bool _memberBelongsToSalon(int salonId) {
+    final rawUserSalons = widget.member['userSalons'];
+    if (rawUserSalons is List) {
+      for (final item in rawUserSalons) {
+        if (item is! Map) continue;
+        final salon = item['salon'];
+        final rawSalonId = salon is Map ? salon['id'] : item['salonId'];
+        if (_toInt(rawSalonId) == salonId) {
+          return true;
+        }
+      }
+    }
+
+    final assignedBranchIds = _assignedBranchIds();
+    return widget.branches.any(
+      (branch) =>
+          branch.salonId == salonId && assignedBranchIds.contains(branch.id),
+    );
+  }
+
   List<Branch> get _availableBranches {
     final assignedBranchIds = _assignedBranchIds();
     return widget.branches
@@ -226,6 +252,19 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
                     : () async {
                         final branch = availableBranches
                             .firstWhere((b) => b.id == selectedBranchId);
+
+                        if (!_memberBelongsToSalon(branch.salonId)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                translateText(
+                                  'This team member is not part of this salon. Add them to this salon before assigning a branch.',
+                                ),
+                              ),
+                            ),
+                          );
+                          return;
+                        }
 
                         // Go to Step 2
                         final assigned = await Navigator.push<bool>(

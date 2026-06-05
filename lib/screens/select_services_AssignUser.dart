@@ -78,18 +78,40 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
 
   List<int> _allServiceIds() {
     final ids = <int>[];
-    for (final c in categories) {
-      final cat = c as Map<String, dynamic>;
+    for (final cat in _visibleCategories()) {
       for (final s in (cat['services'] ?? [])) {
         ids.add((s as Map)['id'] as int); // ✅ branch service id
       }
-      for (final sub in (cat['subCategories'] ?? [])) {
-        for (final s in ((sub as Map)['services'] ?? [])) {
+      for (final sub in _visibleSubCategories(cat)) {
+        for (final s in ((sub['services'] ?? []) as List)) {
           ids.add((s as Map)['id'] as int); // ✅ branch service id
         }
       }
     }
     return ids;
+  }
+
+  List<Map<String, dynamic>> _visibleCategories() {
+    return categories
+        .whereType<Map>()
+        .map((cat) => Map<String, dynamic>.from(cat))
+        .where(_categoryHasServices)
+        .toList();
+  }
+
+  bool _categoryHasServices(Map<String, dynamic> cat) {
+    final services = cat['services'] as List? ?? const [];
+    if (services.isNotEmpty) return true;
+    return _visibleSubCategories(cat).isNotEmpty;
+  }
+
+  List<Map<String, dynamic>> _visibleSubCategories(Map<String, dynamic> cat) {
+    final subs = cat['subCategories'] as List? ?? const [];
+    return subs
+        .whereType<Map>()
+        .map((sub) => Map<String, dynamic>.from(sub))
+        .where((sub) => ((sub['services'] as List?) ?? const []).isNotEmpty)
+        .toList();
   }
 
   Widget _buildServiceItem(Map<String, dynamic> s) {
@@ -110,12 +132,12 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
 
   Widget _buildCategory(Map<String, dynamic> cat) {
     final List services = cat['services'] as List? ?? [];
-    final List subs = cat['subCategories'] as List? ?? [];
+    final List<Map<String, dynamic>> subs = _visibleSubCategories(cat);
 
     final allIds = [
       ...services.map((s) => (s as Map)['id'] as int),
-      ...subs.expand((sub) =>
-          ((sub as Map)['services'] ?? []).map((s) => (s as Map)['id'] as int)),
+      ...subs.expand((sub) => ((sub['services'] ?? []) as List)
+          .map((s) => (s as Map)['id'] as int)),
     ];
     final int selCount = allIds.where((id) => selected[id] == true).length;
 
@@ -136,8 +158,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
               .map<Widget>(
                   (s) => _buildServiceItem((s as Map).cast<String, dynamic>()))
               .toList(),
-          ...subs.map<Widget>((sub) {
-            final subMap = (sub as Map).cast<String, dynamic>();
+          ...subs.map<Widget>((subMap) {
             final List subServices = subMap['services'] as List? ?? [];
             return ExpansionTile(
               title: Text(subMap['displayName']?.toString() ?? '',
@@ -194,15 +215,16 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                 ),
 
                 // Select All
-                Card(
-                  margin: const EdgeInsets.all(8),
-                  child: CheckboxListTile(
-                    value: allSelected,
-                    onChanged: toggleAll,
-                    title: Text(translateText("Select All Services")),
-                    controlAffinity: ListTileControlAffinity.trailing,
+                if (_allServiceIds().isNotEmpty)
+                  Card(
+                    margin: const EdgeInsets.all(8),
+                    child: CheckboxListTile(
+                      value: allSelected,
+                      onChanged: toggleAll,
+                      title: Text(translateText("Select All Services")),
+                      controlAffinity: ListTileControlAffinity.trailing,
+                    ),
                   ),
-                ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   // children: [
@@ -247,11 +269,28 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
 
                 // Categories
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: categories.length,
-                    itemBuilder: (ctx, i) => _buildCategory(
-                        (categories[i] as Map).cast<String, dynamic>()),
-                  ),
+                  child: _visibleCategories().isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              translateText(
+                                'No services are available for this branch to assign.',
+                              ),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: _visibleCategories().length,
+                          itemBuilder: (ctx, i) =>
+                              _buildCategory(_visibleCategories()[i]),
+                        ),
                 ),
               ],
             ),

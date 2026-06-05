@@ -1852,6 +1852,7 @@ class ApiService {
       rethrow;
     }
   }
+
   Future<Map<String, dynamic>> addSubCategoryApi({
     required int branchId,
     required int categoryId,
@@ -2173,9 +2174,8 @@ class ApiService {
         }
         return {
           'success': false,
-          'message': response.body.isNotEmpty
-              ? response.body
-              : 'Failed to add user',
+          'message':
+              response.body.isNotEmpty ? response.body : 'Failed to add user',
         };
       }
     } catch (e) {
@@ -4397,7 +4397,18 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(response.body) as Map<String, dynamic>;
       } else {
-        throw Exception("Failed to assign user: ${response.body}");
+        String message = 'Failed to assign user';
+        try {
+          final decoded = json.decode(response.body);
+          if (decoded is Map && decoded['message'] != null) {
+            message = decoded['message'].toString();
+          }
+        } catch (_) {
+          if (response.body.trim().isNotEmpty) {
+            message = response.body;
+          }
+        }
+        throw Exception(message);
       }
     } catch (e) {
       print("❌ Error assigning user: $e");

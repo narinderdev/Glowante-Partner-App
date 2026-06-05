@@ -85,6 +85,20 @@ class _SalonBranchOption {
   }
 }
 
+class _TeamMemberDirectory {
+  const _TeamMemberDirectory({
+    this.serviceNames = const <String, List<String>>{},
+    this.namesByUserId = const <int, String>{},
+    this.namesByUserBranchId = const <int, String>{},
+  });
+
+  final Map<String, List<String>> serviceNames;
+  final Map<int, String> namesByUserId;
+  final Map<int, String> namesByUserBranchId;
+
+  List<String> get names => serviceNames.keys.toList();
+}
+
 class _BookingStatusVisuals {
   const _BookingStatusVisuals({
     required this.label,
@@ -1071,6 +1085,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   List<String> _teamMemberNames = const [];
   Map<String, List<String>> _teamMemberServiceNames =
       const <String, List<String>>{};
+  Map<int, String> _teamMemberNamesByUserId = const <int, String>{};
+  Map<int, String> _teamMemberNamesByUserBranchId = const <int, String>{};
   _SalonBranchOption? _selectedOption;
   DateTime _selectedDate = DateTime.now();
   DateTime _visibleDateStart = DateTime.now();
@@ -1268,13 +1284,50 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
   }
 
-  Future<Map<String, List<String>>> _fetchTeamMemberServiceNames(
-    int branchId,
-  ) async {
+  String _weekdayKey(DateTime value) {
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    return days[value.weekday - 1];
+  }
+
+  bool _memberWorksOnDate(Map<String, dynamic> branchEntry, DateTime date) {
+    final schedules = branchEntry['schedules'];
+    if (schedules is! List || schedules.isEmpty) return false;
+
+    final targetDay = _weekdayKey(date);
+    for (final schedule in schedules) {
+      if (schedule is! Map) continue;
+      final day = schedule['day']?.toString().trim().toLowerCase() ?? '';
+      if (day != targetDay) continue;
+      final start = schedule['startTime']?.toString().trim() ?? '';
+      final end = schedule['endTime']?.toString().trim() ?? '';
+      if (start.isNotEmpty && end.isNotEmpty) return true;
+    }
+
+    return false;
+  }
+
+  _TeamMemberDirectory _emptyTeamMemberDirectory() {
+    return const _TeamMemberDirectory();
+  }
+
+  Future<_TeamMemberDirectory> _fetchTeamMemberDirectory(
+    int branchId, {
+    required DateTime date,
+  }) async {
     try {
       final response = await ApiService.getTeamMembers(branchId);
       final data = (response['data'] as List?) ?? const [];
-      final result = <String, List<String>>{};
+      final serviceNamesByMember = <String, List<String>>{};
+      final namesByUserId = <int, String>{};
+      final namesByUserBranchId = <int, String>{};
 
       for (final item in data) {
         if (item is! Map) continue;
@@ -1282,15 +1335,22 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         final name = _personName(member).trim();
         if (name.isEmpty) continue;
 
+        final memberUserId = _asInt(member['id']);
+        if (memberUserId != null) {
+          namesByUserId[memberUserId] = name;
+        }
+
         final services = <String>[];
         final seen = <String>{};
+        var worksOnSelectedDate = false;
         final assignments = member['userBranches'];
         if (assignments is List) {
           for (final assignment in assignments) {
             if (assignment is! Map) continue;
-            final branch = assignment['branch'];
+            final branchEntry = Map<String, dynamic>.from(assignment);
+            final branch = branchEntry['branch'];
             final rawBranchId =
-                branch is Map ? branch['id'] : assignment['branchId'];
+                branch is Map ? branch['id'] : branchEntry['branchId'];
             final memberBranchId = rawBranchId is int
                 ? rawBranchId
                 : rawBranchId is num
@@ -1300,7 +1360,26 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               continue;
             }
 
-            final userBranchServices = assignment['userBranchServices'];
+            if (!_memberWorksOnDate(branchEntry, date)) {
+              continue;
+            }
+            worksOnSelectedDate = true;
+
+            for (final key in const [
+              'userBranchId',
+              'user_branch_id',
+              'assignedUserBranchId',
+              'assigned_user_branch_id',
+              'assignmentId',
+              'assignment_id',
+            ]) {
+              final userBranchId = _asInt(branchEntry[key]);
+              if (userBranchId != null) {
+                namesByUserBranchId[userBranchId] = name;
+              }
+            }
+
+            final userBranchServices = branchEntry['userBranchServices'];
             if (userBranchServices is! List) continue;
             for (final rawService in userBranchServices) {
               if (rawService is! Map) continue;
@@ -1318,13 +1397,19 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           }
         }
 
-        result[name] = services;
+        if (worksOnSelectedDate) {
+          serviceNamesByMember[name] = services;
+        }
       }
 
-      return result;
+      return _TeamMemberDirectory(
+        serviceNames: serviceNamesByMember,
+        namesByUserId: namesByUserId,
+        namesByUserBranchId: namesByUserBranchId,
+      );
     } catch (e) {
       debugPrint('[BookingsTeamMemberServices] failed=$e');
-      return const <String, List<String>>{};
+      return _emptyTeamMemberDirectory();
     }
   }
 
@@ -1373,6 +1458,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     List<String> teamMemberNames = const [];
     Map<String, List<String>> teamMemberServiceNames =
         const <String, List<String>>{};
+    _TeamMemberDirectory teamMemberDirectory = _emptyTeamMemberDirectory();
     if (selected != null && (widget.isOwnerMode || userId != null)) {
       final result = await _fetchBookingsForBranch(
         branchId: selected.branchId,
@@ -1381,9 +1467,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       bookings = result.bookings;
       errorMessage ??= result.errorMessage;
       if (widget.isOwnerMode) {
-        teamMemberServiceNames =
-            await _fetchTeamMemberServiceNames(selected.branchId);
-        teamMemberNames = teamMemberServiceNames.keys.toList();
+        teamMemberDirectory = await _fetchTeamMemberDirectory(
+          selected.branchId,
+          date: _selectedDate,
+        );
+        teamMemberServiceNames = teamMemberDirectory.serviceNames;
+        teamMemberNames = teamMemberDirectory.names;
       }
     } else if (selected != null && !widget.isOwnerMode && userId == null) {
       errorMessage ??= 'Unable to load stylist bookings';
@@ -1398,6 +1487,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _bookings = bookings;
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
+      _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
+      _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _errorMessage = errorMessage;
       _isLoading = false;
       _loadingDate = false;
@@ -1413,12 +1504,19 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       branchId: selected.branchId,
       userId: _userId,
     );
+    final teamMemberDirectory = widget.isOwnerMode
+        ? await _fetchTeamMemberDirectory(selected.branchId,
+            date: _selectedDate)
+        : _TeamMemberDirectory(
+            serviceNames: _teamMemberServiceNames,
+            namesByUserId: _teamMemberNamesByUserId,
+            namesByUserBranchId: _teamMemberNamesByUserBranchId,
+          );
     final teamMemberServiceNames = widget.isOwnerMode
-        ? await _fetchTeamMemberServiceNames(selected.branchId)
+        ? teamMemberDirectory.serviceNames
         : _teamMemberServiceNames;
-    final teamMemberNames = widget.isOwnerMode
-        ? teamMemberServiceNames.keys.toList()
-        : _teamMemberNames;
+    final teamMemberNames =
+        widget.isOwnerMode ? teamMemberDirectory.names : _teamMemberNames;
 
     if (!mounted) return;
     _logBookingsFetchSnapshot(
@@ -1430,6 +1528,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _bookings = result.bookings;
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
+      _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
+      _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _errorMessage = result.errorMessage;
     });
   }
@@ -1451,6 +1551,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     List<Map<String, dynamic>> bookings = const [];
     List<String> teamMemberNames = _teamMemberNames;
     Map<String, List<String>> teamMemberServiceNames = _teamMemberServiceNames;
+    _TeamMemberDirectory teamMemberDirectory = _TeamMemberDirectory(
+      serviceNames: _teamMemberServiceNames,
+      namesByUserId: _teamMemberNamesByUserId,
+      namesByUserBranchId: _teamMemberNamesByUserBranchId,
+    );
     String? errorMessage;
     if (!widget.isOwnerMode && _userId == null) {
       errorMessage = 'Unable to load stylist bookings';
@@ -1462,9 +1567,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       bookings = result.bookings;
       errorMessage = result.errorMessage;
       if (widget.isOwnerMode) {
-        teamMemberServiceNames =
-            await _fetchTeamMemberServiceNames(option.branchId);
-        teamMemberNames = teamMemberServiceNames.keys.toList();
+        teamMemberDirectory = await _fetchTeamMemberDirectory(
+          option.branchId,
+          date: _selectedDate,
+        );
+        teamMemberServiceNames = teamMemberDirectory.serviceNames;
+        teamMemberNames = teamMemberDirectory.names;
       }
     }
 
@@ -1474,6 +1582,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _bookings = bookings;
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
+      _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
+      _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _errorMessage = errorMessage;
       _loadingDate = false;
     });
@@ -1492,6 +1602,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     List<Map<String, dynamic>> bookings = const [];
     String? errorMessage;
+    _TeamMemberDirectory teamMemberDirectory = _TeamMemberDirectory(
+      serviceNames: _teamMemberServiceNames,
+      namesByUserId: _teamMemberNamesByUserId,
+      namesByUserBranchId: _teamMemberNamesByUserBranchId,
+    );
 
     if (selected != null && (widget.isOwnerMode || userId != null)) {
       final result = await _fetchBookingsForBranch(
@@ -1500,12 +1615,25 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       );
       bookings = result.bookings;
       errorMessage = result.errorMessage;
+      if (widget.isOwnerMode) {
+        teamMemberDirectory = await _fetchTeamMemberDirectory(
+          selected.branchId,
+          date: normalizedDate,
+        );
+      }
     }
 
     if (!mounted) return;
     _logBookingsFetchSnapshot(context, bookings, source: 'select_date');
     setState(() {
       _bookings = bookings;
+      if (widget.isOwnerMode) {
+        _teamMemberNames = teamMemberDirectory.names;
+        _teamMemberServiceNames = teamMemberDirectory.serviceNames;
+        _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
+        _teamMemberNamesByUserBranchId =
+            teamMemberDirectory.namesByUserBranchId;
+      }
       _errorMessage = errorMessage;
       _loadingDate = false;
     });
@@ -1546,14 +1674,72 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return sortedBookings;
   }
 
+  List<String> _assignedStaffNamesForGrouping(
+    Map<String, dynamic> booking,
+  ) {
+    final names = <String>[];
+    final seen = <String>{};
+
+    void addName(String value) {
+      final normalized = value.trim();
+      if (normalized.isEmpty) return;
+      final key = normalized.toLowerCase();
+      if (seen.add(key)) {
+        names.add(normalized);
+      }
+    }
+
+    void addFromUserId(dynamic value) {
+      final id = _asInt(value);
+      if (id == null) return;
+      addName(_teamMemberNamesByUserId[id] ?? '');
+    }
+
+    void addFromUserBranchId(dynamic value) {
+      final id = _asInt(value);
+      if (id == null) return;
+      addName(_teamMemberNamesByUserBranchId[id] ?? '');
+    }
+
+    for (final name in _assignedStaffNames(booking)) {
+      addName(name);
+    }
+
+    addName(_personName(booking['assignedUserBranch']?['user']));
+    addFromUserId(booking['assignedUserId']);
+    addFromUserId(booking['teamMemberId']);
+    addFromUserBranchId(booking['assignedUserBranchId']);
+    addFromUserBranchId(booking['userBranchId']);
+    addFromUserBranchId(booking['assignedUserBranch']?['id']);
+    addFromUserId(booking['assignedUserBranch']?['user']?['id']);
+
+    for (final item in _bookingItems(booking)) {
+      addName(_personName(item['assignedUserBranch']?['user']));
+      addFromUserId(item['assignedUserId']);
+      addFromUserId(item['teamMemberId']);
+      addFromUserBranchId(item['assignedUserBranchId']);
+      addFromUserBranchId(item['userBranchId']);
+      addFromUserBranchId(item['assignedUserBranch']?['id']);
+      addFromUserId(item['assignedUserBranch']?['user']?['id']);
+    }
+
+    return names;
+  }
+
   Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
       BuildContext context, List<Map<String, dynamic>> bookings,
       {bool includeEmptyTeamMembers = false}) {
     final groups = <String, List<Map<String, dynamic>>>{};
     for (final booking in bookings) {
-      final label = _assignedStaffSummary(context, booking).trim();
-      final key = label.isEmpty ? context.t('Unassigned') : label;
-      groups.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(booking);
+      final labels = _assignedStaffNamesForGrouping(booking);
+      if (labels.isEmpty) {
+        final key = context.t('Unassigned');
+        groups.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(booking);
+        continue;
+      }
+      for (final label in labels) {
+        groups.putIfAbsent(label, () => <Map<String, dynamic>>[]).add(booking);
+      }
     }
     if (includeEmptyTeamMembers) {
       for (final name in _teamMemberNames) {
@@ -2239,8 +2425,7 @@ class _TeamMemberSlotsRowState extends State<_TeamMemberSlotsRow> {
 
   @override
   Widget build(BuildContext context) {
-    final availabilityColor =
-        _professionalAvailabilityColor(widget.bookings);
+    final availabilityColor = _professionalAvailabilityColor(widget.bookings);
     final selectedBooking = _selectedBookingIndex == null ||
             _selectedBookingIndex! >= widget.bookings.length
         ? null

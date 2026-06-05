@@ -425,18 +425,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onRefresh: _loadUserData,
       topSections: const <Widget>[],
       menuItems: [
-        ProfileMenuItemData(
-          icon: Icons.info_outline,
-          label: context.t('About Salon'),
-          onTap: () {
-            _logProfile('open_about_salon');
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SalonAbout()),
-            );
-          },
-          showLeftAccent: true,
-        ),
+        // ProfileMenuItemData(
+        //   icon: Icons.info_outline,
+        //   label: context.t('About Salon'),
+        //   onTap: () {
+        //     _logProfile('open_about_salon');
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(builder: (_) => const SalonAbout()),
+        //     );
+        //   },
+        //   showLeftAccent: true,
+        // ),
         ProfileMenuItemData(
           icon: Icons.groups_outlined,
           label: context.t('Clients'),
