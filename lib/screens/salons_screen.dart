@@ -1475,8 +1475,180 @@ class _SalonCard extends StatelessWidget {
     );
   }
 
-  Widget _salonMenuButton(BuildContext context, bool isActive) {
+  Future<void> _showChangeStatusDialog({
+    required BuildContext context,
+    required bool isSalonActive,
+    required bool isBranchActive,
+    required int branchId,
+    required String salonName,
+    required String branchName,
+  }) async {
+    final selection = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        Widget option({
+          required IconData icon,
+          required String title,
+          required String subtitle,
+          required String value,
+        }) {
+          return InkWell(
+            onTap: () => Navigator.pop(dialogContext, value),
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFD8B98A)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF4E8D1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 17, color: Color(0xFF8B6500)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          translateText(title),
+                          style: const TextStyle(
+                            color: Color(0xFF201B17),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF8A8178),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 34),
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        translateText('Change Status'),
+                        style: const TextStyle(
+                          color: Color(0xFF201B17),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => Navigator.pop(dialogContext),
+                      borderRadius: BorderRadius.circular(999),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: Color(0xFF6B5B4D),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  translateText('What would you like to update?'),
+                  style: const TextStyle(
+                    color: Color(0xFF8A8178),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                option(
+                  icon: Icons.storefront_outlined,
+                  title: 'Salon',
+                  subtitle: salonName,
+                  value: 'salon',
+                ),
+                const SizedBox(height: 10),
+                option(
+                  icon: Icons.home_work_outlined,
+                  title: 'Branch',
+                  subtitle: branchName.isEmpty ? salonName : branchName,
+                  value: 'branch',
+                ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF6B5B4D),
+                      side: const BorderSide(color: Color(0xFFE8DED4)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    child: Text(translateText('Cancel')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selection == 'salon') {
+      onToggleSalonActive?.call(!isSalonActive);
+    } else if (selection == 'branch') {
+      onToggleBranchActive?.call(branchId, !isBranchActive);
+    }
+  }
+
+  Widget _salonMenuButton(
+    BuildContext context,
+    bool isActive, {
+    required int primaryBranchId,
+    required bool primaryBranchActive,
+    required String salonName,
+    required String primaryBranchName,
+  }) {
     final canEdit = isActive && onEditSalon != null;
+    final canChooseStatusTarget =
+        primaryBranchId != 0 && onToggleBranchActive != null;
     if (onEditSalon == null &&
         onToggleSalonActive == null &&
         onDeleteSalon == null) {
@@ -1506,7 +1678,18 @@ class _SalonCard extends StatelessWidget {
               if (isActive) onEditSalon?.call();
               break;
             case 'toggle':
-              onToggleSalonActive?.call(!isActive);
+              if (canChooseStatusTarget) {
+                _showChangeStatusDialog(
+                  context: context,
+                  isSalonActive: isActive,
+                  isBranchActive: primaryBranchActive,
+                  branchId: primaryBranchId,
+                  salonName: salonName,
+                  branchName: primaryBranchName,
+                );
+              } else {
+                onToggleSalonActive?.call(!isActive);
+              }
               break;
             case 'delete':
               onDeleteSalon?.call();
@@ -1528,10 +1711,16 @@ class _SalonCard extends StatelessWidget {
             PopupMenuItem<String>(
               value: 'toggle',
               child: _ActionPopupRow(
-                icon: isActive
-                    ? Icons.block_outlined
-                    : Icons.check_circle_outline,
-                label: isActive ? 'Deactivate Salon' : 'Activate Salon',
+                icon: canChooseStatusTarget
+                    ? Icons.sync_alt_rounded
+                    : isActive
+                        ? Icons.block_outlined
+                        : Icons.check_circle_outline,
+                label: canChooseStatusTarget
+                    ? 'Change Status'
+                    : isActive
+                        ? 'Deactivate Salon'
+                        : 'Activate Salon',
               ),
             ),
           if (onDeleteSalon != null)
@@ -1637,6 +1826,10 @@ class _SalonCard extends StatelessWidget {
     final branchCount = visibleBranchList.length;
     final staffCount = _staffCount(branches);
     final isActive = salon['active'] != false;
+    final primaryBranchActive = primaryBranch?['active'] != false;
+    final primaryBranchName = _cleanText(primaryBranch?['name']).isEmpty
+        ? salonName
+        : _cleanText(primaryBranch?['name']);
     var primaryBranchId = 0;
     if (primaryBranch != null) {
       primaryBranchId = _parseId(primaryBranch['id']);
@@ -1709,16 +1902,22 @@ class _SalonCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            _statusTag(
-                              isActive ? 'Active' : 'Inactive',
-                              active: isActive,
-                            ),
+                            if (!isActive) ...[
+                              const SizedBox(width: 8),
+                              _statusTag('Deactivated', active: false),
+                            ],
                           ],
                         ),
                       ),
                       const SizedBox(width: 8),
-                      _salonMenuButton(context, isActive),
+                      _salonMenuButton(
+                        context,
+                        isActive,
+                        primaryBranchId: primaryBranchId,
+                        primaryBranchActive: primaryBranchActive,
+                        salonName: salonName,
+                        primaryBranchName: primaryBranchName,
+                      ),
                     ],
                   ),
                   _infoLine(Icons.location_on_outlined, addressLabel),
@@ -2398,7 +2597,7 @@ class _BranchTileState extends State<_BranchTile> {
         ),
       ),
       child: Text(
-        translateText(isActive ? 'Active' : 'Inactive'),
+        translateText(isActive ? 'Active' : 'Deactivated'),
         style: TextStyle(
           fontSize: 8,
           fontWeight: FontWeight.w900,
@@ -2469,8 +2668,10 @@ class _BranchTileState extends State<_BranchTile> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        _branchStatusTag(isActive),
+                        if (!isActive) ...[
+                          const SizedBox(width: 6),
+                          _branchStatusTag(false),
+                        ],
                       ],
                     ),
                   if (fullAddress.isNotEmpty) ...[

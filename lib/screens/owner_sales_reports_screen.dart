@@ -365,40 +365,57 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
     return _ReportSection(
       padding: const EdgeInsets.all(4),
       child: Row(
-        children: OwnerSalesReportModule.values.map((module) {
+        children: OwnerSalesReportModule.values.asMap().entries.map((entry) {
+          final index = entry.key;
+          final module = entry.value;
           final selected = module == _module;
           return Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () async {
-                if (_module == module) return;
-                setState(() {
-                  _module = module;
-                  _data = const {};
-                });
-                final branchId = _selectedBranchId;
-                if (branchId != null) {
-                  await _loadReport(branchId, saveSelection: false);
-                }
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.starColor : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  module.title(context),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: selected ? Colors.white : const Color(0xFF6B5B4D),
+            child: Row(
+              children: [
+                if (index > 0)
+                  Container(
+                    width: 1,
+                    height: 22,
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    color: const Color(0xFFE4DDD6),
+                  ),
+                Expanded(
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () async {
+                      if (_module == module) return;
+                      setState(() {
+                        _module = module;
+                        _data = const {};
+                      });
+                      final branchId = _selectedBranchId;
+                      if (branchId != null) {
+                        await _loadReport(branchId, saveSelection: false);
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color:
+                            selected ? AppColors.starColor : Colors.transparent,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        module.title(context),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color:
+                              selected ? Colors.white : const Color(0xFF6B5B4D),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           );
         }).toList(),
