@@ -456,6 +456,10 @@ class ApiService {
 
   static const String reportsDashboardAPI = "reports/dashboard";
   static const String salonOwnerDashboardAPI = "reports/salon-owner-dashboard";
+  static const String revenueSalesDashboardAPI =
+      "reports/revenue-sales-dashboard";
+  static const String staffPerformanceAPI = "reports/staff-performance";
+  static const String operationsDashboardAPI = "reports/operations-dashboard";
 
   // / ---------------------- IMAGE UPLOAD ----------------------
 
@@ -4615,6 +4619,100 @@ class ApiService {
       return json.decode(response.body) as Map<String, dynamic>;
     }
     throw Exception("Failed to load reports dashboard: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> getRevenueSalesDashboard({
+    required int branchId,
+    required String dateRange,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse('$baseUrl$revenueSalesDashboardAPI').replace(
+      queryParameters: {
+        'branchId': branchId.toString(),
+        'dateRange': dateRange,
+      },
+    );
+
+    final response = await _sharedClient.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    debugPrint("[RevenueSalesDashboard] url=$url");
+    debugPrint("[RevenueSalesDashboard] status=${response.statusCode}");
+    _debugPrintChunked("RevenueSalesDashboard body", response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to load revenue and sales: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> getStaffPerformanceReport({
+    required int branchId,
+    required String dateRange,
+    int page = 1,
+    int perPage = 10,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse('$baseUrl$staffPerformanceAPI').replace(
+      queryParameters: {
+        'branchId': branchId.toString(),
+        'dateRange': dateRange,
+        'page': page.toString(),
+        'perPage': perPage.toString(),
+      },
+    );
+
+    final response = await _sharedClient.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    debugPrint("[StaffPerformance] url=$url");
+    debugPrint("[StaffPerformance] status=${response.statusCode}");
+    _debugPrintChunked("StaffPerformance body", response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to load staff performance: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> getOperationsDashboard({
+    required int branchId,
+    required String dateRange,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse('$baseUrl$operationsDashboardAPI').replace(
+      queryParameters: {
+        'branchId': branchId.toString(),
+        'dateRange': dateRange,
+      },
+    );
+
+    final response = await _sharedClient.get(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    debugPrint("[OperationsDashboard] url=$url");
+    debugPrint("[OperationsDashboard] status=${response.statusCode}");
+    _debugPrintChunked("OperationsDashboard body", response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to load operations dashboard: ${response.body}");
   }
 
   Future<Map<String, dynamic>> getBranchDashboard({

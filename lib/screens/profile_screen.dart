@@ -12,11 +12,11 @@ import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
-import 'SalonAbout.dart';
 import 'SalonReviews.dart';
 import 'login_screen.dart';
 import 'owner_dashboard_screen.dart';
 import 'owner_branch_clients_screen.dart';
+import 'owner_sales_reports_screen.dart';
 import 'web_doc_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -77,10 +77,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showProfilePlaceholder(String label) {
-    _logProfile('open_placeholder', details: label);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.t('$label is coming soon'))),
+  void _openSalesReport(OwnerSalesReportModule module) {
+    _logProfile('open_sales_report', details: module.name);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OwnerSalesReportsScreen(initialModule: module),
+      ),
     );
   }
 
@@ -462,14 +465,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             ProfileSubMenuItemData(
               label: context.t('Revenue & Sales'),
+              onTap: () => _openSalesReport(
+                OwnerSalesReportModule.revenueSales,
+              ),
             ),
             ProfileSubMenuItemData(
               label: context.t('Staff Performance'),
-              onTap: () => _showProfilePlaceholder('Staff Performance'),
+              onTap: () => _openSalesReport(
+                OwnerSalesReportModule.staffPerformance,
+              ),
             ),
             ProfileSubMenuItemData(
               label: context.t('Operations'),
-              onTap: () => _showProfilePlaceholder('Operations'),
+              onTap: () => _openSalesReport(
+                OwnerSalesReportModule.operations,
+              ),
             ),
           ],
         ),
