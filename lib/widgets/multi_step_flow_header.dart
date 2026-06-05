@@ -100,8 +100,7 @@ class _FlowNode extends StatelessWidget {
               : Text(
                   '$stepNumber',
                   style: TextStyle(
-                    color:
-                        highlighted ? Colors.white : const Color(0xFF9CA3AF),
+                    color: highlighted ? Colors.white : const Color(0xFF9CA3AF),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
