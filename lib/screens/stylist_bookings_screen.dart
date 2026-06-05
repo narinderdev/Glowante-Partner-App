@@ -783,15 +783,7 @@ Color _scheduleStatusAccentColor(String status) {
 
 bool _isBusyBooking(Map<String, dynamic> booking) {
   final status = _normalizeStatus(booking['status']);
-  if (status == 'IN_PROGRESS') return true;
-  if (status == 'COMPLETED' || status == 'CANCELLED') return false;
-
-  final start = _bookingStart(booking);
-  if (start == null) return false;
-  final end = _bookingEnd(booking) ??
-      start.add(Duration(minutes: _bookingDurationMinutes(booking)));
-  final now = DateTime.now();
-  return _isSameDay(start, now) && !now.isBefore(start) && now.isBefore(end);
+  return status == 'IN_PROGRESS' || status == 'STARTED';
 }
 
 Color _professionalAvailabilityColor(List<Map<String, dynamic>> bookings) {
@@ -1419,6 +1411,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return const _TeamMemberDirectory();
   }
 
+  bool _isActiveEntity(Map<String, dynamic> map) {
+    return map['active'] != false;
+  }
+
   Future<_TeamMemberDirectory> _fetchTeamMemberDirectory(
     int branchId, {
     required DateTime date,
@@ -1434,6 +1430,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       for (final item in data) {
         if (item is! Map) continue;
         final member = Map<String, dynamic>.from(item);
+        if (!_isActiveEntity(member)) continue;
         final name = _personName(member).trim();
         if (name.isEmpty) continue;
 
@@ -1450,6 +1447,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           for (final assignment in assignments) {
             if (assignment is! Map) continue;
             final branchEntry = Map<String, dynamic>.from(assignment);
+            if (!_isActiveEntity(branchEntry)) continue;
             final branch = branchEntry['branch'];
             final rawBranchId =
                 branch is Map ? branch['id'] : branchEntry['branchId'];

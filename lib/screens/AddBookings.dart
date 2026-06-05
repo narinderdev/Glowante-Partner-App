@@ -405,10 +405,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final currentBranchId = widget.branchId;
 
     for (final member in _teamMembers) {
+      if (!_isActiveEntity(member)) continue;
       final branches = member['userBranches'] as List? ?? const [];
       for (final entry in branches) {
         if (entry is! Map) continue;
         final branchEntry = Map<String, dynamic>.from(entry);
+        if (!_isActiveEntity(branchEntry)) continue;
         final branch = branchEntry['branch'];
         final branchMap =
             branch is Map ? Map<String, dynamic>.from(branch) : {};
@@ -458,6 +460,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   List<dynamic> _listValue(dynamic value) {
     if (value is List) return value;
     return const [];
+  }
+
+  bool _isActiveEntity(Map<String, dynamic> map) {
+    return map['active'] != false;
   }
 
   Map<String, dynamic>? _serviceById(int serviceId) {
