@@ -1256,6 +1256,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 // âœ… New Next Button
                     _PrimaryButton(
                       text: 'Next',
+                      flowStyle: true,
                       onPressed: () async {
                         if (!await _validateFormAndShowAlert()) return;
                         String capitalizeFirst(String value) => value.isNotEmpty
@@ -1396,6 +1397,7 @@ class _PrimaryButton extends StatelessWidget {
     this.isLoading = false,
     this.fullWidth = true,
     this.height = 50,
+    this.flowStyle = false,
     super.key,
   });
 
@@ -1405,6 +1407,7 @@ class _PrimaryButton extends StatelessWidget {
   final bool isLoading;
   final bool fullWidth;
   final double height;
+  final bool flowStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -1418,23 +1421,26 @@ class _PrimaryButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.starColor,
           foregroundColor: Colors.white,
-          elevation: 0,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          elevation: flowStyle ? 2 : 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(flowStyle ? 6 : 14),
+          ),
         ),
         child: isLoading
             ? SizedBox(
-                width: 20,
-                height: 20,
+                width: flowStyle ? 22 : 20,
+                height: flowStyle ? 22 : 20,
                 child: CircularProgressIndicator(
                   color: Colors.white,
-                  strokeWidth: 2,
+                  strokeWidth: flowStyle ? 2.5 : 2,
                 ),
               )
             : Text(
                 text,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                style: TextStyle(
+                  fontWeight: flowStyle ? FontWeight.w600 : FontWeight.w700,
+                  fontSize: 16,
+                ),
               ),
       ),
     );
