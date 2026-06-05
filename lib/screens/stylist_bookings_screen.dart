@@ -88,15 +88,27 @@ class _SalonBranchOption {
 class _TeamMemberDirectory {
   const _TeamMemberDirectory({
     this.serviceNames = const <String, List<String>>{},
+    this.workingHours = const <String, List<_WorkingDayHours>>{},
     this.namesByUserId = const <int, String>{},
     this.namesByUserBranchId = const <int, String>{},
   });
 
   final Map<String, List<String>> serviceNames;
+  final Map<String, List<_WorkingDayHours>> workingHours;
   final Map<int, String> namesByUserId;
   final Map<int, String> namesByUserBranchId;
 
   List<String> get names => serviceNames.keys.toList();
+}
+
+class _WorkingDayHours {
+  const _WorkingDayHours({
+    required this.day,
+    required this.slots,
+  });
+
+  final String day;
+  final List<String> slots;
 }
 
 class _BookingStatusVisuals {
@@ -1085,6 +1097,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   List<String> _teamMemberNames = const [];
   Map<String, List<String>> _teamMemberServiceNames =
       const <String, List<String>>{};
+  Map<String, List<_WorkingDayHours>> _teamMemberWorkingHours =
+      const <String, List<_WorkingDayHours>>{};
   Map<int, String> _teamMemberNamesByUserId = const <int, String>{};
   Map<int, String> _teamMemberNamesByUserBranchId = const <int, String>{};
   _SalonBranchOption? _selectedOption;
@@ -1314,6 +1328,59 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return false;
   }
 
+  String _dayDisplayLabel(String day) {
+    final normalized = day.trim().toLowerCase();
+    if (normalized.isEmpty) return '';
+    return '${normalized.substring(0, 1).toUpperCase()}${normalized.substring(1)}';
+  }
+
+  int _weekdaySortOrder(String day) {
+    const order = {
+      'monday': 1,
+      'tuesday': 2,
+      'wednesday': 3,
+      'thursday': 4,
+      'friday': 5,
+      'saturday': 6,
+      'sunday': 7,
+    };
+    return order[day.trim().toLowerCase()] ?? 99;
+  }
+
+  List<_WorkingDayHours> _workingHoursFromBranchEntry(
+    Map<String, dynamic> branchEntry,
+  ) {
+    final schedules = branchEntry['schedules'];
+    if (schedules is! List || schedules.isEmpty) {
+      return const <_WorkingDayHours>[];
+    }
+
+    final slotsByDay = <String, List<String>>{};
+    for (final schedule in schedules) {
+      if (schedule is! Map) continue;
+      final day = schedule['day']?.toString().trim().toLowerCase() ?? '';
+      final startMinute = _clockMinutes(schedule['startTime']);
+      final endMinute = _clockMinutes(schedule['endTime']);
+      if (day.isEmpty || startMinute == null || endMinute == null) continue;
+      if (endMinute <= startMinute) continue;
+      slotsByDay.putIfAbsent(day, () => <String>[]).add(
+            '${_formatMinutesLabel(startMinute)} - ${_formatMinutesLabel(endMinute)}',
+          );
+    }
+
+    final orderedDays = slotsByDay.keys.toList()
+      ..sort((first, second) =>
+          _weekdaySortOrder(first).compareTo(_weekdaySortOrder(second)));
+    return orderedDays
+        .map(
+          (day) => _WorkingDayHours(
+            day: _dayDisplayLabel(day),
+            slots: slotsByDay[day] ?? const <String>[],
+          ),
+        )
+        .toList();
+  }
+
   _TeamMemberDirectory _emptyTeamMemberDirectory() {
     return const _TeamMemberDirectory();
   }
@@ -1326,6 +1393,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       final response = await ApiService.getTeamMembers(branchId);
       final data = (response['data'] as List?) ?? const [];
       final serviceNamesByMember = <String, List<String>>{};
+      final workingHoursByMember = <String, List<_WorkingDayHours>>{};
       final namesByUserId = <int, String>{};
       final namesByUserBranchId = <int, String>{};
 
@@ -1358,6 +1426,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     : int.tryParse('${rawBranchId ?? ''}');
             if (memberBranchId != null && memberBranchId != branchId) {
               continue;
+            }
+
+            final workingHours = _workingHoursFromBranchEntry(branchEntry);
+            if (workingHours.isNotEmpty) {
+              workingHoursByMember[name] = workingHours;
             }
 
             if (!_memberWorksOnDate(branchEntry, date)) {
@@ -1404,6 +1477,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
       return _TeamMemberDirectory(
         serviceNames: serviceNamesByMember,
+        workingHours: workingHoursByMember,
         namesByUserId: namesByUserId,
         namesByUserBranchId: namesByUserBranchId,
       );
@@ -1487,6 +1561,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _bookings = bookings;
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
+      _teamMemberWorkingHours = teamMemberDirectory.workingHours;
       _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _errorMessage = errorMessage;
@@ -1509,6 +1584,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             date: _selectedDate)
         : _TeamMemberDirectory(
             serviceNames: _teamMemberServiceNames,
+            workingHours: _teamMemberWorkingHours,
             namesByUserId: _teamMemberNamesByUserId,
             namesByUserBranchId: _teamMemberNamesByUserBranchId,
           );
@@ -1528,6 +1604,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _bookings = result.bookings;
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
+      _teamMemberWorkingHours = teamMemberDirectory.workingHours;
       _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _errorMessage = result.errorMessage;
@@ -1553,6 +1630,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     Map<String, List<String>> teamMemberServiceNames = _teamMemberServiceNames;
     _TeamMemberDirectory teamMemberDirectory = _TeamMemberDirectory(
       serviceNames: _teamMemberServiceNames,
+      workingHours: _teamMemberWorkingHours,
       namesByUserId: _teamMemberNamesByUserId,
       namesByUserBranchId: _teamMemberNamesByUserBranchId,
     );
@@ -1582,6 +1660,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _bookings = bookings;
       _teamMemberNames = teamMemberNames;
       _teamMemberServiceNames = teamMemberServiceNames;
+      _teamMemberWorkingHours = teamMemberDirectory.workingHours;
       _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
       _errorMessage = errorMessage;
@@ -1604,6 +1683,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     String? errorMessage;
     _TeamMemberDirectory teamMemberDirectory = _TeamMemberDirectory(
       serviceNames: _teamMemberServiceNames,
+      workingHours: _teamMemberWorkingHours,
       namesByUserId: _teamMemberNamesByUserId,
       namesByUserBranchId: _teamMemberNamesByUserBranchId,
     );
@@ -1630,6 +1710,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       if (widget.isOwnerMode) {
         _teamMemberNames = teamMemberDirectory.names;
         _teamMemberServiceNames = teamMemberDirectory.serviceNames;
+        _teamMemberWorkingHours = teamMemberDirectory.workingHours;
         _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
         _teamMemberNamesByUserBranchId =
             teamMemberDirectory.namesByUserBranchId;
@@ -1861,6 +1942,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           staffName: staffName,
           bookings: bookings,
           serviceNames: _teamMemberServiceNames[staffName] ?? const [],
+          workingHours: _teamMemberWorkingHours[staffName] ?? const [],
           selectedDate: _selectedDate,
           branchId: _selectedOption?.branchId,
           branchStartMinute: _selectedOption?.startMinute,
@@ -3292,6 +3374,7 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
     required this.staffName,
     required this.bookings,
     required this.serviceNames,
+    required this.workingHours,
     required this.selectedDate,
     required this.onBookingTap,
     this.branchId,
@@ -3302,6 +3385,7 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
   final String staffName;
   final List<Map<String, dynamic>> bookings;
   final List<String> serviceNames;
+  final List<_WorkingDayHours> workingHours;
   final DateTime selectedDate;
   final int? branchId;
   final int? branchStartMinute;
@@ -3380,6 +3464,177 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
         _loadingScheduleBookings = false;
       });
     }
+  }
+
+  void _showWorkingHoursModal() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return SafeArea(
+          child: Dialog(
+            backgroundColor: Colors.white,
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 22,
+              vertical: 24,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF4EAD4),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.schedule_rounded,
+                          color: _bookingsGold,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.t('Working days and hours'),
+                              style: _bookingTextStyle(
+                                size: 18,
+                                weight: FontWeight.w900,
+                                color: _bookingsPrimaryText,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.staffName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _bookingTextStyle(
+                                size: 12,
+                                weight: FontWeight.w700,
+                                color: _bookingsSecondaryText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                        color: _bookingsSecondaryText,
+                        iconSize: 20,
+                        splashRadius: 18,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (widget.workingHours.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAF7F3),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _bookingsBorder),
+                      ),
+                      child: Text(
+                        context.t('No working hours available'),
+                        style: _bookingTextStyle(
+                          size: 13,
+                          weight: FontWeight.w800,
+                          color: _bookingsSecondaryText,
+                        ),
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.sizeOf(context).height * 0.52,
+                      ),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: widget.workingHours.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final item = widget.workingHours[index];
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFAF7F3),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: _bookingsBorder),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 92,
+                                  child: Text(
+                                    context.t(item.day),
+                                    style: _bookingTextStyle(
+                                      size: 13,
+                                      weight: FontWeight.w900,
+                                      color: _bookingsGold,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: item.slots
+                                        .map(
+                                          (slot) => Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                              border: Border.all(
+                                                color: _bookingsBorder,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              slot,
+                                              style: _bookingTextStyle(
+                                                size: 11,
+                                                weight: FontWeight.w800,
+                                                color: _bookingsDateText,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -3621,6 +3876,48 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                   ),
                 ),
               ],
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: _showWorkingHoursModal,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 11,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _bookingsBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.event_available_rounded,
+                        color: _bookingsGold,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          context.t('Working days and hours'),
+                          style: _bookingTextStyle(
+                            size: 12,
+                            weight: FontWeight.w900,
+                            color: _bookingsDateText,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        color: _bookingsGold,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 14),
               Row(
                 children: [
