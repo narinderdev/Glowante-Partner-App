@@ -313,6 +313,18 @@ DateTime? _bookingEnd(Map<String, dynamic> booking) {
   );
 }
 
+int? _bookingBranchId(Map<String, dynamic> booking) {
+  final branch = booking['branch'];
+  if (branch is Map) {
+    final branchId = _asInt(branch['id']);
+    if (branchId != null) return branchId;
+  }
+
+  return _asInt(
+    booking['branchId'] ?? booking['branch_id'] ?? booking['branchID'],
+  );
+}
+
 String _customerName(BuildContext context, Map<String, dynamic> booking) {
   final user = booking['user'];
   if (user is Map) {
@@ -737,6 +749,8 @@ String _statusLabel(BuildContext context, String status) {
       return context.t('Completed');
     case 'CANCELLED':
       return context.t('Cancelled');
+    case 'NO_SHOW':
+      return context.t('No Show');
     default:
       return context.t('Upcoming');
   }
@@ -788,6 +802,17 @@ _BookingStatusVisuals _statusVisuals(BuildContext context, String status) {
         primaryButtonColor: _bookingsUpcoming,
         primaryTextColor: Colors.white,
       );
+    case 'NO_SHOW':
+      return _BookingStatusVisuals(
+        label: _statusLabel(context, status),
+        leadingColor: Color(0xFFE5E7EB),
+        cardBorderColor: _bookingsBorder,
+        pillBackgroundColor: Color(0xFFF3F4F6),
+        pillBorderColor: Color(0xFFE5E7EB),
+        pillTextColor: Color(0xFF374151),
+        primaryButtonColor: _bookingsUpcoming,
+        primaryTextColor: Colors.white,
+      );
     default:
       return _BookingStatusVisuals(
         label: _statusLabel(context, status),
@@ -808,6 +833,22 @@ bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>
 bool _showsStartAction(String status) => status == 'CONFIRMED';
 
 bool _showsFinishAction(String status) => status == 'IN_PROGRESS';
+
+bool _showsNoShowAction(String status) =>
+    status == 'CONFIRMED' || status == 'UPCOMING';
+
+bool _canMarkNoShow(Map<String, dynamic> booking) {
+  if (!_showsNoShowAction(_normalizeStatus(booking['status']))) {
+    return false;
+  }
+
+  final start = _bookingStart(booking);
+  if (start == null) return false;
+
+  final allowedAt = start.add(const Duration(minutes: 15));
+  final now = DateTime.now();
+  return now.isAtSameMomentAs(allowedAt) || now.isAfter(allowedAt);
+}
 
 Color _scheduleStatusAccentColor(String status) {
   switch (status) {
@@ -5829,6 +5870,7 @@ class _StylistBookingDetailScreenState
   bool _loadingConfirm = false;
   bool _loadingStart = false;
   bool _loadingComplete = false;
+  bool _loadingNoShow = false;
   bool _didChange = false;
   Timer? _elapsedTicker;
 
@@ -5961,6 +6003,65 @@ class _StylistBookingDetailScreenState
       SnackBar(
         content: Text(
           resp['message']?.toString() ?? 'Failed to complete appointment',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleNoShow() async {
+    if (_loadingNoShow) return;
+
+    if (!_canMarkNoShow(_booking)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('No Show is available 15 minutes after start time'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final appointmentId = _asInt(_booking['id']);
+    final branchId = _bookingBranchId(_booking) ?? widget.branchId;
+    if (appointmentId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Invalid appointment'))),
+      );
+      return;
+    }
+
+    setState(() => _loadingNoShow = true);
+    final resp = await ApiService().noShowAppointment(
+      branchId: branchId,
+      appointmentId: appointmentId,
+    );
+    if (!mounted) return;
+
+    setState(() => _loadingNoShow = false);
+
+    if (resp['success'] == true) {
+      final newStatus = _normalizeStatus(resp['data']?['status'] ?? 'NO_SHOW');
+      setState(() {
+        _statusUpper = newStatus;
+        _booking['status'] = newStatus;
+        _didChange = true;
+      });
+      _syncElapsedTicker();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            resp['message']?.toString() ?? 'Appointment marked no show',
+          ),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          resp['message']?.toString() ?? 'Failed to mark no show',
         ),
       ),
     );
@@ -6124,6 +6225,12 @@ class _StylistBookingDetailScreenState
                 : null));
     final primaryColor =
         _showsFinishAction(_statusUpper) ? _bookingsDark : _bookingsAccent;
+    final showNoShowAction = _showsNoShowAction(_statusUpper);
+    final isPrimaryProcessing =
+        _loadingConfirm || _loadingStart || _loadingComplete;
+    final isAnyActionProcessing = isPrimaryProcessing || _loadingNoShow;
+    final canNoShow =
+        showNoShowAction && _canMarkNoShow(_booking) && !isAnyActionProcessing;
 
     return PopScope(
       canPop: false,
@@ -6154,15 +6261,24 @@ class _StylistBookingDetailScreenState
         totalAmount: totalAmount,
         primaryAction: primaryAction,
         primaryActionColor: primaryColor,
-        isPrimaryLoading: _loadingConfirm || _loadingStart || _loadingComplete,
-        onPrimaryAction: _showsConfirmAction(
-          _statusUpper,
-          isOwnerMode: widget.isOwnerMode,
-        )
-            ? _handleConfirmJob
-            : (_showsFinishAction(_statusUpper)
-                ? _handleCompleteJob
-                : (_showsStartAction(_statusUpper) ? _handleStartJob : null)),
+        isPrimaryLoading: isPrimaryProcessing,
+        onPrimaryAction: _loadingNoShow
+            ? null
+            : (_showsConfirmAction(
+                _statusUpper,
+                isOwnerMode: widget.isOwnerMode,
+              )
+                ? _handleConfirmJob
+                : (_showsFinishAction(_statusUpper)
+                    ? _handleCompleteJob
+                    : (_showsStartAction(_statusUpper)
+                        ? _handleStartJob
+                        : null))),
+        secondaryAction:
+            showNoShowAction ? context.t('No Show').toUpperCase() : null,
+        secondaryActionColor: const Color(0xFF374151),
+        isSecondaryLoading: _loadingNoShow,
+        onSecondaryAction: canNoShow ? _handleNoShow : null,
         addedItems: _addedItems,
         onAddItems: _showAddItemsInfo,
         onRefresh: _refreshBookingDetails,

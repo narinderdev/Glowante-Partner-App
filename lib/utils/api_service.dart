@@ -360,7 +360,7 @@ class ApiService {
   }
 
   static String confirmAppointmentAPI(int branchId, int appointmentId) {
-    return "branches/${branchId}/appointments/${appointmentId}/confirm";
+    return "branches/$branchId/appointments/$appointmentId/confirm";
   }
 
   static String addSalonBranchOffer(int branchId) {
@@ -369,6 +369,10 @@ class ApiService {
 
   static String startAppointmentAPI(int branchId, int appointmentId) {
     return "branches/$branchId/appointments/$appointmentId/start";
+  }
+
+  static String noShowAppointmentAPI(int branchId, int appointmentId) {
+    return "branches/$branchId/appointments/$appointmentId/no-show";
   }
 
   static String completeAppointmentAPI(int branchId, int appointmentId) {
@@ -3953,6 +3957,54 @@ class ApiService {
         'success': false,
         'message': e.toString(),
       };
+    }
+  }
+
+// ---------------------- NO SHOW APPOINTMENT ----------------------
+  Future<Map<String, dynamic>> noShowAppointment({
+    required int branchId,
+    required int appointmentId,
+  }) async {
+    try {
+      final token = await getAuthToken();
+      if (token.isEmpty) {
+        throw Exception('No token found');
+      }
+
+      final url = Uri.parse(
+        "$baseUrl${noShowAppointmentAPI(branchId, appointmentId)}",
+      );
+
+      final resp = await _sharedClient
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({}),
+          )
+          .timeout(const Duration(seconds: 25));
+
+      Map<String, dynamic> body = const <String, dynamic>{};
+      if (resp.body.isNotEmpty) {
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map<String, dynamic>) {
+          body = decoded;
+        }
+      }
+
+      final success = resp.statusCode >= 200 && resp.statusCode < 300;
+      return {
+        'success': body['success'] ?? success,
+        'message': body['message'] ??
+            (success ? 'Appointment marked no show' : 'Failed to mark no show'),
+        'statusCode': resp.statusCode,
+        'data': body['data'],
+        'body': body,
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 

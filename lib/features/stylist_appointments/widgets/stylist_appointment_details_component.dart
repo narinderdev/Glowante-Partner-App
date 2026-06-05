@@ -95,6 +95,10 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.addedItems,
     required this.onAddItems,
+    this.secondaryAction,
+    this.secondaryActionColor = const Color(0xFF374151),
+    this.isSecondaryLoading = false,
+    this.onSecondaryAction,
     this.onRefresh,
   });
 
@@ -121,12 +125,74 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   final Color primaryActionColor;
   final bool isPrimaryLoading;
   final VoidCallback? onPrimaryAction;
+  final String? secondaryAction;
+  final Color secondaryActionColor;
+  final bool isSecondaryLoading;
+  final VoidCallback? onSecondaryAction;
   final List<StylistUsedItem> addedItems;
   final VoidCallback onAddItems;
   final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
+    Widget actionButton({
+      required String label,
+      required Color color,
+      required bool isLoading,
+      required VoidCallback? onPressed,
+      bool showFinishIcon = false,
+    }) {
+      return ElevatedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          disabledBackgroundColor: const Color(0xFFE5E7EB),
+          foregroundColor: Colors.white,
+          disabledForegroundColor: const Color(0xFF9CA3AF),
+          minimumSize: const Size.fromHeight(52),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showFinishIcon) ...[
+                    Image.asset(
+                      'assets/images/checkmark.png',
+                      width: 18,
+                      height: 18,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    label,
+                    style: _detailsTextStyle(
+                      size: 14,
+                      weight: FontWeight.w700,
+                      color: onPressed == null
+                          ? const Color(0xFF9CA3AF)
+                          : Colors.white,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ],
+              ),
+      );
+    }
+
     final content = ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
@@ -354,56 +420,48 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              if (primaryAction != null)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isPrimaryLoading ? null : onPrimaryAction,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: primaryActionColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(52),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: isPrimaryLoading
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+              if (primaryAction != null || secondaryAction != null)
+                secondaryAction != null && primaryAction != null
+                    ? Row(
+                        children: [
+                          Expanded(
+                            child: actionButton(
+                              label: secondaryAction!,
+                              color: secondaryActionColor,
+                              isLoading: isSecondaryLoading,
+                              onPressed: onSecondaryAction,
                             ),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (primaryAction ==
-                                  context.t('Finish Job').toUpperCase()) ...[
-                                Image.asset(
-                                  'assets/images/checkmark.png',
-                                  width: 18,
-                                  height: 18,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 8),
-                              ],
-                              Text(
-                                primaryAction!,
-                                style: _detailsTextStyle(
-                                  size: 14,
-                                  weight: FontWeight.w700,
-                                  color: Colors.white,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                            ],
                           ),
-                  ),
-                )
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: actionButton(
+                              label: primaryAction!,
+                              color: primaryActionColor,
+                              isLoading: isPrimaryLoading,
+                              onPressed: onPrimaryAction,
+                              showFinishIcon: primaryAction ==
+                                  context.t('Finish Job').toUpperCase(),
+                            ),
+                          ),
+                        ],
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: actionButton(
+                          label: primaryAction ?? secondaryAction!,
+                          color: primaryAction != null
+                              ? primaryActionColor
+                              : secondaryActionColor,
+                          isLoading: primaryAction != null
+                              ? isPrimaryLoading
+                              : isSecondaryLoading,
+                          onPressed: primaryAction != null
+                              ? onPrimaryAction
+                              : onSecondaryAction,
+                          showFinishIcon: primaryAction ==
+                              context.t('Finish Job').toUpperCase(),
+                        ),
+                      )
               else
                 Container(
                   width: double.infinity,
