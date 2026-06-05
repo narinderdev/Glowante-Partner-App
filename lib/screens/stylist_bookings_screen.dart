@@ -812,6 +812,40 @@ Color _professionalAvailabilityColor(List<Map<String, dynamic>> bookings) {
       : const Color(0xFF22C55E);
 }
 
+String? _professionalBusyReason(
+  BuildContext context,
+  List<Map<String, dynamic>> bookings,
+) {
+  Map<String, dynamic>? busyBooking;
+  for (final booking in bookings) {
+    if (_normalizeStatus(booking['status']) == 'IN_PROGRESS') {
+      busyBooking = booking;
+      break;
+    }
+    if (busyBooking == null && _isBusyBooking(booking)) {
+      busyBooking = booking;
+    }
+  }
+
+  if (busyBooking != null) {
+    final customer = _customerName(context, busyBooking);
+    final service = _serviceCardSummary(context, busyBooking);
+    final time = _bookingTimeRange(busyBooking);
+    return '${context.t('Busy with')} $customer • $service • $time';
+  }
+
+  final statuses = bookings.expand(_professionalStatuses).toSet();
+  if (statuses.contains('unavailable')) {
+    return context.t('Professional is unavailable');
+  }
+  if (statuses.any((status) =>
+      status == 'busy' || status == 'occupied' || status == 'in_progress')) {
+    return context.t('Professional is busy');
+  }
+
+  return null;
+}
+
 Future<Map<String, dynamic>?> _showStartJobOtpDialog(
   BuildContext context, {
   required int branchId,
@@ -3649,6 +3683,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
       });
     final initials = _initials(widget.staffName);
     final availabilityColor = _professionalAvailabilityColor(sortedBookings);
+    final busyReason = _professionalBusyReason(context, sortedBookings);
     final startLabel = widget.branchStartMinute == null
         ? null
         : _formatMinutesLabel(widget.branchStartMinute!);
@@ -3839,6 +3874,43 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                         ),
                       );
                     },
+                  ),
+                ),
+              ],
+              if (busyReason != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1F2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.event_busy_rounded,
+                        color: Color(0xFFDC2626),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          busyReason,
+                          style: _bookingTextStyle(
+                            size: 12,
+                            weight: FontWeight.w800,
+                            color: const Color(0xFF991B1B),
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
