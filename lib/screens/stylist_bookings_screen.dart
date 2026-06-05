@@ -1069,6 +1069,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   List<_SalonBranchOption> _options = const [];
   List<Map<String, dynamic>> _bookings = const [];
   List<String> _teamMemberNames = const [];
+  Map<String, List<String>> _teamMemberServiceNames =
+      const <String, List<String>>{};
   _SalonBranchOption? _selectedOption;
   DateTime _selectedDate = DateTime.now();
   DateTime _visibleDateStart = DateTime.now();
@@ -1266,26 +1268,63 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
   }
 
-  Future<List<String>> _fetchTeamMemberNames(int branchId) async {
+  Future<Map<String, List<String>>> _fetchTeamMemberServiceNames(
+    int branchId,
+  ) async {
     try {
       final response = await ApiService.getTeamMembers(branchId);
       final data = (response['data'] as List?) ?? const [];
-      final names = <String>[];
-      final seen = <String>{};
+      final result = <String, List<String>>{};
+
       for (final item in data) {
         if (item is! Map) continue;
-        final map = Map<String, dynamic>.from(item);
-        final name = _personName(map).trim();
+        final member = Map<String, dynamic>.from(item);
+        final name = _personName(member).trim();
         if (name.isEmpty) continue;
-        final key = name.toLowerCase();
-        if (seen.add(key)) {
-          names.add(name);
+
+        final services = <String>[];
+        final seen = <String>{};
+        final assignments = member['userBranches'];
+        if (assignments is List) {
+          for (final assignment in assignments) {
+            if (assignment is! Map) continue;
+            final branch = assignment['branch'];
+            final rawBranchId =
+                branch is Map ? branch['id'] : assignment['branchId'];
+            final memberBranchId = rawBranchId is int
+                ? rawBranchId
+                : rawBranchId is num
+                    ? rawBranchId.toInt()
+                    : int.tryParse('${rawBranchId ?? ''}');
+            if (memberBranchId != null && memberBranchId != branchId) {
+              continue;
+            }
+
+            final userBranchServices = assignment['userBranchServices'];
+            if (userBranchServices is! List) continue;
+            for (final rawService in userBranchServices) {
+              if (rawService is! Map) continue;
+              final branchService = rawService['branchService'];
+              if (branchService is! Map) continue;
+              final serviceName =
+                  (branchService['displayName'] ?? branchService['name'] ?? '')
+                      .toString()
+                      .trim();
+              if (serviceName.isEmpty) continue;
+              if (seen.add(serviceName.toLowerCase())) {
+                services.add(serviceName);
+              }
+            }
+          }
         }
+
+        result[name] = services;
       }
-      return names;
+
+      return result;
     } catch (e) {
-      debugPrint('[BookingsTeamMembers] failed=$e');
-      return const [];
+      debugPrint('[BookingsTeamMemberServices] failed=$e');
+      return const <String, List<String>>{};
     }
   }
 
@@ -1332,6 +1371,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     List<Map<String, dynamic>> bookings = const [];
     List<String> teamMemberNames = const [];
+    Map<String, List<String>> teamMemberServiceNames =
+        const <String, List<String>>{};
     if (selected != null && (widget.isOwnerMode || userId != null)) {
       final result = await _fetchBookingsForBranch(
         branchId: selected.branchId,
@@ -1340,7 +1381,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       bookings = result.bookings;
       errorMessage ??= result.errorMessage;
       if (widget.isOwnerMode) {
-        teamMemberNames = await _fetchTeamMemberNames(selected.branchId);
+        teamMemberServiceNames =
+            await _fetchTeamMemberServiceNames(selected.branchId);
+        teamMemberNames = teamMemberServiceNames.keys.toList();
       }
     } else if (selected != null && !widget.isOwnerMode && userId == null) {
       errorMessage ??= 'Unable to load stylist bookings';
@@ -1354,6 +1397,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _userId = widget.isOwnerMode ? null : userId;
       _bookings = bookings;
       _teamMemberNames = teamMemberNames;
+      _teamMemberServiceNames = teamMemberServiceNames;
       _errorMessage = errorMessage;
       _isLoading = false;
       _loadingDate = false;
@@ -1369,8 +1413,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       branchId: selected.branchId,
       userId: _userId,
     );
+    final teamMemberServiceNames = widget.isOwnerMode
+        ? await _fetchTeamMemberServiceNames(selected.branchId)
+        : _teamMemberServiceNames;
     final teamMemberNames = widget.isOwnerMode
-        ? await _fetchTeamMemberNames(selected.branchId)
+        ? teamMemberServiceNames.keys.toList()
         : _teamMemberNames;
 
     if (!mounted) return;
@@ -1382,6 +1429,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     setState(() {
       _bookings = result.bookings;
       _teamMemberNames = teamMemberNames;
+      _teamMemberServiceNames = teamMemberServiceNames;
       _errorMessage = result.errorMessage;
     });
   }
@@ -1401,6 +1449,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     });
 
     List<Map<String, dynamic>> bookings = const [];
+    List<String> teamMemberNames = _teamMemberNames;
+    Map<String, List<String>> teamMemberServiceNames = _teamMemberServiceNames;
     String? errorMessage;
     if (!widget.isOwnerMode && _userId == null) {
       errorMessage = 'Unable to load stylist bookings';
@@ -1411,12 +1461,19 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       );
       bookings = result.bookings;
       errorMessage = result.errorMessage;
+      if (widget.isOwnerMode) {
+        teamMemberServiceNames =
+            await _fetchTeamMemberServiceNames(option.branchId);
+        teamMemberNames = teamMemberServiceNames.keys.toList();
+      }
     }
 
     if (!mounted) return;
     _logBookingsFetchSnapshot(context, bookings, source: 'select_branch');
     setState(() {
       _bookings = bookings;
+      _teamMemberNames = teamMemberNames;
+      _teamMemberServiceNames = teamMemberServiceNames;
       _errorMessage = errorMessage;
       _loadingDate = false;
     });
@@ -1617,6 +1674,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         builder: (_) => _TeamMemberScheduleScreen(
           staffName: staffName,
           bookings: bookings,
+          serviceNames: _teamMemberServiceNames[staffName] ?? const [],
           selectedDate: _selectedDate,
           branchId: _selectedOption?.branchId,
           branchStartMinute: _selectedOption?.startMinute,
@@ -3048,6 +3106,7 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
   const _TeamMemberScheduleScreen({
     required this.staffName,
     required this.bookings,
+    required this.serviceNames,
     required this.selectedDate,
     required this.onBookingTap,
     this.branchId,
@@ -3057,6 +3116,7 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
 
   final String staffName;
   final List<Map<String, dynamic>> bookings;
+  final List<String> serviceNames;
   final DateTime selectedDate;
   final int? branchId;
   final int? branchStartMinute;
@@ -3273,6 +3333,75 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                   ),
                 ],
               ),
+              if (widget.serviceNames.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(
+                      context.t('ASSIGNED SERVICES'),
+                      style: _bookingTextStyle(
+                        size: 9,
+                        weight: FontWeight.w900,
+                        color: _bookingsSecondaryText,
+                        letterSpacing: 1.6,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF4EAD4),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '${widget.serviceNames.length}',
+                        style: _bookingTextStyle(
+                          size: 9,
+                          weight: FontWeight.w900,
+                          color: _bookingsGold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 34,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: widget.serviceNames.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, index) {
+                      final serviceName = widget.serviceNames[index];
+                      return Container(
+                        constraints: const BoxConstraints(maxWidth: 180),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFAF7F3),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: _bookingsBorder),
+                        ),
+                        child: Text(
+                          serviceName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _bookingTextStyle(
+                            size: 10,
+                            weight: FontWeight.w800,
+                            color: _bookingsDateText,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
               if (startLabel != null && endLabel != null) ...[
                 const SizedBox(height: 14),
                 Container(
