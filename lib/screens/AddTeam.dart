@@ -66,6 +66,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       return translateText('Phone number must be 10 digits.');
     return null;
   }
+
   String? _vFirstName(String? v) {
     if (_suppressFirstNameError) return null;
     final x = (v ?? '').trim();
@@ -108,6 +109,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         ? translateText('Select specialization')
         : null;
   }
+
   List<Map<String, dynamic>> _allRoles = [];
   List<Map<String, dynamic>> _allSpecs = [];
   final _phoneCtrl = TextEditingController();
@@ -335,6 +337,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         return value;
     }
   }
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
@@ -499,6 +502,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _emailFocus.unfocus();
     _brieftFocus.unfocus();
   }
+
   Future<void> _pickJoiningDate() async {
     _dismissKeyboard();
     final now = DateTime.now();
@@ -510,7 +514,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       lastDate: DateTime(now.year + 5),
       initialDate: _joiningDate != null && _joiningDate!.isAfter(today)
           ? _joiningDate!
-          : today, 
+          : today,
       builder: (ctx, child) {
         return Theme(
           data: Theme.of(ctx).copyWith(
@@ -615,7 +619,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         target
                           ..clear()
                           ..addAll(temp);
-                          if (identical(target, _selectedRoles)) {
+                        if (identical(target, _selectedRoles)) {
                           _suppressRolesError = true;
                         } else if (identical(target, _selectedSpecs)) {
                           _suppressSpecsError = true;
@@ -757,6 +761,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     void push(String? e) {
       if (e != null && e.trim().isNotEmpty) errors.add(e);
     }
+
     push(_vPhone(_phoneCtrl.text));
     push(_vFirstName(_firstNameCtrl.text));
     push(_vLastName(_lastNameCtrl.text));
