@@ -254,6 +254,57 @@ class _ServicesTabState extends State<ServicesTab> {
   }
   // ------------------------------------
 
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  double? _asDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  String _commissionTypeLabel(Map service) {
+    if (service['commissionEnabled'] != true) {
+      return translateText('Commission off');
+    }
+
+    final type = (service['commissionType'] ?? '').toString().toLowerCase();
+    if (type == 'fixed') return translateText('Fixed commission');
+    if (type == 'percentage') return translateText('Percentage commission');
+    return translateText('Commission enabled');
+  }
+
+  String _commissionValueLabel(Map service) {
+    if (service['commissionEnabled'] != true) {
+      return translateText('No commission');
+    }
+
+    final type = (service['commissionType'] ?? '').toString().toLowerCase();
+    if (type == 'fixed') {
+      final amount = _asInt(service['commissionFixedAmountMinor']);
+      return amount != null ? '₹$amount' : translateText('Fixed');
+    }
+
+    if (type == 'percentage') {
+      final percent = _asDouble(service['commissionPercentage']);
+      final maxAmount = _asInt(service['commissionMaxAmountMinor']);
+      final percentLabel = percent == null
+          ? translateText('Percentage')
+          : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
+      return maxAmount != null
+          ? '$percentLabel • max ₹$maxAmount'
+          : percentLabel;
+    }
+
+    return translateText('Enabled');
+  }
+
   Future<void> fetchServices() async {
     try {
       final data = await ApiService().getBranchServiceDetail(widget.branchId);
@@ -275,7 +326,9 @@ class _ServicesTabState extends State<ServicesTab> {
       debugPrint('Error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Failed to load services: {error}', params: {'error': e.toString()}))),
+          SnackBar(
+              content: Text(translateText('Failed to load services: {error}',
+                  params: {'error': e.toString()}))),
         );
       }
     }
@@ -336,8 +389,7 @@ class _ServicesTabState extends State<ServicesTab> {
                       child: Text(translateText('Cancel'))),
                   SizedBox(width: 8),
                   FilledButton(
-                    onPressed: () =>
-                        Navigator.pop(ctx, nameCtrl.text.trim()),
+                    onPressed: () => Navigator.pop(ctx, nameCtrl.text.trim()),
                     child: Text(translateText('Save')),
                   ),
                 ],
@@ -354,7 +406,9 @@ class _ServicesTabState extends State<ServicesTab> {
       final res = await _withLoader(() => ApiService.updateBCategoryPatch(
             widget.branchId,
             selectedCategoryId!,
-            {"displayName": updatedName}, // isActive/sortOrder handled server-side
+            {
+              "displayName": updatedName
+            }, // isActive/sortOrder handled server-side
           ));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -370,7 +424,9 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Updated category "{name}"', params: {'name': updatedName}))),
+            SnackBar(
+                content: Text(translateText('Updated category "{name}"',
+                    params: {'name': updatedName}))),
           );
         }
       } else {
@@ -378,8 +434,9 @@ class _ServicesTabState extends State<ServicesTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(translateText('Update failed: {error}', params: {'error': e.toString()}))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(translateText('Update failed: {error}',
+                params: {'error': e.toString()}))));
       }
     }
   }
@@ -439,7 +496,9 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Deleted "{name}"', params: {'name': current['displayName']}))),
+            SnackBar(
+                content: Text(translateText('Deleted "{name}"',
+                    params: {'name': current['displayName']}))),
           );
         }
       } else {
@@ -447,8 +506,9 @@ class _ServicesTabState extends State<ServicesTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(translateText('Delete failed: {error}', params: {'error': e.toString()}))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(translateText('Delete failed: {error}',
+                params: {'error': e.toString()}))));
       }
     }
   }
@@ -481,8 +541,8 @@ class _ServicesTabState extends State<ServicesTab> {
     if (confirmed != true) return;
 
     try {
-      final res = await _withLoader(() =>
-          ApiService.deleteBSubCategory(widget.branchId, selectedSubCategoryId!));
+      final res = await _withLoader(() => ApiService.deleteBSubCategory(
+          widget.branchId, selectedSubCategoryId!));
 
       if (res.statusCode >= 200 && res.statusCode < 300) {
         setState(() {
@@ -500,13 +560,14 @@ class _ServicesTabState extends State<ServicesTab> {
             selectedSubCategoryServices = [];
           } else {
             selectedSubCategoryId = subCategories.first['id'];
-            selectedSubCategoryServices =
-                subCategories.first['services'] ?? [];
+            selectedSubCategoryServices = subCategories.first['services'] ?? [];
           }
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Deleted "{name}"', params: {'name': current['displayName']}))),
+            SnackBar(
+                content: Text(translateText('Deleted "{name}"',
+                    params: {'name': current['displayName']}))),
           );
         }
       } else {
@@ -514,8 +575,9 @@ class _ServicesTabState extends State<ServicesTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(translateText('Delete failed: {error}', params: {'error': e.toString()}))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(translateText('Delete failed: {error}',
+                params: {'error': e.toString()}))));
       }
     }
   }
@@ -566,8 +628,7 @@ class _ServicesTabState extends State<ServicesTab> {
                       child: Text(translateText('Cancel'))),
                   SizedBox(width: 8),
                   FilledButton(
-                    onPressed: () =>
-                        Navigator.pop(ctx, nameCtrl.text.trim()),
+                    onPressed: () => Navigator.pop(ctx, nameCtrl.text.trim()),
                     child: Text(translateText('Save')),
                   ),
                 ],
@@ -608,7 +669,9 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Updated subcategory "{name}"', params: {'name': updatedName}))),
+            SnackBar(
+                content: Text(translateText('Updated subcategory "{name}"',
+                    params: {'name': updatedName}))),
           );
         }
       } else {
@@ -617,7 +680,9 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Update failed: {error}', params: {'error': e.toString()}))),
+          SnackBar(
+              content: Text(translateText('Update failed: {error}',
+                  params: {'error': e.toString()}))),
         );
       }
     }
@@ -656,8 +721,7 @@ class _ServicesTabState extends State<ServicesTab> {
               .removeWhere((s) => s['id'] == service['id']);
           final scIndex = _selectedSubCategoryIndex();
           if (scIndex != -1) {
-            final list =
-                (subCategories[scIndex]['services'] as List?) ?? [];
+            final list = (subCategories[scIndex]['services'] as List?) ?? [];
             list.removeWhere((s) => s['id'] == service['id']);
             subCategories[scIndex]['services'] = list;
 
@@ -671,7 +735,9 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Deleted "{name}"', params: {'name': service['displayName']}))),
+            SnackBar(
+                content: Text(translateText('Deleted "{name}"',
+                    params: {'name': service['displayName']}))),
           );
         }
       } else {
@@ -680,7 +746,9 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Delete failed: {error}', params: {'error': e.toString()}))),
+          SnackBar(
+              content: Text(translateText('Delete failed: {error}',
+                  params: {'error': e.toString()}))),
         );
       }
     }
@@ -699,10 +767,8 @@ class _ServicesTabState extends State<ServicesTab> {
     final updated = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => Dialog(
-        insetPadding:
-            const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
           child: Column(
@@ -777,7 +843,8 @@ class _ServicesTabState extends State<ServicesTab> {
                     if (price == null || dur == null) {
                       ScaffoldMessenger.of(ctx).showSnackBar(
                         SnackBar(
-                            content: Text(translateText('Enter valid price & duration'))),
+                            content: Text(
+                                translateText('Enter valid price & duration'))),
                       );
                       return;
                     }
@@ -822,8 +889,7 @@ class _ServicesTabState extends State<ServicesTab> {
           // reflect in subcategory tree
           final scIndex = _selectedSubCategoryIndex();
           if (scIndex != -1) {
-            final list =
-                (subCategories[scIndex]['services'] as List?) ?? [];
+            final list = (subCategories[scIndex]['services'] as List?) ?? [];
             final li = list.indexWhere((s) => s['id'] == service['id']);
             if (li != -1) list[li] = {...list[li], ...updated};
             subCategories[scIndex]['services'] = list;
@@ -838,7 +904,9 @@ class _ServicesTabState extends State<ServicesTab> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Updated "{name}"', params: {'name': updated['displayName']}))),
+            SnackBar(
+                content: Text(translateText('Updated "{name}"',
+                    params: {'name': updated['displayName']}))),
           );
         }
       } else {
@@ -847,7 +915,9 @@ class _ServicesTabState extends State<ServicesTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Update failed: {error}', params: {'error': e.toString()}))),
+          SnackBar(
+              content: Text(translateText('Update failed: {error}',
+                  params: {'error': e.toString()}))),
         );
       }
     }
@@ -917,8 +987,7 @@ class _ServicesTabState extends State<ServicesTab> {
                   separatorBuilder: (_, __) => SizedBox(width: 8),
                   itemBuilder: (context, index) {
                     final category = categories[index];
-                    final bool selected =
-                        selectedCategoryId == category['id'];
+                    final bool selected = selectedCategoryId == category['id'];
                     return ChoiceChip(
                       label: Text('${category['displayName']}'),
                       selected: selected,
@@ -1056,16 +1125,37 @@ class _ServicesTabState extends State<ServicesTab> {
                                             .toString()
                                             .isNotEmpty)
                                           Padding(
-                                            padding: const EdgeInsets.only(
-                                                top: 2.0),
+                                            padding:
+                                                const EdgeInsets.only(top: 2.0),
                                             child: Text(
                                               '${service['description']}',
                                               style: TextStyle(
                                                   fontSize: 12,
-                                                  color:
-                                                      Colors.grey.shade600),
+                                                  color: Colors.grey.shade600),
                                             ),
                                           ),
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 6,
+                                          runSpacing: 6,
+                                          children: [
+                                            _ServiceInfoPill(
+                                              text:
+                                                  _commissionTypeLabel(service),
+                                              backgroundColor:
+                                                  const Color(0xFFF6EFE3),
+                                              textColor:
+                                                  const Color(0xFF8B6500),
+                                            ),
+                                            _ServiceInfoPill(
+                                              text: _commissionValueLabel(
+                                                  service),
+                                              backgroundColor:
+                                                  const Color(0xFFF3F4F6),
+                                              textColor: Colors.black54,
+                                            ),
+                                          ],
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1082,8 +1172,7 @@ class _ServicesTabState extends State<ServicesTab> {
                                       Text(
                                         '${service['durationMin']} min',
                                         style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey),
+                                            fontSize: 12, color: Colors.grey),
                                       ),
                                     ],
                                   ),
@@ -1099,16 +1188,11 @@ class _ServicesTabState extends State<ServicesTab> {
                                         child: IconButton(
                                           onPressed: () =>
                                               _onEditService(service),
-                                          icon: Icon(
-                                              Icons.edit_outlined),
-                                          visualDensity:
-                                              const VisualDensity(
-                                                  horizontal: -4,
-                                                  vertical: -4),
-                                          constraints:
-                                              const BoxConstraints(
-                                                  minWidth: 32,
-                                                  minHeight: 32),
+                                          icon: Icon(Icons.edit_outlined),
+                                          visualDensity: const VisualDensity(
+                                              horizontal: -4, vertical: -4),
+                                          constraints: const BoxConstraints(
+                                              minWidth: 32, minHeight: 32),
                                           padding: EdgeInsets.zero,
                                           splashRadius: 18,
                                         ),
@@ -1118,16 +1202,11 @@ class _ServicesTabState extends State<ServicesTab> {
                                         child: IconButton(
                                           onPressed: () =>
                                               _onDeleteService(service),
-                                          icon: Icon(
-                                              Icons.delete_outline),
-                                          visualDensity:
-                                              const VisualDensity(
-                                                  horizontal: -4,
-                                                  vertical: -4),
-                                          constraints:
-                                              const BoxConstraints(
-                                                  minWidth: 32,
-                                                  minHeight: 32),
+                                          icon: Icon(Icons.delete_outline),
+                                          visualDensity: const VisualDensity(
+                                              horizontal: -4, vertical: -4),
+                                          constraints: const BoxConstraints(
+                                              minWidth: 32, minHeight: 32),
                                           padding: EdgeInsets.zero,
                                           splashRadius: 18,
                                           color: Colors.redAccent,
@@ -1167,6 +1246,37 @@ class _ServicesTabState extends State<ServicesTab> {
             ),
           ),
       ],
+    );
+  }
+}
+
+class _ServiceInfoPill extends StatelessWidget {
+  const _ServiceInfoPill({
+    required this.text,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  final String text;
+  final Color backgroundColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
     );
   }
 }

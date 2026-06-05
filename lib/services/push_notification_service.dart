@@ -4,17 +4,20 @@ import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'notification_store.dart';
+
 const _androidChannelId = 'glowante_default_channel';
 const _androidChannelName = 'General Notifications';
-const _androidChannelDescription = 'Updates about bookings, branches, and offers.';
+const _androidChannelDescription =
+    'Updates about bookings, branches, and offers.';
 const _tokenStorageKey = 'fcm_device_token';
 
-final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+final FlutterLocalNotificationsPlugin _localNotifications =
+    FlutterLocalNotificationsPlugin();
 
 final AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
   _androidChannelId,
@@ -70,7 +73,8 @@ class BookingNotificationPayload {
     parsedDate ??= DateTime.tryParse(rawDate);
     if (parsedDate == null) return null;
 
-    final normalizedDate = DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
+    final normalizedDate =
+        DateTime(parsedDate.year, parsedDate.month, parsedDate.day);
 
     return BookingNotificationPayload(
       branchId: branchId,
@@ -81,12 +85,15 @@ class BookingNotificationPayload {
     );
   }
 }
+
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
   print('Background push message: ${message.messageId}');
-  print('Background push notification: title=${message.notification?.title}, body=${message.notification?.body}');
+  print(
+      'Background push notification: title=${message.notification?.title}, body=${message.notification?.body}');
   print('Background push data: ${message.data}');
+  await NotificationStore.saveRemoteMessage(message);
 }
 
 class PushNotificationService {
@@ -99,10 +106,12 @@ class PushNotificationService {
   String? _cachedToken;
   bool _initialised = false;
 
-  final StreamController<BookingNotificationPayload> _bookingEvents = StreamController<BookingNotificationPayload>.broadcast();
+  final StreamController<BookingNotificationPayload> _bookingEvents =
+      StreamController<BookingNotificationPayload>.broadcast();
   BookingNotificationPayload? _pendingNavigation;
 
-  Stream<BookingNotificationPayload> get bookingNotifications => _bookingEvents.stream;
+  Stream<BookingNotificationPayload> get bookingNotifications =>
+      _bookingEvents.stream;
   BookingNotificationPayload? get pendingNavigationEvent => _pendingNavigation;
 
   BookingNotificationPayload? takePendingNavigationEvent() {
@@ -111,7 +120,8 @@ class PushNotificationService {
     return pending;
   }
 
-  bool get _supportsPush => !kIsWeb &&
+  bool get _supportsPush =>
+      !kIsWeb &&
       (defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.android);
 
@@ -128,7 +138,8 @@ class PushNotificationService {
     await _initialiseLocalNotifications();
     await _requestPermissions();
 
-    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+    await FirebaseMessaging.instance
+        .setForegroundNotificationPresentationOptions(
       alert: true,
       badge: true,
       sound: true,
@@ -136,7 +147,8 @@ class PushNotificationService {
 
     final hasApnsToken = await _waitForApnsToken();
     if (!hasApnsToken) {
-      print('APNS token not available; skipping FCM token registration for now.');
+      print(
+          'APNS token not available; skipping FCM token registration for now.');
     } else {
       final token = await _messaging.getToken();
       await _persistToken(token);
@@ -150,15 +162,18 @@ class PushNotificationService {
 
     FirebaseMessaging.onMessage.listen((message) async {
       print('Foreground push message: ${message.messageId}');
-      print('Foreground push notification: title=${message.notification?.title}, body=${message.notification?.body}');
+      print(
+          'Foreground push notification: title=${message.notification?.title}, body=${message.notification?.body}');
       print('Foreground push data: ${message.data}');
+      await NotificationStore.saveRemoteMessage(message);
       _emitBookingEvent(message, wasTapped: false);
       await _showForegroundNotification(message);
     });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    FirebaseMessaging.onMessageOpenedApp.listen((message) async {
       print('Push notification opened: ${message.messageId}');
       print('Opened push data: ${message.data}');
+      await NotificationStore.saveRemoteMessage(message);
       _emitBookingEvent(message, wasTapped: true);
     });
 
@@ -166,6 +181,7 @@ class PushNotificationService {
     if (initialMessage != null) {
       print('Initial push message: ${initialMessage.messageId}');
       print('Initial push data: ${initialMessage.data}');
+      await NotificationStore.saveRemoteMessage(initialMessage);
       _emitBookingEvent(initialMessage, wasTapped: true);
     }
   }
@@ -201,7 +217,8 @@ class PushNotificationService {
     );
     if (parsed == null) return;
 
-    debugPrint('Booking event received: branch=${parsed.branchId}, date=${parsed.date.toIso8601String()}, tapped=$wasTapped');
+    debugPrint(
+        'Booking event received: branch=${parsed.branchId}, date=${parsed.date.toIso8601String()}, tapped=$wasTapped');
 
     if (parsed.wasTapped) {
       _pendingNavigation = parsed;
@@ -209,6 +226,7 @@ class PushNotificationService {
 
     _bookingEvents.add(parsed);
   }
+
   Future<void> _initialiseLocalNotifications() async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings();
@@ -238,7 +256,8 @@ class PushNotificationService {
     );
 
     await _localNotifications
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(_androidChannel);
   }
 
@@ -273,7 +292,8 @@ class PushNotificationService {
     final notification = message.notification;
     final android = notification?.android;
 
-    final title = notification?.title ?? message.data['title']?.toString() ?? 'Glowante';
+    final title =
+        notification?.title ?? message.data['title']?.toString() ?? 'Glowante';
     final body = notification?.body ?? message.data['body']?.toString() ?? '';
 
     final details = NotificationDetails(
@@ -285,10 +305,12 @@ class PushNotificationService {
         importance: Importance.high,
         priority: Priority.high,
       ),
-      iOS: const DarwinNotificationDetails(presentSound: true, presentAlert: true, presentBadge: true),
+      iOS: const DarwinNotificationDetails(
+          presentSound: true, presentAlert: true, presentBadge: true),
     );
 
-    print('Showing local notification on channel $_androidChannelId with title=$title, body=$body');
+    print(
+        'Showing local notification on channel $_androidChannelId with title=$title, body=$body');
     await _localNotifications.show(
       (notification?.hashCode ?? message.hashCode),
       title,
@@ -305,8 +327,3 @@ class PushNotificationService {
     await prefs.setString(_tokenStorageKey, token);
   }
 }
-
-
-
-
-

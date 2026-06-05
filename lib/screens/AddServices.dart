@@ -77,12 +77,14 @@ class _AddServicesState extends State<AddServices> {
     fetchServiceCatalog();
 
     if (widget.selectedCategory != null) {
-      selectedCategory = widget.selectedCategory;
-      final hasSub = (selectedCategory!['subCategories'] ?? []).isNotEmpty;
-      selectedCategoryType = hasSub ? 'category' : 'subCategory';
-      final id = selectedCategory!['id'];
-      selectedCategoryKey =
-          (selectedCategoryType == 'category') ? 'cat:$id' : 'sub:$id';
+      final subCategories =
+          (widget.selectedCategory!['subCategories'] as List?) ?? const [];
+      if (subCategories.isEmpty) {
+        selectedCategory = widget.selectedCategory;
+        selectedCategoryType = 'category';
+        final id = selectedCategory!['id'];
+        selectedCategoryKey = 'cat:$id';
+      }
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -310,6 +312,7 @@ class _AddServicesState extends State<AddServices> {
     if (selectedCategory == null) return translateText("Category is required");
     return null;
   }
+
   @override
   Widget build(BuildContext context) {
     final categoryItems =
@@ -760,11 +763,19 @@ List<DropdownMenuItem<String>> buildCategoryAndSubcategoryKeyItems(
   final items = <DropdownMenuItem<String>>[];
   for (final cat in categories) {
     final catId = cat['id'] as int;
+    final subCategories = (cat['subCategories'] as List?) ?? const [];
+    final hasSubCategories = subCategories.isNotEmpty;
     items.add(DropdownMenuItem<String>(
       value: 'cat:$catId',
-      child: Text(cat['displayName'] ?? ''),
+      enabled: !hasSubCategories,
+      child: Text(
+        cat['displayName'] ?? '',
+        style: TextStyle(
+          color: hasSubCategories ? Colors.grey.shade500 : null,
+        ),
+      ),
     ));
-    for (final sub in (cat['subCategories'] ?? []) as List) {
+    for (final sub in subCategories) {
       final subId = sub['id'] as int;
       items.add(DropdownMenuItem<String>(
         value: 'sub:$subId',

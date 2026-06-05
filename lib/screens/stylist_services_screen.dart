@@ -50,6 +50,14 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
     return null;
   }
 
+  double? _asDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   String _readText(Map<String, dynamic> map, List<String> keys) {
     for (final key in keys) {
       final value = map[key]?.toString().trim();
@@ -58,6 +66,40 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
       }
     }
     return '';
+  }
+
+  String _commissionTypeLabel(Map<String, dynamic> service) {
+    if (service['commissionEnabled'] != true) {
+      return context.t('Commission off');
+    }
+
+    final type = _readText(service, const ['commissionType']).toLowerCase();
+    if (type == 'fixed') return context.t('Fixed commission');
+    if (type == 'percentage') return context.t('Percentage commission');
+    return context.t('Commission enabled');
+  }
+
+  String _commissionValueLabel(Map<String, dynamic> service) {
+    if (service['commissionEnabled'] != true) return context.t('No commission');
+
+    final type = _readText(service, const ['commissionType']).toLowerCase();
+    if (type == 'fixed') {
+      final amount = _asInt(service['commissionFixedAmountMinor']);
+      return amount != null ? '₹$amount' : context.t('Fixed');
+    }
+
+    if (type == 'percentage') {
+      final percent = _asDouble(service['commissionPercentage']);
+      final maxAmount = _asInt(service['commissionMaxAmountMinor']);
+      final percentLabel = percent == null
+          ? context.t('Percentage')
+          : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
+      return maxAmount != null
+          ? '$percentLabel • max ₹$maxAmount'
+          : percentLabel;
+    }
+
+    return context.t('Enabled');
   }
 
   ({
@@ -253,6 +295,8 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                 final priceType =
                     _readText(service, const ['priceType']).toLowerCase();
                 final bool isActive = service['isActive'] != false;
+                final commissionType = _commissionTypeLabel(service);
+                final commissionValue = _commissionValueLabel(service);
 
                 final details = <String>[
                   if (category.isNotEmpty) category,
@@ -274,7 +318,29 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                       name.isEmpty ? context.t('Services') : name,
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    subtitle: details.isEmpty ? null : Text(details),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (details.isNotEmpty) Text(details),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            _InfoPill(
+                              text: commissionType,
+                              backgroundColor: const Color(0xFFF6EFE3),
+                              textColor: AppColors.starColor,
+                            ),
+                            _InfoPill(
+                              text: commissionValue,
+                              backgroundColor: const Color(0xFFF3F4F6),
+                              textColor: Colors.black54,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                     trailing: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -313,6 +379,37 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                 );
               }),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InfoPill extends StatelessWidget {
+  const _InfoPill({
+    required this.text,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  final String text;
+  final Color backgroundColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

@@ -13,6 +13,7 @@ import 'branch_screen.dart';
 import 'SalonDeal.dart';
 import 'SalonPackage.dart';
 import 'SalonTeams.dart';
+import 'notifications.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -525,6 +526,14 @@ class SalonsScreenState extends State<SalonsScreen> {
         onSearchChanged: _handleSearchChanged,
         onSearchTap: _collapseFab,
         onHeaderTap: _collapseFab,
+        onNotificationTap: () {
+          _collapseFab();
+          _dismissKeyboard();
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+          );
+        },
       ),
       body: Listener(
         behavior: HitTestBehavior.translucent,
@@ -759,6 +768,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onSearchChanged,
     required this.onSearchTap,
     this.onHeaderTap,
+    required this.onNotificationTap,
   });
 
   final TextEditingController searchController;
@@ -766,6 +776,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchTap;
   final VoidCallback? onHeaderTap;
+  final VoidCallback onNotificationTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(70);
@@ -802,7 +813,7 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ),
                   const Spacer(),
                   IconButton(
-                    onPressed: onHeaderTap,
+                    onPressed: onNotificationTap,
                     icon: const Icon(
                       Icons.notifications_none_rounded,
                       color: Color(0xFF8B6500),

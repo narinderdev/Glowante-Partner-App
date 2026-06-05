@@ -20,6 +20,57 @@ typedef SubcategoryOp = Future<void> Function({
   required int categoryId,
 });
 
+int? _serviceInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
+double? _serviceDouble(dynamic value) {
+  if (value is double) return value;
+  if (value is int) return value.toDouble();
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
+String _serviceCommissionTypeLabel(Map<String, dynamic> service) {
+  if (service['commissionEnabled'] != true) {
+    return translateText('Commission off');
+  }
+
+  final type = (service['commissionType'] ?? '').toString().toLowerCase();
+  if (type == 'fixed') return translateText('Fixed commission');
+  if (type == 'percentage') return translateText('Percentage commission');
+  return translateText('Commission enabled');
+}
+
+String _serviceCommissionValueLabel(Map<String, dynamic> service) {
+  if (service['commissionEnabled'] != true) {
+    return translateText('No commission');
+  }
+
+  final type = (service['commissionType'] ?? '').toString().toLowerCase();
+  if (type == 'fixed') {
+    final amount = _serviceInt(service['commissionFixedAmountMinor']);
+    return amount != null ? 'Rs $amount' : translateText('Fixed');
+  }
+
+  if (type == 'percentage') {
+    final percent = _serviceDouble(service['commissionPercentage']);
+    final maxAmount = _serviceInt(service['commissionMaxAmountMinor']);
+    final percentLabel = percent == null
+        ? translateText('Percentage')
+        : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
+    return maxAmount != null
+        ? '$percentLabel • max Rs $maxAmount'
+        : percentLabel;
+  }
+
+  return translateText('Enabled');
+}
+
 /// Ensures the first alphabetic character the user types is uppercase
 class FirstLetterUpperFormatter extends TextInputFormatter {
   const FirstLetterUpperFormatter();
@@ -1376,9 +1427,11 @@ class _ServiceCard extends StatelessWidget {
     final String name = service['displayName']?.toString() ??
         service['name']?.toString() ??
         translateText('Unnamed service');
-    final int? price = service['priceMinor'] as int?;
-    final int? duration = service['durationMin'] as int?;
+    final int? price = _serviceInt(service['priceMinor']);
+    final int? duration = _serviceInt(service['durationMin']);
     final String description = (service['description'] ?? '').toString().trim();
+    final String commissionTypeLabel = _serviceCommissionTypeLabel(service);
+    final String commissionValueLabel = _serviceCommissionValueLabel(service);
 
     final String priceLabel =
         price != null ? 'Rs ' + price.toString() : translateText('No price');
@@ -1428,6 +1481,23 @@ class _ServiceCard extends StatelessWidget {
                     color: Colors.grey.shade600,
                   ),
                 ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _ServiceInfoPill(
+                      text: commissionTypeLabel,
+                      backgroundColor: const Color(0xFFF6EFE3),
+                      textColor: AppColors.starColor,
+                    ),
+                    _ServiceInfoPill(
+                      text: commissionValueLabel,
+                      backgroundColor: const Color(0xFFF3F4F6),
+                      textColor: Colors.black54,
+                    ),
+                  ],
+                ),
                 if (description.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -1455,6 +1525,37 @@ class _ServiceCard extends StatelessWidget {
             onTap: () => onDeleteService(service['id'] as int),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ServiceInfoPill extends StatelessWidget {
+  const _ServiceInfoPill({
+    required this.text,
+    required this.backgroundColor,
+    required this.textColor,
+  });
+
+  final String text;
+  final Color backgroundColor;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
