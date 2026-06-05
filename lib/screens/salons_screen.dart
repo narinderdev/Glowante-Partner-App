@@ -39,6 +39,7 @@ class SalonsScreenState extends State<SalonsScreen> {
   String _searchQuery = '';
   Timer? _searchActivityTimer;
   bool _isSearchActivityVisible = false;
+  bool _isActionLoading = false;
   final Set<int> _collapsedSalonIds = <int>{};
   final GlobalKey _fabKey = GlobalKey();
   final GlobalKey _fabPanelKey = GlobalKey();
@@ -280,7 +281,9 @@ class SalonsScreenState extends State<SalonsScreen> {
     required int salonId,
     required bool active,
   }) async {
+    if (_isActionLoading) return;
     final repo = context.read<SalonRepository>();
+    setState(() => _isActionLoading = true);
     try {
       debugPrint(
         '[SalonAction] ${active ? 'Activate' : 'Deactivate'} salon -> salonId=$salonId',
@@ -308,6 +311,8 @@ class SalonsScreenState extends State<SalonsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
       );
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
@@ -337,6 +342,8 @@ class SalonsScreenState extends State<SalonsScreen> {
 
     if (confirmed != true) return;
 
+    if (_isActionLoading) return;
+    setState(() => _isActionLoading = true);
     try {
       debugPrint('[SalonAction] Delete salon -> salonId=$salonId');
       await repository.deleteSalon(salonId);
@@ -350,6 +357,8 @@ class SalonsScreenState extends State<SalonsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
       );
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
@@ -409,7 +418,9 @@ class SalonsScreenState extends State<SalonsScreen> {
     required int branchId,
     required bool active,
   }) async {
+    if (_isActionLoading) return;
     final repo = context.read<SalonRepository>();
+    setState(() => _isActionLoading = true);
     try {
       debugPrint(
         '[BranchAction] ${active ? 'Activate' : 'Deactivate'} branch -> branchId=$branchId',
@@ -437,6 +448,8 @@ class SalonsScreenState extends State<SalonsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
       );
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
@@ -466,6 +479,8 @@ class SalonsScreenState extends State<SalonsScreen> {
 
     if (confirmed != true) return;
 
+    if (_isActionLoading) return;
+    setState(() => _isActionLoading = true);
     try {
       debugPrint('[BranchAction] Delete branch -> branchId=$branchId');
       await repository.deleteBranch(branchId);
@@ -479,6 +494,8 @@ class SalonsScreenState extends State<SalonsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.toString())),
       );
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
     }
   }
 
@@ -660,6 +677,8 @@ class SalonsScreenState extends State<SalonsScreen> {
                 ),
                 if (_isSearchActivityVisible)
                   const Positioned.fill(child: _SearchActivityOverlay()),
+                if (_isActionLoading)
+                  const Positioned.fill(child: _SalonActionLoadingOverlay()),
               ],
             );
           },
@@ -915,6 +934,55 @@ class _SearchActivityOverlay extends StatelessWidget {
                 style: const TextStyle(
                   color: Color(0xFF546E7A),
                   fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SalonActionLoadingOverlay extends StatelessWidget {
+  const _SalonActionLoadingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return AbsorbPointer(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.16),
+        alignment: Alignment.center,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 22,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: AppColors.starColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                translateText('Please wait...'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF4B3A2A),
                 ),
               ),
             ],
