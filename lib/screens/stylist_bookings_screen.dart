@@ -67,6 +67,8 @@ class _SalonBranchOption {
     this.isMain = false,
     this.startMinute,
     this.endMinute,
+    this.hasWeeklySchedule = false,
+    this.weeklySlots = const <String, List<_BranchDaySlot>>{},
   });
 
   final int salonId;
@@ -77,12 +79,40 @@ class _SalonBranchOption {
   final bool isMain;
   final int? startMinute;
   final int? endMinute;
+  final bool hasWeeklySchedule;
+  final Map<String, List<_BranchDaySlot>> weeklySlots;
 
   String get label {
     if (branchName.isNotEmpty) return branchName;
     if (salonName.isNotEmpty) return salonName;
     return 'Salon #$salonId';
   }
+
+  List<_BranchDaySlot> slotsForDate(DateTime date) {
+    if (hasWeeklySchedule) {
+      return weeklySlots[_weekdayKeyForDate(date)] ?? const <_BranchDaySlot>[];
+    }
+    if (startMinute != null && endMinute != null && endMinute! > startMinute!) {
+      return [
+        _BranchDaySlot(startMinute: startMinute!, endMinute: endMinute!),
+      ];
+    }
+    return const <_BranchDaySlot>[];
+  }
+
+  bool isClosedOnDate(DateTime date) {
+    return hasWeeklySchedule && slotsForDate(date).isEmpty;
+  }
+}
+
+class _BranchDaySlot {
+  const _BranchDaySlot({
+    required this.startMinute,
+    required this.endMinute,
+  });
+
+  final int startMinute;
+  final int endMinute;
 }
 
 class _TeamMemberDirectory {
@@ -190,6 +220,19 @@ String _formatScheduleDate(DateTime value) {
     'Dec',
   ];
   return '${weekdays[value.weekday - 1]}, ${months[value.month - 1]} ${value.day}';
+}
+
+String _weekdayKeyForDate(DateTime value) {
+  const days = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ];
+  return days[value.weekday - 1];
 }
 
 String _formatTime(DateTime value) {
@@ -1148,6 +1191,46 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     _loadOptions(showPageLoader: false, showInlineLoader: true);
   }
 
+  Map<String, List<_BranchDaySlot>> _weeklySlotsFromSchedule(
+    dynamic rawSchedule,
+  ) {
+    if (rawSchedule is! List) return const <String, List<_BranchDaySlot>>{};
+
+    final slotsByDay = <String, List<_BranchDaySlot>>{};
+    for (final rawDay in rawSchedule) {
+      if (rawDay is! Map) continue;
+      final day = rawDay['day']?.toString().trim().toLowerCase() ?? '';
+      if (day.isEmpty) continue;
+
+      final rawSlots =
+          rawDay['slots'] is List ? rawDay['slots'] as List : <dynamic>[rawDay];
+      final daySlots = slotsByDay.putIfAbsent(day, () => <_BranchDaySlot>[]);
+
+      for (final rawSlot in rawSlots) {
+        if (rawSlot is! Map) continue;
+        final startMinute = _clockMinutes(
+          rawSlot['start'] ?? rawSlot['startTime'],
+        );
+        final endMinute = _clockMinutes(
+          rawSlot['end'] ?? rawSlot['endTime'],
+        );
+        if (startMinute == null || endMinute == null) continue;
+        if (endMinute <= startMinute) continue;
+        daySlots.add(
+          _BranchDaySlot(startMinute: startMinute, endMinute: endMinute),
+        );
+      }
+    }
+
+    for (final daySlots in slotsByDay.values) {
+      daySlots.sort(
+        (first, second) => first.startMinute.compareTo(second.startMinute),
+      );
+    }
+
+    return slotsByDay;
+  }
+
   List<_SalonBranchOption> _buildOptionsFromSalons(
       Iterable<dynamic> rawSalons) {
     final options = <_SalonBranchOption>[];
@@ -1170,6 +1253,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               (branch['name'] ?? branch['branchName'] ?? salonName)
                   .toString()
                   .trim();
+          final rawSchedule = branch['schedule'] is List
+              ? branch['schedule']
+              : salon['schedule'];
 
           options.add(
             _SalonBranchOption(
@@ -1183,6 +1269,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               isMain: branch['isMain'] == true,
               startMinute: _clockMinutes(branch['startTime']),
               endMinute: _clockMinutes(branch['endTime']),
+              hasWeeklySchedule: rawSchedule is List,
+              weeklySlots: _weeklySlotsFromSchedule(rawSchedule),
             ),
           );
         }
@@ -1193,6 +1281,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           _asInt(salon['branchId']) ?? _asInt(salon['branch_id']) ?? salonId;
       final derivedBranchName =
           (salon['branchName'] ?? salon['branch_name'])?.toString().trim();
+      final rawSchedule = salon['schedule'];
 
       options.add(
         _SalonBranchOption(
@@ -1207,6 +1296,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           isMain: salon['isMain'] == true,
           startMinute: _clockMinutes(salon['startTime']),
           endMinute: _clockMinutes(salon['endTime']),
+          hasWeeklySchedule: rawSchedule is List,
+          weeklySlots: _weeklySlotsFromSchedule(rawSchedule),
         ),
       );
     }
@@ -1228,6 +1319,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       final branch = Map<String, dynamic>.from(rawBranch);
       final branchId = _asInt(branch['id']);
       final branchName = (branch['name'] ?? '').toString().trim();
+      final rawSchedule = branch['schedule'];
 
       final rawSalon = branch['salon'];
       final salon =
@@ -1249,6 +1341,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           isMain: branch['isMain'] == true,
           startMinute: _clockMinutes(branch['startTime']),
           endMinute: _clockMinutes(branch['endTime']),
+          hasWeeklySchedule: rawSchedule is List,
+          weeklySlots: _weeklySlotsFromSchedule(rawSchedule),
         ),
       );
     }
@@ -1967,6 +2061,17 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     String staffName,
     List<Map<String, dynamic>> bookings,
   ) {
+    final selectedDaySlots = _selectedOption?.slotsForDate(_selectedDate) ??
+        const <_BranchDaySlot>[];
+    final selectedStartMinute = selectedDaySlots.isNotEmpty
+        ? selectedDaySlots.first.startMinute
+        : _selectedOption?.startMinute;
+    final selectedEndMinute = selectedDaySlots.isNotEmpty
+        ? selectedDaySlots
+            .map((slot) => slot.endMinute)
+            .reduce((first, second) => first > second ? first : second)
+        : _selectedOption?.endMinute;
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -1977,8 +2082,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           workingHours: _teamMemberWorkingHours[staffName] ?? const [],
           selectedDate: _selectedDate,
           branchId: _selectedOption?.branchId,
-          branchStartMinute: _selectedOption?.startMinute,
-          branchEndMinute: _selectedOption?.endMinute,
+          branchStartMinute: selectedStartMinute,
+          branchEndMinute: selectedEndMinute,
           onBookingTap: _openBookingDetail,
         ),
       ),
@@ -2031,6 +2136,16 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     if (selected == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(translateText('Please select a salon'))),
+      );
+      return;
+    }
+    if (selected.isClosedOnDate(_selectedDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('Salon is closed on the selected date'),
+          ),
+        ),
       );
       return;
     }
@@ -2145,6 +2260,18 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       7,
       (index) => dateRailStart.add(Duration(days: index)),
     );
+    final selectedDaySlots = _selectedOption?.slotsForDate(_selectedDate) ??
+        const <_BranchDaySlot>[];
+    final isSelectedDateClosed =
+        _selectedOption?.isClosedOnDate(_selectedDate) == true;
+    final selectedStartMinute = selectedDaySlots.isNotEmpty
+        ? selectedDaySlots.first.startMinute
+        : _selectedOption?.startMinute;
+    final selectedEndMinute = selectedDaySlots.isNotEmpty
+        ? selectedDaySlots
+            .map((slot) => slot.endMinute)
+            .reduce((first, second) => first > second ? first : second)
+        : _selectedOption?.endMinute;
 
     return Scaffold(
       backgroundColor: _bookingsPage,
@@ -2281,7 +2408,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       ],
                     ),
                   ),
-                  if (!_isLoading &&
+                  if (!_isLoading && isSelectedDateClosed)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _BranchClosedState(
+                        branchLabel: selectedLabel,
+                        selectedDate: _selectedDate,
+                      ),
+                    )
+                  else if (!_isLoading &&
                       visibleBookings.isEmpty &&
                       !(widget.isOwnerMode &&
                           _selectedBookingView == 0 &&
@@ -2309,8 +2444,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       ),
                       onBookingTap: _openBookingDetail,
                       onAddBookingTap: _openAddBooking,
-                      branchStartMinute: _selectedOption?.startMinute,
-                      branchEndMinute: _selectedOption?.endMinute,
+                      branchStartMinute: selectedStartMinute,
+                      branchEndMinute: selectedEndMinute,
                     )
                   else
                     Padding(
@@ -2326,7 +2461,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                             .toList(),
                       ),
                     ),
-                  if (widget.isOwnerMode && _selectedBookingView == 1) ...[
+                  if (widget.isOwnerMode &&
+                      _selectedBookingView == 1 &&
+                      !isSelectedDateClosed) ...[
                     const SizedBox(height: 6),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -2374,9 +2511,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           ? FloatingActionButton(
               heroTag: 'owner_team_add_booking_fab',
               onPressed: _openAddBooking,
-              backgroundColor: _bookingsGold,
-              foregroundColor: Colors.white,
-              elevation: 8,
+              backgroundColor: isSelectedDateClosed
+                  ? const Color(0xFFD6D3D1)
+                  : _bookingsGold,
+              foregroundColor:
+                  isSelectedDateClosed ? _bookingsSecondaryText : Colors.white,
+              elevation: isSelectedDateClosed ? 2 : 8,
               child: const Icon(Icons.add_rounded, size: 30),
             )
           : null,
@@ -5276,6 +5416,62 @@ class _BookingEmptyState extends StatelessWidget {
               size: 12,
               weight: FontWeight.w600,
               color: _bookingsSecondaryText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BranchClosedState extends StatelessWidget {
+  const _BranchClosedState({
+    required this.branchLabel,
+    required this.selectedDate,
+  });
+
+  final String branchLabel;
+  final DateTime selectedDate;
+
+  @override
+  Widget build(BuildContext context) {
+    final weekday = _formatScheduleDate(selectedDate).split(',').first;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _bookingsBorder),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.event_busy_outlined,
+            size: 34,
+            color: _bookingsAccent,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '${context.t(branchLabel)} ${context.t('is closed on')} ${context.t(weekday)}',
+            textAlign: TextAlign.center,
+            style: _bookingTextStyle(
+              size: 16,
+              weight: FontWeight.w900,
+              color: _bookingsPrimaryText,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.t(
+              'No working hours were provided for this day. Please choose another date to view or add bookings.',
+            ),
+            textAlign: TextAlign.center,
+            style: _bookingTextStyle(
+              size: 12,
+              weight: FontWeight.w600,
+              color: _bookingsSecondaryText,
+              height: 1.45,
             ),
           ),
         ],
