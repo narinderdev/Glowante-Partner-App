@@ -1711,7 +1711,7 @@ class _SalonCard extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             _statusTag(
-                              isActive ? 'Activated' : 'Deactivated',
+                              isActive ? 'Active' : 'Inactive',
                               active: isActive,
                             ),
                           ],
@@ -2398,7 +2398,7 @@ class _BranchTileState extends State<_BranchTile> {
         ),
       ),
       child: Text(
-        translateText(isActive ? 'Activated' : 'Deactivated'),
+        translateText(isActive ? 'Active' : 'Inactive'),
         style: TextStyle(
           fontSize: 8,
           fontWeight: FontWeight.w900,
