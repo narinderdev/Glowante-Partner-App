@@ -1491,8 +1491,11 @@ class _SalonCard extends StatelessWidget {
           required IconData icon,
           required String title,
           required String subtitle,
+          required bool active,
           required String value,
         }) {
+          final statusColor =
+              active ? const Color(0xFF047857) : const Color(0xFFB42318);
           return InkWell(
             onTap: () => Navigator.pop(dialogContext, value),
             borderRadius: BorderRadius.circular(10),
@@ -1529,15 +1532,47 @@ class _SalonCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          subtitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF8A8178),
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Color(0xFF8A8178),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 7,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: active
+                                    ? const Color(0xFFE8FFF5)
+                                    : const Color(0xFFFFEFEF),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: active
+                                      ? const Color(0xFFB7F0D0)
+                                      : const Color(0xFFF5C2C7),
+                                ),
+                              ),
+                              child: Text(
+                                translateText(active ? 'Active' : 'Inactive'),
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1600,6 +1635,7 @@ class _SalonCard extends StatelessWidget {
                   icon: Icons.storefront_outlined,
                   title: 'Salon',
                   subtitle: salonName,
+                  active: isSalonActive,
                   value: 'salon',
                 ),
                 const SizedBox(height: 10),
@@ -1607,6 +1643,7 @@ class _SalonCard extends StatelessWidget {
                   icon: Icons.home_work_outlined,
                   title: 'Branch',
                   subtitle: branchName.isEmpty ? salonName : branchName,
+                  active: isBranchActive,
                   value: 'branch',
                 ),
                 const SizedBox(height: 16),

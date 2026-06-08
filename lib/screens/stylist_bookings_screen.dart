@@ -3030,14 +3030,16 @@ class _TeamMemberSlotCard extends StatelessWidget {
               const Divider(color: _bookingsBorder, height: 18),
               Row(
                 children: [
-                  Text(
-                    '${_bookingDurationMinutes(booking)} Mins',
-                    style: _bookingTextStyle(
-                      size: 10,
-                      weight: FontWeight.w900,
-                      color: _bookingsSecondaryText,
-                    ),
-                  ),
+                  // Temporarily hidden by requirement: booking duration mins.
+                  // Restore if duration should be visible on team-member cards.
+                  // Text(
+                  //   '${_bookingDurationMinutes(booking)} Mins',
+                  //   style: _bookingTextStyle(
+                  //     size: 10,
+                  //     weight: FontWeight.w900,
+                  //     color: _bookingsSecondaryText,
+                  //   ),
+                  // ),
                   const Spacer(),
                   _TeamMemberCardIconButton(
                     icon: Icons.phone_outlined,
@@ -3444,15 +3446,17 @@ class _ScheduleBookingContent extends StatelessWidget {
           const Spacer(),
           Row(
             children: [
-              Text(
-                '${_bookingDurationMinutes(booking)} ${context.t('Mins')}',
-                style: _bookingTextStyle(
-                  size: 10,
-                  weight: FontWeight.w900,
-                  color: _bookingsSecondaryText,
-                  height: 1,
-                ),
-              ),
+              // Temporarily hidden by requirement: booking duration mins.
+              // Restore if duration should be visible on schedule cards.
+              // Text(
+              //   '${_bookingDurationMinutes(booking)} ${context.t('Mins')}',
+              //   style: _bookingTextStyle(
+              //     size: 10,
+              //     weight: FontWeight.w900,
+              //     color: _bookingsSecondaryText,
+              //     height: 1,
+              //   ),
+              // ),
               const Spacer(),
               InkWell(
                 borderRadius: BorderRadius.circular(999),
@@ -4424,19 +4428,21 @@ class _TeamMemberTimelineEntry extends StatelessWidget {
                       item.isBooking ? _bookingsGold : _bookingsSecondaryText,
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                item.isBooking
-                    ? '${_bookingDurationMinutes(booking!)} ${context.t('mins')}'
-                    : '${item.durationMinutes} ${context.t('mins')}',
-                textAlign: TextAlign.right,
-                style: _bookingTextStyle(
-                  size: 10,
-                  weight: FontWeight.w800,
-                  color: _bookingsSecondaryText,
-                  height: 1.1,
-                ),
-              ),
+              // Temporarily hidden by requirement: booking and gap duration mins
+              // below timeline times. Keep this code for later restoration.
+              // if (item.isBooking) ...[
+              //   const SizedBox(height: 2),
+              //   Text(
+              //     '${_bookingDurationMinutes(booking!)} ${context.t('mins')}',
+              //     textAlign: TextAlign.right,
+              //     style: _bookingTextStyle(
+              //       size: 10,
+              //       weight: FontWeight.w800,
+              //       color: _bookingsSecondaryText,
+              //       height: 1.1,
+              //     ),
+              //   ),
+              // ],
             ],
           ),
         ),
