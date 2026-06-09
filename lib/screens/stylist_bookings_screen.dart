@@ -57,6 +57,12 @@ class StylistBookingsScreen extends StatefulWidget {
   State<StylistBookingsScreen> createState() => _StylistBookingsScreenState();
 }
 
+enum _BookingViewTab {
+  teamMembers,
+  schedule,
+  recent,
+}
+
 class _SalonBranchOption {
   const _SalonBranchOption({
     required this.salonId,
@@ -1893,6 +1899,58 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     });
   }
 
+  List<_BookingViewTab> get _bookingViewTabs => widget.isOwnerMode
+      ? const <_BookingViewTab>[
+          _BookingViewTab.teamMembers,
+          _BookingViewTab.schedule,
+          // _BookingViewTab.recent,
+        ]
+      : const <_BookingViewTab>[
+          _BookingViewTab.schedule,
+          _BookingViewTab.recent,
+        ];
+
+  int _safeBookingViewIndex(List<_BookingViewTab> tabs) {
+    if (tabs.isEmpty) return 0;
+    if (_selectedBookingView < 0) return 0;
+    if (_selectedBookingView >= tabs.length) return tabs.length - 1;
+    return _selectedBookingView;
+  }
+
+  String _bookingViewLabel(BuildContext context, _BookingViewTab tab) {
+    return switch (tab) {
+      _BookingViewTab.teamMembers => context.t('Team Members'),
+      _BookingViewTab.schedule => context.t('Schedule'),
+      _BookingViewTab.recent => context.t('Recent'),
+    };
+  }
+
+  bool get _isRecentBookingView {
+    final tabs = _bookingViewTabs;
+    if (tabs.isEmpty) return false;
+    return tabs[_safeBookingViewIndex(tabs)] == _BookingViewTab.recent;
+  }
+
+  bool get _isScheduleBookingView {
+    final tabs = _bookingViewTabs;
+    if (tabs.isEmpty) return false;
+    return tabs[_safeBookingViewIndex(tabs)] == _BookingViewTab.schedule;
+  }
+
+  bool _isCompletedStatus(String status) {
+    return status == 'COMPLETED' || status == 'COMPLETE';
+  }
+
+  bool _isUpcomingScheduleStatus(String status) {
+    return !_isCompletedStatus(status) &&
+        status != 'IN_PROGRESS' &&
+        status != 'STARTED' &&
+        status != 'CANCELLED' &&
+        status != 'CANCELED' &&
+        status != 'NO_SHOW' &&
+        status != 'PENDING';
+  }
+
   List<Map<String, dynamic>> _sortedBookings() {
     final items = [..._bookings];
     items.sort((a, b) {
@@ -1909,15 +1967,21 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   List<Map<String, dynamic>> _bookingsForCurrentView(
     List<Map<String, dynamic>> sortedBookings,
   ) {
-    if (_selectedBookingView == 2) {
+    if (_isRecentBookingView) {
       return sortedBookings
           .where((booking) {
             final status = _normalizeStatus(booking['status']);
-            return status == 'COMPLETED' || status == 'COMPLETE';
+            return _isCompletedStatus(status);
           })
           .toList()
           .reversed
           .toList();
+    }
+    if (!widget.isOwnerMode && _isScheduleBookingView) {
+      return sortedBookings.where((booking) {
+        final status = _normalizeStatus(booking['status']);
+        return _isUpcomingScheduleStatus(status);
+      }).toList();
     }
     return sortedBookings;
   }
@@ -2294,6 +2358,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         : context.t('Select Branch');
     final selectedAddressSummary = _selectedOption?.addressSummary ?? '';
     final canChangeBranch = _options.length > 1;
+    final bookingViewTabs = _bookingViewTabs;
+    final selectedBookingViewIndex = _safeBookingViewIndex(bookingViewTabs);
+    final selectedBookingView = bookingViewTabs[selectedBookingViewIndex];
     final sortedBookings = _sortedBookings();
     final visibleBookings = _bookingsForCurrentView(sortedBookings);
     final dateRailStart = _visibleDateStart;
@@ -2422,12 +2489,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                         ),
                         const SizedBox(height: 18),
                         _BookingViewTabs(
-                          selectedIndex: _selectedBookingView,
-                          labels: [
-                            context.t('Team Members'),
-                            context.t('Schedule'),
-                            // context.t('Recent'),
-                          ],
+                          selectedIndex: selectedBookingViewIndex,
+                          labels: bookingViewTabs
+                              .map((tab) => _bookingViewLabel(context, tab))
+                              .toList(),
                           onChanged: (index) {
                             setState(() => _selectedBookingView = index);
                           },
@@ -2459,14 +2524,13 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     )
                   else if (!_isLoading &&
                       visibleBookings.isEmpty &&
-                      !(widget.isOwnerMode &&
-                          _selectedBookingView == 0 &&
+                      !(selectedBookingView == _BookingViewTab.teamMembers &&
                           _teamMemberNames.isNotEmpty))
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _BookingEmptyState(),
                     )
-                  else if (widget.isOwnerMode && _selectedBookingView == 0)
+                  else if (selectedBookingView == _BookingViewTab.teamMembers)
                     _TeamMembersBoard(
                       staffGroups: _groupBookingsByStaff(
                         context,
@@ -2477,7 +2541,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       onBookingTap: _openBookingDetail,
                       onAddBookingTap: _openAddBooking,
                     )
-                  else if (widget.isOwnerMode && _selectedBookingView == 1)
+                  else if (selectedBookingView == _BookingViewTab.schedule &&
+                      widget.isOwnerMode)
                     _ScheduleBoard(
                       staffGroups: _groupBookingsByStaff(
                         context,
@@ -2503,7 +2568,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                       ),
                     ),
                   if (widget.isOwnerMode &&
-                      _selectedBookingView == 1 &&
+                      selectedBookingView == _BookingViewTab.schedule &&
                       !isSelectedDateClosed) ...[
                     const SizedBox(height: 6),
                     Padding(
@@ -2548,7 +2613,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             ),
         ],
       ),
-      floatingActionButton: widget.isOwnerMode && _selectedBookingView == 0
+      floatingActionButton: widget.isOwnerMode &&
+              selectedBookingView == _BookingViewTab.teamMembers
           ? FloatingActionButton(
               heroTag: 'owner_team_add_booking_fab',
               onPressed: _openAddBooking,
