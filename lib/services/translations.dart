@@ -483,6 +483,7 @@ class AppTranslations {
       'Submit Location': 'Submit Location',
       'Submit Review': 'Submit Review',
       'Syncing latest data…': 'Syncing latest data…',
+      'Syncing latest data...': 'Syncing latest data...',
       'Team Members': 'Team Members',
       'Team member added successfully': 'Team member added successfully',
       'Terms & Conditions': 'Terms & Conditions',
@@ -530,6 +531,18 @@ class AppTranslations {
       'Enter state': 'Enter state',
       'Complete Address': 'Complete Address',
       'Full address will appear here': 'Full address will appear here',
+      'Could not load salons': 'Could not load salons',
+      'Loading salons...': 'Loading salons...',
+      'This can take a little longer on slow internet.':
+          'This can take a little longer on slow internet.',
+      'Unable to load salons right now. Please check your internet and try again.':
+          'Unable to load salons right now. Please check your internet and try again.',
+      'Unable to refresh salons right now.':
+          'Unable to refresh salons right now.',
+      'Your internet connection looks slow or unavailable. Please check your connection and try again.':
+          'Your internet connection looks slow or unavailable. Please check your connection and try again.',
+      'A required service is temporarily unreachable. Please try again in a few minutes.':
+          'A required service is temporarily unreachable. Please try again in a few minutes.',
       'Quick actions': 'Quick actions',
       'Deal Information': 'Deal Information',
       'E.G. MEN\'S GROOMING PACKAGE': 'E.G. MEN\'S GROOMING PACKAGE',
@@ -1281,6 +1294,7 @@ class AppTranslations {
       'Submit Location': 'स्थान जमा करें',
       'Submit Review': 'समीक्षा जमा करें',
       'Syncing latest data…': 'नवीनतम डेटा सिंक हो रहा है…',
+      'Syncing latest data...': 'नवीनतम डेटा सिंक हो रहा है...',
       'Team Members': 'टीम सदस्य',
       'Team member added successfully': 'टीम सदस्य सफलतापूर्वक जोड़ा गया',
       'Terms & Conditions': 'नियम और शर्तें',
@@ -1327,6 +1341,18 @@ class AppTranslations {
       'Enter state': 'राज्य दर्ज करें',
       'Complete Address': 'पूरा पता',
       'Full address will appear here': 'पूरा पता यहाँ दिखाई देगा',
+      'Could not load salons': 'सैलून लोड नहीं हो सके',
+      'Loading salons...': 'सैलून लोड हो रहे हैं...',
+      'This can take a little longer on slow internet.':
+          'धीमे इंटरनेट पर इसमें थोड़ा अधिक समय लग सकता है।',
+      'Unable to load salons right now. Please check your internet and try again.':
+          'अभी सैलून लोड नहीं हो पा रहे हैं। कृपया इंटरनेट जांचें और फिर से प्रयास करें।',
+      'Unable to refresh salons right now.':
+          'अभी सैलून रीफ़्रेश नहीं हो पा रहे हैं।',
+      'Your internet connection looks slow or unavailable. Please check your connection and try again.':
+          'आपका इंटरनेट धीमा या उपलब्ध नहीं लग रहा है। कृपया कनेक्शन जांचें और फिर से प्रयास करें।',
+      'A required service is temporarily unreachable. Please try again in a few minutes.':
+          'एक आवश्यक सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ मिनट बाद फिर से प्रयास करें।',
       'Please fill all required fields correctly':
           'कृपया सभी आवश्यक फ़ील्ड सही तरीके से भरें',
       'Total salons': 'कुल सैलून',

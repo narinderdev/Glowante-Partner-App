@@ -72,6 +72,11 @@ String? _extractFromDynamic(dynamic value) {
     }
 
     final cleaned = _stripKnownPrefixes(trimmed);
+    final htmlMessage = _extractFromHtml(cleaned);
+    if (htmlMessage != null && htmlMessage.isNotEmpty) {
+      return htmlMessage;
+    }
+
     return cleaned.isNotEmpty ? cleaned : trimmed;
   }
 
@@ -112,6 +117,35 @@ String? _extractFromDynamic(dynamic value) {
   }
 
   return _extractFromDynamic(value.toString());
+}
+
+String? _extractFromHtml(String value) {
+  final lowerValue = value.toLowerCase();
+  if (!lowerValue.contains('<html') &&
+      !lowerValue.contains('<head') &&
+      !lowerValue.contains('<body')) {
+    return null;
+  }
+
+  for (final pattern in [
+    RegExp(r'<title[^>]*>(.*?)<\/title>', caseSensitive: false, dotAll: true),
+    RegExp(r'<h1[^>]*>(.*?)<\/h1>', caseSensitive: false, dotAll: true),
+  ]) {
+    final match = pattern.firstMatch(value);
+    final text = match?.group(1);
+    if (text != null && text.trim().isNotEmpty) {
+      return _stripHtmlTags(text);
+    }
+  }
+
+  return _stripHtmlTags(value);
+}
+
+String _stripHtmlTags(String value) {
+  return value
+      .replaceAll(RegExp(r'<[^>]*>', multiLine: true), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
 }
 
 String _stripKnownPrefixes(String value) {

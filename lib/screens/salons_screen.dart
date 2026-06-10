@@ -282,6 +282,35 @@ class SalonsScreenState extends State<SalonsScreen> {
     required bool active,
   }) async {
     if (_isActionLoading) return;
+    if (!active) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(translateText('Deactivate Salon')),
+          content: Text(
+            translateText(
+              'If the main salon is deactivated, all branches will be automatically deactivated. Do you want to continue?',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(translateText('Cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8B6500),
+                foregroundColor: Colors.white,
+              ),
+              child: Text(translateText('Deactivate')),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      if (!mounted) return;
+    }
     final repo = context.read<SalonRepository>();
     setState(() => _isActionLoading = true);
     try {
@@ -535,6 +564,7 @@ class SalonsScreenState extends State<SalonsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isIos = Theme.of(context).platform == TargetPlatform.iOS;
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: _SalonsAppBar(
@@ -543,6 +573,9 @@ class SalonsScreenState extends State<SalonsScreen> {
         onSearchChanged: _handleSearchChanged,
         onSearchTap: _collapseFab,
         onHeaderTap: _collapseFab,
+        toolbarHeight: isIos ? 34 : 52,
+        logoHeight: isIos ? 34 : 34,
+        logoYOffset: isIos ? -6 : -3,
         onNotificationTap: () {
           _collapseFab();
           _dismissKeyboard();
@@ -563,18 +596,29 @@ class SalonsScreenState extends State<SalonsScreen> {
         child: BlocBuilder<SalonListCubit, SalonListState>(
           builder: (context, state) {
             final salons = _applySearch(state.salons);
+            final isInitialLoading = state.isLoading && state.salons.isEmpty;
 
             return Stack(
               children: [
-                RefreshIndicator(
+                _RefreshableSalonsScroll(
+                  enabled: !isInitialLoading,
                   onRefresh: _refreshSalons,
-                  color: (AppColors.starColor),
-                  displacement: 32,
                   child: CustomScrollView(
                     physics: const BouncingScrollPhysics(
                       parent: AlwaysScrollableScrollPhysics(),
                     ),
                     slivers: [
+                      if (state.hasError && state.salons.isNotEmpty)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+                            child: _InlineErrorBanner(
+                              message: state.errorMessage ??
+                                  'Unable to refresh salons right now.',
+                              onRetry: _refreshSalons,
+                            ),
+                          ),
+                        ),
                       if (state.isLoading && state.salons.isNotEmpty)
                         const SliverToBoxAdapter(
                           child: Padding(
@@ -585,7 +629,7 @@ class SalonsScreenState extends State<SalonsScreen> {
                       if (state.isLoading && state.salons.isEmpty)
                         const SliverFillRemaining(
                           hasScrollBody: false,
-                          child: Center(child: CircularProgressIndicator()),
+                          child: _LoadingSalonsView(),
                         )
                       else if (state.hasError && state.salons.isEmpty)
                         SliverFillRemaining(
@@ -787,6 +831,9 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.onSearchChanged,
     required this.onSearchTap,
     this.onHeaderTap,
+    this.toolbarHeight = 52,
+    this.logoHeight = 34,
+    this.logoYOffset = 0,
     required this.onNotificationTap,
   });
 
@@ -795,10 +842,13 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchTap;
   final VoidCallback? onHeaderTap;
+  final double toolbarHeight;
+  final double logoHeight;
+  final double logoYOffset;
   final VoidCallback onNotificationTap;
 
   @override
-  Size get preferredSize => const Size.fromHeight(52);
+  Size get preferredSize => Size.fromHeight(toolbarHeight);
 
   @override
   Widget build(BuildContext context) {
@@ -815,34 +865,145 @@ class _SalonsAppBar extends StatelessWidget implements PreferredSizeWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onHeaderTap,
           child: SizedBox(
-            height: 52,
+            height: toolbarHeight,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 2, 18, 2),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Image.asset(
-                    'assets/images/finallogo.png',
-                    height: 34,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Image.asset(
-                      'assets/images/logo.png',
-                      height: 34,
-                      fit: BoxFit.contain,
+                  SizedBox(
+                    height: toolbarHeight,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Transform.translate(
+                        offset: Offset(0, logoYOffset),
+                        child: Image.asset(
+                          'assets/images/finallogo.png',
+                          height: logoHeight,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Image.asset(
+                            'assets/images/logo.png',
+                            height: logoHeight,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const Spacer(),
-                  IconButton(
-                    onPressed: onNotificationTap,
-                    icon: const Icon(
-                      Icons.notifications_none_rounded,
-                      color: Color(0xFF8B6500),
-                      size: 24,
+                  SizedBox(
+                    width: toolbarHeight,
+                    height: toolbarHeight,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: BoxConstraints.tightFor(
+                        width: toolbarHeight,
+                        height: toolbarHeight,
+                      ),
+                      onPressed: onNotificationTap,
+                      icon: const Icon(
+                        Icons.notifications_none_rounded,
+                        color: Color(0xFF8B6500),
+                        size: 24,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RefreshableSalonsScroll extends StatelessWidget {
+  const _RefreshableSalonsScroll({
+    required this.enabled,
+    required this.onRefresh,
+    required this.child,
+  });
+
+  final bool enabled;
+  final Future<void> Function() onRefresh;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled) {
+      return child;
+    }
+
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.starColor,
+      displacement: 32,
+      child: child,
+    );
+  }
+}
+
+class _LoadingSalonsView extends StatelessWidget {
+  const _LoadingSalonsView();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 76,
+              height: 76,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: AppColors.starColor,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              translateText('Loading salons...'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF37474F),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              translateText(
+                'This can take a little longer on slow internet.',
+              ),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.35,
+                color: Color(0xFF607D8B),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -881,7 +1042,7 @@ class _InlineLoadingBanner extends StatelessWidget {
             ),
             SizedBox(width: 12),
             Text(
-              translateText('Syncing latest data.'),
+              translateText('Syncing latest data...'),
               style: TextStyle(
                 color: Color(0xFF546E7A),
                 fontWeight: FontWeight.w600,
@@ -889,6 +1050,62 @@ class _InlineLoadingBanner extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InlineErrorBanner extends StatelessWidget {
+  const _InlineErrorBanner({required this.message, required this.onRetry});
+
+  final String message;
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF6D78A)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.wifi_tethering_error_rounded,
+            color: Color(0xFF8B6500),
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              translateText(message),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF6B4E00),
+                fontSize: 12,
+                height: 1.3,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.starColor,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              translateText('Retry'),
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1475,217 +1692,11 @@ class _SalonCard extends StatelessWidget {
     );
   }
 
-  Future<void> _showChangeStatusDialog({
-    required BuildContext context,
-    required bool isSalonActive,
-    required bool isBranchActive,
-    required int branchId,
-    required String salonName,
-    required String branchName,
-  }) async {
-    final selection = await showDialog<String>(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) {
-        Widget option({
-          required IconData icon,
-          required String title,
-          required String subtitle,
-          required bool active,
-          required String value,
-        }) {
-          final statusColor =
-              active ? const Color(0xFF047857) : const Color(0xFFB42318);
-          return InkWell(
-            onTap: () => Navigator.pop(dialogContext, value),
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFD8B98A)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF4E8D1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(icon, size: 17, color: Color(0xFF8B6500)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          translateText(title),
-                          style: const TextStyle(
-                            color: Color(0xFF201B17),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                subtitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF8A8178),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: active
-                                    ? const Color(0xFFE8FFF5)
-                                    : const Color(0xFFFFEFEF),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: active
-                                      ? const Color(0xFFB7F0D0)
-                                      : const Color(0xFFF5C2C7),
-                                ),
-                              ),
-                              child: Text(
-                                translateText(active ? 'Active' : 'Inactive'),
-                                style: TextStyle(
-                                  color: statusColor,
-                                  fontSize: 8,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 34),
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        translateText('Change Status'),
-                        style: const TextStyle(
-                          color: Color(0xFF201B17),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    InkWell(
-                      onTap: () => Navigator.pop(dialogContext),
-                      borderRadius: BorderRadius.circular(999),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 20,
-                          color: Color(0xFF6B5B4D),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  translateText('What would you like to update?'),
-                  style: const TextStyle(
-                    color: Color(0xFF8A8178),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                option(
-                  icon: Icons.storefront_outlined,
-                  title: 'Salon',
-                  subtitle: salonName,
-                  active: isSalonActive,
-                  value: 'salon',
-                ),
-                const SizedBox(height: 10),
-                option(
-                  icon: Icons.home_work_outlined,
-                  title: 'Branch',
-                  subtitle: branchName.isEmpty ? salonName : branchName,
-                  active: isBranchActive,
-                  value: 'branch',
-                ),
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(dialogContext),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF6B5B4D),
-                      side: const BorderSide(color: Color(0xFFE8DED4)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    child: Text(translateText('Cancel')),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (selection == 'salon') {
-      onToggleSalonActive?.call(!isSalonActive);
-    } else if (selection == 'branch') {
-      onToggleBranchActive?.call(branchId, !isBranchActive);
-    }
-  }
-
   Widget _salonMenuButton(
     BuildContext context,
-    bool isActive, {
-    required int primaryBranchId,
-    required bool primaryBranchActive,
-    required String salonName,
-    required String primaryBranchName,
-  }) {
+    bool isActive,
+  ) {
     final canEdit = isActive && onEditSalon != null;
-    final canChooseStatusTarget =
-        primaryBranchId != 0 && onToggleBranchActive != null;
     if (onEditSalon == null &&
         onToggleSalonActive == null &&
         onDeleteSalon == null) {
@@ -1715,18 +1726,7 @@ class _SalonCard extends StatelessWidget {
               if (isActive) onEditSalon?.call();
               break;
             case 'toggle':
-              if (canChooseStatusTarget) {
-                _showChangeStatusDialog(
-                  context: context,
-                  isSalonActive: isActive,
-                  isBranchActive: primaryBranchActive,
-                  branchId: primaryBranchId,
-                  salonName: salonName,
-                  branchName: primaryBranchName,
-                );
-              } else {
-                onToggleSalonActive?.call(!isActive);
-              }
+              onToggleSalonActive?.call(!isActive);
               break;
             case 'delete':
               onDeleteSalon?.call();
@@ -1748,16 +1748,10 @@ class _SalonCard extends StatelessWidget {
             PopupMenuItem<String>(
               value: 'toggle',
               child: _ActionPopupRow(
-                icon: canChooseStatusTarget
-                    ? Icons.sync_alt_rounded
-                    : isActive
-                        ? Icons.block_outlined
-                        : Icons.check_circle_outline,
-                label: canChooseStatusTarget
-                    ? 'Change Status'
-                    : isActive
-                        ? 'Deactivate Salon'
-                        : 'Activate Salon',
+                icon: isActive
+                    ? Icons.block_outlined
+                    : Icons.check_circle_outline,
+                label: isActive ? 'Deactivate Salon' : 'Activate Salon',
               ),
             ),
           if (onDeleteSalon != null)
@@ -1863,10 +1857,6 @@ class _SalonCard extends StatelessWidget {
     final branchCount = visibleBranchList.length;
     final staffCount = _staffCount(branches);
     final isActive = salon['active'] != false;
-    final primaryBranchActive = primaryBranch?['active'] != false;
-    final primaryBranchName = _cleanText(primaryBranch?['name']).isEmpty
-        ? salonName
-        : _cleanText(primaryBranch?['name']);
     var primaryBranchId = 0;
     if (primaryBranch != null) {
       primaryBranchId = _parseId(primaryBranch['id']);
@@ -1950,10 +1940,6 @@ class _SalonCard extends StatelessWidget {
                       _salonMenuButton(
                         context,
                         isActive,
-                        primaryBranchId: primaryBranchId,
-                        primaryBranchActive: primaryBranchActive,
-                        salonName: salonName,
-                        primaryBranchName: primaryBranchName,
                       ),
                     ],
                   ),
@@ -3000,18 +2986,84 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(message),
-          SizedBox(height: 8),
-          ElevatedButton.icon(
-            onPressed: onRetry,
-            icon: Icon(Icons.refresh),
-            label: Text(translateText('Retry')),
-          ),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.wifi_tethering_error_rounded,
+                color: AppColors.starColor,
+                size: 40,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              translateText('Could not load salons'),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF37474F),
+                  ) ??
+                  const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF37474F),
+                  ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              translateText(message),
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF607D8B),
+                    height: 1.35,
+                  ) ??
+                  const TextStyle(
+                    color: Color(0xFF607D8B),
+                    height: 1.35,
+                  ),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(
+                translateText('Retry'),
+                style: const TextStyle(fontWeight: FontWeight.w900),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: Colors.white,
+                elevation: 2,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -10,6 +10,7 @@ import '../services/auth_session_manager.dart';
 import '../services/token_expiration_service.dart';
 import '../Viewmodels/AddCategory.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
+import 'error_parser.dart';
 import 'dart:async';
 
 class _AuthHttpClient extends http.BaseClient {
@@ -1024,17 +1025,26 @@ class ApiService {
     );
     _debugPrintChunked('Salon List URL', baseUrl + getSalonList);
     Object responseLog = response.body;
+    var responseMessage = response.body;
     try {
       responseLog = const JsonEncoder.withIndent('  ').convert(
         json.decode(response.body),
       );
-    } catch (_) {}
+    } catch (_) {
+      responseMessage = extractErrorMessage(
+        response.body,
+        fallback: 'Unexpected response from server',
+      );
+      responseLog = 'Non-JSON response (${response.statusCode}): '
+          '$responseMessage';
+    }
     _debugPrintChunked('Salon List Response', responseLog, chunkSize: 1000);
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return json.decode(response.body);
     } else {
-      throw Exception("Failed get salons: ${response.body}");
+      throw Exception("Failed get salons (${response.statusCode}): "
+          "$responseMessage");
     }
   }
 

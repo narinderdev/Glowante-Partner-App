@@ -214,8 +214,12 @@ class _SplashScreenState extends State<SplashScreen> {
                 transform: Matrix4.translationValues(0, logoOffset, 0),
                 width: screenWidth * 0.6,
                 child: Image.asset(
-                  "assets/images/splash_logo.png",
+                  "assets/images/finallogo.png",
                   fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Image.asset(
+                    "assets/images/splash_logo.png",
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             ),
