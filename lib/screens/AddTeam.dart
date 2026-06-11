@@ -6,11 +6,14 @@ import 'package:image_picker/image_picker.dart';
 // import '../screens/AddTeamSelectServices.dart';
 import '../screens/AddTeamChooseTimeSlots.dart';
 import '../utils/api_service.dart';
-import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
+
+const Color _teamMemberAccent = Color(0xFF8B6500);
+const Color _teamMemberSoftFill = Color(0xFFECE7E1);
+const Color _teamMemberSoftBorder = Color(0xFFD8C7B3);
 
 class AddTeamScreen extends StatefulWidget {
   final int branchId;
@@ -96,7 +99,12 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return _gender.isEmpty ? translateText('Select gender') : null;
   }
 
-  String? _vJoiningDate() => null;
+  String? _vJoiningDate() {
+    if (_suppressDateError) return null;
+    return _joiningDate == null
+        ? translateText('Joining Date is required')
+        : null;
+  }
 
   String? _vRoles() {
     if (_suppressRolesError) return null;
@@ -408,7 +416,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: _radius,
-        borderSide: BorderSide(color: AppColors.starColor, width: 1.5),
+        borderSide: const BorderSide(color: _teamMemberAccent, width: 1.5),
       ),
     );
   }
@@ -645,24 +653,101 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   Future<void> _showValidationDialog(List<String> errors) async {
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(translateText('Please fix the following')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: errors
-              .map((m) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text('• $m'),
-                  ))
-              .toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(translateText('OK')),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE8D8C3)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ],
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: _teamMemberAccent.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.error_outline_rounded,
+                  color: _teamMemberAccent,
+                  size: 30,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                translateText('Please complete required fields'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Color(0xFF2D2926),
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF8EF),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE8D8C3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: errors
+                      .map(
+                        (message) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.circle,
+                                size: 7,
+                                color: _teamMemberAccent,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  message,
+                                  style: const TextStyle(
+                                    color: Color(0xFF5E564F),
+                                    fontSize: 13,
+                                    height: 1.35,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _PrimaryButton(
+                text: translateText('Got it'),
+                height: 48,
+                flowStyle: true,
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -779,20 +864,216 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return true;
   }
 
+  Future<void> _goToScheduleStep() async {
+    if (widget.isEdit) {
+      await _submitEditMember();
+      return;
+    }
+
+    if (!await _validateFormAndShowAlert()) return;
+    String capitalizeFirst(String value) =>
+        value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
+
+    final branchAssignment =
+        _branchAssignment(widget.initialMember ?? const {});
+    final branchServiceIds = _branchServiceIdsFromAssignment(
+      branchAssignment ?? widget.initialMember,
+    );
+    final payload = <String, dynamic>{
+      "isEdit": widget.isEdit,
+      "countryCode": "+91",
+      "phoneNumber": _phoneCtrl.text.trim(),
+      "firstName": capitalizeFirst(_firstNameCtrl.text.trim()),
+      "lastName": capitalizeFirst(_lastNameCtrl.text.trim()),
+      "email": _emailCtrl.text.trim(),
+      "gender": _gender.toLowerCase(),
+      if (_joiningDate != null)
+        "joiningDate":
+            '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
+      "brief": capitalizeFirst(_briefCtrl.text.trim()),
+      "roles": _resolveCodes(_selectedRoles, _allRoles),
+      "specializations": _resolveCodes(_selectedSpecs, _allSpecs),
+      "specialities": _resolveCodes(_selectedSpecs, _allSpecs),
+      "profilePictureUrl": imageUrl ?? _existingImageUrl,
+      "allowOnlineBooking": branchAssignment?['allowOnlineBooking'] ??
+          widget.initialMember?['allowOnlineBooking'] ??
+          true,
+      "branchServiceIds": branchServiceIds,
+      "userBranchServices": branchAssignment?['userBranchServices'] ??
+          widget.initialMember?['userBranchServices'] ??
+          const [],
+      "schedules": branchAssignment?['schedules'] ??
+          widget.initialMember?['schedules'] ??
+          const [],
+      if (_normalizedAddress(widget.initialMember?['address']) != null)
+        "address": _normalizedAddress(widget.initialMember?['address']),
+    };
+
+    print('Sending to Choose time slots: $payload');
+    final refresh = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddTeamChooseTimeSlot(
+          formData: {
+            "salonId": widget.salonId,
+            "branchId": widget.branchId,
+            "salonName": widget.salonName,
+            ...payload,
+          },
+        ),
+      ),
+    );
+    if (refresh == true && mounted) {
+      Navigator.pop(context, true);
+    }
+  }
+
+  Widget _sectionTitle(String text) {
+    return Row(
+      children: [
+        const Expanded(child: Divider(color: Color(0xFFE2D3BF))),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Text(
+            translateText(text).toUpperCase(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFF8D867F),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 2.8,
+              height: 1.25,
+            ),
+          ),
+        ),
+        const Expanded(child: Divider(color: Color(0xFFE2D3BF))),
+      ],
+    );
+  }
+
+  Widget _optionalLabel(String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          translateText(text).toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF5E564F),
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.4,
+            height: 1.1,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          translateText('Optional').toUpperCase(),
+          style: const TextStyle(
+            fontSize: 9,
+            color: Color(0xFF8D867F),
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _promoCard() {
+    return Container(
+      height: 132,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        image: const DecorationImage(
+          image: AssetImage('assets/images/add team logo.png'),
+          fit: BoxFit.cover,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        alignment: Alignment.bottomLeft,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.black.withValues(alpha: 0.58),
+              _teamMemberAccent.withValues(alpha: 0.45),
+              Colors.transparent,
+            ],
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              translateText('Empowering Your Talent'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              translateText(
+                'Assign services and roles to help your team members shine in their expertise.',
+              ),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: buildProfileSubpageAppBar(
         title: translateText(
-            widget.isEdit ? 'Edit Team Member' : 'Add Team Member'),
+          widget.isEdit ? 'Edit Team Member' : 'Add Team Member',
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Container(
+              width: 38,
+              height: 38,
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                border: Border.all(color: _teamMemberAccent, width: 1.4),
+              ),
+              child: ClipOval(
+                child: Image(
+                  image: (_existingImageUrl != null &&
+                          _existingImageUrl!.isNotEmpty)
+                      ? NetworkImage(_existingImageUrl!)
+                      : const AssetImage('assets/images/person1.jpg')
+                          as ImageProvider,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Form(
           key: _formKey,
           child: LayoutBuilder(
             builder: (_, constraints) => SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
               child: ConstrainedBox(
                 constraints:
                     BoxConstraints(minHeight: constraints.maxHeight - 16),
@@ -802,10 +1083,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     if (!widget.isEdit) ...[
                       MultiStepFlowHeader(
                         currentStep: 1,
+                        useIcons: true,
+                        activeColor: _teamMemberAccent,
+                        inactiveFillColor: _teamMemberSoftFill,
+                        inactiveBorderColor: _teamMemberSoftBorder,
                         steps: const [
                           FlowStepItem(
                             stepNumber: 1,
-                            label: 'Personal Details',
+                            label: 'Personal',
+                            icon: Icons.person_outline_rounded,
                           ),
                           FlowStepItem(
                             stepNumber: 2,
@@ -817,11 +1103,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           ),
                           FlowStepItem(
                             stepNumber: 4,
-                            label: 'Online Availability',
+                            label: 'Availability',
                           ),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 34),
                     ],
                     Center(
                       child: GestureDetector(
@@ -886,7 +1172,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                 width: 30,
                                 height: 30,
                                 decoration: BoxDecoration(
-                                  color: AppColors.starColor,
+                                  color: _teamMemberAccent,
                                   shape: BoxShape.circle,
                                   boxShadow: const [
                                     BoxShadow(
@@ -908,90 +1194,68 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       ),
                     ),
 
-                    SizedBox(height: 12),
+                    const SizedBox(height: 34),
+
+                    _sectionTitle('Personal\nInformation'),
+
+                    const SizedBox(height: 16),
 
                     _reqLabel(translateText('Phone Number')),
-                    SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _phoneCtrl,
-                            enabled: widget.isEdit || !_phoneVerified,
-                            keyboardType: TextInputType.phone,
-                            // Only validate on typing AFTER first submit
-                            autovalidateMode: _showGlobalErrors
-                                ? AutovalidateMode.onUserInteraction
-                                : AutovalidateMode.disabled,
-                            textCapitalization: TextCapitalization.none,
-                            decoration: _decor(
-                              hint: translateText('Enter phone number'),
-                              prefix: const Padding(
-                                padding: EdgeInsets.only(left: 12, right: 8),
-                                child: Center(
-                                  widthFactor: 1,
-                                  child: Text(
-                                    '+91',
-                                    style: TextStyle(
-                                      color: Color(0xFF2D2926),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _phoneCtrl,
+                      enabled: widget.isEdit || !_phoneVerified,
+                      keyboardType: TextInputType.phone,
+                      autovalidateMode: _showGlobalErrors
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
+                      textCapitalization: TextCapitalization.none,
+                      decoration: _decor(
+                        hint: translateText('Enter phone number'),
+                        prefix: Container(
+                          width: 64,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              right: BorderSide(color: Color(0xFFE2D3BF)),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Text(
+                                '+91',
+                                style: TextStyle(
+                                  color: Color(0xFF2D2926),
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                            ),
-                            validator:
-                                _vPhone, // RED errors for "invalid phone"
-                            onChanged: (_) {
-                              // Hide phone+verify inline errors while typing
-                              if (!_suppressPhoneError ||
-                                  !_suppressVerifyError) {
-                                setState(() {
-                                  _suppressPhoneError = true;
-                                  _suppressVerifyError = true;
-                                });
-                              }
-                            },
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(10),
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 16,
+                                color: Color(0xFF8D867F),
+                              ),
                             ],
                           ),
                         ),
-                        SizedBox(width: 10),
-                        // SizedBox(
-                        //   width: 110,
-                        //   height: 48,
-                        //   child: _PrimaryButton(
-                        //     text: _isVerifying
-                        //         ? 'Verifying...'
-                        //         : (_phoneVerified ? 'Verified' : 'Verify'),
-                        //     enabled: !_phoneVerified && !_isVerifying,
-                        //     isLoading: _isVerifying, // loader in button
-                        //     onPressed: (_phoneVerified || _isVerifying)
-                        //         ? null
-                        //         : () async {
-                        //             // Suppress all inline errors after verify tap
-                        //             setState(() {
-                        //               _suppressPhoneError = true;
-                        //               _suppressVerifyError = true;
-                        //               _suppressFirstNameError = true;
-                        //               _suppressLastNameError = true;
-                        //               _suppressEmailError = true;
-                        //               _suppressOtpError = true;
-                        //               _suppressGenderError = true;
-                        //               _suppressRolesError = true;
-                        //               _suppressSpecsError = true;
-                        //               _suppressDateError = true;
-                        //             });
-                        //             await _handleVerifyPhoneNumber();
-                        //           },
-                        //   ),
-                        // ),
+                      ),
+                      validator: _vPhone,
+                      onChanged: (_) {
+                        if (!_suppressPhoneError || !_suppressVerifyError) {
+                          setState(() {
+                            _suppressPhoneError = true;
+                            _suppressVerifyError = true;
+                          });
+                        }
+                      },
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(10),
                       ],
                     ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     if (_phoneVerified && !widget.isEdit)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
@@ -1020,78 +1284,54 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             : SizedBox.shrink(),
                       ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start, // keep tops aligned
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _reqLabel(translateText('First Name')),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  focusNode: _firstNameFocus,
-                                  controller: _firstNameCtrl,
-                                  keyboardType: TextInputType.text,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  autovalidateMode: _showGlobalErrors
-                                      ? AutovalidateMode.onUserInteraction
-                                      : AutovalidateMode.disabled,
-                                  decoration: _decor(
-                                      hint: translateText('Enter first name')),
-                                  validator: _vFirstName,
-                                  onChanged: (_) {
-                                    if (!_suppressFirstNameError) {
-                                      setState(
-                                          () => _suppressFirstNameError = true);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _reqLabel(translateText('Last Name')),
-                                const SizedBox(height: 8),
-                                TextFormField(
-                                  focusNode: _lastNameFocus,
-                                  controller: _lastNameCtrl,
-                                  keyboardType: TextInputType.text,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  autovalidateMode: _showGlobalErrors
-                                      ? AutovalidateMode.onUserInteraction
-                                      : AutovalidateMode.disabled,
-                                  decoration: _decor(
-                                      hint: translateText('Enter last name')),
-                                  validator: _vLastName,
-                                  onChanged: (_) {
-                                    if (!_suppressLastNameError) {
-                                      setState(
-                                          () => _suppressLastNameError = true);
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                    _reqLabel(translateText('First Name')),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      focusNode: _firstNameFocus,
+                      controller: _firstNameCtrl,
+                      keyboardType: TextInputType.text,
+                      textCapitalization: TextCapitalization.sentences,
+                      autovalidateMode: _showGlobalErrors
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
+                      decoration:
+                          _decor(hint: translateText('Enter first name')),
+                      validator: _vFirstName,
+                      onChanged: (_) {
+                        if (!_suppressFirstNameError) {
+                          setState(() => _suppressFirstNameError = true);
+                        }
+                      },
                     ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
+
+                    _reqLabel(translateText('Last Name')),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      focusNode: _lastNameFocus,
+                      controller: _lastNameCtrl,
+                      keyboardType: TextInputType.text,
+                      textCapitalization: TextCapitalization.sentences,
+                      autovalidateMode: _showGlobalErrors
+                          ? AutovalidateMode.onUserInteraction
+                          : AutovalidateMode.disabled,
+                      decoration:
+                          _decor(hint: translateText('Enter last name')),
+                      validator: _vLastName,
+                      onChanged: (_) {
+                        if (!_suppressLastNameError) {
+                          setState(() => _suppressLastNameError = true);
+                        }
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
 
                     _reqLabel(translateText('Email')),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     TextFormField(
                       focusNode: _emailFocus,
                       controller: _emailCtrl,
@@ -1100,8 +1340,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       autovalidateMode: _showGlobalErrors
                           ? AutovalidateMode.onUserInteraction
                           : AutovalidateMode.disabled,
-                      decoration:
-                          _decor(hint: translateText('Enter email address')),
+                      decoration: _decor(
+                        hint: translateText('Enter email address'),
+                        suffix: const Icon(
+                          Icons.mail_outline_rounded,
+                          color: Color(0xFF8D867F),
+                        ),
+                      ),
                       validator: _vEmail,
                       onChanged: (_) {
                         if (!_suppressEmailError) {
@@ -1110,7 +1355,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       },
                     ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     // Text(
                     //   translateText('OTP'),
@@ -1139,18 +1384,21 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     // SizedBox(height: 16),
 
                     Text(
-                      translateText('Gender'),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                      translateText('Gender').toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF5E564F),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.4,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         Radio<String>(
                           value: 'Male',
                           groupValue: _gender,
+                          activeColor: _teamMemberAccent,
                           onChanged: (v) => setState(() {
                             _gender = v ?? '';
                             _suppressGenderError = true;
@@ -1161,6 +1409,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         Radio<String>(
                           value: 'Female',
                           groupValue: _gender,
+                          activeColor: _teamMemberAccent,
                           onChanged: (v) => setState(() {
                             _gender = v ?? '';
                             _suppressGenderError = true;
@@ -1171,6 +1420,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         Radio<String>(
                           value: 'Other',
                           groupValue: _gender,
+                          activeColor: _teamMemberAccent,
                           onChanged: (v) => setState(() {
                             _gender = v ?? '';
                             _suppressGenderError = true;
@@ -1195,10 +1445,14 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             : SizedBox.shrink(),
                       ),
 
-                    SizedBox(height: 8),
+                    const SizedBox(height: 22),
+
+                    _sectionTitle('Professional\nRoles'),
+
+                    const SizedBox(height: 16),
 
                     _reqLabel(translateText('Roles')),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     _PickField(
                       hint: translateText('Select Roles'),
                       values: _selectedRoles,
@@ -1224,10 +1478,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             : SizedBox.shrink(),
                       ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     _reqLabel(translateText('Specializations')),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     _PickField(
                       hint: translateText('Select Specializations'),
                       values: _selectedSpecs,
@@ -1253,17 +1507,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             : SizedBox.shrink(),
                       ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                    Text(
-                      translateText('Joining Date'),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 8),
+                    _reqLabel(translateText('Joining Date')),
+                    const SizedBox(height: 8),
                     GestureDetector(
                       onTap: _pickJoiningDate,
                       child: AbsorbPointer(
@@ -1271,9 +1518,12 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                           readOnly: true,
                           decoration: _decor(
                             hint: _joiningDate == null
-                                ? translateText('Select joining date')
+                                ? translateText('dd-mm-yyyy')
                                 : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-                            prefix: Icon(Icons.calendar_today_outlined),
+                            suffix: const Icon(
+                              Icons.calendar_month_outlined,
+                              color: Color(0xFF8D867F),
+                            ),
                           ),
                           validator: (_) => null,
                         ),
@@ -1295,16 +1545,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             : SizedBox.shrink(),
                       ),
 
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                    Text(
-                      translateText('Brief About Member'),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(height: 8),
+                    _optionalLabel('Brief About Team Member'),
+                    const SizedBox(height: 8),
                     TextFormField(
                       focusNode: _brieftFocus,
                       controller: _briefCtrl,
@@ -1314,7 +1558,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       keyboardType: TextInputType.text,
                       textCapitalization: TextCapitalization.sentences,
                       decoration: _decor(
-                        hint: translateText('Enter a brief about this member'),
+                        hint: translateText(
+                          "Tell us about the team member's experience and expertise...",
+                        ),
                       ).copyWith(
                         contentPadding: const EdgeInsets.all(14),
                         counterText: '',
@@ -1322,89 +1568,23 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       validator: (_) => null, // Brief excluded
                     ),
 
-                    SizedBox(height: 20),
+                    const SizedBox(height: 34),
 
-                    SizedBox(height: 12),
+                    _promoCard(),
 
-// âœ… New Next Button
+                    const SizedBox(height: 28),
+
                     _PrimaryButton(
-                      text: 'Next',
+                      text: widget.isEdit
+                          ? translateText('Save Changes')
+                          : '${translateText('Next Step')}  →',
+                      height: 54,
                       flowStyle: true,
-                      onPressed: () async {
-                        if (!await _validateFormAndShowAlert()) return;
-                        String capitalizeFirst(String value) => value.isNotEmpty
-                            ? value[0].toUpperCase() + value.substring(1)
-                            : value;
-
-                        final branchAssignment =
-                            _branchAssignment(widget.initialMember ?? const {});
-                        final branchServiceIds =
-                            _branchServiceIdsFromAssignment(
-                          branchAssignment ?? widget.initialMember,
-                        );
-                        final payload = <String, dynamic>{
-                          if (widget.isEdit)
-                            "userId":
-                                (widget.initialMember?['id'] as num?)?.toInt(),
-                          "isEdit": widget.isEdit,
-                          "countryCode": "+91",
-                          "phoneNumber": _phoneCtrl.text.trim(),
-                          "firstName":
-                              capitalizeFirst(_firstNameCtrl.text.trim()),
-                          "lastName":
-                              capitalizeFirst(_lastNameCtrl.text.trim()),
-                          "email": _emailCtrl.text.trim(),
-                          "gender": _gender.toLowerCase(),
-                          if (_joiningDate != null)
-                            "joiningDate":
-                                '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-                          "brief": capitalizeFirst(_briefCtrl.text.trim()),
-                          "roles": _resolveCodes(_selectedRoles, _allRoles),
-                          "specializations":
-                              _resolveCodes(_selectedSpecs, _allSpecs),
-                          "specialities":
-                              _resolveCodes(_selectedSpecs, _allSpecs),
-                          "profilePictureUrl": imageUrl ?? _existingImageUrl,
-                          "allowOnlineBooking":
-                              branchAssignment?['allowOnlineBooking'] ??
-                                  widget.initialMember?['allowOnlineBooking'] ??
-                                  true,
-                          "branchServiceIds": branchServiceIds,
-                          "userBranchServices":
-                              branchAssignment?['userBranchServices'] ??
-                                  widget.initialMember?['userBranchServices'] ??
-                                  const [],
-                          "schedules": branchAssignment?['schedules'] ??
-                              widget.initialMember?['schedules'] ??
-                              const [],
-                          if (_normalizedAddress(
-                                  widget.initialMember?['address']) !=
-                              null)
-                            "address": _normalizedAddress(
-                              widget.initialMember?['address'],
-                            ),
-                          // "otp": _otpCtrl.text.trim(),
-                        };
-
-                        print('Sending to Choose time slots: $payload');
-                        final refresh = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => AddTeamChooseTimeSlot(
-                              formData: {
-                                "salonId": widget.salonId,
-                                "branchId": widget.branchId,
-                                "salonName": widget.salonName,
-                                ...payload,
-                              },
-                            ),
-                          ),
-                        );
-                        if (refresh == true && mounted) {
-                          Navigator.pop(context, true);
-                        }
-                      },
+                      isLoading: _isSubmitting,
+                      onPressed: _goToScheduleStep,
                     ),
+
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -1438,21 +1618,28 @@ class _PickField extends StatelessWidget {
           decoration: InputDecoration(
             hintText: text,
             filled: true,
-            fillColor: Colors.grey.shade100,
-            suffixIcon: Icon(Icons.keyboard_arrow_down_rounded),
+            fillColor: const Color(0xFFFAF9F8),
+            hintStyle: const TextStyle(color: Color(0xFF2D2926), fontSize: 14),
+            suffixIcon: const Icon(
+              Icons.unfold_more_rounded,
+              color: Color(0xFF8D867F),
+            ),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+              borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+              borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.black, width: 1.5),
+              borderSide: const BorderSide(
+                color: _teamMemberAccent,
+                width: 1.5,
+              ),
             ),
           ),
           // No validator here â€” inline errors are handled via FormField wrappers above.
@@ -1492,11 +1679,12 @@ class _PrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: effectiveOnPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.starColor,
+          backgroundColor: _teamMemberAccent,
           foregroundColor: Colors.white,
-          elevation: flowStyle ? 2 : 0,
+          elevation: flowStyle ? 4 : 0,
+          shadowColor: const Color(0x33000000),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(flowStyle ? 6 : 14),
+            borderRadius: BorderRadius.circular(flowStyle ? 8 : 14),
           ),
         ),
         child: isLoading

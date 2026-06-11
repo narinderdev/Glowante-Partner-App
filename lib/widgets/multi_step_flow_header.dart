@@ -6,11 +6,17 @@ class MultiStepFlowHeader extends StatelessWidget {
     required this.currentStep,
     required this.steps,
     this.useIcons = false,
+    this.activeColor = const Color(0xFF8B6500),
+    this.inactiveFillColor = const Color(0xFFECE7E1),
+    this.inactiveBorderColor = const Color(0xFFD8C7B3),
   });
 
   final int currentStep;
   final List<FlowStepItem> steps;
   final bool useIcons;
+  final Color activeColor;
+  final Color inactiveFillColor;
+  final Color inactiveBorderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +31,9 @@ class MultiStepFlowHeader extends StatelessWidget {
               active: currentStep == steps[index].stepNumber,
               completed: currentStep > steps[index].stepNumber,
               useIcons: useIcons,
+              activeColor: activeColor,
+              inactiveFillColor: inactiveFillColor,
+              inactiveBorderColor: inactiveBorderColor,
             ),
           ),
           if (index < steps.length - 1)
@@ -33,8 +42,8 @@ class MultiStepFlowHeader extends StatelessWidget {
                 height: 2,
                 margin: const EdgeInsets.only(bottom: 26),
                 color: currentStep > steps[index].stepNumber
-                    ? const Color(0xFFE4900F)
-                    : const Color(0xFFD1D5DB),
+                    ? activeColor
+                    : inactiveBorderColor,
               ),
             ),
         ],
@@ -63,6 +72,9 @@ class _FlowNode extends StatelessWidget {
     required this.active,
     required this.completed,
     required this.useIcons,
+    required this.activeColor,
+    required this.inactiveFillColor,
+    required this.inactiveBorderColor,
   });
 
   final int stepNumber;
@@ -71,6 +83,9 @@ class _FlowNode extends StatelessWidget {
   final bool active;
   final bool completed;
   final bool useIcons;
+  final Color activeColor;
+  final Color inactiveFillColor;
+  final Color inactiveBorderColor;
 
   @override
   Widget build(BuildContext context) {
@@ -83,11 +98,9 @@ class _FlowNode extends StatelessWidget {
           height: 36,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: highlighted ? const Color(0xFFE4900F) : Colors.white,
+            color: highlighted ? activeColor : inactiveFillColor,
             border: Border.all(
-              color: highlighted
-                  ? const Color(0xFFE4900F)
-                  : const Color(0xFFD1D5DB),
+              color: highlighted ? activeColor : inactiveBorderColor,
             ),
           ),
           alignment: Alignment.center,
@@ -95,12 +108,12 @@ class _FlowNode extends StatelessWidget {
               ? Icon(
                   icon,
                   size: 18,
-                  color: highlighted ? Colors.white : const Color(0xFF9CA3AF),
+                  color: highlighted ? Colors.white : const Color(0xFF8D867F),
                 )
               : Text(
                   '$stepNumber',
                   style: TextStyle(
-                    color: highlighted ? Colors.white : const Color(0xFF9CA3AF),
+                    color: highlighted ? Colors.white : const Color(0xFF8D867F),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -118,8 +131,7 @@ class _FlowNode extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color:
-                    active ? const Color(0xFFE4900F) : const Color(0xFF6B7280),
+                color: active ? activeColor : const Color(0xFF6B7280),
               ),
             ),
           ),
