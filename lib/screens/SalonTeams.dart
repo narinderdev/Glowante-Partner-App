@@ -7,6 +7,20 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
+const Color _teamGold = Color(0xFF8B6500);
+const Color _teamInk = Color(0xFF2D2926);
+const Color _teamMuted = Color(0xFF756A61);
+const Color _teamBorder = Color(0xFFE8DED6);
+
+String _teamBranchLabel(Map<String, dynamic>? branch) {
+  if (branch == null) return translateText('Select Branch');
+  final branchName = branch['branchName']?.toString().trim() ?? '';
+  if (branchName.isNotEmpty) return branchName;
+  final salonName = branch['salonName']?.toString().trim() ?? '';
+  if (salonName.isNotEmpty) return salonName;
+  return translateText('Select Branch');
+}
+
 class TeamScreen extends StatefulWidget {
   @override
   _TeamScreenState createState() => _TeamScreenState();
@@ -20,6 +34,7 @@ class _TeamScreenState extends State<TeamScreen> {
       selectedBranch; // {branchId, branchName, salonId, salonName}
   Future<List<dynamic>>? teamMembersFuture;
   List<Map<String, dynamic>> _salons = const [];
+  final GlobalKey _branchSelectorKey = GlobalKey();
 
   bool _autoPicked = false;
   final Set<int> _statusUpdatingIds = {};
@@ -54,6 +69,7 @@ class _TeamScreenState extends State<TeamScreen> {
               'branchName': b['name'],
               'salonId': sid,
               'salonName': sname,
+              'addressSummary': _branchAddressSummary(b['address']),
             });
           }
         }
@@ -65,6 +81,39 @@ class _TeamScreenState extends State<TeamScreen> {
       print("❌ Error fetching salons/branches: $e");
       return [];
     }
+  }
+
+  int? _asInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  String _branchAddressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+
+    void push(dynamic value) {
+      final text = value?.toString().trim() ?? '';
+      if (text.isEmpty ||
+          text.toLowerCase() == 'null' ||
+          parts.contains(text)) {
+        return;
+      }
+      parts.add(text);
+    }
+
+    push(address['line1']);
+    push(address['line2']);
+    push(address['village']);
+    push(address['district']);
+    push(address['city']);
+    push(address['state']);
+    push(address['postalCode']);
+    push(address['country']);
+    return parts.join(', ');
   }
 
   Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
@@ -159,13 +208,147 @@ class _TeamScreenState extends State<TeamScreen> {
 
   void _pickBranch(Map<String, dynamic> branchOpt) {
     selectedBranch = branchOpt;
-    selectedBranchId = branchOpt['branchId'] as int?;
+    selectedBranchId = _asInt(branchOpt['branchId']);
     if (selectedBranchId != null) {
       teamMembersFuture =
           _getTeamMembersByBranch(selectedBranchId!); // ✅ always by branchId
     } else {
       teamMembersFuture = null;
     }
+  }
+
+  Future<void> _openBranchPicker(
+    List<Map<String, dynamic>> branches,
+  ) async {
+    if (branches.isEmpty) return;
+
+    final selectorContext = _branchSelectorKey.currentContext;
+    if (selectorContext == null) return;
+
+    final selectorBox = selectorContext.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (selectorBox == null || overlayBox == null) return;
+
+    final selectorOffset = selectorBox.localToGlobal(
+      Offset.zero,
+      ancestor: overlayBox,
+    );
+    final top = selectorOffset.dy + selectorBox.size.height + 6;
+    final maxHeight = (overlayBox.size.height - top - 18).clamp(160.0, 360.0);
+
+    final selected = await showGeneralDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 160),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        );
+      },
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return Stack(
+          children: [
+            Positioned(
+              left: selectorOffset.dx,
+              top: top,
+              width: selectorBox.size.width,
+              child: Material(
+                color: Colors.white,
+                elevation: 10,
+                shadowColor: const Color(0x26000000),
+                shape: RoundedRectangleBorder(
+                  side: const BorderSide(color: _teamBorder),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                    itemCount: branches.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final item = branches[index];
+                      final isSelected = _asInt(item['branchId']) ==
+                          _asInt(selectedBranch?['branchId']);
+                      return InkWell(
+                        onTap: () => Navigator.pop(dialogContext, item),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            children: [
+                              const CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Color(0xFFF3E8D1),
+                                child: Icon(
+                                  Icons.storefront_outlined,
+                                  color: _teamGold,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _teamBranchLabel(item),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: _teamInk,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                    ),
+                                    if ((item['addressSummary'] ?? '')
+                                        .toString()
+                                        .trim()
+                                        .isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        (item['addressSummary'] ?? '')
+                                            .toString(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: _teamMuted,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          decoration: TextDecoration.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: _teamGold,
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || selected == null) return;
+    setState(() => _pickBranch(selected));
   }
 
   bool _memberHasAssignments(Map<String, dynamic> member) {
@@ -254,6 +437,38 @@ class _TeamScreenState extends State<TeamScreen> {
     );
   }
 
+  Future<void> _openAddMember() async {
+    if (selectedBranch != null) {
+      final refresh = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddTeamScreen(
+            branchId: selectedBranch!['branchId'],
+            salonId: selectedBranch!['salonId'],
+            salonName: selectedBranch!['salonName'],
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (refresh == true) {
+        setState(() {
+          teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(translateText("Team member added successfully")),
+          ),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(translateText("Please select a branch first.")),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -274,36 +489,17 @@ class _TeamScreenState extends State<TeamScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    value: null,
-                    items: const <DropdownMenuItem<int>>[],
-                    onChanged: null,
-                    decoration: InputDecoration(
-                      labelText: translateText("Branch"),
-                      labelStyle: TextStyle(
-                        color: Colors.grey.shade800,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      hintText: translateText("No branches available"),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      disabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                    ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                    dropdownColor: Colors.white,
+                  _TeamBranchSelector(
+                    selectedBranch: null,
+                    onTap: null,
                   ),
                   const SizedBox(height: 16),
                   Expanded(
-                      child: Center(
-                          child: Text(translateText("No branches available")))),
+                    child: _NoTeamMembersState(
+                      onAddTeamMember: null,
+                      message: translateText('No branches available'),
+                    ),
+                  ),
                 ],
               );
             } else {
@@ -318,54 +514,12 @@ class _TeamScreenState extends State<TeamScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ✅ ONE dropdown: "Salon — Branch"
-                  DropdownButtonFormField<int>(
-                    isExpanded: true,
-                    value: selectedBranchId,
-                    items: branches
-                        .map((b) => DropdownMenuItem<int>(
-                              value: b['branchId'] as int,
-                              child: Text(
-                                "${b['branchName']}",
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w600),
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) return;
-                      final picked =
-                          branches.firstWhere((b) => b['branchId'] == value);
-                      setState(() {
-                        _pickBranch(picked);
-                        print("Picked Branch -> branchId=${picked['branchId']} "
-                            "branchName=${picked['branchName']} | salonId=${picked['salonId']} salonName=${picked['salonName']}");
-                      });
-                    },
-                    decoration: InputDecoration(
-                      labelText: translateText("Salon"),
-                      labelStyle: TextStyle(
-                        color: Colors.grey.shade800,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      hintText: translateText("Select branch"),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 14),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade400),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                    ),
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                    dropdownColor: Colors.white,
+                  _TeamBranchSelector(
+                    key: _branchSelectorKey,
+                    selectedBranch: selectedBranch,
+                    onTap: () => _openBranchPicker(branches),
                   ),
-
                   const SizedBox(height: 16),
-
                   Expanded(
                     child: FutureBuilder<List<dynamic>>(
                       future: teamMembersFuture,
@@ -380,9 +534,10 @@ class _TeamScreenState extends State<TeamScreen> {
                               child: Text("Error: ${snapshot.error}"));
                         } else if (!snapshot.hasData ||
                             snapshot.data!.isEmpty) {
-                          return Center(
-                              child:
-                                  Text(translateText("No team members found")));
+                          return _NoTeamMembersState(
+                            onAddTeamMember:
+                                selectedBranch == null ? null : _openAddMember,
+                          );
                         } else {
                           final members = snapshot.data!;
                           final screenWidth = MediaQuery.of(context).size.width;
@@ -503,7 +658,8 @@ class _TeamScreenState extends State<TeamScreen> {
                                           const SizedBox(width: 4),
                                           Text(
                                             translateText("4.5 (43)"),
-                                            style: const TextStyle(fontSize: 9.5),
+                                            style:
+                                                const TextStyle(fontSize: 9.5),
                                           ),
                                         ],
                                       ),
@@ -796,46 +952,242 @@ class _TeamScreenState extends State<TeamScreen> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          if (selectedBranch != null) {
-            final refresh = await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AddTeamScreen(
-                  // ✅ your flows can rely purely on branchId
-                  branchId: selectedBranch!['branchId'],
-                  // pass salon info only if your AddTeamScreen UI wants to show it:
-                  salonId: selectedBranch!['salonId'],
-                  salonName: selectedBranch!['salonName'],
+      // floatingActionButton: FloatingActionButton.extended(
+      //   onPressed: _openAddMember,
+      //   label: Text(translateText("Add Member")),
+      //   icon: const Icon(Icons.add),
+      //   backgroundColor: const Color(0xFFD0A244),
+      //   foregroundColor: Colors.white,
+      // ),
+    );
+  }
+}
+
+class _TeamBranchSelector extends StatelessWidget {
+  const _TeamBranchSelector({
+    super.key,
+    required this.selectedBranch,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic>? selectedBranch;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final branchLabel = _teamBranchLabel(selectedBranch);
+    final addressSummary =
+        (selectedBranch?['addressSummary'] ?? '').toString().trim();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: _teamBorder),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      branchLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _teamInk,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (addressSummary.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        addressSummary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _teamMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-            );
-            if (!context.mounted) return;
-            if (refresh == true) {
-              setState(() {
-                teamMembersFuture = _getTeamMembersByBranch(
-                    selectedBranchId!); // ✅ refresh by branch
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content:
-                        Text(translateText("Team member added successfully"))),
-              );
-            }
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content:
-                      Text(translateText("Please select a branch first."))),
-            );
-          }
-        },
-        label: Text(translateText("Add Member")),
-        icon: const Icon(Icons.add),
-        backgroundColor: AppColors.starColor,
-        foregroundColor: Colors.white,
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: onTap == null ? Colors.grey.shade400 : _teamGold,
+              ),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _NoTeamMembersState extends StatelessWidget {
+  const _NoTeamMembersState({
+    this.onAddTeamMember,
+    this.message,
+  });
+
+  final VoidCallback? onAddTeamMember;
+  final String? message;
+
+  @override
+  Widget build(BuildContext context) {
+    final messageText = message ?? translateText('No team members yet');
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        final compact = availableHeight < 620;
+        final imageHeight =
+            (availableHeight * (compact ? 0.22 : 0.26)).clamp(118.0, 185.0);
+        final quoteFontSize = compact ? 15.0 : 18.0;
+        final quoteLineHeight = compact ? 1.35 : 1.45;
+        final iconSize = compact ? 48.0 : 56.0;
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(0, compact ? 10 : 18, 0, 8),
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.asset(
+                  'assets/images/add team logo.png',
+                  height: imageHeight,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: imageHeight,
+                    width: double.infinity,
+                    color: const Color(0xFFF5EFE8),
+                    child: const Icon(
+                      Icons.storefront_outlined,
+                      color: _teamGold,
+                      size: 42,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: compact ? 14 : 22),
+              Text(
+                '”',
+                style: TextStyle(
+                  color: const Color(0xFFD0A244),
+                  fontSize: compact ? 28 : 34,
+                  height: 0.6,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: compact ? 2 : 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  '"Great things in business are\nnever done by one person.\nThey’re done by a team of\npeople."',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: const Color(0xFF6E6863),
+                    fontSize: quoteFontSize,
+                    height: quoteLineHeight,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              SizedBox(height: compact ? 10 : 14),
+              Container(
+                width: 58,
+                height: 1,
+                color: const Color(0xFFD0A244),
+              ),
+              SizedBox(height: compact ? 14 : 24),
+              Container(
+                width: iconSize,
+                height: iconSize,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _teamBorder),
+                ),
+                child: Icon(
+                  Icons.groups_outlined,
+                  color: _teamMuted,
+                  size: compact ? 24 : 28,
+                ),
+              ),
+              SizedBox(height: compact ? 12 : 18),
+              Text(
+                messageText,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: _teamInk,
+                  fontSize: compact ? 19 : 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              SizedBox(height: compact ? 6 : 10),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Text(
+                  translateText(
+                    'Start building your world-class salon team. Add stylists, therapists, and coordinators to manage their schedules and performance.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: _teamMuted,
+                    fontSize: 13,
+                    height: 1.35,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: compact ? 3 : 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (onAddTeamMember != null) ...[
+                const Spacer(),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: onAddTeamMember,
+                    icon: const Icon(Icons.add_rounded, size: 22),
+                    label: Text(
+                      translateText('Add Team Member'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFD0A244),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -17,9 +17,9 @@ TextStyle _profileSubpageTitleStyle() {
 
 AppBar buildProfileSubpageAppBar({
   required String title,
-  bool centerTitle = true,
+  bool centerTitle = false,
   bool automaticallyImplyLeading = true,
-  double toolbarHeight = 70,
+  double toolbarHeight = kToolbarHeight,
   List<Widget>? actions,
 }) {
   return AppBar(
@@ -28,6 +28,7 @@ AppBar buildProfileSubpageAppBar({
     elevation: 0,
     centerTitle: centerTitle,
     automaticallyImplyLeading: automaticallyImplyLeading,
+    titleSpacing: automaticallyImplyLeading ? 0 : 18,
     surfaceTintColor: Colors.transparent,
     shadowColor: Colors.transparent,
     scrolledUnderElevation: 0,

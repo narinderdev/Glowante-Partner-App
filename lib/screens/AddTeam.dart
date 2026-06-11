@@ -132,7 +132,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   bool _phoneVerified = false;
   bool _isVerifying = false;
   final Color _bg = Colors.white;
-  final Color _fieldFill = Colors.grey.shade100;
+  final Color _fieldFill = const Color(0xFFFAF9F8);
   final BorderRadius _radius = BorderRadius.circular(12);
   final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
   File? _cameraImage;
@@ -392,6 +392,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   }) {
     return InputDecoration(
       hintText: hint,
+      hintStyle: const TextStyle(color: Color(0xFF8D867F), fontSize: 14),
       filled: true,
       fillColor: _fieldFill,
       prefixIcon: prefix,
@@ -399,15 +400,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       contentPadding: contentPadding,
       border: OutlineInputBorder(
         borderRadius: _radius,
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+        borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: _radius,
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+        borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: _radius,
-        borderSide: const BorderSide(color: Colors.black, width: 1.5),
+        borderSide: BorderSide(color: AppColors.starColor, width: 1.5),
       ),
     );
   }
@@ -417,9 +418,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       text: TextSpan(
         text: text,
         style: const TextStyle(
-          fontSize: 14,
-          color: Colors.black87,
-          fontWeight: FontWeight.w600,
+          fontSize: 11,
+          color: Color(0xFF5E564F),
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.4,
         ),
         children: [
           TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
@@ -824,30 +826,84 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     Center(
                       child: GestureDetector(
                         onTap: _pickImage,
-                        child: CircleAvatar(
-                          radius: 40,
-                          backgroundColor: Colors.grey[300],
-                          child: _cameraImage == null
-                              ? (_existingImageUrl != null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(40),
-                                      child: Image.network(
-                                        _existingImageUrl!,
-                                        fit: BoxFit.cover,
-                                        width: 80,
-                                        height: 80,
-                                      ),
-                                    )
-                                  : Icon(Icons.camera_alt, size: 30))
-                              : ClipRRect(
-                                  borderRadius: BorderRadius.circular(40),
-                                  child: Image.file(
-                                    _cameraImage!,
-                                    fit: BoxFit.cover,
-                                    width: 80,
-                                    height: 80,
-                                  ),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 104,
+                              height: 104,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: const Color(0xFFD8C7B3),
+                                  width: 1.4,
                                 ),
+                              ),
+                              child: ClipOval(
+                                child: _cameraImage == null
+                                    ? (_existingImageUrl != null
+                                        ? Image.network(
+                                            _existingImageUrl!,
+                                            fit: BoxFit.cover,
+                                            width: 104,
+                                            height: 104,
+                                          )
+                                        : Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(
+                                                Icons.camera_alt_outlined,
+                                                color: Color(0xFF8D867F),
+                                                size: 28,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                translateText('Upload\nPhoto'),
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  color: Color(0xFF8D867F),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  height: 1.2,
+                                                ),
+                                              ),
+                                            ],
+                                          ))
+                                    : Image.file(
+                                        _cameraImage!,
+                                        fit: BoxFit.cover,
+                                        width: 104,
+                                        height: 104,
+                                      ),
+                              ),
+                            ),
+                            Positioned(
+                              right: -4,
+                              bottom: 8,
+                              child: Container(
+                                width: 30,
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  color: AppColors.starColor,
+                                  shape: BoxShape.circle,
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x26000000),
+                                      blurRadius: 10,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.add_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -869,8 +925,20 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                 : AutovalidateMode.disabled,
                             textCapitalization: TextCapitalization.none,
                             decoration: _decor(
-                              hint: translateText('Enter phone no'),
-                              prefix: Icon(Icons.search),
+                              hint: translateText('Enter phone number'),
+                              prefix: const Padding(
+                                padding: EdgeInsets.only(left: 12, right: 8),
+                                child: Center(
+                                  widthFactor: 1,
+                                  child: Text(
+                                    '+91',
+                                    style: TextStyle(
+                                      color: Color(0xFF2D2926),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                             validator:
                                 _vPhone, // RED errors for "invalid phone"
