@@ -8,6 +8,7 @@ import '../utils/api_service.dart';
 import 'package:flutter/services.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'view_all_client_owner.dart';
 
 const Color _bookingGold = Color(0xFF8B6500);
 const Color _bookingGoldLight = Color(0xFFD0A244);
@@ -303,6 +304,13 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
 
     return const [];
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchBranchCustomers() async {
+    if (widget.branchId == null) return const [];
+    final response =
+        await ApiService().getBranchCustomersList(widget.branchId!);
+    return _extractBranchClients(response['data']);
   }
 
   String _customerDisplayName(Map<String, dynamic> customer) {
@@ -803,9 +811,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 customer = _normalizeCustomer(data);
               }
               if (customer.isEmpty && widget.branchId != null) {
-                final clientsResponse =
-                    await ApiService().getBranchClients(widget.branchId!);
-                final clients = _extractBranchClients(clientsResponse['data']);
+                final clients = await _fetchBranchCustomers();
                 customer = clients.firstWhere(
                   (item) =>
                       _digitsOnly(
@@ -1223,9 +1229,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             loadStarted = true;
             Future.microtask(() async {
               try {
-                final response =
-                    await ApiService().getBranchClients(widget.branchId!);
-                final loadedClients = _extractBranchClients(response['data']);
+                final loadedClients = await _fetchBranchCustomers();
                 for (final customer in _branchClientsCache) {
                   final normalized = _normalizeCustomer(customer);
                   final id = (normalized['id'] ?? '').toString().trim();
@@ -1393,13 +1397,40 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                             ),
                           ),
                           const Spacer(),
-                          Text(
-                            translateText('View All').toUpperCase(),
-                            style: const TextStyle(
-                              color: _bookingGold,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.4,
+                          TextButton(
+                            onPressed: widget.branchId == null
+                                ? null
+                                : () async {
+                                    Navigator.pop(ctx);
+                                    final selected = await Navigator.of(
+                                      this.context,
+                                    ).push<Map<String, dynamic>>(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            ViewAllClientOwnerScreen(
+                                          branchId: widget.branchId!,
+                                          initialCustomers: clients,
+                                        ),
+                                      ),
+                                    );
+                                    if (selected == null || !mounted) return;
+                                    _fillCustomerFields(selected);
+                                    _upsertBranchClientCache(selected);
+                                  },
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              foregroundColor: _bookingGold,
+                            ),
+                            child: Text(
+                              translateText('View All').toUpperCase(),
+                              style: const TextStyle(
+                                color: _bookingGold,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                              ),
                             ),
                           ),
                         ],

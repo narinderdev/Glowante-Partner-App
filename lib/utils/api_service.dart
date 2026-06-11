@@ -424,6 +424,10 @@ class ApiService {
     return "branches/$branchId/branch-client";
   }
 
+  static String getBranchCustomersListAPI(int branchId) {
+    return "branches/$branchId/customers-list";
+  }
+
   static String getClientPurchasesAPI(int branchId, int clientId) {
     return "branches/$branchId/cart/purchases?clientId=$clientId";
   }
@@ -734,6 +738,28 @@ class ApiService {
       return json.decode(body) as Map<String, dynamic>;
     }
     throw Exception("Failed to fetch branch clients: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> getBranchCustomersList(int branchId) async {
+    final token = await getAuthToken();
+    final uri = Uri.parse(baseUrl + getBranchCustomersListAPI(branchId));
+    final response = await _sharedClient.get(
+      uri,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    debugPrint("[GetBranchCustomersList] url=$uri");
+    debugPrint("[GetBranchCustomersList] status=${response.statusCode}");
+    _debugPrintChunked("GetBranchCustomersList body", response.body);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final body = response.body.isEmpty ? '{}' : response.body;
+      return json.decode(body) as Map<String, dynamic>;
+    }
+    throw Exception("Failed to fetch branch customers: ${response.body}");
   }
 
   Future<Map<String, dynamic>> getClientPurchases({
