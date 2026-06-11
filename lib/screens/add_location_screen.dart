@@ -452,6 +452,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
         title: translateText('Add Location'),
+        toolbarHeight: kToolbarHeight,
       ),
       body: GestureDetector(
         onTap: () {

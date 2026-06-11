@@ -126,7 +126,7 @@ class _BottomNavState extends State<BottomNav> {
       SharedBottomNavDestination(
         icon: Icons.content_cut_rounded,
         activeIcon: Icons.content_cut_rounded,
-        label: context.t('Services'),
+        label: context.t('Catalog'),
       ),
       SharedBottomNavDestination(
         icon: Icons.more_horiz_rounded,

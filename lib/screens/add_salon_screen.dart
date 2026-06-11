@@ -642,6 +642,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       controller.text = formatted;
     }
   }
+
   Future<void> _chooseLocation(AddSalonState state) async {
     final addr = state.address;
 
@@ -916,6 +917,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           backgroundColor: const Color(0xFFFBFAF8),
           appBar: buildProfileSubpageAppBar(
             title: translateText(widget.isEdit ? 'Edit Salon' : 'Add Salon'),
+            toolbarHeight: kToolbarHeight,
           ),
           body: GestureDetector(
             behavior: HitTestBehavior.translucent,

@@ -19,11 +19,12 @@ AppBar buildProfileSubpageAppBar({
   required String title,
   bool centerTitle = true,
   bool automaticallyImplyLeading = true,
+  double toolbarHeight = 70,
   List<Widget>? actions,
 }) {
   return AppBar(
     backgroundColor: _profileSubpageBackground,
-    toolbarHeight: 70,
+    toolbarHeight: toolbarHeight,
     elevation: 0,
     centerTitle: centerTitle,
     automaticallyImplyLeading: automaticallyImplyLeading,

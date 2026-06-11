@@ -159,6 +159,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           backgroundColor: const Color(0xFFFBFAF8),
           appBar: buildProfileSubpageAppBar(
             title: translateText(widget.title ?? 'Add Salon'),
+            toolbarHeight: kToolbarHeight,
           ),
           body: _isLoading
               ? const Center(child: CircularProgressIndicator())

@@ -99,6 +99,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
         title: translateText(widget.title ?? 'Add Salon'),
+        toolbarHeight: kToolbarHeight,
       ),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
