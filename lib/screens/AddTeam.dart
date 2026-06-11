@@ -865,6 +865,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   }
 
   Future<void> _goToScheduleStep() async {
+    _dismissKeyboard();
+
     if (widget.isEdit) {
       await _submitEditMember();
       return;
@@ -909,6 +911,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         "address": _normalizedAddress(widget.initialMember?['address']),
     };
 
+    _dismissKeyboard();
     print('Sending to Choose time slots: $payload');
     final refresh = await Navigator.push(
       context,

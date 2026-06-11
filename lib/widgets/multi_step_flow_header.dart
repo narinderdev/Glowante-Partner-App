@@ -30,7 +30,6 @@ class MultiStepFlowHeader extends StatelessWidget {
               icon: steps[index].icon,
               active: currentStep == steps[index].stepNumber,
               completed: currentStep > steps[index].stepNumber,
-              useIcons: useIcons,
               activeColor: activeColor,
               inactiveFillColor: inactiveFillColor,
               inactiveBorderColor: inactiveBorderColor,
@@ -71,7 +70,6 @@ class _FlowNode extends StatelessWidget {
     required this.icon,
     required this.active,
     required this.completed,
-    required this.useIcons,
     required this.activeColor,
     required this.inactiveFillColor,
     required this.inactiveBorderColor,
@@ -82,7 +80,6 @@ class _FlowNode extends StatelessWidget {
   final IconData? icon;
   final bool active;
   final bool completed;
-  final bool useIcons;
   final Color activeColor;
   final Color inactiveFillColor;
   final Color inactiveBorderColor;
@@ -90,6 +87,7 @@ class _FlowNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final highlighted = active || completed;
+    final resolvedIcon = icon ?? _defaultIconForStep(stepNumber, label);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -104,11 +102,11 @@ class _FlowNode extends StatelessWidget {
             ),
           ),
           alignment: Alignment.center,
-          child: useIcons && icon != null
+          child: active && resolvedIcon != null
               ? Icon(
-                  icon,
+                  resolvedIcon,
                   size: 18,
-                  color: highlighted ? Colors.white : const Color(0xFF8D867F),
+                  color: Colors.white,
                 )
               : Text(
                   '$stepNumber',
@@ -121,22 +119,48 @@ class _FlowNode extends StatelessWidget {
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              label,
-              maxLines: 1,
-              softWrap: false,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: active ? activeColor : const Color(0xFF6B7280),
-              ),
+          height: 20,
+          child: Text(
+            label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+              height: 1.1,
+              color: active ? activeColor : const Color(0xFF6B7280),
             ),
           ),
         ),
       ],
     );
+  }
+
+  IconData? _defaultIconForStep(int stepNumber, String label) {
+    final normalizedLabel = label.toLowerCase();
+    if (normalizedLabel.contains('branch') ||
+        normalizedLabel.contains('location')) {
+      return Icons.place_outlined;
+    }
+    if (normalizedLabel.contains('service')) {
+      return Icons.content_cut_rounded;
+    }
+    if (normalizedLabel.contains('schedule') ||
+        normalizedLabel.contains('time')) {
+      return Icons.calendar_today_outlined;
+    }
+    if (normalizedLabel.contains('availability')) {
+      return Icons.event_available_outlined;
+    }
+    if (normalizedLabel.contains('complete')) {
+      return Icons.check_circle_outline;
+    }
+    if (normalizedLabel.contains('personal') || stepNumber == 1) {
+      return Icons.person_outline_rounded;
+    }
+    return null;
   }
 }

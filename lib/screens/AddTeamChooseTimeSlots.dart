@@ -838,6 +838,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     return WillPopScope(
       onWillPop: () async {
+        FocusManager.instance.primaryFocus?.unfocus();
         Navigator.pop(context);
         return false; // Prevent the default back action
       },
