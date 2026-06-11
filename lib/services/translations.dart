@@ -217,6 +217,8 @@ class AppTranslations {
       'No time slots added': 'No time slots added',
       'No time slots available': 'No time slots available',
       'No user found.': 'No user found.',
+      'Waiting for connection...': 'Waiting for connection...',
+      'Welcome back! You are online.': 'Welcome back! You are online.',
       'OK': 'OK',
       'OTP Verification': 'OTP Verification',
       'OTP has been resent successfully': 'OTP has been resent successfully',
@@ -531,6 +533,16 @@ class AppTranslations {
       'Enter state': 'Enter state',
       'Complete Address': 'Complete Address',
       'Full address will appear here': 'Full address will appear here',
+      'Use only letters, spaces, hyphens, apostrophes, or periods':
+          'Use only letters, spaces, hyphens, apostrophes, or periods',
+      'Profile service is temporarily unavailable. Please try again in a few minutes.':
+          'Profile service is temporarily unavailable. Please try again in a few minutes.',
+      'No internet connection. Please check your network and try again.':
+          'No internet connection. Please check your network and try again.',
+      'Complete your profile details to continue onboarding.':
+          'Complete your profile details to continue onboarding.',
+      '"Excellence begins with understanding our guests."':
+          '"Excellence begins with understanding our guests."',
       'Could not load salons': 'Could not load salons',
       'Loading salons...': 'Loading salons...',
       'This can take a little longer on slow internet.':
@@ -977,6 +989,8 @@ class AppTranslations {
       'No salons available': 'कोई सैलून उपलब्ध नहीं',
       'No salons found': 'कोई सैलून नहीं मिला',
       'No clients found': 'कोई क्लाइंट नहीं मिला',
+      'Waiting for connection...': 'कनेक्शन की प्रतीक्षा हो रही है...',
+      'Welcome back! You are online.': 'वापसी पर स्वागत है! आप ऑनलाइन हैं।',
       'No service category found': 'कोई सेवा श्रेणी नहीं मिली',
       'No services available': 'कोई सेवा उपलब्ध नहीं',
       'No specialists available': 'कोई विशेषज्ञ उपलब्ध नहीं',
@@ -1341,6 +1355,16 @@ class AppTranslations {
       'Enter state': 'राज्य दर्ज करें',
       'Complete Address': 'पूरा पता',
       'Full address will appear here': 'पूरा पता यहाँ दिखाई देगा',
+      'Use only letters, spaces, hyphens, apostrophes, or periods':
+          'केवल अक्षर, स्पेस, हाइफ़न, अपोस्ट्रॉफी या पीरियड का उपयोग करें',
+      'Profile service is temporarily unavailable. Please try again in a few minutes.':
+          'प्रोफ़ाइल सेवा अस्थायी रूप से उपलब्ध नहीं है। कृपया कुछ मिनट बाद फिर से प्रयास करें।',
+      'No internet connection. Please check your network and try again.':
+          'इंटरनेट कनेक्शन नहीं है। कृपया नेटवर्क जांचें और फिर से प्रयास करें।',
+      'Complete your profile details to continue onboarding.':
+          'ऑनबोर्डिंग जारी रखने के लिए अपनी प्रोफ़ाइल जानकारी पूरी करें।',
+      '"Excellence begins with understanding our guests."':
+          '"उत्कृष्टता हमारे मेहमानों को समझने से शुरू होती है।"',
       'Could not load salons': 'सैलून लोड नहीं हो सके',
       'Loading salons...': 'सैलून लोड हो रहे हैं...',
       'This can take a little longer on slow internet.':

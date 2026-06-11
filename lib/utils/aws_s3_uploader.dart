@@ -6,12 +6,13 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart';
+import '../services/network_listener.dart';
 import '../utils/api_service.dart';
 
 class UploadResult {
-  final String publicUrl;   // primary public URL
-  final String? cdnUrl;     // secondary/cdn/public variant (if provided)
-  final String? key;        // object key/path in bucket (if provided)
+  final String publicUrl; // primary public URL
+  final String? cdnUrl; // secondary/cdn/public variant (if provided)
+  final String? key; // object key/path in bucket (if provided)
 
   const UploadResult({
     required this.publicUrl,
@@ -20,7 +21,8 @@ class UploadResult {
   });
 
   @override
-  String toString() => 'UploadResult(publicUrl: $publicUrl, cdnUrl: $cdnUrl, key: $key)';
+  String toString() =>
+      'UploadResult(publicUrl: $publicUrl, cdnUrl: $cdnUrl, key: $key)';
 }
 
 class AwsS3Uploader {
@@ -40,11 +42,13 @@ class AwsS3Uploader {
 
   void _assertValidBase() {
     if (_apiBase.isEmpty) {
-      throw ArgumentError('API_BASE_URL is empty. Set it to a full URL (e.g. https://api.example.com)');
+      throw ArgumentError(
+          'API_BASE_URL is empty. Set it to a full URL (e.g. https://api.example.com)');
     }
     final uri = Uri.tryParse(_apiBase);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
-      throw ArgumentError('Invalid API_BASE_URL: $_apiBase — must include scheme and host (e.g. https://dev-api.example.com)');
+      throw ArgumentError(
+          'Invalid API_BASE_URL: $_apiBase — must include scheme and host (e.g. https://dev-api.example.com)');
     }
   }
 
@@ -55,7 +59,9 @@ class AwsS3Uploader {
   }
 
   /// Preferred: returns both public URLs (if backend provides two) and the key.
-  Future<UploadResult?> uploadImageResult(XFile imageFile, {String? folder}) async {
+  Future<UploadResult?> uploadImageResult(XFile imageFile,
+      {String? folder}) async {
+    Uri? activeRequestUri;
     try {
       _assertValidBase();
 
@@ -65,20 +71,24 @@ class AwsS3Uploader {
         return null;
       }
 
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}-${basename(file.path)}';
-      final contentType = lookupMimeType(file.path) ?? 'application/octet-stream';
+      final fileName =
+          '${DateTime.now().millisecondsSinceEpoch}-${basename(file.path)}';
+      final contentType =
+          lookupMimeType(file.path) ?? 'application/octet-stream';
       final selectedFolder = (folder ?? _folder)?.trim();
 
       // 1) Presign (authorized)
       final presignUrl = _buildApiUri(_apiBase, _presignPath);
+      activeRequestUri = presignUrl;
       final presignPayload = <String, String>{
         'fileName': fileName,
         'contentType': contentType,
-        if (selectedFolder != null && selectedFolder.isNotEmpty) 'folder': selectedFolder,
+        if (selectedFolder != null && selectedFolder.isNotEmpty)
+          'folder': selectedFolder,
       };
 
       final token = await ApiService().getAuthToken();
-      if (token == null || token.isEmpty) {
+      if (token.isEmpty) {
         print('❌ No auth token available for presign');
         return null;
       }
@@ -95,9 +105,11 @@ class AwsS3Uploader {
             body: jsonEncode(presignPayload),
           )
           .timeout(const Duration(seconds: 20));
+      NetworkManager.reportSuccessfulRequest();
 
       if (presignResp.statusCode < 200 || presignResp.statusCode >= 300) {
-        print('❌ Presign failed: ${presignResp.statusCode} ${presignResp.body}');
+        print(
+            '❌ Presign failed: ${presignResp.statusCode} ${presignResp.body}');
         return null;
       }
 
@@ -110,10 +122,13 @@ class AwsS3Uploader {
       }
 
       // Flexible field names to be future-proof with your backend
-      final uploadUrl  = (data['uploadUrl']  ?? data['upload_url'])  as String?;
-      String? publicUrl = (data['publicUrl'] ?? data['public_url'] ?? data['url']) as String?;
-      final cdnUrl     = (data['publicCdnUrl'] ?? data['cdnUrl'] ?? data['public_cdn_url']) as String?;
-      final key        = (data['key'] ?? data['objectKey'] ?? data['path']) as String?;
+      final uploadUrl = (data['uploadUrl'] ?? data['upload_url']) as String?;
+      String? publicUrl =
+          (data['publicUrl'] ?? data['public_url'] ?? data['url']) as String?;
+      final cdnUrl = (data['publicCdnUrl'] ??
+          data['cdnUrl'] ??
+          data['public_cdn_url']) as String?;
+      final key = (data['key'] ?? data['objectKey'] ?? data['path']) as String?;
 
       if (uploadUrl == null || publicUrl == null) {
         print('❌ Presign data missing uploadUrl/publicUrl: $data');
@@ -123,17 +138,19 @@ class AwsS3Uploader {
       // 2) Upload to Spaces with a simple PUT (no streaming hang)
       print('🚀 Uploading to Spaces…');
       final bytes = await file.readAsBytes();
+      activeRequestUri = Uri.parse(uploadUrl);
       final putResp = await http
           .put(
             Uri.parse(uploadUrl),
             headers: {
               'Content-Type': contentType,
               // ⚠️ Do NOT add x-amz-acl unless the signature expects it
-           'x-amz-acl': 'public-read',
+              'x-amz-acl': 'public-read',
             },
             body: bytes,
           )
           .timeout(const Duration(minutes: 2));
+      NetworkManager.reportSuccessfulRequest();
 
       if (putResp.statusCode < 200 || putResp.statusCode >= 300) {
         // Some providers return no body; log status only if empty
@@ -151,9 +168,11 @@ class AwsS3Uploader {
       print('✅ Upload complete: $result');
       return result;
     } on TimeoutException catch (e) {
+      NetworkManager.reportNetworkIssue(e, uri: activeRequestUri);
       print('⏱️ Timeout during upload: $e');
       return null;
     } catch (e) {
+      NetworkManager.reportNetworkIssue(e, uri: activeRequestUri);
       print('❌ Upload error: $e');
       return null;
     }

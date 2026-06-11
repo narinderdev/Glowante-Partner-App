@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../utils/aws_s3_uploader.dart'; // 👈 import uploader
 import 'package:image_picker/image_picker.dart'; // 👈 add this
 import '../services/auth_session_manager.dart';
+import '../services/network_listener.dart';
 import '../services/token_expiration_service.dart';
 import '../Viewmodels/AddCategory.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
@@ -20,11 +21,17 @@ class _AuthHttpClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    final response = await _inner.send(request);
-    if (_shouldTriggerLogout(response.statusCode, request.headers)) {
-      scheduleMicrotask(_handleUnauthorized);
+    try {
+      final response = await _inner.send(request);
+      NetworkManager.reportSuccessfulRequest();
+      if (_shouldTriggerLogout(response.statusCode, request.headers)) {
+        scheduleMicrotask(_handleUnauthorized);
+      }
+      return response;
+    } catch (error) {
+      NetworkManager.reportNetworkIssue(error, uri: request.url);
+      rethrow;
     }
-    return response;
   }
 
   @override
@@ -861,7 +868,21 @@ class ApiService {
 
       // Log the response status and body
       print("Response Status Code (Update Profile): ${response.statusCode}");
-      print("Response Body (Update Profile): ${response.body}");
+      var responseMessage = response.body;
+      Object responseLog = response.body;
+      try {
+        responseLog = const JsonEncoder.withIndent('  ').convert(
+          json.decode(response.body),
+        );
+      } catch (_) {
+        responseMessage = extractErrorMessage(
+          response.body,
+          fallback: 'Unexpected response from server',
+        );
+        responseLog = 'Non-JSON response (${response.statusCode}): '
+            '$responseMessage';
+      }
+      print("Response Body (Update Profile): $responseLog");
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Log the parsed JSON response
@@ -871,12 +892,17 @@ class ApiService {
       } else {
         // Log the error message if status code isn't 200/201
         print(
-            "Failed update profile: ${response.statusCode}, ${response.body}");
-        throw Exception("Failed update profile: ${response.body}");
+            "Failed update profile: ${response.statusCode}, $responseMessage");
+        throw Exception("Failed update profile (${response.statusCode}): "
+            "$responseMessage");
       }
     } catch (e) {
       // Log any errors that occur during the HTTP request
-      print("Error during profile update: $e");
+      final errorMessage = extractErrorMessage(
+        e,
+        fallback: 'Unable to update profile',
+      );
+      print("Error during profile update: $errorMessage");
       rethrow; // Re-throw the exception after logging
     }
   }

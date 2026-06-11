@@ -386,20 +386,27 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLoginButton({required bool compact}) {
+    final enabled = _isContinueEnabled && !_isLoading;
     return SizedBox(
-      height: compact ? 66 : 70,
+      height: compact ? 60 : 64,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          color: (_isContinueEnabled && !_isLoading)
-              ? const Color(0xFF8B6500)
-              : AppColors.starColor.withValues(alpha: 0.45),
-          border: Border.all(color: AppColors.starColor, width: 1.4),
-          boxShadow: const [
+          borderRadius: BorderRadius.circular(15),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: enabled
+                ? const [Color(0xFFD39B35), Color(0xFF8B6500)]
+                : [
+                    AppColors.starColor.withValues(alpha: 0.42),
+                    const Color(0xFF8B6500).withValues(alpha: 0.42),
+                  ],
+          ),
+          boxShadow: [
             BoxShadow(
-              color: Color(0x268B6500),
-              blurRadius: 20,
-              offset: Offset(0, 10),
+              color: const Color(0xFF8B6500).withValues(alpha: 0.24),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
@@ -413,7 +420,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Colors.white.withValues(alpha: 0.08),
             ),
             shape: WidgetStateProperty.all(
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
             ),
           ),
           child: _isLoading
@@ -444,7 +451,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Transform.translate(
                         offset: const Offset(50, 0),
                         child: const Center(
-                          child: Icon(Icons.arrow_forward_rounded, size: 24),
+                          child: Icon(Icons.arrow_forward_rounded, size: 22),
                         ),
                       ),
                     ),

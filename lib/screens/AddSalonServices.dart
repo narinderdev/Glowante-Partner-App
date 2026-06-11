@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 
+import '../services/network_listener.dart';
 import '../utils/api_service.dart';
 import '../utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -72,13 +73,20 @@ class _AddSalonServicesState extends State<AddSalonServices> {
       final url =
           Uri.parse('${ApiService.baseUrl}${ApiService.serviceCatalog}');
 
-      final response = await http.get(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      late http.Response response;
+      try {
+        response = await http.get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+        NetworkManager.reportSuccessfulRequest();
+      } catch (error) {
+        NetworkManager.reportNetworkIssue(error, uri: url);
+        rethrow;
+      }
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;

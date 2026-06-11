@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import '../services/network_listener.dart';
 import '../utils/api_service.dart';
 import '../Viewmodels/AddCategory.dart';
 import '../Viewmodels/AddSalonServiceRequest.dart';
@@ -34,7 +35,6 @@ class SalonRepository {
     required String endTime,
     required String description,
     required Map<String, List<Map<String, String>>> schedule,
-
     required String buildingName,
     required String city,
     required String pincode,
@@ -90,9 +90,9 @@ class SalonRepository {
       return [...cleanLeadingParts, ...baseParts].join(', ');
     }
 
-    final completeAddress = buildingName.trim(); 
-    final scoFlatHouse = city.trim(); 
-    final streetSector = pincode.trim(); 
+    final completeAddress = buildingName.trim();
+    final scoFlatHouse = city.trim();
+    final streetSector = pincode.trim();
 
     final line2 = joinNonEmpty([scoFlatHouse, streetSector]);
     final line1 = composeLine1(completeAddress, [scoFlatHouse, streetSector]);
@@ -130,14 +130,21 @@ class SalonRepository {
         Uri.parse(ApiService.baseUrl + ApiService.createSalonEndpoint);
     final token = await _apiService.getAuthToken();
 
-    final response = await http.post(
-      endpoint,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(body),
-    );
+    late http.Response response;
+    try {
+      response = await http.post(
+        endpoint,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+      NetworkManager.reportSuccessfulRequest();
+    } catch (error) {
+      NetworkManager.reportNetworkIssue(error, uri: endpoint);
+      rethrow;
+    }
 
     debugPrint(
         '[SalonRepository] createSalon response ${response.statusCode}: ${response.body}');
@@ -307,9 +314,11 @@ class SalonRepository {
   Future<Map<String, dynamic>> deleteBranch(int branchId) {
     return _apiService.deleteBranch(branchId);
   }
+
   Future<Map<String, dynamic>> fetchSalonCatalog(int branchId) {
     return _apiService.getService(branchId: branchId);
   }
+
   Future<Map<String, dynamic>> addCategory({
     required int branchId,
     required AddCategoryRequest request,
