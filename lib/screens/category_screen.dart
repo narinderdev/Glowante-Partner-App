@@ -784,7 +784,10 @@ class CategoryScreenState extends State<CategoryScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
-      appBar: buildProfileSubpageAppBar(title: translateText('Catalog')),
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Catalog'),
+        toolbarHeight: kToolbarHeight,
+      ),
       body: MultiBlocListener(
         listeners: [
           BlocListener<CategoryCubit, CategoryState>(
