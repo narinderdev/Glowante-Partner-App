@@ -7,12 +7,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import '../Viewmodels/AddCategory.dart';
-import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'AddServices.dart';
+import 'notifications.dart';
 import '../services/language_listener.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/api_service.dart';
+
+const Color _catalogGold = Color(0xFF8B6500);
+const Color _catalogGoldLight = Color(0xFFD0A244);
+const Color _catalogInk = Color(0xFF2D2926);
+const Color _catalogMuted = Color(0xFF756A61);
+const Color _catalogBorder = Color(0xFFE8DED6);
+const Color _catalogSurface = Color(0xFFFBF9F8);
+const Color _catalogChip = Color(0xFFEDEBEA);
 
 /// Shared function signature for opening the subcategory sheet
 typedef SubcategoryOp = Future<void> Function({
@@ -33,6 +41,73 @@ double? _serviceDouble(dynamic value) {
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value);
   return null;
+}
+
+String _catalogBranchAddressSummary(dynamic rawAddress) {
+  if (rawAddress is! Map) return '';
+  final address = Map<String, dynamic>.from(rawAddress);
+  final parts = <String>[];
+
+  void push(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null' || parts.contains(text)) {
+      return;
+    }
+    parts.add(text);
+  }
+
+  push(address['line1']);
+  push(address['line2']);
+  push(address['village']);
+  push(address['district']);
+  push(address['city']);
+  push(address['state']);
+  push(address['postalCode']);
+  push(address['country']);
+  return parts.join(', ');
+}
+
+String _catalogBranchLabel(Map<String, dynamic>? selection) {
+  if (selection == null) return translateText('Select Branch');
+  final branchName = selection['branchName']?.toString().trim() ?? '';
+  if (branchName.isNotEmpty) return branchName;
+  final salonName = selection['salonName']?.toString().trim() ?? '';
+  if (salonName.isNotEmpty) return salonName;
+  return translateText('Select Branch');
+}
+
+String _catalogSortLabel(Map<String, dynamic> item) {
+  for (final key in const [
+    'displayName',
+    'name',
+    'serviceName',
+    'title',
+    'label',
+    'code',
+  ]) {
+    final value = item[key]?.toString().trim() ?? '';
+    if (value.isNotEmpty) return value.toLowerCase();
+  }
+  return '';
+}
+
+int _compareCatalogItems(
+  Map<String, dynamic> first,
+  Map<String, dynamic> second,
+) {
+  final labelCompare = _catalogSortLabel(first).compareTo(
+    _catalogSortLabel(second),
+  );
+  if (labelCompare != 0) return labelCompare;
+  final firstId = _serviceInt(first['id']) ?? 0;
+  final secondId = _serviceInt(second['id']) ?? 0;
+  return firstId.compareTo(secondId);
+}
+
+List<Map<String, dynamic>> _sortedCatalogItems(
+  Iterable<Map<String, dynamic>> items,
+) {
+  return items.toList()..sort(_compareCatalogItems);
 }
 
 String _serviceCommissionTypeLabel(Map<String, dynamic> service) {
@@ -71,6 +146,23 @@ String _serviceCommissionValueLabel(Map<String, dynamic> service) {
   return translateText('Enabled');
 }
 
+int _serviceCountForCategory(Map<String, dynamic> category) {
+  int count = 0;
+  final services = category['services'];
+  if (services is List) count += services.length;
+
+  final subCategories = category['subCategories'];
+  if (subCategories is List) {
+    for (final subCategory in subCategories) {
+      if (subCategory is! Map) continue;
+      final subServices = subCategory['services'];
+      if (subServices is List) count += subServices.length;
+    }
+  }
+
+  return count;
+}
+
 /// Ensures the first alphabetic character the user types is uppercase
 class FirstLetterUpperFormatter extends TextInputFormatter {
   const FirstLetterUpperFormatter();
@@ -96,9 +188,16 @@ class CategoryScreen extends StatefulWidget {
 }
 
 class CategoryScreenState extends State<CategoryScreen> {
+  final Map<int, bool> _expandedCategories = {};
   final Map<int, bool> _expandedSubcategories = {};
   Map<String, dynamic>? _selectedSalon;
   final ScrollController _catalogScrollController = ScrollController();
+  final GlobalKey _branchSelectorKey = GlobalKey();
+  final FocusNode _catalogSearchFocusNode = FocusNode();
+  final TextEditingController _catalogSearchController =
+      TextEditingController();
+  String _catalogQuery = '';
+  int? _selectedFilterCategoryId;
   double? _pendingScrollOffset;
   bool _syncingBookingsSelection = false;
 
@@ -107,6 +206,39 @@ class CategoryScreenState extends State<CategoryScreen> {
     if (value is int) return value;
     if (value is String) return int.tryParse(value);
     return int.tryParse(value.toString());
+  }
+
+  Map<String, dynamic> _enrichSalonSelection(
+    Map<String, dynamic> selection,
+    List<Map<String, dynamic>> salons,
+  ) {
+    final selectedSalonId = _asInt(selection['salonId']);
+    final selectedBranchId = _asInt(selection['branchId']);
+
+    for (final salon in salons) {
+      final salonId = _asInt(salon['id']);
+      if (selectedSalonId != null && salonId != selectedSalonId) continue;
+      final branches = salon['branches'];
+      if (branches is! List) continue;
+
+      for (final rawBranch in branches) {
+        if (rawBranch is! Map) continue;
+        final branch = Map<String, dynamic>.from(rawBranch);
+        final branchId = _asInt(branch['id']);
+        if (selectedBranchId != null && branchId != selectedBranchId) continue;
+
+        return {
+          ...selection,
+          'salonId': salonId ?? selectedSalonId,
+          'salonName': salon['name'] ?? selection['salonName'],
+          'branchId': branchId ?? selectedBranchId,
+          'branchName': branch['name'] ?? selection['branchName'],
+          'addressSummary': _catalogBranchAddressSummary(branch['address']),
+        };
+      }
+    }
+
+    return selection;
   }
 
   @override
@@ -118,8 +250,13 @@ class CategoryScreenState extends State<CategoryScreen> {
       if (salonCubit.state.salons.isEmpty) {
         salonCubit.loadSalons();
       } else if (salonCubit.state.selectedSalon != null) {
-        final Map<String, dynamic> selectedSalon =
-            Map<String, dynamic>.from(salonCubit.state.selectedSalon!);
+        final salons = salonCubit.state.salons
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        final Map<String, dynamic> selectedSalon = _enrichSalonSelection(
+          Map<String, dynamic>.from(salonCubit.state.selectedSalon!),
+          salons,
+        );
         final int? branchId = _asInt(selectedSalon['branchId']) ??
             _asInt(selectedSalon['salonId']);
         setState(() {
@@ -205,6 +342,8 @@ class CategoryScreenState extends State<CategoryScreen> {
         'salonName': matchedSalon['name'],
         'branchId': storedBranchId,
         'branchName': matchedBranch['name'],
+        'addressSummary':
+            _catalogBranchAddressSummary(matchedBranch['address']),
       };
       final isSameBranch =
           _asInt(_selectedSalon?['branchId']) == storedBranchId;
@@ -214,6 +353,7 @@ class CategoryScreenState extends State<CategoryScreen> {
       if (!isSameBranch) {
         setState(() {
           _selectedSalon = nextSelection;
+          _expandedCategories.clear();
           _expandedSubcategories.clear();
         });
         context.read<SalonListCubit>().setSelectedSalon(nextSelection);
@@ -246,7 +386,14 @@ class CategoryScreenState extends State<CategoryScreen> {
   @override
   void dispose() {
     _catalogScrollController.dispose();
+    _catalogSearchFocusNode.dispose();
+    _catalogSearchController.dispose();
     super.dispose();
+  }
+
+  void _dismissCatalogKeyboard() {
+    _catalogSearchFocusNode.unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
 // ---------- ADD / EDIT CATEGORY ----------
@@ -263,13 +410,16 @@ class CategoryScreenState extends State<CategoryScreen> {
       return;
     }
 
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _EditCategorySheet(
-        category: category,
-        branchId: branchId,
+      builder: (sheetContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: const RoundedRectangleBorder(),
+        backgroundColor: Colors.white,
+        child: _EditCategorySheet(
+          category: category,
+          branchId: branchId,
+        ),
       ),
     );
   }
@@ -283,14 +433,17 @@ class CategoryScreenState extends State<CategoryScreen> {
 
     final branchId = _selectedSalon!['branchId'] as int;
 
-    await showModalBottomSheet<void>(
+    await showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _EditSubcategorySheet(
-        subCategory: subCategory,
-        branchId: branchId, // sheet will call the cubit & show loader
-        categoryId: categoryId, // needed for add
+      builder: (sheetContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        shape: const RoundedRectangleBorder(),
+        backgroundColor: Colors.white,
+        child: _EditSubcategorySheet(
+          subCategory: subCategory,
+          branchId: branchId, // sheet will call the cubit & show loader
+          categoryId: categoryId, // needed for add
+        ),
       ),
     );
   }
@@ -433,10 +586,11 @@ class CategoryScreenState extends State<CategoryScreen> {
       final response = await ApiService().getServiceCatalog();
       final existingBranchCodes =
           _extractServiceCodes(branchServicesResponse['data']).toSet();
-      final items = (response['data'] as List? ?? const [])
-          .whereType<Map>()
-          .map((entry) => Map<String, dynamic>.from(entry))
-          .toList();
+      final items = _sortedCatalogItems(
+        (response['data'] as List? ?? const []).whereType<Map>().map(
+              (entry) => Map<String, dynamic>.from(entry),
+            ),
+      );
       if (!mounted) return;
 
       final catalogCodeMap = <String, String>{
@@ -451,181 +605,237 @@ class CategoryScreenState extends State<CategoryScreen> {
           .toSet();
       final Set<String> selectedCodes = <String>{...initiallySelectedCodes};
       bool isImporting = false;
-      final imported = await showModalBottomSheet<List<String>>(
+      final imported = await showGeneralDialog<List<String>>(
         context: context,
-        isScrollControlled: true,
-        backgroundColor: Colors.transparent,
-        builder: (sheetContext) {
+        barrierDismissible: true,
+        barrierLabel:
+            MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        barrierColor: Colors.black.withValues(alpha: 0.35),
+        transitionDuration: const Duration(milliseconds: 260),
+        transitionBuilder: (context, animation, secondaryAnimation, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(1, 0),
+              end: Offset.zero,
+            ).animate(curved),
+            child: child,
+          );
+        },
+        pageBuilder: (sheetContext, animation, secondaryAnimation) {
           return StatefulBuilder(
             builder: (context, setSheetState) {
-              return Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                child: SafeArea(
-                  top: false,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        translateText('Add predefined services'),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
+              return Align(
+                alignment: Alignment.centerRight,
+                child: Material(
+                  color: Colors.transparent,
+                  child: SafeArea(
+                    child: Container(
+                      width: MediaQuery.of(context).size.width * 0.88,
+                      height: double.infinity,
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0x26000000),
+                            blurRadius: 24,
+                            offset: Offset(-8, 0),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: MediaQuery.of(context).size.height * 0.55,
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: items.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            final actualCode =
-                                (item['code'] ?? '').toString().trim();
-                            final code = actualCode.toUpperCase();
-                            final label = _catalogItemLabel(item);
-                            final imageUrl = _catalogItemImageUrl(item);
-                            return InkWell(
-                              onTap: code.isEmpty || isImporting
-                                  ? null
-                                  : () {
-                                      setSheetState(() {
-                                        if (selectedCodes.contains(code)) {
-                                          selectedCodes.remove(code);
-                                        } else {
-                                          selectedCodes.add(code);
-                                        }
-                                      });
-                                    },
-                              borderRadius: BorderRadius.circular(14),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 44,
-                                      height: 44,
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF8F1EA),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: imageUrl == null
-                                          ? const Icon(
-                                              Icons.content_cut_outlined,
-                                              color: AppColors.starColor,
-                                              size: 20,
-                                            )
-                                          : Image.network(
-                                              imageUrl,
-                                              fit: BoxFit.cover,
-                                              errorBuilder: (_, __, ___) =>
-                                                  const Icon(
-                                                Icons.content_cut_outlined,
-                                                color: AppColors.starColor,
-                                                size: 20,
-                                              ),
-                                            ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        label.isEmpty
-                                            ? translateText('Unnamed service')
-                                            : label,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Checkbox(
-                                      value: selectedCodes.contains(code),
-                                      activeColor: AppColors.starColor,
-                                      onChanged: code.isEmpty || isImporting
-                                          ? null
-                                          : (checked) {
-                                              setSheetState(() {
-                                                if (checked == true) {
-                                                  selectedCodes.add(code);
-                                                } else {
-                                                  selectedCodes.remove(code);
-                                                }
-                                              });
-                                            },
-                                    ),
-                                  ],
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  translateText('Add predefined services'),
+                                  style: const TextStyle(
+                                    color: _catalogInk,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: selectedCodes.isEmpty || isImporting
-                              ? null
-                              : () async {
-                                  setSheetState(() => isImporting = true);
-                                  try {
-                                    final selectedActualCodes = selectedCodes
-                                        .map((code) =>
-                                            catalogCodeMap[code] ?? code)
-                                        .toList();
-                                    final selectedSet = selectedActualCodes
-                                        .map((e) => e.toUpperCase())
-                                        .toSet();
-                                    await ApiService().importPredefinedServices(
-                                      branchId: branchId,
-                                      serviceCodes: selectedActualCodes,
-                                      unselectedCodes: initiallySelectedCodes
-                                          .where((code) =>
-                                              !selectedSet.contains(code))
-                                          .map((code) =>
-                                              catalogCodeMap[code] ?? code)
-                                          .toList(),
-                                    );
-                                    if (!sheetContext.mounted) return;
-                                    Navigator.pop(
-                                      sheetContext,
-                                      selectedActualCodes,
-                                    );
-                                  } catch (error) {
-                                    if (!mounted) return;
-                                    _toast(error.toString());
-                                    if (sheetContext.mounted) {
-                                      setSheetState(() => isImporting = false);
-                                    }
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                              IconButton(
+                                onPressed: isImporting
+                                    ? null
+                                    : () => Navigator.pop(sheetContext),
+                                icon: const Icon(Icons.close_rounded),
+                                color: _catalogGold,
+                              ),
+                            ],
                           ),
-                          child: isImporting
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: ListView.separated(
+                              itemCount: items.length,
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                final actualCode =
+                                    (item['code'] ?? '').toString().trim();
+                                final code = actualCode.toUpperCase();
+                                final label = _catalogItemLabel(item);
+                                final imageUrl = _catalogItemImageUrl(item);
+                                return InkWell(
+                                  onTap: code.isEmpty || isImporting
+                                      ? null
+                                      : () {
+                                          setSheetState(() {
+                                            if (selectedCodes.contains(code)) {
+                                              selectedCodes.remove(code);
+                                            } else {
+                                              selectedCodes.add(code);
+                                            }
+                                          });
+                                        },
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Padding(
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF8F1EA),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: imageUrl == null
+                                              ? const Icon(
+                                                  Icons.content_cut_outlined,
+                                                  color: _catalogGold,
+                                                  size: 20,
+                                                )
+                                              : Image.network(
+                                                  imageUrl,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (_, __, ___) =>
+                                                      const Icon(
+                                                    Icons.content_cut_outlined,
+                                                    color: _catalogGold,
+                                                    size: 20,
+                                                  ),
+                                                ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            label.isEmpty
+                                                ? translateText(
+                                                    'Unnamed service')
+                                                : label,
+                                            style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Checkbox(
+                                          value: selectedCodes.contains(code),
+                                          activeColor: _catalogGold,
+                                          onChanged: code.isEmpty || isImporting
+                                              ? null
+                                              : (checked) {
+                                                  setSheetState(() {
+                                                    if (checked == true) {
+                                                      selectedCodes.add(code);
+                                                    } else {
+                                                      selectedCodes
+                                                          .remove(code);
+                                                    }
+                                                  });
+                                                },
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                )
-                              : Text(translateText('Import Services')),
-                        ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: selectedCodes.isEmpty || isImporting
+                                  ? null
+                                  : () async {
+                                      setSheetState(() => isImporting = true);
+                                      try {
+                                        final selectedActualCodes =
+                                            selectedCodes
+                                                .map((code) =>
+                                                    catalogCodeMap[code] ??
+                                                    code)
+                                                .toList();
+                                        final selectedSet = selectedActualCodes
+                                            .map((e) => e.toUpperCase())
+                                            .toSet();
+                                        await ApiService()
+                                            .importPredefinedServices(
+                                          branchId: branchId,
+                                          serviceCodes: selectedActualCodes,
+                                          unselectedCodes:
+                                              initiallySelectedCodes
+                                                  .where((code) => !selectedSet
+                                                      .contains(code))
+                                                  .map((code) =>
+                                                      catalogCodeMap[code] ??
+                                                      code)
+                                                  .toList(),
+                                        );
+                                        if (!sheetContext.mounted) return;
+                                        Navigator.pop(
+                                          sheetContext,
+                                          selectedActualCodes,
+                                        );
+                                      } catch (error) {
+                                        if (!mounted) return;
+                                        _toast(error.toString());
+                                        if (sheetContext.mounted) {
+                                          setSheetState(
+                                              () => isImporting = false);
+                                        }
+                                      }
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _catalogGold,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: isImporting
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(translateText('Import Services')),
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               );
@@ -740,7 +950,9 @@ class CategoryScreenState extends State<CategoryScreen> {
           'salonName': salon['name'],
           'branchId': branchId,
           'branchName': branch['name'],
+          'addressSummary': _catalogBranchAddressSummary(branch['address']),
         };
+        _expandedCategories.clear();
         _expandedSubcategories.clear();
       });
 
@@ -760,7 +972,11 @@ class CategoryScreenState extends State<CategoryScreen> {
       _selectedSalon = {
         'salonId': fallbackSalonId,
         'salonName': fallbackSalon['name'],
+        'branchName': fallbackSalon['name'],
+        'addressSummary':
+            _catalogBranchAddressSummary(fallbackSalon['address']),
       };
+      _expandedCategories.clear();
       _expandedSubcategories.clear();
     });
 
@@ -783,10 +999,47 @@ class CategoryScreenState extends State<CategoryScreen> {
     _scheduleSyncFromBookings(salons);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF9F8),
-      appBar: buildProfileSubpageAppBar(
-        title: translateText('Catalog'),
+      backgroundColor: _catalogSurface,
+      appBar: AppBar(
+        backgroundColor: _catalogSurface,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         toolbarHeight: kToolbarHeight,
+        automaticallyImplyLeading: false,
+        titleSpacing: 18,
+        title: Text(
+          translateText('Service Catalog'),
+          style: const TextStyle(
+            color: _catalogGold,
+            fontSize: 20,
+            height: 1,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
+            },
+            icon: const Icon(Icons.notifications_none_rounded),
+            color: _catalogGold,
+          ),
+          IconButton(
+            tooltip: translateText('Add predefined services'),
+            onPressed:
+                _selectedSalon == null ? null : _showPredefinedServicesModal,
+            icon: const Icon(Icons.menu_rounded),
+            color: _catalogGold,
+          ),
+        ],
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: _catalogBorder),
+        ),
       ),
       body: MultiBlocListener(
         listeners: [
@@ -818,8 +1071,8 @@ class CategoryScreenState extends State<CategoryScreen> {
                   Expanded(
                     child: Container(
                       width: double.infinity,
-                      color: Colors.grey.shade100,
-                      child: _buildCatalogueContent(catState),
+                      color: _catalogSurface,
+                      child: _buildCatalogueContent(catState, salons),
                     ),
                   ),
                 ],
@@ -833,41 +1086,52 @@ class CategoryScreenState extends State<CategoryScreen> {
       ),
       floatingActionButton: _selectedSalon == null
           ? null
-          : FloatingActionButton.extended(
-              heroTag: 'catalogueFab',
-              onPressed: () => _showAddCategorySheet(),
-              icon: Icon(
-                Icons.add_rounded,
-                size: 18,
-              ),
-              label: Text(
-                translateText('New Category'),
-                style: const TextStyle(
-                  fontSize: 13, // 🔹 smaller font
-                  fontWeight: FontWeight.w600,
+          : Transform.translate(
+              offset: const Offset(0, 28),
+              child: FloatingActionButton(
+                heroTag: 'catalogueFab',
+                onPressed: () => _showAddCategorySheet(),
+                backgroundColor: _catalogGold,
+                foregroundColor: Colors.white,
+                elevation: 8,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ),
-              backgroundColor: AppColors.starColor,
-              foregroundColor: AppColors.white,
-              extendedPadding: const EdgeInsets.symmetric(
-                horizontal: 10, // 🔹 reduces width
-                vertical: 0, // 🔹 reduces height
+                child: const Icon(Icons.add_rounded, size: 30),
               ),
             ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
-  Widget _buildCatalogueContent(CategoryState catState) {
+  Widget _buildCatalogueContent(
+    CategoryState catState,
+    List<Map<String, dynamic>> salons,
+  ) {
+    final visibleCategories = _visibleCategories(catState.categories);
+
     return RefreshIndicator(
-      color: AppColors.starColor,
+      color: _catalogGold,
       displacement: 32,
       onRefresh: _refreshData,
       child: ListView(
         controller: _catalogScrollController,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 24, 12, 140),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 104),
         children: [
+          _CatalogSectionLabel(text: translateText('SELECT  SALON/BRANCH')),
+          _CatalogBranchSelector(
+            key: _branchSelectorKey,
+            selectedSalon: _selectedSalon,
+            onTap: salons.isEmpty ? null : () => _showSalonBranchPicker(salons),
+          ),
+          const SizedBox(height: 16),
+          _CatalogSectionLabel(text: translateText('QUICK  SEARCH')),
+          _buildQuickSearchField(),
+          const SizedBox(height: 22),
+          _buildCategoryFilterChips(catState.categories),
+          const SizedBox(height: 26),
           if (_selectedSalon == null) ...[
             _EmptyState(
               icon: Icons.store_mall_directory_outlined,
@@ -875,25 +1139,6 @@ class CategoryScreenState extends State<CategoryScreen> {
               subtitle: translateText('Please select a salon first.'),
             ),
           ] else ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: OutlinedButton.icon(
-                  onPressed: _showPredefinedServicesModal,
-                  icon: const Icon(Icons.playlist_add_rounded),
-                  label: Text(translateText('Add predefined services')),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.starColor,
-                    side: const BorderSide(color: AppColors.starColor),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ),
             if (catState.status == CategoryStatus.failure &&
                 catState.categories.isEmpty)
               _ErrorCard(
@@ -903,7 +1148,8 @@ class CategoryScreenState extends State<CategoryScreen> {
             else ...[
               if (catState.categories.isNotEmpty)
                 _CategoryList(
-                  categories: catState.categories,
+                  categories: visibleCategories,
+                  allCategories: catState.categories,
                   onAddSubcategory: _openSubcategorySheet,
                   onEditSubcategory: _openSubcategorySheet,
                   onAddServices: _openAddService,
@@ -912,11 +1158,22 @@ class CategoryScreenState extends State<CategoryScreen> {
                   onDeleteSubcategory: _confirmDeleteSubCategory,
                   onEditService: _showUpdateServiceSheet,
                   onDeleteService: _confirmDeleteService,
+                  categoryExpanded: _expandedCategories,
                   expanded: _expandedSubcategories,
+                  toggleCategoryExpanded: (id) => setState(() {
+                    _expandedCategories[id] =
+                        !(_expandedCategories[id] ?? true);
+                  }),
                   toggleExpanded: (id) => setState(() {
                     _expandedSubcategories[id] =
                         !(_expandedSubcategories[id] ?? false);
                   }),
+                ),
+              if (catState.categories.isNotEmpty && visibleCategories.isEmpty)
+                _EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: translateText('No services found'),
+                  subtitle: translateText('Try another search or category.'),
                 ),
             ],
           ],
@@ -924,6 +1181,372 @@ class CategoryScreenState extends State<CategoryScreen> {
         ],
       ),
     );
+  }
+
+  List<dynamic> _visibleCategories(List<dynamic> categories) {
+    final query = _catalogQuery.trim().toLowerCase();
+
+    final visibleCategories = categories.where((rawCategory) {
+      final category = Map<String, dynamic>.from(rawCategory as Map);
+      final categoryId = _asInt(category['id']);
+      if (_selectedFilterCategoryId != null &&
+          categoryId != _selectedFilterCategoryId) {
+        return false;
+      }
+
+      if (query.isEmpty) return true;
+
+      bool matchesText(dynamic value) {
+        return (value ?? '').toString().toLowerCase().contains(query);
+      }
+
+      if (matchesText(category['displayName']) ||
+          matchesText(category['name'])) {
+        return true;
+      }
+
+      final subCategories = category['subCategories'];
+      if (subCategories is List) {
+        for (final subCategory in subCategories) {
+          if (subCategory is! Map) continue;
+          if (matchesText(subCategory['displayName']) ||
+              matchesText(subCategory['name'])) {
+            return true;
+          }
+          final services = subCategory['services'];
+          if (services is List && _servicesContainQuery(services, query)) {
+            return true;
+          }
+        }
+      }
+
+      final services = category['services'];
+      return services is List && _servicesContainQuery(services, query);
+    }).toList()
+      ..sort((first, second) {
+        if (first is! Map || second is! Map) return 0;
+        return _compareCatalogItems(
+          Map<String, dynamic>.from(first),
+          Map<String, dynamic>.from(second),
+        );
+      });
+
+    return visibleCategories;
+  }
+
+  bool _servicesContainQuery(List<dynamic> services, String query) {
+    for (final service in services) {
+      if (service is! Map) continue;
+      final values = [
+        service['displayName'],
+        service['name'],
+        service['description'],
+      ];
+      if (values.any(
+          (value) => (value ?? '').toString().toLowerCase().contains(query))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Widget _buildQuickSearchField() {
+    return Container(
+      height: 60,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFD9CBBB)),
+      ),
+      child: TextField(
+        controller: _catalogSearchController,
+        focusNode: _catalogSearchFocusNode,
+        autofocus: false,
+        cursorColor: _catalogGold,
+        onChanged: (value) => setState(() => _catalogQuery = value),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          prefixIcon: const Icon(
+            Icons.search_rounded,
+            color: _catalogGold,
+            size: 24,
+          ),
+          suffixIcon: _catalogQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close_rounded, color: _catalogMuted),
+                  onPressed: () {
+                    _catalogSearchController.clear();
+                    setState(() => _catalogQuery = '');
+                  },
+                ),
+          hintText: translateText('Find services, stylists, or treatments...'),
+          hintStyle: const TextStyle(
+            color: Color(0xFF34302C),
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 19),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilterChips(List<dynamic> categories) {
+    final categoryItems = _sortedCatalogItems(
+      categories.whereType<Map>().map(
+            (entry) => Map<String, dynamic>.from(entry),
+          ),
+    );
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: categoryItems.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final bool isAll = index == 0;
+          final category = isAll ? null : categoryItems[index - 1];
+          final int? categoryId = isAll ? null : _asInt(category?['id']);
+          final bool selected = isAll
+              ? _selectedFilterCategoryId == null
+              : _selectedFilterCategoryId == categoryId;
+          final label = isAll
+              ? translateText('All Services')
+              : (category?['displayName'] ?? category?['name'] ?? 'Category')
+                  .toString();
+
+          return ChoiceChip(
+            selected: selected,
+            showCheckmark: false,
+            label: Text(label),
+            onSelected: (_) {
+              setState(() => _selectedFilterCategoryId = categoryId);
+            },
+            labelStyle: TextStyle(
+              color: selected ? Colors.white : _catalogInk,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+            ),
+            selectedColor: _catalogGold,
+            backgroundColor: _catalogChip,
+            side: BorderSide.none,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showSalonBranchPicker(List<Map<String, dynamic>> salons) async {
+    _dismissCatalogKeyboard();
+
+    final selections = <Map<String, dynamic>>[];
+    for (final salon in salons) {
+      final salonId = _asInt(salon['id']);
+      if (salonId == null) continue;
+      final branches = salon['branches'];
+      if (branches is List && branches.isNotEmpty) {
+        for (final rawBranch in branches) {
+          if (rawBranch is! Map) continue;
+          final branch = Map<String, dynamic>.from(rawBranch);
+          final branchId = _asInt(branch['id']);
+          if (branchId == null) continue;
+          selections.add({
+            'salonId': salonId,
+            'salonName': salon['name'],
+            'branchId': branchId,
+            'branchName': branch['name'] ?? salon['name'],
+            'addressSummary': _catalogBranchAddressSummary(branch['address']),
+          });
+        }
+      } else {
+        selections.add({
+          'salonId': salonId,
+          'salonName': salon['name'],
+          'branchName': salon['name'],
+          'addressSummary': _catalogBranchAddressSummary(salon['address']),
+        });
+      }
+    }
+
+    if (selections.isEmpty) return;
+
+    final selectorContext = _branchSelectorKey.currentContext;
+    if (selectorContext == null) return;
+
+    final selectorBox = selectorContext.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (selectorBox == null || overlayBox == null) return;
+
+    final selectorOffset = selectorBox.localToGlobal(
+      Offset.zero,
+      ancestor: overlayBox,
+    );
+    final top = selectorOffset.dy + selectorBox.size.height + 6;
+    final maxHeight = (overlayBox.size.height - top - 18).clamp(160.0, 360.0);
+
+    final selected = await showGeneralDialog<Map<String, dynamic>>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 160),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+          child: child,
+        );
+      },
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return Stack(
+          children: [
+            Positioned(
+              left: selectorOffset.dx,
+              top: top,
+              width: selectorBox.size.width,
+              child: Material(
+                color: Colors.white,
+                elevation: 10,
+                shadowColor: const Color(0x26000000),
+                shape: RoundedRectangleBorder(
+                  side: const BorderSide(color: _catalogBorder),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: maxHeight),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                    itemCount: selections.length + 1,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(2, 4, 2, 10),
+                          child: Text(
+                            translateText('Select Salon/Branch'),
+                            style: const TextStyle(
+                              color: _catalogInk,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        );
+                      }
+
+                      final item = selections[index - 1];
+                      final bool isSelected = _asInt(item['branchId']) ==
+                              _asInt(_selectedSalon?['branchId']) &&
+                          _asInt(item['salonId']) ==
+                              _asInt(_selectedSalon?['salonId']);
+                      return InkWell(
+                        onTap: () => Navigator.pop(dialogContext, item),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Row(
+                            children: [
+                              const CircleAvatar(
+                                radius: 18,
+                                backgroundColor: Color(0xFFF3E8D1),
+                                child: Icon(
+                                  Icons.location_on_outlined,
+                                  color: _catalogGold,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _catalogBranchLabel(item),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: _catalogInk,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                    ),
+                                    if ((item['addressSummary'] ?? '')
+                                        .toString()
+                                        .trim()
+                                        .isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        (item['addressSummary'] ?? '')
+                                            .toString(),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: _catalogMuted,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          decoration: TextDecoration.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: _catalogGold,
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted || selected == null) return;
+    _dismissCatalogKeyboard();
+    await _selectSalonBranch(selected);
+  }
+
+  Future<void> _selectSalonBranch(Map<String, dynamic> selection) async {
+    _dismissCatalogKeyboard();
+
+    final branchId =
+        _asInt(selection['branchId']) ?? _asInt(selection['salonId']);
+    if (branchId == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    if (_asInt(selection['branchId']) != null) {
+      await prefs.setInt('selected_branch_id', branchId);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _selectedSalon = selection;
+      _expandedCategories.clear();
+      _expandedSubcategories.clear();
+      _selectedFilterCategoryId = null;
+    });
+
+    context.read<SalonListCubit>().setSelectedSalon(selection);
+    final categoryCubit = context.read<CategoryCubit>();
+    categoryCubit.resetCategories();
+    categoryCubit.loadCategories(branchId);
   }
 
   Future<void> _refreshData() async {
@@ -976,6 +1599,116 @@ class CategoryScreenState extends State<CategoryScreen> {
   void _toast(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+}
+
+class _CatalogSectionLabel extends StatelessWidget {
+  const _CatalogSectionLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2, bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFF4B4038),
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _CatalogBranchSelector extends StatelessWidget {
+  const _CatalogBranchSelector({
+    super.key,
+    required this.selectedSalon,
+    required this.onTap,
+  });
+
+  final Map<String, dynamic>? selectedSalon;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final branchLabel = _catalogBranchLabel(selectedSalon);
+    final addressSummary =
+        (selectedSalon?['addressSummary'] ?? '').toString().trim();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 70),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFD9CBBB)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF3E8D1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_on_outlined,
+                  color: _catalogGold,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      branchLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _catalogInk,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (addressSummary.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        addressSummary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _catalogMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: _catalogMuted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1051,6 +1784,7 @@ Color _darken(Color color, double amount) {
 class _CategoryList extends StatelessWidget {
   const _CategoryList({
     required this.categories,
+    required this.allCategories,
     required this.onAddSubcategory,
     required this.onEditSubcategory,
     required this.onAddServices,
@@ -1059,11 +1793,14 @@ class _CategoryList extends StatelessWidget {
     required this.onDeleteSubcategory,
     required this.onEditService,
     required this.onDeleteService,
+    required this.categoryExpanded,
     required this.expanded,
+    required this.toggleCategoryExpanded,
     required this.toggleExpanded,
   });
 
   final List<dynamic> categories;
+  final List<dynamic> allCategories;
 
   final SubcategoryOp onAddSubcategory;
   final SubcategoryOp onEditSubcategory;
@@ -1079,15 +1816,10 @@ class _CategoryList extends StatelessWidget {
   final Future<void> Function(Map<String, dynamic>) onEditService;
   final Future<void> Function(int serviceId) onDeleteService;
 
+  final Map<int, bool> categoryExpanded;
   final Map<int, bool> expanded;
+  final void Function(int id) toggleCategoryExpanded;
   final void Function(int id) toggleExpanded;
-
-  static const List<Color> _tones = [
-    Color(0xFF111111),
-    Color(0xFF1F1F1F),
-    Color(0xFF2D2D2D),
-    Color(0xFF3B3B3B),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1100,84 +1832,153 @@ class _CategoryList extends StatelessWidget {
     }
 
     final theme = Theme.of(context);
+    final sortedCategories = _sortedCatalogItems(
+      categories.whereType<Map>().map(
+            (entry) => Map<String, dynamic>.from(entry),
+          ),
+    );
 
     return ListView.separated(
-      itemCount: categories.length,
+      itemCount: sortedCategories.length,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       separatorBuilder: (_, __) => SizedBox(height: 18),
       itemBuilder: (context, index) {
-        final category = Map<String, dynamic>.from(categories[index] as Map);
-        final List<Map<String, dynamic>> subCategories =
-            (category['subCategories'] as List?)
-                    ?.map((e) => Map<String, dynamic>.from(e as Map))
-                    .toList() ??
-                const [];
-        final List<Map<String, dynamic>> categoryServices =
-            (category['services'] as List?)
-                    ?.map((e) => Map<String, dynamic>.from(e as Map))
-                    .toList() ??
-                const [];
-        final Color tone = _tones[index % _tones.length];
+        final category = sortedCategories[index];
+        final List<Map<String, dynamic>> subCategories = _sortedCatalogItems(
+          (category['subCategories'] as List? ?? const []).whereType<Map>().map(
+                (e) => Map<String, dynamic>.from(e),
+              ),
+        );
+        final List<Map<String, dynamic>> categoryServices = _sortedCatalogItems(
+          (category['services'] as List? ?? const []).whereType<Map>().map(
+                (e) => Map<String, dynamic>.from(e),
+              ),
+        );
+        final int categoryId = _serviceInt(category['id']) ?? index;
+        final bool isCategoryExpanded = categoryExpanded[categoryId] ?? true;
+        final serviceCount = _serviceCountForCategory(category);
 
         return Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _catalogBorder),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 14,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
                 decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(22),
+                  color: const Color(0xFFFBFAF8),
+                  borderRadius: BorderRadius.vertical(
+                    top: const Radius.circular(14),
+                    bottom: Radius.circular(isCategoryExpanded ? 0 : 14),
                   ),
-                  color: Colors.grey.shade100,
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.folder_special_rounded,
-                          color: AppColors.starColor),
-                    ),
-                    SizedBox(width: 14),
                     Expanded(
-                      child: Text(
-                        category['displayName'] as String? ?? 'Category',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.starColor,
-                          fontSize: 14,
+                      child: InkWell(
+                        onTap: () => toggleCategoryExpanded(categoryId),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: _catalogGoldLight,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.content_cut_rounded,
+                                color: _catalogGold,
+                                size: 23,
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    category['displayName'] as String? ??
+                                        'Category',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: _catalogGold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$serviceCount ${translateText('SERVICES AVAILABLE')}',
+                                    style: const TextStyle(
+                                      color: _catalogMuted,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
+                    const SizedBox(width: 6),
                     _IconButton(
-                      icon: Icons.edit_rounded,
-                      color: AppColors.starColor,
+                      icon: Icons.edit_outlined,
+                      color: _catalogGold,
                       tooltip: 'Edit category',
                       onTap: () => onEditCategory(category: category),
                     ),
-                    SizedBox(width: 6),
+                    const SizedBox(width: 6),
                     _IconButton(
-                      icon: Icons.delete_rounded,
-                      color: AppColors.starColor,
+                      icon: Icons.delete_outline_rounded,
+                      color: _catalogGold,
                       tooltip: 'Delete category',
                       onTap: () => onDeleteCategory(category),
+                    ),
+                    const SizedBox(width: 6),
+                    InkWell(
+                      onTap: () => toggleCategoryExpanded(categoryId),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _catalogBorder),
+                        ),
+                        child: Icon(
+                          isCategoryExpanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          color: _catalogGold,
+                          size: 20,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              if (categoryServices.isNotEmpty)
+              if (isCategoryExpanded && categoryServices.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
                   child: Column(
@@ -1199,21 +2000,22 @@ class _CategoryList extends StatelessWidget {
                     ],
                   ),
                 ),
-              if (categoryServices.isNotEmpty) const SizedBox(height: 10),
-              if (subCategories.isEmpty)
+              if (isCategoryExpanded && categoryServices.isNotEmpty)
+                const SizedBox(height: 10),
+              if (isCategoryExpanded && subCategories.isEmpty)
                 Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   child: _NoDataPill(message: 'No subcategories added yet'),
                 )
-              else
+              else if (isCategoryExpanded)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
                   child: Column(
                     children: subCategories.map((sub) {
                       final int subId = sub['id'] as int;
                       return _SubcategoryTile(
-                        categoryId: category['id'] as int,
+                        categoryId: categoryId,
                         subCategory: sub,
                         isExpanded: expanded[subId] ?? false,
                         toggle: () => toggleExpanded(subId),
@@ -1225,57 +2027,143 @@ class _CategoryList extends StatelessWidget {
                     }).toList(),
                   ),
                 ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () =>
-                            onAddSubcategory(categoryId: category['id'] as int),
-                        icon: Icon(
-                          Icons.add_rounded,
-                          color: AppColors.starColor,
-                        ),
-                        label: Text(
-                          translateText('Add subcategory'),
-                          style: TextStyle(
-                            color: AppColors.starColor,
-                            fontWeight: FontWeight.w600,
+              if (isCategoryExpanded) ...[
+                const SizedBox(height: 18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () =>
+                              onAddSubcategory(categoryId: categoryId),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _catalogGold,
+                            side: const BorderSide(color: _catalogGold),
+                            backgroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.starColor),
-                          backgroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                          child: RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              children: [
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.middle,
+                                  child: Transform.translate(
+                                    offset: const Offset(0, -4),
+                                    child: Container(
+                                      width: 14,
+                                      height: 14,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: _catalogGold,
+                                          width: 1.6,
+                                        ),
+                                      ),
+                                      child: const Center(
+                                        child: Text(
+                                          '+',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: _catalogGold,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const WidgetSpan(
+                                  child: SizedBox(width: 8),
+                                ),
+                                TextSpan(
+                                  text: translateText('Add Subcategory'),
+                                  style: const TextStyle(
+                                    color: _catalogGold,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
                         ),
                       ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () => onAddServices(category, categories),
-                        icon: Icon(Icons.design_services_rounded),
-                        label: Text(translateText('Add services')),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.starColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () =>
+                              onAddServices(category, allCategories),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _catalogGold,
+                            foregroundColor: Colors.white,
+                            elevation: 4,
+                            shadowColor: const Color(0x338B6500),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              children: [
+                                WidgetSpan(
+                                  alignment: PlaceholderAlignment.middle,
+                                  child: Transform.translate(
+                                    offset: const Offset(0, -4),
+                                    child: Container(
+                                      width: 14,
+                                      height: 14,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: _catalogGold,
+                                          width: 1.6,
+                                        ),
+                                      ),
+                                      child: const Center(
+                                        child: Text(
+                                          '+',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const WidgetSpan(
+                                  child: SizedBox(width: 8),
+                                ),
+                                TextSpan(
+                                  text: translateText('Add Service'),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(height: 20),
+                const SizedBox(height: 18),
+              ],
             ],
           ),
         );
@@ -1309,33 +2197,22 @@ class _SubcategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> services =
-        (subCategory['services'] as List?)
-                ?.map((e) => Map<String, dynamic>.from(e as Map))
-                .toList() ??
-            const [];
+    final List<Map<String, dynamic>> services = _sortedCatalogItems(
+      (subCategory['services'] as List? ?? const []).whereType<Map>().map(
+            (e) => Map<String, dynamic>.from(e),
+          ),
+    );
     final theme = Theme.of(context);
 
-    final Color borderColor =
-        isExpanded ? Colors.grey.shade400 : Colors.grey.shade300;
-    final Color fillColor =
-        isExpanded ? Colors.grey.shade200 : Colors.grey.shade100;
-
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor),
-        color: fillColor,
-      ),
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: const BoxDecoration(color: Colors.white),
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           key: ValueKey(subCategory['id']),
-          tilePadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-          ),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.fromLTRB(0, 8, 0, 6),
           initiallyExpanded: isExpanded,
           onExpansionChanged: (value) {
             if (value != isExpanded) {
@@ -1345,20 +2222,40 @@ class _SubcategoryTile extends StatelessWidget {
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                subCategory['displayName'] as String? ?? 'Subcategory',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.getStartedButton,
-                  fontSize: 14,
-                ),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.folder_open_outlined,
+                    color: _catalogGold,
+                    size: 17,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      subCategory['displayName'] as String? ?? 'Subcategory',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: _catalogInk,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (services.isNotEmpty) ...[
-                SizedBox(height: 4),
-                Text(
-                  '${services.length} ${services.length == 1 ? 'service' : 'services'}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade700,
+                const SizedBox(height: 5),
+                Padding(
+                  padding: const EdgeInsets.only(left: 25),
+                  child: Text(
+                    '${services.length} ${translateText(services.length == 1 ? 'SERVICE' : 'SERVICES')}',
+                    style: const TextStyle(
+                      color: _catalogGold,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                    ),
                   ),
                 ),
               ],
@@ -1370,8 +2267,8 @@ class _SubcategoryTile extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 _IconButton(
-                  icon: Icons.edit_rounded,
-                  color: AppColors.starColor,
+                  icon: Icons.edit_outlined,
+                  color: _catalogGold,
                   tooltip: 'Edit subcategory',
                   onTap: () => onEditSubcategory(
                     subCategory: subCategory,
@@ -1380,12 +2277,19 @@ class _SubcategoryTile extends StatelessWidget {
                 ),
                 SizedBox(width: 4),
                 _IconButton(
-                  icon: Icons.delete_rounded,
-                  color: AppColors.starColor,
+                  icon: Icons.delete_outline_rounded,
+                  color: _catalogGold,
                   tooltip: 'Delete subcategory',
                   onTap: () => onDeleteSubcategory(subCategory),
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
+                Icon(
+                  isExpanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: _catalogGold,
+                  size: 20,
+                ),
               ],
             ),
           ),
@@ -1437,95 +2341,132 @@ class _ServiceCard extends StatelessWidget {
     final String commissionValueLabel = _serviceCommissionValueLabel(service);
 
     final String priceLabel =
-        price != null ? 'Rs ' + price.toString() : translateText('No price');
-    final String durationLabel = duration != null
-        ? duration.toString() + ' min'
-        : translateText('No duration');
+        price != null ? 'Rs ${price.toString()}' : translateText('No price');
+    final String durationLabel =
+        duration != null ? '$duration min' : translateText('No duration');
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.design_services_rounded,
-              color: AppColors.starColor,
-              size: 18,
-            ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _catalogBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 18,
+                height: 18,
+                margin: const EdgeInsets.only(top: 22),
+                decoration: BoxDecoration(
+                  color: service['commissionEnabled'] == true
+                      ? _catalogGold
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: const Color(0xFFD8CBBE)),
+                ),
+                child: service['commissionEnabled'] == true
+                    ? const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 14)
+                    : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          color: _catalogInk,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$durationLabel • ${description.isEmpty ? translateText('Professional Styling') : description}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: _catalogMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        commissionValueLabel == translateText('No commission')
+                            ? commissionTypeLabel
+                            : commissionValueLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _catalogGold,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  '$priceLabel - $durationLabel',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
+              ),
+              const SizedBox(width: 10),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _PlainIconButton(
+                        icon: Icons.edit_outlined,
+                        tooltip: 'Edit service',
+                        onTap: () => onEditService(service),
+                      ),
+                      const SizedBox(width: 8),
+                      _PlainIconButton(
+                        icon: Icons.delete_outline_rounded,
+                        tooltip: 'Delete service',
+                        onTap: () => onDeleteService(service['id'] as int),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    _ServiceInfoPill(
-                      text: commissionTypeLabel,
-                      backgroundColor: const Color(0xFFF6EFE3),
-                      textColor: AppColors.starColor,
-                    ),
-                    _ServiceInfoPill(
-                      text: commissionValueLabel,
-                      backgroundColor: const Color(0xFFF3F4F6),
-                      textColor: Colors.black54,
-                    ),
-                  ],
-                ),
-                if (description.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 18),
                   Text(
-                    description,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+                    priceLabel,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: _catalogGold,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    translateText('VIEW DETAILS'),
+                    style: const TextStyle(
+                      color: _catalogMuted,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 4),
-          _IconButton(
-            icon: Icons.edit_outlined,
-            color: AppColors.starColor,
-            tooltip: 'Edit service',
-            onTap: () => onEditService(service),
-          ),
-          const SizedBox(width: 4),
-          _IconButton(
-            icon: Icons.delete_outline_rounded,
-            color: AppColors.starColor,
-            tooltip: 'Delete service',
-            onTap: () => onDeleteService(service['id'] as int),
+              ),
+            ],
           ),
         ],
       ),
@@ -1533,31 +2474,31 @@ class _ServiceCard extends StatelessWidget {
   }
 }
 
-class _ServiceInfoPill extends StatelessWidget {
-  const _ServiceInfoPill({
-    required this.text,
-    required this.backgroundColor,
-    required this.textColor,
+class _PlainIconButton extends StatelessWidget {
+  const _PlainIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
   });
 
-  final String text;
-  final Color backgroundColor;
-  final Color textColor;
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: Icon(
+            icon,
+            color: _catalogInk,
+            size: 16,
+          ),
         ),
       ),
     );
@@ -1582,15 +2523,18 @@ class _IconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final button = InkWell(
-      borderRadius: BorderRadius.circular(32),
+      borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(8),
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          shape: BoxShape.circle,
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _catalogBorder),
         ),
-        child: Icon(icon, color: _darken(color, .2), size: 18),
+        child: Icon(icon, color: _darken(color, .2), size: 17),
       ),
     );
 
@@ -1762,6 +2706,95 @@ class _BottomSheetScaffold extends StatelessWidget {
   }
 }
 
+class _DialogHeader extends StatelessWidget {
+  const _DialogHeader({
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            color: _catalogInk,
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            color: _catalogMuted,
+            fontSize: 12,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogLabel extends StatelessWidget {
+  const _DialogLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        color: Color(0xFF4B4038),
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.8,
+      ),
+    );
+  }
+}
+
+InputDecoration _dialogInputDecoration({required String hint}) {
+  return InputDecoration(
+    hintText: hint,
+    filled: true,
+    fillColor: const Color(0xFFF7F4F3),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(7),
+      borderSide: const BorderSide(color: _catalogBorder),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(7),
+      borderSide: const BorderSide(color: _catalogBorder),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(7),
+      borderSide: const BorderSide(color: _catalogGoldLight, width: 1.2),
+    ),
+  );
+}
+
+ButtonStyle _dialogPrimaryButtonStyle() {
+  return ElevatedButton.styleFrom(
+    backgroundColor: _catalogGold,
+    foregroundColor: Colors.white,
+    elevation: 8,
+    shadowColor: const Color(0x338B6500),
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(7),
+    ),
+  );
+}
+
 class _LabeledField extends StatelessWidget {
   const _LabeledField({
     required this.label,
@@ -1931,58 +2964,51 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: _BottomSheetScaffold(
-        title: isEdit
-            ? translateText('Edit Category')
-            : translateText('Add Category'),
-        initial: 0.55,
-        min: 0.35,
-        max: 0.9,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _DialogHeader(
+              title: isEdit
+                  ? translateText('Edit Category')
+                  : translateText('Add Category'),
+              subtitle: translateText('Keep your catalog organized.'),
+            ),
+            const SizedBox(height: 20),
+            _DialogLabel(translateText('Category Name')),
+            const SizedBox(height: 7),
             TextField(
               controller: nameController,
+              cursorColor: _catalogGold,
               textCapitalization: TextCapitalization.none,
               inputFormatters: const [FirstLetterUpperFormatter()],
               onChanged: (_) {
                 if (errorText != null) setState(() => errorText = null);
               },
-              decoration: InputDecoration(
-                labelText: translateText('Category Name'),
-                border: OutlineInputBorder(),
+              decoration: _dialogInputDecoration(
+                hint: translateText('Enter category name'),
               ),
             ),
-            SizedBox(height: 12),
-            // Optional description input ÃƒÅ½Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¡ÃƒÆ’Ã‚Â´ keep if you need it in UI
-            // TextField(
-            //   controller: descriptionController,
-            //   maxLines: 2,
-            //   textCapitalization: TextCapitalization.sentences,
-            //   decoration: InputDecoration(
-            //     labelText: translateText('Description (optional)'),
-            //     border: OutlineInputBorder(),
-            //   ),
-            // ),
             if (errorText != null) ...[
-              SizedBox(height: 2),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  errorText!,
-                  style: const TextStyle(color: Colors.red),
-                ),
+              const SizedBox(height: 8),
+              Text(
+                errorText!,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
               ),
             ],
-            SizedBox(height: 6),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: isSaving
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
@@ -1990,16 +3016,9 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
                           color: Colors.white,
                         ),
                       )
-                    : Icon(Icons.check_rounded),
+                    : const Icon(Icons.check_rounded),
                 onPressed: isSaving ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.starColor,
-                  foregroundColor: AppColors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                style: _dialogPrimaryButtonStyle(),
                 label: Text(
                   isEdit
                       ? translateText('Update Category')
@@ -2095,47 +3114,51 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: _BottomSheetScaffold(
-        title: isEdit
-            ? translateText('Edit Subcategory')
-            : translateText('Add Subcategory'),
-        initial: 0.55,
-        min: 0.35,
-        max: 0.9,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _DialogHeader(
+              title: isEdit
+                  ? translateText('Edit Subcategory')
+                  : translateText('Add Subcategory'),
+              subtitle: translateText('Group related services clearly.'),
+            ),
+            const SizedBox(height: 20),
+            _DialogLabel(translateText('Subcategory Name')),
+            const SizedBox(height: 7),
             TextField(
               controller: controller,
+              cursorColor: _catalogGold,
               textCapitalization: TextCapitalization.none,
               inputFormatters: const [FirstLetterUpperFormatter()],
               onChanged: (_) {
                 if (errorText != null) setState(() => errorText = null);
               },
-              decoration: InputDecoration(
-                labelText: translateText('Subcategory Name'),
-                border: OutlineInputBorder(),
+              decoration: _dialogInputDecoration(
+                hint: translateText('Enter subcategory name'),
               ),
             ),
             if (errorText != null) ...[
-              SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  errorText!,
-                  style: const TextStyle(color: Colors.red),
-                ),
+              const SizedBox(height: 8),
+              Text(
+                errorText!,
+                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
               ),
             ],
-            SizedBox(height: 6),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: isSaving
-                    ? SizedBox(
+                    ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
@@ -2143,16 +3166,9 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
                           color: Colors.white,
                         ),
                       )
-                    : Icon(Icons.check_rounded),
+                    : const Icon(Icons.check_rounded),
                 onPressed: isSaving ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.starColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+                style: _dialogPrimaryButtonStyle(),
                 label: Text(
                   isEdit
                       ? translateText('Update Subcategory')

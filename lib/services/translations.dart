@@ -543,6 +543,27 @@ class AppTranslations {
           'Complete your profile details to continue onboarding.',
       '"Excellence begins with understanding our guests."':
           '"Excellence begins with understanding our guests."',
+      'Service Catalog': 'Service Catalog',
+      'Service\nCatalog': 'Service\nCatalog',
+      'SELECT  SALON/BRANCH': 'SELECT  SALON/BRANCH',
+      'QUICK  SEARCH': 'QUICK  SEARCH',
+      'Find services, stylists, or treatments...':
+          'Find services, stylists, or treatments...',
+      'All Services': 'All Services',
+      'Select Salon/Branch': 'Select Salon/Branch',
+      'Keep your catalog organized.': 'Keep your catalog organized.',
+      'Group related services clearly.': 'Group related services clearly.',
+      'Enter category name': 'Enter category name',
+      'Enter subcategory name': 'Enter subcategory name',
+      'Create a service with pricing, duration, and commission details.':
+          'Create a service with pricing, duration, and commission details.',
+      'SERVICES AVAILABLE': 'SERVICES AVAILABLE',
+      'SERVICE': 'SERVICE',
+      'SERVICES': 'SERVICES',
+      'Professional Styling': 'Professional Styling',
+      'VIEW DETAILS': 'VIEW DETAILS',
+      'No services found': 'No services found',
+      'Try another search or category.': 'Try another search or category.',
       'Could not load salons': 'Could not load salons',
       'Loading salons...': 'Loading salons...',
       'This can take a little longer on slow internet.':
@@ -1365,6 +1386,28 @@ class AppTranslations {
           'ऑनबोर्डिंग जारी रखने के लिए अपनी प्रोफ़ाइल जानकारी पूरी करें।',
       '"Excellence begins with understanding our guests."':
           '"उत्कृष्टता हमारे मेहमानों को समझने से शुरू होती है।"',
+      'Service Catalog': 'सर्विस कैटलॉग',
+      'Service\nCatalog': 'सर्विस\nकैटलॉग',
+      'SELECT  SALON/BRANCH': 'सैलून/शाखा चुनें',
+      'QUICK  SEARCH': 'त्वरित खोज',
+      'Find services, stylists, or treatments...':
+          'सेवाएं, स्टाइलिस्ट या ट्रीटमेंट खोजें...',
+      'All Services': 'सभी सेवाएं',
+      'Select Salon/Branch': 'सैलून/शाखा चुनें',
+      'Keep your catalog organized.': 'अपने कैटलॉग को व्यवस्थित रखें।',
+      'Group related services clearly.':
+          'संबंधित सेवाओं को स्पष्ट रूप से समूहित करें।',
+      'Enter category name': 'श्रेणी का नाम दर्ज करें',
+      'Enter subcategory name': 'उपश्रेणी का नाम दर्ज करें',
+      'Create a service with pricing, duration, and commission details.':
+          'कीमत, अवधि और कमीशन विवरण के साथ सेवा बनाएं।',
+      'SERVICES AVAILABLE': 'सेवाएं उपलब्ध',
+      'SERVICE': 'सेवा',
+      'SERVICES': 'सेवाएं',
+      'Professional Styling': 'प्रोफेशनल स्टाइलिंग',
+      'VIEW DETAILS': 'विवरण देखें',
+      'No services found': 'कोई सेवा नहीं मिली',
+      'Try another search or category.': 'दूसरी खोज या श्रेणी आज़माएं।',
       'Could not load salons': 'सैलून लोड नहीं हो सके',
       'Loading salons...': 'सैलून लोड हो रहे हैं...',
       'This can take a little longer on slow internet.':
