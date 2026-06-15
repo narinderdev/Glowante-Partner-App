@@ -564,6 +564,9 @@ class AppTranslations {
       'SERVICES': 'SERVICES',
       'Professional Styling': 'Professional Styling',
       'VIEW DETAILS': 'VIEW DETAILS',
+      'No categories yet': 'No categories yet',
+      'Tap "New Category" to create your first one.':
+          'Tap "New Category" to create your first one.',
       'No services found': 'No services found',
       'Try another search or category.': 'Try another search or category.',
       'Could not load salons': 'Could not load salons',
@@ -1410,6 +1413,9 @@ class AppTranslations {
       'SERVICES': 'सेवाएं',
       'Professional Styling': 'प्रोफेशनल स्टाइलिंग',
       'VIEW DETAILS': 'विवरण देखें',
+      'No categories yet': 'अभी कोई श्रेणी नहीं है',
+      'Tap "New Category" to create your first one.':
+          'अपनी पहली श्रेणी बनाने के लिए "नई श्रेणी" पर टैप करें।',
       'No services found': 'कोई सेवा नहीं मिली',
       'Try another search or category.': 'दूसरी खोज या श्रेणी आज़माएं।',
       'Could not load salons': 'सैलून लोड नहीं हो सके',

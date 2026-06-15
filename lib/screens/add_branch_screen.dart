@@ -989,10 +989,25 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                       color: Colors.white,
                                     ),
                                   )
-                                : Text(
-                                    translateText(
-                                      widget.isEdit ? 'Save' : 'Next',
-                                    ),
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        translateText(widget.isEdit
+                                            ? 'Save Changes'
+                                            : 'Next Step'),
+                                        style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        size: 20,
+                                      ),
+                                    ],
                                   ),
                           ),
                         ),

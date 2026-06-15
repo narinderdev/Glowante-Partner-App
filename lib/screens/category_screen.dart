@@ -10,6 +10,7 @@ import '../Viewmodels/AddCategory.dart';
 import 'AddServices.dart';
 import 'notifications.dart';
 import '../services/language_listener.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/api_service.dart';
@@ -20,7 +21,6 @@ const Color _catalogInk = Color(0xFF2D2926);
 const Color _catalogMuted = Color(0xFF756A61);
 const Color _catalogBorder = Color(0xFFE8DED6);
 const Color _catalogSurface = Color(0xFFFBF9F8);
-const Color _catalogChip = Color(0xFFEDEBEA);
 
 /// Shared function signature for opening the subcategory sheet
 typedef SubcategoryOp = Future<void> Function({
@@ -359,8 +359,7 @@ class CategoryScreenState extends State<CategoryScreen> {
         context.read<SalonListCubit>().setSelectedSalon(nextSelection);
         categoryCubit.resetCategories();
         categoryCubit.loadCategories(storedBranchId);
-      } else if (categoryCubit.state.categories.isEmpty &&
-          categoryCubit.state.status != CategoryStatus.loading) {
+      } else if (categoryCubit.state.status == CategoryStatus.initial) {
         categoryCubit.loadCategories(storedBranchId);
       }
     } finally {
@@ -398,6 +397,7 @@ class CategoryScreenState extends State<CategoryScreen> {
 
 // ---------- ADD / EDIT CATEGORY ----------
   Future<void> _showAddCategorySheet({Map<String, dynamic>? category}) async {
+    _dismissCatalogKeyboard();
     if (_selectedSalon == null) {
       _toast('Select a salon first.');
       return;
@@ -410,7 +410,7 @@ class CategoryScreenState extends State<CategoryScreen> {
       return;
     }
 
-    await showDialog<void>(
+    final createdCategoryName = await showDialog<String>(
       context: context,
       builder: (sheetContext) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -422,6 +422,37 @@ class CategoryScreenState extends State<CategoryScreen> {
         ),
       ),
     );
+
+    _dismissCatalogKeyboard();
+    if (!mounted || category != null || createdCategoryName == null) return;
+    _selectFilterCategoryByName(createdCategoryName);
+  }
+
+  void _selectFilterCategoryByName(String categoryName) {
+    final normalizedName = categoryName.trim().toLowerCase();
+    if (normalizedName.isEmpty) return;
+
+    final categories = context.read<CategoryCubit>().state.categories;
+    Map<String, dynamic>? match;
+    for (final rawCategory in categories.reversed) {
+      if (rawCategory is! Map) continue;
+      final category = Map<String, dynamic>.from(rawCategory);
+      final label = (category['displayName'] ?? category['name'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      if (label == normalizedName) {
+        match = category;
+        break;
+      }
+    }
+
+    final categoryId = _asInt(match?['id']);
+    if (categoryId == null) return;
+    setState(() {
+      _selectedFilterCategoryId = categoryId;
+      _expandedCategories[categoryId] = true;
+    });
   }
 
   // ---------- ADD / EDIT SUBCATEGORY ----------
@@ -429,6 +460,7 @@ class CategoryScreenState extends State<CategoryScreen> {
     Map<String, dynamic>? subCategory,
     required int categoryId,
   }) async {
+    _dismissCatalogKeyboard();
     if (_selectedSalon == null) return;
 
     final branchId = _selectedSalon!['branchId'] as int;
@@ -446,6 +478,7 @@ class CategoryScreenState extends State<CategoryScreen> {
         ),
       ),
     );
+    _dismissCatalogKeyboard();
   }
 
   // ---------- CONFIRM DELETE CATEGORY ----------
@@ -508,22 +541,26 @@ class CategoryScreenState extends State<CategoryScreen> {
 
   // ---------- EDIT SERVICE ----------
   Future<void> _showUpdateServiceSheet(Map<String, dynamic> service) async {
-    final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) => _EditServiceSheet(service: service),
-    );
-
-    if (!mounted || result == null) return;
-
+    if (_selectedSalon == null) return;
+    _rememberScrollPosition();
     final branchId = _selectedSalon?['branchId'] as int? ??
         _selectedSalon!['salonId'] as int;
-    context.read<CategoryCubit>().updateService(
-          branchId,
-          result['serviceId'] as int,
-          result['payload'] as Map<String, dynamic>,
-        );
+    final updated = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddServices(
+          branchId: branchId,
+          categories: context.read<CategoryCubit>().state.categories,
+          serviceToEdit: service,
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    if (updated == true) {
+      await context.read<CategoryCubit>().loadCategories(branchId);
+      _restoreScrollPosition();
+    }
   }
 
   // ---------- CONFIRM DELETE SERVICE ----------
@@ -1000,23 +1037,10 @@ class CategoryScreenState extends State<CategoryScreen> {
 
     return Scaffold(
       backgroundColor: _catalogSurface,
-      appBar: AppBar(
-        backgroundColor: _catalogSurface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        surfaceTintColor: Colors.transparent,
-        toolbarHeight: kToolbarHeight,
+      appBar: buildProfileSubpageAppBar(
+        title: translateText('Service Catalog'),
         automaticallyImplyLeading: false,
-        titleSpacing: 18,
-        title: Text(
-          translateText('Service Catalog'),
-          style: const TextStyle(
-            color: _catalogGold,
-            fontSize: 20,
-            height: 1,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        toolbarHeight: kToolbarHeight,
         actions: [
           IconButton(
             onPressed: () {
@@ -1036,10 +1060,6 @@ class CategoryScreenState extends State<CategoryScreen> {
             color: _catalogGold,
           ),
         ],
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: _catalogBorder),
-        ),
       ),
       body: MultiBlocListener(
         listeners: [
@@ -1086,8 +1106,8 @@ class CategoryScreenState extends State<CategoryScreen> {
       ),
       floatingActionButton: _selectedSalon == null
           ? null
-          : Transform.translate(
-              offset: const Offset(0, 28),
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 12),
               child: FloatingActionButton(
                 heroTag: 'catalogueFab',
                 onPressed: () => _showAddCategorySheet(),
@@ -1129,9 +1149,12 @@ class CategoryScreenState extends State<CategoryScreen> {
           const SizedBox(height: 16),
           _CatalogSectionLabel(text: translateText('QUICK  SEARCH')),
           _buildQuickSearchField(),
-          const SizedBox(height: 22),
-          _buildCategoryFilterChips(catState.categories),
-          const SizedBox(height: 26),
+          if (catState.categories.isNotEmpty) ...[
+            const SizedBox(height: 22),
+            _buildCategoryFilterChips(catState.categories),
+            const SizedBox(height: 26),
+          ] else
+            const SizedBox(height: 22),
           if (_selectedSalon == null) ...[
             _EmptyState(
               icon: Icons.store_mall_directory_outlined,
@@ -1145,8 +1168,16 @@ class CategoryScreenState extends State<CategoryScreen> {
                 message: catState.message ?? 'Failed to load categories',
                 onRetry: _refreshData,
               )
-            else ...[
-              if (catState.categories.isNotEmpty)
+            else if (catState.categories.isEmpty) ...[
+              _EmptyState(
+                icon: Icons.category_outlined,
+                title: translateText('No categories yet'),
+                subtitle: translateText(
+                  'Tap "New Category" to create your first one.',
+                ),
+              ),
+            ] else ...[
+              if (visibleCategories.isNotEmpty)
                 _CategoryList(
                   categories: visibleCategories,
                   allCategories: catState.categories,
@@ -1169,7 +1200,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                         !(_expandedSubcategories[id] ?? false);
                   }),
                 ),
-              if (catState.categories.isNotEmpty && visibleCategories.isEmpty)
+              if (visibleCategories.isEmpty)
                 _EmptyState(
                   icon: Icons.search_off_rounded,
                   title: translateText('No services found'),
@@ -1298,46 +1329,86 @@ class CategoryScreenState extends State<CategoryScreen> {
             (entry) => Map<String, dynamic>.from(entry),
           ),
     );
+    if (categoryItems.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
-      height: 36,
-      child: ListView.separated(
+      height: 34,
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        itemCount: categoryItems.length + 1,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          final bool isAll = index == 0;
-          final category = isAll ? null : categoryItems[index - 1];
-          final int? categoryId = isAll ? null : _asInt(category?['id']);
-          final bool selected = isAll
-              ? _selectedFilterCategoryId == null
-              : _selectedFilterCategoryId == categoryId;
-          final label = isAll
-              ? translateText('All Services')
-              : (category?['displayName'] ?? category?['name'] ?? 'Category')
-                  .toString();
+        child: Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEDEBE9),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: List.generate(categoryItems.length + 1, (index) {
+              final bool isAll = index == 0;
+              final category = isAll ? null : categoryItems[index - 1];
+              final int? categoryId = isAll ? null : _asInt(category?['id']);
+              final bool selected = isAll
+                  ? _selectedFilterCategoryId == null
+                  : _selectedFilterCategoryId == categoryId;
+              final label = isAll
+                  ? translateText('All Services')
+                  : (category?['displayName'] ??
+                          category?['name'] ??
+                          'Category')
+                      .toString();
 
-          return ChoiceChip(
-            selected: selected,
-            showCheckmark: false,
-            label: Text(label),
-            onSelected: (_) {
-              setState(() => _selectedFilterCategoryId = categoryId);
-            },
-            labelStyle: TextStyle(
-              color: selected ? Colors.white : _catalogInk,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-            ),
-            selectedColor: _catalogGold,
-            backgroundColor: _catalogChip,
-            side: BorderSide.none,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          );
-        },
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: index == 0 ? 0 : 2,
+                  right: index == categoryItems.length ? 0 : 2,
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(6),
+                    onTap: () {
+                      setState(() => _selectedFilterCategoryId = categoryId);
+                    },
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      constraints: const BoxConstraints(minWidth: 92),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected ? Colors.white : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        boxShadow: selected
+                            ? const [
+                                BoxShadow(
+                                  color: Color(0x0F000000),
+                                  blurRadius: 5,
+                                  offset: Offset(0, 2),
+                                ),
+                              ]
+                            : const [],
+                      ),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontFamilyFallback: ['Inter', 'sans-serif'],
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.2,
+                        ).copyWith(
+                          color: selected ? _catalogGold : _catalogMuted,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
@@ -1377,9 +1448,7 @@ class CategoryScreenState extends State<CategoryScreen> {
     if (selections.isEmpty) return;
 
     final selectorContext = _branchSelectorKey.currentContext;
-    if (selectorContext == null) return;
-
-    final selectorBox = selectorContext.findRenderObject() as RenderBox?;
+    final selectorBox = selectorContext?.findRenderObject() as RenderBox?;
     final overlayBox =
         Overlay.of(context).context.findRenderObject() as RenderBox?;
     if (selectorBox == null || overlayBox == null) return;
@@ -1388,134 +1457,38 @@ class CategoryScreenState extends State<CategoryScreen> {
       Offset.zero,
       ancestor: overlayBox,
     );
-    final top = selectorOffset.dy + selectorBox.size.height + 6;
-    final maxHeight = (overlayBox.size.height - top - 18).clamp(160.0, 360.0);
+    final selectorRect = selectorOffset & selectorBox.size;
+    final menuWidth = overlayBox.size.width - 32;
 
-    final selected = await showGeneralDialog<Map<String, dynamic>>(
+    final selected = await showMenu<Map<String, dynamic>>(
       context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 160),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-          child: child,
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      position: RelativeRect.fromLTRB(
+        16,
+        selectorRect.bottom + 8,
+        16,
+        0,
+      ),
+      constraints: BoxConstraints(minWidth: menuWidth, maxWidth: menuWidth),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: _catalogBorder),
+      ),
+      items: selections.map((item) {
+        final bool isSelected =
+            _asInt(item['branchId']) == _asInt(_selectedSalon?['branchId']) &&
+                _asInt(item['salonId']) == _asInt(_selectedSalon?['salonId']);
+        return PopupMenuItem<Map<String, dynamic>>(
+          value: item,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: _CatalogBranchDropdownItem(
+            item: item,
+            isSelected: isSelected,
+          ),
         );
-      },
-      pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        return Stack(
-          children: [
-            Positioned(
-              left: selectorOffset.dx,
-              top: top,
-              width: selectorBox.size.width,
-              child: Material(
-                color: Colors.white,
-                elevation: 10,
-                shadowColor: const Color(0x26000000),
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: _catalogBorder),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxHeight),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                    itemCount: selections.length + 1,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return Padding(
-                          padding: const EdgeInsets.fromLTRB(2, 4, 2, 10),
-                          child: Text(
-                            translateText('Select Salon/Branch'),
-                            style: const TextStyle(
-                              color: _catalogInk,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              decoration: TextDecoration.none,
-                            ),
-                          ),
-                        );
-                      }
-
-                      final item = selections[index - 1];
-                      final bool isSelected = _asInt(item['branchId']) ==
-                              _asInt(_selectedSalon?['branchId']) &&
-                          _asInt(item['salonId']) ==
-                              _asInt(_selectedSalon?['salonId']);
-                      return InkWell(
-                        onTap: () => Navigator.pop(dialogContext, item),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 18,
-                                backgroundColor: Color(0xFFF3E8D1),
-                                child: Icon(
-                                  Icons.location_on_outlined,
-                                  color: _catalogGold,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _catalogBranchLabel(item),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: _catalogInk,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        decoration: TextDecoration.none,
-                                      ),
-                                    ),
-                                    if ((item['addressSummary'] ?? '')
-                                        .toString()
-                                        .trim()
-                                        .isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        (item['addressSummary'] ?? '')
-                                            .toString(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: _catalogMuted,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          decoration: TextDecoration.none,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              if (isSelected)
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: _catalogGold,
-                                  size: 20,
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+      }).toList(),
     );
 
     if (!mounted || selected == null) return;
@@ -1737,6 +1710,100 @@ class _NoDataPill extends StatelessWidget {
   }
 }
 
+class _CatalogBranchDropdownItem extends StatelessWidget {
+  const _CatalogBranchDropdownItem({
+    required this.item,
+    required this.isSelected,
+  });
+
+  final Map<String, dynamic> item;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final addressSummary = (item['addressSummary'] ?? '').toString().trim();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: isSelected ? _catalogGold.withValues(alpha: 0.12) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? _catalogGold : _catalogBorder,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: _catalogGold.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.storefront_outlined,
+              color: _catalogGold,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _catalogBranchLabel(item),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _catalogInk,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                if (addressSummary.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    addressSummary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _catalogMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: isSelected ? _catalogGold : Colors.transparent,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? _catalogGold : _catalogBorder,
+              ),
+            ),
+            child: isSelected
+                ? const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  )
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InlineProgress extends StatelessWidget {
   const _InlineProgress({required this.message});
   final String message;
@@ -1824,11 +1891,7 @@ class _CategoryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (categories.isEmpty) {
-      return const _EmptyState(
-        icon: Icons.category_outlined,
-        title: 'No categories yet',
-        subtitle: 'Tap "New Category" to create your first one.',
-      );
+      return const SizedBox.shrink();
     }
 
     final theme = Theme.of(context);
@@ -2290,6 +2353,8 @@ class _ServiceCard extends StatelessWidget {
         price != null ? 'Rs ${price.toString()}' : translateText('No price');
     final String durationLabel =
         duration != null ? '$duration min' : translateText('No duration');
+    final String serviceMeta =
+        description.isEmpty ? durationLabel : '$durationLabel • $description';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -2346,7 +2411,7 @@ class _ServiceCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$durationLabel • ${description.isEmpty ? translateText('Professional Styling') : description}',
+                        serviceMeta,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -2860,6 +2925,7 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
   }
 
   Future<void> _submit() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final t = nameController.text.trim();
     final validationError = _validateName(t);
     if (validationError != null) {
@@ -2889,7 +2955,8 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
       }
 
       if (!mounted) return;
-      Navigator.of(context).pop();
+      FocusManager.instance.primaryFocus?.unfocus();
+      Navigator.of(context).pop(isEdit ? null : t);
     } catch (_) {
       if (!mounted) return;
       setState(() => errorText = 'Failed to save. Please try again.');
@@ -2900,69 +2967,78 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DialogHeader(
-              title: isEdit
-                  ? translateText('Edit Category')
-                  : translateText('Add Category'),
-              subtitle: translateText('Keep your catalog organized.'),
-            ),
-            const SizedBox(height: 20),
-            _DialogLabel(translateText('Category Name')),
-            const SizedBox(height: 7),
-            TextField(
-              controller: nameController,
-              cursorColor: _catalogGold,
-              textCapitalization: TextCapitalization.none,
-              inputFormatters: const [FirstLetterUpperFormatter()],
-              onChanged: (_) {
-                if (errorText != null) setState(() => errorText = null);
-              },
-              decoration: _dialogInputDecoration(
-                hint: translateText('Enter category name'),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DialogHeader(
+                title: isEdit
+                    ? translateText('Edit Category')
+                    : translateText('Add Category'),
+                subtitle: translateText('Keep your catalog organized.'),
               ),
-            ),
-            if (errorText != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                errorText!,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-              ),
-            ],
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.check_rounded),
-                onPressed: isSaving ? null : _submit,
-                style: _dialogPrimaryButtonStyle(),
-                label: Text(
-                  isEdit
-                      ? translateText('Update Category')
-                      : translateText('Add Category'),
+              const SizedBox(height: 20),
+              _DialogLabel(translateText('Category Name')),
+              const SizedBox(height: 7),
+              TextField(
+                controller: nameController,
+                cursorColor: _catalogGold,
+                textInputAction: TextInputAction.done,
+                textCapitalization: TextCapitalization.none,
+                inputFormatters: const [FirstLetterUpperFormatter()],
+                onSubmitted: (_) {
+                  if (!isSaving) _submit();
+                },
+                onChanged: (_) {
+                  if (errorText != null) setState(() => errorText = null);
+                },
+                decoration: _dialogInputDecoration(
+                  hint: translateText('Enter category name'),
                 ),
               ),
-            ),
-          ],
+              if (errorText != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorText!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  onPressed: isSaving ? null : _submit,
+                  style: _dialogPrimaryButtonStyle(),
+                  label: Text(
+                    isEdit
+                        ? translateText('Update Category')
+                        : translateText('Add Category'),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3020,6 +3096,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
   }
 
   Future<void> _submit() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     final t = controller.text.trim();
 
     final validationError = _validateName(t);
@@ -3039,6 +3116,7 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
         await cubit.addSubCategory(widget.branchId, widget.categoryId, t);
       }
       if (!mounted) return;
+      FocusManager.instance.primaryFocus?.unfocus();
       Navigator.of(context).pop();
     } catch (_) {
       if (!mounted) return;
@@ -3050,69 +3128,78 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedPadding(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      padding:
-          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DialogHeader(
-              title: isEdit
-                  ? translateText('Edit Subcategory')
-                  : translateText('Add Subcategory'),
-              subtitle: translateText('Group related services clearly.'),
-            ),
-            const SizedBox(height: 20),
-            _DialogLabel(translateText('Subcategory Name')),
-            const SizedBox(height: 7),
-            TextField(
-              controller: controller,
-              cursorColor: _catalogGold,
-              textCapitalization: TextCapitalization.none,
-              inputFormatters: const [FirstLetterUpperFormatter()],
-              onChanged: (_) {
-                if (errorText != null) setState(() => errorText = null);
-              },
-              decoration: _dialogInputDecoration(
-                hint: translateText('Enter subcategory name'),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding:
+            EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _DialogHeader(
+                title: isEdit
+                    ? translateText('Edit Subcategory')
+                    : translateText('Add Subcategory'),
+                subtitle: translateText('Group related services clearly.'),
               ),
-            ),
-            if (errorText != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                errorText!,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-              ),
-            ],
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.check_rounded),
-                onPressed: isSaving ? null : _submit,
-                style: _dialogPrimaryButtonStyle(),
-                label: Text(
-                  isEdit
-                      ? translateText('Update Subcategory')
-                      : translateText('Add Subcategory'),
+              const SizedBox(height: 20),
+              _DialogLabel(translateText('Subcategory Name')),
+              const SizedBox(height: 7),
+              TextField(
+                controller: controller,
+                cursorColor: _catalogGold,
+                textInputAction: TextInputAction.done,
+                textCapitalization: TextCapitalization.none,
+                inputFormatters: const [FirstLetterUpperFormatter()],
+                onSubmitted: (_) {
+                  if (!isSaving) _submit();
+                },
+                onChanged: (_) {
+                  if (errorText != null) setState(() => errorText = null);
+                },
+                decoration: _dialogInputDecoration(
+                  hint: translateText('Enter subcategory name'),
                 ),
               ),
-            ),
-          ],
+              if (errorText != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorText!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                ),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_rounded),
+                  onPressed: isSaving ? null : _submit,
+                  style: _dialogPrimaryButtonStyle(),
+                  label: Text(
+                    isEdit
+                        ? translateText('Update Subcategory')
+                        : translateText('Add Subcategory'),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
