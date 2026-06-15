@@ -110,17 +110,6 @@ List<Map<String, dynamic>> _sortedCatalogItems(
   return items.toList()..sort(_compareCatalogItems);
 }
 
-String _serviceCommissionTypeLabel(Map<String, dynamic> service) {
-  if (service['commissionEnabled'] != true) {
-    return translateText('Commission off');
-  }
-
-  final type = (service['commissionType'] ?? '').toString().toLowerCase();
-  if (type == 'fixed') return translateText('Fixed commission');
-  if (type == 'percentage') return translateText('Percentage commission');
-  return translateText('Commission enabled');
-}
-
 String _serviceCommissionValueLabel(Map<String, dynamic> service) {
   if (service['commissionEnabled'] != true) {
     return translateText('No commission');
@@ -144,6 +133,17 @@ String _serviceCommissionValueLabel(Map<String, dynamic> service) {
   }
 
   return translateText('Enabled');
+}
+
+String _serviceCommissionTagLabel(Map<String, dynamic> service) {
+  final valueLabel = _serviceCommissionValueLabel(service);
+  if (valueLabel == translateText('No commission')) {
+    return translateText('Comm off');
+  }
+  if (valueLabel == translateText('Enabled')) {
+    return translateText('Comm');
+  }
+  return '${translateText('Comm')} $valueLabel';
 }
 
 int _serviceCountForCategory(Map<String, dynamic> category) {
@@ -1162,7 +1162,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                   expanded: _expandedSubcategories,
                   toggleCategoryExpanded: (id) => setState(() {
                     _expandedCategories[id] =
-                        !(_expandedCategories[id] ?? true);
+                        !(_expandedCategories[id] ?? false);
                   }),
                   toggleExpanded: (id) => setState(() {
                     _expandedSubcategories[id] =
@@ -1856,7 +1856,7 @@ class _CategoryList extends StatelessWidget {
               ),
         );
         final int categoryId = _serviceInt(category['id']) ?? index;
-        final bool isCategoryExpanded = categoryExpanded[categoryId] ?? true;
+        final bool isCategoryExpanded = categoryExpanded[categoryId] ?? false;
         final serviceCount = _serviceCountForCategory(category);
 
         return Container(
@@ -2046,52 +2046,27 @@ class _CategoryList extends StatelessWidget {
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
-                          child: RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
-                              children: [
-                                WidgetSpan(
-                                  alignment: PlaceholderAlignment.middle,
-                                  child: Transform.translate(
-                                    offset: const Offset(0, -4),
-                                    child: Container(
-                                      width: 14,
-                                      height: 14,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: _catalogGold,
-                                          width: 1.6,
-                                        ),
-                                      ),
-                                      child: const Center(
-                                        child: Text(
-                                          '+',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: _catalogGold,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            height: 1,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const WidgetSpan(
-                                  child: SizedBox(width: 8),
-                                ),
-                                TextSpan(
-                                  text: translateText('Add Subcategory'),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.add_circle_outline_rounded,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  translateText('Add Subcategory'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    color: _catalogGold,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -2110,52 +2085,24 @@ class _CategoryList extends StatelessWidget {
                             ),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
-                          child: RichText(
-                            textAlign: TextAlign.center,
-                            text: TextSpan(
-                              children: [
-                                WidgetSpan(
-                                  alignment: PlaceholderAlignment.middle,
-                                  child: Transform.translate(
-                                    offset: const Offset(0, -4),
-                                    child: Container(
-                                      width: 14,
-                                      height: 14,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: _catalogGold,
-                                          width: 1.6,
-                                        ),
-                                      ),
-                                      child: const Center(
-                                        child: Text(
-                                          '+',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            height: 1,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const WidgetSpan(
-                                  child: SizedBox(width: 8),
-                                ),
-                                TextSpan(
-                                  text: translateText('Add Service'),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.add_rounded, size: 18),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  translateText('Add Service'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    color: Colors.white,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -2337,8 +2284,7 @@ class _ServiceCard extends StatelessWidget {
     final int? price = _serviceInt(service['priceMinor']);
     final int? duration = _serviceInt(service['durationMin']);
     final String description = (service['description'] ?? '').toString().trim();
-    final String commissionTypeLabel = _serviceCommissionTypeLabel(service);
-    final String commissionValueLabel = _serviceCommissionValueLabel(service);
+    final String commissionTagLabel = _serviceCommissionTagLabel(service);
 
     final String priceLabel =
         price != null ? 'Rs ${price.toString()}' : translateText('No price');
@@ -2368,7 +2314,7 @@ class _ServiceCard extends StatelessWidget {
               Container(
                 width: 18,
                 height: 18,
-                margin: const EdgeInsets.only(top: 22),
+                margin: const EdgeInsets.only(top: 18),
                 decoration: BoxDecoration(
                   color: service['commissionEnabled'] == true
                       ? _catalogGold
@@ -2384,7 +2330,7 @@ class _ServiceCard extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 18),
+                  padding: const EdgeInsets.only(top: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2409,18 +2355,6 @@ class _ServiceCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        commissionValueLabel == translateText('No commission')
-                            ? commissionTypeLabel
-                            : commissionValueLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _catalogGold,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -2457,10 +2391,12 @@ class _ServiceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    translateText('VIEW DETAILS'),
+                    commissionTagLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: _catalogMuted,
-                      fontSize: 8,
+                      color: _catalogGold,
+                      fontSize: 9,
                       fontWeight: FontWeight.w800,
                     ),
                   ),

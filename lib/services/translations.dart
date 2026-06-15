@@ -66,6 +66,8 @@ class AppTranslations {
       'Confirm': 'Confirm',
       'Continue': 'Continue',
       'Coming Soon': 'Coming Soon',
+      'Comm': 'Comm',
+      'Comm off': 'Comm off',
       'Commission': 'Commission',
       'Commission Setup': 'Commission Setup',
       'Commission details are coming soon.':
@@ -850,6 +852,8 @@ class AppTranslations {
       'Confirm': 'पुष्टि करें',
       'Continue': 'जारी रखें',
       'Coming Soon': 'जल्द आ रहा है',
+      'Comm': 'कमीशन',
+      'Comm off': 'कमीशन बंद',
       'Commission': 'कमीशन',
       'Commission Setup': 'कमीशन सेटअप',
       'Commission details are coming soon.': 'कमीशन विवरण जल्द उपलब्ध होगा।',

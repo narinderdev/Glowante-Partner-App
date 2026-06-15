@@ -189,6 +189,21 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   ) {
     final result = <String, List<Map<String, String>>>{};
     final rawSchedule = branch?['schedule'];
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+
+    if (rawSchedule is Map || rawSchedule is List) {
+      for (final day in days) {
+        result[day] = <Map<String, String>>[];
+      }
+    }
 
     if (rawSchedule is Map) {
       for (final entry in rawSchedule.entries) {

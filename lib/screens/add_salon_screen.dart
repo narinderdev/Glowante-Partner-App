@@ -312,6 +312,21 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final result = <String, List<Map<String, String>>>{};
     final primaryBranch = salon == null ? null : _resolvePrimaryBranch(salon);
     final rawSchedule = primaryBranch?['schedule'] ?? salon?['schedule'];
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+
+    if (rawSchedule is Map || rawSchedule is List) {
+      for (final day in days) {
+        result[day] = <Map<String, String>>[];
+      }
+    }
 
     if (rawSchedule is Map) {
       for (final entry in rawSchedule.entries) {
@@ -750,6 +765,31 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           final phone = _normalizePhone(_phoneController.text);
           final description = _descriptionController.text.trim();
           final addressPayload = _addressPayload(address);
+          final primaryBranch = _resolvePrimaryBranch(widget.initialSalon!);
+          final branchId = _readIntValue([
+            primaryBranch?['id'],
+            widget.initialSalon!['branchId'],
+            widget.initialSalon!['mainBranchId'],
+          ]);
+          final rawBranchAddress = primaryBranch?['address'];
+          final branchAddressPayload = addressPayload ??
+              (rawBranchAddress is Map
+                  ? Map<String, dynamic>.from(rawBranchAddress)
+                  : null);
+          final branchLatitude = address?.latitude ??
+              _readDoubleValue([
+                primaryBranch?['latitude'],
+                rawBranchAddress is Map ? rawBranchAddress['latitude'] : null,
+                rawBranchAddress is Map ? rawBranchAddress['lat'] : null,
+              ]);
+          final branchLongitude = address?.longitude ??
+              _readDoubleValue([
+                primaryBranch?['longitude'],
+                primaryBranch?['lng'],
+                rawBranchAddress is Map ? rawBranchAddress['longitude'] : null,
+                rawBranchAddress is Map ? rawBranchAddress['lng'] : null,
+              ]);
+          var salonUpdated = false;
           try {
             await cubit.repository.updateSalon(
               salonId: salonId,
@@ -765,17 +805,31 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               latitude: address?.latitude,
               longitude: address?.longitude,
             );
+            salonUpdated = true;
+            if (branchId != null && branchAddressPayload != null) {
+              await cubit.repository.updateBranch(
+                branchId: branchId,
+                name: name,
+                phone: phone,
+                startTime: scheduleResult.startTime,
+                endTime: scheduleResult.endTime,
+                description: description,
+                schedule: scheduleResult.schedule,
+                address: branchAddressPayload,
+                latitude: branchLatitude,
+                longitude: branchLongitude,
+              );
+            }
           } catch (error) {
-            final primaryBranch = _resolvePrimaryBranch(widget.initialSalon!);
-            final branchId = _readIntValue([
-              primaryBranch?['id'],
-              widget.initialSalon!['branchId'],
-              widget.initialSalon!['mainBranchId'],
-            ]);
+            if (salonUpdated) {
+              rethrow;
+            }
             final isForbidden = error.toString().contains('Forbidden') ||
                 error.toString().contains('Access denied') ||
                 error.toString().contains('403');
-            if (!isForbidden || branchId == null || addressPayload == null) {
+            if (!isForbidden ||
+                branchId == null ||
+                branchAddressPayload == null) {
               rethrow;
             }
             await cubit.repository.updateBranch(
@@ -786,9 +840,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               endTime: scheduleResult.endTime,
               description: description,
               schedule: scheduleResult.schedule,
-              address: addressPayload,
-              latitude: address?.latitude ?? 0,
-              longitude: address?.longitude ?? 0,
+              address: branchAddressPayload,
+              latitude: branchLatitude,
+              longitude: branchLongitude,
             );
           }
         }

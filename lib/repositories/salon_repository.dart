@@ -14,6 +14,36 @@ class SalonRepository {
 
   final ApiService _apiService;
 
+  List<Map<String, dynamic>> _openDaySchedulePayload(
+    Map<String, List<Map<String, String>>> schedule,
+  ) {
+    const dayOrder = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final payload = <Map<String, dynamic>>[];
+
+    for (final day in dayOrder) {
+      final slots = schedule[day] ?? const <Map<String, String>>[];
+      final openSlots = <Map<String, String>>[];
+      for (final slot in slots) {
+        final start = (slot['start'] ?? slot['startTime'] ?? '').trim();
+        final end = (slot['end'] ?? slot['endTime'] ?? '').trim();
+        if (start.isEmpty || end.isEmpty) continue;
+        openSlots.add({'start': start, 'end': end});
+      }
+      if (openSlots.isEmpty) continue;
+      payload.add({'day': day, 'slots': openSlots});
+    }
+
+    return payload;
+  }
+
   // ------------------------------------------------------------
   // 1️⃣ Fetch all salons
   // ------------------------------------------------------------
@@ -244,7 +274,7 @@ class SalonRepository {
       'startTime': startTime,
       'endTime': endTime,
       'description': description,
-      if (schedule != null) 'schedule': schedule,
+      if (schedule != null) 'schedule': _openDaySchedulePayload(schedule),
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
       if (resolvedImageUrl != null) 'imageUrl': resolvedImageUrl,
@@ -279,7 +309,7 @@ class SalonRepository {
       'startTime': startTime,
       'endTime': endTime,
       'description': description,
-      if (schedule != null) 'schedule': schedule,
+      if (schedule != null) 'schedule': _openDaySchedulePayload(schedule),
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
       if (sourceBranchId != null) 'sourceBranchId': sourceBranchId,

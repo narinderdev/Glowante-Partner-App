@@ -268,6 +268,11 @@ int? _clockMinutes(dynamic value) {
   return hour * 60 + minute;
 }
 
+bool _hasProvidedWeeklySchedule(dynamic rawSchedule) {
+  if (rawSchedule is List || rawSchedule is Map) return true;
+  return false;
+}
+
 String _formatMinutesLabel(int minutes) {
   final normalized = minutes % (24 * 60);
   return _formatTime(DateTime(0, 1, 1, normalized ~/ 60, normalized % 60));
@@ -1241,32 +1246,50 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   Map<String, List<_BranchDaySlot>> _weeklySlotsFromSchedule(
     dynamic rawSchedule,
   ) {
-    if (rawSchedule is! List) return const <String, List<_BranchDaySlot>>{};
-
     final slotsByDay = <String, List<_BranchDaySlot>>{};
-    for (final rawDay in rawSchedule) {
-      if (rawDay is! Map) continue;
-      final day = rawDay['day']?.toString().trim().toLowerCase() ?? '';
-      if (day.isEmpty) continue;
 
-      final rawSlots =
-          rawDay['slots'] is List ? rawDay['slots'] as List : <dynamic>[rawDay];
-      final daySlots = slotsByDay.putIfAbsent(day, () => <_BranchDaySlot>[]);
+    void addSlot(String day, dynamic rawSlot) {
+      if (rawSlot is! Map) return;
+      final startMinute = _clockMinutes(
+        rawSlot['start'] ?? rawSlot['startTime'],
+      );
+      final endMinute = _clockMinutes(
+        rawSlot['end'] ?? rawSlot['endTime'],
+      );
+      if (startMinute == null || endMinute == null) return;
+      if (endMinute <= startMinute) return;
+      slotsByDay.putIfAbsent(day, () => <_BranchDaySlot>[]).add(
+            _BranchDaySlot(startMinute: startMinute, endMinute: endMinute),
+          );
+    }
 
-      for (final rawSlot in rawSlots) {
-        if (rawSlot is! Map) continue;
-        final startMinute = _clockMinutes(
-          rawSlot['start'] ?? rawSlot['startTime'],
-        );
-        final endMinute = _clockMinutes(
-          rawSlot['end'] ?? rawSlot['endTime'],
-        );
-        if (startMinute == null || endMinute == null) continue;
-        if (endMinute <= startMinute) continue;
-        daySlots.add(
-          _BranchDaySlot(startMinute: startMinute, endMinute: endMinute),
-        );
+    if (rawSchedule is Map) {
+      for (final entry in rawSchedule.entries) {
+        final day = entry.key.toString().trim().toLowerCase();
+        if (day.isEmpty) continue;
+        final rawSlots = entry.value is List ? entry.value as List : const [];
+        slotsByDay.putIfAbsent(day, () => <_BranchDaySlot>[]);
+        for (final rawSlot in rawSlots) {
+          addSlot(day, rawSlot);
+        }
       }
+    } else if (rawSchedule is List) {
+      for (final rawDay in rawSchedule) {
+        if (rawDay is! Map) continue;
+        final day = rawDay['day']?.toString().trim().toLowerCase() ?? '';
+        if (day.isEmpty) continue;
+
+        final rawSlots = rawDay['slots'] is List
+            ? rawDay['slots'] as List
+            : <dynamic>[rawDay];
+        slotsByDay.putIfAbsent(day, () => <_BranchDaySlot>[]);
+
+        for (final rawSlot in rawSlots) {
+          addSlot(day, rawSlot);
+        }
+      }
+    } else {
+      return const <String, List<_BranchDaySlot>>{};
     }
 
     for (final daySlots in slotsByDay.values) {
@@ -1316,7 +1339,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               isMain: branch['isMain'] == true,
               startMinute: _clockMinutes(branch['startTime']),
               endMinute: _clockMinutes(branch['endTime']),
-              hasWeeklySchedule: rawSchedule is List,
+              hasWeeklySchedule: _hasProvidedWeeklySchedule(rawSchedule),
               weeklySlots: _weeklySlotsFromSchedule(rawSchedule),
             ),
           );
@@ -1343,7 +1366,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           isMain: salon['isMain'] == true,
           startMinute: _clockMinutes(salon['startTime']),
           endMinute: _clockMinutes(salon['endTime']),
-          hasWeeklySchedule: rawSchedule is List,
+          hasWeeklySchedule: _hasProvidedWeeklySchedule(rawSchedule),
           weeklySlots: _weeklySlotsFromSchedule(rawSchedule),
         ),
       );
@@ -1388,7 +1411,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           isMain: branch['isMain'] == true,
           startMinute: _clockMinutes(branch['startTime']),
           endMinute: _clockMinutes(branch['endTime']),
-          hasWeeklySchedule: rawSchedule is List,
+          hasWeeklySchedule: _hasProvidedWeeklySchedule(rawSchedule),
           weeklySlots: _weeklySlotsFromSchedule(rawSchedule),
         ),
       );
@@ -2480,6 +2503,9 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                                   child: _CalendarDateCard(
                                     date: date,
                                     isSelected: _isSameDay(date, _selectedDate),
+                                    isClosed:
+                                        _selectedOption?.isClosedOnDate(date) ==
+                                            true,
                                     onTap: () => _setSelectedDate(date),
                                   ),
                                 );
@@ -4263,6 +4289,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                             child: _CalendarDateCard(
                               date: date,
                               isSelected: isSelected,
+                              isClosed: false,
                               onTap: () => _selectScheduleDate(date),
                             ),
                           );
@@ -5422,22 +5449,32 @@ class _CalendarDateCard extends StatelessWidget {
   const _CalendarDateCard({
     required this.date,
     required this.isSelected,
+    required this.isClosed,
     required this.onTap,
   });
 
   final DateTime date;
   final bool isSelected;
+  final bool isClosed;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final isToday = _isSameDay(date, now);
-    final backgroundColor = isSelected
-        ? _bookingsGold
-        : (isToday ? const Color(0xFFEAF4FF) : _bookingsCard);
-    final dayColor = isSelected ? Colors.white : _bookingsSecondaryText;
-    final dateColor = isSelected ? Colors.white : _bookingsDateText;
+    final backgroundColor = isClosed
+        ? const Color(0xFFFCE7E7)
+        : (isSelected
+            ? _bookingsGold
+            : (isToday ? const Color(0xFFEAF4FF) : _bookingsCard));
+    final dayColor = isClosed
+        ? const Color(0xFF8A3A3A)
+        : (isSelected ? Colors.white : _bookingsSecondaryText);
+    final dateColor = isClosed
+        ? const Color(0xFF3B2F2F)
+        : (isSelected ? Colors.white : _bookingsDateText);
+    final closedLabelColor =
+        isSelected ? _bookingsGold : const Color(0xFF8A3A3A);
 
     return Material(
       color: Colors.transparent,
@@ -5447,13 +5484,16 @@ class _CalendarDateCard extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           width: 44,
-          height: 56,
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          height: 68,
+          padding: const EdgeInsets.symmetric(vertical: 5),
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isSelected ? _bookingsGold : _bookingsBorder,
+              color: isSelected
+                  ? _bookingsGold
+                  : (isClosed ? const Color(0xFFF2C5C5) : _bookingsBorder),
+              width: isSelected ? 1.4 : 1,
             ),
             boxShadow: isSelected
                 ? const [
@@ -5467,6 +5507,7 @@ class _CalendarDateCard extends StatelessWidget {
                 : const [],
           ),
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 isToday ? context.t('TODAY') : _formatShortWeekday(date),
@@ -5474,6 +5515,7 @@ class _CalendarDateCard extends StatelessWidget {
                   color: dayColor,
                   size: 8,
                   weight: FontWeight.w800,
+                  height: 1,
                   letterSpacing: 0.2,
                 ),
               ),
@@ -5484,8 +5526,22 @@ class _CalendarDateCard extends StatelessWidget {
                   color: dateColor,
                   size: 16,
                   weight: FontWeight.w800,
+                  height: 1,
                 ),
               ),
+              if (isClosed) ...[
+                const SizedBox(height: 3),
+                Text(
+                  context.t('CLOSED'),
+                  style: _bookingTextStyle(
+                    color: closedLabelColor,
+                    size: 7.5,
+                    weight: FontWeight.w800,
+                    height: 1,
+                  ),
+                ),
+              ] else
+                const SizedBox(height: 10.5),
             ],
           ),
         ),

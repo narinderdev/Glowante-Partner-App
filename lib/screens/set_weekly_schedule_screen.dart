@@ -484,16 +484,6 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     final openDays = _scheduleByDay.entries
         .where((entry) => !entry.value.isClosed)
         .toList(growable: false);
-    if (openDays.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Please keep at least one day open in the schedule.'),
-          ),
-        ),
-      );
-      return;
-    }
 
     for (final entry in openDays) {
       final startMinutes = _displayToMinutes(entry.value.startTime);
@@ -542,8 +532,12 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     }
 
     final result = ScheduleStepResult(
-      startTime: _minutesToApiTime(overallStartMinutes),
-      endTime: _minutesToApiTime(overallEndMinutes),
+      startTime: openDays.isEmpty
+          ? _displayToApiTime(_normalizeDisplayTime(widget.initialStartTime))
+          : _minutesToApiTime(overallStartMinutes),
+      endTime: openDays.isEmpty
+          ? _displayToApiTime(_normalizeDisplayTime(widget.initialEndTime))
+          : _minutesToApiTime(overallEndMinutes),
       schedule: schedule,
     );
 
