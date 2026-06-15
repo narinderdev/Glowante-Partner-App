@@ -2,9 +2,24 @@ class AppTranslations {
   static const Map<String, Map<String, String>> translations = {
     'en': {
       '+ Add Slot': '+ Add Slot',
-      '- Choose Glowante!': '- Choose Glowante!',
-      '- Feel radiant  ': '- Feel radiant  ',
-      '- Shine bright  ': '- Shine bright  ',
+      'Business Insights': 'Business Insights',
+      'Data-Driven Growth': 'Data-Driven Growth',
+      'Effortlessly coordinate your team, manage bookings, and elevate your salon\'s artistry from a single, intuitive workspace.':
+          'Effortlessly coordinate your team, manage bookings, and elevate your salon\'s artistry from a single, intuitive workspace.',
+      'Elevate Your Artistry.': 'Elevate Your Artistry.',
+      'Empower your team': 'Empower your team',
+      'Gain deep insights into staff performance and customer loyalty to scale your beauty empire with confidence.':
+          'Gain deep insights into staff performance and customer loyalty to scale your beauty empire with confidence.',
+      'Grow your salon': 'Grow your salon',
+      "Master Your Salon's Rhythm": "Master Your Salon's Rhythm",
+      'Minimize gaps and maximize bookings with our smart scheduling engine designed for high-end establishments.':
+          'Minimize gaps and maximize bookings with our smart scheduling engine designed for high-end establishments.',
+      'Precision in Every Appointment': 'Precision in Every Appointment',
+      'Schedule with ease': 'Schedule with ease',
+      'Smart Appointments': 'Smart Appointments',
+      'Team Management': 'Team Management',
+      'A world-class workspace for visionary owners to orchestrate excellence and empower talent.':
+          'A world-class workspace for visionary owners to orchestrate excellence and empower talent.',
       '1 year+ Experience': '1 year+ Experience',
       '2 year+ Experience': '2 year+ Experience',
       '4.4 (43)': '4.4 (43)',
@@ -790,9 +805,24 @@ class AppTranslations {
       'Friday': 'शुक्रवार',
       'Saturday': 'शनिवार',
       'Sunday': 'रविवार',
-      '- Choose Glowante!': '- Glowante चुनें!',
-      '- Feel radiant  ': '- चमक महसूस करें  ',
-      '- Shine bright  ': '- दमकें  ',
+      'Business Insights': 'Business Insights',
+      'Data-Driven Growth': 'डेटा-ड्रिवन ग्रोथ',
+      'Effortlessly coordinate your team, manage bookings, and elevate your salon\'s artistry from a single, intuitive workspace.':
+          'एक सरल workspace से अपनी team coordinate करें, bookings manage करें, और salon artistry को बेहतर बनाएं।',
+      'Elevate Your Artistry.': 'अपनी आर्टिस्ट्री को ऊंचा उठाएं।',
+      'Empower your team': 'अपनी टीम को सशक्त बनाएं',
+      'Gain deep insights into staff performance and customer loyalty to scale your beauty empire with confidence.':
+          'Staff performance और customer loyalty की गहरी insights से अपने beauty business को confidence के साथ बढ़ाएं।',
+      'Grow your salon': 'अपना salon बढ़ाएं',
+      "Master Your Salon's Rhythm": 'अपने salon की rhythm संभालें',
+      'Minimize gaps and maximize bookings with our smart scheduling engine designed for high-end establishments.':
+          'High-end establishments के लिए बने smart scheduling engine से gaps कम करें और bookings बढ़ाएं।',
+      'Precision in Every Appointment': 'हर appointment में precision',
+      'Schedule with ease': 'आसानी से schedule करें',
+      'Smart Appointments': 'Smart Appointments',
+      'Team Management': 'Team Management',
+      'A world-class workspace for visionary owners to orchestrate excellence and empower talent.':
+          'Visionary owners के लिए excellence और talent को empower करने वाला world-class workspace.',
       '1 year+ Experience': '1 वर्ष+ अनुभव',
       '2 year+ Experience': '2 वर्ष+ अनुभव',
       '4.4 (43)': '4.4 (43)',

@@ -536,24 +536,27 @@ class _LoginFeatureCard extends StatelessWidget {
         children: [
           Expanded(
             child: _FeatureItem(
-              icon: Icons.auto_awesome_rounded,
-              label: translateText('Shine bright'),
+              icon: Icons.calendar_month_rounded,
+              label: translateText('Smart Appointments'),
+              description: translateText('Schedule with ease'),
               compact: compact,
             ),
           ),
           _FeatureDivider(compact: compact),
           Expanded(
             child: _FeatureItem(
-              icon: Icons.eco_outlined,
-              label: translateText('Feel radiant'),
+              icon: Icons.groups_rounded,
+              label: translateText('Team Management'),
+              description: translateText('Empower your team'),
               compact: compact,
             ),
           ),
           _FeatureDivider(compact: compact),
           Expanded(
             child: _FeatureItem(
-              icon: Icons.favorite_rounded,
-              label: translateText('Choose Glowante'),
+              icon: Icons.bar_chart_rounded,
+              label: translateText('Business Insights'),
+              description: translateText('Grow your salon'),
               compact: compact,
             ),
           ),
@@ -567,11 +570,13 @@ class _FeatureItem extends StatelessWidget {
   const _FeatureItem({
     required this.icon,
     required this.label,
+    required this.description,
     required this.compact,
   });
 
   final IconData icon;
   final String label;
+  final String description;
   final bool compact;
 
   @override
@@ -600,6 +605,19 @@ class _FeatureItem extends StatelessWidget {
             ),
           ),
         ),
+        SizedBox(height: compact ? 5 : 7),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            description,
+            maxLines: 1,
+            style: TextStyle(
+              color: const Color(0xFF7A7169),
+              fontSize: compact ? 10 : 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -614,7 +632,7 @@ class _FeatureDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 1.2,
-      height: compact ? 58 : 66,
+      height: compact ? 72 : 80,
       margin: const EdgeInsets.symmetric(horizontal: 6),
       color: const Color(0xFFEADCC6),
     );

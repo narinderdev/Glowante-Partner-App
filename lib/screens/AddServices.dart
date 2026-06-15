@@ -12,9 +12,9 @@ const Color _serviceGold = Color(0xFF8B6500);
 const Color _serviceGoldLight = Color(0xFFD0A244);
 const Color _serviceInk = Color(0xFF1F1B18);
 const Color _serviceMuted = Color(0xFF6F665E);
-const Color _serviceBorder = Color(0xFFE8DED6);
-const Color _serviceFieldFill = Color(0xFFF7F4F3);
-const Color _serviceSurface = Color(0xFFFBF7F2);
+const Color _serviceBorder = Color(0xFFE3DCD7);
+const Color _serviceFieldFill = Colors.white;
+const Color _serviceSurface = Color(0xFFFBFAF8);
 
 class AddServices extends StatefulWidget {
   final int branchId;
@@ -467,378 +467,379 @@ class _AddServicesState extends State<AddServices> {
           child: SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             padding: EdgeInsets.fromLTRB(
-              20,
-              22,
-              20,
-              28 + MediaQuery.of(context).viewInsets.bottom,
+              14,
+              16,
+              14,
+              24 + MediaQuery.of(context).viewInsets.bottom,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _FieldLabel(translateText("Service Name *")),
-                        const SizedBox(height: 7),
-                        TextFormField(
-                          controller: nameController,
-                          autofocus: false,
-                          cursorColor: _serviceGold,
-                          textInputAction: TextInputAction.next,
-                          keyboardType: TextInputType.text,
-                          textCapitalization: TextCapitalization.sentences,
-                          inputFormatters: [
-                            const FirstLetterUpperFormatter(),
-                            LengthLimitingTextInputFormatter(50),
-                          ],
-                          onChanged: (_) => setState(() {}),
-                          decoration: _inputDecoration(
-                            hint: translateText("Add a service name"),
-                          ).copyWith(counterText: ''),
-                          validator: _validateLabel,
-                        ),
-                        const SizedBox(height: 4),
-                        _FieldCounter(
-                          currentLength: nameController.text.length,
-                          maxLength: 50,
-                        ),
-                        const SizedBox(height: 16),
-                        _FieldLabel(translateText("Description (Optional)")),
-                        const SizedBox(height: 7),
-                        TextFormField(
-                          controller: descController,
-                          maxLines: 2,
-                          keyboardType: TextInputType.text,
-                          textInputAction: TextInputAction.next,
-                          textCapitalization: TextCapitalization.sentences,
-                          inputFormatters: [
-                            LengthLimitingTextInputFormatter(50)
-                          ],
-                          onChanged: (_) => setState(() {}),
-                          decoration: _inputDecoration(
-                            hint: translateText("Add a short description"),
-                          ).copyWith(counterText: ''),
-                        ),
-                        const SizedBox(height: 4),
-                        _FieldCounter(
-                          currentLength: descController.text.length,
-                          maxLength: 50,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _FieldLabel(translateText("Category *")),
-                        const SizedBox(height: 7),
-                        DropdownButtonFormField<String>(
-                          isExpanded: true,
-                          initialValue: _validateSelectedCategoryKey(
-                              selectedCategoryKey, categoryItems),
-                          hint: Text(translateText("Select Category")),
-                          items: categoryItems,
-                          onChanged: _isEditMode
-                              ? null
-                              : (key) {
-                                  if (key == null) return;
+                _AddServiceSectionCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _FieldLabel(translateText("Service Name *")),
+                          const SizedBox(height: 7),
+                          TextFormField(
+                            controller: nameController,
+                            autofocus: false,
+                            cursorColor: _serviceGold,
+                            textInputAction: TextInputAction.next,
+                            keyboardType: TextInputType.text,
+                            textCapitalization: TextCapitalization.sentences,
+                            inputFormatters: [
+                              const FirstLetterUpperFormatter(),
+                              LengthLimitingTextInputFormatter(50),
+                            ],
+                            onChanged: (_) => setState(() {}),
+                            decoration: _inputDecoration(
+                              hint: translateText("Add a service name"),
+                            ).copyWith(counterText: ''),
+                            validator: _validateLabel,
+                          ),
+                          const SizedBox(height: 4),
+                          _FieldCounter(
+                            currentLength: nameController.text.length,
+                            maxLength: 50,
+                          ),
+                          const SizedBox(height: 16),
+                          _FieldLabel(translateText("Description (Optional)")),
+                          const SizedBox(height: 7),
+                          TextFormField(
+                            controller: descController,
+                            maxLines: 2,
+                            keyboardType: TextInputType.text,
+                            textInputAction: TextInputAction.next,
+                            textCapitalization: TextCapitalization.sentences,
+                            inputFormatters: [
+                              LengthLimitingTextInputFormatter(50)
+                            ],
+                            onChanged: (_) => setState(() {}),
+                            decoration: _inputDecoration(
+                              hint: translateText("Add a short description"),
+                            ).copyWith(counterText: ''),
+                          ),
+                          const SizedBox(height: 4),
+                          _FieldCounter(
+                            currentLength: descController.text.length,
+                            maxLength: 50,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _FieldLabel(translateText("Category *")),
+                          const SizedBox(height: 7),
+                          DropdownButtonFormField<String>(
+                            isExpanded: true,
+                            initialValue: _validateSelectedCategoryKey(
+                                selectedCategoryKey, categoryItems),
+                            hint: Text(translateText("Select Category")),
+                            items: categoryItems,
+                            onChanged: _isEditMode
+                                ? null
+                                : (key) {
+                                    if (key == null) return;
+                                    setState(() {
+                                      selectedCategoryKey = key;
+                                      selectedService = null;
+                                      if (key.startsWith('cat:')) {
+                                        final id = int.parse(key.substring(4));
+                                        selectedCategoryType = 'category';
+                                        selectedCategory = findCategoryById(
+                                            widget.categories ?? [], id);
+                                      } else {
+                                        final id = int.parse(key.substring(4));
+                                        selectedCategoryType = 'subCategory';
+                                        selectedCategory = findSubcategoryById(
+                                            widget.categories ?? [], id);
+                                      }
+                                    });
+                                  },
+                            decoration: _inputDecoration(),
+                            validator: (_) =>
+                                _validateCategory(selectedCategory),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _FieldLabel(translateText("Price *")),
+                                const SizedBox(height: 7),
+                                TextFormField(
+                                  controller: priceController,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  onChanged: (_) => setState(() {
+                                    if (!_hasValidPrice && _commissionEnabled) {
+                                      _commissionEnabled = false;
+                                      commissionValueController.clear();
+                                      commissionMaxController.clear();
+                                    }
+                                  }),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
+                                  decoration: _inputDecoration(
+                                    hint: translateText("Price"),
+                                    suffixIcon: Icons.currency_rupee,
+                                  ),
+                                  validator: _validatePrice,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _FieldLabel(translateText("Duration *")),
+                                const SizedBox(height: 7),
+                                TextFormField(
+                                  controller: durationController,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: TextInputAction.next,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(4),
+                                  ],
+                                  decoration: _inputDecoration(
+                                    hint: translateText("Minutes"),
+                                    suffixIcon: Icons.timer_outlined,
+                                  ),
+                                  validator: _validateDuration,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
+                      const Divider(height: 1, color: _serviceBorder),
+                      const SizedBox(height: 18),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      translateText("Commission"),
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: _serviceInk,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      translateText(
+                                        "First enter the service price, then configure a fixed amount or percentage.",
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        height: 1.35,
+                                        color: _serviceMuted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch(
+                                value: _commissionEnabled,
+                                activeThumbColor: _serviceGold,
+                                onChanged: (value) {
+                                  if (value && !_hasValidPrice) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          translateText(
+                                              "Enter a valid price before enabling commission"),
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
                                   setState(() {
-                                    selectedCategoryKey = key;
-                                    selectedService = null;
-                                    if (key.startsWith('cat:')) {
-                                      final id = int.parse(key.substring(4));
-                                      selectedCategoryType = 'category';
-                                      selectedCategory = findCategoryById(
-                                          widget.categories ?? [], id);
-                                    } else {
-                                      final id = int.parse(key.substring(4));
-                                      selectedCategoryType = 'subCategory';
-                                      selectedCategory = findSubcategoryById(
-                                          widget.categories ?? [], id);
+                                    _commissionEnabled = value;
+                                    if (!value) {
+                                      commissionValueController.clear();
+                                      commissionMaxController.clear();
                                     }
                                   });
                                 },
-                          decoration: _inputDecoration(),
-                          validator: (_) => _validateCategory(selectedCategory),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _FieldLabel(translateText("Price *")),
+                              ),
+                            ],
+                          ),
+                          if (_commissionEnabled) ...[
+                            const SizedBox(height: 16),
+                            _FieldLabel(translateText("Commission Type *")),
+                            const SizedBox(height: 7),
+                            DropdownButtonFormField<String>(
+                              initialValue: _commissionType,
+                              decoration: _inputDecoration(),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'fixed',
+                                  child: Text('Fixed'),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'percentage',
+                                  child: Text('Percentage'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value == null) return;
+                                setState(() {
+                                  _commissionType = value;
+                                  commissionValueController.clear();
+                                  commissionMaxController.clear();
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            _FieldLabel(
+                              translateText(
+                                _commissionType == 'percentage'
+                                    ? "Commission Percentage *"
+                                    : "Commission Amount *",
+                              ),
+                            ),
+                            const SizedBox(height: 7),
+                            TextFormField(
+                              controller: commissionValueController,
+                              keyboardType: _commissionType == 'percentage'
+                                  ? const TextInputType.numberWithOptions(
+                                      decimal: true)
+                                  : TextInputType.number,
+                              textInputAction: _commissionType == 'percentage'
+                                  ? TextInputAction.next
+                                  : TextInputAction.done,
+                              inputFormatters: _commissionType == 'percentage'
+                                  ? [
+                                      FilteringTextInputFormatter.allow(
+                                        RegExp(r'[0-9.]'),
+                                      ),
+                                      LengthLimitingTextInputFormatter(6),
+                                    ]
+                                  : [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(6),
+                                    ],
+                              decoration: _inputDecoration(
+                                hint: translateText(
+                                  _commissionType == 'percentage'
+                                      ? "Commission percentage"
+                                      : "Commission amount",
+                                ),
+                                icon: _commissionType == 'percentage'
+                                    ? Icons.percent_rounded
+                                    : Icons.currency_rupee,
+                              ),
+                              validator: _validateCommissionValue,
+                            ),
+                            if (_commissionType == 'percentage') ...[
+                              const SizedBox(height: 14),
+                              _FieldLabel(
+                                translateText("Commission Max (optional)"),
+                              ),
                               const SizedBox(height: 7),
                               TextFormField(
-                                controller: priceController,
+                                controller: commissionMaxController,
                                 keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.next,
-                                onChanged: (_) => setState(() {
-                                  if (!_hasValidPrice && _commissionEnabled) {
-                                    _commissionEnabled = false;
-                                    commissionValueController.clear();
-                                    commissionMaxController.clear();
-                                  }
-                                }),
+                                textInputAction: TextInputAction.done,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(6),
                                 ],
                                 decoration: _inputDecoration(
-                                  hint: translateText("Price"),
-                                  suffixIcon: Icons.currency_rupee,
+                                  hint: translateText("Maximum amount"),
+                                  icon: Icons.currency_rupee,
                                 ),
-                                validator: _validatePrice,
+                                validator: _validateCommissionMax,
                               ),
                             ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _FieldLabel(translateText("Duration *")),
-                              const SizedBox(height: 7),
-                              TextFormField(
-                                controller: durationController,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.next,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(4),
-                                ],
-                                decoration: _inputDecoration(
-                                  hint: translateText("Minutes"),
-                                  suffixIcon: Icons.timer_outlined,
-                                ),
-                                validator: _validateDuration,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 22),
-                    const Divider(height: 1, color: _serviceBorder),
-                    const SizedBox(height: 18),
-
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    translateText("Commission"),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w800,
-                                      color: _serviceInk,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    translateText(
-                                      "First enter the service price, then configure a fixed amount or percentage.",
-                                    ),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      height: 1.35,
-                                      color: _serviceMuted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: _commissionEnabled,
-                              activeThumbColor: _serviceGold,
-                              onChanged: (value) {
-                                if (value && !_hasValidPrice) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        translateText(
-                                            "Enter a valid price before enabling commission"),
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                setState(() {
-                                  _commissionEnabled = value;
-                                  if (!value) {
-                                    commissionValueController.clear();
-                                    commissionMaxController.clear();
-                                  }
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                        if (_commissionEnabled) ...[
-                          const SizedBox(height: 16),
-                          _FieldLabel(translateText("Commission Type *")),
-                          const SizedBox(height: 7),
-                          DropdownButtonFormField<String>(
-                            initialValue: _commissionType,
-                            decoration: _inputDecoration(),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'fixed',
-                                child: Text('Fixed'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'percentage',
-                                child: Text('Percentage'),
-                              ),
-                            ],
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                _commissionType = value;
-                                commissionValueController.clear();
-                                commissionMaxController.clear();
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                          _FieldLabel(
-                            translateText(
-                              _commissionType == 'percentage'
-                                  ? "Commission Percentage *"
-                                  : "Commission Amount *",
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          TextFormField(
-                            controller: commissionValueController,
-                            keyboardType: _commissionType == 'percentage'
-                                ? const TextInputType.numberWithOptions(
-                                    decimal: true)
-                                : TextInputType.number,
-                            textInputAction: _commissionType == 'percentage'
-                                ? TextInputAction.next
-                                : TextInputAction.done,
-                            inputFormatters: _commissionType == 'percentage'
-                                ? [
-                                    FilteringTextInputFormatter.allow(
-                                      RegExp(r'[0-9.]'),
-                                    ),
-                                    LengthLimitingTextInputFormatter(6),
-                                  ]
-                                : [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(6),
-                                  ],
-                            decoration: _inputDecoration(
-                              hint: translateText(
-                                _commissionType == 'percentage'
-                                    ? "Commission percentage"
-                                    : "Commission amount",
-                              ),
-                              icon: _commissionType == 'percentage'
-                                  ? Icons.percent_rounded
-                                  : Icons.currency_rupee,
-                            ),
-                            validator: _validateCommissionValue,
-                          ),
-                          if (_commissionType == 'percentage') ...[
-                            const SizedBox(height: 14),
-                            _FieldLabel(
-                              translateText("Commission Max (optional)"),
-                            ),
-                            const SizedBox(height: 7),
-                            TextFormField(
-                              controller: commissionMaxController,
-                              keyboardType: TextInputType.number,
-                              textInputAction: TextInputAction.done,
-                              inputFormatters: [
-                                FilteringTextInputFormatter.digitsOnly,
-                                LengthLimitingTextInputFormatter(6),
-                              ],
-                              decoration: _inputDecoration(
-                                hint: translateText("Maximum amount"),
-                                icon: Icons.currency_rupee,
-                              ),
-                              validator: _validateCommissionMax,
-                            ),
                           ],
                         ],
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // ✅ Submit button (unchanged)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        icon: _isLoading
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.add_task_outlined,
-                                color: Colors.white),
-                        label: Text(
-                          _isLoading
-                              ? translateText(
-                                  _isEditMode ? 'Updating...' : 'Adding...')
-                              : translateText(_isEditMode
-                                  ? 'Update Service'
-                                  : 'Add Service'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _serviceGold,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor:
-                              _serviceGold.withValues(alpha: 0.55),
-                          elevation: 8,
-                          shadowColor: const Color(0x338B6500),
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7),
-                          ),
-                        ),
-                        onPressed: _isLoading
-                            ? null
-                            : () async {
-                                FocusManager.instance.primaryFocus?.unfocus();
-                                if (!_autoValidate) {
-                                  setState(() => _autoValidate = true);
-                                }
-                                final valid = _formKey.currentState!.validate();
-                                if (!valid) return;
-                                await _saveService();
-                              },
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _serviceGold,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor:
+                                _serviceGold.withValues(alpha: 0.55),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: _isLoading
+                              ? null
+                              : () async {
+                                  FocusManager.instance.primaryFocus?.unfocus();
+                                  if (!_autoValidate) {
+                                    setState(() => _autoValidate = true);
+                                  }
+                                  final valid =
+                                      _formKey.currentState!.validate();
+                                  if (!valid) return;
+                                  await _saveService();
+                                },
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      translateText(_isEditMode
+                                          ? 'Update Service'
+                                          : 'Add Service'),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Icon(
+                                      Icons.add_task_outlined,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -855,13 +856,26 @@ InputDecoration _inputDecoration(
   return InputDecoration(
     hintText: hint,
     labelText: label,
-    prefixIcon: icon != null ? Icon(icon, color: _serviceGold) : null,
-    suffixIcon:
-        suffixIcon != null ? Icon(suffixIcon, color: _serviceGold) : null,
+    prefixIcon: icon == null
+        ? null
+        : Container(
+            width: 48,
+            alignment: Alignment.center,
+            margin: const EdgeInsets.only(right: 8),
+            decoration: const BoxDecoration(
+              border: Border(
+                right: BorderSide(color: Color(0xFFE4DDD8)),
+              ),
+            ),
+            child: Icon(icon, color: _serviceGold, size: 19),
+          ),
+    suffixIcon: suffixIcon != null
+        ? Icon(suffixIcon, color: _serviceGold, size: 19)
+        : null,
     filled: true,
     fillColor: _serviceFieldFill,
     hintStyle: const TextStyle(
-      color: Color(0xFFAAA19A),
+      color: Color(0xFF948C84),
       fontSize: 13,
       fontWeight: FontWeight.w500,
     ),
@@ -873,25 +887,57 @@ InputDecoration _inputDecoration(
       color: Colors.redAccent,
       fontWeight: FontWeight.w500,
     ),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(7)),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
     enabledBorder: OutlineInputBorder(
       borderSide: const BorderSide(color: _serviceBorder),
-      borderRadius: BorderRadius.circular(7),
+      borderRadius: BorderRadius.circular(8),
     ),
     focusedBorder: OutlineInputBorder(
       borderSide: const BorderSide(color: _serviceGoldLight, width: 1.2),
-      borderRadius: BorderRadius.circular(7),
+      borderRadius: BorderRadius.circular(8),
     ),
     errorBorder: OutlineInputBorder(
       borderSide: const BorderSide(color: Colors.redAccent),
-      borderRadius: BorderRadius.circular(7),
+      borderRadius: BorderRadius.circular(8),
     ),
     focusedErrorBorder: OutlineInputBorder(
       borderSide: const BorderSide(color: Colors.redAccent, width: 1.2),
-      borderRadius: BorderRadius.circular(7),
+      borderRadius: BorderRadius.circular(8),
     ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    contentPadding: EdgeInsets.fromLTRB(
+      16,
+      14,
+      suffixIcon == null ? 16 : 4,
+      14,
+    ),
   );
+}
+
+class _AddServiceSectionCard extends StatelessWidget {
+  const _AddServiceSectionCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFFEAE0D7)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
 }
 
 class _FieldLabel extends StatelessWidget {
