@@ -103,15 +103,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 page.imageAsset,
                 fit: BoxFit.cover,
               ),
+              const ColoredBox(color: Color(0x30000000)),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Color(0x33000000),
-                      Color(0x08000000),
-                      Color(0x99000000),
+                      Color(0x4D000000),
+                      Color(0x22000000),
+                      Color(0xB8000000),
                     ],
                     stops: [0.0, 0.46, 1.0],
                   ),
