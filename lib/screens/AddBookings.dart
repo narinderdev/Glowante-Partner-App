@@ -45,7 +45,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   TimeOfDay? _branchStartTime;
   TimeOfDay? _branchEndTime;
   String? _serviceError;
-  String? _professionalError;
 
   bool get _hasCustomerDetails {
     return _clientIdCtrl.text.trim().isNotEmpty ||
@@ -2047,7 +2046,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           ? _selectedServices.first['id'] as int
           : null;
       _serviceError = null;
-      _professionalError = null;
       _syncEndTimeWithDuration();
     });
   }
@@ -2167,17 +2165,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _showError(translateText('Please select start and end time'));
       return null;
     }
-    if (_selectedServices.any(
-      (service) => !_isValidProfessionalForService(service['id'] as int),
-    )) {
-      setState(() {
-        _professionalError =
-            translateText('Please select team member for every service');
-      });
-      _showError(translateText('Please select team member for every service'));
-      return null;
-    }
-
     final payload = {
       "userId": userId,
       "date": DateFormat('yyyy-MM-dd').format(_selectedDate!),
@@ -2244,27 +2231,22 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       return false;
     }
 
-    final missingProfessional = _selectedServices.any(
-      (service) => !_isValidProfessionalForService(service['id'] as int),
-    );
-    if (missingProfessional) {
-      setState(() {
-        _professionalError =
-            translateText('Please select team member for every service');
-      });
-      _showError(translateText('Please select team member for every service'));
-      return false;
-    }
-
     setState(() {
       _serviceError = null;
-      _professionalError = null;
     });
     return true;
   }
 
   Future<void> _continueToSchedule() async {
     if (_isSaving || !_validateBeforeSchedule()) return;
+
+    final serviceMembers = <int, List<Map<String, dynamic>>>{};
+    for (final service in _selectedServices) {
+      final serviceId = service['id'];
+      if (serviceId is int) {
+        serviceMembers[serviceId] = _membersForService(serviceId);
+      }
+    }
 
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -2273,9 +2255,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           customerName: _customerFullName(),
           customerPhone: _mobileCtrl.text.trim(),
           services: _selectedServices,
-          professionals: _professionalByService,
-          selectedUserBranchIds: _selectedAssignedUserBranchIds(),
-          selectedUserIds: _selectedAssignedUserIds(),
+          professionals: const <int, String>{},
+          serviceMembers: serviceMembers,
+          selectedUserBranchIds: const <int>[],
+          selectedUserIds: const <int>[],
           branchId: widget.branchId,
           totalPrice: _selectedTotalPrice(),
           initialDate: _selectedDate,
@@ -2304,34 +2287,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return _selectedServices
         .map((service) => _professionalByService[service['id'] as int] ?? '')
         .where((label) => label.trim().isNotEmpty)
-        .toSet()
-        .toList();
-  }
-
-  List<int> _selectedAssignedUserBranchIds() {
-    return _selectedServices
-        .map((service) => _resolveAssignedUserBranchId(service['id'] as int))
-        .whereType<int>()
-        .toSet()
-        .toList();
-  }
-
-  List<int> _selectedAssignedUserIds() {
-    return _selectedServices
-        .map((service) {
-          final selectedProfessional =
-              _professionalByService[service['id'] as int];
-          if (selectedProfessional == null || selectedProfessional.isEmpty) {
-            return null;
-          }
-          for (final option in _membersForService(service['id'] as int)) {
-            if (option['label'] == selectedProfessional) {
-              return option['userId'] as int?;
-            }
-          }
-          return null;
-        })
-        .whereType<int>()
         .toSet()
         .toList();
   }
@@ -2617,116 +2572,142 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   Widget _buildSelectedServicesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionLabel('Selected Services & Team'),
-        ..._selectedServices.map(_selectedServiceTeamCard),
-        if (_professionalError != null) _errorText(_professionalError!),
-      ],
-    );
-  }
-
-  Widget _selectedServiceTeamCard(Map<String, dynamic> service) {
-    final id = service['id'] as int;
-    final name = (service['name'] ?? '').toString();
-    final price = service['price'];
-    final members = _membersForService(id);
-    final selectedMember = _professionalByService[id];
-    final validSelectedMember = members.any(
-      (member) => member['label'] == selectedMember,
-    )
-        ? selectedMember
-        : null;
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _bookingBorder),
-      ),
+    return _bookingPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          for (var index = 0; index < _selectedServices.length; index++) ...[
+            _selectedServiceSummaryRow(_selectedServices[index]),
+            if (index != _selectedServices.length - 1)
+              const Divider(height: 22, color: _bookingBorder),
+          ],
+          const Divider(height: 26, color: _bookingBorder),
           Row(
             children: [
               Expanded(
                 child: Text(
-                  name,
+                  translateText(
+                    '${_selectedServices.length} ${_selectedServices.length == 1 ? 'Service' : 'Services'} selected',
+                  ),
                   style: const TextStyle(
-                    color: _bookingInk,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
+                    color: _bookingMuted,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              if (price is num)
-                Text(
-                  '₹${price.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color: _bookingGold,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
+              Text(
+                '${translateText('Total')}: ${_formatServicePrice(_selectedTotalPrice())}',
+                style: const TextStyle(
+                  color: _bookingGold,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
                 ),
-              IconButton(
-                onPressed: () => _removeSelectedService(id),
-                icon: const Icon(Icons.close_rounded, size: 17),
-                color: _bookingMuted,
-                splashRadius: 17,
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            decoration: BoxDecoration(
-              color: _bookingFieldFill,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: _bookingBorder),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: validSelectedMember,
-                isExpanded: true,
-                hint: Text(
-                  translateText('Select Team Member'),
-                  style: const TextStyle(fontSize: 12),
+          const SizedBox(height: 18),
+          _branchTimingNote(),
+        ],
+      ),
+    );
+  }
+
+  Widget _selectedServiceSummaryRow(Map<String, dynamic> service) {
+    final id = service['id'] as int;
+    final name = (service['name'] ?? '').toString();
+    final duration = _serviceDurationMinutes(service);
+    final price = _servicePrice(service);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _bookingInk,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
                 ),
-                items: members
-                    .map(
-                      (member) => DropdownMenuItem<String>(
-                        value: member['label'] as String,
-                        child: Text(member['label'] as String),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    if (value == null) {
-                      _professionalByService.remove(id);
-                    } else {
-                      _professionalByService[id] = value;
-                    }
-                    _professionalError = null;
-                  });
-                },
+              ),
+              const SizedBox(height: 5),
+              Text(
+                [
+                  if (duration > 0) '$duration min',
+                  if (price != null) _formatServicePrice(price),
+                ].join('  •  '),
+                style: const TextStyle(
+                  color: _bookingInk,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        ),
+        InkWell(
+          onTap: () => _removeSelectedService(id),
+          borderRadius: BorderRadius.circular(999),
+          child: const Padding(
+            padding: EdgeInsets.all(5),
+            child: Icon(
+              Icons.close_rounded,
+              color: _bookingMuted,
+              size: 17,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _branchTimingNote() {
+    final start = _formatTimeOfDay(
+      _branchStartTime ?? const TimeOfDay(hour: 9, minute: 0),
+    );
+    final end = _formatTimeOfDay(
+      _branchEndTime ?? const TimeOfDay(hour: 18, minute: 30),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
+      decoration: BoxDecoration(
+        color: _bookingFieldFill,
+        borderRadius: BorderRadius.circular(6),
+        border: const Border(
+          left: BorderSide(color: _bookingGoldLight, width: 3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline_rounded,
+            color: _bookingGold,
+            size: 15,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '${translateText('Branch timings')}: $start - $end.\n${translateText('Please ensure the services fit within this window.')}',
+              style: const TextStyle(
+                color: _bookingInk,
+                fontSize: 11,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
               ),
             ),
           ),
-          if (members.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 7, left: 2),
-              child: Text(
-                translateText('No team member available for this service.'),
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: _bookingMuted,
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -3088,6 +3069,23 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     });
   }
 
+  int _serviceDurationMinutes(Map<String, dynamic> service) {
+    final duration = service['durationMin'];
+    if (duration is int) return duration;
+    if (duration is num) return duration.toInt();
+    return int.tryParse('${duration ?? ''}') ?? 0;
+  }
+
+  num? _servicePrice(Map<String, dynamic> service) {
+    final price = service['price'];
+    if (price is num) return price;
+    return num.tryParse('${price ?? ''}');
+  }
+
+  String _formatServicePrice(num price) {
+    return '₹${price.toStringAsFixed(2)}';
+  }
+
   void _removeSelectedService(int id) {
     setState(() {
       _selectedServices.removeWhere((service) => service['id'] == id);
@@ -3127,6 +3125,7 @@ class _BookingScheduleScreen extends StatefulWidget {
     required this.customerPhone,
     required this.services,
     required this.professionals,
+    required this.serviceMembers,
     required this.selectedUserBranchIds,
     required this.selectedUserIds,
     required this.branchId,
@@ -3144,6 +3143,7 @@ class _BookingScheduleScreen extends StatefulWidget {
   final String customerPhone;
   final List<Map<String, dynamic>> services;
   final Map<int, String> professionals;
+  final Map<int, List<Map<String, dynamic>>> serviceMembers;
   final List<int> selectedUserBranchIds;
   final List<int> selectedUserIds;
   final int? branchId;
@@ -3167,10 +3167,12 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   TimeOfDay? _selectedTime;
   bool _loadingAppointments = false;
   List<_BookedInterval> _bookedIntervals = [];
+  late final Map<int, String> _selectedProfessionals;
 
   @override
   void initState() {
     super.initState();
+    _selectedProfessionals = Map<int, String>.from(widget.professionals);
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     _selectedDate =
@@ -3364,7 +3366,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
           customerName: widget.customerName,
           customerPhone: widget.customerPhone,
           services: widget.services,
-          professionals: widget.professionals,
+          professionals: Map<int, String>.from(_selectedProfessionals),
           date: _selectedDate,
           startTime: start,
           endTime: endTime,
@@ -3426,6 +3428,203 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
           size: 17,
           color: enabled ? _bookingMuted : _bookingMuted.withValues(alpha: .35),
         ),
+      ),
+    );
+  }
+
+  num? _servicePrice(Map<String, dynamic> service) {
+    final price = service['price'];
+    if (price is num) return price;
+    return num.tryParse('${price ?? ''}');
+  }
+
+  String _formatServicePrice(num price) {
+    return '₹${price.toStringAsFixed(2)}';
+  }
+
+  Widget _selectedServicesTeamSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          translateText('Selected Services & Team').toUpperCase(),
+          style: const TextStyle(
+            color: _bookingInk,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.4,
+          ),
+        ),
+        const SizedBox(height: 10),
+        for (final service in widget.services)
+          _selectedServiceTeamCard(service),
+      ],
+    );
+  }
+
+  Widget _selectedServiceTeamCard(Map<String, dynamic> service) {
+    final serviceId = _idFrom(service['id']);
+    final name = (service['name'] ?? '').toString();
+    final price = _servicePrice(service);
+    final members = serviceId == null
+        ? const <Map<String, dynamic>>[]
+        : widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
+    final selectedMember =
+        serviceId == null ? null : _selectedProfessionals[serviceId];
+    final validSelectedMember = members.any(
+      (member) => member['label'] == selectedMember,
+    )
+        ? selectedMember
+        : null;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 11),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _bookingBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x07000000),
+            blurRadius: 10,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _bookingInk,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (price != null) ...[
+                const SizedBox(width: 10),
+                Text(
+                  _formatServicePrice(price),
+                  style: const TextStyle(
+                    color: _bookingGold,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: _bookingFieldFill,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: _bookingBorder),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: validSelectedMember,
+                isExpanded: true,
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: Color(0xFFBDB7B1),
+                  size: 22,
+                ),
+                hint: Text(
+                  translateText('Select Team Member'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _bookingMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                items: members
+                    .map(
+                      (member) => DropdownMenuItem<String>(
+                        value: member['label'] as String,
+                        child: Text(
+                          member['label'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _bookingInk,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: serviceId == null || members.isEmpty
+                    ? null
+                    : (value) {
+                        setState(() {
+                          if (value == null || value.isEmpty) {
+                            _selectedProfessionals.remove(serviceId);
+                          } else {
+                            _selectedProfessionals[serviceId] = value;
+                          }
+                        });
+                      },
+                selectedItemBuilder: (_) => members
+                    .map(
+                      (member) => Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          member['label'] as String,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _bookingInk,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            validSelectedMember == null
+                ? translateText('No team member selected.')
+                : translateText('Team member selected.'),
+            style: const TextStyle(
+              color: _bookingMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (members.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                translateText('No team member available for this service.'),
+                style: const TextStyle(
+                  color: _bookingMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -3532,23 +3731,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
-                translateText('Select Artisan'),
-                style: const TextStyle(
-                  color: _bookingInk,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  for (final professional in widget.selectedProfessionals)
-                    _artisanChip(professional, false),
-                ],
-              ),
+              _selectedServicesTeamSection(),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -3826,37 +4009,6 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       ),
     );
   }
-
-  Widget _artisanChip(String label, bool selected) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: selected ? const Color(0xFFF5EAD2) : _bookingInk,
-          child: Icon(
-            selected ? Icons.groups_rounded : Icons.person_rounded,
-            color: selected ? _bookingGold : Colors.white,
-            size: 19,
-          ),
-        ),
-        const SizedBox(height: 6),
-        SizedBox(
-          width: 62,
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: selected ? _bookingGold : _bookingInk,
-              fontSize: 10,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _BookingSummaryScreen extends StatefulWidget {
@@ -3924,10 +4076,6 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final firstProfessional = professionals.values.isNotEmpty
-        ? professionals.values.first
-        : translateText('Team Member');
-
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
       appBar:
@@ -3988,42 +4136,9 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
                   const SizedBox(height: 12),
                   _summaryCard(
                     title: translateText('Assigned Artisan'),
-                    titleTrailing: _verifiedBadge(),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 22,
-                          backgroundColor: _bookingInk,
-                          child:
-                              Icon(Icons.person_rounded, color: Colors.white),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                firstProfessional,
-                                style: const TextStyle(
-                                  color: _bookingInk,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                translateText('Lead Stylist'),
-                                style: const TextStyle(
-                                  color: _bookingMuted,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                    titleTrailing:
+                        professionals.isEmpty ? null : _verifiedBadge(),
+                    child: _assignedArtisanServices(),
                   ),
                   const SizedBox(height: 12),
                   _summaryCard(
@@ -4246,6 +4361,71 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _assignedArtisanServices() {
+    return Column(
+      children: [
+        for (var index = 0; index < services.length; index++) ...[
+          _assignedArtisanLine(services[index]),
+          if (index != services.length - 1)
+            const Divider(height: 20, color: _bookingBorder),
+        ],
+      ],
+    );
+  }
+
+  Widget _assignedArtisanLine(Map<String, dynamic> service) {
+    final serviceId = service['id'] is int
+        ? service['id'] as int
+        : int.tryParse('${service['id'] ?? ''}');
+    final artisan = serviceId == null ? '' : professionals[serviceId] ?? '';
+    final hasArtisan = artisan.trim().isNotEmpty;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 18,
+          backgroundColor:
+              hasArtisan ? const Color(0xFFF5EAD2) : _bookingFieldFill,
+          child: Icon(
+            hasArtisan ? Icons.person_rounded : Icons.person_off_rounded,
+            color: hasArtisan ? _bookingGold : _bookingMuted,
+            size: 17,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                (service['name'] ?? '').toString(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _bookingInk,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                hasArtisan ? artisan : translateText('No team member selected'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: hasArtisan ? _bookingGold : _bookingMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
