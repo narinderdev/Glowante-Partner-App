@@ -1408,7 +1408,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       return null;
                     },
                     decoration: InputDecoration(
-                      counterText: '',
+                        counterText: '',
                       hintText: localizedHint,
                       hintStyle: const TextStyle(
                         color: Color(0xFF948C84),

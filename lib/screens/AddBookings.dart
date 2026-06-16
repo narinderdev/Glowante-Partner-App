@@ -681,70 +681,339 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     );
   }
 
-  Widget _dialogTextField({
-    required TextEditingController controller,
-    required String hint,
-    TextInputType keyboardType = TextInputType.text,
-    TextCapitalization textCapitalization = TextCapitalization.none,
-    List<TextInputFormatter>? inputFormatters,
-    int? maxLength,
-    String? prefixText,
-  }) {
-    return SizedBox(
-      height: 46,
-      child: TextField(
-        controller: controller,
-        keyboardType: keyboardType,
-        textCapitalization: textCapitalization,
-        inputFormatters: inputFormatters,
-        maxLength: maxLength,
-        style: const TextStyle(
-          color: _bookingInk,
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-        ),
-        decoration: InputDecoration(
-          counterText: '',
-          hintText: translateText(hint),
-          prefixIcon: prefixText == null
-              ? null
-              : Padding(
-                  padding: const EdgeInsets.only(left: 12, right: 6),
-                  child: Center(
-                    widthFactor: 1,
-                    child: Text(
-                      prefixText.trim(),
-                      style: const TextStyle(
-                        color: _bookingInk,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+  // Widget _dialogTextField({
+  //   required TextEditingController controller,
+  //   required String hint,
+  //   TextInputType keyboardType = TextInputType.text,
+  //   TextCapitalization textCapitalization = TextCapitalization.none,
+  //   List<TextInputFormatter>? inputFormatters,
+  //   int? maxLength,
+  //   String? prefixText,
+  // }) {
+  //   return SizedBox(
+  //     height: 46,
+  //     child: TextField(
+  //       controller: controller,
+  //       keyboardType: keyboardType,
+  //       textCapitalization: textCapitalization,
+  //       inputFormatters: inputFormatters,
+  //       maxLength: maxLength,
+  //       style: const TextStyle(
+  //         color: _bookingInk,
+  //         fontSize: 13,
+  //         fontWeight: FontWeight.w600,
+  //       ),
+  //       decoration: InputDecoration(
+  //         hintText: translateText(hint),
+  //         prefixIcon: prefixText == null
+  //             ? null
+  //             : Padding(
+  //                 padding: const EdgeInsets.only(left: 12, right: 6),
+  //                 child: Center(
+  //                   widthFactor: 1,
+  //                   child: Text(
+  //                     prefixText.trim(),
+  //                     style: const TextStyle(
+  //                       color: _bookingInk,
+  //                       fontSize: 13,
+  //                       fontWeight: FontWeight.w700,
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ),
+  //         prefixIconConstraints: prefixText == null
+  //             ? null
+  //             : const BoxConstraints(minWidth: 48, minHeight: 46),
+  //         filled: true,
+  //         fillColor: _bookingFieldFill,
+  //         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+  //         border: OutlineInputBorder(
+  //           borderRadius: BorderRadius.circular(7),
+  //           borderSide: const BorderSide(color: _bookingBorder),
+  //         ),
+  //         enabledBorder: OutlineInputBorder(
+  //           borderRadius: BorderRadius.circular(7),
+  //           borderSide: const BorderSide(color: _bookingBorder),
+  //         ),
+  //         focusedBorder: OutlineInputBorder(
+  //           borderRadius: BorderRadius.circular(7),
+  //           borderSide: const BorderSide(color: _bookingGoldLight, width: 1.2),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+// Widget _dialogTextField({
+//   required TextEditingController controller,
+//   required String hint,
+//   TextInputType keyboardType = TextInputType.text,
+//   TextCapitalization textCapitalization = TextCapitalization.none,
+//   List<TextInputFormatter>? inputFormatters,
+//   int? maxLength,
+//   String? prefixText,
+//   double height = 46,
+// }) {
+//   return SizedBox(
+//     height: height,
+//     child: TextField(
+//       controller: controller,
+//       keyboardType: keyboardType,
+//       textCapitalization: textCapitalization,
+//       inputFormatters: inputFormatters,
+//       maxLength: maxLength,
+//       style: const TextStyle(
+//         color: _bookingInk,
+//         fontSize: 13,
+//         fontWeight: FontWeight.w600,
+//       ),
+//       decoration: InputDecoration(
+//         hintText: translateText(hint),
+//         prefixIcon: prefixText == null
+//             ? null
+//             : Padding(
+//                 padding: const EdgeInsets.only(left: 12, right: 6),
+//                 child: Center(
+//                   widthFactor: 1,
+//                   child: Text(
+//                     prefixText.trim(),
+//                     style: const TextStyle(
+//                       color: _bookingInk,
+//                       fontSize: 13,
+//                       fontWeight: FontWeight.w700,
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//         prefixIconConstraints: prefixText == null
+//             ? null
+//             : const BoxConstraints(minWidth: 48, minHeight: 46),
+//         filled: true,
+//         fillColor: _bookingFieldFill,
+//         contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+//         border: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(7),
+//           borderSide: const BorderSide(color: _bookingBorder),
+//         ),
+//         enabledBorder: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(7),
+//           borderSide: const BorderSide(color: _bookingBorder),
+//         ),
+//         focusedBorder: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(7),
+//           borderSide: const BorderSide(color: _bookingGoldLight, width: 1.2),
+//         ),
+//       ),
+//     ),
+//   );
+// }
+// Widget _dialogTextField({
+//   required TextEditingController controller,
+//   required String hint,
+//   TextInputType keyboardType = TextInputType.text,
+//   TextCapitalization textCapitalization = TextCapitalization.none,
+//   List<TextInputFormatter>? inputFormatters,
+//   int? maxLength,
+//   String? prefixText,
+//   double height = 46,
+// }) {
+//   return SizedBox(
+//     height: height,
+//     child: TextField(
+//       controller: controller,
+//       keyboardType: keyboardType,
+//       textCapitalization: textCapitalization,
+//       inputFormatters: inputFormatters,
+//       maxLength: maxLength,
+//       textAlignVertical: TextAlignVertical.center,
+//       style: const TextStyle(
+//         color: _bookingInk,
+//         fontSize: 13,
+//         height: 1.0,
+//         fontWeight: FontWeight.w600,
+//       ),
+//       decoration: InputDecoration(
+//         hintText: translateText(hint),
+//         hintStyle: const TextStyle(
+//           fontSize: 13,
+//           height: 1.0,
+//           color: _bookingMuted,
+//           fontWeight: FontWeight.w500,
+//         ),
+//         isDense: true,
+//         contentPadding: const EdgeInsets.symmetric(
+//           horizontal: 12,
+//           vertical: 15,
+//         ),
+//         counterStyle: const TextStyle(
+//           fontSize: 10,
+//           height: 0.8,
+//           color: _bookingMuted,
+//         ),
+
+//         prefixIcon: prefixText == null
+//             ? null
+//             : SizedBox(
+//                 width: 48,
+//                 child: Align(
+//                   alignment: Alignment.center,
+//                   child: Text(
+//                     prefixText.trim(),
+//                     style: const TextStyle(
+//                       color: _bookingInk,
+//                       fontSize: 13,
+//                       height: 1.0,
+//                       fontWeight: FontWeight.w700,
+//                     ),
+//                   ),
+//                 ),
+//               ),
+//         prefixIconConstraints: prefixText == null
+//             ? null
+//             : const BoxConstraints(
+//                 minWidth: 48,
+//                 maxWidth: 48,
+//                 minHeight: 46,
+//                 maxHeight: 46,
+//               ),
+
+//         filled: true,
+//         fillColor: _bookingFieldFill,
+//         border: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(7),
+//           borderSide: const BorderSide(color: _bookingBorder),
+//         ),
+//         enabledBorder: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(7),
+//           borderSide: const BorderSide(color: _bookingBorder),
+//         ),
+//         focusedBorder: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(7),
+//           borderSide: const BorderSide(color: _bookingGoldLight, width: 1.2),
+//         ),
+//       ),
+//     ),
+//   );
+// }
+Widget _dialogTextField({
+  required TextEditingController controller,
+  required String hint,
+  TextInputType keyboardType = TextInputType.text,
+  TextCapitalization textCapitalization = TextCapitalization.none,
+  List<TextInputFormatter>? inputFormatters,
+  int? maxLength,
+  String? prefixText,
+  double height = 56,
+}) {
+  return SizedBox(
+    height: height,
+    child: Stack(
+      children: [
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
+          inputFormatters: inputFormatters,
+          maxLength: maxLength,
+          textAlignVertical: TextAlignVertical.center,
+          style: const TextStyle(
+            color: _bookingInk,
+            fontSize: 13,
+            height: 1.0,
+            fontWeight: FontWeight.w600,
+          ),
+          decoration: InputDecoration(
+            hintText: translateText(hint),
+            hintStyle: const TextStyle(
+              fontSize: 13,
+              height: 1.0,
+              color: _bookingMuted,
+              fontWeight: FontWeight.w500,
+            ),
+
+            // Hide Flutter default counter
+            counterText: '',
+
+            isDense: true,
+            contentPadding: EdgeInsets.fromLTRB(
+              prefixText == null ? 12 : 12,
+              14,
+              maxLength == null ? 12 : 54,
+              maxLength == null ? 14 : 24,
+            ),
+
+            prefixIcon: prefixText == null
+                ? null
+                : SizedBox(
+                    width: 48,
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Text(
+                        prefixText.trim(),
+                        style: const TextStyle(
+                          color: _bookingInk,
+                          fontSize: 13,
+                          height: 1.0,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
-                ),
-          prefixIconConstraints: prefixText == null
-              ? null
-              : const BoxConstraints(minWidth: 48, minHeight: 46),
-          filled: true,
-          fillColor: _bookingFieldFill,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(7),
-            borderSide: const BorderSide(color: _bookingBorder),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(7),
-            borderSide: const BorderSide(color: _bookingBorder),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(7),
-            borderSide: const BorderSide(color: _bookingGoldLight, width: 1.2),
+            prefixIconConstraints: prefixText == null
+                ? null
+                : const BoxConstraints(
+                    minWidth: 48,
+                    maxWidth: 48,
+                    minHeight: 46,
+                    maxHeight: 46,
+                  ),
+
+            filled: true,
+            fillColor: _bookingFieldFill,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(7),
+              borderSide: const BorderSide(color: _bookingBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(7),
+              borderSide: const BorderSide(color: _bookingBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(7),
+              borderSide: const BorderSide(
+                color: _bookingGoldLight,
+                width: 1.2,
+              ),
+            ),
           ),
         ),
-      ),
-    );
-  }
 
+        if (maxLength != null)
+          Positioned(
+            right: 10,
+            bottom: 6,
+            child: IgnorePointer(
+              child: ValueListenableBuilder<TextEditingValue>(
+                valueListenable: controller,
+                builder: (context, value, _) {
+                  return Text(
+                    '${value.text.length}/$maxLength',
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1,
+                      color: value.text.length >= maxLength
+                          ? Colors.red
+                          : _bookingMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
   Widget _customerAvatar(Map<String, dynamic> customer) {
     final firstName = (customer['firstName'] ?? '').toString().trim();
     final lastName = (customer['lastName'] ?? '').toString().trim();
@@ -912,7 +1181,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       onChanged: (_) => setDialogState(() {}),
                       onSubmitted: (_) => isVerifying ? null : verifyOtp(),
                       decoration: InputDecoration(
-                        counterText: '',
                         hintText: '••••••',
                         hintStyle: const TextStyle(
                           color: Color(0xFFCDBFAF),
@@ -1052,31 +1320,38 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         ),
                       ),
                       const SizedBox(height: 22),
-                      _dialogLabel('First Name'),
-                      _dialogTextField(
-                        controller: firstCtrl,
-                        hint: "Enter guest's first name",
-                        textCapitalization: TextCapitalization.words,
-                      ),
-                      const SizedBox(height: 14),
-                      _dialogLabel('Last Name'),
-                      _dialogTextField(
-                        controller: lastCtrl,
-                        hint: "Enter guest's last name",
-                        textCapitalization: TextCapitalization.words,
-                      ),
-                      const SizedBox(height: 14),
-                      _dialogLabel('Phone Number'),
-                      _dialogTextField(
-                        controller: phoneCtrl,
-                        hint: 'Enter phone no',
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly
-                        ],
-                        prefixText: '+91  ',
-                      ),
+                  _dialogLabel('First Name'),
+_dialogTextField(
+  controller: firstCtrl,
+  hint: "Enter guest's first name",
+  textCapitalization: TextCapitalization.words,
+  maxLength: 30,
+  height: 56,
+),
+const SizedBox(height: 14),
+
+_dialogLabel('Last Name'),
+_dialogTextField(
+  controller: lastCtrl,
+  hint: "Enter guest's last name",
+  textCapitalization: TextCapitalization.words,
+  maxLength: 30,
+  height: 56,
+),
+const SizedBox(height: 14),
+
+_dialogLabel('Phone Number'),
+_dialogTextField(
+  controller: phoneCtrl,
+  hint: 'Enter phone no',
+  keyboardType: TextInputType.phone,
+  maxLength: 10,
+  height: 56,
+  inputFormatters: [
+    FilteringTextInputFormatter.digitsOnly,
+  ],
+  prefixText: '+91  ',
+),
                       const SizedBox(height: 22),
                       Row(
                         children: [
@@ -1346,39 +1621,35 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      SizedBox(
-                        height: 44,
-                        child: TextField(
-                          controller: searchCtrl,
-                          onChanged: (_) => setDialogState(() {}),
-                          style: const TextStyle(fontSize: 13),
-                          decoration: InputDecoration(
-                            hintText: translateText('Search customer...'),
-                            prefixIcon: const Icon(
-                              Icons.search_rounded,
-                              color: _bookingGold,
-                              size: 18,
-                            ),
-                            filled: true,
-                            fillColor: _bookingFieldFill,
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(7),
-                              borderSide:
-                                  const BorderSide(color: _bookingBorder),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(7),
-                              borderSide:
-                                  const BorderSide(color: _bookingBorder),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(7),
-                              borderSide: const BorderSide(
-                                color: _bookingGoldLight,
-                                width: 1.2,
-                              ),
+                      TextField(
+                        controller: searchCtrl,
+                        // maxLength: 60,
+                        onChanged: (_) => setDialogState(() {}),
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: translateText('Search customer...'),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: _bookingGold,
+                            size: 18,
+                          ),
+                          filled: true,
+                          fillColor: _bookingFieldFill,
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(7),
+                            borderSide: const BorderSide(color: _bookingBorder),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(7),
+                            borderSide: const BorderSide(color: _bookingBorder),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(7),
+                            borderSide: const BorderSide(
+                              color: _bookingGoldLight,
+                              width: 1.2,
                             ),
                           ),
                         ),
@@ -1710,38 +1981,36 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        SizedBox(
-                          height: 44,
-                          child: TextField(
-                            controller: searchCtrl,
-                            onChanged: (_) => setSheetState(() {}),
-                            decoration: InputDecoration(
-                              hintText: translateText('Search services...'),
-                              prefixIcon: const Icon(
-                                Icons.search_rounded,
-                                color: _bookingGold,
-                                size: 18,
-                              ),
-                              filled: true,
-                              fillColor: _bookingFieldFill,
-                              contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(7),
-                                borderSide:
-                                    const BorderSide(color: _bookingBorder),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(7),
-                                borderSide:
-                                    const BorderSide(color: _bookingBorder),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(7),
-                                borderSide: const BorderSide(
-                                  color: _bookingGoldLight,
-                                  width: 1.2,
-                                ),
+                        TextField(
+                          controller: searchCtrl,
+                          // maxLength: 60,
+                          onChanged: (_) => setSheetState(() {}),
+                          decoration: InputDecoration(
+                            hintText: translateText('Search services...'),
+                            prefixIcon: const Icon(
+                              Icons.search_rounded,
+                              color: _bookingGold,
+                              size: 18,
+                            ),
+                            filled: true,
+                            fillColor: _bookingFieldFill,
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(7),
+                              borderSide:
+                                  const BorderSide(color: _bookingBorder),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(7),
+                              borderSide:
+                                  const BorderSide(color: _bookingBorder),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(7),
+                              borderSide: const BorderSide(
+                                color: _bookingGoldLight,
+                                width: 1.2,
                               ),
                             ),
                           ),
@@ -2255,7 +2524,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           customerName: _customerFullName(),
           customerPhone: _mobileCtrl.text.trim(),
           services: _selectedServices,
-          professionals: const <int, String>{},
+        professionals: Map<int, String>.from(_professionalByService),
           serviceMembers: serviceMembers,
           selectedUserBranchIds: const <int>[],
           selectedUserIds: const <int>[],
@@ -2266,7 +2535,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           branchStartTime: _branchStartTime,
           branchEndTime: _branchEndTime,
           durationMinutes: _totalSelectedDurationMinutes(),
-          selectedProfessionals: _selectedProfessionalLabels(),
+       selectedProfessionals: _selectedProfessionalLabels(),
+  onProfessionalsChanged: (professionals) {
+    setState(() {
+      _professionalByService
+        ..clear()
+        ..addAll(professionals);
+    });
+  },
           onConfirmBooking: (schedule) async {
             if (!mounted) return null;
             setState(() {
@@ -3099,7 +3375,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     });
   }
 }
-
 class _BookingScheduleSelection {
   const _BookingScheduleSelection({
     required this.date,
@@ -3136,6 +3411,7 @@ class _BookingScheduleScreen extends StatefulWidget {
     required this.branchEndTime,
     required this.durationMinutes,
     required this.selectedProfessionals,
+    required this.onProfessionalsChanged,
     required this.onConfirmBooking,
   });
 
@@ -3154,6 +3430,9 @@ class _BookingScheduleScreen extends StatefulWidget {
   final TimeOfDay? branchEndTime;
   final int durationMinutes;
   final List<String> selectedProfessionals;
+
+  final void Function(Map<int, String> professionals) onProfessionalsChanged;
+
   final Future<Map<String, dynamic>?> Function(_BookingScheduleSelection)
       onConfirmBooking;
 
@@ -3172,13 +3451,18 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   @override
   void initState() {
     super.initState();
+
     _selectedProfessionals = Map<int, String>.from(widget.professionals);
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+
     _selectedDate =
         widget.initialDate == null ? today : _dateOnly(widget.initialDate!);
+
     _visibleWeekStart = _selectedDate.isAfter(today) ? _selectedDate : today;
     _selectedTime = widget.initialStartTime;
+
     _loadAppointmentsForDate();
   }
 
@@ -3186,7 +3470,9 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
   String _formatTime(TimeOfDay? time) {
     if (time == null) return '';
+
     final now = DateTime.now();
+
     return DateFormat('h:mm a').format(
       DateTime(now.year, now.month, now.day, time.hour, time.minute),
     );
@@ -3194,8 +3480,11 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
   TimeOfDay _endTimeFor(TimeOfDay start) {
     final totalMinutes = _toMinutes(start) + widget.durationMinutes;
+
     return TimeOfDay(
-        hour: (totalMinutes ~/ 60) % 24, minute: totalMinutes % 60);
+      hour: (totalMinutes ~/ 60) % 24,
+      minute: totalMinutes % 60,
+    );
   }
 
   DateTime _dateWithMinutes(int minutes) {
@@ -3214,16 +3503,61 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     return int.tryParse('$value');
   }
 
+  bool _validateTeamMembersForEveryService() {
+    for (final service in widget.services) {
+      final serviceId = _idFrom(service['id']);
+      final serviceName = (service['name'] ?? '').toString();
+
+      if (serviceId == null) continue;
+
+      final members =
+          widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
+
+      if (members.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              translateText('No team member available for $serviceName'),
+            ),
+          ),
+        );
+        return false;
+      }
+
+      final selected = _selectedProfessionals[serviceId];
+
+      if (selected == null || selected.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              translateText('Please select team member for $serviceName'),
+            ),
+          ),
+        );
+        return false;
+      }
+    }
+
+    return true;
+  }
+
   DateTime? _parseAppointmentDate(dynamic value) {
     final raw = value?.toString().trim() ?? '';
+
     if (raw.isEmpty) return null;
+
     return DateTime.tryParse(raw)?.toLocal();
   }
 
   bool _isActiveAppointment(Map<String, dynamic> appointment) {
     final status = (appointment['status'] ?? '').toString().toUpperCase();
-    return !const {'CANCELLED', 'CANCELED', 'COMPLETED', 'NO_SHOW'}
-        .contains(status);
+
+    return !const {
+      'CANCELLED',
+      'CANCELED',
+      'COMPLETED',
+      'NO_SHOW',
+    }.contains(status);
   }
 
   Map<String, dynamic> _mapFrom(dynamic value) {
@@ -3233,44 +3567,56 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   List<_BookedInterval> _extractBookedIntervals(dynamic responseData) {
     final selectedUserBranchIds = widget.selectedUserBranchIds.toSet();
     final selectedUserIds = widget.selectedUserIds.toSet();
+
     final appointments = responseData is List
         ? responseData
         : responseData is Map && responseData['data'] is List
             ? responseData['data'] as List
             : const [];
+
     final intervals = <_BookedInterval>[];
 
     for (final rawAppointment in appointments) {
       if (rawAppointment is! Map) continue;
+
       final appointment = Map<String, dynamic>.from(rawAppointment);
+
       if (!_isActiveAppointment(appointment)) continue;
+
       final items = appointment['items'] is List
           ? appointment['items'] as List
           : const [];
 
       for (final rawItem in items) {
         if (rawItem is! Map) continue;
+
         final item = Map<String, dynamic>.from(rawItem);
         final assignedMap = _mapFrom(item['assignedUserBranch']);
         final assignedUserMap = _mapFrom(assignedMap['user']);
+
         final assignedUserBranchId = _idFrom(assignedMap['id']);
         final assignedUserId = _idFrom(assignedUserMap['id']);
+
         final itemUserBranchId =
             assignedUserBranchId ?? _idFrom(item['assignedUserBranchId']);
+
         final itemUserId = assignedUserId ?? _idFrom(item['assignedUserId']);
 
         final hasSelectedProfessionals =
             selectedUserBranchIds.isNotEmpty || selectedUserIds.isNotEmpty;
+
         final matchesSelectedProfessional = !hasSelectedProfessionals ||
             (itemUserBranchId != null &&
                 selectedUserBranchIds.contains(itemUserBranchId)) ||
             (itemUserId != null && selectedUserIds.contains(itemUserId));
-        if (!matchesSelectedProfessional) {
-          continue;
-        }
+
+        if (!matchesSelectedProfessional) continue;
+
         final start = _parseAppointmentDate(item['startAt']);
         final end = _parseAppointmentDate(item['endAt']);
+
         if (start == null || end == null || !end.isAfter(start)) continue;
+
         intervals.add(_BookedInterval(start, end));
       }
 
@@ -3279,6 +3625,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
           selectedUserIds.isEmpty) {
         final start = _parseAppointmentDate(appointment['startAt']);
         final end = _parseAppointmentDate(appointment['endAt']);
+
         if (start != null && end != null && end.isAfter(start)) {
           intervals.add(_BookedInterval(start, end));
         }
@@ -3290,26 +3637,36 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
   Future<void> _loadAppointmentsForDate() async {
     final branchId = widget.branchId;
+
     if (branchId == null) return;
+
     setState(() => _loadingAppointments = true);
+
     try {
       final response = await ApiService().fetchAppointments(
         branchId,
         DateFormat('yyyy-MM-dd').format(_selectedDate),
       );
+
       if (!mounted) return;
+
       final intervals = _extractBookedIntervals(response['data']);
+
       setState(() {
         _bookedIntervals = intervals;
         _loadingAppointments = false;
+
         final current = _selectedTime;
+
         if (current != null && !_isSlotAvailable(current)) {
           _selectedTime = null;
         }
       });
     } catch (e) {
       debugPrint('[AddBookingSlots] failed=$e');
+
       if (!mounted) return;
+
       setState(() {
         _bookedIntervals = [];
         _loadingAppointments = false;
@@ -3320,8 +3677,10 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   bool _isSlotAvailable(TimeOfDay slot) {
     final duration = widget.durationMinutes <= 0 ? 30 : widget.durationMinutes;
     final startMinutes = _toMinutes(slot);
+
     final proposedStart = _dateWithMinutes(startMinutes);
     final proposedEnd = proposedStart.add(Duration(minutes: duration));
+
     return !_bookedIntervals.any(
       (booked) =>
           proposedStart.isBefore(booked.end) &&
@@ -3332,33 +3691,49 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   List<TimeOfDay> _availableSlots() {
     final start = widget.branchStartTime ?? const TimeOfDay(hour: 9, minute: 0);
     final end = widget.branchEndTime ?? const TimeOfDay(hour: 18, minute: 30);
+
     final duration = widget.durationMinutes <= 0 ? 30 : widget.durationMinutes;
+
     final slots = <TimeOfDay>[];
+
     for (var minutes = _toMinutes(start);
         minutes + duration <= _toMinutes(end);
         minutes += 30) {
-      final slot = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60);
+      final slot = TimeOfDay(
+        hour: minutes ~/ 60,
+        minute: minutes % 60,
+      );
+
       if (_isSlotAvailable(slot)) {
         slots.add(slot);
       }
     }
+
     return slots;
   }
 
   Future<void> _confirm() async {
+    if (!_validateTeamMembersForEveryService()) return;
+
     final start = _selectedTime;
+
     if (start == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select a time slot'))),
+        SnackBar(
+          content: Text(translateText('Please select a time slot')),
+        ),
       );
       return;
     }
+
     final endTime = _endTimeFor(start);
+
     final schedule = _BookingScheduleSelection(
       date: _selectedDate,
       startTime: start,
       endTime: endTime,
     );
+
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
@@ -3376,6 +3751,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
         ),
       ),
     );
+
     if (result == null || !mounted) return;
 
     Navigator.pop(context, result);
@@ -3386,11 +3762,13 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       _selectedDate = DateTime(date.year, date.month, date.day);
       _selectedTime = null;
     });
+
     _loadAppointmentsForDate();
   }
 
-  DateTime _dateOnly(DateTime date) =>
-      DateTime(date.year, date.month, date.day);
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
 
   void _shiftVisibleWeek(int dayDelta) {
     final today = _dateOnly(DateTime.now());
@@ -3570,17 +3948,21 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                       ),
                     )
                     .toList(),
-                onChanged: serviceId == null || members.isEmpty
-                    ? null
-                    : (value) {
-                        setState(() {
-                          if (value == null || value.isEmpty) {
-                            _selectedProfessionals.remove(serviceId);
-                          } else {
-                            _selectedProfessionals[serviceId] = value;
-                          }
-                        });
-                      },
+               onChanged: serviceId == null || members.isEmpty
+    ? null
+    : (value) {
+        setState(() {
+          if (value == null || value.isEmpty) {
+            _selectedProfessionals.remove(serviceId);
+          } else {
+            _selectedProfessionals[serviceId] = value;
+          }
+        });
+
+        widget.onProfessionalsChanged(
+          Map<int, String>.from(_selectedProfessionals),
+        );
+      },
                 selectedItemBuilder: (_) => members
                     .map(
                       (member) => Align(

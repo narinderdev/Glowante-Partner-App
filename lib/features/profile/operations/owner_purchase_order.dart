@@ -247,12 +247,12 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _createdByController,
                     decoration:
                         InputDecoration(labelText: context.t('Created By')),
-                    validator: (value) => _stringValue(value).isEmpty
-                        ? createdByRequired
-                        : null,
+                    validator: (value) =>
+                        _stringValue(value).isEmpty ? createdByRequired : null,
                   ),
                   const SizedBox(height: 14),
                   InkWell(
@@ -271,12 +271,14 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _departmentController,
                     decoration:
                         InputDecoration(labelText: context.t('Department')),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _remarksController,
                     maxLines: 1,
                     decoration:
@@ -340,6 +342,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
+                            maxLength: 120,
                             controller: line.qtyController,
                             keyboardType: TextInputType.number,
                             decoration: InputDecoration(
@@ -355,6 +358,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
+                            maxLength: 120,
                             controller: line.unitPriceController,
                             keyboardType: const TextInputType.numberWithOptions(
                               decimal: true,
@@ -365,6 +369,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
+                            maxLength: 120,
                             controller: line.remarksController,
                             decoration: InputDecoration(
                                 labelText: context.t('Remarks')),

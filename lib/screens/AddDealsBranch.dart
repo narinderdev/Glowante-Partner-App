@@ -440,6 +440,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
 
               // Text('Salon: ${widget.salonName}, Branch ID: ${widget.branchId}'),
               TextField(
+                maxLength: 120,
                 controller: dealTitleController,
                 decoration: _decor(
                   label: 'Deal Title *',
@@ -452,6 +453,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                   children: [
                     Expanded(
                       child: TextField(
+                        maxLength: 120,
                         controller: durationValueController,
                         keyboardType: TextInputType.number,
                         decoration: _decor(
@@ -735,6 +737,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
               // Discount-specific fields
               if (showFlatField) ...[
                 TextField(
+                  maxLength: 120,
                   controller: amountOffController,
                   keyboardType: TextInputType.number,
                   decoration: _decor(
@@ -752,6 +755,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                   children: [
                     Expanded(
                       child: TextField(
+                        maxLength: 120,
                         controller: amountOffController,
                         keyboardType: TextInputType.number,
                         decoration: _decor(
@@ -774,6 +778,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     SizedBox(width: 12),
                     Expanded(
                       child: TextField(
+                        maxLength: 120,
+
                         controller: maxDiscountController,
                         keyboardType: TextInputType.number,
                         readOnly: false, // let user override

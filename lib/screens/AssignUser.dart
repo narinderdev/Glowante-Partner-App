@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'select_services_AssignUser.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
 
 class Branch {
@@ -287,7 +288,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
+                  backgroundColor: AppColors.starColor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -312,7 +313,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: isSelected ? Colors.orange : Colors.grey.shade300,
+            color: isSelected ? AppColors.starColor : Colors.grey.shade300,
             width: 1.5,
           ),
         ),
@@ -327,7 +328,7 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
             style: const TextStyle(color: Colors.black54),
           ),
           trailing: isSelected
-              ? Icon(Icons.check_circle, color: Colors.orange)
+              ? const Icon(Icons.check_circle, color: AppColors.starColor)
               : Icon(Icons.radio_button_unchecked, color: Colors.grey),
         ),
       ),

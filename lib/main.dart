@@ -21,6 +21,7 @@ import 'package:bloc_onboarding/bloc/category/category_cubit.dart';
 import 'package:bloc_onboarding/utils/api_service.dart';
 import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import 'package:bloc_onboarding/repositories/branch_repository.dart';
+import 'package:bloc_onboarding/utils/app_theme.dart';
 import './Viewmodels/BranchViewModel.dart';
 import 'services/push_notification_service.dart';
 import 'services/auth_session_manager.dart';
@@ -149,6 +150,7 @@ class _MyAppState extends State<MyApp> {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           navigatorKey: appNavigatorKey,
+          theme: GlowanteTheme.light(),
           locale: langListener.currentLocale,
           supportedLocales: const [
             Locale('en'),

@@ -284,9 +284,22 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
     return CheckboxListTile(
       value: checked,
+      activeColor: AppColors.starColor,
+      checkboxShape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       onChanged: (val) => setState(() => _selected[id] = val ?? false),
-      title: Text(name, style: const TextStyle(fontSize: 14)),
-      subtitle: Text("₹$priceMinor • $durationMin mins"),
+      title: Text(
+        name,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF1F1B18),
+        ),
+      ),
+      subtitle: Text(
+        "₹$priceMinor • $durationMin mins",
+        style: const TextStyle(color: Color(0xFF6F665E)),
+      ),
       controlAffinity: ListTileControlAffinity.leading,
       dense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -310,8 +323,19 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
     final int selCount = allIds.where((id) => _selected[id] == true).length;
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      elevation: 0,
+      color: Colors.white,
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: Color(0xFFE8DED6)),
+      ),
       child: ExpansionTile(
+        iconColor: AppColors.starColor,
+        collapsedIconColor: const Color(0xFF756A61),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        collapsedShape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         initiallyExpanded: true,
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         title: Row(
@@ -319,6 +343,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
             Checkbox(
               value: _selectionValue(allIds),
               tristate: true,
+              activeColor: AppColors.starColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
               onChanged: (value) => _setServiceIds(allIds, value == true),
               visualDensity: VisualDensity.compact,
             ),
@@ -326,12 +354,19 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
               child: Text(
                 (cat['displayName'] ?? '').toString(),
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1F1B18),
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Text("$selCount/${allIds.length}",
-                style: const TextStyle(color: Colors.black54, fontSize: 12)),
+                style: const TextStyle(
+                  color: AppColors.starColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                )),
           ],
         ),
         children: [
@@ -348,6 +383,8 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                 .whereType<int>()
                 .toList();
             return ExpansionTile(
+              iconColor: AppColors.starColor,
+              collapsedIconColor: const Color(0xFF756A61),
               initiallyExpanded: true,
               tilePadding: const EdgeInsets.only(left: 24, right: 12),
               title: Row(
@@ -355,13 +392,20 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                   Checkbox(
                     value: _selectionValue(subIds),
                     tristate: true,
+                    activeColor: AppColors.starColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     onChanged: (value) => _setServiceIds(subIds, value == true),
                     visualDensity: VisualDensity.compact,
                   ),
                   Expanded(
                     child: Text(
                       (subMap['displayName'] ?? '').toString(),
-                      style: const TextStyle(fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF2D2926),
+                      ),
                     ),
                   ),
                 ],
@@ -471,7 +515,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
             .trim();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
         title: translateText('Select Services'),
       ),
@@ -502,7 +546,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                         translateText(
                             'Assign services'), // Only translate the static part
                         style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1F1B18),
+                        ),
                       ),
                     ),
                   ),
@@ -510,12 +557,19 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                 // Select All
                 if (_hasAssignableServices)
                   Card(
+                    elevation: 0,
+                    color: Colors.white,
                     margin:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: const BorderSide(color: Color(0xFFE8DED6)),
+                    ),
                     child: CheckboxListTile(
                       value: _allSelected,
                       onChanged: _toggleAll,
                       title: Text(translateText('Select All Services')),
+                      activeColor: AppColors.starColor,
                       controlAffinity: ListTileControlAffinity.trailing,
                     ),
                   ),
@@ -543,9 +597,9 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                       _submitting ? null : () => Navigator.pop(context, false),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
-                    backgroundColor: const Color(0xFFE5E7EB),
-                    foregroundColor: const Color(0xFF374151),
-                    side: BorderSide.none,
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF2D2926),
+                    side: const BorderSide(color: Color(0xFFE2D3BF)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -562,7 +616,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
                     backgroundColor: AppColors.starColor,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     elevation: 2,
                   ),

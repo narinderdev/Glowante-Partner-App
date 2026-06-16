@@ -500,7 +500,7 @@ class _AddServicesState extends State<AddServices> {
                             onChanged: (_) => setState(() {}),
                             decoration: _inputDecoration(
                               hint: translateText("Add a service name"),
-                            ).copyWith(counterText: ''),
+                            ),
                             validator: _validateLabel,
                           ),
                           const SizedBox(height: 4),
@@ -525,7 +525,7 @@ class _AddServicesState extends State<AddServices> {
                             onChanged: (_) => setState(() {}),
                             decoration: _inputDecoration(
                               hint: translateText("Add a short description"),
-                            ).copyWith(counterText: ''),
+                            ),
                           ),
                           const SizedBox(height: 4),
                           _FieldCounter(
@@ -603,7 +603,7 @@ class _AddServicesState extends State<AddServices> {
                                   decoration: _inputDecoration(
                                     hint: translateText("Price"),
                                     suffixIcon: Icons.currency_rupee,
-                                  ).copyWith(counterText: ''),
+                                  ),
                                   validator: _validatePrice,
                                 ),
                                 const SizedBox(height: 4),
@@ -636,7 +636,7 @@ class _AddServicesState extends State<AddServices> {
                                   decoration: _inputDecoration(
                                     hint: translateText("Minutes"),
                                     suffixIcon: Icons.timer_outlined,
-                                  ).copyWith(counterText: ''),
+                                  ),
                                   validator: _validateDuration,
                                 ),
                                 const SizedBox(height: 4),
@@ -777,7 +777,7 @@ class _AddServicesState extends State<AddServices> {
                                 icon: _commissionType == 'percentage'
                                     ? Icons.percent_rounded
                                     : Icons.currency_rupee,
-                              ).copyWith(counterText: ''),
+                              ),
                               validator: _validateCommissionValue,
                             ),
                             const SizedBox(height: 4),
@@ -807,7 +807,7 @@ class _AddServicesState extends State<AddServices> {
                                 decoration: _inputDecoration(
                                   hint: translateText("Maximum amount"),
                                   icon: Icons.currency_rupee,
-                                ).copyWith(counterText: ''),
+                                ),
                                 validator: _validateCommissionMax,
                               ),
                               const SizedBox(height: 4),

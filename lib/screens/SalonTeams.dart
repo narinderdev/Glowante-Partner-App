@@ -160,51 +160,123 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
+  // Future<void> _deleteMember(int userId) async {
+  //   final branchId = selectedBranchId;
+  //   if (branchId == null) return;
+  //   final shouldDelete = await showDialog<bool>(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: Text(translateText('Delete Team Member')),
+  //       content: Text(
+  //         translateText('Are you sure you want to delete this team member?'),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context, false),
+  //           child: Text(translateText('Cancel')),
+  //         ),
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context, true),
+  //           child: Text(
+  //             translateText('Delete'),
+  //             style: const TextStyle(color: Colors.red),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  //   if (shouldDelete != true) return;
+
+  //   setState(() => _deletingMemberIds.add(userId));
+  //   try {
+  //     await ApiService().deleteTeamMember(
+  //       branchId: branchId,
+  //       userId: userId,
+  //     );
+  //     await _refreshTeamMembers();
+  //   } catch (e) {
+  //     if (!mounted) return;
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text(e.toString())),
+  //     );
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _deletingMemberIds.remove(userId));
+  //     }
+  //   }
+  // }
   Future<void> _deleteMember(int userId) async {
-    final branchId = selectedBranchId;
-    if (branchId == null) return;
-    final shouldDelete = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(translateText('Delete Team Member')),
-        content: Text(
-          translateText('Are you sure you want to delete this team member?'),
+  final branchId = selectedBranchId;
+
+  if (branchId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(translateText('Please select a branch first'))),
+    );
+    return;
+  }
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      title: Text(translateText('Delete Team Member')),
+      content: Text(
+        translateText(
+          'Are you sure you want to delete this team member? This action cannot be undone.',
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(translateText('Cancel')),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(translateText('Cancel')),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.starColor,
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              translateText('Delete'),
-              style: const TextStyle(color: Colors.red),
-            ),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(
+            translateText('Delete'),
+            style: const TextStyle(color: Colors.white),
           ),
-        ],
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  setState(() => _deletingMemberIds.add(userId));
+
+  try {
+    await ApiService().deleteTeamMember(
+      branchId: branchId,
+      userId: userId,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(translateText('Team member deleted successfully')),
       ),
     );
-    if (shouldDelete != true) return;
 
-    setState(() => _deletingMemberIds.add(userId));
-    try {
-      await ApiService().deleteTeamMember(
-        branchId: branchId,
-        userId: userId,
-      );
-      await _refreshTeamMembers();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _deletingMemberIds.remove(userId));
-      }
+    await _refreshTeamMembers();
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(e.toString())),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _deletingMemberIds.remove(userId));
     }
   }
+}
 
   void _pickBranch(Map<String, dynamic> branchOpt) {
     selectedBranch = branchOpt;

@@ -361,7 +361,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontSize: 18,
                       fontWeight: FontWeight.w400,
                     ),
-                    counterText: '',
                     border: InputBorder.none,
                     isCollapsed: true,
                   ),

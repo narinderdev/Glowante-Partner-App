@@ -2,13 +2,19 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../features/profile/compensation/profile_compensation_screen.dart';
+import '../features/profile/operations/owner_profile_operations_screen.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import 'bottom_nav.dart';
+import 'owner_branch_clients_screen.dart';
+import 'owner_sales_reports_screen.dart';
+import 'SalonReviews.dart';
 
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
@@ -24,6 +30,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   int? _selectedBranchId;
   DateTime _selectedDate = DateTime.now();
   Map<String, dynamic> _dashboard = const {};
+  String _profileImageUrl = '';
   bool _isLoadingBranches = true;
   bool _isLoadingDashboard = false;
   String? _errorMessage;
@@ -43,6 +50,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
     try {
       final selection = await StylistBranchSelectionStore.load();
+      final prefs = await SharedPreferences.getInstance();
       final response = await _apiService.getSalonListApi();
       final rawSalons = (response['data'] as List?) ?? const [];
       final options = _extractBranchOptions(rawSalons);
@@ -56,6 +64,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       setState(() {
         _branchOptions = options;
         _selectedBranchId = selectedBranchId;
+        _profileImageUrl = _readProfileImageUrl(prefs);
         _isLoadingBranches = false;
       });
 
@@ -74,6 +83,21 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         _isLoadingDashboard = false;
       });
     }
+  }
+
+  String _readProfileImageUrl(SharedPreferences prefs) {
+    const keys = [
+      'profilePictureUrl',
+      'profile_picture_url',
+      'profileImage',
+      'profile_image',
+      'imageUrl',
+    ];
+    for (final key in keys) {
+      final value = prefs.getString(key)?.trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'null') return value;
+    }
+    return '';
   }
 
   Future<void> _loadDashboard(
@@ -163,11 +187,32 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             branchId: branchId,
             salonName: salonName,
             branchName: _cleanText(branch['name']),
+            address: _addressSummary(branch['address']),
           ),
         );
       }
     }
     return options;
+  }
+
+  String _addressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+    for (final key in ['line1', 'line2', 'city', 'state']) {
+      final value = _cleanText(address[key]);
+      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
+    }
+    return parts.take(2).join(', ');
+  }
+
+  _DashboardBranchOption? get _selectedBranchOption {
+    final branchId = _selectedBranchId;
+    if (branchId == null) return null;
+    for (final option in _branchOptions) {
+      if (option.branchId == branchId) return option;
+    }
+    return _branchOptions.isEmpty ? null : _branchOptions.first;
   }
 
   int _asInt(dynamic value) {
@@ -202,17 +247,49 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return '$formatted%';
   }
 
-  String _headerGreeting() {
-    final header = _dashboard['header'];
-    if (header is Map) {
-      final greeting = _cleanText(header['greeting']);
-      if (greeting.isNotEmpty) {
-        return greeting.replaceAll(':wave:', '👋');
-      }
+  // String _headerGreeting() {
+  //   final header = _dashboard['header'];
+  //   if (header is Map) {
+  //     final greeting = _cleanText(header['greeting']);
+  //     if (greeting.isNotEmpty) {
+  //       return greeting.replaceAll(':wave:', '👋');
+  //     }
+  //   }
+  //   return context.t('Good evening');
+  // }
+
+String _headerGreeting() {
+  final header = _dashboard['header'];
+
+  if (header is Map) {
+    var greeting = _cleanText(header['greeting']);
+
+    if (greeting.isNotEmpty) {
+      greeting = greeting
+          .replaceAll(':wave:', '')
+          .replaceAll('👋', '')
+          .replaceAll(
+            RegExp(
+              r'\bGood\s+(morning|afternoon|evening|night)\b',
+              caseSensitive: false,
+            ),
+            '',
+          )
+          .replaceFirst(RegExp(r'^[\s,:\-]+'), '')
+          .trim();
+
+      return greeting;
     }
-    return context.t('Good evening');
   }
 
+  final selected = _selectedBranchOption;
+
+  if (selected != null && selected.salonName.trim().isNotEmpty) {
+    return '${selected.salonName.trim()}!';
+  }
+
+  return '';
+}
   String _headerSubtext() {
     final header = _dashboard['header'];
     if (header is Map) {
@@ -224,8 +301,71 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   void _openBookingsTab() {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 0)),
+      MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 1)),
       (route) => false,
+    );
+  }
+
+  void _openDrawerRoute(Widget screen) {
+    Navigator.pop(context);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  void _showBranchPicker() {
+    if (_branchOptions.length <= 1) return;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            itemCount: _branchOptions.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final option = _branchOptions[index];
+              final selected = option.branchId == _selectedBranchId;
+              return ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(
+                    color: selected
+                        ? AppColors.starColor
+                        : const Color(0xFFE8DED6),
+                  ),
+                ),
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFF6E8C8),
+                  child: Icon(
+                    Icons.location_on_outlined,
+                    color: AppColors.starColor,
+                  ),
+                ),
+                title: Text(
+                  option.salonName.isEmpty
+                      ? option.branchName
+                      : option.salonName,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                subtitle: Text(
+                  option.address.isEmpty ? option.branchName : option.address,
+                ),
+                trailing: selected
+                    ? const Icon(Icons.check_circle, color: AppColors.starColor)
+                    : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _loadDashboard(option.branchId);
+                },
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -250,7 +390,25 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
-      appBar: buildProfileSubpageAppBar(title: context.t('Dashboard')),
+      drawer: _DashboardDrawer(onOpen: _openDrawerRoute),
+      appBar: buildProfileSubpageAppBar(
+        title: '',
+        automaticallyImplyLeading: false,
+        toolbarHeight: 58,
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu_rounded),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            tooltip: context.t('Menu'),
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 14),
+            child: _DashboardProfileAvatar(imageUrl: _profileImageUrl),
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           RefreshIndicator(
@@ -300,136 +458,202 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Widget _buildBranchSelector() {
-    return _DashboardSection(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.t('Select Branch').toUpperCase(),
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.6,
-              color: Color(0xFF6B7280),
-            ),
+    final selected = _selectedBranchOption;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: _showBranchPicker,
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE8DED6)),
           ),
-          const SizedBox(height: 12),
-          if (_isLoadingBranches)
-            const Center(child: CircularProgressIndicator())
-          else if (_branchOptions.isEmpty)
-            Text(context.t('No branches available'))
-          else
-            Wrap(
-              spacing: 14,
-              runSpacing: 8,
-              children: _branchOptions.map((option) {
-                final isSelected = option.branchId == _selectedBranchId;
-                return InkWell(
-                  onTap: () => _loadDashboard(option.branchId),
-                  child: Container(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(
-                          color: isSelected
-                              ? AppColors.starColor
-                              : Colors.transparent,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (isSelected) ...[
-                          Icon(
-                            Icons.check_circle_outline,
-                            size: 16,
-                            color: AppColors.starColor,
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF6E8C8),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_on_outlined,
+                  color: AppColors.starColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _isLoadingBranches
+                    ? Text(context.t('Loading branches...'))
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            selected == null
+                                ? context.t('No branches available')
+                                : (selected.salonName.isEmpty
+                                    ? selected.branchName
+                                    : selected.salonName),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1F1B18),
+                            ),
                           ),
-                          const SizedBox(width: 4),
+                          if (selected != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              selected.address.isEmpty
+                                  ? selected.branchName
+                                  : selected.address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF756A61),
+                              ),
+                            ),
+                          ],
                         ],
-                        Text(
-                          option.branchName.isEmpty
-                              ? option.salonName
-                              : option.branchName,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight:
-                                isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected
-                                ? AppColors.starColor
-                                : const Color(0xFF6B5B4D),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
+                      ),
+              ),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: AppColors.starColor,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
+  // Widget _buildHeader() {
+  //   return LayoutBuilder(
+  //     builder: (context, constraints) {
+  //       final isWide = constraints.maxWidth >= 560;
+  //       final title = Text(
+  //         _headerGreeting(),
+  //         style: const TextStyle(
+  //           fontSize: 22,
+  //           fontWeight: FontWeight.w900,
+  //           color: Colors.black,
+  //         ),
+  //       );
+  //       final subtitle = Text(
+  //         _headerSubtext(),
+  //         style: const TextStyle(
+  //           fontSize: 13,
+  //           color: Color(0xFF6B5B4D),
+  //         ),
+  //       );
+  //       final dateButton = _DateButton(
+  //         label: DateFormat('MM/dd/yyyy').format(_selectedDate),
+  //         onTap: _pickDate,
+  //       );
+
+  //       if (!isWide) {
+  //         return Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             title,
+  //             const SizedBox(height: 6),
+  //             subtitle,
+  //             const SizedBox(height: 12),
+  //             Align(alignment: Alignment.centerRight, child: dateButton),
+  //           ],
+  //         );
+  //       }
+
+  //       return Row(
+  //         children: [
+  //           Expanded(
+  //             child: Column(
+  //               crossAxisAlignment: CrossAxisAlignment.start,
+  //               children: [
+  //                 title,
+  //                 const SizedBox(height: 6),
+  //                 subtitle,
+  //               ],
+  //             ),
+  //           ),
+  //           const SizedBox(width: 16),
+  //           dateButton,
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
   Widget _buildHeader() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 560;
-        final title = Text(
-          _headerGreeting(),
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: Colors.black,
-          ),
-        );
-        final subtitle = Text(
-          _headerSubtext(),
-          style: const TextStyle(
-            fontSize: 13,
-            color: Color(0xFF6B5B4D),
-          ),
-        );
-        final dateButton = _DateButton(
-          label: DateFormat('MM/dd/yyyy').format(_selectedDate),
-          onTap: _pickDate,
-        );
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      final isWide = constraints.maxWidth >= 560;
 
-        if (!isWide) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              title,
-              const SizedBox(height: 6),
-              subtitle,
-              const SizedBox(height: 12),
-              Align(alignment: Alignment.centerRight, child: dateButton),
-            ],
-          );
-        }
+      final title = Text(
+        _headerGreeting(),
+        style: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w900,
+          color: Colors.black,
+        ),
+      );
 
-        return Row(
+      final subtitle = Text(
+        _headerSubtext(),
+        style: const TextStyle(
+          fontSize: 13,
+          color: Color(0xFF6B5B4D),
+        ),
+      );
+
+      final dateButton = _DateButton(
+        label: DateFormat('MM/dd/yyyy').format(_selectedDate),
+        onTap: _pickDate,
+      );
+
+      if (!isWide) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  title,
-                  const SizedBox(height: 6),
-                  subtitle,
-                ],
-              ),
+            title,
+            const SizedBox(height: 6),
+            subtitle,
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: dateButton,
             ),
-            const SizedBox(width: 16),
-            dateButton,
           ],
         );
-      },
-    );
-  }
+      }
+
+      return Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                title,
+                const SizedBox(height: 6),
+                subtitle,
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          dateButton,
+        ],
+      );
+    },
+  );
+}
 
   Widget _buildKpiCards() {
     final cards = _mapList('kpi_cards');
@@ -635,18 +859,270 @@ class _DashboardLoadingOverlay extends StatelessWidget {
   }
 }
 
+class _DashboardDrawer extends StatelessWidget {
+  const _DashboardDrawer({required this.onOpen});
+
+  final ValueChanged<Widget> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <_DashboardDrawerItem>[
+      _DashboardDrawerItem(
+        icon: Icons.inventory_2_outlined,
+        label: context.t('Inventory'),
+        screen: const OwnerProfileOperationsScreen(
+          initialModule: OwnerOperationsModule.inventory,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.insert_chart_outlined_rounded,
+        label: context.t('Reports'),
+        screen: const OwnerSalesReportsScreen(
+          initialModule: OwnerSalesReportModule.operations,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.payments_outlined,
+        label: context.t('Payroll'),
+        screen: const ProfileCompensationScreen(
+          initialModule: CompensationModule.payroll,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.event_available_outlined,
+        label: context.t('Attendance'),
+        screen: const ProfileCompensationScreen(
+          initialModule: CompensationModule.attendance,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.groups_outlined,
+        label: context.t('Clients'),
+        screen: const OwnerBranchClientsScreen(),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.tune_rounded,
+        label: context.t('Commission'),
+        screen: const ProfileCompensationScreen(
+          initialModule: CompensationModule.commission,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.account_balance_wallet_outlined,
+        label: context.t('Advance'),
+        screen: const ProfileCompensationScreen(
+          initialModule: CompensationModule.advance,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.beach_access_outlined,
+        label: context.t('Leaves'),
+        screen: const ProfileCompensationScreen(
+          initialModule: CompensationModule.leaves,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.calendar_month_outlined,
+        label: context.t('Holidays Calendar'),
+        screen: const ProfileCompensationScreen(
+          initialModule: CompensationModule.holidays,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.badge_outlined,
+        label: context.t('Vendor'),
+        screen: const OwnerProfileOperationsScreen(
+          initialModule: OwnerOperationsModule.vendor,
+        ),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.rate_review_outlined,
+        label: context.t('Reviews'),
+        screen: const SalonReviews(),
+      ),
+    ];
+
+  return SafeArea(
+  top: true,
+  bottom: false,
+  child: Drawer(
+    backgroundColor: const Color(0xFFFBF9F8),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.zero,
+    ),
+    child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF6E8C8),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.spa_outlined,
+                      color: AppColors.starColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.t('Glowante'),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.starColor,
+                          ),
+                        ),
+                        Text(
+                          context.t('Salon Operations'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF756A61),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Expanded(
+                child: ListView.separated(
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    final highlighted = index == 0;
+                    return Material(
+                      color: highlighted
+                          ? const Color(0xFFD0A244)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => onOpen(item.screen),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                item.icon,
+                                size: 18,
+                                color: highlighted
+                                    ? Colors.white
+                                    : const Color(0xFF5F574F),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                item.label,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: highlighted
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                  color: highlighted
+                                      ? Colors.white
+                                      : const Color(0xFF2D2926),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardDrawerItem {
+  const _DashboardDrawerItem({
+    required this.icon,
+    required this.label,
+    required this.screen,
+  });
+
+  final IconData icon;
+  final String label;
+  final Widget screen;
+}
+
+class _DashboardProfileAvatar extends StatelessWidget {
+  const _DashboardProfileAvatar({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl.trim().isNotEmpty;
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.starColor, width: 1.4),
+      ),
+      child: ClipOval(
+        child: hasImage
+            ? Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const _DashboardAvatarFallback(),
+              )
+            : const _DashboardAvatarFallback(),
+      ),
+    );
+  }
+}
+
+class _DashboardAvatarFallback extends StatelessWidget {
+  const _DashboardAvatarFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFFF6E8C8),
+      child: Icon(
+        Icons.person_outline_rounded,
+        color: AppColors.starColor,
+        size: 20,
+      ),
+    );
+  }
+}
+
 class _DashboardBranchOption {
   const _DashboardBranchOption({
     required this.salonId,
     required this.branchId,
     required this.salonName,
     required this.branchName,
+    required this.address,
   });
 
   final int salonId;
   final int branchId;
   final String salonName;
   final String branchName;
+  final String address;
 }
 
 class _DashboardSection extends StatelessWidget {

@@ -1307,7 +1307,6 @@ class CategoryScreenState extends State<CategoryScreen> {
         onChanged: (value) => setState(() => _catalogQuery = value),
         decoration: InputDecoration(
           border: InputBorder.none,
-          counterText: '',
           prefixIcon: const Icon(
             Icons.search_rounded,
             color: _catalogGold,

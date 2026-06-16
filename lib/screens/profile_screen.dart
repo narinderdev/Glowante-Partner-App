@@ -5,18 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../features/profile/compensation/profile_compensation_screen.dart';
-import '../features/profile/operations/owner_profile_operations_screen.dart';
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
-import 'SalonReviews.dart';
 import 'login_screen.dart';
-import 'owner_dashboard_screen.dart';
-import 'owner_branch_clients_screen.dart';
-import 'owner_sales_reports_screen.dart';
 import 'web_doc_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -65,132 +59,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _logProfile('language_changed', details: langCode);
     final langListener = Provider.of<LanguageListener>(context, listen: false);
     langListener.changeLanguage(langCode);
-  }
-
-  void _openDashboard() {
-    _logProfile('open_dashboard');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const OwnerDashboardScreen(),
-      ),
-    );
-  }
-
-  void _openSalesReport(OwnerSalesReportModule module) {
-    _logProfile('open_sales_report', details: module.name);
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => OwnerSalesReportsScreen(initialModule: module),
-      ),
-    );
-  }
-
-  void _openClients() {
-    _logProfile('open_clients');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const OwnerBranchClientsScreen(),
-      ),
-    );
-  }
-
-  void _openCommission() {
-    _logProfile('open_commission');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ProfileCompensationScreen(
-          initialModule: CompensationModule.commission,
-        ),
-      ),
-    );
-  }
-
-  void _openInventory() {
-    _logProfile('open_inventory');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const OwnerProfileOperationsScreen(
-          initialModule: OwnerOperationsModule.inventory,
-        ),
-      ),
-    );
-  }
-
-  void _openPayroll() {
-    _logProfile('open_payroll');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ProfileCompensationScreen(
-          initialModule: CompensationModule.payroll,
-        ),
-      ),
-    );
-  }
-
-  void _openAdvance() {
-    _logProfile('open_advance');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ProfileCompensationScreen(
-          initialModule: CompensationModule.advance,
-        ),
-      ),
-    );
-  }
-
-  void _openAttendance() {
-    _logProfile('open_attendance');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ProfileCompensationScreen(
-          initialModule: CompensationModule.attendance,
-        ),
-      ),
-    );
-  }
-
-  void _openLeaves() {
-    _logProfile('open_leaves');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ProfileCompensationScreen(
-          initialModule: CompensationModule.leaves,
-        ),
-      ),
-    );
-  }
-
-  void _openHolidaysCalendar() {
-    _logProfile('open_holidays_calendar');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ProfileCompensationScreen(
-          initialModule: CompensationModule.holidays,
-        ),
-      ),
-    );
-  }
-
-  void _openVendor() {
-    _logProfile('open_vendor');
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const OwnerProfileOperationsScreen(
-          initialModule: OwnerOperationsModule.vendor,
-        ),
-      ),
-    );
   }
 
   void _showLogoutModal(BuildContext context) {
@@ -426,102 +294,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
       onRefresh: _loadUserData,
+      roleLabel: context.t('Salon Owner'),
       topSections: const <Widget>[],
       menuItems: [
-        // ProfileMenuItemData(
-        //   icon: Icons.info_outline,
-        //   label: context.t('About Salon'),
-        //   onTap: () {
-        //     _logProfile('open_about_salon');
-        //     Navigator.push(
-        //       context,
-        //       MaterialPageRoute(builder: (_) => const SalonAbout()),
-        //     );
-        //   },
-        //   showLeftAccent: true,
-        // ),
         ProfileMenuItemData(
-          icon: Icons.groups_outlined,
-          label: context.t('Clients'),
-          onTap: _openClients,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.tune_rounded,
-          label: context.t('Commission'),
-          onTap: _openCommission,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.insert_chart_outlined_rounded,
-          label: context.t('Reports'),
-          onTap: _openDashboard,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.bar_chart_rounded,
-          label: context.t('Sales & Reports'),
-          showLeftAccent: true,
-          children: [
-            ProfileSubMenuItemData(
-              label: context.t('Revenue & Sales'),
-              onTap: () => _openSalesReport(
-                OwnerSalesReportModule.revenueSales,
-              ),
-            ),
-            ProfileSubMenuItemData(
-              label: context.t('Staff Performance'),
-              onTap: () => _openSalesReport(
-                OwnerSalesReportModule.staffPerformance,
-              ),
-            ),
-            ProfileSubMenuItemData(
-              label: context.t('Operations'),
-              onTap: () => _openSalesReport(
-                OwnerSalesReportModule.operations,
-              ),
-            ),
-          ],
-        ),
-        ProfileMenuItemData(
-          icon: Icons.inventory_2_outlined,
-          label: context.t('Inventory'),
-          onTap: _openInventory,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.payments_outlined,
-          label: context.t('Payroll'),
-          onTap: _openPayroll,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.account_balance_wallet_outlined,
-          label: context.t('Advance'),
-          onTap: _openAdvance,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.event_available_outlined,
-          label: context.t('Attendance'),
-          onTap: _openAttendance,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.beach_access_outlined,
-          label: context.t('Leaves'),
-          onTap: _openLeaves,
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.calendar_month_outlined,
-          label: context.t('Holidays Calendar'),
-          onTap: _openHolidaysCalendar,
-          showLeftAccent: true,
+          icon: Icons.shield_outlined,
+          label: context.t('Account Security'),
+          subtitle: context.t('Passwords & 2FA'),
         ),
         ProfileMenuItemData(
           icon: Icons.privacy_tip_outlined,
           label: context.t('Privacy Policy'),
+          subtitle: context.t('Data usage & protection'),
           onTap: () {
             _logProfile('open_privacy_policy');
             Navigator.push(
@@ -534,23 +318,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             );
           },
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.rate_review_outlined,
-          label: context.t('Reviews'),
-          onTap: () {
-            _logProfile('open_reviews');
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SalonReviews()),
-            );
-          },
-          showLeftAccent: true,
         ),
         ProfileMenuItemData(
           icon: Icons.policy_outlined,
           label: context.t('Terms & Conditions'),
+          subtitle: context.t('Service agreements'),
           onTap: () {
             _logProfile('open_terms_conditions');
             Navigator.push(
@@ -563,13 +335,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             );
           },
-          showLeftAccent: true,
-        ),
-        ProfileMenuItemData(
-          icon: Icons.badge_outlined,
-          label: context.t('Vendor'),
-          onTap: _openVendor,
-          showLeftAccent: true,
         ),
       ],
       onLogout: () => _showLogoutModal(context),

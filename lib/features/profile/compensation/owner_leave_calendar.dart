@@ -929,6 +929,7 @@ class _PaidLeaveDialogState extends State<_PaidLeaveDialog> {
       content: Form(
         key: _formKey,
         child: TextFormField(
+          maxLength: 120,
           controller: _controller,
           keyboardType: TextInputType.number,
           decoration: const InputDecoration(
@@ -1060,6 +1061,7 @@ class _HolidayDialogState extends State<_HolidayDialog> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                maxLength: 120,
                 controller: _titleController,
                 decoration: const InputDecoration(
                   labelText: 'Title',
@@ -1074,6 +1076,7 @@ class _HolidayDialogState extends State<_HolidayDialog> {
               ),
               const SizedBox(height: 12),
               TextFormField(
+                maxLength: 120,
                 controller: _descriptionController,
                 maxLines: 2,
                 minLines: 1,

@@ -3,6 +3,7 @@ import '../utils/api_service.dart';
 import 'AssignUserSlots.dart'; // 👈 NEW: Step 3 screen
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
 
 class SelectServicesAssignUser extends StatefulWidget {
@@ -304,11 +305,11 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                   onPressed: () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: const BorderSide(color: Colors.orange),
+                    side: const BorderSide(color: AppColors.starColor),
                   ),
                   child: Text(
                     translateText("Back"),
-                    style: TextStyle(color: Colors.orange),
+                    style: const TextStyle(color: AppColors.starColor),
                   ),
                 ),
               ),
@@ -350,7 +351,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                     });
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                    backgroundColor: AppColors.starColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

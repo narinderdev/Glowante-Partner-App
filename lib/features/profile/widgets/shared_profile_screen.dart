@@ -27,6 +27,7 @@ class ProfileMenuItemData {
   const ProfileMenuItemData({
     required this.icon,
     required this.label,
+    this.subtitle,
     this.onTap,
     this.showLeftAccent = false,
     this.children = const <ProfileSubMenuItemData>[],
@@ -34,6 +35,7 @@ class ProfileMenuItemData {
 
   final IconData icon;
   final String label;
+  final String? subtitle;
   final VoidCallback? onTap;
   final bool showLeftAccent;
   final List<ProfileSubMenuItemData> children;
@@ -89,7 +91,10 @@ class SharedProfileScreen extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _ProfileSectionLabel(label: context.t('Account Settings')),
+              const SizedBox(height: 12),
               _LanguageCard(
                 currentLanguageCode: currentLanguageCode,
                 onLanguageChanged: onLanguageChanged,
@@ -98,27 +103,44 @@ class SharedProfileScreen extends StatelessWidget {
                 const SizedBox(height: 18),
                 section,
               ],
-              const SizedBox(height: 18),
+              const SizedBox(height: 14),
               for (final item in menuItems) ...[
                 _ProfileMenuCard(item: item),
                 const SizedBox(height: 12),
               ],
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
+              _ProfileSectionLabel(
+                label: context.t('Account Actions'),
+                color: AppColors.red,
+              ),
+              const SizedBox(height: 14),
               _ActionButton(
                 icon: Icons.logout_rounded,
                 label: context.t('Logout'),
                 onPressed: onLogout,
-                backgroundColor: const Color(0xFF231E1A),
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF1C1917),
+                borderColor: const Color(0xFFD8C7B3),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               _ActionButton(
                 icon: Icons.delete_outline_rounded,
                 label: context.t('Delete Account'),
                 onPressed: onDeleteAccount,
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFFE34B3F),
-                borderColor: const Color(0xFFE34B3F),
+                backgroundColor: AppColors.red,
+                foregroundColor: Colors.white,
+              ),
+              const SizedBox(height: 30),
+              Center(
+                child: Text(
+                  'GLOWANTE - V1.0.4 - © 2024',
+                  style: _profileTextStyle(
+                    size: 11,
+                    weight: FontWeight.w600,
+                    color: const Color(0xFFAAA39D),
+                    letterSpacing: 2.4,
+                  ),
+                ),
               ),
             ],
           ),
@@ -130,9 +152,10 @@ class SharedProfileScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        toolbarHeight: 70,
+        toolbarHeight: kToolbarHeight,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
+        titleSpacing: 16,
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
@@ -206,21 +229,23 @@ class _ProfileHero extends StatelessWidget {
             ),
           ],
           if (roleLabel != null && roleLabel!.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF5F3F3),
-                borderRadius: BorderRadius.circular(999),
+            const SizedBox(height: 6),
+            Text(
+              roleLabel!,
+              style: _profileTextStyle(
+                size: 16,
+                weight: FontWeight.w500,
+                color: const Color(0xFF6F665E),
               ),
-              child: Text(
-                roleLabel!,
-                style: _profileTextStyle(
-                  size: 12,
-                  weight: FontWeight.w600,
-                  color: const Color(0xFF78716C),
-                ),
-              ),
+            ),
+            const SizedBox(height: 24),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _ProfileBadge(label: 'Premium Plan', filled: false),
+                SizedBox(width: 12),
+                _ProfileBadge(label: 'Verified Manager', filled: true),
+              ],
             ),
           ],
         ],
@@ -323,6 +348,60 @@ class _ProfileAvatar extends StatelessWidget {
   }
 }
 
+class _ProfileBadge extends StatelessWidget {
+  const _ProfileBadge({required this.label, required this.filled});
+
+  final String label;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: filled ? const Color(0xFFD0A244) : const Color(0xFFF7F4F1),
+        borderRadius: BorderRadius.circular(10),
+        border: filled ? null : Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Text(
+        label.toUpperCase(),
+        style: _profileTextStyle(
+          size: 11,
+          weight: FontWeight.w700,
+          color: filled ? const Color(0xFF4A3400) : const Color(0xFF5F574F),
+          letterSpacing: 1.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileSectionLabel extends StatelessWidget {
+  const _ProfileSectionLabel({
+    required this.label,
+    this.color = const Color(0xFF8A8179),
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        label.toUpperCase(),
+        style: _profileTextStyle(
+          size: 12,
+          weight: FontWeight.w700,
+          color: color,
+          letterSpacing: 4,
+        ),
+      ),
+    );
+  }
+}
+
 class _LanguageCard extends StatelessWidget {
   const _LanguageCard({
     required this.currentLanguageCode,
@@ -334,120 +413,166 @@ class _LanguageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
+    return _ProfileSettingsTile(
+      icon: Icons.language_rounded,
+      title: context.t('Language Selection'),
+      subtitle: currentLanguageCode == 'hi' ? 'हिंदी' : 'English / Hindi',
+      onTap: () => _showLanguagePicker(context),
+    );
+  }
+
+  void _showLanguagePicker(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.language_rounded,
-                size: 14,
-                color: Color(0xFFB45309),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                context.t('Choose Language').toUpperCase(),
-                style: _profileTextStyle(
-                  size: 12,
-                  weight: FontWeight.w700,
-                  color: const Color(0xFF78716C),
-                  letterSpacing: 0.6,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF5F3F3),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: _LanguageOptionButton(
-                    label: context.t('English'),
-                    isSelected: currentLanguageCode == 'en',
-                    onTap: () => onLanguageChanged('en'),
-                  ),
+                _LanguageSheetOption(
+                  label: context.t('English'),
+                  selected: currentLanguageCode == 'en',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onLanguageChanged('en');
+                  },
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _LanguageOptionButton(
-                    label: 'हिंदी',
-                    isSelected: currentLanguageCode == 'hi',
-                    onTap: () => onLanguageChanged('hi'),
-                  ),
+                const SizedBox(height: 10),
+                _LanguageSheetOption(
+                  label: 'हिंदी',
+                  selected: currentLanguageCode == 'hi',
+                  onTap: () {
+                    Navigator.pop(context);
+                    onLanguageChanged('hi');
+                  },
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _LanguageOptionButton extends StatelessWidget {
-  const _LanguageOptionButton({
+class _LanguageSheetOption extends StatelessWidget {
+  const _LanguageSheetOption({
     required this.label,
-    required this.isSelected,
+    required this.selected,
     required this.onTap,
   });
 
   final String label;
-  final bool isSelected;
+  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    return ListTile(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      tileColor: selected ? const Color(0xFFF6EFE3) : const Color(0xFFFBF9F8),
+      leading: Icon(
+        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        color: AppColors.starColor,
+      ),
+      title: Text(
+        label,
+        style: _profileTextStyle(
+          size: 16,
+          weight: FontWeight.w700,
+          color: const Color(0xFF1C1917),
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class _ProfileSettingsTile extends StatelessWidget {
+  const _ProfileSettingsTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(vertical: 13),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
           decoration: BoxDecoration(
-            color: isSelected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? const [
-                    BoxShadow(
-                      color: Color(0x12000000),
-                      blurRadius: 10,
-                      offset: Offset(0, 3),
-                    ),
-                  ]
-                : const [],
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFF0E9E2)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: _profileTextStyle(
-              size: 14,
-              weight: FontWeight.w600,
-              color: isSelected
-                  ? const Color(0xFFB45309)
-                  : const Color(0xFF78716C),
-            ),
+          child: Row(
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF7F4F1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: AppColors.starColor, size: 26),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: _profileTextStyle(
+                        size: 16,
+                        weight: FontWeight.w600,
+                        color: const Color(0xFF1C1917),
+                      ),
+                    ),
+                    if (subtitle.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: _profileTextStyle(
+                          size: 14,
+                          weight: FontWeight.w500,
+                          color: const Color(0xFF5F574F),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFFB8B0A8),
+                size: 28,
+              ),
+            ],
           ),
         ),
       ),
@@ -472,26 +597,48 @@ class _ProfileMenuCardState extends State<_ProfileMenuCard> {
     final item = widget.item;
     final hasChildren = item.children.isNotEmpty;
 
+    if (hasChildren) {
+      return _ProfileExpandableMenuCard(
+        item: item,
+        isExpanded: _isExpanded,
+        onTap: () => setState(() => _isExpanded = !_isExpanded),
+      );
+    }
+
+    return _ProfileSettingsTile(
+      icon: item.icon,
+      title: item.label,
+      subtitle: item.subtitle ?? '',
+      onTap: item.onTap,
+    );
+  }
+}
+
+class _ProfileExpandableMenuCard extends StatelessWidget {
+  const _ProfileExpandableMenuCard({
+    required this.item,
+    required this.isExpanded,
+    required this.onTap,
+  });
+
+  final ProfileMenuItemData item;
+  final bool isExpanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasChildren = item.children.isNotEmpty;
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: hasChildren
-            ? () => setState(() => _isExpanded = !_isExpanded)
-            : item.onTap,
+        onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: item.showLeftAccent
-                ? const Border(
-                    left: BorderSide(
-                      color: Color(0xFFC19A6B),
-                      width: 4,
-                    ),
-                  )
-                : null,
             boxShadow: const [
               BoxShadow(
                 color: Color(0x0A000000),
@@ -533,7 +680,7 @@ class _ProfileMenuCardState extends State<_ProfileMenuCard> {
                     ),
                     Icon(
                       hasChildren
-                          ? (_isExpanded
+                          ? (isExpanded
                               ? Icons.keyboard_arrow_up_rounded
                               : Icons.keyboard_arrow_down_rounded)
                           : Icons.chevron_right_rounded,
@@ -542,7 +689,7 @@ class _ProfileMenuCardState extends State<_ProfileMenuCard> {
                     ),
                   ],
                 ),
-                if (hasChildren && _isExpanded) ...[
+                if (hasChildren && isExpanded) ...[
                   const SizedBox(height: 14),
                   Padding(
                     padding: const EdgeInsets.only(left: 46),
@@ -615,12 +762,12 @@ class _ActionButton extends StatelessWidget {
         onPressed: onPressed,
         icon: Icon(icon, size: 18),
         label: Text(
-          borderColor == null ? label : label.toUpperCase(),
+          label,
           style: _profileTextStyle(
-            size: borderColor == null ? 18 : 14,
+            size: 16,
             weight: FontWeight.w700,
             color: foregroundColor,
-            letterSpacing: borderColor == null ? 0 : 0.6,
+            letterSpacing: 0,
           ),
         ),
         style: ElevatedButton.styleFrom(

@@ -1625,24 +1625,24 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final hasInsideCounter = maxLength != null;
     final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
 
-    if (forceCapitalize) {
-      controller.addListener(() {
-        final text = controller.text;
-        final capitalized = text
-            .split(' ')
-            .map((word) => word.isNotEmpty
-                ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
-                : '')
-            .join(' ');
-        if (text != capitalized) {
-          final cursor = controller.selection;
-          controller.value = TextEditingValue(
-            text: capitalized,
-            selection: cursor,
-          );
-        }
-      });
-    }
+    // if (forceCapitalize) {
+    //   controller.addListener(() {
+    //     final text = controller.text;
+    //     final capitalized = text
+    //         .split(' ')
+    //         .map((word) => word.isNotEmpty
+    //             ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
+    //             : '')
+    //         .join(' ');
+    //     if (text != capitalized) {
+    //       final cursor = controller.selection;
+    //       controller.value = TextEditingValue(
+    //         text: capitalized,
+    //         selection: cursor,
+    //       );
+    //     }
+    //   });
+    // }
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),

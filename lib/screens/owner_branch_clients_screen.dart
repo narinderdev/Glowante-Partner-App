@@ -1611,6 +1611,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                   width: isCompact ? null : 220,
                   child: TextField(
                     controller: _searchController,
+                    maxLength: 60,
                     onChanged: (_) => setState(() {}),
                     decoration: InputDecoration(
                       hintText: context.t("Search by user's name"),

@@ -61,6 +61,7 @@ extension _OwnerAdvanceUi on _ProfileCompensationScreenState {
         const SizedBox(height: 12),
         TextField(
           controller: _advanceSearchController,
+          maxLength: 60,
           decoration: InputDecoration(
             hintText: 'Search by team member',
             prefixIcon: const Icon(Icons.search_rounded),
@@ -645,6 +646,7 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                 children: [
                   Expanded(
                     child: TextField(
+                      maxLength: 120,
                       controller: _amountController,
                       enabled: !_isSaving,
                       keyboardType: TextInputType.number,
@@ -739,6 +741,7 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextField(
+                      maxLength: 120,
                       controller: _referenceController,
                       enabled: !_isSaving,
                       decoration: const InputDecoration(
@@ -752,6 +755,7 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
               ),
               const SizedBox(height: 12),
               TextField(
+                maxLength: 120,
                 controller: _remarksController,
                 enabled: !_isSaving,
                 maxLines: 3,

@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../screens/AddTeamChooseTimeSlots.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../utils/input_validation.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -1223,6 +1224,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: _phoneCtrl,
+                      maxLength: AppInputRules.phoneMaxLength,
                       enabled: widget.isEdit || !_phoneVerified,
                       keyboardType: TextInputType.phone,
                       autovalidateMode: _showGlobalErrors
@@ -1310,8 +1312,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     TextFormField(
                       focusNode: _firstNameFocus,
                       controller: _firstNameCtrl,
+                      maxLength: AppInputRules.nameMaxLength,
+                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
                       keyboardType: TextInputType.text,
                       textCapitalization: TextCapitalization.sentences,
+                      inputFormatters: AppInputRules.nameFormatters,
                       autovalidateMode: _showGlobalErrors
                           ? AutovalidateMode.onUserInteraction
                           : AutovalidateMode.disabled,
@@ -1332,8 +1337,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     TextFormField(
                       focusNode: _lastNameFocus,
                       controller: _lastNameCtrl,
+                      maxLength: AppInputRules.nameMaxLength,
+                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
                       keyboardType: TextInputType.text,
                       textCapitalization: TextCapitalization.sentences,
+                      inputFormatters: AppInputRules.nameFormatters,
                       autovalidateMode: _showGlobalErrors
                           ? AutovalidateMode.onUserInteraction
                           : AutovalidateMode.disabled,
@@ -1354,8 +1362,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                     TextFormField(
                       focusNode: _emailFocus,
                       controller: _emailCtrl,
+                      maxLength: AppInputRules.emailMaxLength,
+                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
                       keyboardType: TextInputType.emailAddress,
                       textCapitalization: TextCapitalization.none,
+                      inputFormatters: AppInputRules.emailFormatters,
                       autovalidateMode: _showGlobalErrors
                           ? AutovalidateMode.onUserInteraction
                           : AutovalidateMode.disabled,
@@ -1572,17 +1583,17 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       focusNode: _brieftFocus,
                       controller: _briefCtrl,
                       maxLines: 4,
-                      maxLength: 100,
+                      maxLength: AppInputRules.mediumTextMaxLength,
                       maxLengthEnforcement: MaxLengthEnforcement.enforced,
                       keyboardType: TextInputType.text,
                       textCapitalization: TextCapitalization.sentences,
+                      inputFormatters: AppInputRules.generalTextFormatters(),
                       decoration: _decor(
                         hint: translateText(
                           "Tell us about the team member's experience and expertise...",
                         ),
                       ).copyWith(
                         contentPadding: const EdgeInsets.all(14),
-                        counterText: '',
                       ),
                       validator: (_) => null, // Brief excluded
                     ),

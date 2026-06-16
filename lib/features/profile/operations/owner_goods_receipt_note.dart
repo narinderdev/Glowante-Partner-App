@@ -182,6 +182,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _receivedByController,
                     decoration:
                         InputDecoration(labelText: context.t('Received By')),
@@ -191,6 +192,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _notesController,
                     maxLines: 1,
                     decoration: InputDecoration(labelText: context.t('Notes')),
@@ -249,6 +251,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
+                              maxLength: 120,
                               controller: line.receivedQtyController,
                               keyboardType: TextInputType.number,
                               decoration: InputDecoration(
@@ -257,6 +260,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
+                              maxLength: 120,
                               controller: line.returnQtyController,
                               keyboardType: TextInputType.number,
                               decoration: InputDecoration(
@@ -265,6 +269,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
+                              maxLength: 120,
                               controller: line.returnReasonController,
                               decoration: InputDecoration(
                                 labelText: context.t('Return Reason'),

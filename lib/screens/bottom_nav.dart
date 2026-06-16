@@ -9,6 +9,7 @@ import '../services/push_notification_service.dart';
 import '../widgets/shared_bottom_nav_bar.dart';
 import 'Bookings.dart';
 import 'category_screen.dart';
+import 'owner_dashboard_screen.dart';
 import 'profile_screen.dart';
 import 'salons_screen.dart';
 
@@ -37,6 +38,7 @@ class _BottomNavState extends State<BottomNav> {
     _salonsScreenKey = GlobalKey<SalonsScreenState>();
     _categoryScreenKey = GlobalKey<CategoryScreenState>();
     _screens = [
+      const OwnerDashboardScreen(),
       const BookingsScreen(),
       SalonsScreen(key: _salonsScreenKey),
       CategoryScreen(key: _categoryScreenKey),
@@ -50,7 +52,7 @@ class _BottomNavState extends State<BottomNav> {
     final pendingNotification =
         PushNotificationService.instance.pendingNavigationEvent;
     if (pendingNotification != null && pendingNotification.wasTapped) {
-      _setCurrentIndex(0, animate: false);
+      _setCurrentIndex(1, animate: false);
     }
 
     _navPushSub =
@@ -58,10 +60,10 @@ class _BottomNavState extends State<BottomNav> {
       if (!payload.wasTapped || !mounted) {
         return;
       }
-      if (_currentIndex == 0) {
+      if (_currentIndex == 1) {
         return;
       }
-      _setCurrentIndex(0);
+      _setCurrentIndex(1);
     });
   }
 
@@ -81,15 +83,15 @@ class _BottomNavState extends State<BottomNav> {
 
   void _setCurrentIndex(int index, {bool animate = true}) {
     if (_currentIndex == index && animate) {
-      if (index == 1) {
+      if (index == 2) {
         _salonsScreenKey.currentState?.collapseQuickActions();
-      } else if (index == 2) {
+      } else if (index == 3) {
         _categoryScreenKey.currentState?.refreshFromCurrentSelection();
       }
       return;
     }
 
-    if (_currentIndex == 1) {
+    if (_currentIndex == 2) {
       _salonsScreenKey.currentState?.collapseQuickActions();
     }
 
@@ -100,7 +102,7 @@ class _BottomNavState extends State<BottomNav> {
     } else {
       _currentIndex = index;
     }
-    if (index == 2) {
+    if (index == 3) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _categoryScreenKey.currentState?.refreshFromCurrentSelection();
       });
@@ -113,6 +115,11 @@ class _BottomNavState extends State<BottomNav> {
     context.watch<LanguageListener>();
 
     final destinations = [
+      SharedBottomNavDestination(
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard_rounded,
+        label: context.t('Home'),
+      ),
       SharedBottomNavDestination(
         icon: Icons.calendar_month_outlined,
         activeIcon: Icons.calendar_month_outlined,

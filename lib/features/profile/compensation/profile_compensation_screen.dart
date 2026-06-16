@@ -1434,6 +1434,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                       children: [
                         Expanded(
                           child: TextField(
+                            maxLength: 60,
                             onChanged: (value) {
                               setSheetState(() => searchQuery = value.trim());
                             },
@@ -3535,6 +3536,7 @@ class _LabeledTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextFormField(
+      maxLength: 120,
       controller: controller,
       validator: validator,
       keyboardType: keyboardType,

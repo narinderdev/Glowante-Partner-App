@@ -20,6 +20,7 @@ AppBar buildProfileSubpageAppBar({
   bool centerTitle = false,
   bool automaticallyImplyLeading = true,
   double toolbarHeight = kToolbarHeight,
+  Widget? leading,
   List<Widget>? actions,
 }) {
   return AppBar(
@@ -28,7 +29,8 @@ AppBar buildProfileSubpageAppBar({
     elevation: 0,
     centerTitle: centerTitle,
     automaticallyImplyLeading: automaticallyImplyLeading,
-    titleSpacing: automaticallyImplyLeading ? 0 : 18,
+    leading: leading,
+    titleSpacing: automaticallyImplyLeading ? 0 : 16,
     surfaceTintColor: Colors.transparent,
     shadowColor: Colors.transparent,
     scrolledUnderElevation: 0,

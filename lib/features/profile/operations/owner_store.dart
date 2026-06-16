@@ -78,6 +78,7 @@ class _StoreFormViewState extends State<_StoreFormView> {
         child: Column(
           children: [
             TextFormField(
+              maxLength: 120,
               controller: _nameController,
               decoration: InputDecoration(labelText: context.t('Store Name')),
               validator: (value) => _stringValue(value).isEmpty
@@ -86,6 +87,7 @@ class _StoreFormViewState extends State<_StoreFormView> {
             ),
             const SizedBox(height: 14),
             TextFormField(
+              maxLength: 120,
               controller: _addressController,
               maxLines: 1,
               decoration: InputDecoration(labelText: context.t('Address')),
@@ -95,6 +97,7 @@ class _StoreFormViewState extends State<_StoreFormView> {
             ),
             const SizedBox(height: 14),
             TextFormField(
+              maxLength: 120,
               controller: _binController,
               decoration:
                   InputDecoration(labelText: context.t('Bin Description')),

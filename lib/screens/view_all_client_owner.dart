@@ -208,34 +208,32 @@ class _ViewAllClientOwnerScreenState extends State<ViewAllClientOwnerScreen> {
           padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
           child: Column(
             children: [
-              SizedBox(
-                height: 48,
-                child: TextField(
-                  controller: _searchController,
-                  textInputAction: TextInputAction.search,
-                  decoration: InputDecoration(
-                    hintText: translateText('Search customer...'),
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      color: _clientGold,
-                      size: 19,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: _clientBorder),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: _clientBorder),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide:
-                          const BorderSide(color: _clientGold, width: 1.2),
-                    ),
+              TextField(
+                controller: _searchController,
+                // maxLength: 60,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: translateText('Search customer...'),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: _clientGold,
+                    size: 19,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _clientBorder),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: _clientBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide:
+                        const BorderSide(color: _clientGold, width: 1.2),
                   ),
                 ),
               ),

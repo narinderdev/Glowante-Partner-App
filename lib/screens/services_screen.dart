@@ -373,6 +373,7 @@ class _ServicesTabState extends State<ServicesTab> {
               ]),
               SizedBox(height: 8),
               TextField(
+                maxLength: 120,
                 controller: nameCtrl,
                 decoration: InputDecoration(
                   labelText: translateText('Name'),
@@ -612,6 +613,7 @@ class _ServicesTabState extends State<ServicesTab> {
               ]),
               SizedBox(height: 8),
               TextField(
+                maxLength: 120,
                 controller: nameCtrl,
                 decoration: InputDecoration(
                   labelText: translateText('Name'),
@@ -785,6 +787,7 @@ class _ServicesTabState extends State<ServicesTab> {
               ]),
               SizedBox(height: 8),
               TextField(
+                maxLength: 120,
                 controller: nameCtrl,
                 decoration: InputDecoration(
                   labelText: translateText('Name'),
@@ -796,6 +799,7 @@ class _ServicesTabState extends State<ServicesTab> {
               Row(children: [
                 Expanded(
                   child: TextField(
+                    maxLength: 120,
                     controller: priceCtrl,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
@@ -809,6 +813,7 @@ class _ServicesTabState extends State<ServicesTab> {
                 SizedBox(width: 10),
                 Expanded(
                   child: TextField(
+                    maxLength: 120,
                     controller: durationCtrl,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
@@ -821,6 +826,7 @@ class _ServicesTabState extends State<ServicesTab> {
               ]),
               SizedBox(height: 10),
               TextField(
+                maxLength: 120,
                 controller: descCtrl,
                 maxLines: 3,
                 decoration: InputDecoration(

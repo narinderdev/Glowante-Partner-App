@@ -98,10 +98,9 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
     ).toUpperCase();
     _selectedUnitOfMeasure =
         _unitOptions.contains(initialUnit) ? initialUnit : 'EACH';
-    _selectedVendorId =
-        _toInt(initial['vendorId'] ??
-            initial['primaryVendorId'] ??
-            initial['primaryVendorDbId']);
+    _selectedVendorId = _toInt(initial['vendorId'] ??
+        initial['primaryVendorId'] ??
+        initial['primaryVendorDbId']);
     _selectedStoreId = _toInt(initial['storeId']);
     _loadOptions();
   }
@@ -204,6 +203,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   _FormSectionTitle(context.t('Basic Details')),
                   const SizedBox(height: 12),
                   TextFormField(
+                    maxLength: 120,
                     controller: _itemIdController,
                     decoration:
                         InputDecoration(labelText: context.t('Item ID')),
@@ -215,6 +215,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _skuController,
                     decoration: InputDecoration(labelText: context.t('SKU')),
                     validator: (value) => _stringValue(value).isEmpty
@@ -223,6 +224,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _nameController,
                     decoration:
                         InputDecoration(labelText: context.t('Item Name')),
@@ -274,11 +276,13 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _brandController,
                     decoration: InputDecoration(labelText: context.t('Brand')),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _stockController,
                     keyboardType: TextInputType.number,
                     decoration:
@@ -288,6 +292,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   _FormSectionTitle(context.t('Stock & Vendor Details')),
                   const SizedBox(height: 12),
                   TextFormField(
+                    maxLength: 120,
                     controller: _reorderPointController,
                     keyboardType: TextInputType.number,
                     decoration:
@@ -295,6 +300,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _reorderQtyController,
                     keyboardType: TextInputType.number,
                     decoration:
@@ -302,6 +308,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _costController,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
@@ -318,6 +325,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _minStockController,
                     keyboardType: TextInputType.number,
                     decoration:
@@ -325,6 +333,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
+                    maxLength: 120,
                     controller: _maxStockController,
                     keyboardType: TextInputType.number,
                     decoration:

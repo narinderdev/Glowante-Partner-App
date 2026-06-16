@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'team_online_availability_screen.dart';
 
@@ -288,7 +289,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                 child: ElevatedButton(
                   onPressed: isSubmitting ? null : _goToCompleteStep,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
+                    backgroundColor: AppColors.starColor,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),

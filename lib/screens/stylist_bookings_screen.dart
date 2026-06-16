@@ -1170,6 +1170,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                       }),
                     ),
                     TextField(
+                      maxLength: 120,
                       minLines: 3,
                       maxLines: 4,
                       onChanged: (value) => commentText = value,

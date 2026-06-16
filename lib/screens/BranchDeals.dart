@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
-import '../screens/AddDealsBranch.dart';  // Import the AddDealsScreen
+import '../screens/AddDealsBranch.dart'; // Import the AddDealsScreen
 import '../utils/api_service.dart'; // Import your API service to fetch offers
+import '../utils/colors.dart';
 
 class BranchDealsScreen extends StatefulWidget {
   final Map<String, dynamic> branchDetails;
 
-  const BranchDealsScreen({Key? key, required this.branchDetails}) : super(key: key);
+  const BranchDealsScreen({Key? key, required this.branchDetails})
+      : super(key: key);
 
   @override
   _BranchDealsScreenState createState() => _BranchDealsScreenState();
@@ -37,7 +39,9 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
             child: Text(translateText('Cancel')),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.starColor,
+            ),
             onPressed: () => Navigator.pop(ctx, true), // Confirms the dialog
             child: Text(translateText('Delete')),
           ),
@@ -148,7 +152,8 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
                   SizedBox(
                     height: MediaQuery.of(context).size.height * 0.6,
                     child: Center(
-                      child: Text(translateText('No deals available'),
+                      child: Text(
+                        translateText('No deals available'),
                         style: TextStyle(fontSize: 16, color: Colors.grey),
                       ),
                     ),
@@ -163,7 +168,8 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
                   return Card(
                     elevation: 1.5,
                     margin: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                     child: Padding(
                       padding: const EdgeInsets.all(14.0),
                       child: Column(
@@ -177,7 +183,9 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
                                   (deal['name'] ?? '').toString(),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700),
                                 ),
                               ),
                               SizedBox(width: 8),
@@ -191,12 +199,14 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
                                     .where((name) => name.isNotEmpty)
                                     .join(', ') ??
                                 '',
-                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                            style: const TextStyle(
+                                fontSize: 14, color: Colors.black87),
                           ),
                           SizedBox(height: 6),
                           Text(
                             'Total Duration: ${deal['itemSummary']['totalDuration']} Min',
-                            style: const TextStyle(fontSize: 13, color: Colors.black87),
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.black87),
                           ),
                           SizedBox(height: 6),
                           _pricingRow(
@@ -214,17 +224,25 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
                                   // TODO: navigate to details page
                                 },
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                  side: BorderSide(color: Colors.orange.shade300),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 6),
+                                  side:
+                                      BorderSide(color: Colors.orange.shade300),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8)),
                                 ),
-                                child: Text(translateText("Details"),
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.orange),
+                                child: Text(
+                                  translateText("Details"),
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.orange),
                                 ),
                               ),
                               SizedBox(width: 8),
                               IconButton(
-                                icon: Icon(Icons.delete, color: Colors.orange[400], size: 22),
+                                icon: Icon(Icons.delete,
+                                    color: Colors.orange[400], size: 22),
                                 onPressed: () {
                                   onDelete(
                                     (deal['id'] as num).toInt(),
@@ -255,18 +273,19 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
                 salonName: widget.branchDetails['name'],
                 onPackageCreated: (id) {
                   setState(() {
-              _offersData = ApiService.getBranchPackagesDeals(widget.branchDetails['id']);
-            });
+                    _offersData = ApiService.getBranchPackagesDeals(
+                        widget.branchDetails['id']);
+                  });
                 },
                 source: 'DEAL',
               ),
             ),
           );
         },
-        icon: Icon(Icons.add,color: Colors.white),
+        icon: Icon(Icons.add, color: Colors.white),
         label: Text(translateText('Add Deal')),
         foregroundColor: Colors.white,
-        backgroundColor: Colors.orange,
+        backgroundColor: AppColors.starColor,
       ),
     );
   }
@@ -323,7 +342,8 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
       );
       children.add(Text(
         rs(price),
-        style: const TextStyle(fontSize: 16, color: Colors.orange, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+            fontSize: 16, color: Colors.orange, fontWeight: FontWeight.w700),
       ));
       if (discountPct > 0) {
         children.add(_offChip("${discountPct.toStringAsFixed(0)}% OFF"));
@@ -347,7 +367,8 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+        style: const TextStyle(
+            fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
       ),
     );
   }

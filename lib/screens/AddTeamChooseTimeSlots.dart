@@ -1143,19 +1143,24 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                 )
                               : Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      translateText('Save & Continue')
-                                          .toUpperCase(),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 12,
+                                    Flexible(
+                                      child: Text(
+                                        translateText('Save & Continue')
+                                            .toUpperCase(),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 11,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 5),
                                     const Icon(
                                       Icons.arrow_forward_rounded,
-                                      size: 16,
+                                      size: 15,
                                     ),
                                   ],
                                 ),

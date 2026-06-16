@@ -480,7 +480,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           keyboardType: fieldType == 'email'
               ? TextInputType.emailAddress
               : TextInputType.text,
-          maxLength: isNameField ? 50 : null,
+          maxLength: fieldType == 'email' ? 100 : 50,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           inputFormatters: [
             if (isNameField)
@@ -495,26 +495,8 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
-          buildCounter: isNameField
-              ? (
-                  context, {
-                  required currentLength,
-                  required isFocused,
-                  maxLength,
-                }) =>
-                  Text(
-                    '$currentLength/${maxLength ?? 50}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: currentLength >= ((maxLength ?? 50) * 0.9)
-                          ? Colors.red
-                          : _profileMuted,
-                    ),
-                  )
-              : null,
           decoration: InputDecoration(
             hintText: translateText(hint),
-            counterText: isNameField ? null : '',
             filled: true,
             fillColor: _profileFieldFill,
             contentPadding:

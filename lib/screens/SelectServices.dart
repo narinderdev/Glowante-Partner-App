@@ -273,25 +273,11 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
           ? Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Search
-                // Padding(
-                //   padding: const EdgeInsets.all(12.0),
-                //   child: TextField(
-                //     decoration: InputDecoration(
-                //       hintText: translateText('Search Services'),
-                //       prefixIcon: Icon(Icons.search),
-                //       border: OutlineInputBorder(
-                //         borderRadius: BorderRadius.circular(12),
-                //       ),
-                //     ),
-                //     onChanged: (val) =>
-                //         setState(() => searchQuery = val.trim()),
-                //   ),
-                // ),
                 Padding(
                   padding: const EdgeInsets.all(12.0),
                   child: TextField(
                     controller: _searchController,
+                    // maxLength: 60,
                     decoration: InputDecoration(
                       hintText: translateText('Search Services'),
                       prefixIcon: const Icon(Icons.search),
@@ -351,20 +337,37 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
                           ),
                         ),
                       ),
-                      ElevatedButton(
-                        onPressed: () {
-                          // Return the FULL updated set
-                          Navigator.pop(context, _collectSelected());
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.starColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: Text(translateText('Done')),
-                      ),
+                      // ElevatedButton(
+                      //   onPressed: () {
+                      //     // Return the FULL updated set
+                      //     Navigator.pop(context, _collectSelected());
+                      //   },
+                      //   style: ElevatedButton.styleFrom(
+                      //     backgroundColor: AppColors.starColor,
+                      //     foregroundColor: Colors.white,
+                      //     shape: RoundedRectangleBorder(
+                      //       borderRadius: BorderRadius.circular(20),
+                      //     ),
+                      //   ),
+                      //   child: Text(translateText('Done')),
+                      // ),
+                      SizedBox(
+  width: 110,
+  height: 44,
+  child: ElevatedButton(
+    onPressed: () {
+      Navigator.pop(context, _collectSelected());
+    },
+    style: ElevatedButton.styleFrom(
+      backgroundColor: AppColors.starColor,
+      foregroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+    ),
+    child: Text(translateText('Done')),
+  ),
+),
                     ],
                   ),
                 ),

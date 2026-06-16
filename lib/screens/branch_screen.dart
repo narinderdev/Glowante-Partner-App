@@ -6,6 +6,7 @@ import 'about_screen.dart';
 import '../screens/BranchPackages.dart';
 import '../screens/BranchDeals.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../utils/colors.dart';
 
 // import '../screens/BranchBookings.dart';
 
@@ -27,43 +28,41 @@ class BranchScreen extends StatelessWidget {
 
     return DefaultTabController(
       length: 6,
-      
       child: Scaffold(
         backgroundColor: Colors.white,
         body: NestedScrollView(
           headerSliverBuilder: (context, _) => [
             // App bar with back button only
-          SliverAppBar(
-  pinned: true,
-  automaticallyImplyLeading: true,
-  iconTheme: const IconThemeData(color: Colors.white),
-  backgroundColor: Colors.orange,
-  title: Center(
-    child: Text(translateText('Branch Details'),
-      style: TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.bold, // Bold text
-      ),
-    ),
-  ),
-),
-
+            SliverAppBar(
+              pinned: true,
+              automaticallyImplyLeading: true,
+              iconTheme: const IconThemeData(color: Colors.white),
+              backgroundColor: AppColors.starColor,
+              title: Center(
+                child: Text(
+                  translateText('Branch Details'),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold, // Bold text
+                  ),
+                ),
+              ),
+            ),
 
             // Image with overlay details
             SliverToBoxAdapter(
               child: Stack(
                 children: [
-                SizedBox(
-  height: MediaQuery.of(context).size.height * 0.40,
-  width: double.infinity,
-  child: imageUrl != null && imageUrl.isNotEmpty
-      ? Image.network(imageUrl, fit: BoxFit.cover)
-      : Image.asset(
-          'assets/images/salonImage.png', // your asset path
-          fit: BoxFit.cover,
-        ),
-),
-
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.40,
+                    width: double.infinity,
+                    child: imageUrl != null && imageUrl.isNotEmpty
+                        ? Image.network(imageUrl, fit: BoxFit.cover)
+                        : Image.asset(
+                            'assets/images/salonImage.png', // your asset path
+                            fit: BoxFit.cover,
+                          ),
+                  ),
                   Positioned(
                     left: 16,
                     bottom: 16,
@@ -77,18 +76,22 @@ class BranchScreen extends StatelessWidget {
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            shadows: [Shadow(blurRadius: 2, color: Colors.black54)],
+                            shadows: [
+                              Shadow(blurRadius: 2, color: Colors.black54)
+                            ],
                           ),
                         ),
                         SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.location_on, size: 16, color: Colors.white),
+                            Icon(Icons.location_on,
+                                size: 16, color: Colors.white),
                             SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 line1,
-                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 14),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -108,9 +111,9 @@ class BranchScreen extends StatelessWidget {
               delegate: _TabBarDelegate(
                 const TabBar(
                   isScrollable: true,
-                  labelColor: Colors.orange,
+                  labelColor: AppColors.starColor,
                   unselectedLabelColor: Colors.grey,
-                  indicatorColor: Colors.orange,
+                  indicatorColor: AppColors.starColor,
                   tabs: [
                     // Tab(text: 'Bookings'),
                     Tab(text: 'Services'),
@@ -128,9 +131,15 @@ class BranchScreen extends StatelessWidget {
             children: [
               // BranchBookingsScreen(branchDetails: branchDetails,),
               ServicesTab(branchId: branchDetails['id']),
-              BranchPackagesScreen(branchDetails: branchDetails,),
-              BranchDealsScreen(branchDetails: branchDetails,),
-              TeamMemberScreen(branchDetails: branchDetails,),
+              BranchPackagesScreen(
+                branchDetails: branchDetails,
+              ),
+              BranchDealsScreen(
+                branchDetails: branchDetails,
+              ),
+              TeamMemberScreen(
+                branchDetails: branchDetails,
+              ),
               ReviewsScreen(branchId: branchDetails['id']),
               AboutScreen(branchDetails: branchDetails),
             ],
@@ -152,7 +161,8 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => _tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
       color: Colors.white,
       child: _tabBar,

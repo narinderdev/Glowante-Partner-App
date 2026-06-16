@@ -509,7 +509,6 @@ class _OtpScreenState extends State<OtpScreen> {
                                 ),
                                 cursorColor: Colors.transparent,
                                 decoration: const InputDecoration(
-                                  counterText: "",
                                   border: InputBorder.none,
                                   isCollapsed: true,
                                   contentPadding: EdgeInsets.zero,

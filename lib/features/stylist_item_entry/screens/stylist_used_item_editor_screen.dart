@@ -215,6 +215,7 @@ class _ItemTextField extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          maxLength: 120,
           controller: controller,
           readOnly: readOnly,
           validator: validator,

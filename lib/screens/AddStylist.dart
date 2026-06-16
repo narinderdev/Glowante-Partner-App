@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/colors.dart';
+import '../utils/input_validation.dart';
 
 class AddStylistScreen extends StatefulWidget {
   final int branchId;
@@ -614,13 +615,9 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? translateText('Phone is required')
                                 : null,
-                            inputFormatters: [
-                              FilteringTextInputFormatter
-                                  .digitsOnly, // Allow only digits
-                              LengthLimitingTextInputFormatter(
-                                10,
-                              ), // Limit input to 10 digits
-                            ],
+                            maxLength: AppInputRules.phoneMaxLength,
+                            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                            inputFormatters: AppInputRules.phoneFormatters,
                           ),
                         ),
                         SizedBox(width: 10),
@@ -657,9 +654,13 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                               SizedBox(height: 8),
                               TextFormField(
                                 controller: _firstNameCtrl,
+                                maxLength: AppInputRules.nameMaxLength,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
                                 keyboardType: TextInputType.text,
                                 textCapitalization: TextCapitalization
                                     .sentences, // helps user type caps
+                                inputFormatters: AppInputRules.nameFormatters,
                                 decoration: _decor(hint: 'Enter first name'),
                                 autovalidateMode:
                                     AutovalidateMode.onUserInteraction,
@@ -687,9 +688,13 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                               SizedBox(height: 8),
                               TextFormField(
                                 controller: _lastNameCtrl,
+                                maxLength: AppInputRules.nameMaxLength,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
                                 keyboardType: TextInputType.text,
                                 textCapitalization:
                                     TextCapitalization.sentences,
+                                inputFormatters: AppInputRules.nameFormatters,
                                 decoration: _decor(hint: 'Enter last name'),
                                 autovalidateMode:
                                     AutovalidateMode.onUserInteraction,
@@ -718,8 +723,12 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                     SizedBox(height: 8),
                     TextFormField(
                       controller: _emailCtrl,
+                      maxLength: AppInputRules.emailMaxLength,
+                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
                       keyboardType: TextInputType.emailAddress,
-                      decoration: _decor(hint: 'Enter email address'),
+                      inputFormatters: AppInputRules.emailFormatters,
+                      decoration:
+                          _decor(hint: 'Enter email address').copyWith(),
                       validator: (v) => (v == null || v.trim().isEmpty)
                           ? translateText('Email is required')
                           : null,
@@ -850,9 +859,14 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
                     TextFormField(
                       controller: _briefCtrl,
                       maxLines: 4,
+                      maxLength: AppInputRules.mediumTextMaxLength,
+                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                      inputFormatters: AppInputRules.generalTextFormatters(),
                       decoration: _decor(
                         hint: 'Enter a brief about this member',
-                      ).copyWith(contentPadding: const EdgeInsets.all(14)),
+                      ).copyWith(
+                        contentPadding: const EdgeInsets.all(14),
+                      ),
                     ),
 
                     SizedBox(height: 20),

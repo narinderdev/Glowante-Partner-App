@@ -701,68 +701,151 @@ class _OfferCard extends StatelessWidget {
               const SizedBox(height: 10),
 
               // --------- actions ---------
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  ElevatedButton(
-                    onPressed: (isDeleting || isStatusUpdating)
-                        ? null
-                        : onToggleStatus,
-                    style: _blackButtonStyle,
-                    child: isStatusUpdating
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            translateText(
-                              isActive ? 'Deactivate' : 'Make Live',
-                            ),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+              // Row(
+              //   mainAxisAlignment: MainAxisAlignment.end,
+              //   children: [
+              //     ElevatedButton(
+              //       onPressed: (isDeleting || isStatusUpdating)
+              //           ? null
+              //           : onToggleStatus,
+              //       style: _blackButtonStyle,
+              //       child: isStatusUpdating
+              //           ? const SizedBox(
+              //               width: 16,
+              //               height: 16,
+              //               child: CircularProgressIndicator(
+              //                 strokeWidth: 2,
+              //                 color: Colors.white,
+              //               ),
+              //             )
+              //           : Text(
+              //               translateText(
+              //                 isActive ? 'Deactivate' : 'Make Live',
+              //               ),
+              //               style: const TextStyle(
+              //                 fontSize: 12,
+              //                 fontWeight: FontWeight.w600,
+              //               ),
+              //             ),
+              //     ),
+              //     const SizedBox(width: 10),
+              //     ElevatedButton(
+              //       onPressed: (isDeleting || isStatusUpdating) ? null : onEdit,
+              //       style: _blackButtonStyle,
+              //       child: Text(
+              //         translateText('Edit'),
+              //         style: const TextStyle(
+              //             fontSize: 12, fontWeight: FontWeight.w600),
+              //       ),
+              //     ),
+              //     const SizedBox(width: 10),
+              //     ElevatedButton.icon(
+              //       onPressed:
+              //           (isDeleting || isStatusUpdating) ? null : onDelete,
+              //       icon: isDeleting
+              //           ? const SizedBox(
+              //               width: 16,
+              //               height: 16,
+              //               child: CircularProgressIndicator(
+              //                 strokeWidth: 2,
+              //                 color: Colors.white,
+              //               ),
+              //             )
+              //           : const Icon(Icons.delete, size: 16),
+              //       label: Text(
+              //         isDeleting ? 'Deleting...' : 'Delete',
+              //         style: const TextStyle(
+              //           fontSize: 12,
+              //           fontWeight: FontWeight.w600,
+              //         ),
+              //       ),
+              //       style: _blackButtonStyle,
+              //     ),
+              //   ],
+              // ),
+              SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  child: Row(
+    children: [
+      SizedBox(
+        height: 38,
+        width: 120,
+        child: ElevatedButton(
+          onPressed: (isDeleting || isStatusUpdating)
+              ? null
+              : onToggleStatus,
+          style: _blackButtonStyle,
+          child: isStatusUpdating
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
                   ),
-                  const SizedBox(width: 10),
-                  ElevatedButton(
-                    onPressed: (isDeleting || isStatusUpdating) ? null : onEdit,
-                    style: _blackButtonStyle,
-                    child: Text(
-                      translateText('Edit'),
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
+                )
+              : Text(
+                  translateText(
+                    isActive ? 'Deactivate' : 'Make Live',
                   ),
-                  const SizedBox(width: 10),
-                  ElevatedButton.icon(
-                    onPressed:
-                        (isDeleting || isStatusUpdating) ? null : onDelete,
-                    icon: isDeleting
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.delete, size: 16),
-                    label: Text(
-                      isDeleting ? 'Deleting...' : 'Delete',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: _blackButtonStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
+                ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      SizedBox(
+        height: 38,
+        width: 78,
+        child: ElevatedButton(
+          onPressed: (isDeleting || isStatusUpdating) ? null : onEdit,
+          style: _blackButtonStyle,
+          child: Text(
+            translateText('Edit'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      SizedBox(
+        height: 38,
+        width: 105,
+        child: ElevatedButton.icon(
+          onPressed: (isDeleting || isStatusUpdating) ? null : onDelete,
+          icon: isDeleting
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.delete, size: 15),
+          label: Text(
+            isDeleting ? 'Deleting...' : translateText('Delete'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          style: _blackButtonStyle,
+        ),
+      ),
+    ],
+  ),
+),
             ],
           ),
         ),

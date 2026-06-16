@@ -91,11 +91,11 @@ class _VendorFormViewState extends State<_VendorFormView> {
         child: Column(
           children: [
             TextFormField(
+              maxLength: 120,
               controller: _nameController,
               decoration: InputDecoration(labelText: context.t('Vendor Name')),
-              validator: (value) => _stringValue(value).isEmpty
-                  ? vendorNameRequired
-                  : null,
+              validator: (value) =>
+                  _stringValue(value).isEmpty ? vendorNameRequired : null,
             ),
             const SizedBox(height: 14),
             TextFormField(
@@ -118,6 +118,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
             ),
             const SizedBox(height: 14),
             TextFormField(
+              maxLength: 120,
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,

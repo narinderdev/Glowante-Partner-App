@@ -45,6 +45,7 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
         const SizedBox(height: 16),
         TextField(
           controller: _serviceSearchController,
+          // maxLength: 60,
           decoration: InputDecoration(
             hintText: context.t('Search services'),
             prefixIcon: const Icon(Icons.search),
