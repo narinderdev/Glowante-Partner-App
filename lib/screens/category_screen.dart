@@ -1299,7 +1299,7 @@ class CategoryScreenState extends State<CategoryScreen> {
         cursorColor: _catalogGold,
         keyboardType: TextInputType.text,
         textInputAction: TextInputAction.search,
-        maxLength: 60,
+        // maxLength: 60,
         maxLengthEnforcement: MaxLengthEnforcement.enforced,
         inputFormatters: [
           LengthLimitingTextInputFormatter(60),
