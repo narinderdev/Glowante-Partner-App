@@ -536,28 +536,6 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     );
   }
 
-  Widget _closedDayNotice() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFAF5),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFEADCCD)),
-      ),
-      child: Text(
-        translateText('Branch closed for appointments'),
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Color(0xFF9A8E84),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
-
   Widget _timeDropdownField(
     String day,
     int index,
@@ -570,29 +548,49 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     return DropdownButtonFormField<String>(
       value: safeValue,
       isExpanded: true,
+      icon: const Icon(
+        Icons.schedule_rounded,
+        color: Color(0xFF1F1B18),
+        size: 14,
+      ),
       decoration: InputDecoration(
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 10,
-          horizontal: 8,
-        ),
+        isDense: true,
+        filled: true,
+        fillColor: const Color(0xFFFAF8F6),
+        contentPadding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.grey),
+          borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Colors.grey),
+          borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFD8C7B3)),
         ),
       ),
       hint: Text(
         currentValue ?? translateText('Select time'),
-        style: const TextStyle(fontSize: 14),
+        style: const TextStyle(
+          color: Color(0xFF1F1B18),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       items: options
           .map(
             (option) => DropdownMenuItem<String>(
               value: option,
-              child: Text(option, style: const TextStyle(fontSize: 14)),
+              child: Text(
+                option,
+                style: const TextStyle(
+                  color: Color(0xFF1F1B18),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           )
           .toList(),
@@ -600,6 +598,159 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         if (value == null) return;
         updateTime(day, index, timeType, value);
       },
+    );
+  }
+
+  Widget _weeklyHoursCard(String day) {
+    final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+    final isClosed = _isClosedDay(day);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFF0E8DF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            translateText(day),
+            style: const TextStyle(
+              color: Color(0xFF1F1B18),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (isClosed)
+            Text(
+              translateText('CLOSED'),
+              style: const TextStyle(
+                color: Color(0xFFE54848),
+                fontSize: 10,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.8,
+              ),
+            )
+          else ...[
+            if (slots.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  translateText('No time slots added'),
+                  style: const TextStyle(
+                    color: Color(0xFF9A928B),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            for (var index = 0; index < slots.length; index++)
+              _weeklySlotRow(day, index),
+            Align(
+              alignment: Alignment.centerRight,
+              child: _addSlotButton(day),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _weeklySlotRow(String day, int index) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: _labeledTimeField(
+              label: 'FROM',
+              child: _timeDropdownField(day, index, 'start'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _labeledTimeField(
+              label: 'TO',
+              child: _timeDropdownField(day, index, 'end'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 32,
+            height: 38,
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFE54848),
+                size: 17,
+              ),
+              onPressed: () => deleteSlot(day, index),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _labeledTimeField({
+    required String label,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          translateText(label),
+          style: const TextStyle(
+            color: Color(0xFFB5ADA5),
+            fontSize: 8,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.4,
+          ),
+        ),
+        const SizedBox(height: 4),
+        child,
+      ],
+    );
+  }
+
+  Widget _addSlotButton(String day) {
+    return OutlinedButton.icon(
+      onPressed: () => addSlot(day),
+      icon: const Icon(Icons.add_rounded, size: 13),
+      label: Text(
+        translateText('ADD SLOT'),
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.4,
+        ),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF8B6500),
+        side: const BorderSide(color: Color(0xFFE8D8C3)),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        minimumSize: const Size(0, 30),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
     );
   }
 
@@ -843,7 +994,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         return false; // Prevent the default back action
       },
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF7F4F1),
         appBar: buildProfileSubpageAppBar(
           title: translateText('Add TimeSlots'),
         ),
@@ -928,184 +1079,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                   ),
                 if (!_useSalonHours) ...[
                   const SizedBox(height: 16),
-
-                  // Display Monday's working hours and slots as a card
-                  Container(
-                    width: double
-                        .infinity, // Ensure consistent width across all cards
-                    child: Card(
-                      elevation: 5,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              translateText('Monday'),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight:
-                                    FontWeight.w600, // Added font weight
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            if (_isClosedDay('Monday'))
-                              _closedDayNotice()
-                            else ...[
-                              // Display message if Monday has no time slots
-                              if (weeklySchedule['Monday']?.isEmpty ?? true)
-                                Text(translateText('No time slots added')),
-
-                              // Display slots for Monday
-                              for (var i = 0;
-                                  i < (weeklySchedule['Monday']?.length ?? 0);
-                                  i++)
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: _timeDropdownField(
-                                              'Monday',
-                                              i,
-                                              'start',
-                                            ),
-                                          ),
-                                          // To text
-                                          Text(' to '),
-                                          // End time
-                                          Expanded(
-                                            child: _timeDropdownField(
-                                              'Monday',
-                                              i,
-                                              'end',
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(Icons.delete),
-                                      onPressed: () => deleteSlot('Monday', i),
-                                    ),
-                                  ],
-                                ),
-                              ElevatedButton(
-                                onPressed: () => addSlot('Monday'),
-                                child: Text(translateText('+ Add Slot')),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // Copy Monday schedule button (immediately after Monday's section)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: ElevatedButton(
-                      onPressed: copyMondayScheduleToAll,
-                      child: Text(
-                          translateText('Copy Monday schedule to all days')),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Display each day's working hours and slots
-                  for (var day in weeklySchedule.keys)
-                    if (day !=
-                        'Monday') // Skip Monday since it's already displayed above
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: double
-                                .infinity, // Ensure consistent width across all cards
-                            child: Card(
-                              elevation: 5,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      day,
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight
-                                            .w600, // Added font weight
-                                      ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    if (_isClosedDay(day))
-                                      _closedDayNotice()
-                                    else ...[
-                                      // Display slots for each day
-                                      if (weeklySchedule[day]!.isEmpty)
-                                        Text(translateText(
-                                            'No time slots added')),
-                                      for (var i = 0;
-                                          i < weeklySchedule[day]!.length;
-                                          i++)
-                                        Row(
-                                          children: [
-                                            // Time Slot
-                                            Expanded(
-                                              child: Row(
-                                                children: [
-                                                  // Start time
-                                                  Expanded(
-                                                    child: _timeDropdownField(
-                                                      day,
-                                                      i,
-                                                      'start',
-                                                    ),
-                                                  ),
-                                                  // To text
-                                                  Text(' to '),
-                                                  // End time
-                                                  Expanded(
-                                                    child: _timeDropdownField(
-                                                      day,
-                                                      i,
-                                                      'end',
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            // Delete button
-                                            IconButton(
-                                              icon: Icon(Icons.delete),
-                                              onPressed: () =>
-                                                  deleteSlot(day, i),
-                                            ),
-                                          ],
-                                        ),
-                                      SizedBox(height: 8),
-                                      // Add Slot button
-                                      ElevatedButton(
-                                        onPressed: () => addSlot(day),
-                                        child:
-                                            Text(translateText('+ Add Slot')),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                      ),
+                  ..._weekDays.map(_weeklyHoursCard),
                 ],
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1118,14 +1092,27 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                               : () => Navigator.pop(context, false),
                           style: OutlinedButton.styleFrom(
                             minimumSize: const Size(double.infinity, 50),
-                            backgroundColor: const Color(0xFFE5E7EB),
-                            foregroundColor: const Color(0xFF374151),
-                            side: BorderSide.none,
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF2D2926),
+                            side: const BorderSide(color: Color(0xFFE2D3BF)),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: Text(translateText('Previous')),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.arrow_back_rounded, size: 16),
+                              const SizedBox(width: 6),
+                              Text(
+                                translateText('Previous').toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1141,7 +1128,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                             backgroundColor: AppColors.starColor,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             elevation: 2,
                           ),
@@ -1154,12 +1141,23 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                                     strokeWidth: 2.5,
                                   ),
                                 )
-                              : Text(
-                                  translateText('Next'),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                  ),
+                              : Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      translateText('Save & Continue')
+                                          .toUpperCase(),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.arrow_forward_rounded,
+                                      size: 16,
+                                    ),
+                                  ],
                                 ),
                         ),
                       ),

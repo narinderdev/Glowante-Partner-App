@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 // import '../screens/AddTeamSelectServices.dart';
 import '../screens/AddTeamChooseTimeSlots.dart';
 import '../utils/api_service.dart';
+import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -56,8 +57,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   bool _suppressDateError = false;
 
   // Colors for statuses
-  final Color _errorColor = Colors.red; // invalid inputs
-  final Color _verifyWarnColor = Colors.red; // "please verify" prompt
+  final Color _errorColor = AppColors.red; // invalid inputs
+  final Color _verifyWarnColor = AppColors.red; // "please verify" prompt
   final Color _successColor = Colors.green; // verified success
 
   // --- Shared validators (return null when valid, error string when invalid) ---
@@ -172,15 +173,28 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   Future<void> _fetchRolesAndSpecializations() async {
     try {
-      final data = await ApiService().getRolesAndSpecializations();
+      final data = await ApiService().getRolesAndSpecializations(
+        branchId: widget.branchId,
+      );
       setState(() {
-        _allRoles = List<Map<String, dynamic>>.from(data['roles'] ?? const []);
-        _allSpecs =
-            List<Map<String, dynamic>>.from(data['specialities'] ?? const []);
+        _allRoles = _readOptionMaps(data['roles'])
+            .where((role) => role['branchId'] != null)
+            .toList();
+        _allSpecs = _readOptionMaps(
+          data['specialities'] ?? data['specializations'],
+        );
       });
     } catch (e) {
       debugPrint('Error fetching roles/specs: $e');
     }
+  }
+
+  List<Map<String, dynamic>> _readOptionMaps(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
   }
 
   void _prefillFromInitialMember() {
@@ -418,6 +432,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         borderRadius: _radius,
         borderSide: const BorderSide(color: _teamMemberAccent, width: 1.5),
       ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: _radius,
+        borderSide: const BorderSide(color: AppColors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: _radius,
+        borderSide: const BorderSide(color: AppColors.red, width: 1.5),
+      ),
+      errorStyle: const TextStyle(color: AppColors.red, fontSize: 12),
     );
   }
 
@@ -432,7 +455,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           letterSpacing: 1.4,
         ),
         children: [
-          TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+          TextSpan(text: ' *', style: TextStyle(color: AppColors.red)),
         ],
       ),
     );
@@ -657,9 +680,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 24),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 22),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: const Color(0xFFFFF8EF),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: const Color(0xFFE8D8C3)),
             boxShadow: const [
@@ -673,77 +696,70 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  color: _teamMemberAccent.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.error_outline_rounded,
-                  color: _teamMemberAccent,
-                  size: 30,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                translateText('Please complete required fields'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF2D2926),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF8EF),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE8D8C3)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: errors
-                      .map(
-                        (message) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.circle,
-                                size: 7,
-                                color: _teamMemberAccent,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  message,
-                                  style: const TextStyle(
-                                    color: Color(0xFF5E564F),
-                                    fontSize: 13,
-                                    height: 1.35,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      translateText('Required Fields'),
+                      style: const TextStyle(
+                        color: Color(0xFF2D2926),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF5E564F),
+                      size: 24,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
               const SizedBox(height: 18),
-              _PrimaryButton(
-                text: translateText('Got it'),
-                height: 48,
-                flowStyle: true,
-                onPressed: () => Navigator.of(context).pop(),
+              SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List.generate(errors.length, (index) {
+                    final message = errors[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == errors.length - 1 ? 0 : 10,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.circle,
+                            size: 7,
+                            color: AppColors.red,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              message,
+                              style: const TextStyle(
+                                color: AppColors.red,
+                                fontSize: 14,
+                                height: 1.35,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
               ),
             ],
           ),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart'; // For TextInputFormatter
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../utils/colors.dart';
 
 class AddStylistScreen extends StatefulWidget {
   final int branchId;
@@ -108,6 +109,15 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
         borderRadius: _radius,
         borderSide: const BorderSide(color: Color(0xFFDBA35B), width: 1.5),
       ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: _radius,
+        borderSide: const BorderSide(color: AppColors.red),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: _radius,
+        borderSide: const BorderSide(color: AppColors.red, width: 1.5),
+      ),
+      errorStyle: const TextStyle(color: AppColors.red, fontSize: 12),
     );
   }
 
@@ -123,7 +133,7 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
         children: [
           TextSpan(
             text: ' *',
-            style: TextStyle(color: Colors.red),
+            style: TextStyle(color: AppColors.red),
           ),
         ],
       ),
@@ -133,16 +143,20 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
   Future<void> _fetchRolesAndSpecializations() async {
     try {
       // Fetch data from the API
-      Map<String, dynamic> data =
-          await ApiService().getRolesAndSpecializations();
+      Map<String, dynamic> data = await ApiService()
+          .getRolesAndSpecializations(branchId: widget.branchId);
 
       // Log the data to check the response
       print('Fetched roles and specializations: $data');
 
       // Assuming the data has a 'roles' and 'specialities' field
       setState(() {
-        _allRoles = List<Map<String, dynamic>>.from(data['roles']);
-        _allSpecs = List<Map<String, dynamic>>.from(data['specialities']);
+        _allRoles = _readOptionMaps(data['roles'])
+            .where((role) => role['branchId'] != null)
+            .toList();
+        _allSpecs = _readOptionMaps(
+          data['specialities'] ?? data['specializations'],
+        );
         print('Roles: $_allRoles');
         print('Specializations: $_allSpecs');
       });
@@ -150,6 +164,14 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
       print('Error fetching data: $e');
       // Handle the error appropriately, e.g., show a message to the user
     }
+  }
+
+  List<Map<String, dynamic>> _readOptionMaps(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
   }
 
   Future<void> _handleVerifyPhoneNumber() async {
@@ -361,30 +383,97 @@ class _AddStylistScreenState extends State<AddStylistScreen> {
     );
   }
 
-  @override
   Future<void> _showValidationDialog(List<String> errors) async {
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(translateText('Please fix the following')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: errors
-              .map(
-                (message) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text('• ' + message),
-                ),
-              )
-              .toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(translateText('OK')),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 22),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8EF),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE8D8C3)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ],
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      translateText('Required Fields'),
+                      style: const TextStyle(
+                        color: Color(0xFF2D2926),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF5E564F),
+                      size: 24,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: List.generate(errors.length, (index) {
+                    final message = errors[index];
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        bottom: index == errors.length - 1 ? 0 : 10,
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.circle,
+                            size: 7,
+                            color: AppColors.red,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              message,
+                              style: const TextStyle(
+                                color: AppColors.red,
+                                fontSize: 14,
+                                height: 1.35,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

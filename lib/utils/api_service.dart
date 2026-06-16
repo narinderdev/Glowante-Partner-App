@@ -301,7 +301,10 @@ class ApiService {
   static const String payrollDeductionsAPI = "payroll/deductions";
   static String payrollDeductionDetailsAPI(String deductionId) =>
       "payroll/deductions/$deductionId";
-  static const String getRolesSpecialization = "users/constants";
+  static String getRolesSpecialization({int? branchId}) {
+    if (branchId == null) return "users/constants";
+    return "users/constants?branchId=$branchId";
+  }
 
   static String getTeamMember(int id) {
     return "branches/$id/team";
@@ -2094,13 +2097,16 @@ class ApiService {
   }
 
   // ---------------------- GET ROLES AND SPECIALIZATIONS ----------------------
-  Future<Map<String, dynamic>> getRolesAndSpecializations() async {
+  Future<Map<String, dynamic>> getRolesAndSpecializations({
+    int? branchId,
+  }) async {
     try {
       // Fetch the token dynamically from SharedPreferences
       String token = await getAuthToken();
+      final endpoint = getRolesSpecialization(branchId: branchId);
 
       // Log the request details (with the actual token)
-      print('Sending request to: $baseUrl$getRolesSpecialization');
+      print('Sending request to: $baseUrl$endpoint');
       print('Headers: { "Authorization": "Bearer $token" }');
 
       // Check if token is empty
@@ -2110,7 +2116,7 @@ class ApiService {
 
       // Send the request with the actual token in the Authorization header
       final response = await _sharedClient.get(
-        Uri.parse(baseUrl + getRolesSpecialization),
+        Uri.parse(baseUrl + endpoint),
         headers: {
           'Authorization': 'Bearer $token', // Use the actual token here
         },
@@ -2122,9 +2128,13 @@ class ApiService {
 
       if (response.statusCode == 200) {
         // If the server returns a 200 OK response, parse the JSON
-        final data = json.decode(response.body)['data'];
+        final decoded = json.decode(response.body);
+        final data = decoded['data'];
+        if (data is! Map) {
+          throw Exception('Invalid roles and specializations response');
+        }
         print('Fetched roles and specializations data: $data');
-        return data; // Access the 'data' key in the response
+        return Map<String, dynamic>.from(data); // Access the 'data' key
       } else {
         // If the server returns an error response, throw an exception
         throw Exception(
