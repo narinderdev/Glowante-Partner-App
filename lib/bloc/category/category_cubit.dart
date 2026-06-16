@@ -26,7 +26,9 @@ class CategoryCubit extends Cubit<CategoryState> {
   }
 
   Future<bool> loadCategories(int branchId, {bool silent = false}) async {
-    emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
+    if (!silent) {
+      emit(state.copyWith(status: CategoryStatus.loading, clearMessage: true));
+    }
 
     try {
       final response = await _repository.fetchSalonCatalog(branchId);
@@ -46,11 +48,11 @@ class CategoryCubit extends Cubit<CategoryState> {
     } catch (error) {
       if (_isNoCategories404(error)) {
         emit(state.copyWith(
-          status: CategoryStatus.success, 
-          categories: const [], 
+          status: CategoryStatus.success,
+          categories: const [],
           clearMessage: true,
         ));
-        return true; 
+        return true;
       }
       emit(state.copyWith(
         status: CategoryStatus.failure,
@@ -208,6 +210,7 @@ class CategoryCubit extends Cubit<CategoryState> {
 
     emit(state.copyWith(status: normalizedStatus, clearMessage: true));
   }
+
   Future<void> _performMutation(
     int branchId,
     Future<Map<String, dynamic>> Function() action, {
@@ -287,8 +290,7 @@ class CategoryCubit extends Cubit<CategoryState> {
             return message;
           }
         }
-      } catch (_) {
-      }
+      } catch (_) {}
     }
 
     return sanitized.isNotEmpty ? sanitized : raw;

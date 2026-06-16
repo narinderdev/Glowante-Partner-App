@@ -159,9 +159,13 @@ class _MyAppState extends State<MyApp> {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          builder: (context, child) => CrashlyticsDebugOverlay(
-            child: NetworkListener(
-              child: child ?? const SizedBox.shrink(),
+          builder: (context, child) => Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+            child: CrashlyticsDebugOverlay(
+              child: NetworkListener(
+                child: child ?? const SizedBox.shrink(),
+              ),
             ),
           ),
           home: const SplashScreen(),

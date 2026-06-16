@@ -1129,6 +1129,7 @@ class CategoryScreenState extends State<CategoryScreen> {
     List<Map<String, dynamic>> salons,
   ) {
     final visibleCategories = _visibleCategories(catState.categories);
+    final isInitialLoading = catState.isLoading && catState.categories.isEmpty;
 
     return RefreshIndicator(
       color: _catalogGold,
@@ -1162,7 +1163,9 @@ class CategoryScreenState extends State<CategoryScreen> {
               subtitle: translateText('Please select a salon first.'),
             ),
           ] else ...[
-            if (catState.status == CategoryStatus.failure &&
+            if (isInitialLoading)
+              const SizedBox(height: 260)
+            else if (catState.status == CategoryStatus.failure &&
                 catState.categories.isEmpty)
               _ErrorCard(
                 message: catState.message ?? 'Failed to load categories',
@@ -1294,9 +1297,17 @@ class CategoryScreenState extends State<CategoryScreen> {
         focusNode: _catalogSearchFocusNode,
         autofocus: false,
         cursorColor: _catalogGold,
+        keyboardType: TextInputType.text,
+        textInputAction: TextInputAction.search,
+        maxLength: 60,
+        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+        inputFormatters: [
+          LengthLimitingTextInputFormatter(60),
+        ],
         onChanged: (value) => setState(() => _catalogQuery = value),
         decoration: InputDecoration(
           border: InputBorder.none,
+          counterText: '',
           prefixIcon: const Icon(
             Icons.search_rounded,
             color: _catalogGold,
@@ -1527,14 +1538,15 @@ class CategoryScreenState extends State<CategoryScreen> {
       final int? loadId = _asInt(_selectedSalon?['branchId']) ??
           _asInt(_selectedSalon?['salonId']);
       if (loadId != null) {
-        context.read<CategoryCubit>().loadCategories(loadId);
+        await context
+            .read<CategoryCubit>()
+            .loadCategories(loadId, silent: true);
       } else {
-        context.read<SalonListCubit>().loadSalons();
+        await context.read<SalonListCubit>().loadSalons();
       }
     } else {
-      context.read<SalonListCubit>().loadSalons();
+      await context.read<SalonListCubit>().loadSalons();
     }
-    await Future.delayed(const Duration(milliseconds: 400));
   }
 
   // ---------- OVERLAY ----------
@@ -2805,7 +2817,6 @@ class _LabeledField extends StatelessWidget {
     this.textCapitalization = TextCapitalization.none,
     this.maxLength,
     this.inputFormatters,
-    this.hideCounter = true,
   });
 
   final String label;
@@ -2815,7 +2826,6 @@ class _LabeledField extends StatelessWidget {
   final TextCapitalization textCapitalization;
   final int? maxLength;
   final List<TextInputFormatter>? inputFormatters;
-  final bool hideCounter;
 
   @override
   Widget build(BuildContext context) {
@@ -2825,6 +2835,7 @@ class _LabeledField extends StatelessWidget {
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
       maxLength: maxLength,
+      maxLengthEnforcement: MaxLengthEnforcement.enforced,
       inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: '',
@@ -2835,7 +2846,6 @@ class _LabeledField extends StatelessWidget {
           horizontal: 12,
           vertical: 12,
         ),
-        counterText: maxLength != null && hideCounter ? '' : null,
       ),
     );
   }
@@ -2994,9 +3004,15 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
               TextField(
                 controller: nameController,
                 cursorColor: _catalogGold,
+                keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.done,
                 textCapitalization: TextCapitalization.none,
-                inputFormatters: const [FirstLetterUpperFormatter()],
+                maxLength: 30,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                inputFormatters: [
+                  const FirstLetterUpperFormatter(),
+                  LengthLimitingTextInputFormatter(30),
+                ],
                 onSubmitted: (_) {
                   if (!isSaving) _submit();
                 },
@@ -3155,9 +3171,15 @@ class _EditSubcategorySheetState extends State<_EditSubcategorySheet> {
               TextField(
                 controller: controller,
                 cursorColor: _catalogGold,
+                keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.done,
                 textCapitalization: TextCapitalization.none,
-                inputFormatters: const [FirstLetterUpperFormatter()],
+                maxLength: 30,
+                maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                inputFormatters: [
+                  const FirstLetterUpperFormatter(),
+                  LengthLimitingTextInputFormatter(30),
+                ],
                 onSubmitted: (_) {
                   if (!isSaving) _submit();
                 },
@@ -3476,6 +3498,10 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             label: translateText('Service Name'),
             controller: nameController,
             textCapitalization: TextCapitalization.words,
+            maxLength: 50,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(50),
+            ],
           ),
           if (nameError != null) ...[
             SizedBox(height: 4),
@@ -3495,6 +3521,10 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             controller: descriptionController,
             maxLines: 1,
             textCapitalization: TextCapitalization.sentences,
+            maxLength: 50,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(50),
+            ],
           ),
           SizedBox(height: 12),
 
@@ -3503,6 +3533,11 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             label: translateText('Duration (minutes)'),
             controller: durationController,
             keyboardType: TextInputType.number,
+            maxLength: 4,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(4),
+            ],
           ),
           if (durationError != null) ...[
             SizedBox(height: 4),
@@ -3521,6 +3556,11 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
             label: translateText('Price (in ₹)'),
             controller: priceController,
             keyboardType: TextInputType.number,
+            maxLength: 6,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
           ),
           if (priceError != null) ...[
             SizedBox(height: 4),

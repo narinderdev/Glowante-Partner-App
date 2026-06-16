@@ -273,6 +273,24 @@ bool _hasProvidedWeeklySchedule(dynamic rawSchedule) {
   return false;
 }
 
+dynamic _rawScheduleValue(Map<dynamic, dynamic> source) {
+  if (source.containsKey('schedule')) return source['schedule'];
+  if (source.containsKey('schedules')) return source['schedules'];
+  return null;
+}
+
+dynamic _effectiveBranchSchedule(
+  Map<dynamic, dynamic> branch,
+  Map<dynamic, dynamic>? salon,
+) {
+  final branchSchedule = _rawScheduleValue(branch);
+  if (_hasProvidedWeeklySchedule(branchSchedule)) return branchSchedule;
+  if (salon == null) return null;
+  final salonSchedule = _rawScheduleValue(salon);
+  if (_hasProvidedWeeklySchedule(salonSchedule)) return salonSchedule;
+  return null;
+}
+
 String _formatMinutesLabel(int minutes) {
   final normalized = minutes % (24 * 60);
   return _formatTime(DateTime(0, 1, 1, normalized ~/ 60, normalized % 60));
@@ -1323,9 +1341,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               (branch['name'] ?? branch['branchName'] ?? salonName)
                   .toString()
                   .trim();
-          final rawSchedule = branch['schedule'] is List
-              ? branch['schedule']
-              : salon['schedule'];
+          final rawSchedule = _effectiveBranchSchedule(branch, salon);
 
           options.add(
             _SalonBranchOption(
@@ -1351,7 +1367,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           _asInt(salon['branchId']) ?? _asInt(salon['branch_id']) ?? salonId;
       final derivedBranchName =
           (salon['branchName'] ?? salon['branch_name'])?.toString().trim();
-      final rawSchedule = salon['schedule'];
+      final rawSchedule = _rawScheduleValue(salon);
 
       options.add(
         _SalonBranchOption(
@@ -1389,11 +1405,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       final branch = Map<String, dynamic>.from(rawBranch);
       final branchId = _asInt(branch['id']);
       final branchName = (branch['name'] ?? '').toString().trim();
-      final rawSchedule = branch['schedule'];
 
       final rawSalon = branch['salon'];
       final salon =
           rawSalon is Map ? Map<String, dynamic>.from(rawSalon) : null;
+      final rawSchedule = _effectiveBranchSchedule(branch, salon);
       final salonId = _asInt(salon?['id']) ?? branchId;
       final salonName = (salon?['name'] ?? branchName).toString().trim();
 

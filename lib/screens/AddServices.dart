@@ -491,6 +491,8 @@ class _AddServicesState extends State<AddServices> {
                             textInputAction: TextInputAction.next,
                             keyboardType: TextInputType.text,
                             textCapitalization: TextCapitalization.sentences,
+                            maxLength: 50,
+                            maxLengthEnforcement: MaxLengthEnforcement.enforced,
                             inputFormatters: [
                               const FirstLetterUpperFormatter(),
                               LengthLimitingTextInputFormatter(50),
@@ -512,6 +514,8 @@ class _AddServicesState extends State<AddServices> {
                           TextFormField(
                             controller: descController,
                             maxLines: 2,
+                            maxLength: 50,
+                            maxLengthEnforcement: MaxLengthEnforcement.enforced,
                             keyboardType: TextInputType.text,
                             textInputAction: TextInputAction.next,
                             textCapitalization: TextCapitalization.sentences,
@@ -580,6 +584,9 @@ class _AddServicesState extends State<AddServices> {
                                 const SizedBox(height: 7),
                                 TextFormField(
                                   controller: priceController,
+                                  maxLength: 6,
+                                  maxLengthEnforcement:
+                                      MaxLengthEnforcement.enforced,
                                   keyboardType: TextInputType.number,
                                   textInputAction: TextInputAction.next,
                                   onChanged: (_) => setState(() {
@@ -596,8 +603,13 @@ class _AddServicesState extends State<AddServices> {
                                   decoration: _inputDecoration(
                                     hint: translateText("Price"),
                                     suffixIcon: Icons.currency_rupee,
-                                  ),
+                                  ).copyWith(counterText: ''),
                                   validator: _validatePrice,
+                                ),
+                                const SizedBox(height: 4),
+                                _FieldCounter(
+                                  currentLength: priceController.text.length,
+                                  maxLength: 6,
                                 ),
                               ],
                             ),
@@ -611,8 +623,12 @@ class _AddServicesState extends State<AddServices> {
                                 const SizedBox(height: 7),
                                 TextFormField(
                                   controller: durationController,
+                                  maxLength: 4,
+                                  maxLengthEnforcement:
+                                      MaxLengthEnforcement.enforced,
                                   keyboardType: TextInputType.number,
                                   textInputAction: TextInputAction.next,
+                                  onChanged: (_) => setState(() {}),
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                     LengthLimitingTextInputFormatter(4),
@@ -620,8 +636,13 @@ class _AddServicesState extends State<AddServices> {
                                   decoration: _inputDecoration(
                                     hint: translateText("Minutes"),
                                     suffixIcon: Icons.timer_outlined,
-                                  ),
+                                  ).copyWith(counterText: ''),
                                   validator: _validateDuration,
+                                ),
+                                const SizedBox(height: 4),
+                                _FieldCounter(
+                                  currentLength: durationController.text.length,
+                                  maxLength: 4,
                                 ),
                               ],
                             ),
@@ -725,10 +746,14 @@ class _AddServicesState extends State<AddServices> {
                             const SizedBox(height: 7),
                             TextFormField(
                               controller: commissionValueController,
+                              maxLength: 6,
+                              maxLengthEnforcement:
+                                  MaxLengthEnforcement.enforced,
                               keyboardType: _commissionType == 'percentage'
                                   ? const TextInputType.numberWithOptions(
                                       decimal: true)
                                   : TextInputType.number,
+                              onChanged: (_) => setState(() {}),
                               textInputAction: _commissionType == 'percentage'
                                   ? TextInputAction.next
                                   : TextInputAction.done,
@@ -752,8 +777,14 @@ class _AddServicesState extends State<AddServices> {
                                 icon: _commissionType == 'percentage'
                                     ? Icons.percent_rounded
                                     : Icons.currency_rupee,
-                              ),
+                              ).copyWith(counterText: ''),
                               validator: _validateCommissionValue,
+                            ),
+                            const SizedBox(height: 4),
+                            _FieldCounter(
+                              currentLength:
+                                  commissionValueController.text.length,
+                              maxLength: 6,
                             ),
                             if (_commissionType == 'percentage') ...[
                               const SizedBox(height: 14),
@@ -763,8 +794,12 @@ class _AddServicesState extends State<AddServices> {
                               const SizedBox(height: 7),
                               TextFormField(
                                 controller: commissionMaxController,
+                                maxLength: 6,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
                                 keyboardType: TextInputType.number,
                                 textInputAction: TextInputAction.done,
+                                onChanged: (_) => setState(() {}),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(6),
@@ -772,8 +807,14 @@ class _AddServicesState extends State<AddServices> {
                                 decoration: _inputDecoration(
                                   hint: translateText("Maximum amount"),
                                   icon: Icons.currency_rupee,
-                                ),
+                                ).copyWith(counterText: ''),
                                 validator: _validateCommissionMax,
+                              ),
+                              const SizedBox(height: 4),
+                              _FieldCounter(
+                                currentLength:
+                                    commissionMaxController.text.length,
+                                maxLength: 6,
                               ),
                             ],
                           ],

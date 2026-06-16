@@ -122,7 +122,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   Future<void> _getCurrentLocation() async {
     FocusScope.of(context).unfocus();
     _removeOverlay();
-    setState(() => _isLoading = true);
+    _formKey.currentState?.reset();
+    setState(() {
+      _clearManualAddressInputs(clearCompleteAddress: true);
+      _baseCompleteAddress = '';
+      _isLoading = true;
+    });
 
     // Do not fill search when using current location
     searchLocationController.clear();
@@ -248,6 +253,16 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     } catch (e) {
       debugPrint("Error fetching address: $e");
     }
+  }
+
+  void _clearManualAddressInputs({bool clearCompleteAddress = false}) {
+    _isSyncingCompleteAddress = true;
+    scoFlatHouseController.clear();
+    streetSectorAreaController.clear();
+    if (clearCompleteAddress) {
+      completeAddressController.clear();
+    }
+    _isSyncingCompleteAddress = false;
   }
 
   Future<void> _getPredictions(String input) async {
@@ -505,6 +520,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     controller: searchLocationController,
                     focusNode: _searchFocus,
                     maxLines: 1,
+                    maxLength: 120,
+                    maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                    keyboardType: TextInputType.streetAddress,
+                    textInputAction: TextInputAction.search,
+                    inputFormatters: [
+                      LengthLimitingTextInputFormatter(120),
+                    ],
                     textAlignVertical: TextAlignVertical.center,
                     style: TextStyle(
                       color: showSearchEllipsis ? Colors.transparent : _ink,
@@ -513,6 +535,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
                     ),
                     decoration: InputDecoration(
                       hintText: translateText('Search your location...'),
+                      counterText: '',
                       hintStyle: const TextStyle(
                         color: Color(0xFF9A928B),
                         fontSize: 13,
@@ -667,14 +690,21 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             label: 'House/Flat No',
             hint: 'e.g. 402, Luxe Residency',
             isRequired: false,
-            maxLength: 60,
+            maxLength: 30,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(30),
+            ],
           ),
           _buildTextField(
             controller: streetSectorAreaController,
             label: 'Street/Area',
             hint: 'e.g. Golden Avenue',
             isRequired: false,
-            maxLength: 120,
+            maxLength: 60,
+            keyboardType: TextInputType.streetAddress,
+            inputFormatters: [
+              LengthLimitingTextInputFormatter(60),
+            ],
           ),
           KeyedSubtree(
             key: _completeAddressKey,
@@ -685,7 +715,12 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
               isRequired: true,
               minLines: 3,
               maxLines: 3,
+              maxLength: 180,
+              keyboardType: TextInputType.streetAddress,
               textCapitalization: TextCapitalization.sentences,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(180),
+              ],
               suffix: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -853,7 +888,6 @@ Widget _buildTextField({
             height: 1.3,
           ),
           cursorColor: _AddLocationScreenState._gold,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
           validator: (value) {
             final v = value?.trim() ?? '';
 
