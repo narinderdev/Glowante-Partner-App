@@ -348,6 +348,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   cursorColor: const Color(0xFF8B6500),
                   keyboardType: TextInputType.phone,
                   maxLength: 10,
+                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
                   style: const TextStyle(
                     color: _loginInk,
                     fontSize: 18,
@@ -356,12 +361,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   decoration: InputDecoration(
                     hintText: translateText('Enter mobile number'),
+                    counterText: '',
                     hintStyle: const TextStyle(
                       color: Color(0xFFB3AAA2),
                       fontSize: 18,
                       fontWeight: FontWeight.w400,
                     ),
                     border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    focusedErrorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
                     isCollapsed: true,
                   ),
                 ),

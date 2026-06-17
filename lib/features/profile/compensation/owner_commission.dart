@@ -15,80 +15,132 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
     final selectedRule = _selectedServiceRule;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _ModuleButton(
-                label: context.t('Services'),
-                icon: Icons.design_services_outlined,
-                isSelected: _commissionTab == _CommissionTab.services,
-                onTap: () {
-                  _setCommissionTabValue(_CommissionTab.services);
-                },
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F4F1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE8DED6)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: _CommissionTabButton(
+                  label: context.t('Services'),
+                  icon: Icons.content_cut_rounded,
+                  isSelected: _commissionTab == _CommissionTab.services,
+                  onTap: () {
+                    _setCommissionTabValue(_CommissionTab.services);
+                  },
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ModuleButton(
-                label: context.t('Staff Overrides'),
-                icon: Icons.groups_2_outlined,
-                isSelected: _commissionTab == _CommissionTab.overrides,
-                onTap: () {
-                  _setCommissionTabValue(_CommissionTab.overrides);
-                },
+              const SizedBox(width: 4),
+              Expanded(
+                child: _CommissionTabButton(
+                  label: context.t('Staff Overrides'),
+                  icon: Icons.groups_2_rounded,
+                  isSelected: _commissionTab == _CommissionTab.overrides,
+                  onTap: () {
+                    _setCommissionTabValue(_CommissionTab.overrides);
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         TextField(
           controller: _serviceSearchController,
           // maxLength: 60,
+          style: const TextStyle(fontSize: 12),
           decoration: InputDecoration(
             hintText: context.t('Search services'),
-            prefixIcon: const Icon(Icons.search),
+            hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF8A8178)),
+            prefixIcon: const Icon(Icons.search, size: 17),
             filled: true,
             fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
+              borderRadius: BorderRadius.circular(9),
+              borderSide: const BorderSide(color: Color(0xFFE8DED6)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(9),
+              borderSide: const BorderSide(color: Color(0xFFE8DED6)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(9),
+              borderSide:
+                  const BorderSide(color: AppColors.starColor, width: 1.2),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         SizedBox(
-          height: 136,
-          child: _filteredServices.isEmpty
-              ? _EmptyStateCard(
-                  title: context.t('No matching services'),
-                  subtitle: context.t(
-                    'Try a different service name or clear the search.',
-                  ),
-                )
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _filteredServices.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final service = _filteredServices[index];
-                    final isSelected = selectedService?.id == service.id;
-                    final rule = _repository.ruleForService(
-                      service: service,
-                      storedRules: _serviceRules,
-                    );
-                    return _ServiceSelectorCard(
-                      service: service,
-                      rule: rule,
-                      isSelected: isSelected,
-                      onTap: () {
-                        _selectCommissionService(service.id);
-                      },
-                    );
-                  },
+  height: _filteredServices.isEmpty ? 86 : 114,
+  child: _filteredServices.isEmpty
+      ? Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: const Color(0xFFE8DED6)),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                context.t('No matching services'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1C1917),
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                context.t('Try a different service name or clear the search.'),
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  height: 1.2,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+        )
+      : ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _filteredServices.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (context, index) {
+            final service = _filteredServices[index];
+            final isSelected = selectedService?.id == service.id;
+            final rule = _repository.ruleForService(
+              service: service,
+              storedRules: _serviceRules,
+            );
+
+            return _ServiceSelectorCard(
+              service: service,
+              rule: rule,
+              isSelected: isSelected,
+              onTap: () {
+                _selectCommissionService(service.id);
+              },
+            );
+          },
         ),
+),
         const SizedBox(height: 18),
         if (selectedService == null || selectedRule == null)
           _EmptyStateCard(
@@ -242,6 +294,58 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
   }
 }
 
+class _CommissionTabButton extends StatelessWidget {
+  const _CommissionTabButton({
+    required this.label,
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: isSelected ? const Color(0xFF2A2622) : Colors.transparent,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? Colors.white : const Color(0xFF4B4038),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: isSelected ? Colors.white : const Color(0xFF4B4038),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ServiceSelectorCard extends StatelessWidget {
   const _ServiceSelectorCard({
     required this.service,
@@ -264,19 +368,28 @@ class _ServiceSelectorCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(8),
         onTap: onTap,
         child: Ink(
-          width: 220,
-          padding: const EdgeInsets.all(14),
+          width: 126,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF1C1917) : Colors.white,
-            borderRadius: BorderRadius.circular(18),
+            color: isSelected ? const Color(0xFF2A2622) : Colors.white,
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: isSelected
-                  ? const Color(0xFF1C1917)
-                  : const Color(0xFFE9DFD1),
+                  ? const Color(0xFF2A2622)
+                  : const Color(0xFFE8DED6),
             ),
+            boxShadow: isSelected
+                ? const [
+                    BoxShadow(
+                      color: Color(0x22000000),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,12 +400,13 @@ class _ServiceSelectorCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  height: 1.05,
+                  fontWeight: FontWeight.w900,
                   color: isSelected ? Colors.white : const Color(0xFF1C1917),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 5),
               Expanded(
                 child: Text(
                   service.categoryName.isEmpty
@@ -301,22 +415,22 @@ class _ServiceSelectorCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 9,
+                    height: 1.15,
                     color: isSelected
                         ? const Color(0xFFD1D5DB)
-                        : const Color(0xFF6B7280),
+                        : const Color(0xFF5F574F),
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
               Text(
                 rule.active ? valueLabel : context.t('Inactive'),
                 style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w900,
                   color: isSelected
-                      ? const Color(0xFFFCD34D)
-                      : const Color(0xFFB45309),
+                      ? const Color(0xFFF2BE3F)
+                      : AppColors.starColor,
                 ),
               ),
             ],
@@ -443,10 +557,18 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -460,17 +582,18 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
                     Text(
                       widget.service.name,
                       style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 19,
+                        height: 1.05,
+                        fontWeight: FontWeight.w900,
                         color: Color(0xFF1C1917),
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       context.t('Default commission rule'),
                       style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF6B7280),
+                        fontSize: 11,
+                        color: Color(0xFF5F574F),
                       ),
                     ),
                   ],
@@ -488,17 +611,10 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
             ],
           ),
           const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            initialValue: _ruleType,
-            decoration: InputDecoration(
-              labelText: context.t('Rule type'),
-              filled: true,
-              fillColor: const Color(0xFFF8F5F2),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
+          _CommissionDropdownField(
+            label: context.t('Rule type'),
+            value: _ruleType,
+            enabled: !widget.isSaving,
             items: [
               DropdownMenuItem(
                 value: CommissionRuleTypes.percentage,
@@ -509,24 +625,22 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
                 child: Text(context.t('Fixed')),
               ),
             ],
-            onChanged: widget.isSaving
-                ? null
-                : (value) {
-                    if (value != null) {
-                      setState(() => _ruleType = value);
-                    }
-                  },
+            onChanged: (value) {
+              if (value != null) setState(() => _ruleType = value);
+            },
           ),
           const SizedBox(height: 12),
-          _LabeledTextField(
+          _CommissionTextField(
             label: _ruleType == CommissionRuleTypes.percentage
                 ? context.t('Value (%)')
                 : context.t('Value (₹)'),
             controller: _valueController,
+            enabled: !widget.isSaving,
+            maxLength: 8,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
           ),
           const SizedBox(height: 12),
-          _DateFieldButton(
+          _CommissionDateField(
             label: context.t('Effective from'),
             value: _effectiveFrom,
             onTap: widget.isSaving
@@ -544,12 +658,15 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
                   },
           ),
           const SizedBox(height: 12),
-          _LabeledTextField(
+          _CommissionTextField(
             label: context.t('Notes'),
             controller: _notesController,
-            maxLines: 1,
+            enabled: !widget.isSaving,
+            maxLines: 3,
+            maxLength: 120,
+            hintText: context.t('Add details about this commission rule...'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Row(
             children: [
               Expanded(
@@ -560,9 +677,11 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
                           _reset();
                         },
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    foregroundColor: const Color(0xFF1C1917),
+                    side: const BorderSide(color: Color(0xFFE8DED6)),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   child: Text(context.t('Cancel')),
@@ -579,20 +698,203 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.starColor,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   child: Text(widget.isSaving
                       ? context.t('Saving...')
-                      : context.t('Save')),
+                      : context.t('Save Changes')),
                 ),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CommissionFieldLabel extends StatelessWidget {
+  const _CommissionFieldLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 1.2,
+          color: Color(0xFF8A8178),
+        ),
+      ),
+    );
+  }
+}
+
+InputDecoration _commissionFieldDecoration({String? hintText}) {
+  return InputDecoration(
+    hintText: hintText,
+    hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF9A9189)),
+    filled: true,
+    fillColor: const Color(0xFFF7F4F1),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Color(0xFFE1D6CB)),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Color(0xFFE1D6CB)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: AppColors.starColor, width: 1.2),
+    ),
+    disabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(8),
+      borderSide: const BorderSide(color: Color(0xFFE1D6CB)),
+    ),
+  );
+}
+
+class _CommissionTextField extends StatelessWidget {
+  const _CommissionTextField({
+    required this.label,
+    required this.controller,
+    this.enabled = true,
+    this.maxLines = 1,
+    this.maxLength = 120,
+    this.keyboardType,
+    this.hintText,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+  final int maxLines;
+  final int maxLength;
+  final TextInputType? keyboardType;
+  final String? hintText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CommissionFieldLabel(label),
+        TextField(
+          controller: controller,
+          enabled: enabled,
+          maxLines: maxLines,
+          maxLength: maxLength,
+          keyboardType: keyboardType,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1C1917),
+          ),
+          decoration: _commissionFieldDecoration(hintText: hintText),
+        ),
+      ],
+    );
+  }
+}
+
+class _CommissionDropdownField extends StatelessWidget {
+  const _CommissionDropdownField({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  final String label;
+  final String value;
+  final List<DropdownMenuItem<String>> items;
+  final ValueChanged<String?> onChanged;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CommissionFieldLabel(label),
+        DropdownButtonFormField<String>(
+          initialValue: value,
+          isExpanded: true,
+          decoration: _commissionFieldDecoration(),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1C1917),
+          ),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+          items: items,
+          onChanged: enabled ? onChanged : null,
+        ),
+      ],
+    );
+  }
+}
+
+class _CommissionDateField extends StatelessWidget {
+  const _CommissionDateField({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final String label;
+  final DateTime value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CommissionFieldLabel(label),
+        InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F4F1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE1D6CB)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    DateFormat('dd MMM yyyy').format(value),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1C1917),
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.calendar_today_outlined,
+                  size: 17,
+                  color: AppColors.starColor,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

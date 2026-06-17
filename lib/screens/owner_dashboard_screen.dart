@@ -25,7 +25,8 @@ class OwnerDashboardScreen extends StatefulWidget {
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   final ApiService _apiService = ApiService();
-
+int _notificationPage = 0;
+static const int _notificationPageSize = 4;
   List<_DashboardBranchOption> _branchOptions = const [];
   int? _selectedBranchId;
   DateTime _selectedDate = DateTime.now();
@@ -133,6 +134,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         _dashboard = response['data'] is Map
             ? Map<String, dynamic>.from(response['data'] as Map)
             : const {};
+              _notificationPage = 0;
         _isLoadingDashboard = false;
       });
     } catch (error) {
@@ -247,49 +249,46 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     return '$formatted%';
   }
 
-  // String _headerGreeting() {
-  //   final header = _dashboard['header'];
-  //   if (header is Map) {
-  //     final greeting = _cleanText(header['greeting']);
-  //     if (greeting.isNotEmpty) {
-  //       return greeting.replaceAll(':wave:', '👋');
-  //     }
-  //   }
-  //   return context.t('Good evening');
-  // }
+  String _dayPartGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return context.t('Good morning');
+    if (hour < 17) return context.t('Good afternoon');
+    return context.t('Good evening');
+  }
 
-String _headerGreeting() {
-  final header = _dashboard['header'];
+  String _headerGreeting() {
+    final header = _dashboard['header'];
 
-  if (header is Map) {
-    var greeting = _cleanText(header['greeting']);
+    if (header is Map) {
+      var greeting = _cleanText(header['greeting']);
 
-    if (greeting.isNotEmpty) {
-      greeting = greeting
-          .replaceAll(':wave:', '')
-          .replaceAll('👋', '')
-          .replaceAll(
-            RegExp(
-              r'\bGood\s+(morning|afternoon|evening|night)\b',
-              caseSensitive: false,
-            ),
-            '',
-          )
-          .replaceFirst(RegExp(r'^[\s,:\-]+'), '')
-          .trim();
+      if (greeting.isNotEmpty) {
+        greeting = greeting
+            .replaceAll(':wave:', '')
+            .replaceAll('👋', '')
+            .replaceAll(
+              RegExp(
+                r'\bGood\s+(morning|afternoon|evening|night)\b',
+                caseSensitive: false,
+              ),
+              '',
+            )
+            .replaceFirst(RegExp(r'^[\s,:\-]+'), '')
+            .trim();
 
-      return greeting;
+        return greeting.endsWith('!') ? greeting : '$greeting!';
+      }
     }
+
+    final selected = _selectedBranchOption;
+
+    if (selected != null && selected.salonName.trim().isNotEmpty) {
+      return '${selected.salonName.trim()}!';
+    }
+
+    return '';
   }
 
-  final selected = _selectedBranchOption;
-
-  if (selected != null && selected.salonName.trim().isNotEmpty) {
-    return '${selected.salonName.trim()}!';
-  }
-
-  return '';
-}
   String _headerSubtext() {
     final header = _dashboard['header'];
     if (header is Map) {
@@ -389,10 +388,10 @@ String _headerGreeting() {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF9F8),
+      backgroundColor: const Color(0xFFFBFAF8),
       drawer: _DashboardDrawer(onOpen: _openDrawerRoute),
       appBar: buildProfileSubpageAppBar(
-        title: '',
+        title: context.t('Dashboard'),
         automaticallyImplyLeading: false,
         toolbarHeight: 58,
         leading: Builder(
@@ -415,11 +414,9 @@ String _headerGreeting() {
             color: AppColors.starColor,
             onRefresh: _loadData,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 22, 16, 28),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                _buildBranchSelector(),
-                const SizedBox(height: 18),
                 if (_errorMessage != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 60),
@@ -438,13 +435,13 @@ String _headerGreeting() {
                   )
                 else ...[
                   _buildHeader(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   _buildKpiCards(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   _buildRevenueSection(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   _buildTodayAndStaffSection(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   _buildNotificationsSection(),
                 ],
               ],
@@ -453,6 +450,14 @@ String _headerGreeting() {
           if (_isLoadingDashboard)
             const Positioned.fill(child: _DashboardLoadingOverlay()),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _openBookingsTab,
+        backgroundColor: AppColors.starColor,
+        foregroundColor: Colors.white,
+        elevation: 8,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add_rounded, size: 30),
       ),
     );
   }
@@ -593,67 +598,73 @@ String _headerGreeting() {
   //   );
   // }
   Widget _buildHeader() {
-  return LayoutBuilder(
-    builder: (context, constraints) {
-      final isWide = constraints.maxWidth >= 560;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 560;
+        final name = _headerGreeting();
+        final titleText =
+            name.isEmpty ? '${_dayPartGreeting()}!' : '${_dayPartGreeting()}, $name';
+        final title = Text(
+          titleText,
+          style: const TextStyle(
+            fontSize: 21,
+            height: 1.18,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
+        );
 
-      final title = Text(
-        _headerGreeting(),
-        style: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w900,
-          color: Colors.black,
-        ),
-      );
+        final subtitle = Text(
+          _headerSubtext(),
+          style: const TextStyle(
+            fontSize: 13,
+            height: 1.35,
+            color: Color(0xFF6B5B4D),
+          ),
+        );
 
-      final subtitle = Text(
-        _headerSubtext(),
-        style: const TextStyle(
-          fontSize: 13,
-          color: Color(0xFF6B5B4D),
-        ),
-      );
+        final dateButton = _DateButton(
+          label: DateFormat('MM/dd/yyyy').format(_selectedDate),
+          onTap: _pickDate,
+        );
 
-      final dateButton = _DateButton(
-        label: DateFormat('MM/dd/yyyy').format(_selectedDate),
-        onTap: _pickDate,
-      );
+        if (!isWide) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              title,
+              const SizedBox(height: 2),
+              const Text('👋', style: TextStyle(fontSize: 22)),
+              const SizedBox(height: 2),
+              subtitle,
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: dateButton,
+              ),
+            ],
+          );
+        }
 
-      if (!isWide) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return Row(
           children: [
-            title,
-            const SizedBox(height: 6),
-            subtitle,
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: dateButton,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  title,
+                  const SizedBox(height: 4),
+                  subtitle,
+                ],
+              ),
             ),
+            const SizedBox(width: 16),
+            dateButton,
           ],
         );
-      }
-
-      return Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                title,
-                const SizedBox(height: 6),
-                subtitle,
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          dateButton,
-        ],
-      );
-    },
-  );
-}
+      },
+    );
+  }
 
   Widget _buildKpiCards() {
     final cards = _mapList('kpi_cards');
@@ -665,7 +676,7 @@ String _headerGreeting() {
             ? 5
             : constraints.maxWidth >= 520
                 ? 2
-                : 1;
+                : 2;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -674,7 +685,7 @@ String _headerGreeting() {
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            mainAxisExtent: crossAxisCount == 1 ? 132 : 124,
+            mainAxisExtent: 112,
           ),
           itemBuilder: (context, index) => _KpiCard(
             data: cards[index],
@@ -761,71 +772,173 @@ String _headerGreeting() {
     );
   }
 
-  Widget _buildNotificationsSection() {
-    final notifications = _mapValue('notifications');
-    final unreadCount = _asInt(notifications['unread_count']);
-    final items = notifications['items'] is List
-        ? (notifications['items'] as List)
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList()
-        : <Map<String, dynamic>>[];
+  // Widget _buildNotificationsSection() {
+  //   final notifications = _mapValue('notifications');
+  //   final unreadCount = _asInt(notifications['unread_count']);
+  //   final items = notifications['items'] is List
+  //       ? (notifications['items'] as List)
+  //           .whereType<Map>()
+  //           .map((item) => Map<String, dynamic>.from(item))
+  //           .toList()
+  //       : <Map<String, dynamic>>[];
 
-    return _DashboardSection(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
+  //   return _DashboardSection(
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         Row(
+  //           children: [
+  //             Expanded(
+  //               child: Text(
+  //                 context.t('Notifications'),
+  //                 style: const TextStyle(
+  //                   fontSize: 16,
+  //                   fontWeight: FontWeight.w800,
+  //                 ),
+  //               ),
+  //             ),
+  //             if (unreadCount > 0)
+  //               Container(
+  //                 constraints: const BoxConstraints(minWidth: 22),
+  //                 padding: const EdgeInsets.symmetric(
+  //                   horizontal: 7,
+  //                   vertical: 4,
+  //                 ),
+  //                 decoration: BoxDecoration(
+  //                   color: AppColors.starColor,
+  //                   borderRadius: BorderRadius.circular(999),
+  //                 ),
+  //                 child: Text(
+  //                   '$unreadCount',
+  //                   textAlign: TextAlign.center,
+  //                   style: const TextStyle(
+  //                     color: Colors.white,
+  //                     fontSize: 11,
+  //                     fontWeight: FontWeight.w800,
+  //                   ),
+  //                 ),
+  //               ),
+  //           ],
+  //         ),
+  //         const SizedBox(height: 16),
+  //         if (items.isEmpty)
+  //           const _EmptyDashedBox(
+  //             icon: Icons.notifications_none_outlined,
+  //             message: 'No notifications right now.',
+  //           )
+  //         else
+  //           ...items.map(
+  //             (item) => _NotificationDashboardRow(
+  //               item: item,
+  //               cleanText: _cleanText,
+  //             ),
+  //           ),
+  //       ],
+  //     ),
+  //   );
+  // }
+  Widget _buildNotificationsSection() {
+  final notifications = _mapValue('notifications');
+  final unreadCount = _asInt(notifications['unread_count']);
+
+  final items = notifications['items'] is List
+      ? (notifications['items'] as List)
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList()
+      : <Map<String, dynamic>>[];
+
+  final totalPages = items.isEmpty
+      ? 1
+      : (items.length / _notificationPageSize).ceil();
+
+  final safePage = _notificationPage.clamp(0, totalPages - 1);
+
+  final pagedItems = items
+      .skip(safePage * _notificationPageSize)
+      .take(_notificationPageSize)
+      .toList();
+
+  return _DashboardSection(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.t('Notifications'),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (unreadCount > 0)
+              Container(
+                constraints: const BoxConstraints(minWidth: 22),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.starColor,
+                  borderRadius: BorderRadius.circular(999),
+                ),
                 child: Text(
-                  context.t('Notifications'),
+                  '$unreadCount',
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 16,
+                    color: Colors.white,
+                    fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-              if (unreadCount > 0)
-                Container(
-                  constraints: const BoxConstraints(minWidth: 22),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.starColor,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    '$unreadCount',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (items.isEmpty)
-            const _EmptyDashedBox(
-              icon: Icons.notifications_none_outlined,
-              message: 'No notifications right now.',
-            )
-          else
-            ...items.map(
-              (item) => _NotificationDashboardRow(
-                item: item,
-                cleanText: _cleanText,
-              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (items.isEmpty)
+          const _EmptyDashedBox(
+            icon: Icons.notifications_none_outlined,
+            message: 'No notifications right now.',
+          )
+        else ...[
+          ...pagedItems.map(
+            (item) => _NotificationDashboardRow(
+              item: item,
+              cleanText: _cleanText,
             ),
+          ),
+          const SizedBox(height: 8),
+          _NotificationPaginationBar(
+            currentPage: safePage,
+            totalPages: totalPages,
+            onPrevious: safePage == 0
+                ? null
+                : () {
+                    setState(() {
+                      _notificationPage = safePage - 1;
+                    });
+                  },
+            onNext: safePage >= totalPages - 1
+                ? null
+                : () {
+                    setState(() {
+                      _notificationPage = safePage + 1;
+                    });
+                  },
+            onPageSelected: (page) {
+              setState(() {
+                _notificationPage = page;
+              });
+            },
+          ),
         ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 }
 
 class _DashboardLoadingOverlay extends StatelessWidget {
@@ -1128,7 +1241,7 @@ class _DashboardBranchOption {
 class _DashboardSection extends StatelessWidget {
   const _DashboardSection({
     required this.child,
-    this.padding = const EdgeInsets.all(16),
+    this.padding = const EdgeInsets.all(18),
   });
 
   final Widget child;
@@ -1141,13 +1254,13 @@ class _DashboardSection extends StatelessWidget {
       padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE8D8C8)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 10,
-            offset: Offset(0, 3),
+            color: Color(0x08000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -1184,13 +1297,17 @@ class _DateButton extends StatelessWidget {
               context.t('Date'),
               style: TextStyle(
                 color: AppColors.starColor,
-                fontWeight: FontWeight.w900,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(width: 12),
-            Text(label),
+            Text(
+              label,
+              style: const TextStyle(fontSize: 11),
+            ),
             const SizedBox(width: 12),
-            const Icon(Icons.calendar_today_outlined, size: 16),
+            const Icon(Icons.calendar_today_outlined, size: 14),
           ],
         ),
       ),
@@ -1233,36 +1350,36 @@ class _KpiCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Text(
             label.toUpperCase(),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.7,
-              color: Color(0xFFA08F7F),
+              color: Color(0xFF6D6259),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 9),
           Text(
             value.isEmpty ? '0' : value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
+              fontSize: 21,
+              fontWeight: FontWeight.w500,
               color: Colors.black,
             ),
           ),
           if (hasChange) ...[
-            const SizedBox(height: 6),
+            const SizedBox(height: 4),
             Text(
               '$changeIcon ${percentBuilder(data['change_percent'])} $changeLabel',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
                 color: changeColor,
               ),
@@ -1296,7 +1413,10 @@ class _RevenueOverviewCard extends StatelessWidget {
             .toList()
         : <Map<String, dynamic>>[];
     final periodLabel = cleanText(data['period_label']);
-    final total = _plainNumber(data['total']);
+    final formattedTotal = cleanText(data['formatted_total']).isEmpty
+        ? cleanText(data['formatted_value'])
+        : cleanText(data['formatted_total']);
+    final total = formattedTotal.isEmpty ? _plainNumber(data['total']) : formattedTotal;
     final direction = cleanText(data['change_direction']).toLowerCase();
     final changeColor =
         direction == 'down' ? const Color(0xFFBE123C) : const Color(0xFF047857);
@@ -1312,24 +1432,25 @@ class _RevenueOverviewCard extends StatelessWidget {
                 child: Text(
                   context.t('Revenue Overview'),
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                    height: 1.1,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE6D6C6)),
+                  border: Border.all(color: AppColors.starColor),
                 ),
                 child: Text(
                   periodLabel.isEmpty ? context.t('This Month') : periodLabel,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 10,
+                    height: 1.1,
                     color: AppColors.starColor,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -1337,12 +1458,13 @@ class _RevenueOverviewCard extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 total,
                 style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
                   color: Colors.black,
                 ),
               ),
@@ -1351,15 +1473,15 @@ class _RevenueOverviewCard extends StatelessWidget {
                 '$changeIcon ${percentBuilder(data['change_percent'])} ${cleanText(data['change_label'])}',
                 style: TextStyle(
                   color: changeColor,
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           SizedBox(
-            height: 220,
+            height: 132,
             child: CustomPaint(
               size: Size.infinite,
               painter: _RevenueChartPainter(
@@ -1414,77 +1536,82 @@ class _RevenueSourceCard extends StatelessWidget {
         children: [
           Text(
             context.t('Revenue by Source'),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
           ),
-          const SizedBox(height: 42),
+          const SizedBox(height: 24),
           if (sources.isEmpty)
             Text(
               context.t('No data available'),
               style: const TextStyle(color: Color(0xFF78716C)),
             )
           else ...[
-            Center(
-              child: SizedBox(
-                width: 140,
-                height: 140,
-                child: CustomPaint(
-                  painter: _RevenueSourceDonutPainter(
-                    sources: sources,
-                    colors: colors,
+            Row(
+              children: [
+                Expanded(
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: CustomPaint(
+                      painter: _RevenueSourceDonutPainter(
+                        sources: sources,
+                        colors: colors,
+                      ),
+                      child: Center(
+                        child: Text(
+                          cleanText(data['center_label']).isEmpty
+                              ? '100%'
+                              : cleanText(data['center_label']),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Color(0xFF2D2926),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 28),
-            ...sources.asMap().entries.map((entry) {
-              final source = entry.value;
-              final color = colors[entry.key % colors.length];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 18),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            cleanText(source['label']),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
+                const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    children: sources.asMap().entries.map((entry) {
+                      final source = entry.value;
+                      final color = colors[entry.key % colors.length];
+                      final percent = cleanText(source['percent']).isEmpty
+                          ? '0'
+                          : cleanText(source['percent']);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                              ),
                             ),
-                          ),
-                          Text(
-                            '${cleanText(source['percent']).isEmpty ? '0' : cleanText(source['percent'])}%',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF8A6F58),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                cleanText(source['label']),
+                                style: const TextStyle(fontSize: 13),
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      cleanText(source['formatted_value']).isEmpty
-                          ? '₹0'
-                          : cleanText(source['formatted_value']),
-                      style: TextStyle(
-                        color: AppColors.starColor,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
+                            Text(
+                              '$percent%',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF4F463F),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
-              );
-            }),
+              ],
+            ),
           ],
         ],
       ),
@@ -2369,5 +2496,81 @@ class _RevenueChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RevenueChartPainter oldDelegate) {
     return oldDelegate.chartData != chartData;
+  }
+}
+class _NotificationPaginationBar extends StatelessWidget {
+  const _NotificationPaginationBar({
+    required this.currentPage,
+    required this.totalPages,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onPageSelected,
+  });
+
+  final int currentPage;
+  final int totalPages;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+  final ValueChanged<int> onPageSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Page ${currentPage + 1} of $totalPages',
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF9A8A7A),
+            ),
+          ),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          onPressed: onPrevious,
+          icon: const Icon(Icons.chevron_left_rounded, size: 18),
+        ),
+        ...List.generate(totalPages, (index) {
+          final selected = index == currentPage;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => onPageSelected(index),
+              child: Container(
+                width: 28,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.starColor : Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.starColor
+                        : const Color(0xFFE6D6C6),
+                  ),
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: selected ? Colors.white : const Color(0xFF5F574F),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          onPressed: onNext,
+          icon: const Icon(Icons.chevron_right_rounded, size: 18),
+        ),
+      ],
+    );
   }
 }

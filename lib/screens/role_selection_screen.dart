@@ -208,7 +208,7 @@ class RoleSelectionScreen extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => hasSalon
-            ? const BottomNav(tabIndex: 1)
+            ? const BottomNav(tabIndex: 0)
             : BlocProvider(
                 create: (context) =>
                     AddSalonCubit(context.read<SalonRepository>()),

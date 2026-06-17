@@ -97,6 +97,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   bool _savedPhoneApplied = false;
   final Set<String> _removedExistingImageUrls = <String>{};
 
+  bool get _isOnboardingFlow =>
+      widget.isProceedFrom?.toLowerCase().trim() == 'onboarding';
+
   Map<String, dynamic>? _asStringKeyedMap(dynamic value) {
     if (value is Map<String, dynamic>) return value;
     if (value is Map) {
@@ -954,12 +957,16 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(translateText('Salon added successfully'))),
           );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => BottomNav(tabIndex: 1),
-            ),
-          );
+          if (_isOnboardingFlow) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const BottomNav(tabIndex: 2),
+              ),
+            );
+          } else {
+            Navigator.pop(context, true);
+          }
         }
       },
       builder: (context, state) {
@@ -971,6 +978,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           backgroundColor: const Color(0xFFFBFAF8),
           appBar: buildProfileSubpageAppBar(
             title: translateText(widget.isEdit ? 'Edit Salon' : 'Add Salon'),
+            leading: _isOnboardingFlow ? const SizedBox.shrink() : null,
             toolbarHeight: kToolbarHeight,
           ),
           body: GestureDetector(
@@ -1602,7 +1610,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     TextCapitalization textCapitalization = TextCapitalization.none,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
-    bool forceCapitalize = false,
     int? maxWords,
     String? prefixText,
     IconData? prefixIconData,
@@ -1624,25 +1631,6 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final String cleanLabel = localizedLabel.trim();
     final hasInsideCounter = maxLength != null;
     final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
-
-    // if (forceCapitalize) {
-    //   controller.addListener(() {
-    //     final text = controller.text;
-    //     final capitalized = text
-    //         .split(' ')
-    //         .map((word) => word.isNotEmpty
-    //             ? '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}'
-    //             : '')
-    //         .join(' ');
-    //     if (text != capitalized) {
-    //       final cursor = controller.selection;
-    //       controller.value = TextEditingValue(
-    //         text: capitalized,
-    //         selection: cursor,
-    //       );
-    //     }
-    //   });
-    // }
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomSpacing),
