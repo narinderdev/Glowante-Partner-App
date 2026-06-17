@@ -52,7 +52,7 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
   ];
 
   late OwnerSalesReportModule _module;
-  String _selectedRange = 'this_month';
+String _selectedRange = 'today';
   List<_ReportBranchOption> _branchOptions = const [];
   int? _selectedBranchId;
   Map<String, dynamic> _data = const {};

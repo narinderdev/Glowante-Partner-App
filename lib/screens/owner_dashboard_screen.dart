@@ -845,9 +845,9 @@ class _DashboardDrawer extends StatelessWidget {
       _DashboardDrawerItem(
         icon: Icons.insert_chart_outlined_rounded,
         label: context.t('Reports'),
-        screen: const OwnerSalesReportsScreen(
-          initialModule: OwnerSalesReportModule.operations,
-        ),
+       screen: const OwnerSalesReportsScreen(
+  initialModule: OwnerSalesReportModule.revenueSales,
+),
       ),
       _DashboardDrawerItem(
         icon: Icons.payments_outlined,

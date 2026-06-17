@@ -1560,6 +1560,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                       ? (_dashboardData!['page'] as Map)['title']
                       : null,
                 );
+
                 final title = Text(
                   pageTitle.isEmpty ? context.t('Clients') : pageTitle,
                   style: const TextStyle(
@@ -1567,24 +1568,29 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                     fontWeight: FontWeight.w800,
                   ),
                 );
-                final actions = Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildDateRangeDropdown(),
-                    const SizedBox(width: 10),
-                    _buildExportButton(),
-                  ],
-                );
 
-                if (constraints.maxWidth < 520) {
+                final isCompact = constraints.maxWidth < 520;
+
+                if (isCompact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       title,
                       const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: actions,
+                      SizedBox(
+                        width: double.infinity,
+                        child: Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 220),
+                              child: _buildDateRangeDropdown(),
+                            ),
+                            _buildExportButton(),
+                          ],
+                        ),
                       ),
                     ],
                   );
@@ -1593,7 +1599,12 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                 return Row(
                   children: [
                     Expanded(child: title),
-                    actions,
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 220),
+                      child: _buildDateRangeDropdown(),
+                    ),
+                    const SizedBox(width: 10),
+                    _buildExportButton(),
                   ],
                 );
               },
@@ -1607,44 +1618,29 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
               builder: (context, constraints) {
                 final isCompact = constraints.maxWidth < 760;
 
-                final searchField = SizedBox(
-                  width: isCompact ? null : 220,
-                  child: TextField(
-                    controller: _searchController,
-                    maxLength: 60,
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      hintText: context.t("Search by user's name"),
-                      prefixIcon: const Icon(Icons.search),
-                      isDense: true,
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(999),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(999),
-                        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                      ),
+                final searchField = TextField(
+                  controller: _searchController,
+                  maxLength: 60,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: context.t("Search by user's name"),
+                    prefixIcon: const Icon(Icons.search),
+                    isDense: true,
+                    filled: true,
+                    fillColor: Colors.white,
+                    counterText: '',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
                     ),
                   ),
                 );
 
                 final exportButton = _buildExportButton();
-
-                // Import clients is intentionally hidden for now.
-                // final importButton = ElevatedButton(
-                //   onPressed: _showImportClientsModal,
-                //   style: ElevatedButton.styleFrom(
-                //     backgroundColor: AppColors.starColor,
-                //     foregroundColor: Colors.white,
-                //     shape: RoundedRectangleBorder(
-                //       borderRadius: BorderRadius.circular(999),
-                //     ),
-                //   ),
-                //   child: Text(context.t('Import Clients')),
-                // );
 
                 if (isCompact) {
                   return Column(
@@ -1656,7 +1652,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                         children: [
                           Expanded(child: searchField),
                           const SizedBox(width: 10),
-                          exportButton,
+                          SizedBox(
+                            width: 96,
+                            child: exportButton,
+                          ),
                         ],
                       ),
                     ],
@@ -1667,7 +1666,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(child: _buildCustomerManagementTitle()),
-                    searchField,
+                    SizedBox(
+                      width: 220,
+                      child: searchField,
+                    ),
                     const SizedBox(width: 10),
                     exportButton,
                   ],

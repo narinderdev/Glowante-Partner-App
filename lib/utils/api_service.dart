@@ -253,8 +253,6 @@ class ApiService {
       "branches/$branchId/procurement/grn";
   static String getGoodsReceiptNoteDetailsAPI(int branchId, int grnId) =>
       "branches/$branchId/procurement/grn/$grnId";
-  static const String payrollAdditionalChargesAPI =
-      "payroll/additional-charges";
   static String payrollReviewDetailsAPI(int branchId, String payrollId) =>
       "v2/branches/$branchId/review/payroll/$payrollId";
   static String payrollPaidLeavesReviewAPI(
@@ -265,12 +263,24 @@ class ApiService {
           ? "v2/branches/$branchId/review/paid-leaves"
           : "v2/branches/$branchId/review/paid-leaves?payrollId=$payrollId";
   static String payrollEmployeeAdjustmentsAPI(int payrollEmployeeId) =>
-      "v2/payroll/$payrollEmployeeId/adjustments";
-  static String payrollEmployeeAdjustmentDetailsAPI(
-    int payrollEmployeeId,
-    String adjustmentId,
-  ) =>
-      "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
+    "v2/payroll/$payrollEmployeeId/adjustments";
+
+static String payrollEmployeeAdjustmentDetailsAPI(
+  int payrollEmployeeId,
+  String adjustmentId,
+) =>
+    "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
+
+static const String payrollAdditionalChargesAPI =
+    "payroll/additional-charges";
+
+static String payrollAdditionalChargeDetailsAPI(String chargeId) =>
+    "payroll/additional-charges/$chargeId";
+
+static const String payrollDeductionsAPI = "payroll/deductions";
+
+static String payrollDeductionDetailsAPI(String deductionId) =>
+    "payroll/deductions/$deductionId";
   static String payrollEmployeePaidLeaveAPI(int payrollEmployeeId) =>
       "v2/payroll/$payrollEmployeeId/paid-leave";
   static String branchPayrollPaidLeaveConfigAPI(int branchId) =>
@@ -296,11 +306,6 @@ class ApiService {
 
   static String salonHolidayCalendarDetailsAPI(int salonId, int holidayId) =>
       "salons/$salonId/holiday-calendar/$holidayId";
-  static String payrollAdditionalChargeDetailsAPI(String chargeId) =>
-      "payroll/additional-charges/$chargeId";
-  static const String payrollDeductionsAPI = "payroll/deductions";
-  static String payrollDeductionDetailsAPI(String deductionId) =>
-      "payroll/deductions/$deductionId";
   static String getRolesSpecialization({int? branchId}) {
     if (branchId == null) return "users/constants";
     return "users/constants?branchId=$branchId";
@@ -3588,18 +3593,6 @@ class ApiService {
       method: 'GET',
       endpoint: payrollEmployeeAdjustmentsAPI(payrollEmployeeId),
       debugTag: 'PayrollEmployeeAdjustmentsListAPI',
-    );
-  }
-
-  Future<Map<String, dynamic>> createPayrollEmployeeAdjustment({
-    required int payrollEmployeeId,
-    required Map<String, dynamic> payload,
-  }) {
-    return _authorizedJsonRequest(
-      method: 'POST',
-      endpoint: payrollEmployeeAdjustmentsAPI(payrollEmployeeId),
-      body: payload,
-      debugTag: 'CreatePayrollEmployeeAdjustmentAPI',
     );
   }
 

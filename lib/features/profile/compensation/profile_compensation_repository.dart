@@ -194,16 +194,26 @@ class ProfileCompensationRepository {
 
   Future<void> savePayrollSetup(int branchId, PayrollSetupRecord setup) async {
     final prefs = await SharedPreferences.getInstance();
+    // final payload = <String, dynamic>{
+    //   'salaryType': setup.payrollType,
+    //   'baseSalary': setup.salaryMinor,
+    //   'commissionPercentage': setup.commissionPercent,
+    //   'effectiveFrom': DateFormat('yyyy-MM-dd').format(setup.effectiveDate),
+    //   'effectiveTo': null,
+    //   'notes': setup.salaryConfigId != null && setup.salaryConfigId! > 0
+    //       ? 'Updated from mobile payroll setup'
+    //       : 'Initial salary from mobile payroll setup',
+    // };
     final payload = <String, dynamic>{
-      'salaryType': setup.payrollType,
-      'baseSalary': setup.salaryMinor,
-      'commissionPercentage': setup.commissionPercent,
-      'effectiveFrom': DateFormat('yyyy-MM-dd').format(setup.effectiveDate),
-      'effectiveTo': null,
-      'notes': setup.salaryConfigId != null && setup.salaryConfigId! > 0
-          ? 'Updated from mobile payroll setup'
-          : 'Initial salary from mobile payroll setup',
-    };
+  'salaryType': _salaryTypeForApi(setup.payrollType),
+  'baseSalary': setup.salaryMinor,
+  'commissionPercentage': setup.commissionPercent,
+  'effectiveFrom': DateFormat('yyyy-MM-dd').format(setup.effectiveDate),
+  'effectiveTo': null,
+  'notes': setup.salaryConfigId != null && setup.salaryConfigId! > 0
+      ? 'Updated from mobile payroll setup'
+      : 'Initial salary from mobile payroll setup',
+};
     final response = setup.salaryConfigId != null && setup.salaryConfigId! > 0
         ? await _apiService.updateEmployeeSalaryConfig(
             employeeId: setup.userId,
@@ -690,7 +700,20 @@ class ProfileCompensationRepository {
     );
     _requireSuccess(response);
   }
+String _salaryTypeForApi(String payrollType) {
+  final normalized = PayrollTypes.normalize(payrollType);
 
+  switch (normalized) {
+    case PayrollTypes.salaryOnly:
+      return 'SALARY_ONLY';
+
+    case PayrollTypes.salaryCommission:
+      return 'SALARY_PLUS_COMMISSION';
+
+    default:
+      throw Exception('Unsupported salary type for payroll setup: $payrollType');
+  }
+}
   Future<void> deleteHoliday({
     required int salonId,
     required int holidayId,
@@ -814,32 +837,89 @@ class ProfileCompensationRepository {
     );
     _requireSuccess(response);
 
-    final refreshedRuns = await loadPayrollRuns(
-      branchId,
-      teamMembers: activeMembers,
-      setups: setups,
-    );
-    final responseData = response['data'];
-    final responseMap = responseData is Map<String, dynamic>
-        ? responseData
-        : responseData is Map
-            ? Map<String, dynamic>.from(responseData)
-            : const <String, dynamic>{};
-    final generatedPayrollId = _asInt(
-      responseMap['payrollId'] ?? responseMap['id'],
-    )?.toString();
+    // final refreshedRuns = await loadPayrollRuns(
+    //   branchId,
+    //   teamMembers: activeMembers,
+    //   setups: setups,
+    // );
+    // final responseData = response['data'];
+    // final responseMap = responseData is Map<String, dynamic>
+    //     ? responseData
+    //     : responseData is Map
+    //         ? Map<String, dynamic>.from(responseData)
+    //         : const <String, dynamic>{};
+    // final generatedPayrollId = _asInt(
+    //   responseMap['payrollId'] ?? responseMap['id'],
+    // )?.toString();
 
-    final generatedRun = refreshedRuns.cast<PayrollRunRecord?>().firstWhere(
-          (item) =>
-              item?.periodKey == periodKey ||
-              (generatedPayrollId != null && item?.id == generatedPayrollId),
-          orElse: () => null,
-        );
-    if (generatedRun == null) {
-      throw Exception(
-          'Payroll generated for $periodLabel but could not reload it.');
-    }
-    return generatedRun;
+    // final generatedRun = refreshedRuns.cast<PayrollRunRecord?>().firstWhere(
+    //       (item) =>
+    //           item?.periodKey == periodKey ||
+    //           (generatedPayrollId != null && item?.id == generatedPayrollId),
+    //       orElse: () => null,
+    //     );
+    // if (generatedRun == null) {
+    //   throw Exception(
+    //       'Payroll generated for $periodLabel but could not reload it.');
+    // }
+    // return generatedRun;
+    final responseData = response['data'];
+final responseMap = responseData is Map<String, dynamic>
+    ? responseData
+    : responseData is Map
+        ? Map<String, dynamic>.from(responseData)
+        : const <String, dynamic>{};
+
+final payrollMap = responseMap['payroll'] is Map
+    ? Map<String, dynamic>.from(responseMap['payroll'] as Map)
+    : responseMap;
+
+final generatedPayrollId = _asInt(
+  payrollMap['payrollId'] ?? payrollMap['id'],
+)?.toString();
+
+final refreshedRuns = await loadPayrollRuns(
+  branchId,
+  teamMembers: activeMembers,
+  setups: setups,
+);
+
+final generatedRun = refreshedRuns.cast<PayrollRunRecord?>().firstWhere(
+      (item) =>
+          item?.periodKey == periodKey ||
+          (generatedPayrollId != null && item?.id == generatedPayrollId),
+      orElse: () => null,
+    );
+
+if (generatedRun != null) {
+  return generatedRun;
+}
+
+final fallbackRun = PayrollRunRecord(
+  id: generatedPayrollId ?? periodKey,
+  periodKey: periodKey,
+  periodLabel: periodLabel,
+  generatedAt: DateTime.tryParse(_cleanText(payrollMap['generatedAt'])) ??
+      DateTime.now(),
+  approvedAt: null,
+  payment: null,
+  employees: _buildDashboardRunEmployees(
+    activeMembers: activeMembers,
+    setupByUser: setupByUser,
+    effectiveDate: period,
+    paidAt: null,
+  ),
+  backendStatus: _cleanText(payrollMap['status'], fallback: 'DRAFT'),
+);
+
+final updatedRuns = <PayrollRunRecord>[
+  ...refreshedRuns.where((item) => item.periodKey != periodKey),
+  fallbackRun,
+]..sort((a, b) => b.generatedAt.compareTo(a.generatedAt));
+
+await _persistPayrollRuns(branchId, updatedRuns);
+
+return fallbackRun;
   }
 
   Future<bool> cancelPayroll({
@@ -941,14 +1021,23 @@ class ProfileCompensationRepository {
     final payrollEmployeeId = adjustment.payrollEmployeeId > 0
         ? adjustment.payrollEmployeeId
         : userId;
-    final response = await _apiService.createPayrollEmployeeAdjustment(
-      payrollEmployeeId: payrollEmployeeId,
-      payload: <String, dynamic>{
-        'type': adjustment.type,
-        'amount': adjustment.amountMinor,
-        'remarks': adjustment.remarks,
-      },
-    );
+    // final response = await _apiService.createPayrollEmployeeAdjustment(
+    //   payrollEmployeeId: payrollEmployeeId,
+    //   payload: <String, dynamic>{
+    //     'type': adjustment.type,
+    //     'amount': adjustment.amountMinor,
+    //     'remarks': adjustment.remarks,
+    //   },
+    // );
+    final payload = <String, dynamic>{
+  'payrollEmployeeId': payrollEmployeeId,
+  'amount': adjustment.amountMinor,
+  'remarks': adjustment.remarks,
+};
+
+final response = adjustment.type.toUpperCase() == 'DEDUCTION'
+    ? await _apiService.createPayrollDeduction(payload: payload)
+    : await _apiService.createPayrollAdditionalCharge(payload: payload);
     _requireSuccess(response);
     return refreshEmployeeAdjustments(
       branchId: branchId,
@@ -1008,16 +1097,17 @@ class ProfileCompensationRepository {
           : userId,
     );
   }
+Future<List<PayrollAdjustmentRecord>> loadEmployeeAdjustments({
+  required int userId,
+  required int payrollEmployeeId,
+}) async {
+  final additionsResponse = await _apiService.getPayrollAdditionalCharges();
+  final deductionsResponse = await _apiService.getPayrollDeductions();
 
-  Future<List<PayrollAdjustmentRecord>> loadEmployeeAdjustments({
-    required int userId,
-    required int payrollEmployeeId,
-  }) async {
-    final response = await _apiService.getPayrollEmployeeAdjustments(
-      payrollEmployeeId: payrollEmployeeId,
-    );
-    _requireSuccess(response);
-    final data = response['data'];
+  _requireSuccess(additionsResponse);
+  _requireSuccess(deductionsResponse);
+
+  List<Map<String, dynamic>> extractItems(dynamic data) {
     final rawItems = data is List
         ? data
         : data is Map<String, dynamic>
@@ -1028,21 +1118,46 @@ class ProfileCompensationRepository {
                 (data['adjustments'] as List?) ??
                 (data.isEmpty ? const <dynamic>[] : <dynamic>[data])
             : const <dynamic>[];
-    final adjustments = rawItems
+
+    return rawItems
         .whereType<Map>()
-        .map(
-          (item) => PayrollAdjustmentRecord.fromJson(
-            Map<String, dynamic>.from(item),
-          ),
-        )
-        .where((item) => item.payrollEmployeeId == 0
-            ? true
-            : item.payrollEmployeeId == payrollEmployeeId)
-        .toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return adjustments;
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
   }
 
+  PayrollAdjustmentRecord adjustmentFromMap(
+    Map<String, dynamic> item,
+    String type,
+  ) {
+    return PayrollAdjustmentRecord(
+      id: _cleanText(item['id']),
+      payrollEmployeeId:
+          _asInt(item['payrollEmployeeId']) ?? payrollEmployeeId,
+      type: type,
+      amountMinor: _asInt(item['amount']) ?? 0,
+      remarks: _cleanText(item['remarks']),
+      createdAt: DateTime.tryParse(_cleanText(item['createdAt'])) ??
+          DateTime.now(),
+    );
+  }
+
+  final additions = extractItems(additionsResponse['data'])
+      .where((item) => _asInt(item['payrollEmployeeId']) == payrollEmployeeId)
+      .map((item) => adjustmentFromMap(item, AdjustmentTypes.addition))
+      .toList();
+
+  final deductions = extractItems(deductionsResponse['data'])
+      .where((item) => _asInt(item['payrollEmployeeId']) == payrollEmployeeId)
+      .map((item) => adjustmentFromMap(item, AdjustmentTypes.deduction))
+      .toList();
+
+  final adjustments = <PayrollAdjustmentRecord>[
+    ...additions,
+    ...deductions,
+  ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+  return adjustments;
+}
   Future<PayrollRunRecord> refreshEmployeeAdjustments({
     required int branchId,
     required String runId,
