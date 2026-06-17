@@ -333,64 +333,6 @@ static const int _notificationPageSize = 4;
     Navigator.pop(context);
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
-
-  // void _showBranchPicker() {
-  //   if (_branchOptions.length <= 1) return;
-  //   showModalBottomSheet<void>(
-  //     context: context,
-  //     backgroundColor: Colors.white,
-  //     shape: const RoundedRectangleBorder(
-  //       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-  //     ),
-  //     builder: (context) {
-  //       return SafeArea(
-  //         child: ListView.separated(
-  //           shrinkWrap: true,
-  //           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-  //           itemCount: _branchOptions.length,
-  //           separatorBuilder: (_, __) => const SizedBox(height: 8),
-  //           itemBuilder: (context, index) {
-  //             final option = _branchOptions[index];
-  //             final selected = option.branchId == _selectedBranchId;
-  //             return ListTile(
-  //               shape: RoundedRectangleBorder(
-  //                 borderRadius: BorderRadius.circular(14),
-  //                 side: BorderSide(
-  //                   color: selected
-  //                       ? AppColors.starColor
-  //                       : const Color(0xFFE8DED6),
-  //                 ),
-  //               ),
-  //               leading: const CircleAvatar(
-  //                 backgroundColor: Color(0xFFF6E8C8),
-  //                 child: Icon(
-  //                   Icons.location_on_outlined,
-  //                   color: AppColors.starColor,
-  //                 ),
-  //               ),
-  //               title: Text(
-  //                 option.salonName.isEmpty
-  //                     ? option.branchName
-  //                     : option.salonName,
-  //                 style: const TextStyle(fontWeight: FontWeight.w800),
-  //               ),
-  //               subtitle: Text(
-  //                 option.address.isEmpty ? option.branchName : option.address,
-  //               ),
-  //               trailing: selected
-  //                   ? const Icon(Icons.check_circle, color: AppColors.starColor)
-  //                   : null,
-  //               onTap: () {
-  //                 Navigator.pop(context);
-  //                 _loadDashboard(option.branchId);
-  //               },
-  //             );
-  //           },
-  //         ),
-  //       );
-  //     },
-  //   );
-  // }
   Future<void> _showBranchPicker() async {
   if (_branchOptions.length <= 1) return;
 
@@ -514,7 +456,7 @@ static const int _notificationPageSize = 4;
             else ...[
   _buildBranchSelector(),
   Padding(
-    padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+    padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -549,106 +491,6 @@ static const int _notificationPageSize = 4;
     );
   }
 
-  // Widget _buildBranchSelector() {
-  //   final selected = _selectedBranchOption;
-  //   return Material(
-  //     color: Colors.white,
-  //     borderRadius: BorderRadius.circular(10),
-  //     child: InkWell(
-  //       borderRadius: BorderRadius.circular(10),
-  //       onTap: _showBranchPicker,
-  //       child: Ink(
-  //         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-  //         decoration: BoxDecoration(
-  //           color: Colors.white,
-  //           borderRadius: BorderRadius.circular(10),
-  //           border: Border.all(color: const Color(0xFFE8DED6)),
-  //         ),
-  //         child: Row(
-  //           children: [
-  //             Container(
-  //               width: 38,
-  //               height: 38,
-  //               decoration: const BoxDecoration(
-  //                 color: Color(0xFFF6E8C8),
-  //                 shape: BoxShape.circle,
-  //               ),
-  //               child: const Icon(
-  //                 Icons.location_on_outlined,
-  //                 color: AppColors.starColor,
-  //                 size: 20,
-  //               ),
-  //             ),
-  //             const SizedBox(width: 12),
-  //             Expanded(
-  //               child: _isLoadingBranches
-  //                   ? Text(context.t('Loading branches...'))
-  //                   : Column(
-  //                       crossAxisAlignment: CrossAxisAlignment.start,
-  //                       children: [
-  //                         Text(
-  //                           selected == null
-  //                               ? context.t('No branches available')
-  //                               : (selected.salonName.isEmpty
-  //                                   ? selected.branchName
-  //                                   : selected.salonName),
-  //                           maxLines: 1,
-  //                           overflow: TextOverflow.ellipsis,
-  //                           style: const TextStyle(
-  //                             fontSize: 14,
-  //                             fontWeight: FontWeight.w800,
-  //                             color: Color(0xFF1F1B18),
-  //                           ),
-  //                         ),
-  //                         if (selected != null) ...[
-  //                           const SizedBox(height: 2),
-  //                           Text(
-  //                             selected.address.isEmpty
-  //                                 ? selected.branchName
-  //                                 : selected.address,
-  //                             maxLines: 1,
-  //                             overflow: TextOverflow.ellipsis,
-  //                             style: const TextStyle(
-  //                               fontSize: 11,
-  //                               color: Color(0xFF756A61),
-  //                             ),
-  //                           ),
-  //                         ],
-  //                       ],
-  //                     ),
-  //             ),
-  //             const Icon(
-  //               Icons.keyboard_arrow_down_rounded,
-  //               color: AppColors.starColor,
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     ),
-  //   );
-  // }
-  
-// Widget _buildBranchSelector() {
-//   final selected = _selectedBranchOption;
-
-//   final selectedLabel = selected == null
-//       ? context.t('Select Branch')
-//       : selected.displayLabel;
-
-//   final selectedAddressSummary = selected?.address ?? '';
-//   final canChangeBranch = _branchOptions.length > 1;
-
-//   return Padding(
-//     padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
-//     child: _DashboardHeaderBranchSelector(
-//       key: _branchSelectorKey,
-//       label: selectedLabel,
-//       addressSummary: selectedAddressSummary,
-//       isInteractive: canChangeBranch,
-//       onTap: canChangeBranch ? _showBranchPicker : null,
-//     ),
-//   );
-// }
 Widget _buildBranchSelector() {
   final selected = _selectedBranchOption;
 
@@ -660,7 +502,7 @@ Widget _buildBranchSelector() {
   final canChangeBranch = _branchOptions.length > 1;
 
   return Padding(
-    padding: const EdgeInsets.fromLTRB(32, 18, 32, 0),
+    padding: const EdgeInsets.fromLTRB(30, 16, 30, 0),
     child: _DashboardHeaderBranchSelector(
       key: _branchSelectorKey,
       label: selectedLabel,
@@ -670,78 +512,26 @@ Widget _buildBranchSelector() {
     ),
   );
 }
-  // Widget _buildHeader() {
-  //   return LayoutBuilder(
-  //     builder: (context, constraints) {
-  //       final isWide = constraints.maxWidth >= 560;
-  //       final title = Text(
-  //         _headerGreeting(),
-  //         style: const TextStyle(
-  //           fontSize: 22,
-  //           fontWeight: FontWeight.w900,
-  //           color: Colors.black,
-  //         ),
-  //       );
-  //       final subtitle = Text(
-  //         _headerSubtext(),
-  //         style: const TextStyle(
-  //           fontSize: 13,
-  //           color: Color(0xFF6B5B4D),
-  //         ),
-  //       );
-  //       final dateButton = _DateButton(
-  //         label: DateFormat('MM/dd/yyyy').format(_selectedDate),
-  //         onTap: _pickDate,
-  //       );
-
-  //       if (!isWide) {
-  //         return Column(
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             title,
-  //             const SizedBox(height: 6),
-  //             subtitle,
-  //             const SizedBox(height: 12),
-  //             Align(alignment: Alignment.centerRight, child: dateButton),
-  //           ],
-  //         );
-  //       }
-
-  //       return Row(
-  //         children: [
-  //           Expanded(
-  //             child: Column(
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 title,
-  //                 const SizedBox(height: 6),
-  //                 subtitle,
-  //               ],
-  //             ),
-  //           ),
-  //           const SizedBox(width: 16),
-  //           dateButton,
-  //         ],
-  //       );
-  //     },
-  //   );
-  // }
   Widget _buildHeader() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 560;
         final name = _headerGreeting();
-        final titleText =
-            name.isEmpty ? '${_dayPartGreeting()}!' : '${_dayPartGreeting()}, $name';
-        final title = Text(
-          titleText,
-          style: const TextStyle(
-            fontSize: 21,
-            height: 1.18,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-          ),
-        );
+       final titleText = name.isEmpty
+    ? '${_dayPartGreeting()}! 👋'
+    : '${_dayPartGreeting()}, $name 👋';
+
+final title = Text(
+  titleText,
+  maxLines: 1,
+  overflow: TextOverflow.ellipsis,
+  style: const TextStyle(
+    fontSize: 21,
+    height: 1.18,
+    fontWeight: FontWeight.w700,
+    color: Colors.black,
+  ),
+);
 
         final subtitle = Text(
           _headerSubtext(),
@@ -762,9 +552,6 @@ Widget _buildBranchSelector() {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               title,
-              const SizedBox(height: 2),
-              const Text('👋', style: TextStyle(fontSize: 22)),
-              const SizedBox(height: 2),
               subtitle,
               const SizedBox(height: 16),
               Align(
@@ -901,71 +688,6 @@ Widget _buildBranchSelector() {
     );
   }
 
-  // Widget _buildNotificationsSection() {
-  //   final notifications = _mapValue('notifications');
-  //   final unreadCount = _asInt(notifications['unread_count']);
-  //   final items = notifications['items'] is List
-  //       ? (notifications['items'] as List)
-  //           .whereType<Map>()
-  //           .map((item) => Map<String, dynamic>.from(item))
-  //           .toList()
-  //       : <Map<String, dynamic>>[];
-
-  //   return _DashboardSection(
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         Row(
-  //           children: [
-  //             Expanded(
-  //               child: Text(
-  //                 context.t('Notifications'),
-  //                 style: const TextStyle(
-  //                   fontSize: 16,
-  //                   fontWeight: FontWeight.w800,
-  //                 ),
-  //               ),
-  //             ),
-  //             if (unreadCount > 0)
-  //               Container(
-  //                 constraints: const BoxConstraints(minWidth: 22),
-  //                 padding: const EdgeInsets.symmetric(
-  //                   horizontal: 7,
-  //                   vertical: 4,
-  //                 ),
-  //                 decoration: BoxDecoration(
-  //                   color: AppColors.starColor,
-  //                   borderRadius: BorderRadius.circular(999),
-  //                 ),
-  //                 child: Text(
-  //                   '$unreadCount',
-  //                   textAlign: TextAlign.center,
-  //                   style: const TextStyle(
-  //                     color: Colors.white,
-  //                     fontSize: 11,
-  //                     fontWeight: FontWeight.w800,
-  //                   ),
-  //                 ),
-  //               ),
-  //           ],
-  //         ),
-  //         const SizedBox(height: 16),
-  //         if (items.isEmpty)
-  //           const _EmptyDashedBox(
-  //             icon: Icons.notifications_none_outlined,
-  //             message: 'No notifications right now.',
-  //           )
-  //         else
-  //           ...items.map(
-  //             (item) => _NotificationDashboardRow(
-  //               item: item,
-  //               cleanText: _cleanText,
-  //             ),
-  //           ),
-  //       ],
-  //     ),
-  //   );
-  // }
   Widget _buildNotificationsSection() {
   final notifications = _mapValue('notifications');
   final unreadCount = _asInt(notifications['unread_count']);
@@ -1419,10 +1141,10 @@ class _DateButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(999),
           border: Border.all(color: const Color(0xFFE6D6C6)),
         ),
         child: Row(
@@ -1773,151 +1495,159 @@ class _TodayAppointmentsCard extends StatefulWidget {
 
 class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
   String _selectedFilterKey = 'all';
+@override
+Widget build(BuildContext context) {
+  final filters = widget.data['filters'] is List
+      ? (widget.data['filters'] as List)
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList()
+      : <Map<String, dynamic>>[];
 
-  @override
-  Widget build(BuildContext context) {
-    final filters = widget.data['filters'] is List
-        ? (widget.data['filters'] as List)
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList()
-        : <Map<String, dynamic>>[];
-    if (filters.isNotEmpty &&
-        !filters.any(
-          (filter) => widget.cleanText(filter['key']) == _selectedFilterKey,
-        )) {
-      _selectedFilterKey = widget.cleanText(filters.first['key']).isEmpty
+  final appointments = widget.data['appointments'] is List
+      ? (widget.data['appointments'] as List)
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList()
+      : <Map<String, dynamic>>[];
+
+ if (filters.isNotEmpty &&
+    !filters.any(
+      (filter) => widget.cleanText(filter['key']) == _selectedFilterKey,
+    )) {
+  _selectedFilterKey = widget.cleanText(filters.first['key']).isEmpty
+      ? 'all'
+      : widget.cleanText(filters.first['key']);
+}
+
+final visibleAppointments = _selectedFilterKey == 'all'
+    ? appointments
+    : appointments.where((appointment) {
+        return _appointmentFilterKey(appointment) == _selectedFilterKey;
+      }).toList();
+      
+  return _DashboardSection(
+    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                context.t("Today's Appointments"),
+                style: const TextStyle(
+                  fontSize: 15,
+                  height: 1.12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: widget.onOpenBookings,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.t('View All'),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        height: 1.05,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF8B6500),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 15,
+                      color: Color(0xFF8B6500),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        // Row(
+        //   children: [
+        //     Expanded(
+        //       child: _AppointmentSummaryTile(
+        //         label: widget.cleanText(allFilter['label']).isEmpty
+        //             ? 'All'
+        //             : widget.cleanText(allFilter['label']),
+        //         count: widget.asInt(allFilter['count']),
+        //         selected: true,
+        //       ),
+        //     ),
+        //     const SizedBox(width: 10),
+        //     Expanded(
+        //       child: _AppointmentSummaryTile(
+        //         label: widget.cleanText(upcomingFilter['label']).isEmpty
+        //             ? 'Upcoming'
+        //             : widget.cleanText(upcomingFilter['label']),
+        //         count: widget.asInt(upcomingFilter['count']),
+        //         selected: false,
+        //       ),
+        //     ),
+        //   ],
+        // ),
+        SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  child: Row(
+    children: filters.map((filter) {
+      final key = widget.cleanText(filter['key']).isEmpty
           ? 'all'
-          : widget.cleanText(filters.first['key']);
-    }
-    final appointments = widget.data['appointments'] is List
-        ? (widget.data['appointments'] as List)
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList()
-        : <Map<String, dynamic>>[];
-    final visibleAppointments = _selectedFilterKey == 'all'
-        ? appointments
-        : appointments
-            .where(
-              (appointment) =>
-                  _appointmentFilterKey(appointment) == _selectedFilterKey,
-            )
-            .toList();
+          : widget.cleanText(filter['key']);
 
-    return _DashboardSection(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.t("Today's Appointments"),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: widget.onOpenBookings,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 4,
-                    vertical: 4,
-                  ),
-                  child: Text(
-                    widget.cleanText(widget.data['cta_label']).isEmpty
-                        ? context.t('View all appointments →')
-                        : widget.cleanText(widget.data['cta_label']),
-                    style: TextStyle(
-                      color: AppColors.starColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+      final selected = key == _selectedFilterKey;
+
+      return Padding(
+        padding: const EdgeInsets.only(right: 10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            setState(() {
+              _selectedFilterKey = key;
+            });
+          },
+          child: SizedBox(
+            width: 118,
+            child: _AppointmentSummaryTile(
+              label: widget.cleanText(filter['label']).isEmpty
+                  ? key
+                  : widget.cleanText(filter['label']),
+              count: widget.asInt(filter['count']),
+              selected: selected,
+            ),
           ),
-          const SizedBox(height: 16),
-          if (filters.isNotEmpty)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: filters.asMap().entries.map((entry) {
-                  final filter = entry.value;
-                  final key = widget.cleanText(filter['key']).isEmpty
-                      ? 'all'
-                      : widget.cleanText(filter['key']);
-                  final selected = key == _selectedFilterKey;
-                  return InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: () => setState(() => _selectedFilterKey = key),
-                    child: Container(
-                      width: 150,
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _appointmentFilterColor(key),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: selected
-                              ? AppColors.starColor
-                              : Colors.transparent,
-                          width: selected ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            widget.cleanText(filter['label']).toUpperCase(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF9A8A7A),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '${widget.asInt(filter['count'])}',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+        ),
+      );
+    }).toList(),
+  ),
+),
+        const SizedBox(height: 16),
+      if (visibleAppointments.isEmpty)
+  _AppointmentEmptyBookNow(onTap: widget.onOpenBookings)
+else
+  ...visibleAppointments.take(3).map(
+                (appointment) => _AppointmentDashboardRow(
+                  appointment: appointment,
+                  cleanText: widget.cleanText,
+                  onTap: () => _showAppointmentDetails(context, appointment),
+                ),
               ),
-            ),
-          const SizedBox(height: 16),
-          if (visibleAppointments.isEmpty)
-            const _EmptyDashedBox(
-              icon: Icons.calendar_month_outlined,
-              message: 'No appointments found for the selected day.',
-            )
-          else
-            ...visibleAppointments.map(
-              (appointment) => _AppointmentDashboardRow(
-                appointment: appointment,
-                cleanText: widget.cleanText,
-                onTap: () => _showAppointmentDetails(context, appointment),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
   Color _appointmentFilterColor(String key) {
     switch (key) {
@@ -2026,7 +1756,163 @@ class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
     );
   }
 }
+class _AppointmentSummaryTile extends StatelessWidget {
+  const _AppointmentSummaryTile({
+    required this.label,
+    required this.count,
+    required this.selected,
+  });
 
+  final String label;
+  final int count;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    // return Container(
+    //   height: 52,
+    //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    //   decoration: BoxDecoration(
+    //     color: selected ? const Color(0xFFFAF7F3) : const Color(0xFFF1F0EF),
+    //     borderRadius: BorderRadius.circular(8),
+    //     border: Border.all(
+    //       color: selected ? const Color(0xFF8B6500) : Colors.transparent,
+    //       width: 1,
+    //     ),
+    //   ),
+    //   child: Column(
+    //     mainAxisAlignment: MainAxisAlignment.center,
+    //     children: [
+    //       Text(
+    //         label.toUpperCase(),
+    //         maxLines: 1,
+    //         overflow: TextOverflow.ellipsis,
+    //         style: const TextStyle(
+    //           fontSize: 8,
+    //           letterSpacing: 0.7,
+    //           fontWeight: FontWeight.w800,
+    //           color: Color(0xFF9A8A7A),
+    //         ),
+    //       ),
+    //       const SizedBox(height: 6),
+    //       Text(
+    //         '$count',
+    //         style: const TextStyle(
+    //           fontSize: 13,
+    //           fontWeight: FontWeight.w800,
+    //           color: Color(0xFF44403C),
+    //         ),
+    //       ),
+    //     ],
+    //   ),
+    // );
+    return Container(
+  height: 58,
+  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+  decoration: BoxDecoration(
+    color: selected ? const Color(0xFFFAF7F3) : const Color(0xFFF1F0EF),
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(
+      color: selected ? const Color(0xFF8B6500) : Colors.transparent,
+      width: 1,
+    ),
+  ),
+  child: Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      Text(
+        label.toUpperCase(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 8,
+          height: 1.0,
+          letterSpacing: 0.7,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF9A8A7A),
+        ),
+      ),
+      const SizedBox(height: 5),
+      Text(
+        '$count',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontSize: 13,
+          height: 1.0,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF44403C),
+        ),
+      ),
+    ],
+  ),
+);
+  }
+}
+
+class _AppointmentEmptyBookNow extends StatelessWidget {
+  const _AppointmentEmptyBookNow({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 142,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8E1DB)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.event_busy_outlined,
+            size: 22,
+            color: Color(0xFFC19A6B),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.t('No appointments found for\nthe selected day.'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 10,
+              height: 1.25,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF78716C),
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 28,
+            child: ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8B6500),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              child: Text(
+                context.t('Book Now'),
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _StaffLiveStatusCard extends StatelessWidget {
   const _StaffLiveStatusCard({
     required this.data,
@@ -2046,8 +1932,7 @@ class _StaffLiveStatusCard extends StatelessWidget {
             .map((item) => Map<String, dynamic>.from(item))
             .toList()
         : <Map<String, dynamic>>[];
-
-    return _DashboardSection(
+         return _DashboardSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2710,193 +2595,6 @@ class _NotificationPaginationBar extends StatelessWidget {
   }
 }
 
-// class _DashboardHeaderBranchSelector extends StatelessWidget {
-//   const _DashboardHeaderBranchSelector({
-//     super.key,
-//     required this.label,
-//     this.addressSummary = '',
-//     required this.isInteractive,
-//     this.onTap,
-//   });
-
-//   final String label;
-//   final String addressSummary;
-//   final bool isInteractive;
-//   final VoidCallback? onTap;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Material(
-//       color: Colors.transparent,
-//       child: InkWell(
-//         borderRadius: BorderRadius.circular(16),
-//         onTap: isInteractive ? onTap : null,
-//         child: Container(
-//           height: double.infinity,
-//           constraints: const BoxConstraints(minWidth: 164),
-//           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-//           decoration: BoxDecoration(
-//             color: Colors.white,
-//             borderRadius: BorderRadius.circular(16),
-//           ),
-//           child: Row(
-//             children: [
-//               const Icon(
-//                 Icons.storefront_outlined,
-//                 color: _dashboardAccent,
-//                 size: 20,
-//               ),
-//               const SizedBox(width: 12),
-//               Expanded(
-//                 child: Row(
-//                   crossAxisAlignment: CrossAxisAlignment.center,
-//                   children: [
-//                     Expanded(
-//                       child: Column(
-//                         crossAxisAlignment: CrossAxisAlignment.start,
-//                         mainAxisSize: MainAxisSize.min,
-//                         children: [
-//                           Text(
-//                             label.toUpperCase(),
-//                             maxLines: 1,
-//                             overflow: TextOverflow.ellipsis,
-//                             style: _dashboardTextStyle(
-//                               size: 14,
-//                               weight: FontWeight.w600,
-//                               color: _dashboardPrimaryText,
-//                               letterSpacing: 0.6,
-//                             ),
-//                           ),
-//                           if (addressSummary.isNotEmpty) ...[
-//                             const SizedBox(height: 2),
-//                             Text(
-//                               addressSummary,
-//                               maxLines: 1,
-//                               overflow: TextOverflow.ellipsis,
-//                               style: _dashboardTextStyle(
-//                                 size: 11,
-//                                 weight: FontWeight.w600,
-//                                 color: _dashboardSecondaryText,
-//                               ),
-//                             ),
-//                           ],
-//                         ],
-//                       ),
-//                     ),
-//                     if (isInteractive) ...[
-//                       const SizedBox(width: 4),
-//                       const Icon(
-//                         Icons.keyboard_arrow_down_rounded,
-//                         color: _dashboardSecondaryText,
-//                         size: 18,
-//                       ),
-//                     ],
-//                   ],
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-// class _DashboardHeaderBranchSelector extends StatelessWidget {
-//   const _DashboardHeaderBranchSelector({
-//     super.key,
-//     required this.label,
-//     this.addressSummary = '',
-//     required this.isInteractive,
-//     this.onTap,
-//   });
-
-//   final String label;
-//   final String addressSummary;
-//   final bool isInteractive;
-//   final VoidCallback? onTap;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Material(
-//       color: Colors.transparent,
-//       child: InkWell(
-//         borderRadius: BorderRadius.circular(12),
-//         onTap: isInteractive ? onTap : null,
-//         child: Ink(
-//           height: 56,
-//           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-//           decoration: BoxDecoration(
-//             color: Colors.white,
-//             borderRadius: BorderRadius.circular(12),
-//             border: Border.all(color: const Color(0xFFE8DED6)),
-//             boxShadow: const [
-//               BoxShadow(
-//                 color: Color(0x08000000),
-//                 blurRadius: 8,
-//                 offset: Offset(0, 2),
-//               ),
-//             ],
-//           ),
-//           child: Row(
-//             children: [
-//               Container(
-//                 width: 34,
-//                 height: 34,
-//                 decoration: const BoxDecoration(
-//                   color: Color(0xFFF6E8C8),
-//                   shape: BoxShape.circle,
-//                 ),
-//                 child: const Icon(
-//                   Icons.location_on_outlined,
-//                   color: AppColors.starColor,
-//                   size: 18,
-//                 ),
-//               ),
-//               const SizedBox(width: 12),
-//               Expanded(
-//                 child: Column(
-//                   mainAxisAlignment: MainAxisAlignment.center,
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(
-//                       label,
-//                       maxLines: 1,
-//                       overflow: TextOverflow.ellipsis,
-//                       style: const TextStyle(
-//                         fontSize: 12,
-//                         fontWeight: FontWeight.w700,
-//                         color: Color(0xFF1F1B18),
-//                       ),
-//                     ),
-//                     if (addressSummary.isNotEmpty) ...[
-//                       const SizedBox(height: 2),
-//                       Text(
-//                         addressSummary,
-//                         maxLines: 1,
-//                         overflow: TextOverflow.ellipsis,
-//                         style: const TextStyle(
-//                           fontSize: 9,
-//                           color: Color(0xFF756A61),
-//                         ),
-//                       ),
-//                     ],
-//                   ],
-//                 ),
-//               ),
-//               if (isInteractive)
-//                 const Icon(
-//                   Icons.keyboard_arrow_down_rounded,
-//                   color: AppColors.starColor,
-//                   size: 18,
-//                 ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
 class _DashboardHeaderBranchSelector extends StatelessWidget {
   const _DashboardHeaderBranchSelector({
     super.key,
@@ -2918,40 +2616,40 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: isInteractive ? onTap : null,
-       child: Ink(
-  height: 64,
-  padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
-  decoration: BoxDecoration(
-    color: const Color(0xFFF7F7F7),
-    borderRadius: BorderRadius.circular(14),
-    border: Border.all(
-      color: const Color(0xFFE6E2DE),
-      width: 1,
-    ),
-    boxShadow: const [
-      BoxShadow(
-        color: Color(0x06000000),
-        blurRadius: 8,
-        offset: Offset(0, 2),
-      ),
-    ],
-  ),
+        child: Ink(
+          height: 68,
+          padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFAFAFA),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: const Color(0xFFE8E1DB),
+              width: 1,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
           child: Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 44,
+                height: 44,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF6D46F),
+                  color: Color(0xFFF5D46A),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.location_on_outlined,
                   color: Color(0xFF8B6500),
-                  size: 20,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 13),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -2963,21 +2661,21 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Manrope',
-                        fontSize: 13,
+                        fontSize: 13.5,
                         height: 1.05,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF44403C),
                       ),
                     ),
                     if (addressSummary.isNotEmpty) ...[
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Text(
                         addressSummary,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontFamily: 'Manrope',
-                          fontSize: 9,
+                          fontSize: 9.5,
                           height: 1.05,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF78716C),
@@ -2987,14 +2685,12 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
                   ],
                 ),
               ),
-              if (isInteractive) ...[
-                const SizedBox(width: 8),
+              if (isInteractive)
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: Color(0xFF8B6500),
-                  size: 20,
+                  size: 22,
                 ),
-              ],
             ],
           ),
         ),
