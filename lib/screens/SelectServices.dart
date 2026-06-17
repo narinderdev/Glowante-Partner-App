@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../utils/price_formatter.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
@@ -73,8 +74,18 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
     }
   }
 
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    return int.tryParse('${value ?? ''}') ?? 0;
+  }
+
+  int _servicePriceMinor(Map<String, dynamic> service) {
+    return _asInt(service['priceMinor'] ?? service['defaultPriceMinor']);
+  }
+
   /// Build the full list of selected services we will return to the parent.
-  /// Each item: {id, name, price, qty} where price is in rupees (int).
+  /// Each item: {id, name, price, qty} where price stays in backend minor units.
   List<Map<String, dynamic>> _collectSelected() {
     final out = <Map<String, dynamic>>[];
 
@@ -87,7 +98,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
           out.add({
             'id': id,
             'name': s['displayName'],
-            'price': s['priceMinor'], // already rupees
+            'price': _servicePriceMinor(s),
             'qty': qty,
           });
         }
@@ -104,7 +115,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
     return out;
   }
 
-  /// Total in rupees (double only for display .00)
+  /// Total in backend minor units.
   double get total {
     double sum = 0;
     for (final c in categories) {
@@ -114,7 +125,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
         final svc = s as Map<String, dynamic>;
         final int id = svc['id'] as int;
         final int qty = selectedQty[id] ?? 0;
-        final num price = svc['priceMinor'] as num;
+        final price = _servicePriceMinor(svc);
         sum += (price * qty).toDouble();
       }
 
@@ -123,7 +134,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
           final svc = s as Map<String, dynamic>;
           final int id = svc['id'] as int;
           final int qty = selectedQty[id] ?? 0;
-          final num price = svc['priceMinor'] as num;
+          final price = _servicePriceMinor(svc);
           sum += (price * qty).toDouble();
         }
       }
@@ -134,7 +145,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
   Widget _buildServiceItem(Map<String, dynamic> s) {
     final int id = s['id'] as int;
     final String name = (s['displayName'] ?? '').toString();
-    final int price = (s['priceMinor'] ?? 0) as int; // rupees (e.g., 1220)
+    final int price = _servicePriceMinor(s);
     final int qty = selectedQty[id] ?? 0;
 
     // ❌ DO NOT FILTER HERE.
@@ -148,7 +159,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
         children: [
           Expanded(
             child: Text(
-              "$name\n₹$price",
+              "$name\n${formatMinorAmount(price)}",
               style: const TextStyle(fontSize: 14),
             ),
           ),
@@ -330,7 +341,7 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
                     children: [
                       Expanded(
                         child: Text(
-                          "Total: ₹${total.toStringAsFixed(2)}",
+                          "Total: ${formatMinorAmount(total)}",
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
@@ -352,22 +363,22 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
                       //   child: Text(translateText('Done')),
                       // ),
                       SizedBox(
-  width: 110,
-  height: 44,
-  child: ElevatedButton(
-    onPressed: () {
-      Navigator.pop(context, _collectSelected());
-    },
-    style: ElevatedButton.styleFrom(
-      backgroundColor: AppColors.starColor,
-      foregroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
-    ),
-    child: Text(translateText('Done')),
-  ),
-),
+                        width: 110,
+                        height: 44,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context, _collectSelected());
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.starColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          child: Text(translateText('Done')),
+                        ),
+                      ),
                     ],
                   ),
                 ),

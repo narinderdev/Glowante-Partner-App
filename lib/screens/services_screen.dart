@@ -211,6 +211,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/price_formatter.dart';
 
 import '../utils/api_service.dart'; // your ApiService (with updateBCategory, deleteBCategory, updateBSubCategory, deleteBSubCategory, updateBService, deleteBService)
 
@@ -288,7 +289,9 @@ class _ServicesTabState extends State<ServicesTab> {
     final type = (service['commissionType'] ?? '').toString().toLowerCase();
     if (type == 'fixed') {
       final amount = _asInt(service['commissionFixedAmountMinor']);
-      return amount != null ? '₹$amount' : translateText('Fixed');
+      return amount != null
+          ? formatMinorAmount(amount)
+          : translateText('Fixed');
     }
 
     if (type == 'percentage') {
@@ -298,7 +301,7 @@ class _ServicesTabState extends State<ServicesTab> {
           ? translateText('Percentage')
           : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
       return maxAmount != null
-          ? '$percentLabel • max ₹$maxAmount'
+          ? '$percentLabel • max ${formatMinorAmount(maxAmount)}'
           : percentLabel;
     }
 
@@ -759,8 +762,10 @@ class _ServicesTabState extends State<ServicesTab> {
   Future<void> _onEditService(Map<String, dynamic> service) async {
     final nameCtrl =
         TextEditingController(text: service['displayName']?.toString() ?? '');
-    final priceCtrl =
-        TextEditingController(text: service['priceMinor']?.toString() ?? '');
+    final priceCtrl = TextEditingController(
+      text:
+          minorAmountToRupees(service['priceMinor'])?.toStringAsFixed(0) ?? '',
+    );
     final durationCtrl =
         TextEditingController(text: service['durationMin']?.toString() ?? '');
     final descCtrl =
@@ -803,7 +808,7 @@ class _ServicesTabState extends State<ServicesTab> {
                     controller: priceCtrl,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: translateText('Price (₹, minor)'),
+                      labelText: translateText('Price (₹)'),
                       border: OutlineInputBorder(),
                       isDense: true,
                       prefixText: '₹',
@@ -858,7 +863,7 @@ class _ServicesTabState extends State<ServicesTab> {
                       "displayName": nameCtrl.text.trim(),
                       "description": descCtrl.text.trim(),
                       "durationMin": dur,
-                      "priceMinor": price,
+                      "priceMinor": rupeesToMinorAmount(price),
                       "priceType": "fixed",
                       "isActive": true,
                     });
@@ -1171,7 +1176,8 @@ class _ServicesTabState extends State<ServicesTab> {
                                     crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Text(
-                                        '₹${service['priceMinor']}',
+                                        formatMinorAmount(
+                                            service['priceMinor']),
                                         style: const TextStyle(
                                             fontWeight: FontWeight.bold),
                                       ),

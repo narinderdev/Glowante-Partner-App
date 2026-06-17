@@ -256,47 +256,101 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         .trim();
   }
 
-  Future<void> _getAddressFromCoordinates(double lat, double lng) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isEmpty) return;
+//   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
+//     try {
+//       final placemarks = await placemarkFromCoordinates(lat, lng);
+//       if (placemarks.isEmpty) return;
 
-      final place = placemarks.first;
+//       final place = placemarks.first;
 
-      final parts = <String?>[
-        place.name,
-        place.subLocality,
-        place.locality,
-        place.administrativeArea,
-        place.country,
-        place.postalCode,
-      ];
+//       final parts = <String?>[
+//         place.name,
+//         place.subLocality,
+//         place.locality,
+//         place.administrativeArea,
+//         place.country,
+//         place.postalCode,
+//       ];
 
-      final formattedAddress = _cleanAddressText(
-        parts
-            .whereType<String>()
-            .where((value) => value.trim().isNotEmpty)
-            .map((value) => value.trim())
-            .join(', '),
+//       final formattedAddress = _cleanAddressText(
+//         parts
+//             .whereType<String>()
+//             .where((value) => value.trim().isNotEmpty)
+//             .map((value) => value.trim())
+//             .join(', '),
+//       );
+
+//       _removeOverlay();
+
+//       _isSelectingPlace = true;
+//       setState(() {
+//   _setBaseCompleteAddress(formattedAddress);
+
+//   // Keep search location empty when using current location
+//   searchLocationController.clear();
+
+//   predictions = [];
+//   latitude = lat;
+//   longitude = lng;
+// });
+//       _isSelectingPlace = false;
+
+//       debugPrint('CURRENT LOCATION LAT=$latitude LNG=$longitude');
+//     } catch (e) {
+//       debugPrint('Error fetching address: $e');
+//     }
+//   }
+Future<void> _getAddressFromCoordinates(double lat, double lng) async {
+  try {
+    final placemarks = await placemarkFromCoordinates(lat, lng);
+    if (placemarks.isEmpty) return;
+
+    final place = placemarks.first;
+
+    final parts = <String?>[
+      place.name,
+      place.subLocality,
+      place.locality,
+      place.administrativeArea,
+      place.country,
+      place.postalCode,
+    ];
+
+    final formattedAddress = _cleanAddressText(
+      parts
+          .whereType<String>()
+          .where((value) => value.trim().isNotEmpty)
+          .map((value) => value.trim())
+          .join(', '),
+    );
+
+    _removeOverlay();
+
+    setState(() {
+      _baseCompleteAddress = _addressWithoutManualParts(formattedAddress);
+
+      completeAddressController.value = TextEditingValue(
+        text: _composeAddressFromParts(),
+        selection: TextSelection.collapsed(
+          offset: _composeAddressFromParts().length,
+        ),
       );
 
-      _removeOverlay();
+      // Keep search location empty when using current location
+      searchLocationController.clear();
 
-      _isSelectingPlace = true;
-      setState(() {
-        _setBaseCompleteAddress(formattedAddress);
-        searchLocationController.text = formattedAddress;
-        predictions = [];
-        latitude = lat;
-        longitude = lng;
-      });
-      _isSelectingPlace = false;
+      predictions = [];
+      latitude = lat;
+      longitude = lng;
+    });
 
-      debugPrint('CURRENT LOCATION LAT=$latitude LNG=$longitude');
-    } catch (e) {
-      debugPrint('Error fetching address: $e');
-    }
+    debugPrint('CURRENT LOCATION ADDRESS=$formattedAddress');
+    debugPrint('CURRENT LOCATION COMPLETE=${completeAddressController.text}');
+    debugPrint('CURRENT LOCATION LAT=$latitude LNG=$longitude');
+  } catch (e) {
+    debugPrint('Error fetching address: $e');
   }
+}
 
   void _clearManualAddressInputs({bool clearCompleteAddress = false}) {
     _isSyncingCompleteAddress = true;

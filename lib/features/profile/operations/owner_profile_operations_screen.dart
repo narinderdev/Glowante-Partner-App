@@ -6,6 +6,7 @@ import '../../../services/stylist_branch_selection.dart';
 import '../../../utils/api_service.dart';
 import '../../../utils/colors.dart';
 import '../../../utils/localization_helper.dart';
+import '../../../utils/price_formatter.dart';
 import '../../salon/widgets/owner_branch_header_selector.dart';
 import '../widgets/profile_subpage_app_bar.dart';
 
@@ -45,6 +46,17 @@ String _firstText(
     if (text.isNotEmpty) return text;
   }
   return fallback;
+}
+
+String _firstTextMinorAsRupees(Map<String, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final amount = minorAmountToRupees(map[key]);
+    if (amount != null) {
+      return amount
+          .toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2);
+    }
+  }
+  return '';
 }
 
 bool _boolValue(dynamic value, {bool fallback = false}) {
@@ -158,11 +170,7 @@ String _formatDateValue(dynamic value, {String pattern = 'dd MMM yyyy'}) {
 String _formatCurrency(dynamic value) {
   final amount = _toDouble(value);
   if (amount == null) return 'N/A';
-  return NumberFormat.currency(
-    locale: 'en_IN',
-    symbol: '₹',
-    decimalDigits: 0,
-  ).format(amount);
+  return formatMinorAmount(amount, trimZeroDecimals: true);
 }
 
 String _vendorDisplayLabel(

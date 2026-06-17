@@ -13,6 +13,7 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import '../utils/price_formatter.dart';
 
 class OwnerBranchClientsScreen extends StatefulWidget {
   const OwnerBranchClientsScreen({super.key});
@@ -444,14 +445,13 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
   }
 
   String _formatAmount(dynamic value) {
-    if (value is num) {
-      return '₹${value.toStringAsFixed(0)}';
-    }
-    final parsed = num.tryParse(_cleanText(value));
+    final text = _cleanText(value);
+    if (text.isEmpty) return 'N/A';
+    final parsed = value is num ? value : num.tryParse(text);
     if (parsed == null) {
       return _cleanText(value).isEmpty ? 'N/A' : _cleanText(value);
     }
-    return '₹${parsed.toStringAsFixed(0)}';
+    return formatMinorAmount(parsed, trimZeroDecimals: true);
   }
 
   double _asDouble(dynamic value) {
@@ -466,10 +466,10 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
         : num.tryParse(_cleanText(value))?.toDouble();
     if (amount == null) return 'N/A';
 
-    final normalized = amount / 100;
     if (currency.toUpperCase() == 'INR') {
-      return '₹${normalized.toStringAsFixed(2)}';
+      return formatMinorAmount(amount);
     }
+    final normalized = amount / 100;
     return '${currency.toUpperCase()} ${normalized.toStringAsFixed(2)}';
   }
 

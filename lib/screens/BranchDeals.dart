@@ -4,6 +4,7 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../screens/AddDealsBranch.dart'; // Import the AddDealsScreen
 import '../utils/api_service.dart'; // Import your API service to fetch offers
 import '../utils/colors.dart';
+import '../utils/price_formatter.dart';
 
 class BranchDealsScreen extends StatefulWidget {
   final Map<String, dynamic> branchDetails;
@@ -91,7 +92,7 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
     }
   }
 
-  String _rs(num? n) => "₹${(n ?? 0).toStringAsFixed(0)}";
+  String _rs(num? n) => formatMinorAmount(n ?? 0, trimZeroDecimals: true);
 
   @override
   Widget build(BuildContext context) {
@@ -264,6 +265,7 @@ class _BranchDealsScreenState extends State<BranchDealsScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'branch_deals_add_fab',
         onPressed: () {
           Navigator.push(
             context,

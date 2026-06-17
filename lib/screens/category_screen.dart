@@ -13,6 +13,7 @@ import '../services/language_listener.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../utils/api_service.dart';
 
 const Color _catalogGold = Color(0xFF8B6500);
@@ -118,7 +119,7 @@ String _serviceCommissionValueLabel(Map<String, dynamic> service) {
   final type = (service['commissionType'] ?? '').toString().toLowerCase();
   if (type == 'fixed') {
     final amount = _serviceInt(service['commissionFixedAmountMinor']);
-    return amount != null ? 'Rs $amount' : translateText('Fixed');
+    return amount != null ? formatMinorAmount(amount) : translateText('Fixed');
   }
 
   if (type == 'percentage') {
@@ -128,7 +129,7 @@ String _serviceCommissionValueLabel(Map<String, dynamic> service) {
         ? translateText('Percentage')
         : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
     return maxAmount != null
-        ? '$percentLabel • max Rs $maxAmount'
+        ? '$percentLabel • max ${formatMinorAmount(maxAmount)}'
         : percentLabel;
   }
 
@@ -2361,7 +2362,7 @@ class _ServiceCard extends StatelessWidget {
     final String commissionTagLabel = _serviceCommissionTagLabel(service);
 
     final String priceLabel =
-        price != null ? 'Rs ${price.toString()}' : translateText('No price');
+        price != null ? formatMinorAmount(price) : translateText('No price');
     final String durationLabel =
         duration != null ? '$duration min' : translateText('No duration');
     final String serviceMeta =
@@ -3424,7 +3425,9 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
       text: (s['durationMin'] ?? s['defaultDurationMin'])?.toString() ?? '',
     );
     priceController = TextEditingController(
-      text: (s['priceMinor'] ?? s['defaultPriceMinor'])?.toString() ?? '',
+      text: minorAmountToRupees(s['priceMinor'] ?? s['defaultPriceMinor'])
+              ?.toStringAsFixed(0) ??
+          '',
     );
     isActive = ValueNotifier<bool>(s['isActive'] ?? true);
   }
@@ -3601,8 +3604,9 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
                           'description': descriptionController.text.trim(),
                           'defaultDurationMin':
                               int.tryParse(durationController.text.trim()),
-                          'defaultPriceMinor':
-                              int.tryParse(priceController.text.trim()),
+                          'defaultPriceMinor': rupeesToMinorAmount(
+                            int.parse(priceController.text.trim()),
+                          ),
                           'isActive': isActive.value,
                         }..removeWhere((k, v) => v == null);
 

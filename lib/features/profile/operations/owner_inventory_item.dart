@@ -82,7 +82,8 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
       text: _firstText(initial, const ['reorderQuantity', 'reorderQty']),
     );
     _costController = TextEditingController(
-      text: _firstText(initial, const ['costPerUnit', 'unitPrice']),
+      text:
+          _firstTextMinorAsRupees(initial, const ['costPerUnit', 'unitPrice']),
     );
     _minStockController = TextEditingController(
       text: _firstText(initial, const ['minStockLevel', 'minStock']),
@@ -168,7 +169,9 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
         'stockLevel': _toInt(_stockController.text.trim()) ?? 0,
         'reorderPoint': _toInt(_reorderPointController.text.trim()) ?? 0,
         'reorderQuantity': _toInt(_reorderQtyController.text.trim()) ?? 0,
-        'costPerUnit': _toDouble(_costController.text.trim()) ?? 0,
+        'costPerUnit': rupeesToMinorAmount(
+          _toDouble(_costController.text.trim()) ?? 0,
+        ),
         'minStockLevel': _toInt(_minStockController.text.trim()) ?? 0,
         'maxStockLevel': _toInt(_maxStockController.text.trim()) ?? 0,
         'vendorId': _selectedVendorId,

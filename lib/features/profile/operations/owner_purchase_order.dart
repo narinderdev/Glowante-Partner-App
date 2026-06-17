@@ -103,8 +103,9 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
       final price = _toDouble(
         selectedItem['costPerUnit'] ?? selectedItem['unitPrice'],
       );
-      line.unitPriceController.text =
-          price == null ? '' : price.toStringAsFixed(0);
+      line.unitPriceController.text = price == null
+          ? ''
+          : (minorAmountToRupees(price) ?? 0).toStringAsFixed(0);
     }
   }
 
@@ -170,7 +171,9 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
               (line) => <String, dynamic>{
                 'itemId': line.itemId,
                 'orderedQty': _toInt(line.qtyController.text) ?? 0,
-                'unitPrice': _toDouble(line.unitPriceController.text) ?? 0,
+                'unitPrice': rupeesToMinorAmount(
+                  _toDouble(line.unitPriceController.text) ?? 0,
+                ),
                 'remarks': line.remarksController.text.trim(),
               },
             )

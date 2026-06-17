@@ -7,6 +7,7 @@ import '../Viewmodels/AddSalonServiceRequest.dart';
 import '../bloc/category/category_cubit.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/price_formatter.dart';
 
 const Color _serviceGold = Color(0xFF8B6500);
 const Color _serviceGoldLight = Color(0xFFD0A244);
@@ -122,16 +123,20 @@ class _AddServicesState extends State<AddServices> {
     durationController.text =
         (_asInt(service['durationMin'] ?? service['defaultDurationMin']) ?? '')
             .toString();
-    priceController.text =
-        (_asInt(service['priceMinor'] ?? service['defaultPriceMinor']) ?? '')
-            .toString();
+    final priceMinor =
+        _asInt(service['priceMinor'] ?? service['defaultPriceMinor']);
+    priceController.text = priceMinor == null
+        ? ''
+        : (minorAmountToRupees(priceMinor)?.toStringAsFixed(0) ?? '');
 
     _commissionEnabled = service['commissionEnabled'] == true;
     final type = (service['commissionType'] ?? '').toString().toLowerCase();
     _commissionType = type == 'fixed' ? 'fixed' : 'percentage';
     if (_commissionEnabled && _commissionType == 'fixed') {
       commissionValueController.text =
-          (_asInt(service['commissionFixedAmountMinor']) ?? '').toString();
+          (minorAmountToRupees(service['commissionFixedAmountMinor'])
+                  ?.toStringAsFixed(0) ??
+              '');
     } else if (_commissionEnabled) {
       final percentage = _asDouble(service['commissionPercentage']);
       commissionValueController.text = percentage == null
@@ -140,7 +145,9 @@ class _AddServicesState extends State<AddServices> {
               percentage.truncateToDouble() == percentage ? 0 : 2,
             );
       commissionMaxController.text =
-          (_asInt(service['commissionMaxAmountMinor']) ?? '').toString();
+          (minorAmountToRupees(service['commissionMaxAmountMinor'])
+                  ?.toStringAsFixed(0) ??
+              '');
     }
   }
 
@@ -243,6 +250,7 @@ class _AddServicesState extends State<AddServices> {
       final displayName = nameController.text.trim();
       final desc = descController.text.trim();
       final price = int.parse(priceController.text.trim());
+      final priceMinor = rupeesToMinorAmount(price);
       final duration = int.parse(durationController.text.trim());
       final commissionValue = commissionValueController.text.trim();
       final commissionMax = commissionMaxController.text.trim();
@@ -257,14 +265,14 @@ class _AddServicesState extends State<AddServices> {
           'displayName': displayName,
           'description': desc,
           'durationMin': duration,
-          'priceMinor': price,
+          'priceMinor': priceMinor,
           'priceType': 'fixed',
           'isActive': widget.serviceToEdit!['isActive'] ?? true,
           'commissionEnabled': _commissionEnabled,
           'commissionType': _commissionEnabled ? _commissionType : null,
           'commissionFixedAmountMinor':
               _commissionEnabled && _commissionType == 'fixed'
-                  ? int.tryParse(commissionValue)
+                  ? _minorIntFromRupeeText(commissionValue)
                   : null,
           'commissionPercentage':
               _commissionEnabled && _commissionType == 'percentage'
@@ -273,7 +281,7 @@ class _AddServicesState extends State<AddServices> {
           'commissionMaxAmountMinor': _commissionEnabled &&
                   _commissionType == 'percentage' &&
                   commissionMax.isNotEmpty
-              ? int.tryParse(commissionMax)
+              ? _minorIntFromRupeeText(commissionMax)
               : null,
         }..removeWhere((key, value) => value == null);
 
@@ -289,14 +297,14 @@ class _AddServicesState extends State<AddServices> {
           displayName: displayName,
           description: desc.isEmpty ? "" : desc,
           durationMin: duration,
-          priceMinor: price,
+          priceMinor: priceMinor,
           priceType: "fixed",
           isActive: true,
           commissionEnabled: _commissionEnabled,
           commissionType: _commissionEnabled ? _commissionType : null,
           commissionFixedAmountMinor:
               _commissionEnabled && _commissionType == 'fixed'
-                  ? int.tryParse(commissionValue)
+                  ? _minorIntFromRupeeText(commissionValue)
                   : null,
           commissionPercentage:
               _commissionEnabled && _commissionType == 'percentage'
@@ -305,7 +313,7 @@ class _AddServicesState extends State<AddServices> {
           commissionMaxAmountMinor: _commissionEnabled &&
                   _commissionType == 'percentage' &&
                   commissionMax.isNotEmpty
-              ? int.tryParse(commissionMax)
+              ? _minorIntFromRupeeText(commissionMax)
               : null,
         );
 
@@ -395,6 +403,11 @@ class _AddServicesState extends State<AddServices> {
     final num? n = int.tryParse(v);
     if (n == null || n <= 0) return translateText("Duration must be positive");
     return null;
+  }
+
+  int? _minorIntFromRupeeText(String value) {
+    final parsed = num.tryParse(value.trim());
+    return parsed == null ? null : rupeesToMinorAmount(parsed);
   }
 
   String? _validateCommissionValue(String? value) {
@@ -897,6 +910,7 @@ InputDecoration _inputDecoration(
   return InputDecoration(
     hintText: hint,
     labelText: label,
+    counterText: '',
     prefixIcon: icon == null
         ? null
         : Container(

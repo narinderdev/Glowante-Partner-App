@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
 import 'AssignUserSlots.dart'; // 👈 NEW: Step 3 screen
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
@@ -126,7 +127,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
       value: checked,
       onChanged: (val) => setState(() => selected[id] = val ?? false),
       title: Text(name, style: const TextStyle(fontSize: 14)),
-      subtitle: Text("₹$price • $duration mins"),
+      subtitle: Text("${formatMinorAmount(price)} • $duration mins"),
       controlAffinity: ListTileControlAffinity.leading,
     );
   }

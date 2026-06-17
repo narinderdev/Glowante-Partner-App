@@ -553,8 +553,8 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
           branchId: 0,
           employeeId: _selectedMember.id,
           employeeName: _selectedMember.name,
-          amount: amount,
-          remainingAmount: amount,
+          amount: rupeesToMinorAmount(amount),
+          remainingAmount: rupeesToMinorAmount(amount),
           givenDate: _givenDate,
           paymentMode: _paymentMode,
           paymentReference: _referenceController.text.trim(),
@@ -775,7 +775,7 @@ class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  'Preview: ${_selectedMember.name} • ₹${amount > 0 ? amount : 0} on ${DateFormat('dd MMM yyyy').format(_givenDate)}',
+                  'Preview: ${_selectedMember.name} • ${formatRupeeAmount(amount > 0 ? amount : 0, trimZeroDecimals: true)} on ${DateFormat('dd MMM yyyy').format(_givenDate)}',
                   style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF78716C),

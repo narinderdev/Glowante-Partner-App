@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'team_online_availability_screen.dart';
@@ -348,7 +349,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         ),
       ),
       subtitle: Text(
-        "₹$priceMinor • $durationMin mins",
+        "${formatMinorAmount(priceMinor)} • $durationMin mins",
         style: const TextStyle(color: Color(0xFF6F665E)),
       ),
       controlAffinity: ListTileControlAffinity.leading,

@@ -5,6 +5,7 @@ import '../utils/api_service.dart';
 import 'dart:math' as math;
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../utils/price_formatter.dart';
 
 class AddDealsBranchScreen extends StatefulWidget {
   final int branchId;
@@ -118,8 +119,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     return sum;
   }
 
-  String _rsInt(int v) => '₹$v';
-  String _rs2(num v) => '₹${v.toStringAsFixed(2)}';
+  String _rsInt(int v) => formatMinorAmount(v, trimZeroDecimals: true);
+  String _rs2(num v) => formatRupeeAmount(v);
 
   double _parseNum(String s) {
     if (s.trim().isEmpty) return 0;
@@ -212,6 +213,11 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
       return null;
     }
     return double.tryParse(sanitized);
+  }
+
+  int? _parseCurrencyMinor(String value) {
+    final rupees = _parseCurrency(value);
+    return rupees == null ? null : rupeesToMinorAmount(rupees);
   }
 
   Future<bool> _validateForm() async {
@@ -307,19 +313,22 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     };
 
     if (pricingMode == 'Fixed') {
-      offerData['price'] = _parseCurrency(discountedPriceController.text) ?? 0;
+      offerData['price'] =
+          _parseCurrencyMinor(discountedPriceController.text) ?? 0;
     } else {
-      offerData['price'] = _parseCurrency(discountedPriceController.text) ?? 0;
+      offerData['price'] =
+          _parseCurrencyMinor(discountedPriceController.text) ?? 0;
       offerData['discountType'] = discountType == 'Flat' ? 'AMOUNT' : 'PERCENT';
       if (discountType == 'Flat') {
         offerData['amountType'] = 'FLAT';
-        offerData['amount'] = _parseCurrency(amountOffController.text) ?? 0;
+        offerData['amount'] =
+            _parseCurrencyMinor(amountOffController.text) ?? 0;
         offerData['discount'] = offerData['amount'];
       } else {
         offerData['discountPct'] =
             int.tryParse(discountPercentController.text) ?? 0;
         offerData['maxDiscount'] =
-            _parseCurrency(maxDiscountController.text) ?? 0;
+            _parseCurrencyMinor(maxDiscountController.text) ?? 0;
       }
     }
 
@@ -635,7 +644,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     setState(() {
                       _selectedServices = result.cast<Map<String, dynamic>>();
                       originalPriceController.text =
-                          _originalTotalInt().toDouble().toStringAsFixed(2);
+                          (minorAmountToRupees(_originalTotalInt()) ?? 0)
+                              .toStringAsFixed(2);
                     });
                     _recalcDiscounted();
                   } else if (result is Map) {
@@ -645,7 +655,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                     setState(() {
                       _selectedServices = hydrated;
                       originalPriceController.text =
-                          _originalTotalInt().toDouble().toStringAsFixed(2);
+                          (minorAmountToRupees(_originalTotalInt()) ?? 0)
+                              .toStringAsFixed(2);
                     });
                     _recalcDiscounted();
                   }

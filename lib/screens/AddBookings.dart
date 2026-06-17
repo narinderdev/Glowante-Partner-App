@@ -8,6 +8,7 @@ import '../utils/api_service.dart';
 import 'package:flutter/services.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import '../utils/price_formatter.dart';
 import 'view_all_client_owner.dart';
 
 const Color _bookingGold = Color(0xFF8B6500);
@@ -16,6 +17,8 @@ const Color _bookingInk = Color(0xFF1F1B18);
 const Color _bookingMuted = Color(0xFF6F665E);
 const Color _bookingBorder = Color(0xFFE8DED6);
 const Color _bookingFieldFill = Color(0xFFF7F4F3);
+final RegExp _customerNamePattern = RegExp(r'^[A-Za-z ]+$');
+final RegExp _customerPhonePattern = RegExp(r'^[6-9][0-9]{9}$');
 
 class AddBookingScreen extends StatefulWidget {
   final int? salonId; // needed for SelectServicesModal
@@ -50,6 +53,66 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return _clientIdCtrl.text.trim().isNotEmpty ||
         _clientfNameCtrl.text.trim().isNotEmpty ||
         _clientlNameCtrl.text.trim().isNotEmpty;
+  }
+
+  List<int> _selectedProfessionalUserIds() {
+    final ids = <int>{};
+
+    for (final service in _selectedServices) {
+      final serviceId = service['id'];
+
+      if (serviceId is! int) continue;
+
+      final selectedName = _professionalByService[serviceId];
+
+      if (selectedName == null || selectedName.trim().isEmpty) continue;
+
+      final options = _membersForService(serviceId);
+
+      for (final option in options) {
+        if (option['label'] == selectedName) {
+          final id = option['userId'];
+
+          if (id is int) {
+            ids.add(id);
+          }
+
+          break;
+        }
+      }
+    }
+
+    return ids.toList();
+  }
+
+  List<int> _selectedProfessionalUserBranchIds() {
+    final ids = <int>{};
+
+    for (final service in _selectedServices) {
+      final serviceId = service['id'];
+
+      if (serviceId is! int) continue;
+
+      final selectedName = _professionalByService[serviceId];
+
+      if (selectedName == null || selectedName.trim().isEmpty) continue;
+
+      final options = _membersForService(serviceId);
+
+      for (final option in options) {
+        if (option['label'] == selectedName) {
+          final id = option['userBranchId'];
+
+          if (id is int) {
+            ids.add(id);
+          }
+
+          break;
+        }
+      }
+    }
+
+    return ids.toList();
   }
 
   // Selected services from modal: each {id, name, price, qty, durationMin}
@@ -432,16 +495,27 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
         final name =
             "${member['firstName'] ?? ''} ${member['lastName'] ?? ''}".trim();
+
         final userBranchId = _resolveUserBranchAssignmentId(
           branchEntry: branchEntry,
           member: member,
           branchId: branchId,
         );
+        final assignedBranchUserId =
+            _resolveAssignedBranchUserIdFromBranchServices(
+                branchEntry, serviceId);
+        debugPrint(
+          "TEAM OPTION name=$name userId=${member['id']} userBranchId=$userBranchId",
+        );
+        debugPrint('TEAM BRANCH ENTRY keys=${branchEntry.keys.toList()}');
+        debugPrint('TEAM BRANCH ENTRY raw=$branchEntry');
+
         if (name.isEmpty) continue;
 
         members.add({
           'label': name,
           'userBranchId': userBranchId,
+          'assignedBranchUserId': assignedBranchUserId,
           'userId': member['id'] is int
               ? member['id'] as int
               : int.tryParse('${member['id'] ?? ''}'),
@@ -451,6 +525,48 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
 
     return members;
+  }
+
+  int? _resolveAssignedBranchUserIdFromBranchServices(
+    Map<String, dynamic> branchEntry,
+    int serviceId,
+  ) {
+    final userBranchServices =
+        branchEntry['userBranchServices'] as List? ?? const [];
+
+    for (final raw in userBranchServices) {
+      if (raw is! Map) continue;
+
+      final item = Map<String, dynamic>.from(raw);
+      final branchService = item['branchService'];
+
+      final branchServiceId = branchService is Map
+          ? _intValue(branchService['id'])
+          : _intValue(item['branchServiceId']);
+
+      if (branchServiceId == serviceId) {
+        return _intValue(item['id']);
+      }
+    }
+
+    return null;
+  }
+
+  int? _resolveAssignedBranchUserId(int serviceId) {
+    final selectedProfessional = _professionalByService[serviceId];
+
+    if (selectedProfessional == null || selectedProfessional.isEmpty) {
+      return null;
+    }
+
+    for (final option in _membersForService(serviceId)) {
+      if (option['label'] == selectedProfessional) {
+        return _intValue(option['assignedBranchUserId']) ??
+            _intValue(option['userBranchId']);
+      }
+    }
+
+    return null;
   }
 
   bool _idsMatch(dynamic value, int expected) {
@@ -576,21 +692,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final branchMap = branch is Map ? Map<String, dynamic>.from(branch) : {};
     final memberId = _intValue(member['id']);
     final candidates = [
+      branchEntry['assignedBranchUserId'],
+      branchEntry['assigned_branch_user_id'],
+      branchEntry['branchUserId'],
+      branchEntry['branch_user_id'],
       branchEntry['userBranchId'],
       branchEntry['user_branch_id'],
       branchEntry['assignedUserBranchId'],
       branchEntry['assigned_user_branch_id'],
-      branchEntry['assignmentId'],
-      branchEntry['assignment_id'],
-      branchEntry['userBranch'] is Map
-          ? (branchEntry['userBranch'] as Map)['id']
-          : null,
-      branchEntry['assignedUserBranch'] is Map
-          ? (branchEntry['assignedUserBranch'] as Map)['id']
-          : null,
-      member['userBranchId'],
-      member['assignedUserBranchId'],
-      member['assignmentId'],
       branchEntry['id'],
     ];
 
@@ -869,6 +978,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }) async {
     final otpCtrl = TextEditingController();
     bool isVerifying = false;
+    String? otpError;
 
     await showDialog(
       context: context,
@@ -878,11 +988,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           Future<void> verifyOtp() async {
             final otp = otpCtrl.text.trim();
             if (otp.length != 6) {
-              _showError(translateText("Enter 6-digit OTP"));
+              setDialogState(() {
+                otpError = translateText("Enter 6-digit OTP");
+              });
               return;
             }
 
-            setDialogState(() => isVerifying = true);
+            setDialogState(() {
+              isVerifying = true;
+              otpError = null;
+            });
             try {
               final response = await ApiService().verifyOTP(phone, otp);
               Map<String, dynamic> customer = {};
@@ -917,7 +1032,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
             } catch (e) {
-              _showError(_extractApiErrorMessage(e));
+              setDialogState(() {
+                otpError = _extractApiErrorMessage(e);
+                if (otpError == null || otpError!.trim().isEmpty) {
+                  otpError = translateText('Invalid OTP');
+                }
+              });
             } finally {
               if (ctx.mounted) {
                 setDialogState(() => isVerifying = false);
@@ -990,7 +1110,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(6),
                       ],
-                      onChanged: (_) => setDialogState(() {}),
+                      onChanged: (_) => setDialogState(() => otpError = null),
                       onSubmitted: (_) => isVerifying ? null : verifyOtp(),
                       decoration: InputDecoration(
                         hintText: '••••••',
@@ -1057,6 +1177,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                               ),
                       ),
                     ),
+                    if (otpError != null) ...[
+                      const SizedBox(height: 8),
+                      Center(child: _errorText(otpError!)),
+                    ],
                     const SizedBox(height: 10),
                     TextButton(
                       onPressed: isVerifying ? null : () => Navigator.pop(ctx),
@@ -1088,23 +1212,21 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     String? lastNameError;
     String? phoneError;
 
-    await showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final maxDialogHeight = MediaQuery.of(context).size.height -
-              MediaQuery.of(context).viewInsets.bottom -
-              48;
+    try {
+      await showDialog(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, setDialogState) {
+            final maxDialogHeight = MediaQuery.of(context).size.height -
+                MediaQuery.of(context).viewInsets.bottom -
+                48;
 
-          return Dialog(
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
-            backgroundColor: Colors.white,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            return Dialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9)),
+              backgroundColor: Colors.white,
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: maxDialogHeight),
                 child: SingleChildScrollView(
@@ -1135,58 +1257,65 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                         ),
                       ),
                       const SizedBox(height: 22),
-                     _dialogRequiredLabel('First Name'),
-_dialogTextField(
-  controller: firstCtrl,
-  hint: "Enter guest's first name",
-  textCapitalization: TextCapitalization.words,
-  maxLength: 30,
-  height: 56,
-  onChanged: (_) {
-    if (firstNameError != null) {
-      setDialogState(() => firstNameError = null);
-    }
-  },
-),
-if (firstNameError != null) _errorText(firstNameError!),
-const SizedBox(height: 14),
-
-_dialogRequiredLabel('Last Name'),
-_dialogTextField(
-  controller: lastCtrl,
-  hint: "Enter guest's last name",
-  textCapitalization: TextCapitalization.words,
-  maxLength: 30,
-  height: 56,
-  onChanged: (_) {
-    if (lastNameError != null) {
-      setDialogState(() => lastNameError = null);
-    }
-  },
-),
-if (lastNameError != null) _errorText(lastNameError!),
-const SizedBox(height: 14),
-
-_dialogRequiredLabel('Phone Number'),
-_dialogTextField(
-  controller: phoneCtrl,
-  hint: 'Enter phone no',
-  keyboardType: TextInputType.phone,
-  maxLength: 10,
-  height: 56,
-  inputFormatters: [
-    FilteringTextInputFormatter.digitsOnly,
-    LengthLimitingTextInputFormatter(10),
-  ],
-  prefixText: '+91  ',
-  onChanged: (_) {
-    if (phoneError != null) {
-      setDialogState(() => phoneError = null);
-    }
-  },
-),
-if (phoneError != null) _errorText(phoneError!),
-
+                      _dialogRequiredLabel('First Name'),
+                      _dialogTextField(
+                        controller: firstCtrl,
+                        hint: "Enter guest's first name",
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 30,
+                        height: 56,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z ]')),
+                          LengthLimitingTextInputFormatter(30),
+                        ],
+                        onChanged: (_) {
+                          if (firstNameError != null) {
+                            setDialogState(() => firstNameError = null);
+                          }
+                        },
+                      ),
+                      if (firstNameError != null) _errorText(firstNameError!),
+                      const SizedBox(height: 14),
+                      _dialogRequiredLabel('Last Name'),
+                      _dialogTextField(
+                        controller: lastCtrl,
+                        hint: "Enter guest's last name",
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 30,
+                        height: 56,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z ]')),
+                          LengthLimitingTextInputFormatter(30),
+                        ],
+                        onChanged: (_) {
+                          if (lastNameError != null) {
+                            setDialogState(() => lastNameError = null);
+                          }
+                        },
+                      ),
+                      if (lastNameError != null) _errorText(lastNameError!),
+                      const SizedBox(height: 14),
+                      _dialogRequiredLabel('Phone Number'),
+                      _dialogTextField(
+                        controller: phoneCtrl,
+                        hint: 'Enter phone no',
+                        keyboardType: TextInputType.phone,
+                        maxLength: 10,
+                        height: 56,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        prefixText: '+91  ',
+                        onChanged: (_) {
+                          if (phoneError != null) {
+                            setDialogState(() => phoneError = null);
+                          }
+                        },
+                      ),
+                      if (phoneError != null) _errorText(phoneError!),
                       const SizedBox(height: 22),
                       Row(
                         children: [
@@ -1201,20 +1330,21 @@ if (phoneError != null) _errorText(phoneError!),
                                           _digitsOnly(phoneCtrl.text.trim());
 
                                       setDialogState(() {
-                                        firstNameError = firstName.isEmpty
-                                            ? translateText(
-                                                'First name is required')
-                                            : null;
-                                        lastNameError = lastName.isEmpty
-                                            ? translateText(
-                                                'Last name is required')
-                                            : null;
+                                        firstNameError = _validateCustomerName(
+                                          firstName,
+                                          translateText('First name'),
+                                        );
+                                        lastNameError = _validateCustomerName(
+                                          lastName,
+                                          translateText('Last name'),
+                                        );
                                         phoneError = phone.isEmpty
                                             ? translateText(
                                                 'Phone number is required')
-                                            : phone.length != 10
+                                            : !_customerPhonePattern
+                                                    .hasMatch(phone)
                                                 ? translateText(
-                                                    'Enter a valid phone number')
+                                                    'Enter a valid 10-digit phone number starting with 6, 7, 8, or 9')
                                                 : null;
                                       });
 
@@ -1237,11 +1367,19 @@ if (phoneError != null) _errorText(phoneError!),
 
                                         Navigator.pop(ctx);
 
-                                        await _showOtpBox(
-                                          phone,
-                                          firstName: firstName,
-                                          lastName: lastName,
-                                        );
+                                        Future.delayed(
+                                            const Duration(milliseconds: 300),
+                                            () {
+                                          if (!mounted) return;
+
+                                          _showOtpBox(
+                                            phone,
+                                            firstName: firstName,
+                                            lastName: lastName,
+                                          );
+                                        });
+
+                                        return;
                                       } catch (e) {
                                         _showError(e.toString());
                                       } finally {
@@ -1301,11 +1439,17 @@ if (phoneError != null) _errorText(phoneError!),
                   ),
                 ),
               ),
-            ),
-          );
-        },
-      ),
-    );
+            );
+          },
+        ),
+      );
+    } finally {
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   phoneCtrl.dispose();
+      //   firstCtrl.dispose();
+      //   lastCtrl.dispose();
+      // });
+    }
   }
 
   Future<void> _showCustomerSearch() async {
@@ -1875,7 +2019,7 @@ if (phoneError != null) _errorText(phoneError!),
                             ),
                             const Spacer(),
                             Text(
-                              '₹${selectedTotal.toStringAsFixed(2)}',
+                              _formatServicePrice(selectedTotal),
                               style: const TextStyle(
                                 color: _bookingGold,
                                 fontSize: 12,
@@ -2084,7 +2228,7 @@ if (phoneError != null) _errorText(phoneError!),
                     [
                       if (duration is num && duration > 0)
                         '${duration.toInt()} min',
-                      if (price is num) '₹${price.toStringAsFixed(2)}',
+                      if (price is num) _formatServicePrice(price),
                     ].join('  •  '),
                     style: const TextStyle(
                       color: _bookingMuted,
@@ -2256,6 +2400,21 @@ if (phoneError != null) _errorText(phoneError!),
       _showError(translateText('Please select start and end time'));
       return null;
     }
+    for (final service in _selectedServices) {
+      final serviceId = service['id'];
+
+      if (serviceId is! int) continue;
+      final assignedBranchUserId = _resolveAssignedBranchUserId(serviceId);
+
+      if (assignedBranchUserId == null) {
+        _showError(
+          translateText(
+            'Selected team member branch assignment is missing. Please reselect team member.',
+          ),
+        );
+        return null;
+      }
+    }
     final payload = {
       "userId": userId,
       "date": DateFormat('yyyy-MM-dd').format(_selectedDate!),
@@ -2268,16 +2427,19 @@ if (phoneError != null) _errorText(phoneError!),
         final servicePayload = <String, dynamic>{
           "branchServiceId": serviceId,
         };
-        final assignedUserBranchId = _resolveAssignedUserBranchId(serviceId);
-        final assignedUserId = _resolveAssignedUserId(serviceId);
-        if (assignedUserBranchId != null) {
-          servicePayload["assignedUserBranchId"] = assignedUserBranchId;
-        } else if (assignedUserId != null) {
-          servicePayload["assignedUserId"] = assignedUserId;
+        final assignedBranchUserId = _resolveAssignedBranchUserId(serviceId);
+
+        if (assignedBranchUserId != null) {
+          servicePayload['assignedBranchUserId'] = assignedBranchUserId;
         }
         return servicePayload;
       }).toList(),
     };
+    debugPrint('SELECTED PROFESSIONAL BY SERVICE = $_professionalByService');
+    debugPrint('SELECTED USER IDS = ${_selectedProfessionalUserIds()}');
+    debugPrint(
+      'SELECTED USER BRANCH IDS = ${_selectedProfessionalUserBranchIds()}',
+    );
     debugPrint("Booking payload: $payload");
     setState(() {
       _isSaving = true;
@@ -2348,8 +2510,8 @@ if (phoneError != null) _errorText(phoneError!),
           services: _selectedServices,
           professionals: Map<int, String>.from(_professionalByService),
           serviceMembers: serviceMembers,
-          selectedUserBranchIds: const <int>[],
-          selectedUserIds: const <int>[],
+          selectedUserBranchIds: _selectedProfessionalUserBranchIds(),
+          selectedUserIds: _selectedProfessionalUserIds(),
           branchId: widget.branchId,
           totalPrice: _selectedTotalPrice(),
           initialDate: _selectedDate,
@@ -2404,6 +2566,7 @@ if (phoneError != null) _errorText(phoneError!),
     for (final prefix in const [
       'Failed to create manual booking:',
       'Failed to create appointment:',
+      'Failed OTP:',
     ]) {
       if (text.startsWith(prefix)) {
         text = text.substring(prefix.length).trim();
@@ -2910,7 +3073,7 @@ if (phoneError != null) _errorText(phoneError!),
           _summaryRow('Date', _formatDate(_selectedDate)),
           _summaryRow('Time', _formatTimeOfDay(_startTime)),
           _summaryRow('Duration', '${_totalSelectedDurationMinutes()} min'),
-          _summaryRow('Total', '₹${_selectedTotalPrice().toStringAsFixed(2)}'),
+          _summaryRow('Total', _formatServicePrice(_selectedTotalPrice())),
           const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
@@ -3153,6 +3316,14 @@ if (phoneError != null) _errorText(phoneError!),
     return name.isEmpty ? translateText('Selected Customer') : name;
   }
 
+  String? _validateCustomerName(String value, String label) {
+    if (value.isEmpty) return translateText('$label is required');
+    if (!_customerNamePattern.hasMatch(value)) {
+      return translateText('$label should contain alphabets only');
+    }
+    return null;
+  }
+
   String _selectedServicesSummaryLabel() {
     if (_selectedServices.length == 1) {
       return (_selectedServices.first['name'] ?? '').toString();
@@ -3181,7 +3352,7 @@ if (phoneError != null) _errorText(phoneError!),
   }
 
   String _formatServicePrice(num price) {
-    return '₹${price.toStringAsFixed(2)}';
+    return formatMinorAmount(price);
   }
 
   void _removeSelectedService(int id) {
@@ -3416,14 +3587,18 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
         final item = Map<String, dynamic>.from(rawItem);
         final assignedMap = _mapFrom(item['assignedUserBranch']);
         final assignedUserMap = _mapFrom(assignedMap['user']);
+        final professionalMap = _mapFrom(item['professional']);
 
         final assignedUserBranchId = _idFrom(assignedMap['id']);
         final assignedUserId = _idFrom(assignedUserMap['id']);
+        final professionalUserId = _idFrom(professionalMap['id']);
 
         final itemUserBranchId =
             assignedUserBranchId ?? _idFrom(item['assignedUserBranchId']);
 
-        final itemUserId = assignedUserId ?? _idFrom(item['assignedUserId']);
+        final itemUserId = assignedUserId ??
+            _idFrom(item['assignedUserId']) ??
+            professionalUserId;
 
         final hasSelectedProfessionals =
             selectedUserBranchIds.isNotEmpty || selectedUserIds.isNotEmpty;
@@ -3640,7 +3815,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   }
 
   String _formatServicePrice(num price) {
-    return '₹${price.toStringAsFixed(2)}';
+    return formatMinorAmount(price);
   }
 
   Widget _selectedServicesTeamSection() {
@@ -4392,7 +4567,7 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: Text(
-                            '₹${totalPrice.toStringAsFixed(2)}',
+                            formatMinorAmount(totalPrice),
                             style: const TextStyle(
                               color: _bookingGold,
                               fontSize: 22,
@@ -4569,6 +4744,10 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
     );
   }
 
+  String _formatServicePrice(num price) {
+    return formatMinorAmount(price);
+  }
+
   Widget _assignedArtisanServices() {
     return Column(
       children: [
@@ -4680,7 +4859,7 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
             ),
           ),
           Text(
-            price is num ? '₹${price.toStringAsFixed(2)}' : '',
+            price is num ? formatMinorAmount(price) : '',
             style: const TextStyle(
               color: _bookingGold,
               fontSize: 12,

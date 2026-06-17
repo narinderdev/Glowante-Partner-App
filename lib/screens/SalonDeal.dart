@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
+import '../utils/price_formatter.dart';
 import 'Adddeals.dart';
 import 'package:flutter/services.dart';
 import '../utils/colors.dart';
@@ -246,7 +247,7 @@ class _DealScreenState extends State<DealScreen> {
     }
   }
 
-  String _rs(num? n) => "₹${(n ?? 0).toStringAsFixed(0)}";
+  String _rs(num? n) => formatMinorAmount(n ?? 0, trimZeroDecimals: true);
 
   @override
   Widget build(BuildContext context) {
@@ -437,6 +438,7 @@ class _DealScreenState extends State<DealScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'salon_deals_add_fab',
         onPressed: () {
           if (selectedSalon == null) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -764,88 +766,90 @@ class _OfferCard extends StatelessWidget {
               //   ],
               // ),
               SingleChildScrollView(
-  scrollDirection: Axis.horizontal,
-  child: Row(
-    children: [
-      SizedBox(
-        height: 38,
-        width: 120,
-        child: ElevatedButton(
-          onPressed: (isDeleting || isStatusUpdating)
-              ? null
-              : onToggleStatus,
-          style: _blackButtonStyle,
-          child: isStatusUpdating
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : Text(
-                  translateText(
-                    isActive ? 'Deactivate' : 'Make Live',
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      height: 38,
+                      width: 120,
+                      child: ElevatedButton(
+                        onPressed: (isDeleting || isStatusUpdating)
+                            ? null
+                            : onToggleStatus,
+                        style: _blackButtonStyle,
+                        child: isStatusUpdating
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                translateText(
+                                  isActive ? 'Deactivate' : 'Make Live',
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      height: 38,
+                      width: 78,
+                      child: ElevatedButton(
+                        onPressed:
+                            (isDeleting || isStatusUpdating) ? null : onEdit,
+                        style: _blackButtonStyle,
+                        child: Text(
+                          translateText('Edit'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      height: 38,
+                      width: 105,
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            (isDeleting || isStatusUpdating) ? null : onDelete,
+                        icon: isDeleting
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.delete, size: 15),
+                        label: Text(
+                          isDeleting ? 'Deleting...' : translateText('Delete'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: _blackButtonStyle,
+                      ),
+                    ),
+                  ],
                 ),
-        ),
-      ),
-      const SizedBox(width: 10),
-      SizedBox(
-        height: 38,
-        width: 78,
-        child: ElevatedButton(
-          onPressed: (isDeleting || isStatusUpdating) ? null : onEdit,
-          style: _blackButtonStyle,
-          child: Text(
-            translateText('Edit'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ),
-      const SizedBox(width: 10),
-      SizedBox(
-        height: 38,
-        width: 105,
-        child: ElevatedButton.icon(
-          onPressed: (isDeleting || isStatusUpdating) ? null : onDelete,
-          icon: isDeleting
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : const Icon(Icons.delete, size: 15),
-          label: Text(
-            isDeleting ? 'Deleting...' : translateText('Delete'),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          style: _blackButtonStyle,
-        ),
-      ),
-    ],
-  ),
-),
+              ),
             ],
           ),
         ),

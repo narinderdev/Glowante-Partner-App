@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/colors.dart';
+import '../utils/price_formatter.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
@@ -84,9 +85,14 @@ class OfferReviewSummaryScreen extends StatelessWidget {
   }
 
   String get _discountValue {
-    if (pricingMode == 'Fixed') return '₹$amountOff';
+    if (pricingMode == 'Fixed') return _rupeeInputLabel(amountOff);
     if (discountType == 'Percent') return '$amountOff%';
-    return '₹$amountOff';
+    return _rupeeInputLabel(amountOff);
+  }
+
+  String _rupeeInputLabel(String value) {
+    final parsed = num.tryParse(value.trim());
+    return parsed == null ? value : formatRupeeAmount(parsed);
   }
 
   @override
@@ -123,30 +129,23 @@ class OfferReviewSummaryScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-
               _row(isPackage ? 'Package Title' : 'Deal Title', title),
               _row('Pricing Option', pricingMode),
-
-              if (pricingMode == 'Discount') _row('Discount Type', discountType),
-
+              if (pricingMode == 'Discount')
+                _row('Discount Type', discountType),
               _row(_discountLabel, _discountValue),
-
               if (pricingMode == 'Discount' && discountType == 'Percent')
-                _row('Max Discount', '₹$maxDiscount'),
-
-              _row('Original Price', '₹$originalPrice'),
-              _row('Discounted Price', '₹$discountedPrice'),
+                _row('Max Discount', _rupeeInputLabel(maxDiscount)),
+              _row('Original Price', _rupeeInputLabel(originalPrice)),
+              _row('Discounted Price', _rupeeInputLabel(discountedPrice)),
               _row('Terms', terms),
-
               if (isPackage)
                 _row('Duration', '$durationValue $durationUnit')
               else ...[
                 _row('Start Date', validFrom),
                 _row('End Date', validTill),
               ],
-
               const SizedBox(height: 18),
-
               Text(
                 translateText('Selected Services'),
                 style: const TextStyle(
@@ -155,7 +154,6 @@ class OfferReviewSummaryScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-
               if (selectedServices.isEmpty)
                 Text(
                   translateText('No services selected'),
@@ -187,7 +185,7 @@ class OfferReviewSummaryScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Qty: $qty  ₹$price',
+                          'Qty: $qty  ${formatMinorAmount(price)}',
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             color: Colors.black54,
@@ -197,16 +195,13 @@ class OfferReviewSummaryScreen extends StatelessWidget {
                     ),
                   );
                 }).toList(),
-
               const SizedBox(height: 28),
-
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: isSubmitting
-                          ? null
-                          : () => Navigator.pop(context),
+                      onPressed:
+                          isSubmitting ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         minimumSize: const Size.fromHeight(48),
                         shape: RoundedRectangleBorder(

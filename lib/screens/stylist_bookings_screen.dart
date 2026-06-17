@@ -12,6 +12,7 @@ import '../services/stylist_branch_selection.dart';
 import '../services/user_role_session.dart';
 import '../features/stylist_item_entry/stylist_item_entry_feature.dart';
 import '../utils/api_service.dart';
+import '../utils/price_formatter.dart';
 import 'AddBookings.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
@@ -367,13 +368,40 @@ int? _bookingBranchId(Map<String, dynamic> booking) {
 //   }
 //   return context.t('Customer');
 // }
+// String _customerName(BuildContext context, Map<String, dynamic> booking) {
+//   final user = booking['user'];
+//   if (user is Map) {
+//     final map = Map<String, dynamic>.from(user);
+//     final first = map['firstName']?.toString().trim() ?? '';
+//     final last = map['lastName']?.toString().trim() ?? '';
+//     final full = '$first $last'.trim();
+//     if (full.isNotEmpty) return full;
+
+//     final name = map['name']?.toString().trim() ?? '';
+//     if (name.isNotEmpty) return name;
+//   }
+
+//   return translateText('Customer');
+// }
 String _customerName(BuildContext context, Map<String, dynamic> booking) {
   final user = booking['user'];
-  if (user is Map) {
-    final map = Map<String, dynamic>.from(user);
+  final client = booking['client'];
+  final customer = booking['customer'];
+
+  final source = user is Map
+      ? user
+      : client is Map
+          ? client
+          : customer is Map
+              ? customer
+              : null;
+
+  if (source is Map) {
+    final map = Map<String, dynamic>.from(source);
     final first = map['firstName']?.toString().trim() ?? '';
     final last = map['lastName']?.toString().trim() ?? '';
     final full = '$first $last'.trim();
+
     if (full.isNotEmpty) return full;
 
     final name = map['name']?.toString().trim() ?? '';
@@ -382,11 +410,23 @@ String _customerName(BuildContext context, Map<String, dynamic> booking) {
 
   return translateText('Customer');
 }
-
 String _customerPhone(Map<String, dynamic> booking) {
   final user = booking['user'];
-  if (user is! Map) return '';
-  final map = Map<String, dynamic>.from(user);
+  final client = booking['client'];
+  final customer = booking['customer'];
+
+  final source = user is Map
+      ? user
+      : client is Map
+          ? client
+          : customer is Map
+              ? customer
+              : null;
+
+  if (source is! Map) return '';
+
+  final map = Map<String, dynamic>.from(source);
+
   const keys = [
     'phoneNumber',
     'phone',
@@ -395,12 +435,14 @@ String _customerPhone(Map<String, dynamic> booking) {
     'contactNumber',
     'phone_number',
   ];
+
   for (final key in keys) {
     final value = map[key]?.toString().trim() ?? '';
     if (value.isNotEmpty && value.toLowerCase() != 'null') {
       return value;
     }
   }
+
   return '';
 }
 
@@ -484,6 +526,27 @@ String _initials(String value) {
       .join();
 }
 
+// List<String> _assignedStaffNames(Map<String, dynamic> booking) {
+//   final names = <String>[];
+//   final seen = <String>{};
+
+//   void addName(String value) {
+//     final normalized = value.trim();
+//     if (normalized.isEmpty) return;
+//     if (seen.add(normalized)) {
+//       names.add(normalized);
+//     }
+//   }
+
+//   addName(_personName(booking['teamMember']));
+
+//   for (final item in _bookingItems(booking)) {
+//     addName(_personName(item['teamMember']));
+//     addName(_personName(item['assignedUserBranch']?['user']));
+//   }
+
+//   return names;
+// }
 List<String> _assignedStaffNames(Map<String, dynamic> booking) {
   final names = <String>[];
   final seen = <String>{};
@@ -491,15 +554,20 @@ List<String> _assignedStaffNames(Map<String, dynamic> booking) {
   void addName(String value) {
     final normalized = value.trim();
     if (normalized.isEmpty) return;
-    if (seen.add(normalized)) {
+
+    final key = normalized.toLowerCase();
+    if (seen.add(key)) {
       names.add(normalized);
     }
   }
 
   addName(_personName(booking['teamMember']));
+  addName(_personName(booking['professional']));
+  addName(_personName(booking['assignedUserBranch']?['user']));
 
   for (final item in _bookingItems(booking)) {
     addName(_personName(item['teamMember']));
+    addName(_personName(item['professional']));
     addName(_personName(item['assignedUserBranch']?['user']));
   }
 
@@ -592,12 +660,13 @@ void _logBookingsFetchSnapshot(
 String _serviceLabel(BuildContext context, Map<String, dynamic> booking) {
   final items = _bookingItems(booking);
   if (items.isNotEmpty) {
-    final firstName =
+   final firstName =
+    items.first['serviceName']?.toString().trim() ??
         items.first['branchService']?['displayName']?.toString().trim() ??
-            items.first['service']?.toString().trim() ??
-            items.first['displayName']?.toString().trim() ??
-            items.first['name']?.toString().trim() ??
-            '';
+        items.first['service']?.toString().trim() ??
+        items.first['displayName']?.toString().trim() ??
+        items.first['name']?.toString().trim() ??
+        '';
     final baseLabel =
         firstName.isNotEmpty ? firstName : context.t('Appointment');
     if (items.length == 1) return baseLabel;
@@ -646,17 +715,18 @@ String _serviceCardSummary(BuildContext context, Map<String, dynamic> booking) {
 
   final items = _bookingItems(booking);
   if (items.isNotEmpty) {
-    final names = items
-        .map(
-          (item) =>
-              item['branchService']?['displayName']?.toString().trim() ??
-              item['service']?.toString().trim() ??
-              item['displayName']?.toString().trim() ??
-              item['name']?.toString().trim() ??
-              '',
-        )
-        .where((name) => name.isNotEmpty)
-        .toList();
+   final names = items
+    .map(
+      (item) =>
+          item['serviceName']?.toString().trim() ??
+          item['branchService']?['displayName']?.toString().trim() ??
+          item['service']?.toString().trim() ??
+          item['displayName']?.toString().trim() ??
+          item['name']?.toString().trim() ??
+          '',
+    )
+    .where((name) => name.isNotEmpty)
+    .toList();
 
     if (names.isEmpty) return appointmentLabel;
     if (names.length == 1) return names.first;
@@ -749,11 +819,12 @@ List<StylistAppointmentServiceSegment> _detailServiceSegments(
     DateTime? fallbackStart = _bookingStart(booking);
 
     return items.map((item) {
-      final name = item['branchService']?['displayName']?.toString().trim() ??
-          item['service']?.toString().trim() ??
-          item['displayName']?.toString().trim() ??
-          item['name']?.toString().trim() ??
-          appointmentLabel;
+     final name = item['serviceName']?.toString().trim() ??
+    item['branchService']?['displayName']?.toString().trim() ??
+    item['service']?.toString().trim() ??
+    item['displayName']?.toString().trim() ??
+    item['name']?.toString().trim() ??
+    appointmentLabel;
 
       final durationMin = _asInt(
         item['durationMin'] ?? item['branchService']?['durationMin'],
@@ -785,6 +856,7 @@ List<StylistAppointmentServiceSegment> _detailServiceSegments(
     ),
   ];
 }
+
 String _bookingTimeRange(Map<String, dynamic> booking) {
   final start = _bookingStart(booking);
   final end = _bookingEnd(booking);
@@ -836,7 +908,7 @@ int _bookingDurationMinutes(Map<String, dynamic> booking) {
 String _bookingTotalPrice(Map<String, dynamic> booking) {
   final totalPriceMinor = _asInt(booking['totalPriceMinor']);
   if (totalPriceMinor != null && totalPriceMinor > 0) {
-    return '₹$totalPriceMinor';
+    return formatMinorAmount(totalPriceMinor);
   }
 
   final items = _bookingItems(booking);
@@ -847,7 +919,7 @@ String _bookingTotalPrice(Map<String, dynamic> booking) {
         (_asInt(item['branchService']?['priceMinor'] ?? item['priceMinor']) ??
             0),
   );
-  if (itemsTotalPriceMinor > 0) return '₹$itemsTotalPriceMinor';
+  if (itemsTotalPriceMinor > 0) return formatMinorAmount(itemsTotalPriceMinor);
 
   final services = _bookingServices(booking);
   final totalPrice = services.fold<num>(
@@ -855,10 +927,10 @@ String _bookingTotalPrice(Map<String, dynamic> booking) {
     (sum, service) => sum + ((service['price'] as num?) ?? 0),
   );
   if (totalPrice > 0) {
-    return '₹${totalPrice % 1 == 0 ? totalPrice.toInt() : totalPrice.toStringAsFixed(2)}';
+    return formatMinorAmount(totalPrice);
   }
 
-  return '₹2,400';
+  return formatMinorAmount(0);
 }
 
 String _statusLabel(BuildContext context, String status) {
@@ -2151,6 +2223,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     }
 
     addName(_personName(booking['assignedUserBranch']?['user']));
+    addName(_personName(booking['professional']));
+addFromUserId(booking['professional']?['id']);
     addFromUserId(booking['assignedUserId']);
     addFromUserId(booking['teamMemberId']);
     addFromUserBranchId(booking['assignedUserBranchId']);
@@ -2160,6 +2234,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     for (final item in _bookingItems(booking)) {
       addName(_personName(item['assignedUserBranch']?['user']));
+      addName(_personName(item['professional']));
+addFromUserId(item['professional']?['id']);
       addFromUserId(item['assignedUserId']);
       addFromUserId(item['teamMemberId']);
       addFromUserBranchId(item['assignedUserBranchId']);

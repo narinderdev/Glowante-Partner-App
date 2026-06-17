@@ -152,20 +152,27 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
                 create: (context) =>
                     AddSalonCubit(context.read<SalonRepository>()),
                 child: AddSalonScreen(
-                  id: userData['id'].toString(),
-                  phoneNumber: userData['phoneNumber'],
-                  fullPhoneNumber: userData['fullPhoneNumber'],
-                  firstName: userData['firstName'] ?? '',
-                  lastName: userData['lastName'] ?? '',
-                  email: userData['email'] ?? '',
-                  isProceedFrom: "onboarding",
-                  buildingName: userData['buildingName'] ?? '',
-                  city: userData['city'] ?? '',
-                  pincode: userData['pincode'] ?? '',
-                  state: userData['state'] ?? '',
-                  latitude: latitude,
-                  longitude: longitude,
-                ),
+  id: userData['id'].toString(),
+  phoneNumber: userData['phoneNumber'],
+  fullPhoneNumber: userData['fullPhoneNumber'],
+  firstName: userData['firstName'] ?? '',
+  lastName: userData['lastName'] ?? '',
+  email: userData['email'] ?? '',
+  isProceedFrom: "onboarding",
+
+  buildingName: userData['buildingName'] ?? '',
+  city: userData['city'] ?? '',
+  pincode: userData['pincode'] ?? '',
+  state: userData['state'] ?? '',
+
+  completeAddress: userData['completeAddress'] ??
+      userData['address'] ??
+      userData['fullAddress'] ??
+      '',
+
+  latitude: latitude,
+  longitude: longitude,
+),
               ),
             ),
           );

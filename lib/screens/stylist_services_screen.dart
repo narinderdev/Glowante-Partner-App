@@ -8,6 +8,7 @@ import '../services/user_role_session.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:bloc_onboarding/utils/price_formatter.dart';
 
 class StylistServicesScreen extends StatefulWidget {
   const StylistServicesScreen({
@@ -85,7 +86,7 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
     final type = _readText(service, const ['commissionType']).toLowerCase();
     if (type == 'fixed') {
       final amount = _asInt(service['commissionFixedAmountMinor']);
-      return amount != null ? '₹$amount' : context.t('Fixed');
+      return amount != null ? formatMinorAmount(amount) : context.t('Fixed');
     }
 
     if (type == 'percentage') {
@@ -95,7 +96,7 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
           ? context.t('Percentage')
           : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
       return maxAmount != null
-          ? '$percentLabel • max ₹$maxAmount'
+          ? '$percentLabel • max ${formatMinorAmount(maxAmount)}'
           : percentLabel;
     }
 
@@ -348,8 +349,8 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                         if (price != null)
                           Text(
                             priceType.isNotEmpty
-                                ? '₹$price ($priceType)'
-                                : '₹$price',
+                                ? '${formatMinorAmount(price)} ($priceType)'
+                                : formatMinorAmount(price),
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         const SizedBox(height: 6),

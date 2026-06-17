@@ -15,6 +15,7 @@ import 'bottom_nav.dart';
 import 'owner_branch_clients_screen.dart';
 import 'owner_sales_reports_screen.dart';
 import 'SalonReviews.dart';
+
 const String _dashboardFontFamily = 'Manrope';
 const Color _dashboardAccent = Color(0xFFC19A6B);
 const Color _dashboardGold = Color(0xFF8B6500);
@@ -39,6 +40,7 @@ TextStyle _dashboardTextStyle({
     letterSpacing: letterSpacing,
   );
 }
+
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
 
@@ -49,8 +51,8 @@ class OwnerDashboardScreen extends StatefulWidget {
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();
-int _notificationPage = 0;
-static const int _notificationPageSize = 4;
+  int _notificationPage = 0;
+  static const int _notificationPageSize = 4;
   List<_DashboardBranchOption> _branchOptions = const [];
   int? _selectedBranchId;
   DateTime _selectedDate = DateTime.now();
@@ -158,7 +160,7 @@ static const int _notificationPageSize = 4;
         _dashboard = response['data'] is Map
             ? Map<String, dynamic>.from(response['data'] as Map)
             : const {};
-              _notificationPage = 0;
+        _notificationPage = 0;
         _isLoadingDashboard = false;
       });
     } catch (error) {
@@ -333,60 +335,62 @@ static const int _notificationPageSize = 4;
     Navigator.pop(context);
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
+
   Future<void> _showBranchPicker() async {
-  if (_branchOptions.length <= 1) return;
+    if (_branchOptions.length <= 1) return;
 
-  final selectorContext = _branchSelectorKey.currentContext;
-  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
-  final selectorBox = selectorContext?.findRenderObject() as RenderBox?;
+    final selectorContext = _branchSelectorKey.currentContext;
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    final selectorBox = selectorContext?.findRenderObject() as RenderBox?;
 
-  if (overlay == null || selectorBox == null) return;
+    if (overlay == null || selectorBox == null) return;
 
-  final selectorOffset = selectorBox.localToGlobal(
-    Offset.zero,
-    ancestor: overlay,
-  );
+    final selectorOffset = selectorBox.localToGlobal(
+      Offset.zero,
+      ancestor: overlay,
+    );
 
-  final selectorRect = selectorOffset & selectorBox.size;
-  final menuWidth = overlay.size.width - 32;
+    final selectorRect = selectorOffset & selectorBox.size;
+    final menuWidth = overlay.size.width - 32;
 
-  final selected = await showMenu<_DashboardBranchOption>(
-    context: context,
-    color: Colors.white,
-    surfaceTintColor: Colors.white,
-    elevation: 10,
-    position: RelativeRect.fromLTRB(
-      16,
-      selectorRect.bottom + 8,
-      16,
-      0,
-    ),
-    constraints: BoxConstraints(
-      minWidth: menuWidth,
-      maxWidth: menuWidth,
-    ),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(20),
-      side: const BorderSide(color: _dashboardBorder),
-    ),
-    items: _branchOptions.map((option) {
-      final isSelected = option.branchId == _selectedBranchId;
+    final selected = await showMenu<_DashboardBranchOption>(
+      context: context,
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      position: RelativeRect.fromLTRB(
+        16,
+        selectorRect.bottom + 8,
+        16,
+        0,
+      ),
+      constraints: BoxConstraints(
+        minWidth: menuWidth,
+        maxWidth: menuWidth,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: _dashboardBorder),
+      ),
+      items: _branchOptions.map((option) {
+        final isSelected = option.branchId == _selectedBranchId;
 
-      return PopupMenuItem<_DashboardBranchOption>(
-        value: option,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: _DashboardBranchDropdownItem(
-          option: option,
-          isSelected: isSelected,
-        ),
-      );
-    }).toList(),
-  );
+        return PopupMenuItem<_DashboardBranchOption>(
+          value: option,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: _DashboardBranchDropdownItem(
+            option: option,
+            isSelected: isSelected,
+          ),
+        );
+      }).toList(),
+    );
 
-  if (!mounted || selected == null) return;
+    if (!mounted || selected == null) return;
 
-  await _loadDashboard(selected.branchId);
-}
+    await _loadDashboard(selected.branchId);
+  }
 
   List<Map<String, dynamic>> _mapList(String key) {
     final value = _dashboard[key];
@@ -434,7 +438,7 @@ static const int _notificationPageSize = 4;
             color: AppColors.starColor,
             onRefresh: _loadData,
             child: ListView(
-             padding: const EdgeInsets.fromLTRB(0, 0, 0, 28),
+              padding: const EdgeInsets.fromLTRB(0, 0, 0, 28),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 if (_errorMessage != null)
@@ -453,26 +457,26 @@ static const int _notificationPageSize = 4;
                       textAlign: TextAlign.center,
                     ),
                   )
-         else ...[
-  _buildBranchSelector(),
-  Padding(
-    padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildHeader(),
-        const SizedBox(height: 18),
-        _buildKpiCards(),
-        const SizedBox(height: 18),
-        _buildRevenueSection(),
-        const SizedBox(height: 18),
-        _buildTodayAndStaffSection(),
-        const SizedBox(height: 18),
-        _buildNotificationsSection(),
-      ],
-    ),
-  ),
-],
+                else ...[
+                  _buildBranchSelector(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(),
+                        const SizedBox(height: 18),
+                        _buildKpiCards(),
+                        const SizedBox(height: 18),
+                        _buildRevenueSection(),
+                        const SizedBox(height: 18),
+                        _buildTodayAndStaffSection(),
+                        const SizedBox(height: 18),
+                        _buildNotificationsSection(),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -481,6 +485,7 @@ static const int _notificationPageSize = 4;
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'owner_dashboard_add_fab',
         onPressed: _openBookingsTab,
         backgroundColor: AppColors.starColor,
         foregroundColor: Colors.white,
@@ -491,47 +496,47 @@ static const int _notificationPageSize = 4;
     );
   }
 
-Widget _buildBranchSelector() {
-  final selected = _selectedBranchOption;
+  Widget _buildBranchSelector() {
+    final selected = _selectedBranchOption;
 
-  final selectedLabel = selected == null
-      ? context.t('Select Branch')
-      : selected.displayLabel;
+    final selectedLabel =
+        selected == null ? context.t('Select Branch') : selected.displayLabel;
 
-  final selectedAddressSummary = selected?.address ?? '';
-  final canChangeBranch = _branchOptions.length > 1;
+    final selectedAddressSummary = selected?.address ?? '';
+    final canChangeBranch = _branchOptions.length > 1;
 
-  return Padding(
-   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-    child: _DashboardHeaderBranchSelector(
-      key: _branchSelectorKey,
-      label: selectedLabel,
-      addressSummary: selectedAddressSummary,
-      isInteractive: canChangeBranch,
-      onTap: canChangeBranch ? _showBranchPicker : null,
-    ),
-  );
-}
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: _DashboardHeaderBranchSelector(
+        key: _branchSelectorKey,
+        label: selectedLabel,
+        addressSummary: selectedAddressSummary,
+        isInteractive: canChangeBranch,
+        onTap: canChangeBranch ? _showBranchPicker : null,
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 560;
         final name = _headerGreeting();
-       final titleText = name.isEmpty
-    ? '${_dayPartGreeting()}! 👋'
-    : '${_dayPartGreeting()}, $name 👋';
+        final titleText = name.isEmpty
+            ? '${_dayPartGreeting()}! 👋'
+            : '${_dayPartGreeting()}, $name 👋';
 
-final title = Text(
-  titleText,
-  maxLines: 1,
-  overflow: TextOverflow.ellipsis,
-  style: const TextStyle(
-    fontSize: 21,
-    height: 1.18,
-    fontWeight: FontWeight.w700,
-    color: Colors.black,
-  ),
-);
+        final title = Text(
+          titleText,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 21,
+            height: 1.18,
+            fontWeight: FontWeight.w700,
+            color: Colors.black,
+          ),
+        );
 
         final subtitle = Text(
           _headerSubtext(),
@@ -689,107 +694,106 @@ final title = Text(
   }
 
   Widget _buildNotificationsSection() {
-  final notifications = _mapValue('notifications');
-  final unreadCount = _asInt(notifications['unread_count']);
+    final notifications = _mapValue('notifications');
+    final unreadCount = _asInt(notifications['unread_count']);
 
-  final items = notifications['items'] is List
-      ? (notifications['items'] as List)
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList()
-      : <Map<String, dynamic>>[];
+    final items = notifications['items'] is List
+        ? (notifications['items'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
+        : <Map<String, dynamic>>[];
 
-  final totalPages = items.isEmpty
-      ? 1
-      : (items.length / _notificationPageSize).ceil();
+    final totalPages =
+        items.isEmpty ? 1 : (items.length / _notificationPageSize).ceil();
 
-  final safePage = _notificationPage.clamp(0, totalPages - 1);
+    final safePage = _notificationPage.clamp(0, totalPages - 1);
 
-  final pagedItems = items
-      .skip(safePage * _notificationPageSize)
-      .take(_notificationPageSize)
-      .toList();
+    final pagedItems = items
+        .skip(safePage * _notificationPageSize)
+        .take(_notificationPageSize)
+        .toList();
 
-  return _DashboardSection(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                context.t('Notifications'),
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            if (unreadCount > 0)
-              Container(
-                constraints: const BoxConstraints(minWidth: 22),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.starColor,
-                  borderRadius: BorderRadius.circular(999),
-                ),
+    return _DashboardSection(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
                 child: Text(
-                  '$unreadCount',
-                  textAlign: TextAlign.center,
+                  context.t('Notifications'),
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        if (items.isEmpty)
-          const _EmptyDashedBox(
-            icon: Icons.notifications_none_outlined,
-            message: 'No notifications right now.',
-          )
-        else ...[
-          ...pagedItems.map(
-            (item) => _NotificationDashboardRow(
-              item: item,
-              cleanText: _cleanText,
+              if (unreadCount > 0)
+                Container(
+                  constraints: const BoxConstraints(minWidth: 22),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.starColor,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$unreadCount',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (items.isEmpty)
+            const _EmptyDashedBox(
+              icon: Icons.notifications_none_outlined,
+              message: 'No notifications right now.',
+            )
+          else ...[
+            ...pagedItems.map(
+              (item) => _NotificationDashboardRow(
+                item: item,
+                cleanText: _cleanText,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          _NotificationPaginationBar(
-            currentPage: safePage,
-            totalPages: totalPages,
-            onPrevious: safePage == 0
-                ? null
-                : () {
-                    setState(() {
-                      _notificationPage = safePage - 1;
-                    });
-                  },
-            onNext: safePage >= totalPages - 1
-                ? null
-                : () {
-                    setState(() {
-                      _notificationPage = safePage + 1;
-                    });
-                  },
-            onPageSelected: (page) {
-              setState(() {
-                _notificationPage = page;
-              });
-            },
-          ),
+            const SizedBox(height: 8),
+            _NotificationPaginationBar(
+              currentPage: safePage,
+              totalPages: totalPages,
+              onPrevious: safePage == 0
+                  ? null
+                  : () {
+                      setState(() {
+                        _notificationPage = safePage - 1;
+                      });
+                    },
+              onNext: safePage >= totalPages - 1
+                  ? null
+                  : () {
+                      setState(() {
+                        _notificationPage = safePage + 1;
+                      });
+                    },
+              onPageSelected: (page) {
+                setState(() {
+                  _notificationPage = page;
+                });
+              },
+            ),
+          ],
         ],
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
 }
 
 class _DashboardLoadingOverlay extends StatelessWidget {
@@ -906,15 +910,15 @@ class _DashboardDrawer extends StatelessWidget {
       ),
     ];
 
-  return SafeArea(
-  top: true,
-  bottom: false,
-  child: Drawer(
-    backgroundColor: const Color(0xFFFBF9F8),
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.zero,
-    ),
-    child: Padding(
+    return SafeArea(
+      top: true,
+      bottom: false,
+      child: Drawer(
+        backgroundColor: const Color(0xFFFBF9F8),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.zero,
+        ),
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1088,7 +1092,7 @@ class _DashboardBranchOption {
   final String branchName;
   final String address;
 
-   String get displayLabel {
+  String get displayLabel {
     if (branchName.trim().isNotEmpty) return branchName.trim();
     if (salonName.trim().isNotEmpty) return salonName.trim();
     return 'Salon #$salonId';
@@ -1144,7 +1148,7 @@ class _DateButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(999),
           border: Border.all(color: const Color(0xFFE6D6C6)),
         ),
         child: Row(
@@ -1273,7 +1277,8 @@ class _RevenueOverviewCard extends StatelessWidget {
     final formattedTotal = cleanText(data['formatted_total']).isEmpty
         ? cleanText(data['formatted_value'])
         : cleanText(data['formatted_total']);
-    final total = formattedTotal.isEmpty ? _plainNumber(data['total']) : formattedTotal;
+    final total =
+        formattedTotal.isEmpty ? _plainNumber(data['total']) : formattedTotal;
     final direction = cleanText(data['change_direction']).toLowerCase();
     final changeColor =
         direction == 'down' ? const Color(0xFFBE123C) : const Color(0xFF047857);
@@ -1296,7 +1301,8 @@ class _RevenueOverviewCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.starColor),
@@ -1495,159 +1501,160 @@ class _TodayAppointmentsCard extends StatefulWidget {
 
 class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
   String _selectedFilterKey = 'all';
-@override
-Widget build(BuildContext context) {
-  final filters = widget.data['filters'] is List
-      ? (widget.data['filters'] as List)
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList()
-      : <Map<String, dynamic>>[];
+  @override
+  Widget build(BuildContext context) {
+    final filters = widget.data['filters'] is List
+        ? (widget.data['filters'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
+        : <Map<String, dynamic>>[];
 
-  final appointments = widget.data['appointments'] is List
-      ? (widget.data['appointments'] as List)
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList()
-      : <Map<String, dynamic>>[];
+    final appointments = widget.data['appointments'] is List
+        ? (widget.data['appointments'] as List)
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
+        : <Map<String, dynamic>>[];
 
- if (filters.isNotEmpty &&
-    !filters.any(
-      (filter) => widget.cleanText(filter['key']) == _selectedFilterKey,
-    )) {
-  _selectedFilterKey = widget.cleanText(filters.first['key']).isEmpty
-      ? 'all'
-      : widget.cleanText(filters.first['key']);
-}
+    if (filters.isNotEmpty &&
+        !filters.any(
+          (filter) => widget.cleanText(filter['key']) == _selectedFilterKey,
+        )) {
+      _selectedFilterKey = widget.cleanText(filters.first['key']).isEmpty
+          ? 'all'
+          : widget.cleanText(filters.first['key']);
+    }
 
-final visibleAppointments = _selectedFilterKey == 'all'
-    ? appointments
-    : appointments.where((appointment) {
-        return _appointmentFilterKey(appointment) == _selectedFilterKey;
-      }).toList();
+    final visibleAppointments = _selectedFilterKey == 'all'
+        ? appointments
+        : appointments.where((appointment) {
+            return _appointmentFilterKey(appointment) == _selectedFilterKey;
+          }).toList();
 
-  return _DashboardSection(
-    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                context.t("Today's Appointments"),
-                style: const TextStyle(
-                  fontSize: 15,
-                  height: 1.12,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
+    return _DashboardSection(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  context.t("Today's Appointments"),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    height: 1.12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
                 ),
               ),
-            ),
-            InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: widget.onOpenBookings,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      context.t('View All'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        height: 1.05,
-                        fontWeight: FontWeight.w800,
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: widget.onOpenBookings,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.t('View All'),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          height: 1.05,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF8B6500),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      const Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 15,
                         color: Color(0xFF8B6500),
                       ),
-                    ),
-                    const SizedBox(width: 5),
-                    const Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 15,
-                      color: Color(0xFF8B6500),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        // Row(
-        //   children: [
-        //     Expanded(
-        //       child: _AppointmentSummaryTile(
-        //         label: widget.cleanText(allFilter['label']).isEmpty
-        //             ? 'All'
-        //             : widget.cleanText(allFilter['label']),
-        //         count: widget.asInt(allFilter['count']),
-        //         selected: true,
-        //       ),
-        //     ),
-        //     const SizedBox(width: 10),
-        //     Expanded(
-        //       child: _AppointmentSummaryTile(
-        //         label: widget.cleanText(upcomingFilter['label']).isEmpty
-        //             ? 'Upcoming'
-        //             : widget.cleanText(upcomingFilter['label']),
-        //         count: widget.asInt(upcomingFilter['count']),
-        //         selected: false,
-        //       ),
-        //     ),
-        //   ],
-        // ),
-        SingleChildScrollView(
-  scrollDirection: Axis.horizontal,
-  child: Row(
-    children: filters.map((filter) {
-      final key = widget.cleanText(filter['key']).isEmpty
-          ? 'all'
-          : widget.cleanText(filter['key']);
+            ],
+          ),
+          const SizedBox(height: 14),
+          // Row(
+          //   children: [
+          //     Expanded(
+          //       child: _AppointmentSummaryTile(
+          //         label: widget.cleanText(allFilter['label']).isEmpty
+          //             ? 'All'
+          //             : widget.cleanText(allFilter['label']),
+          //         count: widget.asInt(allFilter['count']),
+          //         selected: true,
+          //       ),
+          //     ),
+          //     const SizedBox(width: 10),
+          //     Expanded(
+          //       child: _AppointmentSummaryTile(
+          //         label: widget.cleanText(upcomingFilter['label']).isEmpty
+          //             ? 'Upcoming'
+          //             : widget.cleanText(upcomingFilter['label']),
+          //         count: widget.asInt(upcomingFilter['count']),
+          //         selected: false,
+          //       ),
+          //     ),
+          //   ],
+          // ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: filters.map((filter) {
+                final key = widget.cleanText(filter['key']).isEmpty
+                    ? 'all'
+                    : widget.cleanText(filter['key']);
 
-      final selected = key == _selectedFilterKey;
+                final selected = key == _selectedFilterKey;
 
-      return Padding(
-        padding: const EdgeInsets.only(right: 10),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(8),
-          onTap: () {
-            setState(() {
-              _selectedFilterKey = key;
-            });
-          },
-          child: SizedBox(
-            width: 118,
-            child: _AppointmentSummaryTile(
-              label: widget.cleanText(filter['label']).isEmpty
-                  ? key
-                  : widget.cleanText(filter['label']),
-              count: widget.asInt(filter['count']),
-              selected: selected,
+                return Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      setState(() {
+                        _selectedFilterKey = key;
+                      });
+                    },
+                    child: SizedBox(
+                      width: 118,
+                      child: _AppointmentSummaryTile(
+                        label: widget.cleanText(filter['label']).isEmpty
+                            ? key
+                            : widget.cleanText(filter['label']),
+                        count: widget.asInt(filter['count']),
+                        selected: selected,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
-        ),
-      );
-    }).toList(),
-  ),
-),
-        const SizedBox(height: 16),
-      if (visibleAppointments.isEmpty)
-  _AppointmentEmptyBookNow(onTap: widget.onOpenBookings)
-else
-  ...visibleAppointments.take(3).map(
-                (appointment) => _AppointmentDashboardRow(
-                  appointment: appointment,
-                  cleanText: widget.cleanText,
-                  onTap: () => _showAppointmentDetails(context, appointment),
+          const SizedBox(height: 16),
+          if (visibleAppointments.isEmpty)
+            _AppointmentEmptyBookNow(onTap: widget.onOpenBookings)
+          else
+            ...visibleAppointments.take(3).map(
+                  (appointment) => _AppointmentDashboardRow(
+                    appointment: appointment,
+                    cleanText: widget.cleanText,
+                    onTap: () => _showAppointmentDetails(context, appointment),
+                  ),
                 ),
-              ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Color _appointmentFilterColor(String key) {
     switch (key) {
@@ -1756,6 +1763,7 @@ else
     );
   }
 }
+
 class _AppointmentSummaryTile extends StatelessWidget {
   const _AppointmentSummaryTile({
     required this.label,
@@ -1807,46 +1815,46 @@ class _AppointmentSummaryTile extends StatelessWidget {
     //   ),
     // );
     return Container(
-  height: 58,
-  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-  decoration: BoxDecoration(
-    color: selected ? const Color(0xFFFAF7F3) : const Color(0xFFF1F0EF),
-    borderRadius: BorderRadius.circular(8),
-    border: Border.all(
-      color: selected ? const Color(0xFF8B6500) : Colors.transparent,
-      width: 1,
-    ),
-  ),
-  child: Column(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      Text(
-        label.toUpperCase(),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontSize: 8,
-          height: 1.0,
-          letterSpacing: 0.7,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFF9A8A7A),
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: selected ? const Color(0xFFFAF7F3) : const Color(0xFFF1F0EF),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: selected ? const Color(0xFF8B6500) : Colors.transparent,
+          width: 1,
         ),
       ),
-      const SizedBox(height: 5),
-      Text(
-        '$count',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontSize: 13,
-          height: 1.0,
-          fontWeight: FontWeight.w800,
-          color: Color(0xFF44403C),
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 8,
+              height: 1.0,
+              letterSpacing: 0.7,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF9A8A7A),
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '$count',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.0,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF44403C),
+            ),
+          ),
+        ],
       ),
-    ],
-  ),
-);
+    );
   }
 }
 
@@ -1913,6 +1921,7 @@ class _AppointmentEmptyBookNow extends StatelessWidget {
     );
   }
 }
+
 class _StaffLiveStatusCard extends StatelessWidget {
   const _StaffLiveStatusCard({
     required this.data,
@@ -1932,7 +1941,7 @@ class _StaffLiveStatusCard extends StatelessWidget {
             .map((item) => Map<String, dynamic>.from(item))
             .toList()
         : <Map<String, dynamic>>[];
-         return _DashboardSection(
+    return _DashboardSection(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2518,6 +2527,7 @@ class _RevenueChartPainter extends CustomPainter {
     return oldDelegate.chartData != chartData;
   }
 }
+
 class _NotificationPaginationBar extends StatelessWidget {
   const _NotificationPaginationBar({
     required this.currentPage,
@@ -2698,6 +2708,7 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
     );
   }
 }
+
 class _DashboardBranchDropdownItem extends StatelessWidget {
   const _DashboardBranchDropdownItem({
     required this.option,

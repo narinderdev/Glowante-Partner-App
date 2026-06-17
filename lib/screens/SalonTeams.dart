@@ -7,6 +7,7 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../screens/AssignUser.dart';
+
 const Color _teamGold = Color(0xFF8B6500);
 const Color _teamInk = Color(0xFF2D2926);
 const Color _teamMuted = Color(0xFF756A61);
@@ -35,7 +36,7 @@ class _TeamScreenState extends State<TeamScreen> {
   Future<List<dynamic>>? teamMembersFuture;
   List<Map<String, dynamic>> _salons = const [];
   final GlobalKey _branchSelectorKey = GlobalKey();
-bool _hasTeamMembers = false;
+  bool _hasTeamMembers = false;
   bool _autoPicked = false;
   final Set<int> _statusUpdatingIds = {};
   final Set<int> _deletingMemberIds = {};
@@ -129,36 +130,37 @@ bool _hasTeamMembers = false;
   //     return [];
   //   }
   // }
-Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
-  try {
-    final response = await ApiService.getTeamMembers(branchId);
+  Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
+    try {
+      final response = await ApiService.getTeamMembers(branchId);
 
-    final members = response['success'] == true && response['data'] is List
-        ? List<dynamic>.from(response['data'] as List)
-        : <dynamic>[];
+      final members = response['success'] == true && response['data'] is List
+          ? List<dynamic>.from(response['data'] as List)
+          : <dynamic>[];
 
-    if (mounted && selectedBranchId == branchId) {
-      final hasMembers = members.isNotEmpty;
-      if (_hasTeamMembers != hasMembers) {
+      if (mounted && selectedBranchId == branchId) {
+        final hasMembers = members.isNotEmpty;
+        if (_hasTeamMembers != hasMembers) {
+          setState(() {
+            _hasTeamMembers = hasMembers;
+          });
+        }
+      }
+
+      return members;
+    } catch (e) {
+      print("❌ Error fetching team members: $e");
+
+      if (mounted && selectedBranchId == branchId && _hasTeamMembers) {
         setState(() {
-          _hasTeamMembers = hasMembers;
+          _hasTeamMembers = false;
         });
       }
+
+      return [];
     }
-
-    return members;
-  } catch (e) {
-    print("❌ Error fetching team members: $e");
-
-    if (mounted && selectedBranchId == branchId && _hasTeamMembers) {
-      setState(() {
-        _hasTeamMembers = false;
-      });
-    }
-
-    return [];
   }
-}
+
   Future<void> _refreshTeamMembers() async {
     if (selectedBranchId == null || !mounted) return;
     setState(() {
@@ -235,77 +237,77 @@ Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
   //   }
   // }
   Future<void> _deleteMember(int userId) async {
-  final branchId = selectedBranchId;
+    final branchId = selectedBranchId;
 
-  if (branchId == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(translateText('Please select a branch first'))),
-    );
-    return;
-  }
+    if (branchId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Please select a branch first'))),
+      );
+      return;
+    }
 
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
-      title: Text(translateText('Delete Team Member')),
-      content: Text(
-        translateText(
-          'Are you sure you want to delete this team member? This action cannot be undone.',
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(ctx, false),
-          child: Text(translateText('Cancel')),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.starColor,
-          ),
-          onPressed: () => Navigator.pop(ctx, true),
-          child: Text(
-            translateText('Delete'),
-            style: const TextStyle(color: Colors.white),
+        title: Text(translateText('Delete Team Member')),
+        content: Text(
+          translateText(
+            'Are you sure you want to delete this team member? This action cannot be undone.',
           ),
         ),
-      ],
-    ),
-  );
-
-  if (confirmed != true) return;
-
-  setState(() => _deletingMemberIds.add(userId));
-
-  try {
-    await ApiService().deleteTeamMember(
-      branchId: branchId,
-      userId: userId,
-    );
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(translateText('Team member deleted successfully')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(translateText('Cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.starColor,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              translateText('Delete'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     );
 
-    await _refreshTeamMembers();
-  } catch (e) {
-    if (!mounted) return;
+    if (confirmed != true) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(e.toString())),
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _deletingMemberIds.remove(userId));
+    setState(() => _deletingMemberIds.add(userId));
+
+    try {
+      await ApiService().deleteTeamMember(
+        branchId: branchId,
+        userId: userId,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(translateText('Team member deleted successfully')),
+        ),
+      );
+
+      await _refreshTeamMembers();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _deletingMemberIds.remove(userId));
+      }
     }
   }
-}
 
   // void _pickBranch(Map<String, dynamic> branchOpt) {
   //   selectedBranch = branchOpt;
@@ -318,17 +320,18 @@ Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
   //   }
   // }
 
-void _pickBranch(Map<String, dynamic> branchOpt) {
-  selectedBranch = branchOpt;
-  selectedBranchId = _asInt(branchOpt['branchId']);
-  _hasTeamMembers = false;
+  void _pickBranch(Map<String, dynamic> branchOpt) {
+    selectedBranch = branchOpt;
+    selectedBranchId = _asInt(branchOpt['branchId']);
+    _hasTeamMembers = false;
 
-  if (selectedBranchId != null) {
-    teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
-  } else {
-    teamMembersFuture = null;
+    if (selectedBranchId != null) {
+      teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
+    } else {
+      teamMembersFuture = null;
+    }
   }
-}
+
   Future<void> _openBranchPicker(
     List<Map<String, dynamic>> branches,
   ) async {
@@ -1064,15 +1067,16 @@ void _pickBranch(Map<String, dynamic> branchOpt) {
           },
         ),
       ),
-    floatingActionButton: _hasTeamMembers
-    ? FloatingActionButton.extended(
-        onPressed: _openAddMember,
-        label: Text(translateText("Add Member")),
-        icon: const Icon(Icons.add),
-        backgroundColor: const Color(0xFFD0A244),
-        foregroundColor: Colors.white,
-      )
-    : null,
+      floatingActionButton: _hasTeamMembers
+          ? FloatingActionButton.extended(
+              heroTag: 'salon_teams_add_member_fab',
+              onPressed: _openAddMember,
+              label: Text(translateText("Add Member")),
+              icon: const Icon(Icons.add),
+              backgroundColor: const Color(0xFFD0A244),
+              foregroundColor: Colors.white,
+            )
+          : null,
     );
   }
 }

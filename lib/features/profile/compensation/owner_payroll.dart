@@ -462,7 +462,7 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                         final salaryText =
                             setup == null || setup.salaryMinor == 0
                                 ? '-'
-                                : '₹${setup.salaryMinor}';
+                                : _formatCurrency(setup.salaryMinor);
                         final commissionText = setup == null ||
                                 setup.commissionPercent == 0
                             ? '-'

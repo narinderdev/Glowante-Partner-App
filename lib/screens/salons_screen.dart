@@ -793,6 +793,7 @@ class SalonsScreenState extends State<SalonsScreen> {
                   const SizedBox(height: 10),
                   FloatingActionButton.extended(
                     key: _fabKey,
+                    heroTag: 'salons_quick_actions_fab',
                     backgroundColor: const Color(0xFF8B6500),
                     foregroundColor: Colors.white,
                     icon: Icon(

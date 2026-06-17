@@ -80,67 +80,69 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
         ),
         const SizedBox(height: 10),
         SizedBox(
-  height: _filteredServices.isEmpty ? 86 : 114,
-  child: _filteredServices.isEmpty
-      ? Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: const Color(0xFFE8DED6)),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                context.t('No matching services'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1C1917),
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                context.t('Try a different service name or clear the search.'),
-                maxLines: 2,
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  height: 1.2,
-                  color: Color(0xFF6B7280),
-                ),
-              ),
-            ],
-          ),
-        )
-      : ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: _filteredServices.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 12),
-          itemBuilder: (context, index) {
-            final service = _filteredServices[index];
-            final isSelected = selectedService?.id == service.id;
-            final rule = _repository.ruleForService(
-              service: service,
-              storedRules: _serviceRules,
-            );
+          height: _filteredServices.isEmpty ? 86 : 114,
+          child: _filteredServices.isEmpty
+              ? Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: const Color(0xFFE8DED6)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        context.t('No matching services'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1C1917),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        context.t(
+                            'Try a different service name or clear the search.'),
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          height: 1.2,
+                          color: Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _filteredServices.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final service = _filteredServices[index];
+                    final isSelected = selectedService?.id == service.id;
+                    final rule = _repository.ruleForService(
+                      service: service,
+                      storedRules: _serviceRules,
+                    );
 
-            return _ServiceSelectorCard(
-              service: service,
-              rule: rule,
-              isSelected: isSelected,
-              onTap: () {
-                _selectCommissionService(service.id);
-              },
-            );
-          },
+                    return _ServiceSelectorCard(
+                      service: service,
+                      rule: rule,
+                      isSelected: isSelected,
+                      onTap: () {
+                        _selectCommissionService(service.id);
+                      },
+                    );
+                  },
+                ),
         ),
-),
         const SizedBox(height: 18),
         if (selectedService == null || selectedRule == null)
           _EmptyStateCard(
@@ -363,7 +365,7 @@ class _ServiceSelectorCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final valueLabel = rule.ruleType == CommissionRuleTypes.percentage
         ? '${rule.value.toStringAsFixed(1)}%'
-        : '₹${rule.value.round()}';
+        : _formatCurrency(rule.value.round());
 
     return Material(
       color: Colors.transparent,
@@ -487,7 +489,11 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
     }
     _ruleType = rule.ruleType;
     _valueController = TextEditingController(
-      text: rule.value == 0 ? '' : rule.value.toStringAsFixed(1),
+      text: rule.value == 0
+          ? ''
+          : rule.ruleType == CommissionRuleTypes.fixed
+              ? (minorAmountToRupees(rule.value) ?? 0).toStringAsFixed(0)
+              : rule.value.toStringAsFixed(1),
     );
     _notesController = TextEditingController(text: rule.notes);
     _effectiveFrom = rule.effectiveFrom;
@@ -515,7 +521,10 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
     setState(() {
       _valueController.text = widget.initialRule.value == 0
           ? ''
-          : widget.initialRule.value.toStringAsFixed(1);
+          : widget.initialRule.ruleType == CommissionRuleTypes.fixed
+              ? (minorAmountToRupees(widget.initialRule.value) ?? 0)
+                  .toStringAsFixed(0)
+              : widget.initialRule.value.toStringAsFixed(1);
       _notesController.text = widget.initialRule.notes;
       _ruleType = widget.initialRule.ruleType;
       _effectiveFrom = widget.initialRule.effectiveFrom;
@@ -545,7 +554,9 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
       CommissionServiceRule(
         serviceId: widget.service.id,
         ruleType: _ruleType,
-        value: parsed,
+        value: _ruleType == CommissionRuleTypes.fixed
+            ? rupeesToMinorAmount(parsed).toDouble()
+            : parsed,
         effectiveFrom: _effectiveFrom,
         active: _active,
         notes: _notesController.text.trim(),
@@ -967,7 +978,9 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
             staffId: member.id,
             staffName: member.name,
             ruleType: _ruleType,
-            value: parsed,
+            value: _ruleType == CommissionRuleTypes.fixed
+                ? rupeesToMinorAmount(parsed).toDouble()
+                : parsed,
             effectiveFrom: _effectiveFrom,
             notes: _notesController.text.trim(),
           ),

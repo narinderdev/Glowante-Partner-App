@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'SelectServices.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import '../utils/price_formatter.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
@@ -171,7 +172,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
         final maxD = (o['maxDiscount'] as num?)?.toDouble();
         if (maxD != null && maxD > 0) {
-          maxDiscountController.text = maxD.toStringAsFixed(2);
+          maxDiscountController.text =
+              (minorAmountToRupees(maxD) ?? 0).toStringAsFixed(2);
         }
       } else {
         discountType = 'Flat';
@@ -181,7 +183,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
             0.0;
 
         if (amt > 0) {
-          amountOffController.text = amt.toStringAsFixed(2);
+          amountOffController.text =
+              (minorAmountToRupees(amt) ?? 0).toStringAsFixed(2);
         }
       }
     } else {
@@ -189,7 +192,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           (o['amount'] as num?)?.toDouble() ??
           0.0;
 
-      amountOffController.text = (amt > 0 ? amt : 0.0).toStringAsFixed(2);
+      amountOffController.text =
+          (amt > 0 ? (minorAmountToRupees(amt) ?? 0) : 0.0).toStringAsFixed(2);
     }
 
     final List rawItems = (o['items'] as List?) ?? const [];
@@ -223,9 +227,11 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         _asDouble(itemSummary['totalPrice'] ?? itemSummary['total']);
 
     if (originalTotal != null && originalTotal > 0) {
-      originalPriceController.text = originalTotal.toStringAsFixed(2);
+      originalPriceController.text =
+          (minorAmountToRupees(originalTotal) ?? 0).toStringAsFixed(2);
     } else {
-      originalPriceController.text = _originalTotal().toStringAsFixed(2);
+      originalPriceController.text =
+          (minorAmountToRupees(_originalTotal()) ?? 0).toStringAsFixed(2);
     }
 
     final double? discountedTotal = _asDouble(
@@ -236,7 +242,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     );
 
     if (discountedTotal != null && discountedTotal >= 0) {
-      discountedPriceController.text = discountedTotal.toStringAsFixed(2);
+      discountedPriceController.text =
+          (minorAmountToRupees(discountedTotal) ?? 0).toStringAsFixed(2);
     }
 
     final double originalVal =
@@ -256,7 +263,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       );
 
       if (amt != null && amt > 0) {
-        amountOffController.text = amt.toStringAsFixed(2);
+        amountOffController.text =
+            (minorAmountToRupees(amt) ?? 0).toStringAsFixed(2);
       } else if (originalVal > 0) {
         amountOffController.text = (originalVal - discountedVal)
             .clamp(0, originalVal)
@@ -383,6 +391,11 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     return double.tryParse(sanitized);
   }
 
+  int? _parseCurrencyMinor(String value) {
+    final rupees = _parseCurrency(value);
+    return rupees == null ? null : rupeesToMinorAmount(rupees);
+  }
+
   void _setTextSafe(TextEditingController c, String v) {
     _settingFields = true;
     c.text = v;
@@ -421,9 +434,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         ? (item['branchService'] as Map)['id']
         : null;
 
-    raw ??= (item['service'] is Map)
-        ? (item['service'] as Map)['id']
-        : null;
+    raw ??= (item['service'] is Map) ? (item['service'] as Map)['id'] : null;
 
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();
@@ -568,7 +579,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         final total = _originalTotal();
 
         if (total > 0) {
-          originalPriceController.text = total.toStringAsFixed(2);
+          originalPriceController.text =
+              (minorAmountToRupees(total) ?? 0).toStringAsFixed(2);
         }
 
         _recalcDiscounted();
@@ -860,7 +872,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     _recalcDiscounted();
 
     String capitalizeFirst(String value) {
-      return value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
+      return value.isNotEmpty
+          ? value[0].toUpperCase() + value.substring(1)
+          : value;
     }
 
     final body = <String, dynamic>{
@@ -887,21 +901,24 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     };
 
     if (pricingMode == 'Fixed') {
-      final fixedPrice = _parseCurrency(discountedPriceController.text) ?? 0;
+      final fixedPrice =
+          _parseCurrencyMinor(discountedPriceController.text) ?? 0;
       body[widget.isEdit ? 'priceOverride' : 'price'] = fixedPrice;
     } else {
-      body['price'] = _parseCurrency(discountedPriceController.text) ?? 0;
+      body['price'] = _parseCurrencyMinor(discountedPriceController.text) ?? 0;
 
       final isFlat = discountType == 'Flat';
       body['discountType'] = isFlat ? 'AMOUNT' : 'PERCENT';
 
       if (isFlat) {
         body['amountType'] = 'FLAT';
-        body['amount'] = _parseCurrency(amountOffController.text) ?? 0;
+        body['amount'] = _parseCurrencyMinor(amountOffController.text) ?? 0;
         body['discount'] = body['amount'];
       } else {
-        body['discountPct'] = int.tryParse(amountOffController.text.trim()) ?? 0;
-        body['maxDiscount'] = _parseCurrency(maxDiscountController.text) ?? 0;
+        body['discountPct'] =
+            int.tryParse(amountOffController.text.trim()) ?? 0;
+        body['maxDiscount'] =
+            _parseCurrencyMinor(maxDiscountController.text) ?? 0;
       }
     }
 
@@ -926,7 +943,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
         if (res['success'] == true) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Offer updated successfully'))),
+            SnackBar(
+                content: Text(translateText('Offer updated successfully'))),
           );
 
           widget.onPackageCreated(widget.branchId);
@@ -989,7 +1007,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       helperText: ' ',
       helperStyle: const TextStyle(height: 1),
       errorStyle: const TextStyle(height: 1.1),
-     contentPadding: const EdgeInsets.fromLTRB(14, 14, 70, 28),
+      contentPadding: const EdgeInsets.fromLTRB(14, 14, 70, 28),
       border: OutlineInputBorder(borderRadius: _radius),
       enabledBorder: OutlineInputBorder(
         borderRadius: _radius,
@@ -1002,37 +1020,39 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       errorMaxLines: 2,
     );
   }
-Widget _fieldWithBottomCounter({
-  required TextEditingController controller,
-  required int maxLength,
-  required Widget child,
-}) {
-  return Stack(
-    children: [
-      child,
-      Positioned(
-        right: 12,
-        bottom: 22,
-        child: IgnorePointer(
-          child: ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              return Text(
-                '${value.text.length}/$maxLength',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: value.text.length >= maxLength
-                      ? Colors.red
-                      : Colors.grey,
-                ),
-              );
-            },
+
+  Widget _fieldWithBottomCounter({
+    required TextEditingController controller,
+    required int maxLength,
+    required Widget child,
+  }) {
+    return Stack(
+      children: [
+        child,
+        Positioned(
+          right: 12,
+          bottom: 22,
+          child: IgnorePointer(
+            child: ValueListenableBuilder<TextEditingValue>(
+              valueListenable: controller,
+              builder: (context, value, _) {
+                return Text(
+                  '${value.text.length}/$maxLength',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: value.text.length >= maxLength
+                        ? Colors.red
+                        : Colors.grey,
+                  ),
+                );
+              },
+            ),
           ),
         ),
-      ),
-    ],
-  );
-}
+      ],
+    );
+  }
+
   Widget _section(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -1131,78 +1151,77 @@ Widget _fieldWithBottomCounter({
   //   );
   // }
 
-Widget _buildTitleAndPricingRow() {
-  return Column(
-    children: [
-      _fieldWithBottomCounter(
-        controller: dealTitleController,
-        maxLength: 50,
-        child: TextFormField(
+  Widget _buildTitleAndPricingRow() {
+    return Column(
+      children: [
+        _fieldWithBottomCounter(
           controller: dealTitleController,
           maxLength: 50,
-          keyboardType: TextInputType.text,
-          textCapitalization: TextCapitalization.sentences,
-          inputFormatters: [
-            _SentenceCaseTextFormatter(),
-            LengthLimitingTextInputFormatter(50),
-          ],
-          autovalidateMode: _showErrors
-              ? AutovalidateMode.always
-              : AutovalidateMode.disabled,
-          decoration: _decor(
-            label: _isPackage
-                ? '${translateText('Package Title')} *'
-                : '${translateText('Deal Title')} *',
-            hint: translateText('Eg: Men: Grooming Package'),
+          child: TextFormField(
+            controller: dealTitleController,
+            maxLength: 50,
+            keyboardType: TextInputType.text,
+            textCapitalization: TextCapitalization.sentences,
+            inputFormatters: [
+              _SentenceCaseTextFormatter(),
+              LengthLimitingTextInputFormatter(50),
+            ],
+            autovalidateMode: _showErrors
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            decoration: _decor(
+              label: _isPackage
+                  ? '${translateText('Package Title')} *'
+                  : '${translateText('Deal Title')} *',
+              hint: translateText('Eg: Men: Grooming Package'),
+            ),
+            validator: _vTitle,
+            onChanged: (_) {
+              if (!_sTitle) {
+                setState(() => _sTitle = true);
+              } else {
+                setState(() {});
+              }
+            },
           ),
-          validator: _vTitle,
-          onChanged: (_) {
-            if (!_sTitle) {
-              setState(() => _sTitle = true);
-            } else {
-              setState(() {});
-            }
+        ),
+        const SizedBox(height: 14),
+        DropdownButtonFormField<String>(
+          value: pricingMode,
+          autovalidateMode: _showErrors
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
+          items: pricingModes
+              .map(
+                (e) => DropdownMenuItem(
+                  value: e,
+                  child: Text(translateText(e)),
+                ),
+              )
+              .toList(),
+          onChanged: (v) {
+            setState(() {
+              pricingMode = v ?? 'Fixed';
+              _autoSetMaxFromPercent = true;
+              amountOffController.clear();
+              maxDiscountController.clear();
+              discountedPriceController.clear();
+
+              if (pricingMode == 'Fixed') {
+                discountType = 'Flat';
+              }
+            });
+
+            _recalcDiscounted();
           },
+          decoration: _decor(
+            label: '${translateText('Pricing Option')} *',
+          ),
         ),
-      ),
+      ],
+    );
+  }
 
-      const SizedBox(height: 14),
-
-      DropdownButtonFormField<String>(
-        value: pricingMode,
-        autovalidateMode: _showErrors
-            ? AutovalidateMode.onUserInteraction
-            : AutovalidateMode.disabled,
-        items: pricingModes
-            .map(
-              (e) => DropdownMenuItem(
-                value: e,
-                child: Text(translateText(e)),
-              ),
-            )
-            .toList(),
-        onChanged: (v) {
-          setState(() {
-            pricingMode = v ?? 'Fixed';
-            _autoSetMaxFromPercent = true;
-            amountOffController.clear();
-            maxDiscountController.clear();
-            discountedPriceController.clear();
-
-            if (pricingMode == 'Fixed') {
-              discountType = 'Flat';
-            }
-          });
-
-          _recalcDiscounted();
-        },
-        decoration: _decor(
-          label: '${translateText('Pricing Option')} *',
-        ),
-      ),
-    ],
-  );
-}
   Widget _buildSelectServicesField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1230,7 +1249,8 @@ Widget _buildTitleAndPricingRow() {
               setState(() {
                 _selectedServices = result.cast<Map<String, dynamic>>();
                 originalPriceController.text =
-                    _originalTotal().toStringAsFixed(2);
+                    (minorAmountToRupees(_originalTotal()) ?? 0)
+                        .toStringAsFixed(2);
                 _sServices = true;
                 _sDiscounted = true;
               });
@@ -1314,7 +1334,7 @@ Widget _buildTitleAndPricingRow() {
                   ),
                 ),
                 Text(
-                  'Qty: $qty  ₹$price',
+                  'Qty: $qty  ${formatMinorAmount(price)}',
                   style: const TextStyle(
                     color: Colors.black54,
                     fontSize: 13,

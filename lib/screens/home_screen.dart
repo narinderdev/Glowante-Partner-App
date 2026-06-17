@@ -1,10 +1,10 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:bloc_onboarding/utils/price_formatter.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   DateTime selectedDate = DateTime.now();
 
   String? _branchStartTimeStr; // e.g. "08:00:00"
-  String? _branchEndTimeStr;   // e.g. "20:00:00"
+  String? _branchEndTimeStr; // e.g. "20:00:00"
 
   int pendingCount = 0;
   int cancelledCount = 0;
@@ -120,10 +120,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadCachedSelection() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _selectedSalonId  = prefs.getInt('selected_salon_id');
+      _selectedSalonId = prefs.getInt('selected_salon_id');
       _selectedBranchId = prefs.getInt('selected_branch_id');
-      salonName   = prefs.getString('salon_name');
-      salonAddress= prefs.getString('salon_address');
+      salonName = prefs.getString('salon_name');
+      salonAddress = prefs.getString('salon_address');
     });
   }
 
@@ -146,13 +146,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchSalons() async {
     try {
       final response = await apiService.getSalonListApi();
-      if (response['success'] == true && response['data'] is List && response['data'].isNotEmpty) {
+      if (response['success'] == true &&
+          response['data'] is List &&
+          response['data'].isNotEmpty) {
         final List data = List.from(response['data']);
         setState(() => _salons = data);
 
         // choose previously saved salon (if exists) else first
         final int index = _findSalonIndexById(_selectedSalonId) ?? 0;
-        final Map<String, dynamic> chosen = Map<String, dynamic>.from(data[index]);
+        final Map<String, dynamic> chosen =
+            Map<String, dynamic>.from(data[index]);
 
         final String name = (chosen['name'] ?? 'Unnamed Salon').toString();
         final String address = _formatAddressFromFirstBranch(chosen);
@@ -169,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
 
         setState(() {
-          _selectedSalonId  = chosen['id'] as int;
+          _selectedSalonId = chosen['id'] as int;
           _selectedBranchId = autoBranchId;
           salonName = name;
           salonAddress = address;
@@ -201,14 +204,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _formatAddressFromFirstBranch(Map<String, dynamic> salon) {
     final branches = salon['branches'] as List? ?? const [];
-    final addr = branches.isNotEmpty ? branches.first['address'] as Map<String, dynamic>? : null;
+    final addr = branches.isNotEmpty
+        ? branches.first['address'] as Map<String, dynamic>?
+        : null;
     if (addr == null) return translateText('No address available');
     final parts = [
       addr['line1'],
       addr['city'],
       addr['state'],
       addr['postalCode'],
-    ].where((e) => e != null && e.toString().trim().isNotEmpty).map((e) => e.toString());
+    ]
+        .where((e) => e != null && e.toString().trim().isNotEmpty)
+        .map((e) => e.toString());
     return parts.join(', ');
   }
 
@@ -218,9 +225,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final address = _formatAddressFromFirstBranch(salon);
     final branchId = _pickBranchForSalon(salon, null);
 
-    await _saveSelection(salonId: id, name: name, address: address, branchId: branchId);
+    await _saveSelection(
+        salonId: id, name: name, address: address, branchId: branchId);
     setState(() {
-      _selectedSalonId  = id;
+      _selectedSalonId = id;
       _selectedBranchId = branchId;
       salonName = name;
       salonAddress = address;
@@ -243,8 +251,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _getTeamMembers(int branchId) async {
     try {
       final response = await ApiService.getTeamMembers(branchId);
-      if (response != null && response['success'] == true && response['data'] != null) {
-        setState(() => teamMembers = List<Map<String, dynamic>>.from(response['data']));
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] != null) {
+        setState(() =>
+            teamMembers = List<Map<String, dynamic>>.from(response['data']));
       } else {
         setState(() => teamMembers = []);
       }
@@ -257,9 +268,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _generateTimeSlots(String startTime, String endTime) {
     final slots = <String>[];
     DateTime start = DateFormat("HH:mm:ss").parse(startTime);
-    DateTime end   = DateFormat("HH:mm:ss").parse(endTime);
+    DateTime end = DateFormat("HH:mm:ss").parse(endTime);
     DateTime effectiveEnd = end.subtract(const Duration(minutes: 15));
-    while (start.isBefore(effectiveEnd) || start.isAtSameMomentAs(effectiveEnd)) {
+    while (
+        start.isBefore(effectiveEnd) || start.isAtSameMomentAs(effectiveEnd)) {
       slots.add(DateFormat("h:mm a").format(start));
       start = start.add(const Duration(minutes: 15));
     }
@@ -269,22 +281,27 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _getBookingsByDate(int branchId, DateTime date) async {
     try {
       String formattedDate = DateFormat('yyyy-MM-dd').format(date);
-      final response = await apiService.fetchAppointments(branchId, formattedDate);
+      final response =
+          await apiService.fetchAppointments(branchId, formattedDate);
 
-      if (response != null && response['success'] == true && response['data'] != null) {
+      if (response != null &&
+          response['success'] == true &&
+          response['data'] != null) {
         final List<dynamic> appointments = response['data'];
 
         String startTime = '08:00:00';
         String endTime = '20:00:00';
         if (appointments.isNotEmpty && appointments.first['branch'] != null) {
-          startTime = (appointments.first['branch']['startTime'] ?? startTime).toString();
-          endTime   = (appointments.first['branch']['endTime']   ?? endTime).toString();
+          startTime = (appointments.first['branch']['startTime'] ?? startTime)
+              .toString();
+          endTime =
+              (appointments.first['branch']['endTime'] ?? endTime).toString();
         }
 
         setState(() {
           timeSlots = _generateTimeSlots(startTime, endTime);
           _branchStartTimeStr = startTime;
-          _branchEndTimeStr   = endTime;
+          _branchEndTimeStr = endTime;
           bookings = List<Map<String, dynamic>>.from(appointments);
         });
         _recomputeStatusCounts();
@@ -317,7 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     setState(() {
-      pendingCount   = sumStatus('PENDING');
+      pendingCount = sumStatus('PENDING');
       cancelledCount = sumStatus('CANCELLED');
       completedCount = sumStatus('COMPLETED');
       confirmedCount = sumStatus('CONFIRMED');
@@ -396,7 +413,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Map<String, dynamic>> _collectMergedSegments() {
-    if (bookings.isEmpty || _branchStartTimeStr == null || _branchEndTimeStr == null) {
+    if (bookings.isEmpty ||
+        _branchStartTimeStr == null ||
+        _branchEndTimeStr == null) {
       return const [];
     }
 
@@ -407,8 +426,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return null;
     }
 
-    final DateTime dayStart = _combineDateAndTime(selectedDate, _branchStartTimeStr!);
-    final DateTime dayEnd   = _combineDateAndTime(selectedDate, _branchEndTimeStr!);
+    final DateTime dayStart =
+        _combineDateAndTime(selectedDate, _branchStartTimeStr!);
+    final DateTime dayEnd =
+        _combineDateAndTime(selectedDate, _branchEndTimeStr!);
 
     final List<Map<String, dynamic>> flat = [];
     for (final booking in bookings) {
@@ -431,8 +452,10 @@ class _HomeScreenState extends State<HomeScreen> {
             item['user']?['id'] ??
             item['userId'];
 
-        DateTime? s = _parseLocal(item['startAt']) ?? _parseLocal(booking['startAt']);
-        DateTime? e = _parseLocal(item['endAt'])   ?? _parseLocal(booking['endAt']);
+        DateTime? s =
+            _parseLocal(item['startAt']) ?? _parseLocal(booking['startAt']);
+        DateTime? e =
+            _parseLocal(item['endAt']) ?? _parseLocal(booking['endAt']);
         if (s == null || e == null) continue;
 
         if (s.isBefore(dayStart)) s = dayStart;
@@ -450,7 +473,8 @@ class _HomeScreenState extends State<HomeScreen> {
           'status': status,
           'start': s,
           'end': e,
-          'service': item['branchService']?['displayName']?.toString() ?? 'Service',
+          'service':
+              item['branchService']?['displayName']?.toString() ?? 'Service',
           'priceMinor': _toInt(item['branchService']?['priceMinor']),
         });
       }
@@ -460,20 +484,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final Map<String, List<Map<String, dynamic>>> groups = {};
     for (final it in flat) {
-      final key = '${it['col']}|${it['customerId']}|${it['staffUserId']}|${it['status']}';
+      final key =
+          '${it['col']}|${it['customerId']}|${it['staffUserId']}|${it['status']}';
       (groups[key] ??= <Map<String, dynamic>>[]).add(it);
     }
 
     final List<Map<String, dynamic>> segments = [];
     for (final g in groups.values) {
-      g.sort((a, b) => (a['start'] as DateTime).compareTo(b['start'] as DateTime));
+      g.sort(
+          (a, b) => (a['start'] as DateTime).compareTo(b['start'] as DateTime));
       if (g.isEmpty) continue;
 
       int col = g.first['col'] as int;
       String status = g.first['status'] as String;
       String customerName = g.first['customerName'] as String;
       DateTime segStart = g.first['start'] as DateTime;
-      DateTime segEnd   = g.first['end'] as DateTime;
+      DateTime segEnd = g.first['end'] as DateTime;
       final List<String> services = [g.first['service'] as String];
       int? priceTotal = g.first['priceMinor'] as int?;
       final List<Map<String, dynamic>> segItems = [
@@ -564,7 +590,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final String status = (seg['status'] as String).toUpperCase();
     final String customerName = seg['customerName'] as String? ?? 'Customer';
     final int? priceTotal = seg['priceTotal'] as int?;
-    final List<Map<String, dynamic>> items = List<Map<String, dynamic>>.from(seg['items'] as List);
+    final List<Map<String, dynamic>> items =
+        List<Map<String, dynamic>>.from(seg['items'] as List);
 
     final List<int> apptIds = items
         .map((it) => (it['appointmentId'] as int?))
@@ -588,8 +615,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
         Future<void> onConfirmAll() async {
           if (_selectedBranchId == null) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(translateText('Please select a branch first.'))));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(translateText('Please select a branch first.'))));
             return;
           }
           if (status != 'PENDING' || apptIds.isEmpty) return;
@@ -622,8 +649,11 @@ class _HomeScreenState extends State<HomeScreen> {
             await _getBookingsByDate(_selectedBranchId!, selectedDate);
           }
 
-          final msg = fail == 0 ? 'Confirmed $ok appointment(s).' : 'Confirmed $ok, failed $fail.';
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          final msg = fail == 0
+              ? 'Confirmed $ok appointment(s).'
+              : 'Confirmed $ok, failed $fail.';
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(msg)));
         }
 
         return FractionallySizedBox(
@@ -637,7 +667,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: Text(
                       customerName,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -645,13 +676,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: 4),
                 Text(timeRange, style: const TextStyle(color: Colors.black54)),
                 SizedBox(height: 4),
-                Text('Status: $status', style: const TextStyle(color: Colors.black54)),
+                Text('Status: $status',
+                    style: const TextStyle(color: Colors.black54)),
                 if (priceTotal != null) ...[
                   SizedBox(height: 4),
-                  Text('Total Price: ₹$priceTotal', style: const TextStyle(color: Colors.black87)),
+                  Text(
+                    'Total Price: ${formatMinorAmount(priceTotal)}',
+                    style: const TextStyle(color: Colors.black87),
+                  ),
                 ],
                 SizedBox(height: 12),
-                Text(translateText('Services'), style: TextStyle(fontWeight: FontWeight.w700)),
+                Text(translateText('Services'),
+                    style: TextStyle(fontWeight: FontWeight.w700)),
                 SizedBox(height: 6),
                 Expanded(
                   child: ListView.separated(
@@ -659,17 +695,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (context, i) {
                       final it = items[i];
-                      final String name = (it['service']?.toString() ?? 'Service');
+                      final String name =
+                          (it['service']?.toString() ?? 'Service');
                       final int? priceMinor = it['priceMinor'] as int?;
-                      final String priceText = priceMinor != null ? '₹$priceMinor' : '';
-                      final String range = _fmtTimeRange(it['start'] as DateTime, it['end'] as DateTime);
+                      final String priceText = priceMinor != null
+                          ? formatMinorAmount(priceMinor)
+                          : '';
+                      final String range = _fmtTimeRange(
+                          it['start'] as DateTime, it['end'] as DateTime);
 
                       return ListTile(
                         dense: true,
-                        title: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                        title: Text(name,
+                            maxLines: 1, overflow: TextOverflow.ellipsis),
                         subtitle: Text(range),
                         trailing: priceText.isNotEmpty
-                            ? Text(priceText, style: const TextStyle(fontWeight: FontWeight.w600))
+                            ? Text(priceText,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600))
                             : null,
                       );
                     },
@@ -678,17 +721,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: (status == 'PENDING' && !loadingConfirm) ? onConfirmAll : null,
+                    onPressed: (status == 'PENDING' && !loadingConfirm)
+                        ? onConfirmAll
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blue,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     child: loadingConfirm
                         ? SizedBox(
-                            height: 18, width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
                           )
-                        : Text(apptIds.length <= 1 ? 'Confirm' : 'Confirm All (${apptIds.length})'),
+                        : Text(apptIds.length <= 1
+                            ? 'Confirm'
+                            : 'Confirm All (${apptIds.length})'),
                   ),
                 ),
                 SizedBox(height: 8),
@@ -697,7 +747,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     child: Text(translateText('Close')),
                   ),
@@ -733,17 +784,19 @@ class _HomeScreenState extends State<HomeScreen> {
       final double width = _colWidth - 12;
 
       Color bg = Colors.blue.shade300;
-      if (status == 'PENDING')   bg = Colors.orange.shade300;
+      if (status == 'PENDING') bg = Colors.orange.shade300;
       if (status == 'CANCELLED') bg = Colors.red.shade300;
       if (status == 'COMPLETED') bg = Colors.green.shade300;
 
       final String customerName = seg['customerName'] as String? ?? 'Customer';
       final List<String> services = List<String>.from(seg['services'] as List);
       final int moreCount = (services.length > 1) ? services.length - 1 : 0;
-      final String headService = services.isNotEmpty ? services.first : 'Service';
+      final String headService =
+          services.isNotEmpty ? services.first : 'Service';
 
       final int? priceTotal = seg['priceTotal'] as int?;
-      final String priceText = priceTotal != null ? '₹$priceTotal' : '';
+      final String priceText =
+          priceTotal != null ? formatMinorAmount(priceTotal) : '';
 
       final String timeRange = _fmtTimeRange(s, e);
 
@@ -773,22 +826,33 @@ class _HomeScreenState extends State<HomeScreen> {
                           customerName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87),
                         ),
                         Text(
-                          moreCount > 0 ? '$headService + $moreCount more' : headService,
+                          moreCount > 0
+                              ? '$headService + $moreCount more'
+                              : headService,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: Colors.black87),
                         ),
                         if (priceText.isNotEmpty)
-                          Text(priceText, style: const TextStyle(color: Colors.black87)),
+                          Text(priceText,
+                              style: const TextStyle(color: Colors.black87)),
                       ],
                     ),
                     Column(
                       children: [
-                        Text(timeRange, style: const TextStyle(color: Colors.black87, fontSize: 10)),
-                        Text(status, style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.black87, fontSize: 10)),
+                        Text(timeRange,
+                            style: const TextStyle(
+                                color: Colors.black87, fontSize: 10)),
+                        Text(status,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
+                                fontSize: 10)),
                       ],
                     ),
                   ],
@@ -806,8 +870,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // ------------------ date nav ------------------
   void _changeDate(bool isNext) async {
     setState(() {
-      selectedDate = isNext ? selectedDate.add(const Duration(days: 1))
-                            : selectedDate.subtract(const Duration(days: 1));
+      selectedDate = isNext
+          ? selectedDate.add(const Duration(days: 1))
+          : selectedDate.subtract(const Duration(days: 1));
     });
     if (_selectedBranchId != null) {
       await _getBookingsByDate(_selectedBranchId!, selectedDate);
@@ -832,7 +897,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4))
+                  ],
                   border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: Column(
@@ -845,13 +915,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                   height: 22,
                                   child: Align(
                                     alignment: Alignment.centerLeft,
-                                    child: SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2)),
+                                    child: SizedBox(
+                                        height: 22,
+                                        width: 22,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2)),
                                   ),
                                 )
                               : Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(salonName!, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    Text(salonName!,
+                                        style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold)),
                                     SizedBox(height: 4),
                                     Row(
                                       children: [
@@ -860,7 +937,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         Expanded(
                                           child: Text(
                                             salonAddress!,
-                                            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                                            style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey[700]),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -871,15 +950,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                         ),
                         IconButton(
-                          icon: Icon(_pickerOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down),
-                          onPressed: () => setState(() => _pickerOpen = !_pickerOpen),
+                          icon: Icon(_pickerOpen
+                              ? Icons.keyboard_arrow_up
+                              : Icons.keyboard_arrow_down),
+                          onPressed: () =>
+                              setState(() => _pickerOpen = !_pickerOpen),
                         ),
                       ],
                     ),
                     AnimatedCrossFade(
                       firstChild: SizedBox.shrink(),
                       secondChild: _buildSalonPicker(),
-                      crossFadeState: _pickerOpen ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                      crossFadeState: _pickerOpen
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
                       duration: const Duration(milliseconds: 200),
                     ),
                   ],
@@ -887,45 +971,49 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             // --- Specialists section (now padded like the salon card) ---
-Padding(
-  padding: const EdgeInsets.symmetric(horizontal: 20),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(translateText("Specialists"),
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          Text(translateText("View all"),
-            style: TextStyle(color: Colors.orange, fontSize: 14),
-          ),
-        ],
-      ),
-      SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        translateText("Specialists"),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        translateText("View all"),
+                        style: TextStyle(color: Colors.orange, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
 
-      // ✅ Legends
-      Row(
-        children: [
-          _legendDot(Colors.green, "Present"),
-          SizedBox(width: 10),
-          _legendDot(Colors.red, "Absent"),
-          SizedBox(width: 10),
-          _legendDot(Colors.orange, "Break"),
-        ],
-      ),
-      SizedBox(height: 20),
+                  // ✅ Legends
+                  Row(
+                    children: [
+                      _legendDot(Colors.green, "Present"),
+                      SizedBox(width: 10),
+                      _legendDot(Colors.red, "Absent"),
+                      SizedBox(width: 10),
+                      _legendDot(Colors.orange, "Break"),
+                    ],
+                  ),
+                  SizedBox(height: 20),
 
-      // ✅ Static placeholders
-      Center(
-        child: Text(translateText("No specialists available"),
-          style: TextStyle(color: Colors.grey),
-        ),
-      ),
-    ],
-  ),
-),
+                  // ✅ Static placeholders
+                  Center(
+                    child: Text(
+                      translateText("No specialists available"),
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
             // status counts
             if (_selectedBranchId != null) ...[
@@ -951,36 +1039,52 @@ Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
                   children: [
-                    IconButton(icon: Icon(Icons.chevron_left), onPressed: () => _changeDate(false)),
+                    IconButton(
+                        icon: Icon(Icons.chevron_left),
+                        onPressed: () => _changeDate(false)),
                     Flexible(
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: List.generate(7, (index) {
-                            final date = selectedDate.add(Duration(days: index - 3));
-                            final bool isSelected = _isSameDay(date, selectedDate);
+                            final date =
+                                selectedDate.add(Duration(days: index - 3));
+                            final bool isSelected =
+                                _isSameDay(date, selectedDate);
                             return Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8.0),
                               child: GestureDetector(
                                 onTap: () async {
                                   setState(() => selectedDate = date);
                                   if (_selectedBranchId != null) {
-                                    await _getBookingsByDate(_selectedBranchId!, selectedDate);
+                                    await _getBookingsByDate(
+                                        _selectedBranchId!, selectedDate);
                                   }
                                 },
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 8, horizontal: 16),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? Colors.blue : Colors.grey[200],
+                                    color: isSelected
+                                        ? Colors.blue
+                                        : Colors.grey[200],
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(DateFormat('EEE').format(date),
-                                          style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.black)),
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : Colors.black)),
                                       Text(DateFormat('d').format(date),
-                                          style: TextStyle(color: isSelected ? Colors.white : Colors.black)),
+                                          style: TextStyle(
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : Colors.black)),
                                     ],
                                   ),
                                 ),
@@ -990,7 +1094,9 @@ Padding(
                         ),
                       ),
                     ),
-                    IconButton(icon: Icon(Icons.chevron_right), onPressed: () => _changeDate(true)),
+                    IconButton(
+                        icon: Icon(Icons.chevron_right),
+                        onPressed: () => _changeDate(true)),
                   ],
                 ),
               ),
@@ -1001,7 +1107,9 @@ Padding(
             // timetable grid
             Expanded(
               child: (_selectedBranchId == null)
-                  ? Center(child: Text(translateText('Select a salon above to view bookings')))
+                  ? Center(
+                      child: Text(translateText(
+                          'Select a salon above to view bookings')))
                   : Container(
                       color: const Color(0xFFF7F4F1),
                       child: Column(
@@ -1015,9 +1123,13 @@ Padding(
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: Colors.blueGrey.shade600,
-                                  border: Border.all(color: Colors.grey.shade300),
+                                  border:
+                                      Border.all(color: Colors.grey.shade300),
                                 ),
-                                child: Text(translateText('Time'), style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                child: Text(translateText('Time'),
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold)),
                               ),
                               Expanded(
                                 child: SingleChildScrollView(
@@ -1026,24 +1138,30 @@ Padding(
                                   primary: false,
                                   physics: const ClampingScrollPhysics(),
                                   child: Row(
-                                    children: List.generate(teamMembers.length, (index) {
+                                    children: List.generate(teamMembers.length,
+                                        (index) {
                                       final m = teamMembers[index];
                                       return Container(
                                         width: _colWidth,
                                         height: 44,
                                         alignment: Alignment.centerLeft,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 12),
                                         decoration: BoxDecoration(
                                           color: Colors.grey.shade300,
                                           border: Border(
-                                            top: BorderSide(color: Colors.grey.shade300),
-                                            right: BorderSide(color: Colors.grey.shade300),
-                                            bottom: BorderSide(color: Colors.grey.shade300),
+                                            top: BorderSide(
+                                                color: Colors.grey.shade300),
+                                            right: BorderSide(
+                                                color: Colors.grey.shade300),
+                                            bottom: BorderSide(
+                                                color: Colors.grey.shade300),
                                           ),
                                         ),
                                         child: Text(
                                           '${m['firstName']} ${m['lastName']}',
-                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       );
@@ -1064,13 +1182,21 @@ Padding(
                                   width: 100,
                                   child: timeSlots.isEmpty
                                       ? SizedBox()
-                                      : NotificationListener<ScrollNotification>(
+                                      : NotificationListener<
+                                          ScrollNotification>(
                                           onNotification: (n) {
-                                            if (n.metrics.axis == Axis.vertical) {
-                                              if (!_syncingV && _gridVController.hasClients) {
+                                            if (n.metrics.axis ==
+                                                Axis.vertical) {
+                                              if (!_syncingV &&
+                                                  _gridVController.hasClients) {
                                                 _syncingV = true;
-                                                final off = _timeColumnVController.offset;
-                                                if ((_gridVController.offset - off).abs() > 0.5) {
+                                                final off =
+                                                    _timeColumnVController
+                                                        .offset;
+                                                if ((_gridVController.offset -
+                                                            off)
+                                                        .abs() >
+                                                    0.5) {
                                                   _gridVController.jumpTo(off);
                                                 }
                                                 _syncingV = false;
@@ -1081,22 +1207,36 @@ Padding(
                                           child: ListView.builder(
                                             controller: _timeColumnVController,
                                             primary: false,
-                                            physics: const ClampingScrollPhysics(),
-                                            dragStartBehavior: DragStartBehavior.start,
+                                            physics:
+                                                const ClampingScrollPhysics(),
+                                            dragStartBehavior:
+                                                DragStartBehavior.start,
                                             itemExtent: _rowHeight,
                                             itemCount: timeSlots.length,
                                             itemBuilder: (context, i) {
                                               return Container(
                                                 alignment: Alignment.centerLeft,
-                                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 8),
                                                 decoration: BoxDecoration(
-                                                  color: i % 2 == 0 ? Colors.white : const Color(0xFFF0F0F0),
+                                                  color: i % 2 == 0
+                                                      ? Colors.white
+                                                      : const Color(0xFFF0F0F0),
                                                   border: Border(
-                                                    right: BorderSide(color: Colors.grey.shade300),
-                                                    bottom: BorderSide(color: Colors.grey.shade300),
+                                                    right: BorderSide(
+                                                        color: Colors
+                                                            .grey.shade300),
+                                                    bottom: BorderSide(
+                                                        color: Colors
+                                                            .grey.shade300),
                                                   ),
                                                 ),
-                                                child: Text(timeSlots[i], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                                child: Text(timeSlots[i],
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 12)),
                                               );
                                             },
                                           ),
@@ -1110,17 +1250,32 @@ Padding(
                                     primary: false,
                                     physics: const ClampingScrollPhysics(),
                                     child: SizedBox(
-                                      width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
+                                      width: (teamMembers.isEmpty
+                                              ? 1
+                                              : teamMembers.length) *
+                                          _colWidth,
                                       child: timeSlots.isEmpty
-                                          ? Center(child: Text(translateText('No time slots available')))
-                                          : NotificationListener<ScrollNotification>(
+                                          ? Center(
+                                              child: Text(translateText(
+                                                  'No time slots available')))
+                                          : NotificationListener<
+                                              ScrollNotification>(
                                               onNotification: (n) {
-                                                if (n.metrics.axis == Axis.vertical) {
-                                                  if (!_syncingV && _timeColumnVController.hasClients) {
+                                                if (n.metrics.axis ==
+                                                    Axis.vertical) {
+                                                  if (!_syncingV &&
+                                                      _timeColumnVController
+                                                          .hasClients) {
                                                     _syncingV = true;
-                                                    final off = _gridVController.offset;
-                                                    if ((_timeColumnVController.offset - off).abs() > 0.5) {
-                                                      _timeColumnVController.jumpTo(off);
+                                                    final off =
+                                                        _gridVController.offset;
+                                                    if ((_timeColumnVController
+                                                                    .offset -
+                                                                off)
+                                                            .abs() >
+                                                        0.5) {
+                                                      _timeColumnVController
+                                                          .jumpTo(off);
                                                     }
                                                     _syncingV = false;
                                                   }
@@ -1130,10 +1285,16 @@ Padding(
                                               child: SingleChildScrollView(
                                                 controller: _gridVController,
                                                 primary: false,
-                                                physics: const ClampingScrollPhysics(),
+                                                physics:
+                                                    const ClampingScrollPhysics(),
                                                 child: SizedBox(
-                                                  width: (teamMembers.isEmpty ? 1 : teamMembers.length) * _colWidth,
-                                                  height: timeSlots.length * _rowHeight,
+                                                  width: (teamMembers.isEmpty
+                                                          ? 1
+                                                          : teamMembers
+                                                              .length) *
+                                                      _colWidth,
+                                                  height: timeSlots.length *
+                                                      _rowHeight,
                                                   child: Stack(
                                                     children: [
                                                       ..._buildBackgroundGrid(),
@@ -1179,7 +1340,8 @@ Padding(
       child: ListView.separated(
         shrinkWrap: true,
         itemCount: _salons.length,
-        separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade300),
+        separatorBuilder: (_, __) =>
+            Divider(height: 1, color: Colors.grey.shade300),
         itemBuilder: (context, index) {
           final s = Map<String, dynamic>.from(_salons[index] as Map);
           final int id = s['id'] as int;
@@ -1189,15 +1351,19 @@ Padding(
 
           return ListTile(
             dense: false,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
             title: Text(
               name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
+              style: TextStyle(
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500),
             ),
             subtitle: Text(addr, maxLines: 1, overflow: TextOverflow.ellipsis),
-            trailing: selected ? Icon(Icons.check_circle, color: Colors.blue) : SizedBox.shrink(),
+            trailing: selected
+                ? Icon(Icons.check_circle, color: Colors.blue)
+                : SizedBox.shrink(),
             onTap: () => _onPickSalon(s),
           );
         },
@@ -1217,9 +1383,11 @@ Padding(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(title, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+          Text(title,
+              style: TextStyle(color: color, fontWeight: FontWeight.w600)),
           SizedBox(height: 4),
-          Text('$count', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+          Text('$count',
+              style: TextStyle(color: color, fontWeight: FontWeight.bold)),
         ],
       ),
     );

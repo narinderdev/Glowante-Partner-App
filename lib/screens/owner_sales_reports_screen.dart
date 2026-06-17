@@ -7,6 +7,7 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import '../utils/price_formatter.dart';
 import 'bottom_nav.dart';
 
 enum OwnerSalesReportModule {
@@ -582,11 +583,15 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
           },
           {
             'title': context.t('Total Revenue'),
-            'displayValue': '₹${summary['totalRevenue'] ?? 0}',
+            'displayValue': formatMinorAmount(summary['totalRevenue'],
+                trimZeroDecimals: true),
           },
           {
             'title': context.t('Avg Revenue / Staff'),
-            'displayValue': '₹${summary['averageRevenuePerStaff'] ?? 0}',
+            'displayValue': formatMinorAmount(
+              summary['averageRevenuePerStaff'],
+              trimZeroDecimals: true,
+            ),
           },
           {
             'title': context.t('Avg Rating'),
@@ -1417,7 +1422,9 @@ class _PaymentMethodCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          totalRevenue.isEmpty ? '₹0' : totalRevenue,
+                          totalRevenue.isEmpty
+                              ? formatMinorAmount(0, trimZeroDecimals: true)
+                              : totalRevenue,
                           style: const TextStyle(
                             color: Color(0xFF231F20),
                             fontSize: 14,
@@ -1459,7 +1466,14 @@ class _PaymentMethodCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 14),
                     Text(
-                      cleanText(row['displayAmount']),
+                      cleanText(row['displayAmount']).isNotEmpty
+                          ? cleanText(row['displayAmount'])
+                          : formatMinorAmount(
+                              row['amount'] ??
+                                  row['totalAmount'] ??
+                                  row['revenue'],
+                              trimZeroDecimals: true,
+                            ),
                       style: TextStyle(
                         color: AppColors.starColor,
                         fontWeight: FontWeight.w800,
@@ -1748,7 +1762,7 @@ class _StaffPerformanceRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Text(
-            '₹${row['revenue'] ?? 0}',
+            formatMinorAmount(row['revenue'], trimZeroDecimals: true),
             style: TextStyle(
               color: AppColors.starColor,
               fontSize: 16,

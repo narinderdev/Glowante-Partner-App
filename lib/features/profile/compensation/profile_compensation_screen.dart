@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../services/navigation_service.dart';
 import '../../../services/stylist_branch_selection.dart';
 import '../../../utils/localization_helper.dart';
+import '../../../utils/price_formatter.dart';
 import '../../salon/widgets/owner_branch_header_selector.dart';
 import '../widgets/profile_subpage_app_bar.dart';
 import '../../../utils/colors.dart';
@@ -26,7 +27,9 @@ enum CompensationModule {
 }
 
 enum _CommissionTab { services, overrides }
-
+String _formatCurrency(num minorAmount) {
+  return '₹${(minorAmount / 100).toStringAsFixed(2)}';
+}
 class ProfileCompensationScreen extends StatefulWidget {
   const ProfileCompensationScreen({
     super.key,
@@ -47,12 +50,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       TextEditingController();
   final TextEditingController _advanceSearchController =
       TextEditingController();
-  final NumberFormat _currencyFormatter = NumberFormat.currency(
-    locale: 'en_IN',
-    symbol: '₹',
-    decimalDigits: 0,
-  );
-
   CompensationModule _module = CompensationModule.payroll;
   _CommissionTab _commissionTab = _CommissionTab.services;
 
@@ -947,7 +944,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   String _formatCurrency(num amount) {
-    return _currencyFormatter.format(amount);
+    return formatMinorAmount(amount, trimZeroDecimals: true);
   }
 
   String _formatDate(DateTime value) {
@@ -1781,7 +1778,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                     ? currentEmployee.payrollEmployeeId
                     : currentEmployee.userId,
                 type: adjustmentType,
-                amountMinor: amount,
+                amountMinor: rupeesToMinorAmount(amount),
                 remarks: adjustmentRemarksController.text.trim(),
                 createdAt: DateTime.now(),
               );
@@ -2639,7 +2636,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }) async {
     final typeController = TextEditingController(text: type);
     final amountController = TextEditingController(
-      text: initialAdjustment?.amountMinor.toString() ?? '',
+      text: initialAdjustment == null
+          ? ''
+          : (minorAmountToRupees(initialAdjustment.amountMinor)
+                  ?.toStringAsFixed(0) ??
+              ''),
     );
     final remarksController = TextEditingController(
       text: initialAdjustment?.remarks ?? '',
@@ -2661,7 +2662,9 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                     '${DateTime.now().millisecondsSinceEpoch}',
                 payrollEmployeeId: payrollEmployeeId,
                 type: type,
-                amountMinor: int.parse(amountController.text.trim()),
+                amountMinor: rupeesToMinorAmount(
+                  int.parse(amountController.text.trim()),
+                ),
                 remarks: remarksController.text.trim(),
                 createdAt: initialAdjustment?.createdAt ?? DateTime.now(),
               );

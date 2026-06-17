@@ -56,6 +56,7 @@ class AddSalonScreen extends StatefulWidget {
     this.city,
     this.pincode,
     this.state,
+    this.completeAddress,
     this.latitude,
     this.longitude,
     this.initialSalon,
@@ -70,7 +71,7 @@ class AddSalonScreen extends StatefulWidget {
   final String? imageUrl;
   final String? email;
   final String? isProceedFrom;
-
+  final String? completeAddress; 
   // legacy inputs (we’ll continue mapping completeAddress into buildingName)
   final String? buildingName;
   final String? city;
