@@ -189,10 +189,10 @@ class _ViewAllClientOwnerScreenState extends State<ViewAllClientOwnerScreen> {
         elevation: 0,
         surfaceTintColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
-          color: _clientGold,
-          onPressed: () => Navigator.pop(context),
-        ),
+  icon: const Icon(Icons.arrow_back),
+  color: _clientGold,
+  onPressed: () => Navigator.pop(context),
+),
         title: Text(
           translateText('All Customers'),
           style: const TextStyle(
