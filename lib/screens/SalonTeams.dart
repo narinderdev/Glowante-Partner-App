@@ -35,7 +35,7 @@ class _TeamScreenState extends State<TeamScreen> {
   Future<List<dynamic>>? teamMembersFuture;
   List<Map<String, dynamic>> _salons = const [];
   final GlobalKey _branchSelectorKey = GlobalKey();
-
+bool _hasTeamMembers = false;
   bool _autoPicked = false;
   final Set<int> _statusUpdatingIds = {};
   final Set<int> _deletingMemberIds = {};
@@ -116,20 +116,49 @@ class _TeamScreenState extends State<TeamScreen> {
     return parts.join(', ');
   }
 
-  Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
-    try {
-      final response = await ApiService.getTeamMembers(branchId);
-      if (response['success'] == true) {
-        return response['data'] ?? [];
-      } else {
-        return [];
-      }
-    } catch (e) {
-      print("❌ Error fetching team members: $e");
-      return [];
-    }
-  }
+  // Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
+  //   try {
+  //     final response = await ApiService.getTeamMembers(branchId);
+  //     if (response['success'] == true) {
+  //       return response['data'] ?? [];
+  //     } else {
+  //       return [];
+  //     }
+  //   } catch (e) {
+  //     print("❌ Error fetching team members: $e");
+  //     return [];
+  //   }
+  // }
+Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
+  try {
+    final response = await ApiService.getTeamMembers(branchId);
 
+    final members = response['success'] == true && response['data'] is List
+        ? List<dynamic>.from(response['data'] as List)
+        : <dynamic>[];
+
+    if (mounted && selectedBranchId == branchId) {
+      final hasMembers = members.isNotEmpty;
+      if (_hasTeamMembers != hasMembers) {
+        setState(() {
+          _hasTeamMembers = hasMembers;
+        });
+      }
+    }
+
+    return members;
+  } catch (e) {
+    print("❌ Error fetching team members: $e");
+
+    if (mounted && selectedBranchId == branchId && _hasTeamMembers) {
+      setState(() {
+        _hasTeamMembers = false;
+      });
+    }
+
+    return [];
+  }
+}
   Future<void> _refreshTeamMembers() async {
     if (selectedBranchId == null || !mounted) return;
     setState(() {
@@ -278,17 +307,28 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 }
 
-  void _pickBranch(Map<String, dynamic> branchOpt) {
-    selectedBranch = branchOpt;
-    selectedBranchId = _asInt(branchOpt['branchId']);
-    if (selectedBranchId != null) {
-      teamMembersFuture =
-          _getTeamMembersByBranch(selectedBranchId!); // ✅ always by branchId
-    } else {
-      teamMembersFuture = null;
-    }
-  }
+  // void _pickBranch(Map<String, dynamic> branchOpt) {
+  //   selectedBranch = branchOpt;
+  //   selectedBranchId = _asInt(branchOpt['branchId']);
+  //   if (selectedBranchId != null) {
+  //     teamMembersFuture =
+  //         _getTeamMembersByBranch(selectedBranchId!); // ✅ always by branchId
+  //   } else {
+  //     teamMembersFuture = null;
+  //   }
+  // }
 
+void _pickBranch(Map<String, dynamic> branchOpt) {
+  selectedBranch = branchOpt;
+  selectedBranchId = _asInt(branchOpt['branchId']);
+  _hasTeamMembers = false;
+
+  if (selectedBranchId != null) {
+    teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
+  } else {
+    teamMembersFuture = null;
+  }
+}
   Future<void> _openBranchPicker(
     List<Map<String, dynamic>> branches,
   ) async {
@@ -1024,13 +1064,15 @@ class _TeamScreenState extends State<TeamScreen> {
           },
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+    floatingActionButton: _hasTeamMembers
+    ? FloatingActionButton.extended(
         onPressed: _openAddMember,
         label: Text(translateText("Add Member")),
         icon: const Icon(Icons.add),
         backgroundColor: const Color(0xFFD0A244),
         foregroundColor: Colors.white,
-      ),
+      )
+    : null,
     );
   }
 }
