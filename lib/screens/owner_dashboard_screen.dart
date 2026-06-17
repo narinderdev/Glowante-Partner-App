@@ -453,10 +453,10 @@ static const int _notificationPageSize = 4;
                       textAlign: TextAlign.center,
                     ),
                   )
-            else ...[
+         else ...[
   _buildBranchSelector(),
   Padding(
-    padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+    padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -502,7 +502,7 @@ Widget _buildBranchSelector() {
   final canChangeBranch = _branchOptions.length > 1;
 
   return Padding(
-    padding: const EdgeInsets.fromLTRB(30, 16, 30, 0),
+   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
     child: _DashboardHeaderBranchSelector(
       key: _branchSelectorKey,
       label: selectedLabel,
@@ -1525,7 +1525,7 @@ final visibleAppointments = _selectedFilterKey == 'all'
     : appointments.where((appointment) {
         return _appointmentFilterKey(appointment) == _selectedFilterKey;
       }).toList();
-      
+
   return _DashboardSection(
     padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
     child: Column(

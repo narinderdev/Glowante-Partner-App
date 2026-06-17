@@ -1024,13 +1024,13 @@ class _TeamScreenState extends State<TeamScreen> {
           },
         ),
       ),
-      // floatingActionButton: FloatingActionButton.extended(
-      //   onPressed: _openAddMember,
-      //   label: Text(translateText("Add Member")),
-      //   icon: const Icon(Icons.add),
-      //   backgroundColor: const Color(0xFFD0A244),
-      //   foregroundColor: Colors.white,
-      // ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openAddMember,
+        label: Text(translateText("Add Member")),
+        icon: const Icon(Icons.add),
+        backgroundColor: const Color(0xFFD0A244),
+        foregroundColor: Colors.white,
+      ),
     );
   }
 }

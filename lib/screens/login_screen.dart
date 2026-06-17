@@ -549,25 +549,25 @@ class _LoginFeatureCard extends StatelessWidget {
               child: _FeatureItem(
                 icon: Icons.calendar_month_rounded,
                 label: translateText('Smart Appointments'),
-                description: translateText('Schedule with ease'),
+                // description: translateText('Schedule with ease'),
                 compact: compact,
               ),
             ),
-            const _FeatureDivider(),
+          _FeatureDivider(compact: compact),
             Expanded(
               child: _FeatureItem(
                 icon: Icons.groups_rounded,
                 label: translateText('Team Management'),
-                description: translateText('Empower your team'),
+                // description: translateText('Empower your team'),
                 compact: compact,
               ),
             ),
-            const _FeatureDivider(),
+        _FeatureDivider(compact: compact),
             Expanded(
               child: _FeatureItem(
                 icon: Icons.bar_chart_rounded,
                 label: translateText('Business Insights'),
-                description: translateText('Grow your salon'),
+                // description: translateText('Grow your salon'),
                 compact: compact,
               ),
             ),
@@ -577,23 +577,21 @@ class _LoginFeatureCard extends StatelessWidget {
     );
   }
 }
-
 class _FeatureItem extends StatelessWidget {
   const _FeatureItem({
     required this.icon,
     required this.label,
-    required this.description,
     required this.compact,
   });
 
   final IconData icon;
   final String label;
-  final String description;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Container(
           height: compact ? 42 : 46,
@@ -617,37 +615,31 @@ class _FeatureItem extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(height: compact ? 5 : 7),
-        FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Text(
-            description,
-            maxLines: 1,
-            style: TextStyle(
-              color: const Color(0xFF7A7169),
-              fontSize: compact ? 10 : 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
       ],
     );
   }
 }
 
 class _FeatureDivider extends StatelessWidget {
-  const _FeatureDivider();
+  const _FeatureDivider({required this.compact});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 1.2,
-      margin: const EdgeInsets.symmetric(horizontal: 6),
-      color: const Color(0xFFEADCC6),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Align(
+        alignment: Alignment.center,
+        child: Container(
+          width: 1.2,
+          height: compact ? 54 : 62,
+          color: const Color(0xFFEADCC6),
+        ),
+      ),
     );
   }
 }
-
 class _OrnamentDivider extends StatelessWidget {
   const _OrnamentDivider({required this.width});
 

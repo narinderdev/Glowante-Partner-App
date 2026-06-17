@@ -626,7 +626,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       );
       return;
     }
-
+debugPrint('BRANCH ADDRESS = ${state.address?.toJson()}');
+debugPrint('LAT = ${state.address?.latitude}');
+debugPrint('LNG = ${state.address?.longitude}');
     // 🟢 Require address completeness based on new flow
     if (!_isAddressComplete(state.address)) {
       scaffoldMessenger.showSnackBar(

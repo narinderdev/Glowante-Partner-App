@@ -4,35 +4,30 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:flutter/services.dart';
+
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../services/language_listener.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-import 'package:flutter/services.dart';
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({
     super.key,
-
-    // Kept old params optional for backward compatibility (no longer used)
     this.buildingName = '',
     this.city = '',
     this.pincode = '',
     this.state = '',
-
-    // New (optional) initial values
     this.initialCompleteAddress,
     this.initialScoFlatHouse,
     this.initialStreetSectorArea,
   });
 
-  // Old (unused now)
   final String buildingName;
   final String city;
   final String pincode;
   final String state;
 
-  // New (optional) initial values
   final String? initialCompleteAddress;
   final String? initialScoFlatHouse;
   final String? initialStreetSectorArea;
@@ -55,20 +50,23 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   late FlutterGooglePlacesSdk _places;
   List<AutocompletePrediction> predictions = [];
   OverlayEntry? overlayEntry;
+
   final LayerLink _searchFieldLink = LayerLink();
   final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _completeAddressKey = GlobalKey();
+  final _formKey = GlobalKey<FormState>();
+
   final Duration _debounceDuration = const Duration(milliseconds: 150);
   DateTime _lastType = DateTime.fromMillisecondsSinceEpoch(0);
   String _latestQuery = '';
+
   bool _isLoading = false;
   bool _isSyncingCompleteAddress = false;
+  bool _isSelectingPlace = false;
+
   String _baseCompleteAddress = '';
 
-  final _formKey = GlobalKey<FormState>();
-
-  // Controllers we keep
   final TextEditingController completeAddressController =
       TextEditingController();
   final TextEditingController scoFlatHouseController = TextEditingController();
@@ -78,53 +76,57 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
       TextEditingController();
 
   @override
-void initState() {
-  super.initState();
-  _places = FlutterGooglePlacesSdk(dotenv.env['GOOGLE_API_KEY'] ?? "");
+  void initState() {
+    super.initState();
 
-  if (widget.initialScoFlatHouse?.isNotEmpty == true) {
-    scoFlatHouseController.text = widget.initialScoFlatHouse!;
-  }
+    _places = FlutterGooglePlacesSdk(dotenv.env['GOOGLE_API_KEY'] ?? '');
 
-  if (widget.initialStreetSectorArea?.isNotEmpty == true) {
-    streetSectorAreaController.text = widget.initialStreetSectorArea!;
-  }
-
-  if (widget.initialCompleteAddress?.isNotEmpty == true) {
-    _baseCompleteAddress =
-        _addressWithoutManualParts(widget.initialCompleteAddress!);
-    _syncCompleteAddressFromParts();
-  }
-
-  scoFlatHouseController.addListener(_syncCompleteAddressFromParts);
-  streetSectorAreaController.addListener(_syncCompleteAddressFromParts);
-  completeAddressController.addListener(_captureManualCompleteAddress);
-
-  _searchFocus.addListener(() {
-    if (!_searchFocus.hasFocus) {
-      Future.delayed(const Duration(milliseconds: 180), () {
-        if (mounted && !_searchFocus.hasFocus) {
-          _removeOverlay();
-        }
-      });
+    if (widget.initialScoFlatHouse?.isNotEmpty == true) {
+      scoFlatHouseController.text = widget.initialScoFlatHouse!;
     }
 
-    if (mounted) setState(() {});
-  });
-}
+    if (widget.initialStreetSectorArea?.isNotEmpty == true) {
+      streetSectorAreaController.text = widget.initialStreetSectorArea!;
+    }
+
+    if (widget.initialCompleteAddress?.isNotEmpty == true) {
+      _baseCompleteAddress =
+          _addressWithoutManualParts(widget.initialCompleteAddress!);
+      _syncCompleteAddressFromParts();
+    }
+
+    scoFlatHouseController.addListener(_syncCompleteAddressFromParts);
+    streetSectorAreaController.addListener(_syncCompleteAddressFromParts);
+    completeAddressController.addListener(_captureManualCompleteAddress);
+
+    _searchFocus.addListener(() {
+      if (!_searchFocus.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 180), () {
+          if (mounted && !_searchFocus.hasFocus) {
+            _removeOverlay();
+          }
+        });
+      }
+
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
     _removeOverlay();
     _searchFocus.dispose();
     _scrollController.dispose();
+
     scoFlatHouseController.removeListener(_syncCompleteAddressFromParts);
     streetSectorAreaController.removeListener(_syncCompleteAddressFromParts);
     completeAddressController.removeListener(_captureManualCompleteAddress);
+
     completeAddressController.dispose();
     scoFlatHouseController.dispose();
     streetSectorAreaController.dispose();
     searchLocationController.dispose();
+
     super.dispose();
   }
 
@@ -132,23 +134,28 @@ void initState() {
     FocusScope.of(context).unfocus();
     _removeOverlay();
     _formKey.currentState?.reset();
+
     setState(() {
       _clearManualAddressInputs(clearCompleteAddress: true);
       _baseCompleteAddress = '';
+      latitude = null;
+      longitude = null;
       _isLoading = true;
     });
 
-    // Do not fill search when using current location
     searchLocationController.clear();
+
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
       if (!serviceEnabled) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 translateText(
-                    'Turn on location services to use your current location'),
+                  'Turn on location services to use your current location',
+                ),
               ),
             ),
           );
@@ -158,6 +165,7 @@ void initState() {
       }
 
       var permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.unableToDetermine) {
         permission = await Geolocator.requestPermission();
@@ -169,7 +177,8 @@ void initState() {
             SnackBar(
               content: Text(
                 translateText(
-                    'Allow location access to autofill your address details'),
+                  'Allow location access to autofill your address details',
+                ),
               ),
             ),
           );
@@ -179,13 +188,15 @@ void initState() {
 
       if (permission == LocationPermission.deniedForever) {
         if (!mounted) return;
+
         final openSettings = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
             title: Text(translateText('Allow location access')),
             content: Text(
               translateText(
-                  'Enable location permissions in Settings to use your current location.'),
+                'Enable location permissions in Settings to use your current location.',
+              ),
             ),
             actions: [
               TextButton(
@@ -199,19 +210,22 @@ void initState() {
             ],
           ),
         );
+
         if (openSettings == true) {
           await Geolocator.openAppSettings();
         }
+
         return;
       }
 
       final pos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+
       await _getAddressFromCoordinates(pos.latitude, pos.longitude);
       await _scrollToCompleteAddress();
     } catch (e) {
-      debugPrint("Location error: $e");
+      debugPrint('Location error: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -219,8 +233,10 @@ void initState() {
 
   Future<void> _scrollToCompleteAddress() async {
     await Future<void>.delayed(const Duration(milliseconds: 180));
+
     final fieldContext = _completeAddressKey.currentContext;
     if (fieldContext == null || !fieldContext.mounted) return;
+
     await Scrollable.ensureVisible(
       fieldContext,
       duration: const Duration(milliseconds: 350),
@@ -228,21 +244,25 @@ void initState() {
       alignment: 0.35,
     );
   }
-String _cleanAddressText(String value) {
-  return value
-      .replaceAll('\u00A0', ' ') // non-breaking space
-      .replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '') // zero-width chars
-      .replaceAll(_addressDisallowedRegex, '')
-      .replaceAll(RegExp(r'[ \t]+'), ' ')
-      .replaceAll(RegExp(r'\s*,\s*'), ', ')
-      .replaceAll(RegExp(r',\s*,'), ',')
-      .trim();
-}
+
+  String _cleanAddressText(String value) {
+    return value
+        .replaceAll('\u00A0', ' ')
+        .replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '')
+        .replaceAll(_addressDisallowedRegex, '')
+        .replaceAll(RegExp(r'[ \t]+'), ' ')
+        .replaceAll(RegExp(r'\s*,\s*'), ', ')
+        .replaceAll(RegExp(r',\s*,'), ',')
+        .trim();
+  }
+
   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
     try {
       final placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isEmpty) return;
+
       final place = placemarks.first;
+
       final parts = <String?>[
         place.name,
         place.subLocality,
@@ -251,42 +271,49 @@ String _cleanAddressText(String value) {
         place.country,
         place.postalCode,
       ];
-    final formattedAddress = _cleanAddressText(
-  parts
-      .whereType<String>()
-      .where((value) => value.trim().isNotEmpty)
-      .map((value) => value.trim())
-      .join(', '),
-);
+
+      final formattedAddress = _cleanAddressText(
+        parts
+            .whereType<String>()
+            .where((value) => value.trim().isNotEmpty)
+            .map((value) => value.trim())
+            .join(', '),
+      );
 
       _removeOverlay();
 
+      _isSelectingPlace = true;
       setState(() {
         _setBaseCompleteAddress(formattedAddress);
-
-        // Also make sure predictions are not shown
-        predictions.clear();
-
+        searchLocationController.text = formattedAddress;
+        predictions = [];
         latitude = lat;
         longitude = lng;
       });
+      _isSelectingPlace = false;
+
+      debugPrint('CURRENT LOCATION LAT=$latitude LNG=$longitude');
     } catch (e) {
-      debugPrint("Error fetching address: $e");
+      debugPrint('Error fetching address: $e');
     }
   }
 
   void _clearManualAddressInputs({bool clearCompleteAddress = false}) {
     _isSyncingCompleteAddress = true;
+
     scoFlatHouseController.clear();
     streetSectorAreaController.clear();
+
     if (clearCompleteAddress) {
       completeAddressController.clear();
     }
+
     _isSyncingCompleteAddress = false;
   }
 
   Future<void> _getPredictions(String input) async {
     final query = input.trim();
+
     if (query.isEmpty) {
       setState(() {
         predictions = [];
@@ -301,19 +328,25 @@ String _cleanAddressText(String value) {
 
     try {
       _latestQuery = query;
+
       final result = await _places.findAutocompletePredictions(
         query,
         countries: ['IN'],
       );
+
       final preds = result.predictions;
+
       if (_latestQuery != query || searchLocationController.text.isEmpty) {
         return;
       }
 
       setState(() => predictions = preds);
-      if (preds.isNotEmpty) _showOverlay();
+
+      if (preds.isNotEmpty) {
+        _showOverlay();
+      }
     } catch (e) {
-      debugPrint("Error fetching predictions: $e");
+      debugPrint('Error fetching predictions: $e');
     }
   }
 
@@ -347,67 +380,62 @@ String _cleanAddressText(String value) {
                 ),
                 itemBuilder: (context, index) {
                   final p = predictions[index];
+
                   return ListTile(
                     dense: true,
                     visualDensity: const VisualDensity(vertical: -1),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     title: Text(
                       p.fullText,
-                      style:
-                          const TextStyle(fontSize: 14, color: Colors.black87),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
                     ),
-//                 onTap: () async {
-//   final placeId = p.placeId;
-//   final suggestionText = p.fullText.trim();
+                    onTap: () async {
+                      final placeId = p.placeId;
+                      final suggestionText = p.fullText.trim();
 
-//   setState(() {
-//     searchLocationController.value = TextEditingValue(
-//       text: suggestionText,
-//       selection: TextSelection.collapsed(offset: suggestionText.length),
-//     );
-//     predictions.clear();
-//   });
+                      _isSelectingPlace = true;
 
-//   _removeOverlay();
+                      setState(() {
+                        searchLocationController.value = TextEditingValue(
+                          text: suggestionText,
+                          selection: TextSelection.collapsed(
+                            offset: suggestionText.length,
+                          ),
+                        );
 
-//   await _onPredictionSelected(placeId, suggestionText);
+                        _baseCompleteAddress = suggestionText;
 
-//   if (!mounted) return;
-//   FocusScope.of(context).unfocus();
+                        completeAddressController.value = TextEditingValue(
+                          text: suggestionText,
+                          selection: TextSelection.collapsed(
+                            offset: suggestionText.length,
+                          ),
+                        );
 
-//   await _scrollToCompleteAddress();
-// },
-onTap: () async {
-  final placeId = p.placeId;
-  final suggestionText = p.fullText.trim();
+                       predictions = [];
+                      });
 
-  // Fill both fields immediately
-  setState(() {
-    searchLocationController.value = TextEditingValue(
-      text: suggestionText,
-      selection: TextSelection.collapsed(offset: suggestionText.length),
-    );
+                      _removeOverlay();
 
-    _baseCompleteAddress = suggestionText;
-    completeAddressController.value = TextEditingValue(
-      text: suggestionText,
-      selection: TextSelection.collapsed(offset: suggestionText.length),
-    );
+                      await _onPredictionSelected(placeId, suggestionText);
 
-    predictions.clear();
-  });
+                      _isSelectingPlace = false;
 
-  _removeOverlay();
+                   if (!mounted) return;
 
-  // Then fetch accurate Google place details
-  await _onPredictionSelected(placeId, suggestionText);
+_searchFocus.unfocus();
 
+WidgetsBinding.instance.addPostFrameCallback((_) {
   if (!mounted) return;
-  FocusScope.of(context).unfocus();
-
-  await _scrollToCompleteAddress();
-},
+  _scrollToCompleteAddress();
+});
+                    },
                   );
                 },
               ),
@@ -425,103 +453,16 @@ onTap: () async {
     overlayEntry = null;
   }
 
-  // Future<void> _onPredictionSelected(String placeId) async {
-  //   try {
-  //     final details = await _places.fetchPlace(
-  //       placeId,
-  //       fields: [
-  //         PlaceField.Name,
-  //         PlaceField.Address,
-  //         PlaceField.AddressComponents,
-  //         PlaceField.Location,
-  //       ],
-  //     );
-
-  //     final place = details.place;
-  //     if (place == null) return;
-  //     final placeAddress = (place.address ?? '').trim();
-  //     final placeName = (place.name ?? '').trim();
-  //     final address = placeAddress.isNotEmpty ? placeAddress : placeName;
-  //     final lat = place.latLng?.lat;
-  //     final lng = place.latLng?.lng;
-
-  //     if (!mounted) return;
-  //     setState(() {
-  //       _setBaseCompleteAddress(address);
-  //       searchLocationController.text = address.trim();
-  //       latitude = lat;
-  //       longitude = lng;
-  //     });
-  //   } catch (e) {
-  //     debugPrint("Error fetching place details: $e");
-  //   }
-  // }
-//   Future<void> _onPredictionSelected(
-//   String placeId,
-//   String fallbackSuggestionText,
-// ) async {
-//   try {
-//     final details = await _places.fetchPlace(
-//       placeId,
-//       fields: [
-//         PlaceField.Name,
-//         PlaceField.Address,
-//         PlaceField.AddressComponents,
-//         PlaceField.Location,
-//       ],
-//     );
-
-//     final place = details.place;
-
-//     final placeAddress = (place?.address ?? '').trim();
-//     final placeName = (place?.name ?? '').trim();
-
-//     final address = placeAddress.isNotEmpty
-//         ? placeAddress
-//         : placeName.isNotEmpty
-//             ? placeName
-//             : fallbackSuggestionText;
-
-//     final lat = place?.latLng?.lat;
-//     final lng = place?.latLng?.lng;
-
-//     if (!mounted) return;
-
-//     setState(() {
-//       // Final selected address replaces "mf"
-//       searchLocationController.text = address;
-//       searchLocationController.selection = TextSelection.collapsed(
-//         offset: address.length,
-//       );
-
-//       // Fill Complete Address also
-//       _setBaseCompleteAddress(address);
-
-//       latitude = lat;
-//       longitude = lng;
-//       predictions.clear();
-//     });
-//   } catch (e) {
-//     debugPrint("Error fetching place details: $e");
-
-//     if (!mounted) return;
-
-//     // Even if Google place details fail, still use clicked suggestion
-//     setState(() {
-//       searchLocationController.text = fallbackSuggestionText;
-//       searchLocationController.selection = TextSelection.collapsed(
-//         offset: fallbackSuggestionText.length,
-//       );
-
-//       _setBaseCompleteAddress(fallbackSuggestionText);
-//       predictions.clear();
-//     });
-//   }
-// }
 Future<void> _onPredictionSelected(
   String placeId,
   String fallbackSuggestionText,
 ) async {
+  _isSelectingPlace = true;
+
+  debugPrint('---------------- FETCH PLACE DETAILS START ----------------');
+  debugPrint('FETCH placeId = $placeId');
+  debugPrint('FETCH fallbackSuggestionText = $fallbackSuggestionText');
+
   try {
     final details = await _places.fetchPlace(
       placeId,
@@ -535,18 +476,54 @@ Future<void> _onPredictionSelected(
 
     final place = details.place;
 
+    debugPrint('FETCH raw place = $place');
+    debugPrint('FETCH name = ${place?.name}');
+    debugPrint('FETCH address = ${place?.address}');
+    debugPrint('FETCH latLng = ${place?.latLng}');
+    debugPrint('FETCH lat = ${place?.latLng?.lat}');
+    debugPrint('FETCH lng = ${place?.latLng?.lng}');
+    debugPrint('FETCH addressComponents = ${place?.addressComponents}');
+
     final placeAddress = (place?.address ?? '').trim();
     final placeName = (place?.name ?? '').trim();
-final address = _cleanAddressText(
-  placeAddress.isNotEmpty
-      ? placeAddress
-      : placeName.isNotEmpty
-          ? placeName
-          : fallbackSuggestionText,
-);
 
-    final lat = place?.latLng?.lat;
-    final lng = place?.latLng?.lng;
+    final address = _cleanAddressText(
+      placeAddress.isNotEmpty
+          ? placeAddress
+          : placeName.isNotEmpty
+              ? placeName
+              : fallbackSuggestionText,
+    );
+
+    double? lat = place?.latLng?.lat;
+    double? lng = place?.latLng?.lng;
+
+    debugPrint('PARSED address = $address');
+    debugPrint('PARSED lat = $lat');
+    debugPrint('PARSED lng = $lng');
+
+    if ((lat == null || lng == null) && address.isNotEmpty) {
+      debugPrint('GEOCODE fallback started for address = $address');
+
+      try {
+        final locations = await locationFromAddress(address);
+
+        debugPrint('GEOCODE result count = ${locations.length}');
+
+        for (var i = 0; i < locations.length; i++) {
+          debugPrint(
+            'GEOCODE[$i] lat=${locations[i].latitude}, lng=${locations[i].longitude}',
+          );
+        }
+
+        if (locations.isNotEmpty) {
+          lat = locations.first.latitude;
+          lng = locations.first.longitude;
+        }
+      } catch (e) {
+        debugPrint('GEOCODE fallback failed = $e');
+      }
+    }
 
     if (!mounted) return;
 
@@ -557,6 +534,7 @@ final address = _cleanAddressText(
       );
 
       _baseCompleteAddress = address;
+
       completeAddressController.value = TextEditingValue(
         text: address,
         selection: TextSelection.collapsed(offset: address.length),
@@ -564,43 +542,80 @@ final address = _cleanAddressText(
 
       latitude = lat;
       longitude = lng;
-      predictions.clear();
+     predictions = [];
     });
-  } catch (e) {
-    debugPrint("Error fetching place details: $e");
+
+    debugPrint('STATE latitude = $latitude');
+    debugPrint('STATE longitude = $longitude');
+    debugPrint('---------------- FETCH PLACE DETAILS END ----------------');
+  } catch (e, stack) {
+    debugPrint('---------------- FETCH PLACE DETAILS ERROR ----------------');
+    debugPrint('ERROR = $e');
+    debugPrint('STACK = $stack');
+
+    final cleanFallback = _cleanAddressText(fallbackSuggestionText);
+
+    double? lat;
+    double? lng;
+
+    debugPrint('ERROR FALLBACK geocode address = $cleanFallback');
+
+    try {
+      final locations = await locationFromAddress(cleanFallback);
+
+      debugPrint('ERROR FALLBACK geocode count = ${locations.length}');
+
+      for (var i = 0; i < locations.length; i++) {
+        debugPrint(
+          'ERROR FALLBACK geocode[$i] lat=${locations[i].latitude}, lng=${locations[i].longitude}',
+        );
+      }
+
+      if (locations.isNotEmpty) {
+        lat = locations.first.latitude;
+        lng = locations.first.longitude;
+      }
+    } catch (geoError) {
+      debugPrint('ERROR FALLBACK geocode failed = $geoError');
+    }
 
     if (!mounted) return;
 
     setState(() {
       searchLocationController.value = TextEditingValue(
-    text: _cleanAddressText(fallbackSuggestionText),
-        selection: TextSelection.collapsed(
-          offset: fallbackSuggestionText.length,
-        ),
+        text: cleanFallback,
+        selection: TextSelection.collapsed(offset: cleanFallback.length),
       );
 
-      final cleanFallback = _cleanAddressText(fallbackSuggestionText);
+      _baseCompleteAddress = cleanFallback;
 
-_baseCompleteAddress = cleanFallback;
-completeAddressController.value = TextEditingValue(
-  text: cleanFallback,
-  selection: TextSelection.collapsed(
-    offset: cleanFallback.length,
-  ),
-);
+      completeAddressController.value = TextEditingValue(
+        text: cleanFallback,
+        selection: TextSelection.collapsed(offset: cleanFallback.length),
+      );
 
-      predictions.clear();
+      latitude = lat;
+      longitude = lng;
+     predictions = [];
     });
+
+    debugPrint('ERROR STATE latitude = $latitude');
+    debugPrint('ERROR STATE longitude = $longitude');
+    debugPrint('---------------- FETCH PLACE DETAILS ERROR END ----------------');
+  } finally {
+    _isSelectingPlace = false;
   }
 }
-String _composedAddress() {
-  final composedAddress = _composeAddressFromParts();
-  final address = composedAddress.isNotEmpty
-      ? composedAddress
-      : completeAddressController.text;
+  String _composedAddress() {
+    final composedAddress = _composeAddressFromParts();
 
-  return _cleanAddressText(address);
-}
+    final address = composedAddress.isNotEmpty
+        ? composedAddress
+        : completeAddressController.text;
+
+    return _cleanAddressText(address);
+  }
+
   List<String> _manualAddressParts() {
     return [
       scoFlatHouseController.text.trim(),
@@ -617,9 +632,13 @@ String _composedAddress() {
   }
 
   String _addressWithoutManualParts(String address) {
-    final manualPartsLower =
-        _manualAddressParts().map((part) => part.toLowerCase()).toSet();
+    final manualPartsLower = _manualAddressParts()
+        .map((part) => part.toLowerCase())
+        .where((part) => part.isNotEmpty)
+        .toSet();
+
     if (manualPartsLower.isEmpty) return address.trim();
+
     return _splitAddressParts(address)
         .where((part) => !manualPartsLower.contains(part.toLowerCase()))
         .join(', ');
@@ -627,9 +646,11 @@ String _composedAddress() {
 
   String _composeAddressFromParts() {
     final manualParts = _manualAddressParts();
+
     final baseParts = _splitAddressParts(
       _addressWithoutManualParts(_baseCompleteAddress),
     );
+
     return [...manualParts, ...baseParts].join(', ');
   }
 
@@ -639,29 +660,44 @@ String _composedAddress() {
   }
 
   void _syncCompleteAddressFromParts() {
-    if (_isSyncingCompleteAddress) return;
+    if (_isSyncingCompleteAddress || _isSelectingPlace) return;
 
     final currentAddress = completeAddressController.text.trim();
+
     if (_baseCompleteAddress.isEmpty && currentAddress.isNotEmpty) {
       _baseCompleteAddress = _addressWithoutManualParts(currentAddress);
     }
 
     final composedAddress = _composeAddressFromParts();
+
     if (completeAddressController.text == composedAddress) return;
 
     _isSyncingCompleteAddress = true;
+
     completeAddressController.text = composedAddress;
     completeAddressController.selection = TextSelection.collapsed(
       offset: completeAddressController.text.length,
     );
+
     _isSyncingCompleteAddress = false;
   }
 
   void _captureManualCompleteAddress() {
-    if (_isSyncingCompleteAddress) return;
+    if (_isSyncingCompleteAddress || _isSelectingPlace) return;
+
+    latitude = null;
+    longitude = null;
+
     _baseCompleteAddress = _addressWithoutManualParts(
       completeAddressController.text,
     );
+  }
+
+  void _clearSelectedCoordinatesForManualInput() {
+    if (_isSelectingPlace || _isSyncingCompleteAddress) return;
+
+    latitude = null;
+    longitude = null;
   }
 
   @override
@@ -707,8 +743,6 @@ String _composedAddress() {
   }
 
   Widget _buildSearchCard() {
-    // final showSearchEllipsis = !_searchFocus.hasFocus &&
-    //     searchLocationController.text.trim().isNotEmpty;
     return _ThemedCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,12 +768,12 @@ String _composedAddress() {
                     ],
                     textAlignVertical: TextAlignVertical.center,
                     style: const TextStyle(
-  color: _ink,
-  fontSize: 13,
-  fontWeight: FontWeight.w500,
-),
+                      color: _ink,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
                     decoration: InputDecoration(
-                        counterText: '',
+                      counterText: '',
                       hintText: translateText('Search your location...'),
                       hintStyle: const TextStyle(
                         color: Color(0xFF9A928B),
@@ -753,12 +787,23 @@ String _composedAddress() {
                       ),
                       suffixIcon: searchLocationController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.close, color: Colors.grey),
+                              icon: const Icon(
+                                Icons.close,
+                                color: Colors.grey,
+                              ),
                               splashRadius: 18,
                               onPressed: () {
                                 FocusScope.of(context).unfocus();
-                                searchLocationController.clear();
-                                setState(() => predictions.clear());
+
+                                setState(() {
+                                  searchLocationController.clear();
+                                  completeAddressController.clear();
+                                  _baseCompleteAddress = '';
+                                 predictions = [];
+                                  latitude = null;
+                                  longitude = null;
+                                });
+
                                 _removeOverlay();
                               },
                             )
@@ -779,40 +824,26 @@ String _composedAddress() {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            const BorderSide(color: _goldLight, width: 1.3),
+                        borderSide: const BorderSide(
+                          color: _goldLight,
+                          width: 1.3,
+                        ),
                       ),
                     ),
                     onChanged: (val) async {
-                      setState(() {});
+                      setState(() {
+                        _clearSelectedCoordinatesForManualInput();
+                      });
+
                       if (val.trim().isEmpty) {
                         _removeOverlay();
                         setState(() => predictions.clear());
                         return;
                       }
+
                       await _getPredictions(val);
                     },
                   ),
-                  // if (showSearchEllipsis)
-                  //   Positioned.fill(
-                  //     left: 48,
-                  //     right: 48,
-                  //     child: IgnorePointer(
-                  //       child: Align(
-                  //         alignment: Alignment.centerLeft,
-                  //         child: Text(
-                  //           searchLocationController.text.trim(),
-                  //           maxLines: 1,
-                  //           overflow: TextOverflow.ellipsis,
-                  //           style: const TextStyle(
-                  //             color: _ink,
-                  //             fontSize: 13,
-                  //             fontWeight: FontWeight.w500,
-                  //           ),
-                  //         ),
-                  //       ),
-                  //     ),
-                  //   ),
                 ],
               ),
             ),
@@ -874,136 +905,103 @@ String _composedAddress() {
       ),
     );
   }
-Widget _buildManualAddressCard() {
-  return _ThemedCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          translateText('Manually Enter Address'),
-          style: const TextStyle(
-            color: Color(0xFF161616),
-            fontSize: 22,
-            fontWeight: FontWeight.w500,
-            height: 1.2,
-          ),
-        ),
-        const SizedBox(height: 22),
 
-        _buildTextField(
-          controller: scoFlatHouseController,
-          label: 'House/Flat No',
-          hint: 'e.g. 402, Luxe Residency',
-          isRequired: false,
-          maxLength: 30,
-          regex: _addressAllowedRegex,
-          inputFormatters: _addressInputFormatters,
-        ),
-
-        _buildTextField(
-          controller: streetSectorAreaController,
-          label: 'Street/Area',
-          hint: 'e.g. Golden Avenue',
-          isRequired: false,
-          maxLength: 60,
-          keyboardType: TextInputType.streetAddress,
-          regex: _addressAllowedRegex,
-          inputFormatters: _addressInputFormatters,
-        ),
-
-        // KeyedSubtree(
-        //   key: _completeAddressKey,
-        //   child: _buildTextField(
-        //     controller: completeAddressController,
-        //     label: 'Complete Address',
-        //     hint: 'Start typing above to auto-suggest full address...',
-        //     isRequired: true,
-        //     minLines: 3,
-        //     maxLines: 3,
-        //     maxLength: 180,
-        //     keyboardType: TextInputType.streetAddress,
-        //     textCapitalization: TextCapitalization.sentences,
-        //     regex: _addressAllowedRegex,
-        //     inputFormatters: _addressInputFormatters,
-        //     suffix: Row(
-        //       mainAxisSize: MainAxisSize.min,
-        //       children: [
-        //         const Icon(Icons.auto_awesome, color: _gold, size: 13),
-        //         const SizedBox(width: 4),
-        //         Text(
-        //           translateText('Autofill active'),
-        //           style: const TextStyle(
-        //             color: _gold,
-        //             fontSize: 10,
-        //             fontWeight: FontWeight.w700,
-        //           ),
-        //         ),
-        //       ],
-        //     ),
-        //   ),
-        // ),
-KeyedSubtree(
-  key: _completeAddressKey,
-  child: _buildTextField(
-    controller: completeAddressController,
-    label: 'Complete Address',
-    hint: 'Start typing above to auto-suggest full address...',
-    isRequired: true,
-    minLines: 3,
-    maxLines: 3,
-    maxLength: 180,
-    keyboardType: TextInputType.streetAddress,
-    textCapitalization: TextCapitalization.sentences,
-    regex: null,
-    inputFormatters: [
-      LengthLimitingTextInputFormatter(180),
-    ],
-    suffix: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.auto_awesome, color: _gold, size: 13),
-        const SizedBox(width: 4),
-        Text(
-          translateText('Autofill active'),
-          style: const TextStyle(
-            color: _gold,
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    ),
-  ),
-),
-        const SizedBox(height: 12),
-
-        SizedBox(
-          width: double.infinity,
-          height: 52,
-          child: ElevatedButton(
-            onPressed: _submitLocation,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _gold,
-              foregroundColor: Colors.white,
-              elevation: 8,
-              shadowColor: const Color(0x338B6500),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+  Widget _buildManualAddressCard() {
+    return _ThemedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            translateText('Manually Enter Address'),
+            style: const TextStyle(
+              color: Color(0xFF161616),
+              fontSize: 22,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
             ),
-            child: Text(
-              translateText('Confirm Location').toUpperCase(),
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.2,
+          ),
+          const SizedBox(height: 22),
+          _buildTextField(
+            controller: scoFlatHouseController,
+            label: 'House/Flat No',
+            hint: 'e.g. 402, Luxe Residency',
+            isRequired: false,
+            maxLength: 30,
+            regex: _addressAllowedRegex,
+            inputFormatters: _addressInputFormatters,
+          ),
+          _buildTextField(
+            controller: streetSectorAreaController,
+            label: 'Street/Area',
+            hint: 'e.g. Golden Avenue',
+            isRequired: false,
+            maxLength: 60,
+            keyboardType: TextInputType.streetAddress,
+            regex: _addressAllowedRegex,
+            inputFormatters: _addressInputFormatters,
+          ),
+          KeyedSubtree(
+            key: _completeAddressKey,
+            child: _buildTextField(
+              controller: completeAddressController,
+              label: 'Complete Address',
+              hint: 'Start typing above to auto-suggest full address...',
+              isRequired: true,
+              minLines: 3,
+              maxLines: 3,
+              maxLength: 180,
+              keyboardType: TextInputType.streetAddress,
+              textCapitalization: TextCapitalization.sentences,
+              regex: null,
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(180),
+              ],
+              suffix: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.auto_awesome, color: _gold, size: 13),
+                  const SizedBox(width: 4),
+                  Text(
+                    translateText('Autofill active'),
+                    style: const TextStyle(
+                      color: _gold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+            onPressed: () async => _submitLocation(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _gold,
+                foregroundColor: Colors.white,
+                elevation: 8,
+                shadowColor: const Color(0x338B6500),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text(
+                translateText('Confirm Location').toUpperCase(),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildProTipCard() {
     return _ThemedCard(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -1044,38 +1042,143 @@ KeyedSubtree(
     );
   }
 
-  void _submitLocation() {
-    if (_formKey.currentState?.validate() ?? false) {
-      final composedAddress = _composedAddress();
-      if (composedAddress.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText('Please enter or select the complete address.'),
-            ),
-          ),
-        );
-        return;
-      }
-      Navigator.pop(context, {
-        'completeAddress': composedAddress,
-        'baseCompleteAddress': _baseCompleteAddress.trim(),
-        'scoFlatHouse': scoFlatHouseController.text.trim(),
-        'streetSectorArea': streetSectorAreaController.text.trim(),
-        'latitude': latitude,
-        'longitude': longitude,
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Please fill all required fields correctly'),
-          ),
+  // void _submitLocation() {
+  //   if (_formKey.currentState?.validate() ?? false) {
+  //     final composedAddress = _composedAddress();
+
+  //     debugPrint(
+  //       'RETURN LOCATION lat=$latitude lng=$longitude address=$composedAddress',
+  //     );
+
+  //     if (composedAddress.isEmpty) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(
+  //             translateText('Please enter or select the complete address.'),
+  //           ),
+  //         ),
+  //       );
+  //       return;
+  //     }
+
+  //     if (latitude == null ||
+  //         longitude == null ||
+  //         latitude == 0.0 ||
+  //         longitude == 0.0) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(
+  //             translateText(
+  //               'Please select a location from suggestions or use current location.',
+  //             ),
+  //           ),
+  //         ),
+  //       );
+  //       return;
+  //     }
+
+  //     Navigator.pop(context, {
+  //       'completeAddress': composedAddress,
+  //       'baseCompleteAddress': _baseCompleteAddress.trim(),
+  //       'scoFlatHouse': scoFlatHouseController.text.trim(),
+  //       'streetSectorArea': streetSectorAreaController.text.trim(),
+  //       'latitude': latitude,
+  //       'longitude': longitude,
+  //     });
+  //   } else {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(
+  //           translateText('Please fill all required fields correctly'),
+  //         ),
+  //       ),
+  //     );
+  //   }
+  // }
+  Future<void> _submitLocation() async {
+  if (!(_formKey.currentState?.validate() ?? false)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText('Please fill all required fields correctly'),
         ),
-      );
+      ),
+    );
+    return;
+  }
+
+  final composedAddress = _composedAddress();
+
+  if (composedAddress.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText('Please enter or select the complete address.'),
+        ),
+      ),
+    );
+    return;
+  }
+
+  var finalLatitude = latitude;
+  var finalLongitude = longitude;
+
+  if (finalLatitude == null ||
+      finalLongitude == null ||
+      finalLatitude == 0.0 ||
+      finalLongitude == 0.0) {
+    try {
+      debugPrint('SUBMIT GEOCODING ADDRESS: $composedAddress');
+
+      final locations = await locationFromAddress(composedAddress);
+
+      debugPrint('SUBMIT GEOCODING RESULT COUNT: ${locations.length}');
+
+      if (locations.isNotEmpty) {
+        finalLatitude = locations.first.latitude;
+        finalLongitude = locations.first.longitude;
+
+        setState(() {
+          latitude = finalLatitude;
+          longitude = finalLongitude;
+        });
+      }
+    } catch (e) {
+      debugPrint('Submit geocoding failed: $e');
     }
   }
+
+  debugPrint(
+    'RETURN LOCATION lat=$finalLatitude lng=$finalLongitude address=$composedAddress',
+  );
+
+  if (finalLatitude == null ||
+      finalLongitude == null ||
+      finalLatitude == 0.0 ||
+      finalLongitude == 0.0) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText(
+            'Could not get coordinates. Please use current location or select a more specific suggestion.',
+          ),
+        ),
+      ),
+    );
+    return;
+  }
+
+  Navigator.pop(context, {
+    'completeAddress': composedAddress,
+    'baseCompleteAddress': _baseCompleteAddress.trim(),
+    'scoFlatHouse': scoFlatHouseController.text.trim(),
+    'streetSectorArea': streetSectorAreaController.text.trim(),
+    'latitude': finalLatitude,
+    'longitude': finalLongitude,
+  });
 }
+}
+
 final RegExp _addressAllowedRegex =
     RegExp(r"^[a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']+$");
 
@@ -1087,122 +1190,7 @@ final List<TextInputFormatter> _addressInputFormatters = [
     RegExp(r"[a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']"),
   ),
 ];
-// Reusable text field with validation & options
-// Widget _buildTextField({
-//   required TextEditingController controller,
-//   required String label,
-//   required String hint,
-//   bool enabled = true,
-//   bool isRequired = true,
-//   int? maxLength,
-//   int? minLines,
-//   int? maxLines,
-//   RegExp? regex,
-//   TextInputType keyboardType = TextInputType.text,
-//   List<TextInputFormatter>? inputFormatters,
-//   TextCapitalization textCapitalization = TextCapitalization.words,
-//   Widget? suffix,
-// }) {
-//   final baseLabel = label.replaceAll('*', '').trim();
-//   final translatedLabel = translateText(baseLabel);
-//   final translatedHint = translateText(hint.trim());
 
-//   return Padding(
-//     padding: const EdgeInsets.only(bottom: 16),
-//     child: Column(
-//       crossAxisAlignment: CrossAxisAlignment.start,
-//       children: [
-//         _SectionLabel(
-//           isRequired ? '$translatedLabel *' : translatedLabel,
-//         ),
-//         const SizedBox(height: 8),
-//         TextFormField(
-//           controller: controller,
-//           readOnly: !enabled,
-//           maxLength: maxLength,
-//           minLines: minLines,
-//           maxLines: maxLines ?? 1,
-//           keyboardType: keyboardType,
-//           inputFormatters: inputFormatters,
-//           textCapitalization: textCapitalization,
-//           textAlignVertical: minLines == null
-//               ? TextAlignVertical.center
-//               : TextAlignVertical.top,
-//           style: const TextStyle(
-//             color: Color(0xFF1F1B18),
-//             fontSize: 13,
-//             fontWeight: FontWeight.w600,
-//             height: 1.3,
-//           ),
-//           cursorColor: _AddLocationScreenState._gold,
-//           validator: (value) {
-//             final v = value?.trim() ?? '';
-
-//             if (isRequired && v.isEmpty) {
-//               final errorTemplate = translateText('{field} is required');
-//               return errorTemplate.replaceAll('{field}', translatedLabel);
-//             }
-
-//             if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
-//               final errorTemplate = translateText('Invalid {field}');
-//               return errorTemplate.replaceAll('{field}', translatedLabel);
-//             }
-
-//             return null;
-//           },
-//           decoration: InputDecoration(
-//             hintText: translatedHint,
-//             hintStyle: const TextStyle(
-//               color: Color(0xFF9A928B),
-//               fontSize: 12,
-//               fontWeight: FontWeight.w500,
-//             ),
-//             suffix: suffix,
-//             filled: true,
-//             fillColor: _AddLocationScreenState._fieldFill,
-//             contentPadding: EdgeInsets.fromLTRB(
-//               12,
-//               minLines == null ? 0 : 12,
-//               12,
-//               minLines == null ? 0 : 10,
-//             ),
-//             constraints: BoxConstraints(
-//               minHeight: minLines == null ? 46 : 84,
-//             ),
-//             border: OutlineInputBorder(
-//               borderRadius: BorderRadius.circular(8),
-//               borderSide: const BorderSide(
-//                 color: _AddLocationScreenState._border,
-//               ),
-//             ),
-//             enabledBorder: OutlineInputBorder(
-//               borderRadius: BorderRadius.circular(8),
-//               borderSide: const BorderSide(
-//                 color: _AddLocationScreenState._border,
-//               ),
-//             ),
-//             focusedBorder: OutlineInputBorder(
-//               borderRadius: BorderRadius.circular(8),
-//               borderSide: const BorderSide(
-//                 color: _AddLocationScreenState._goldLight,
-//                 width: 1.3,
-//               ),
-//             ),
-//             errorBorder: OutlineInputBorder(
-//               borderRadius: BorderRadius.circular(8),
-//               borderSide: const BorderSide(color: AppColors.red, width: 1),
-//             ),
-//             focusedErrorBorder: OutlineInputBorder(
-//               borderRadius: BorderRadius.circular(8),
-//               borderSide: const BorderSide(color: AppColors.red, width: 1),
-//             ),
-//             errorStyle: const TextStyle(color: AppColors.red, fontSize: 11),
-//           ),
-//         ),
-//       ],
-//     ),
-//   );
-// }
 Widget _buildTextField({
   required TextEditingController controller,
   required String label,
@@ -1233,142 +1221,141 @@ Widget _buildTextField({
         ),
         const SizedBox(height: 8),
         Stack(
-  children: [
-    TextFormField(
-      controller: controller,
-      readOnly: !enabled,
-      maxLength: maxLength,
-      minLines: minLines,
-      maxLines: maxLines ?? 1,
-      keyboardType: keyboardType,
-      inputFormatters: [
-        ...?inputFormatters,
-        if (maxLength != null)
-          LengthLimitingTextInputFormatter(maxLength),
-      ],
-      textCapitalization: textCapitalization,
-      textAlignVertical:
-          isMultiLine ? TextAlignVertical.top : TextAlignVertical.center,
-      style: const TextStyle(
-        color: Color(0xFF1F1B18),
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        height: 1.3,
-      ),
-      cursorColor: _AddLocationScreenState._gold,
-      validator: (value) {
-        final v = value?.trim() ?? '';
+          children: [
+            TextFormField(
+              controller: controller,
+              readOnly: !enabled,
+              maxLength: maxLength,
+              minLines: minLines,
+              maxLines: maxLines ?? 1,
+              keyboardType: keyboardType,
+              inputFormatters: [
+                ...?inputFormatters,
+                if (maxLength != null)
+                  LengthLimitingTextInputFormatter(maxLength),
+              ],
+              textCapitalization: textCapitalization,
+              textAlignVertical:
+                  isMultiLine ? TextAlignVertical.top : TextAlignVertical.center,
+              style: const TextStyle(
+                color: Color(0xFF1F1B18),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+              cursorColor: _AddLocationScreenState._gold,
+              validator: (value) {
+                final v = value?.trim() ?? '';
 
-        if (isRequired && v.isEmpty) {
-          final errorTemplate = translateText('{field} is required');
-          return errorTemplate.replaceAll('{field}', translatedLabel);
-        }
+                if (isRequired && v.isEmpty) {
+                  final errorTemplate = translateText('{field} is required');
+                  return errorTemplate.replaceAll('{field}', translatedLabel);
+                }
 
-        if (maxLength != null && v.length > maxLength) {
-          return '$translatedLabel cannot exceed $maxLength characters';
-        }
+                if (maxLength != null && v.length > maxLength) {
+                  return '$translatedLabel cannot exceed $maxLength characters';
+                }
 
-        if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
-          return '$translatedLabel can contain only alphabets, numbers, spaces, comma, /, -, +, ., # and brackets';
-        }
+                if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
+                  return '$translatedLabel can contain only alphabets, numbers, spaces, comma, /, -, +, ., # and brackets';
+                }
 
-        return null;
-      },
-      decoration: InputDecoration(
-        counterText: '',
-        hintText: translatedHint,
-        hintStyle: const TextStyle(
-          color: Color(0xFF9A928B),
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        filled: true,
-        fillColor: _AddLocationScreenState._fieldFill,
-        contentPadding: EdgeInsets.fromLTRB(
-          12,
-          isMultiLine ? 12 : 0,
-          suffix != null ? 126 : (maxLength == null ? 12 : 70),
-          maxLength == null ? (isMultiLine ? 10 : 0) : 28,
-        ),
-        constraints: BoxConstraints(
-          minHeight: isMultiLine ? 96 : 52,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(
-            color: _AddLocationScreenState._border,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(
-            color: _AddLocationScreenState._border,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(
-            color: _AddLocationScreenState._goldLight,
-            width: 1.3,
-          ),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.red, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.red, width: 1),
-        ),
-        errorStyle: const TextStyle(
-          color: AppColors.red,
-          fontSize: 11,
-        ),
-      ),
-    ),
-
-    if (suffix != null)
-      Positioned(
-        top: isMultiLine ? 10 : 0,
-        right: 12,
-        height: isMultiLine ? 24 : 52,
-        child: IgnorePointer(
-          child: Align(
-            alignment:
-                isMultiLine ? Alignment.topRight : Alignment.centerRight,
-            child: suffix,
-          ),
-        ),
-      ),
-
-    if (maxLength != null)
-      Positioned(
-        right: 12,
-        bottom: 10,
-        child: IgnorePointer(
-          child: ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller,
-            builder: (context, value, _) {
-              return Text(
-                '${value.text.length} / $maxLength',
-                style: TextStyle(
-                  color: value.text.length >= maxLength
-                      ? AppColors.red
-                      : const Color(0xFF8B8178),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                return null;
+              },
+              decoration: InputDecoration(
+                counterText: '',
+                hintText: translatedHint,
+                hintStyle: const TextStyle(
+                  color: Color(0xFF9A928B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
-              );
-            },
-          ),
+                filled: true,
+                fillColor: _AddLocationScreenState._fieldFill,
+                contentPadding: EdgeInsets.fromLTRB(
+                  12,
+                  isMultiLine ? 12 : 0,
+                  suffix != null ? 126 : (maxLength == null ? 12 : 70),
+                  maxLength == null ? (isMultiLine ? 10 : 0) : 28,
+                ),
+                constraints: BoxConstraints(
+                  minHeight: isMultiLine ? 96 : 52,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: _AddLocationScreenState._border,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: _AddLocationScreenState._border,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(
+                    color: _AddLocationScreenState._goldLight,
+                    width: 1.3,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.red, width: 1),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppColors.red, width: 1),
+                ),
+                errorStyle: const TextStyle(
+                  color: AppColors.red,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+            if (suffix != null)
+              Positioned(
+                top: isMultiLine ? 10 : 0,
+                right: 12,
+                height: isMultiLine ? 24 : 52,
+                child: IgnorePointer(
+                  child: Align(
+                    alignment:
+                        isMultiLine ? Alignment.topRight : Alignment.centerRight,
+                    child: suffix,
+                  ),
+                ),
+              ),
+            if (maxLength != null)
+              Positioned(
+                right: 12,
+                bottom: 10,
+                child: IgnorePointer(
+                  child: ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: controller,
+                    builder: (context, value, _) {
+                      return Text(
+                        '${value.text.length} / $maxLength',
+                        style: TextStyle(
+                          color: value.text.length >= maxLength
+                              ? AppColors.red
+                              : const Color(0xFF8B8178),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+          ],
         ),
-      ),
-  ],
-),
       ],
-    ),  
+    ),
   );
 }
+
 class _ThemedCard extends StatelessWidget {
   const _ThemedCard({
     required this.child,
@@ -1419,7 +1406,6 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-// Optional model retained for future parsing
 class AddressComponentsModel {
   String name;
   String city;
@@ -1442,7 +1428,8 @@ class AddressComponentsModel {
   });
 
   factory AddressComponentsModel.fromGoogleComponents(
-      List<AddressComponent> comps) {
+    List<AddressComponent> comps,
+  ) {
     String getType(String type) => comps
         .firstWhere(
           (e) => e.types.contains(type),
