@@ -17,7 +17,8 @@ String translateText(String key, {Map<String, String>? params}) {
 
 extension LocalizationExt on BuildContext {
   String t(String key, {Map<String, String>? params}) {
-    watch<LanguageListener>();
+    // Safe outside build(), event handlers, async methods, dialogs, logging, etc.
+    Provider.of<LanguageListener>(this, listen: false);
     return translateText(key, params: params);
   }
 }
@@ -27,4 +28,3 @@ extension TranslateStringExt on String {
     return context.t(this, params: params);
   }
 }
-

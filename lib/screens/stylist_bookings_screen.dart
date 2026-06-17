@@ -354,6 +354,19 @@ int? _bookingBranchId(Map<String, dynamic> booking) {
   );
 }
 
+// String _customerName(BuildContext context, Map<String, dynamic> booking) {
+//   final user = booking['user'];
+//   if (user is Map) {
+//     final map = Map<String, dynamic>.from(user);
+//     final first = map['firstName']?.toString().trim() ?? '';
+//     final last = map['lastName']?.toString().trim() ?? '';
+//     final full = '$first $last'.trim();
+//     if (full.isNotEmpty) return full;
+//     final name = map['name']?.toString().trim() ?? '';
+//     if (name.isNotEmpty) return name;
+//   }
+//   return context.t('Customer');
+// }
 String _customerName(BuildContext context, Map<String, dynamic> booking) {
   final user = booking['user'];
   if (user is Map) {
@@ -362,10 +375,12 @@ String _customerName(BuildContext context, Map<String, dynamic> booking) {
     final last = map['lastName']?.toString().trim() ?? '';
     final full = '$first $last'.trim();
     if (full.isNotEmpty) return full;
+
     final name = map['name']?.toString().trim() ?? '';
     if (name.isNotEmpty) return name;
   }
-  return context.t('Customer');
+
+  return translateText('Customer');
 }
 
 String _customerPhone(Map<String, dynamic> booking) {
@@ -598,7 +613,37 @@ String _serviceLabel(BuildContext context, Map<String, dynamic> booking) {
   return '$baseLabel + ${services.length - 1}';
 }
 
+// String _serviceCardSummary(BuildContext context, Map<String, dynamic> booking) {
+//   final items = _bookingItems(booking);
+//   if (items.isNotEmpty) {
+//     final names = items
+//         .map(
+//           (item) =>
+//               item['branchService']?['displayName']?.toString().trim() ??
+//               item['service']?.toString().trim() ??
+//               item['displayName']?.toString().trim() ??
+//               item['name']?.toString().trim() ??
+//               '',
+//         )
+//         .where((name) => name.isNotEmpty)
+//         .toList();
+//     if (names.isEmpty) return context.t('Appointment');
+//     if (names.length == 1) return names.first;
+//     return '${names.first}, ...';
+//   }
+
+//   final services = _bookingServices(booking);
+//   final names = services
+//       .map((service) => service['name']?.toString().trim() ?? '')
+//       .where((name) => name.isNotEmpty)
+//       .toList();
+//   if (names.isEmpty) return context.t('Appointment');
+//   if (names.length == 1) return names.first;
+//   return '${names.first}, ...';
+// }
 String _serviceCardSummary(BuildContext context, Map<String, dynamic> booking) {
+  final appointmentLabel = translateText('Appointment');
+
   final items = _bookingItems(booking);
   if (items.isNotEmpty) {
     final names = items
@@ -612,7 +657,8 @@ String _serviceCardSummary(BuildContext context, Map<String, dynamic> booking) {
         )
         .where((name) => name.isNotEmpty)
         .toList();
-    if (names.isEmpty) return context.t('Appointment');
+
+    if (names.isEmpty) return appointmentLabel;
     if (names.length == 1) return names.first;
     return '${names.first}, ...';
   }
@@ -622,59 +668,107 @@ String _serviceCardSummary(BuildContext context, Map<String, dynamic> booking) {
       .map((service) => service['name']?.toString().trim() ?? '')
       .where((name) => name.isNotEmpty)
       .toList();
-  if (names.isEmpty) return context.t('Appointment');
+
+  if (names.isEmpty) return appointmentLabel;
   if (names.length == 1) return names.first;
   return '${names.first}, ...';
 }
 
+// List<StylistAppointmentServiceSegment> _detailServiceSegments(
+//   BuildContext context,
+//   Map<String, dynamic> booking,
+// ) {
+//   final items = _bookingItems(booking);
+//   if (items.isNotEmpty) {
+//     DateTime? fallbackStart = _bookingStart(booking);
+//     return items.map((item) {
+//       final name = item['branchService']?['displayName']?.toString().trim() ??
+//           item['service']?.toString().trim() ??
+//           item['displayName']?.toString().trim() ??
+//           item['name']?.toString().trim() ??
+//           context.t('Appointment');
+//       final durationMin = _asInt(
+//         item['durationMin'] ?? item['branchService']?['durationMin'],
+//       );
+//       final start = _parseLocal(item['startAt']) ?? fallbackStart;
+//       final end = _parseLocal(item['endAt']) ??
+//           (start != null && durationMin != null
+//               ? start.add(Duration(minutes: durationMin))
+//               : null);
+//       if (end != null) fallbackStart = end;
+
+//       return StylistAppointmentServiceSegment(
+//         title: name.isEmpty ? context.t('Appointment') : name,
+//         timeLabel: (start != null && end != null)
+//             ? '${_formatTime(start)} - ${_formatTime(end)}'
+//             : '--',
+//         metaLabel:
+//             durationMin != null && durationMin > 0 ? '${durationMin}m' : null,
+//       );
+//     }).toList();
+//   }
+
+//   final services = _bookingServices(booking);
+//   if (services.isNotEmpty) {
+//     DateTime? cursor = _bookingStart(booking);
+//     return services.map((service) {
+//       final name = service['name']?.toString().trim() ?? '';
+//       final durationMin = _asInt(service['durationMin']);
+//       final start = cursor;
+//       final end = start != null && durationMin != null && durationMin > 0
+//           ? start.add(Duration(minutes: durationMin))
+//           : null;
+//       if (end != null) cursor = end;
+
+//       return StylistAppointmentServiceSegment(
+//         title: name.isEmpty ? context.t('Appointment') : name,
+//         timeLabel: (start != null && end != null)
+//             ? '${_formatTime(start)} - ${_formatTime(end)}'
+//             : '--',
+//         metaLabel:
+//             durationMin != null && durationMin > 0 ? '${durationMin}m' : null,
+//       );
+//     }).toList();
+//   }
+
+//   return [
+//     StylistAppointmentServiceSegment(
+//       title: context.t('Appointment'),
+//       timeLabel: _bookingTimeRange(booking),
+//     ),
+//   ];
+// }
 List<StylistAppointmentServiceSegment> _detailServiceSegments(
   BuildContext context,
   Map<String, dynamic> booking,
 ) {
+  final appointmentLabel = translateText('Appointment');
+
   final items = _bookingItems(booking);
   if (items.isNotEmpty) {
     DateTime? fallbackStart = _bookingStart(booking);
+
     return items.map((item) {
       final name = item['branchService']?['displayName']?.toString().trim() ??
           item['service']?.toString().trim() ??
           item['displayName']?.toString().trim() ??
           item['name']?.toString().trim() ??
-          context.t('Appointment');
+          appointmentLabel;
+
       final durationMin = _asInt(
         item['durationMin'] ?? item['branchService']?['durationMin'],
       );
+
       final start = _parseLocal(item['startAt']) ?? fallbackStart;
       final end = _parseLocal(item['endAt']) ??
           (start != null && durationMin != null
               ? start.add(Duration(minutes: durationMin))
               : null);
+
       if (end != null) fallbackStart = end;
 
       return StylistAppointmentServiceSegment(
-        title: name.isEmpty ? context.t('Appointment') : name,
-        timeLabel: (start != null && end != null)
-            ? '${_formatTime(start)} - ${_formatTime(end)}'
-            : '--',
-        metaLabel:
-            durationMin != null && durationMin > 0 ? '${durationMin}m' : null,
-      );
-    }).toList();
-  }
-
-  final services = _bookingServices(booking);
-  if (services.isNotEmpty) {
-    DateTime? cursor = _bookingStart(booking);
-    return services.map((service) {
-      final name = service['name']?.toString().trim() ?? '';
-      final durationMin = _asInt(service['durationMin']);
-      final start = cursor;
-      final end = start != null && durationMin != null && durationMin > 0
-          ? start.add(Duration(minutes: durationMin))
-          : null;
-      if (end != null) cursor = end;
-
-      return StylistAppointmentServiceSegment(
-        title: name.isEmpty ? context.t('Appointment') : name,
+        title: name.isEmpty ? appointmentLabel : name,
         timeLabel: (start != null && end != null)
             ? '${_formatTime(start)} - ${_formatTime(end)}'
             : '--',
@@ -686,12 +780,11 @@ List<StylistAppointmentServiceSegment> _detailServiceSegments(
 
   return [
     StylistAppointmentServiceSegment(
-      title: context.t('Appointment'),
+      title: appointmentLabel,
       timeLabel: _bookingTimeRange(booking),
     ),
   ];
 }
-
 String _bookingTimeRange(Map<String, dynamic> booking) {
   final start = _bookingStart(booking);
   final end = _bookingEnd(booking);

@@ -15,7 +15,30 @@ import 'bottom_nav.dart';
 import 'owner_branch_clients_screen.dart';
 import 'owner_sales_reports_screen.dart';
 import 'SalonReviews.dart';
+const String _dashboardFontFamily = 'Manrope';
+const Color _dashboardAccent = Color(0xFFC19A6B);
+const Color _dashboardGold = Color(0xFF8B6500);
+const Color _dashboardPrimaryText = Color(0xFF1C1917);
+const Color _dashboardSecondaryText = Color(0xFF78716C);
+const Color _dashboardBorder = Color(0xFFE7E5E4);
 
+TextStyle _dashboardTextStyle({
+  required double size,
+  FontWeight weight = FontWeight.w400,
+  Color color = _dashboardPrimaryText,
+  double? height,
+  double? letterSpacing,
+}) {
+  return TextStyle(
+    fontFamily: _dashboardFontFamily,
+    fontFamilyFallback: const ['Inter'],
+    fontSize: size,
+    fontWeight: weight,
+    color: color,
+    height: height,
+    letterSpacing: letterSpacing,
+  );
+}
 class OwnerDashboardScreen extends StatefulWidget {
   const OwnerDashboardScreen({super.key});
 
@@ -24,6 +47,7 @@ class OwnerDashboardScreen extends StatefulWidget {
 }
 
 class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
+  final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();
 int _notificationPage = 0;
 static const int _notificationPageSize = 4;
@@ -310,63 +334,117 @@ static const int _notificationPageSize = 4;
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
-  void _showBranchPicker() {
-    if (_branchOptions.length <= 1) return;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: ListView.separated(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            itemCount: _branchOptions.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, index) {
-              final option = _branchOptions[index];
-              final selected = option.branchId == _selectedBranchId;
-              return ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(
-                    color: selected
-                        ? AppColors.starColor
-                        : const Color(0xFFE8DED6),
-                  ),
-                ),
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFF6E8C8),
-                  child: Icon(
-                    Icons.location_on_outlined,
-                    color: AppColors.starColor,
-                  ),
-                ),
-                title: Text(
-                  option.salonName.isEmpty
-                      ? option.branchName
-                      : option.salonName,
-                  style: const TextStyle(fontWeight: FontWeight.w800),
-                ),
-                subtitle: Text(
-                  option.address.isEmpty ? option.branchName : option.address,
-                ),
-                trailing: selected
-                    ? const Icon(Icons.check_circle, color: AppColors.starColor)
-                    : null,
-                onTap: () {
-                  Navigator.pop(context);
-                  _loadDashboard(option.branchId);
-                },
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
+  // void _showBranchPicker() {
+  //   if (_branchOptions.length <= 1) return;
+  //   showModalBottomSheet<void>(
+  //     context: context,
+  //     backgroundColor: Colors.white,
+  //     shape: const RoundedRectangleBorder(
+  //       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+  //     ),
+  //     builder: (context) {
+  //       return SafeArea(
+  //         child: ListView.separated(
+  //           shrinkWrap: true,
+  //           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+  //           itemCount: _branchOptions.length,
+  //           separatorBuilder: (_, __) => const SizedBox(height: 8),
+  //           itemBuilder: (context, index) {
+  //             final option = _branchOptions[index];
+  //             final selected = option.branchId == _selectedBranchId;
+  //             return ListTile(
+  //               shape: RoundedRectangleBorder(
+  //                 borderRadius: BorderRadius.circular(14),
+  //                 side: BorderSide(
+  //                   color: selected
+  //                       ? AppColors.starColor
+  //                       : const Color(0xFFE8DED6),
+  //                 ),
+  //               ),
+  //               leading: const CircleAvatar(
+  //                 backgroundColor: Color(0xFFF6E8C8),
+  //                 child: Icon(
+  //                   Icons.location_on_outlined,
+  //                   color: AppColors.starColor,
+  //                 ),
+  //               ),
+  //               title: Text(
+  //                 option.salonName.isEmpty
+  //                     ? option.branchName
+  //                     : option.salonName,
+  //                 style: const TextStyle(fontWeight: FontWeight.w800),
+  //               ),
+  //               subtitle: Text(
+  //                 option.address.isEmpty ? option.branchName : option.address,
+  //               ),
+  //               trailing: selected
+  //                   ? const Icon(Icons.check_circle, color: AppColors.starColor)
+  //                   : null,
+  //               onTap: () {
+  //                 Navigator.pop(context);
+  //                 _loadDashboard(option.branchId);
+  //               },
+  //             );
+  //           },
+  //         ),
+  //       );
+  //     },
+  //   );
+  // }
+  Future<void> _showBranchPicker() async {
+  if (_branchOptions.length <= 1) return;
+
+  final selectorContext = _branchSelectorKey.currentContext;
+  final overlay = Overlay.of(context).context.findRenderObject() as RenderBox?;
+  final selectorBox = selectorContext?.findRenderObject() as RenderBox?;
+
+  if (overlay == null || selectorBox == null) return;
+
+  final selectorOffset = selectorBox.localToGlobal(
+    Offset.zero,
+    ancestor: overlay,
+  );
+
+  final selectorRect = selectorOffset & selectorBox.size;
+  final menuWidth = overlay.size.width - 32;
+
+  final selected = await showMenu<_DashboardBranchOption>(
+    context: context,
+    color: Colors.white,
+    surfaceTintColor: Colors.white,
+    elevation: 10,
+    position: RelativeRect.fromLTRB(
+      16,
+      selectorRect.bottom + 8,
+      16,
+      0,
+    ),
+    constraints: BoxConstraints(
+      minWidth: menuWidth,
+      maxWidth: menuWidth,
+    ),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+      side: const BorderSide(color: _dashboardBorder),
+    ),
+    items: _branchOptions.map((option) {
+      final isSelected = option.branchId == _selectedBranchId;
+
+      return PopupMenuItem<_DashboardBranchOption>(
+        value: option,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: _DashboardBranchDropdownItem(
+          option: option,
+          isSelected: isSelected,
+        ),
+      );
+    }).toList(),
+  );
+
+  if (!mounted || selected == null) return;
+
+  await _loadDashboard(selected.branchId);
+}
 
   List<Map<String, dynamic>> _mapList(String key) {
     final value = _dashboard[key];
@@ -414,7 +492,7 @@ static const int _notificationPageSize = 4;
             color: AppColors.starColor,
             onRefresh: _loadData,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 22, 16, 28),
+             padding: const EdgeInsets.fromLTRB(0, 0, 0, 28),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 if (_errorMessage != null)
@@ -429,21 +507,30 @@ static const int _notificationPageSize = 4;
                   Padding(
                     padding: const EdgeInsets.only(top: 60),
                     child: Text(
-                      context.t('No branches available'),
+                      context.t('No Salons available'),
                       textAlign: TextAlign.center,
                     ),
                   )
-                else ...[
-                  _buildHeader(),
-                  const SizedBox(height: 18),
-                  _buildKpiCards(),
-                  const SizedBox(height: 18),
-                  _buildRevenueSection(),
-                  const SizedBox(height: 18),
-                  _buildTodayAndStaffSection(),
-                  const SizedBox(height: 18),
-                  _buildNotificationsSection(),
-                ],
+            else ...[
+  _buildBranchSelector(),
+  Padding(
+    padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildHeader(),
+        const SizedBox(height: 18),
+        _buildKpiCards(),
+        const SizedBox(height: 18),
+        _buildRevenueSection(),
+        const SizedBox(height: 18),
+        _buildTodayAndStaffSection(),
+        const SizedBox(height: 18),
+        _buildNotificationsSection(),
+      ],
+    ),
+  ),
+],
               ],
             ),
           ),
@@ -462,85 +549,106 @@ static const int _notificationPageSize = 4;
     );
   }
 
-  Widget _buildBranchSelector() {
-    final selected = _selectedBranchOption;
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: _showBranchPicker,
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE8DED6)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF6E8C8),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.location_on_outlined,
-                  color: AppColors.starColor,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _isLoadingBranches
-                    ? Text(context.t('Loading branches...'))
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            selected == null
-                                ? context.t('No branches available')
-                                : (selected.salonName.isEmpty
-                                    ? selected.branchName
-                                    : selected.salonName),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF1F1B18),
-                            ),
-                          ),
-                          if (selected != null) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              selected.address.isEmpty
-                                  ? selected.branchName
-                                  : selected.address,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF756A61),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-              ),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: AppColors.starColor,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // Widget _buildBranchSelector() {
+  //   final selected = _selectedBranchOption;
+  //   return Material(
+  //     color: Colors.white,
+  //     borderRadius: BorderRadius.circular(10),
+  //     child: InkWell(
+  //       borderRadius: BorderRadius.circular(10),
+  //       onTap: _showBranchPicker,
+  //       child: Ink(
+  //         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  //         decoration: BoxDecoration(
+  //           color: Colors.white,
+  //           borderRadius: BorderRadius.circular(10),
+  //           border: Border.all(color: const Color(0xFFE8DED6)),
+  //         ),
+  //         child: Row(
+  //           children: [
+  //             Container(
+  //               width: 38,
+  //               height: 38,
+  //               decoration: const BoxDecoration(
+  //                 color: Color(0xFFF6E8C8),
+  //                 shape: BoxShape.circle,
+  //               ),
+  //               child: const Icon(
+  //                 Icons.location_on_outlined,
+  //                 color: AppColors.starColor,
+  //                 size: 20,
+  //               ),
+  //             ),
+  //             const SizedBox(width: 12),
+  //             Expanded(
+  //               child: _isLoadingBranches
+  //                   ? Text(context.t('Loading branches...'))
+  //                   : Column(
+  //                       crossAxisAlignment: CrossAxisAlignment.start,
+  //                       children: [
+  //                         Text(
+  //                           selected == null
+  //                               ? context.t('No branches available')
+  //                               : (selected.salonName.isEmpty
+  //                                   ? selected.branchName
+  //                                   : selected.salonName),
+  //                           maxLines: 1,
+  //                           overflow: TextOverflow.ellipsis,
+  //                           style: const TextStyle(
+  //                             fontSize: 14,
+  //                             fontWeight: FontWeight.w800,
+  //                             color: Color(0xFF1F1B18),
+  //                           ),
+  //                         ),
+  //                         if (selected != null) ...[
+  //                           const SizedBox(height: 2),
+  //                           Text(
+  //                             selected.address.isEmpty
+  //                                 ? selected.branchName
+  //                                 : selected.address,
+  //                             maxLines: 1,
+  //                             overflow: TextOverflow.ellipsis,
+  //                             style: const TextStyle(
+  //                               fontSize: 11,
+  //                               color: Color(0xFF756A61),
+  //                             ),
+  //                           ),
+  //                         ],
+  //                       ],
+  //                     ),
+  //             ),
+  //             const Icon(
+  //               Icons.keyboard_arrow_down_rounded,
+  //               color: AppColors.starColor,
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+  
+Widget _buildBranchSelector() {
+  final selected = _selectedBranchOption;
 
+  final selectedLabel = selected == null
+      ? context.t('Select Branch')
+      : selected.displayLabel;
+
+  final selectedAddressSummary = selected?.address ?? '';
+  final canChangeBranch = _branchOptions.length > 1;
+
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
+    child: _DashboardHeaderBranchSelector(
+      key: _branchSelectorKey,
+      label: selectedLabel,
+      addressSummary: selectedAddressSummary,
+      isInteractive: canChangeBranch,
+      onTap: canChangeBranch ? _showBranchPicker : null,
+    ),
+  );
+}
   // Widget _buildHeader() {
   //   return LayoutBuilder(
   //     builder: (context, constraints) {
@@ -1236,6 +1344,12 @@ class _DashboardBranchOption {
   final String salonName;
   final String branchName;
   final String address;
+
+   String get displayLabel {
+    if (branchName.trim().isNotEmpty) return branchName.trim();
+    if (salonName.trim().isNotEmpty) return salonName.trim();
+    return 'Salon #$salonId';
+  }
 }
 
 class _DashboardSection extends StatelessWidget {
@@ -2571,6 +2685,288 @@ class _NotificationPaginationBar extends StatelessWidget {
           icon: const Icon(Icons.chevron_right_rounded, size: 18),
         ),
       ],
+    );
+  }
+}
+
+// class _DashboardHeaderBranchSelector extends StatelessWidget {
+//   const _DashboardHeaderBranchSelector({
+//     super.key,
+//     required this.label,
+//     this.addressSummary = '',
+//     required this.isInteractive,
+//     this.onTap,
+//   });
+
+//   final String label;
+//   final String addressSummary;
+//   final bool isInteractive;
+//   final VoidCallback? onTap;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Material(
+//       color: Colors.transparent,
+//       child: InkWell(
+//         borderRadius: BorderRadius.circular(16),
+//         onTap: isInteractive ? onTap : null,
+//         child: Container(
+//           height: double.infinity,
+//           constraints: const BoxConstraints(minWidth: 164),
+//           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+//           decoration: BoxDecoration(
+//             color: Colors.white,
+//             borderRadius: BorderRadius.circular(16),
+//           ),
+//           child: Row(
+//             children: [
+//               const Icon(
+//                 Icons.storefront_outlined,
+//                 color: _dashboardAccent,
+//                 size: 20,
+//               ),
+//               const SizedBox(width: 12),
+//               Expanded(
+//                 child: Row(
+//                   crossAxisAlignment: CrossAxisAlignment.center,
+//                   children: [
+//                     Expanded(
+//                       child: Column(
+//                         crossAxisAlignment: CrossAxisAlignment.start,
+//                         mainAxisSize: MainAxisSize.min,
+//                         children: [
+//                           Text(
+//                             label.toUpperCase(),
+//                             maxLines: 1,
+//                             overflow: TextOverflow.ellipsis,
+//                             style: _dashboardTextStyle(
+//                               size: 14,
+//                               weight: FontWeight.w600,
+//                               color: _dashboardPrimaryText,
+//                               letterSpacing: 0.6,
+//                             ),
+//                           ),
+//                           if (addressSummary.isNotEmpty) ...[
+//                             const SizedBox(height: 2),
+//                             Text(
+//                               addressSummary,
+//                               maxLines: 1,
+//                               overflow: TextOverflow.ellipsis,
+//                               style: _dashboardTextStyle(
+//                                 size: 11,
+//                                 weight: FontWeight.w600,
+//                                 color: _dashboardSecondaryText,
+//                               ),
+//                             ),
+//                           ],
+//                         ],
+//                       ),
+//                     ),
+//                     if (isInteractive) ...[
+//                       const SizedBox(width: 4),
+//                       const Icon(
+//                         Icons.keyboard_arrow_down_rounded,
+//                         color: _dashboardSecondaryText,
+//                         size: 18,
+//                       ),
+//                     ],
+//                   ],
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+class _DashboardHeaderBranchSelector extends StatelessWidget {
+  const _DashboardHeaderBranchSelector({
+    super.key,
+    required this.label,
+    this.addressSummary = '',
+    required this.isInteractive,
+    this.onTap,
+  });
+
+  final String label;
+  final String addressSummary;
+  final bool isInteractive;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: isInteractive ? onTap : null,
+        child: Ink(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE8DED6)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF6E8C8),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_on_outlined,
+                  color: AppColors.starColor,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1F1B18),
+                      ),
+                    ),
+                    if (addressSummary.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        addressSummary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Color(0xFF756A61),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (isInteractive)
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.starColor,
+                  size: 18,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardBranchDropdownItem extends StatelessWidget {
+  const _DashboardBranchDropdownItem({
+    required this.option,
+    required this.isSelected,
+  });
+
+  final _DashboardBranchOption option;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: isSelected
+            ? _dashboardAccent.withValues(alpha: 0.12)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? _dashboardAccent : _dashboardBorder,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: _dashboardAccent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.storefront_outlined,
+              color: _dashboardAccent,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  option.displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _dashboardTextStyle(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: _dashboardPrimaryText,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                if (option.address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    option.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _dashboardTextStyle(
+                      size: 11,
+                      weight: FontWeight.w600,
+                      color: _dashboardSecondaryText,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: isSelected ? _dashboardAccent : Colors.transparent,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? _dashboardAccent : _dashboardBorder,
+              ),
+            ),
+            child: isSelected
+                ? const Icon(
+                    Icons.check_rounded,
+                    color: Colors.white,
+                    size: 14,
+                  )
+                : null,
+          ),
+        ],
+      ),
     );
   }
 }

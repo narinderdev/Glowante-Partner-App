@@ -228,7 +228,16 @@ void initState() {
       alignment: 0.35,
     );
   }
-
+String _cleanAddressText(String value) {
+  return value
+      .replaceAll('\u00A0', ' ') // non-breaking space
+      .replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '') // zero-width chars
+      .replaceAll(_addressDisallowedRegex, '')
+      .replaceAll(RegExp(r'[ \t]+'), ' ')
+      .replaceAll(RegExp(r'\s*,\s*'), ', ')
+      .replaceAll(RegExp(r',\s*,'), ',')
+      .trim();
+}
   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
     try {
       final placemarks = await placemarkFromCoordinates(lat, lng);
@@ -242,11 +251,13 @@ void initState() {
         place.country,
         place.postalCode,
       ];
-      final formattedAddress = parts
-          .whereType<String>()
-          .where((value) => value.trim().isNotEmpty)
-          .map((value) => value.trim())
-          .join(', ');
+    final formattedAddress = _cleanAddressText(
+  parts
+      .whereType<String>()
+      .where((value) => value.trim().isNotEmpty)
+      .map((value) => value.trim())
+      .join(', '),
+);
 
       _removeOverlay();
 
@@ -526,12 +537,13 @@ Future<void> _onPredictionSelected(
 
     final placeAddress = (place?.address ?? '').trim();
     final placeName = (place?.name ?? '').trim();
-
-    final address = placeAddress.isNotEmpty
-        ? placeAddress
-        : placeName.isNotEmpty
-            ? placeName
-            : fallbackSuggestionText;
+final address = _cleanAddressText(
+  placeAddress.isNotEmpty
+      ? placeAddress
+      : placeName.isNotEmpty
+          ? placeName
+          : fallbackSuggestionText,
+);
 
     final lat = place?.latLng?.lat;
     final lng = place?.latLng?.lng;
@@ -561,30 +573,34 @@ Future<void> _onPredictionSelected(
 
     setState(() {
       searchLocationController.value = TextEditingValue(
-        text: fallbackSuggestionText,
+    text: _cleanAddressText(fallbackSuggestionText),
         selection: TextSelection.collapsed(
           offset: fallbackSuggestionText.length,
         ),
       );
 
-      _baseCompleteAddress = fallbackSuggestionText;
-      completeAddressController.value = TextEditingValue(
-        text: fallbackSuggestionText,
-        selection: TextSelection.collapsed(
-          offset: fallbackSuggestionText.length,
-        ),
-      );
+      final cleanFallback = _cleanAddressText(fallbackSuggestionText);
+
+_baseCompleteAddress = cleanFallback;
+completeAddressController.value = TextEditingValue(
+  text: cleanFallback,
+  selection: TextSelection.collapsed(
+    offset: cleanFallback.length,
+  ),
+);
 
       predictions.clear();
     });
   }
 }
-  String _composedAddress() {
-    final composedAddress = _composeAddressFromParts();
-    if (composedAddress.isNotEmpty) return composedAddress;
-    return completeAddressController.text.trim();
-  }
+String _composedAddress() {
+  final composedAddress = _composeAddressFromParts();
+  final address = composedAddress.isNotEmpty
+      ? composedAddress
+      : completeAddressController.text;
 
+  return _cleanAddressText(address);
+}
   List<String> _manualAddressParts() {
     return [
       scoFlatHouseController.text.trim(),
@@ -895,38 +911,70 @@ Widget _buildManualAddressCard() {
           inputFormatters: _addressInputFormatters,
         ),
 
-        KeyedSubtree(
-          key: _completeAddressKey,
-          child: _buildTextField(
-            controller: completeAddressController,
-            label: 'Complete Address',
-            hint: 'Start typing above to auto-suggest full address...',
-            isRequired: true,
-            minLines: 3,
-            maxLines: 3,
-            maxLength: 180,
-            keyboardType: TextInputType.streetAddress,
-            textCapitalization: TextCapitalization.sentences,
-            regex: _addressAllowedRegex,
-            inputFormatters: _addressInputFormatters,
-            suffix: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome, color: _gold, size: 13),
-                const SizedBox(width: 4),
-                Text(
-                  translateText('Autofill active'),
-                  style: const TextStyle(
-                    color: _gold,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
+        // KeyedSubtree(
+        //   key: _completeAddressKey,
+        //   child: _buildTextField(
+        //     controller: completeAddressController,
+        //     label: 'Complete Address',
+        //     hint: 'Start typing above to auto-suggest full address...',
+        //     isRequired: true,
+        //     minLines: 3,
+        //     maxLines: 3,
+        //     maxLength: 180,
+        //     keyboardType: TextInputType.streetAddress,
+        //     textCapitalization: TextCapitalization.sentences,
+        //     regex: _addressAllowedRegex,
+        //     inputFormatters: _addressInputFormatters,
+        //     suffix: Row(
+        //       mainAxisSize: MainAxisSize.min,
+        //       children: [
+        //         const Icon(Icons.auto_awesome, color: _gold, size: 13),
+        //         const SizedBox(width: 4),
+        //         Text(
+        //           translateText('Autofill active'),
+        //           style: const TextStyle(
+        //             color: _gold,
+        //             fontSize: 10,
+        //             fontWeight: FontWeight.w700,
+        //           ),
+        //         ),
+        //       ],
+        //     ),
+        //   ),
+        // ),
+KeyedSubtree(
+  key: _completeAddressKey,
+  child: _buildTextField(
+    controller: completeAddressController,
+    label: 'Complete Address',
+    hint: 'Start typing above to auto-suggest full address...',
+    isRequired: true,
+    minLines: 3,
+    maxLines: 3,
+    maxLength: 180,
+    keyboardType: TextInputType.streetAddress,
+    textCapitalization: TextCapitalization.sentences,
+    regex: null,
+    inputFormatters: [
+      LengthLimitingTextInputFormatter(180),
+    ],
+    suffix: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.auto_awesome, color: _gold, size: 13),
+        const SizedBox(width: 4),
+        Text(
+          translateText('Autofill active'),
+          style: const TextStyle(
+            color: _gold,
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
           ),
         ),
-
+      ],
+    ),
+  ),
+),
         const SizedBox(height: 12),
 
         SizedBox(
@@ -1028,10 +1076,16 @@ Widget _buildManualAddressCard() {
     }
   }
 }
-final RegExp _addressAllowedRegex = RegExp(r'^[a-zA-Z0-9\s\/-]+$');
+final RegExp _addressAllowedRegex =
+    RegExp(r"^[a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']+$");
+
+final RegExp _addressDisallowedRegex =
+    RegExp(r"[^a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']");
 
 final List<TextInputFormatter> _addressInputFormatters = [
-  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s\/-]')),
+  FilteringTextInputFormatter.allow(
+    RegExp(r"[a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']"),
+  ),
 ];
 // Reusable text field with validation & options
 // Widget _buildTextField({
@@ -1179,127 +1233,140 @@ Widget _buildTextField({
         ),
         const SizedBox(height: 8),
         Stack(
-          children: [
-            TextFormField(
-              controller: controller,
-              readOnly: !enabled,
-              maxLength: maxLength,
-              minLines: minLines,
-              maxLines: maxLines ?? 1,
-              keyboardType: keyboardType,
-              inputFormatters: [
-                ...?inputFormatters,
-                if (maxLength != null)
-                  LengthLimitingTextInputFormatter(maxLength),
-              ],
-              textCapitalization: textCapitalization,
-              textAlignVertical:
-                  isMultiLine ? TextAlignVertical.top : TextAlignVertical.center,
-              style: const TextStyle(
-                color: Color(0xFF1F1B18),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.3,
-              ),
-              cursorColor: _AddLocationScreenState._gold,
-              validator: (value) {
-                final v = value?.trim() ?? '';
-
-                if (isRequired && v.isEmpty) {
-                  final errorTemplate = translateText('{field} is required');
-                  return errorTemplate.replaceAll('{field}', translatedLabel);
-                }
-
-                if (maxLength != null && v.length > maxLength) {
-                  return '$translatedLabel cannot exceed $maxLength characters';
-                }
-
-                if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
-                  return '$translatedLabel can contain only alphabets, numbers, spaces, / and -';
-                }
-
-                return null;
-              },
-              decoration: InputDecoration(
-                counterText: '',
-                hintText: translatedHint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF9A928B),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                suffix: suffix,
-                filled: true,
-                fillColor: _AddLocationScreenState._fieldFill,
-                contentPadding: EdgeInsets.fromLTRB(
-                  12,
-                  isMultiLine ? 12 : 0,
-                  maxLength == null ? 12 : 70,
-                  maxLength == null ? (isMultiLine ? 10 : 0) : 28,
-                ),
-                constraints: BoxConstraints(
-                  minHeight: isMultiLine ? 96 : 52,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: _AddLocationScreenState._border,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: _AddLocationScreenState._border,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: _AddLocationScreenState._goldLight,
-                    width: 1.3,
-                  ),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.red, width: 1),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.red, width: 1),
-                ),
-                errorStyle: const TextStyle(
-                  color: AppColors.red,
-                  fontSize: 11,
-                ),
-              ),
-            ),
-
-            if (maxLength != null)
-              Positioned(
-                right: 12,
-                bottom: 10,
-                child: IgnorePointer(
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: controller,
-                    builder: (context, value, _) {
-                      return Text(
-                        '${value.text.length} / $maxLength',
-                        style: TextStyle(
-                          color: value.text.length >= maxLength
-                              ? AppColors.red
-                              : const Color(0xFF8B8178),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-          ],
-        ),
+  children: [
+    TextFormField(
+      controller: controller,
+      readOnly: !enabled,
+      maxLength: maxLength,
+      minLines: minLines,
+      maxLines: maxLines ?? 1,
+      keyboardType: keyboardType,
+      inputFormatters: [
+        ...?inputFormatters,
+        if (maxLength != null)
+          LengthLimitingTextInputFormatter(maxLength),
       ],
+      textCapitalization: textCapitalization,
+      textAlignVertical:
+          isMultiLine ? TextAlignVertical.top : TextAlignVertical.center,
+      style: const TextStyle(
+        color: Color(0xFF1F1B18),
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.3,
+      ),
+      cursorColor: _AddLocationScreenState._gold,
+      validator: (value) {
+        final v = value?.trim() ?? '';
+
+        if (isRequired && v.isEmpty) {
+          final errorTemplate = translateText('{field} is required');
+          return errorTemplate.replaceAll('{field}', translatedLabel);
+        }
+
+        if (maxLength != null && v.length > maxLength) {
+          return '$translatedLabel cannot exceed $maxLength characters';
+        }
+
+        if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
+          return '$translatedLabel can contain only alphabets, numbers, spaces, comma, /, -, +, ., # and brackets';
+        }
+
+        return null;
+      },
+      decoration: InputDecoration(
+        counterText: '',
+        hintText: translatedHint,
+        hintStyle: const TextStyle(
+          color: Color(0xFF9A928B),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        filled: true,
+        fillColor: _AddLocationScreenState._fieldFill,
+        contentPadding: EdgeInsets.fromLTRB(
+          12,
+          isMultiLine ? 12 : 0,
+          suffix != null ? 126 : (maxLength == null ? 12 : 70),
+          maxLength == null ? (isMultiLine ? 10 : 0) : 28,
+        ),
+        constraints: BoxConstraints(
+          minHeight: isMultiLine ? 96 : 52,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(
+            color: _AddLocationScreenState._border,
+          ),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(
+            color: _AddLocationScreenState._border,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(
+            color: _AddLocationScreenState._goldLight,
+            width: 1.3,
+          ),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.red, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: AppColors.red, width: 1),
+        ),
+        errorStyle: const TextStyle(
+          color: AppColors.red,
+          fontSize: 11,
+        ),
+      ),
     ),
+
+    if (suffix != null)
+      Positioned(
+        top: isMultiLine ? 10 : 0,
+        right: 12,
+        height: isMultiLine ? 24 : 52,
+        child: IgnorePointer(
+          child: Align(
+            alignment:
+                isMultiLine ? Alignment.topRight : Alignment.centerRight,
+            child: suffix,
+          ),
+        ),
+      ),
+
+    if (maxLength != null)
+      Positioned(
+        right: 12,
+        bottom: 10,
+        child: IgnorePointer(
+          child: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              return Text(
+                '${value.text.length} / $maxLength',
+                style: TextStyle(
+                  color: value.text.length >= maxLength
+                      ? AppColors.red
+                      : const Color(0xFF8B8178),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+  ],
+),
+      ],
+    ),  
   );
 }
 class _ThemedCard extends StatelessWidget {
