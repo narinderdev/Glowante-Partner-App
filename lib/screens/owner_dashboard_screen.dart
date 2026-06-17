@@ -628,6 +628,27 @@ static const int _notificationPageSize = 4;
   //   );
   // }
   
+// Widget _buildBranchSelector() {
+//   final selected = _selectedBranchOption;
+
+//   final selectedLabel = selected == null
+//       ? context.t('Select Branch')
+//       : selected.displayLabel;
+
+//   final selectedAddressSummary = selected?.address ?? '';
+//   final canChangeBranch = _branchOptions.length > 1;
+
+//   return Padding(
+//     padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
+//     child: _DashboardHeaderBranchSelector(
+//       key: _branchSelectorKey,
+//       label: selectedLabel,
+//       addressSummary: selectedAddressSummary,
+//       isInteractive: canChangeBranch,
+//       onTap: canChangeBranch ? _showBranchPicker : null,
+//     ),
+//   );
+// }
 Widget _buildBranchSelector() {
   final selected = _selectedBranchOption;
 
@@ -639,7 +660,7 @@ Widget _buildBranchSelector() {
   final canChangeBranch = _branchOptions.length > 1;
 
   return Padding(
-    padding: const EdgeInsets.fromLTRB(28, 12, 28, 0),
+    padding: const EdgeInsets.fromLTRB(32, 18, 32, 0),
     child: _DashboardHeaderBranchSelector(
       key: _branchSelectorKey,
       label: selectedLabel,
@@ -2780,6 +2801,102 @@ class _NotificationPaginationBar extends StatelessWidget {
 //     );
 //   }
 // }
+// class _DashboardHeaderBranchSelector extends StatelessWidget {
+//   const _DashboardHeaderBranchSelector({
+//     super.key,
+//     required this.label,
+//     this.addressSummary = '',
+//     required this.isInteractive,
+//     this.onTap,
+//   });
+
+//   final String label;
+//   final String addressSummary;
+//   final bool isInteractive;
+//   final VoidCallback? onTap;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Material(
+//       color: Colors.transparent,
+//       child: InkWell(
+//         borderRadius: BorderRadius.circular(12),
+//         onTap: isInteractive ? onTap : null,
+//         child: Ink(
+//           height: 56,
+//           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+//           decoration: BoxDecoration(
+//             color: Colors.white,
+//             borderRadius: BorderRadius.circular(12),
+//             border: Border.all(color: const Color(0xFFE8DED6)),
+//             boxShadow: const [
+//               BoxShadow(
+//                 color: Color(0x08000000),
+//                 blurRadius: 8,
+//                 offset: Offset(0, 2),
+//               ),
+//             ],
+//           ),
+//           child: Row(
+//             children: [
+//               Container(
+//                 width: 34,
+//                 height: 34,
+//                 decoration: const BoxDecoration(
+//                   color: Color(0xFFF6E8C8),
+//                   shape: BoxShape.circle,
+//                 ),
+//                 child: const Icon(
+//                   Icons.location_on_outlined,
+//                   color: AppColors.starColor,
+//                   size: 18,
+//                 ),
+//               ),
+//               const SizedBox(width: 12),
+//               Expanded(
+//                 child: Column(
+//                   mainAxisAlignment: MainAxisAlignment.center,
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       label,
+//                       maxLines: 1,
+//                       overflow: TextOverflow.ellipsis,
+//                       style: const TextStyle(
+//                         fontSize: 12,
+//                         fontWeight: FontWeight.w700,
+//                         color: Color(0xFF1F1B18),
+//                       ),
+//                     ),
+//                     if (addressSummary.isNotEmpty) ...[
+//                       const SizedBox(height: 2),
+//                       Text(
+//                         addressSummary,
+//                         maxLines: 1,
+//                         overflow: TextOverflow.ellipsis,
+//                         style: const TextStyle(
+//                           fontSize: 9,
+//                           color: Color(0xFF756A61),
+//                         ),
+//                       ),
+//                     ],
+//                   ],
+//                 ),
+//               ),
+//               if (isInteractive)
+//                 const Icon(
+//                   Icons.keyboard_arrow_down_rounded,
+//                   color: AppColors.starColor,
+//                   size: 18,
+//                 ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }
+
 class _DashboardHeaderBranchSelector extends StatelessWidget {
   const _DashboardHeaderBranchSelector({
     super.key,
@@ -2799,39 +2916,42 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: isInteractive ? onTap : null,
-        child: Ink(
-          height: 56,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE8DED6)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x08000000),
-                blurRadius: 8,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
+       child: Ink(
+  height: 64,
+  padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+  decoration: BoxDecoration(
+    color: const Color(0xFFF7F7F7),
+    borderRadius: BorderRadius.circular(14),
+    border: Border.all(
+      color: const Color(0xFFE6E2DE),
+      width: 1,
+    ),
+    boxShadow: const [
+      BoxShadow(
+        color: Color(0x06000000),
+        blurRadius: 8,
+        offset: Offset(0, 2),
+      ),
+    ],
+  ),
           child: Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 38,
+                height: 38,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF6E8C8),
+                  color: Color(0xFFF6D46F),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.location_on_outlined,
-                  color: AppColors.starColor,
-                  size: 18,
+                  color: Color(0xFF8B6500),
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -2842,32 +2962,39 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1F1B18),
+                        fontFamily: 'Manrope',
+                        fontSize: 13,
+                        height: 1.05,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF44403C),
                       ),
                     ),
                     if (addressSummary.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         addressSummary,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
+                          fontFamily: 'Manrope',
                           fontSize: 9,
-                          color: Color(0xFF756A61),
+                          height: 1.05,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF78716C),
                         ),
                       ),
                     ],
                   ],
                 ),
               ),
-              if (isInteractive)
+              if (isInteractive) ...[
+                const SizedBox(width: 8),
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: AppColors.starColor,
-                  size: 18,
+                  color: Color(0xFF8B6500),
+                  size: 20,
                 ),
+              ],
             ],
           ),
         ),
@@ -2875,7 +3002,6 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
     );
   }
 }
-
 class _DashboardBranchDropdownItem extends StatelessWidget {
   const _DashboardBranchDropdownItem({
     required this.option,
