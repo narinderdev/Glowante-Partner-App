@@ -1,16 +1,20 @@
-import 'dart:io';
+// lib/screens/AddTeam.dart
 import 'dart:async';
+import 'dart:io';
+
+import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:image_picker/image_picker.dart';
-// import '../screens/AddTeamSelectServices.dart';
+
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../screens/AddTeamChooseTimeSlots.dart';
 import '../utils/api_service.dart';
+import '../utils/aws_s3_uploader.dart';
 import '../utils/colors.dart';
 import '../utils/input_validation.dart';
-import 'package:bloc_onboarding/utils/localization_helper.dart';
-import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
-import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
 
 const Color _teamMemberAccent = Color(0xFF8B6500);
@@ -40,119 +44,73 @@ class AddTeamScreen extends StatefulWidget {
 class _AddTeamScreenState extends State<AddTeamScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  // Show inline validations only after user taps "Add Team Member"
   bool _showGlobalErrors = false;
 
-  // Inline-error suppression flags (hide error while user is interacting)
   bool _suppressPhoneError = false;
   bool _suppressVerifyError = false;
-
   bool _suppressFirstNameError = false;
   bool _suppressLastNameError = false;
   bool _suppressEmailError = false;
   bool _suppressOtpError = false;
-
+  bool _suppressAddressError = false;
   bool _suppressGenderError = false;
   bool _suppressRolesError = false;
   bool _suppressSpecsError = false;
   bool _suppressDateError = false;
 
-  // Colors for statuses
-  final Color _errorColor = AppColors.red; // invalid inputs
-  final Color _verifyWarnColor = AppColors.red; // "please verify" prompt
-  final Color _successColor = Colors.green; // verified success
-
-  // --- Shared validators (return null when valid, error string when invalid) ---
-  String? _vPhone(String? v) {
-    if (_suppressPhoneError) return null;
-    final phone = (v ?? '').trim();
-    if (phone.isEmpty) return translateText('Phone number is required');
-    if (phone.length != 10)
-      return translateText('Phone number must be 10 digits.');
-    return null;
-  }
-
-  String? _vFirstName(String? v) {
-    if (_suppressFirstNameError) return null;
-    final x = (v ?? '').trim();
-    if (x.isEmpty) return translateText('First Name is required');
-    return null;
-  }
-
-  String? _vLastName(String? v) {
-    if (_suppressLastNameError) return null;
-    final x = (v ?? '').trim();
-    if (x.isEmpty) return translateText('Last Name is required');
-    return null;
-  }
-
-  String? _vEmail(String? v) {
-    if (_suppressEmailError) return null;
-    final x = (v ?? '').trim();
-    if (x.isEmpty) return translateText('Email is required.');
-    if (!_emailRegExp.hasMatch(x))
-      return translateText('Enter a valid email address.');
-    return null;
-  }
-
-  // exact strings requested
-  String? _vGender() {
-    if (_suppressGenderError) return null;
-    return _gender.isEmpty ? translateText('Select gender') : null;
-  }
-
-  String? _vJoiningDate() {
-    if (_suppressDateError) return null;
-    return _joiningDate == null
-        ? translateText('Joining Date is required')
-        : null;
-  }
-
-  String? _vRoles() {
-    if (_suppressRolesError) return null;
-    return _selectedRoles.isEmpty ? translateText('Select role') : null;
-  }
-
-  String? _vSpecs() {
-    if (_suppressSpecsError) return null;
-    return _selectedSpecs.isEmpty
-        ? translateText('Select specialization')
-        : null;
-  }
+  final Color _errorColor = AppColors.red;
+  final Color _verifyWarnColor = AppColors.red;
+  final Color _successColor = Colors.green;
 
   List<Map<String, dynamic>> _allRoles = [];
   List<Map<String, dynamic>> _allSpecs = [];
+
   final _phoneCtrl = TextEditingController();
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _otpCtrl = TextEditingController();
   final _briefCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
 
   final FocusNode _firstNameFocus = FocusNode();
   final FocusNode _lastNameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
   final FocusNode _brieftFocus = FocusNode();
+  final FocusNode _addressFocus = FocusNode();
 
-  // State
+  late FlutterGooglePlacesSdk _places;
+
   DateTime? _joiningDate;
   String _gender = '';
+
   final List<String> _selectedRoles = [];
   final List<String> _selectedSpecs = [];
+
   bool _phoneVerified = false;
   bool _isVerifying = false;
-  final Color _bg = Colors.white;
+  bool _isSubmitting = false;
+  bool _isSelectingAddress = false;
+
   final Color _fieldFill = const Color(0xFFFAF9F8);
   final BorderRadius _radius = BorderRadius.circular(12);
-  final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+.[^@\s]+$');
+
   File? _cameraImage;
   String? imageUrl;
   String? _existingImageUrl;
-  bool _isSubmitting = false;
+
+  List<AutocompletePrediction> _addressPredictions = [];
+  Map<String, dynamic>? _selectedAddress;
 
   @override
   void initState() {
     super.initState();
+
+    _places = FlutterGooglePlacesSdk(
+      dotenv.env['GOOGLE_API_KEY'] ?? '',
+    );
+
     _fetchRolesAndSpecializations();
     _prefillFromInitialMember();
   }
@@ -165,11 +123,105 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _emailCtrl.dispose();
     _otpCtrl.dispose();
     _briefCtrl.dispose();
+    _addressCtrl.dispose();
+
     _firstNameFocus.dispose();
     _lastNameFocus.dispose();
     _emailFocus.dispose();
     _brieftFocus.dispose();
+    _addressFocus.dispose();
+
     super.dispose();
+  }
+
+  String? _vPhone(String? v) {
+    if (_suppressPhoneError) return null;
+
+    final phone = (v ?? '').trim();
+
+    if (phone.isEmpty) return translateText('Phone number is required');
+    if (phone.length != 10) {
+      return translateText('Phone number must be 10 digits.');
+    }
+
+    return null;
+  }
+
+  String? _vFirstName(String? v) {
+    if (_suppressFirstNameError) return null;
+
+    final x = (v ?? '').trim();
+
+    if (x.isEmpty) return translateText('First Name is required');
+
+    return null;
+  }
+
+  String? _vLastName(String? v) {
+    if (_suppressLastNameError) return null;
+
+    final x = (v ?? '').trim();
+
+    if (x.isEmpty) return translateText('Last Name is required');
+
+    return null;
+  }
+
+  String? _vEmail(String? v) {
+    if (_suppressEmailError) return null;
+
+    final x = (v ?? '').trim();
+
+    if (x.isEmpty) return translateText('Email is required.');
+    if (!_emailRegExp.hasMatch(x)) {
+      return translateText('Enter a valid email address.');
+    }
+
+    return null;
+  }
+
+  String? _vAddress() {
+    if (_suppressAddressError) return null;
+
+    final address = _addressCtrl.text.trim();
+
+    if (address.isEmpty) {
+      return translateText('Address is required');
+    }
+
+    if (_selectedAddress == null) {
+      return translateText('Please select address from suggestions');
+    }
+
+    return null;
+  }
+
+  String? _vGender() {
+    if (_suppressGenderError) return null;
+
+    return _gender.isEmpty ? translateText('Select gender') : null;
+  }
+
+  String? _vJoiningDate() {
+    if (_suppressDateError) return null;
+
+    return _joiningDate == null
+        ? translateText('Joining Date is required')
+        : null;
+  }
+
+  String? _vRoles() {
+    if (_suppressRolesError) return null;
+
+    return _selectedRoles.isEmpty ? translateText('Select role') : null;
+  }
+
+  String? _vSpecs() {
+    if (_suppressSpecsError) return null;
+
+    return _selectedSpecs.isEmpty
+        ? translateText('Select specialization')
+        : null;
   }
 
   Future<void> _fetchRolesAndSpecializations() async {
@@ -177,6 +229,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       final data = await ApiService().getRolesAndSpecializations(
         branchId: widget.branchId,
       );
+
+      if (!mounted) return;
+
       setState(() {
         _allRoles = _readOptionMaps(data['roles'])
             .where((role) => role['branchId'] != null)
@@ -192,6 +247,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   List<Map<String, dynamic>> _readOptionMaps(dynamic raw) {
     if (raw is! List) return const [];
+
     return raw
         .whereType<Map>()
         .map((entry) => Map<String, dynamic>.from(entry))
@@ -201,6 +257,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   void _prefillFromInitialMember() {
     final member = widget.initialMember;
     if (member == null) return;
+
     final branchAssignment = _branchAssignment(member);
 
     _phoneCtrl.text =
@@ -211,10 +268,12 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _gender = _normalizeGender((member['gender'] ?? '').toString().trim());
     _briefCtrl.text =
         (member['info'] ?? member['brief'] ?? '').toString().trim();
+
     _existingImageUrl =
         (member['profilePictureUrl'] ?? '').toString().trim().isEmpty
             ? null
             : (member['profilePictureUrl'] ?? '').toString().trim();
+
     _phoneVerified = widget.isEdit;
 
     final joiningDateRaw =
@@ -226,6 +285,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _selectedRoles
       ..clear()
       ..addAll(_extractLabels(member['roles']));
+
     _selectedSpecs
       ..clear()
       ..addAll(
@@ -233,18 +293,30 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           member['specialities'] ?? member['specializations'],
         ),
       );
+
+    final existingAddress = _normalizedAddress(
+      member['address'] ?? branchAssignment?['address'],
+    );
+
+    if (existingAddress != null) {
+      _selectedAddress = existingAddress;
+      _addressCtrl.text = _addressDisplayText(existingAddress);
+    }
   }
 
   Map<String, dynamic>? _branchAssignment(Map<String, dynamic> member) {
     final rawAssignments = member['userBranches'];
+
     if (rawAssignments is! List) {
       return null;
     }
 
     for (final assignment in rawAssignments) {
       if (assignment is! Map) continue;
+
       final branch = assignment['branch'];
       final branchId = branch is Map ? branch['id'] : assignment['branchId'];
+
       if (branchId?.toString() == widget.branchId.toString()) {
         return Map<String, dynamic>.from(assignment);
       }
@@ -253,6 +325,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     if (rawAssignments.isNotEmpty && rawAssignments.first is Map) {
       return Map<String, dynamic>.from(rawAssignments.first as Map);
     }
+
     return null;
   }
 
@@ -281,7 +354,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     if (userBranchServices is List) {
       for (final item in userBranchServices) {
         if (item is! Map) continue;
+
         addId(item['branchServiceId']);
+
         final branchService = item['branchService'];
         if (branchService is Map) {
           addId(branchService['id']);
@@ -294,6 +369,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   List<String> _extractLabels(dynamic raw) {
     if (raw is! List) return const [];
+
     return raw
         .map((entry) {
           if (entry is Map) {
@@ -313,6 +389,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   ) {
     return selectedValues.map((selected) {
       final normalizedSelected = selected.trim().toLowerCase();
+
       for (final option in source) {
         final candidates = [
           option['label'],
@@ -321,6 +398,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         ]
             .map((value) => (value ?? '').toString().trim())
             .where((v) => v.isNotEmpty);
+
         for (final candidate in candidates) {
           if (candidate.toLowerCase() == normalizedSelected) {
             final code = (option['code'] ?? candidate).toString().trim();
@@ -328,6 +406,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
           }
         }
       }
+
       return normalizedSelected.replaceAll(' ', '_');
     }).toList();
   }
@@ -338,14 +417,224 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     }
 
     final normalized = <String, dynamic>{};
+
     for (final entry in rawAddress.entries) {
       final key = entry.key.toString();
       final value = entry.value;
+
       if (value == null) continue;
       if (value is String && value.trim().isEmpty) continue;
+
       normalized[key] = value;
     }
+
     return normalized.isEmpty ? null : normalized;
+  }
+
+  String _addressDisplayText(Map<String, dynamic> address) {
+    final parts = <String>[];
+
+    void push(dynamic value) {
+      final text = value?.toString().trim() ?? '';
+
+      if (text.isEmpty || text.toLowerCase() == 'null') return;
+      if (parts.contains(text)) return;
+
+      parts.add(text);
+    }
+
+    push(address['line1']);
+    push(address['line2']);
+    push(address['village']);
+    push(address['district']);
+    push(address['city']);
+    push(address['state']);
+    push(address['postalCode']);
+    push(address['country']);
+
+    return parts.join(', ');
+  }
+
+  Future<void> _getAddressPredictions(String input) async {
+    final query = input.trim();
+
+    if (query.length < 2) {
+      if (mounted) {
+        setState(() => _addressPredictions = []);
+      }
+      return;
+    }
+
+    try {
+      final result = await _places.findAutocompletePredictions(
+        query,
+        countries: const ['IN'],
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _addressPredictions =
+            List<AutocompletePrediction>.from(result.predictions);
+      });
+    } catch (e) {
+      debugPrint('Address prediction error: $e');
+
+      if (mounted) {
+        setState(() => _addressPredictions = []);
+      }
+    }
+  }
+
+  String _componentValue(
+    List<AddressComponent> components,
+    List<String> wantedTypes,
+  ) {
+    for (final component in components) {
+      final types = component.types;
+      final matched = wantedTypes.any((type) => types.contains(type));
+
+      if (matched) {
+        return component.name.trim();
+      }
+    }
+
+    return '';
+  }
+
+  Future<void> _selectAddressPrediction(
+    AutocompletePrediction prediction,
+  ) async {
+    final placeId = prediction.placeId;
+    final fallbackText = prediction.fullText.trim();
+
+    if (placeId.isEmpty) return;
+
+    _isSelectingAddress = true;
+
+    try {
+      final details = await _places.fetchPlace(
+        placeId,
+        fields: [
+          PlaceField.Name,
+          PlaceField.Address,
+          PlaceField.AddressComponents,
+          PlaceField.Location,
+        ],
+      );
+
+      final place = details.place;
+      final components = place?.addressComponents ?? const <AddressComponent>[];
+
+      final formattedAddress = (place?.address ?? '').trim().isNotEmpty
+          ? place!.address!.trim()
+          : fallbackText;
+
+      final city = _componentValue(
+        components,
+        const [
+          'locality',
+          'administrative_area_level_3',
+          'sublocality',
+          'sublocality_level_1',
+        ],
+      );
+
+      final state = _componentValue(
+        components,
+        const ['administrative_area_level_1'],
+      );
+
+      final country = _componentValue(
+        components,
+        const ['country'],
+      );
+
+      final postalCode = _componentValue(
+        components,
+        const ['postal_code'],
+      );
+
+      final district = _componentValue(
+        components,
+        const ['administrative_area_level_2'],
+      );
+
+      final lat = place?.latLng?.lat;
+      final lng = place?.latLng?.lng;
+
+      final addressPayload = <String, dynamic>{
+        'line1': formattedAddress,
+        'line2': '',
+        'village': '',
+        'district': district,
+        'city': city,
+        'state': state,
+        'country': country,
+        'postalCode': postalCode,
+        'placeId': placeId,
+        if (lat != null) 'latitude': lat,
+        if (lng != null) 'longitude': lng,
+      };
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedAddress = addressPayload;
+        _addressCtrl.text = formattedAddress;
+        _addressPredictions = [];
+        _suppressAddressError = true;
+      });
+
+      _addressFocus.unfocus();
+
+      debugPrint('SELECTED TEAM ADDRESS = $addressPayload');
+    } catch (e) {
+      debugPrint('Address fetchPlace error: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedAddress = {
+          'line1': fallbackText,
+          'placeId': placeId,
+        };
+        _addressCtrl.text = fallbackText;
+        _addressPredictions = [];
+        _suppressAddressError = true;
+      });
+
+      _addressFocus.unfocus();
+    } finally {
+      _isSelectingAddress = false;
+    }
+  }
+
+  void _clearAddress() {
+    setState(() {
+      _addressCtrl.clear();
+      _selectedAddress = null;
+      _addressPredictions = [];
+      _suppressAddressError = false;
+    });
+
+    _addressFocus.requestFocus();
+  }
+
+  Map<String, dynamic>? _teamAddressPayload() {
+    final selected = _selectedAddress;
+
+    if (selected == null) return null;
+
+    final address = Map<String, dynamic>.from(selected);
+
+    address.removeWhere((key, value) {
+      if (value == null) return true;
+      if (value is String && value.trim().isEmpty) return true;
+      return false;
+    });
+
+    return address.isEmpty ? null : address;
   }
 
   String _normalizeGender(String value) {
@@ -364,15 +653,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(source: ImageSource.gallery);
+
     if (picked == null) return;
 
     setState(() {
       _cameraImage = File(picked.path);
     });
+
     _toast('Uploading image...');
 
     final uploaded =
         await AwsS3Uploader().uploadImageResult(picked, folder: 'uploads/team');
+
     if (uploaded != null) {
       setState(() {
         imageUrl = uploaded.cdnUrl ?? uploaded.publicUrl;
@@ -380,29 +672,6 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       _toast('Image uploaded successfully');
     } else {
       _toast('❌ Failed to upload image');
-    }
-  }
-
-  Future<String?> _uploadImageToS3(File image) async {
-    try {
-      final xFile = XFile(image.path);
-      final result = await AwsS3Uploader().uploadImageResult(
-        xFile,
-        folder: 'uploads/team', // optional subfolder for team avatars
-      );
-
-      if (result == null) {
-        debugPrint('❌ Upload failed');
-        return null;
-      }
-
-      // prefer cdnUrl if available
-      final url = result.cdnUrl ?? result.publicUrl;
-      debugPrint('✅ Uploaded profile image URL: $url');
-      return url;
-    } catch (e) {
-      debugPrint('Image upload error: $e');
-      return null;
     }
   }
 
@@ -464,69 +733,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   void _toast(String msg) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(msg)));
-  }
-
-  Future<void> _handleVerifyPhoneNumber() async {
-    final phoneNumber = _phoneCtrl.text.trim();
-
-    // Local guards (toast only, don't show inline here)
-    if (phoneNumber.isEmpty) {
-      _toast('Please enter phone number');
-      return;
-    }
-    if (phoneNumber.length != 10) {
-      _toast('Enter a valid 10-digit phone number');
-      return;
-    }
-
-    // Hide the "please verify..." inline error while verifying
-    if (!_suppressVerifyError) {
-      setState(() => _suppressVerifyError = true);
-    }
-
-    setState(() => _isVerifying = true);
-    try {
-      final response = await ApiService.checkUserAndSendOtp(phoneNumber);
-      final success = response['success'] == true;
-
-      if (success) {
-        final data = response['data'] ?? {};
-        final user = data['user'];
-        final exists = (data['exists'] == true);
-
-        if (exists && user != null) {
-          _firstNameCtrl.text = (user['firstName'] ?? '').toString();
-          _lastNameCtrl.text = (user['lastName'] ?? '').toString();
-          _emailCtrl.text = (user['email'] ?? '').toString();
-        }
-
-        _otpCtrl.text = (data['otp'] ?? '').toString();
-
-        setState(() {
-          _phoneVerified = true;
-          _suppressVerifyError = true; // keep hidden after success
-          _suppressOtpError = true; // hide OTP inline error once filled
-        });
-
-        // Re-validate after OTP auto-fill so "OTP is required" clears immediately
-        _formKey.currentState?.validate();
-
-        _toast('Phone verified successfully');
-      } else {
-        final msg = response['message'];
-        final errorText = (msg is List)
-            ? msg.join('\n')
-            : (msg is String ? msg : 'Verification failed. Please try again.');
-        _toast(errorText);
-      }
-    } catch (e) {
-      _toast('An error occurred: $e');
-    } finally {
-      if (mounted) setState(() => _isVerifying = false);
-    }
   }
 
   void _dismissKeyboard() {
@@ -535,16 +745,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _lastNameFocus.unfocus();
     _emailFocus.unfocus();
     _brieftFocus.unfocus();
+    _addressFocus.unfocus();
   }
 
   Future<void> _pickJoiningDate() async {
     _dismissKeyboard();
+
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day); // strip time
+    final today = DateTime(now.year, now.month, now.day);
 
     final res = await showDatePicker(
       context: context,
-      firstDate: today, // ✅ cannot pick any date before today
+      firstDate: today,
       lastDate: DateTime(now.year + 5),
       initialDate: _joiningDate != null && _joiningDate!.isAfter(today)
           ? _joiningDate!
@@ -564,10 +776,11 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     );
 
     _dismissKeyboard();
+
     if (res != null) {
       setState(() {
         _joiningDate = res;
-        _suppressDateError = true; // hide inline error after selection
+        _suppressDateError = true;
       });
     }
   }
@@ -578,6 +791,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     required List<String> target,
   }) async {
     _dismissKeyboard();
+
     final temp = [...target];
 
     await showModalBottomSheet(
@@ -615,7 +829,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Flexible(
                     child: ListView.separated(
                       shrinkWrap: true,
@@ -645,25 +859,26 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       },
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   _PrimaryButton(
-                    text: 'Done',
+                    text: translateText('Done'),
                     onPressed: () {
                       setState(() {
                         target
                           ..clear()
                           ..addAll(temp);
+
                         if (identical(target, _selectedRoles)) {
                           _suppressRolesError = true;
                         } else if (identical(target, _selectedSpecs)) {
                           _suppressSpecsError = true;
                         }
                       });
-                      // reflect removal instantly
+
                       Navigator.pop(ctx);
                     },
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                 ],
               ),
             );
@@ -671,6 +886,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         );
       },
     );
+
     _dismissKeyboard();
   }
 
@@ -732,6 +948,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: List.generate(errors.length, (index) {
                     final message = errors[index];
+
                     return Padding(
                       padding: EdgeInsets.only(
                         bottom: index == errors.length - 1 ? 0 : 10,
@@ -769,6 +986,59 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     );
   }
 
+  Future<void> _afterRebuild() {
+    final c = Completer<void>();
+    WidgetsBinding.instance.addPostFrameCallback((_) => c.complete());
+    return c.future;
+  }
+
+  Future<bool> _validateFormAndShowAlert() async {
+    setState(() {
+      _showGlobalErrors = true;
+
+      _suppressPhoneError = false;
+      _suppressVerifyError = false;
+      _suppressFirstNameError = false;
+      _suppressLastNameError = false;
+      _suppressEmailError = false;
+      _suppressOtpError = false;
+      _suppressAddressError = false;
+      _suppressGenderError = false;
+      _suppressRolesError = false;
+      _suppressSpecsError = false;
+      _suppressDateError = false;
+    });
+
+    await _afterRebuild();
+
+    _formKey.currentState?.validate();
+
+    final errors = <String>[];
+
+    void push(String? e) {
+      if (e != null && e.trim().isNotEmpty) {
+        errors.add(e);
+      }
+    }
+
+    push(_vPhone(_phoneCtrl.text));
+    push(_vFirstName(_firstNameCtrl.text));
+    push(_vLastName(_lastNameCtrl.text));
+    push(_vEmail(_emailCtrl.text));
+    push(_vAddress());
+    push(_vGender());
+    push(_vRoles());
+    push(_vSpecs());
+    push(_vJoiningDate());
+
+    if (errors.isNotEmpty) {
+      await _showValidationDialog(errors);
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> _submitEditMember() async {
     if (!await _validateFormAndShowAlert()) return;
 
@@ -782,38 +1052,39 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
 
     setState(() => _isSubmitting = true);
+
     try {
       final branchAssignment =
           _branchAssignment(widget.initialMember ?? const {});
       final branchServiceIds = _branchServiceIdsFromAssignment(
         branchAssignment ?? widget.initialMember,
       );
+
       final payload = <String, dynamic>{
-        "countryCode": "+91",
-        "phoneNumber": _phoneCtrl.text.trim(),
-        "firstName": capitalizeFirst(_firstNameCtrl.text.trim()),
-        "lastName": capitalizeFirst(_lastNameCtrl.text.trim()),
-        "email": _emailCtrl.text.trim(),
-        "gender": _gender.toLowerCase(),
+        'countryCode': '+91',
+        'phoneNumber': _phoneCtrl.text.trim(),
+        'firstName': capitalizeFirst(_firstNameCtrl.text.trim()),
+        'lastName': capitalizeFirst(_lastNameCtrl.text.trim()),
+        'email': _emailCtrl.text.trim(),
+        'gender': _gender.toLowerCase(),
         if (_joiningDate != null)
-          "joiningDate":
+          'joiningDate':
               '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-        "info": capitalizeFirst(_briefCtrl.text.trim()),
-        "roles": _resolveCodes(_selectedRoles, _allRoles),
-        "specialities": _resolveCodes(_selectedSpecs, _allSpecs),
-        "profilePictureUrl": imageUrl ?? _existingImageUrl,
-        "schedules": branchAssignment?['schedules'] ??
+        'info': capitalizeFirst(_briefCtrl.text.trim()),
+        'roles': _resolveCodes(_selectedRoles, _allRoles),
+        'specialities': _resolveCodes(_selectedSpecs, _allSpecs),
+        'profilePictureUrl': imageUrl ?? _existingImageUrl,
+        'schedules': branchAssignment?['schedules'] ??
             widget.initialMember?['schedules'] ??
             const [],
-        "branchServiceIds": branchServiceIds,
-        "userBranchServices": branchAssignment?['userBranchServices'] ??
+        'branchServiceIds': branchServiceIds,
+        'userBranchServices': branchAssignment?['userBranchServices'] ??
             widget.initialMember?['userBranchServices'] ??
             const [],
-        "allowOnlineBooking": branchAssignment?['allowOnlineBooking'] ??
+        'allowOnlineBooking': branchAssignment?['allowOnlineBooking'] ??
             widget.initialMember?['allowOnlineBooking'] ??
             true,
-        if (_normalizedAddress(widget.initialMember?['address']) != null)
-          "address": _normalizedAddress(widget.initialMember?['address']),
+        if (_teamAddressPayload() != null) 'address': _teamAddressPayload(),
       }..removeWhere((key, value) => value == null);
 
       await ApiService().updateTeamMember(
@@ -823,10 +1094,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       );
 
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(translateText('Team member updated successfully'))),
+          content: Text(translateText('Team member updated successfully')),
+        ),
       );
+
       Navigator.pop(context, true);
     } catch (error) {
       _toast(error.toString());
@@ -835,114 +1109,72 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     }
   }
 
-  // Helper to run something after rebuild completes
-  Future<void> _afterRebuild() {
-    final c = Completer<void>();
-    WidgetsBinding.instance.addPostFrameCallback((_) => c.complete());
-    return c.future;
-  }
-
-  Future<bool> _validateFormAndShowAlert() async {
-    // Turn ON global inline errors before validating (so everything shows)
-    setState(() {
-      _showGlobalErrors = true;
-
-      _suppressPhoneError = false;
-      _suppressVerifyError = false;
-      _suppressFirstNameError = false;
-      _suppressLastNameError = false;
-      _suppressEmailError = false;
-      _suppressOtpError = false;
-      _suppressGenderError = false;
-      _suppressRolesError = false;
-      _suppressSpecsError = false;
-      _suppressDateError = false;
-    });
-    await _afterRebuild();
-    _formKey.currentState?.validate();
-
-    final errors = <String>[];
-    void push(String? e) {
-      if (e != null && e.trim().isNotEmpty) errors.add(e);
-    }
-
-    push(_vPhone(_phoneCtrl.text));
-    push(_vFirstName(_firstNameCtrl.text));
-    push(_vLastName(_lastNameCtrl.text));
-    push(_vEmail(_emailCtrl.text));
-    push(_vGender());
-    push(_vRoles());
-    push(_vSpecs());
-    push(_vJoiningDate());
-    if (errors.isNotEmpty) {
-      await _showValidationDialog(errors);
-      return false;
-    }
-    return true;
-  }
-
   Future<void> _goToScheduleStep() async {
     _dismissKeyboard();
 
-    if (widget.isEdit) {
-      await _submitEditMember();
-      return;
-    }
-
     if (!await _validateFormAndShowAlert()) return;
+
     String capitalizeFirst(String value) =>
         value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
 
     final branchAssignment =
         _branchAssignment(widget.initialMember ?? const {});
+
     final branchServiceIds = _branchServiceIdsFromAssignment(
       branchAssignment ?? widget.initialMember,
     );
+
+    final userId = (widget.initialMember?['id'] as num?)?.toInt();
+
     final payload = <String, dynamic>{
-      "isEdit": widget.isEdit,
-      "countryCode": "+91",
-      "phoneNumber": _phoneCtrl.text.trim(),
-      "firstName": capitalizeFirst(_firstNameCtrl.text.trim()),
-      "lastName": capitalizeFirst(_lastNameCtrl.text.trim()),
-      "email": _emailCtrl.text.trim(),
-      "gender": _gender.toLowerCase(),
+      'isEdit': widget.isEdit,
+      if (widget.isEdit && userId != null) 'userId': userId,
+      'countryCode': '+91',
+      'phoneNumber': _phoneCtrl.text.trim(),
+      'firstName': capitalizeFirst(_firstNameCtrl.text.trim()),
+      'lastName': capitalizeFirst(_lastNameCtrl.text.trim()),
+      'email': _emailCtrl.text.trim(),
+      'gender': _gender.toLowerCase(),
       if (_joiningDate != null)
-        "joiningDate":
+        'joiningDate':
             '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-      "brief": capitalizeFirst(_briefCtrl.text.trim()),
-      "roles": _resolveCodes(_selectedRoles, _allRoles),
-      "specializations": _resolveCodes(_selectedSpecs, _allSpecs),
-      "specialities": _resolveCodes(_selectedSpecs, _allSpecs),
-      "profilePictureUrl": imageUrl ?? _existingImageUrl,
-      "allowOnlineBooking": branchAssignment?['allowOnlineBooking'] ??
+      'brief': capitalizeFirst(_briefCtrl.text.trim()),
+      'info': capitalizeFirst(_briefCtrl.text.trim()),
+      'roles': _resolveCodes(_selectedRoles, _allRoles),
+      'specializations': _resolveCodes(_selectedSpecs, _allSpecs),
+      'specialities': _resolveCodes(_selectedSpecs, _allSpecs),
+      'profilePictureUrl': imageUrl ?? _existingImageUrl,
+      'allowOnlineBooking': branchAssignment?['allowOnlineBooking'] ??
           widget.initialMember?['allowOnlineBooking'] ??
           true,
-      "branchServiceIds": branchServiceIds,
-      "userBranchServices": branchAssignment?['userBranchServices'] ??
+      'branchServiceIds': branchServiceIds,
+      'userBranchServices': branchAssignment?['userBranchServices'] ??
           widget.initialMember?['userBranchServices'] ??
           const [],
-      "schedules": branchAssignment?['schedules'] ??
+      'schedules': branchAssignment?['schedules'] ??
           widget.initialMember?['schedules'] ??
           const [],
-      if (_normalizedAddress(widget.initialMember?['address']) != null)
-        "address": _normalizedAddress(widget.initialMember?['address']),
+      if (_teamAddressPayload() != null) 'address': _teamAddressPayload(),
     };
 
     _dismissKeyboard();
-    print('Sending to Choose time slots: $payload');
+
+    debugPrint('Sending to Choose time slots: $payload');
+
     final refresh = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => AddTeamChooseTimeSlot(
           formData: {
-            "salonId": widget.salonId,
-            "branchId": widget.branchId,
-            "salonName": widget.salonName,
+            'salonId': widget.salonId,
+            'branchId': widget.branchId,
+            'salonName': widget.salonName,
             ...payload,
           },
         ),
       ),
     );
+
     if (refresh == true && mounted) {
       Navigator.pop(context, true);
     }
@@ -1054,6 +1286,101 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     );
   }
 
+  Widget _addressField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _reqLabel(translateText('Address')),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: _addressCtrl,
+          focusNode: _addressFocus,
+          autovalidateMode: _showGlobalErrors
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
+          decoration: _decor(
+            hint: translateText('Search address'),
+            prefix: const Icon(
+              Icons.location_on_outlined,
+              color: Color(0xFF8D867F),
+            ),
+            suffix: _addressCtrl.text.trim().isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF8D867F),
+                    ),
+                    onPressed: _clearAddress,
+                  ),
+          ),
+          validator: (_) => _vAddress(),
+          onChanged: (value) {
+            if (_isSelectingAddress) return;
+
+            setState(() {
+              _selectedAddress = null;
+              _suppressAddressError = true;
+            });
+
+            _getAddressPredictions(value);
+          },
+        ),
+        if (_addressPredictions.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2D3BF)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _addressPredictions.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final prediction = _addressPredictions[index];
+
+                return ListTile(
+                  dense: true,
+                  leading: const Icon(
+                    Icons.location_on_outlined,
+                    color: _teamMemberAccent,
+                    size: 20,
+                  ),
+                  title: Text(
+                    prediction.primaryText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: Text(
+                    prediction.secondaryText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  onTap: () => _selectAddressPrediction(prediction),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1092,15 +1419,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         child: Form(
           key: _formKey,
           child: LayoutBuilder(
-            builder: (_, constraints) => SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-              child: ConstrainedBox(
-                constraints:
-                    BoxConstraints(minHeight: constraints.maxHeight - 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!widget.isEdit) ...[
+            builder: (_, constraints) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+                child: ConstrainedBox(
+                  constraints:
+                      BoxConstraints(minHeight: constraints.maxHeight - 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       MultiStepFlowHeader(
                         currentStep: 1,
                         useIcons: true,
@@ -1113,512 +1440,459 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             label: 'Personal',
                             icon: Icons.person_outline_rounded,
                           ),
-                          FlowStepItem(
-                            stepNumber: 2,
-                            label: 'Schedule',
-                          ),
-                          FlowStepItem(
-                            stepNumber: 3,
-                            label: 'Services',
-                          ),
-                          FlowStepItem(
-                            stepNumber: 4,
-                            label: 'Availability',
-                          ),
+                          FlowStepItem(stepNumber: 2, label: 'Schedule'),
+                          FlowStepItem(stepNumber: 3, label: 'Services'),
+                          FlowStepItem(stepNumber: 4, label: 'Availability'),
                         ],
                       ),
                       const SizedBox(height: 34),
-                    ],
-                    Center(
-                      child: GestureDetector(
-                        onTap: _pickImage,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              width: 104,
-                              height: 104,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white,
-                                border: Border.all(
-                                  color: const Color(0xFFD8C7B3),
-                                  width: 1.4,
-                                ),
-                              ),
-                              child: ClipOval(
-                                child: _cameraImage == null
-                                    ? (_existingImageUrl != null
-                                        ? Image.network(
-                                            _existingImageUrl!,
-                                            fit: BoxFit.cover,
-                                            width: 104,
-                                            height: 104,
-                                          )
-                                        : Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              const Icon(
-                                                Icons.camera_alt_outlined,
-                                                color: Color(0xFF8D867F),
-                                                size: 28,
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text(
-                                                translateText('Upload\nPhoto'),
-                                                textAlign: TextAlign.center,
-                                                style: const TextStyle(
-                                                  color: Color(0xFF8D867F),
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w700,
-                                                  height: 1.2,
-                                                ),
-                                              ),
-                                            ],
-                                          ))
-                                    : Image.file(
-                                        _cameraImage!,
-                                        fit: BoxFit.cover,
-                                        width: 104,
-                                        height: 104,
-                                      ),
-                              ),
-                            ),
-                            Positioned(
-                              right: -4,
-                              bottom: 8,
-                              child: Container(
-                                width: 30,
-                                height: 30,
+                      Center(
+                        child: GestureDetector(
+                          onTap: _pickImage,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: 104,
+                                height: 104,
                                 decoration: BoxDecoration(
-                                  color: _teamMemberAccent,
                                   shape: BoxShape.circle,
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x26000000),
-                                      blurRadius: 10,
-                                      offset: Offset(0, 4),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.add_rounded,
                                   color: Colors.white,
-                                  size: 18,
+                                  border: Border.all(
+                                    color: const Color(0xFFD8C7B3),
+                                    width: 1.4,
+                                  ),
+                                ),
+                                child: ClipOval(
+                                  child: _cameraImage == null
+                                      ? (_existingImageUrl != null
+                                          ? Image.network(
+                                              _existingImageUrl!,
+                                              fit: BoxFit.cover,
+                                              width: 104,
+                                              height: 104,
+                                            )
+                                          : Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.camera_alt_outlined,
+                                                  color: Color(0xFF8D867F),
+                                                  size: 28,
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                  translateText(
+                                                      'Upload\nPhoto'),
+                                                  textAlign: TextAlign.center,
+                                                  style: const TextStyle(
+                                                    color: Color(0xFF8D867F),
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w700,
+                                                    height: 1.2,
+                                                  ),
+                                                ),
+                                              ],
+                                            ))
+                                      : Image.file(
+                                          _cameraImage!,
+                                          fit: BoxFit.cover,
+                                          width: 104,
+                                          height: 104,
+                                        ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 34),
-
-                    _sectionTitle('Personal\nInformation'),
-
-                    const SizedBox(height: 16),
-
-                    _reqLabel(translateText('Phone Number')),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _phoneCtrl,
-                      maxLength: AppInputRules.phoneMaxLength,
-                      enabled: widget.isEdit || !_phoneVerified,
-                      keyboardType: TextInputType.phone,
-                      autovalidateMode: _showGlobalErrors
-                          ? AutovalidateMode.onUserInteraction
-                          : AutovalidateMode.disabled,
-                      textCapitalization: TextCapitalization.none,
-                      decoration: _decor(
-                        hint: translateText('Enter phone number'),
-                        prefix: Container(
-                          width: 64,
-                          alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              right: BorderSide(color: Color(0xFFE2D3BF)),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Text(
-                                '+91',
-                                style: TextStyle(
-                                  color: Color(0xFF2D2926),
-                                  fontWeight: FontWeight.w600,
+                              Positioned(
+                                right: -4,
+                                bottom: 8,
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: _teamMemberAccent,
+                                    shape: BoxShape.circle,
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x26000000),
+                                        blurRadius: 10,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.add_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: 4),
-                              Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: 16,
-                                color: Color(0xFF8D867F),
                               ),
                             ],
                           ),
                         ),
                       ),
-                      validator: _vPhone,
-                      onChanged: (_) {
-                        if (!_suppressPhoneError || !_suppressVerifyError) {
-                          setState(() {
-                            _suppressPhoneError = true;
-                            _suppressVerifyError = true;
-                          });
-                        }
-                      },
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                      ],
-                    ),
-
-                    const SizedBox(height: 16),
-                    if (_phoneVerified && !widget.isEdit)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          translateText('Phone verified'),
-                          style: TextStyle(
-                            color: _successColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      )
-                    else if (_showGlobalErrors)
-                      FormField<bool>(
-                        autovalidateMode: AutovalidateMode.always,
-                        // validator: (_) => _vPhoneVerified(),
-                        builder: (state) => state.hasError
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  state.errorText!,
+                      const SizedBox(height: 34),
+                      _sectionTitle('Personal\nInformation'),
+                      const SizedBox(height: 16),
+                      _reqLabel(translateText('Phone Number')),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _phoneCtrl,
+                        maxLength: AppInputRules.phoneMaxLength,
+                        enabled: widget.isEdit || !_phoneVerified,
+                        keyboardType: TextInputType.phone,
+                        autovalidateMode: _showGlobalErrors
+                            ? AutovalidateMode.onUserInteraction
+                            : AutovalidateMode.disabled,
+                        textCapitalization: TextCapitalization.none,
+                        decoration: _decor(
+                          hint: translateText('Enter phone number'),
+                          prefix: Container(
+                            width: 64,
+                            alignment: Alignment.center,
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                right: BorderSide(color: Color(0xFFE2D3BF)),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '+91',
                                   style: TextStyle(
-                                      color: _verifyWarnColor, fontSize: 12),
+                                    color: Color(0xFF2D2926),
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              )
-                            : SizedBox.shrink(),
-                      ),
-
-                    const SizedBox(height: 16),
-
-                    _reqLabel(translateText('First Name')),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      focusNode: _firstNameFocus,
-                      controller: _firstNameCtrl,
-                      maxLength: AppInputRules.nameMaxLength,
-                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                      keyboardType: TextInputType.text,
-                      textCapitalization: TextCapitalization.sentences,
-                      inputFormatters: AppInputRules.nameFormatters,
-                      autovalidateMode: _showGlobalErrors
-                          ? AutovalidateMode.onUserInteraction
-                          : AutovalidateMode.disabled,
-                      decoration:
-                          _decor(hint: translateText('Enter first name')),
-                      validator: _vFirstName,
-                      onChanged: (_) {
-                        if (!_suppressFirstNameError) {
-                          setState(() => _suppressFirstNameError = true);
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    _reqLabel(translateText('Last Name')),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      focusNode: _lastNameFocus,
-                      controller: _lastNameCtrl,
-                      maxLength: AppInputRules.nameMaxLength,
-                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                      keyboardType: TextInputType.text,
-                      textCapitalization: TextCapitalization.sentences,
-                      inputFormatters: AppInputRules.nameFormatters,
-                      autovalidateMode: _showGlobalErrors
-                          ? AutovalidateMode.onUserInteraction
-                          : AutovalidateMode.disabled,
-                      decoration:
-                          _decor(hint: translateText('Enter last name')),
-                      validator: _vLastName,
-                      onChanged: (_) {
-                        if (!_suppressLastNameError) {
-                          setState(() => _suppressLastNameError = true);
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    _reqLabel(translateText('Email')),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      focusNode: _emailFocus,
-                      controller: _emailCtrl,
-                      maxLength: AppInputRules.emailMaxLength,
-                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                      keyboardType: TextInputType.emailAddress,
-                      textCapitalization: TextCapitalization.none,
-                      inputFormatters: AppInputRules.emailFormatters,
-                      autovalidateMode: _showGlobalErrors
-                          ? AutovalidateMode.onUserInteraction
-                          : AutovalidateMode.disabled,
-                      decoration: _decor(
-                        hint: translateText('Enter email address'),
-                        suffix: const Icon(
-                          Icons.mail_outline_rounded,
-                          color: Color(0xFF8D867F),
-                        ),
-                      ),
-                      validator: _vEmail,
-                      onChanged: (_) {
-                        if (!_suppressEmailError) {
-                          setState(() => _suppressEmailError = true);
-                        }
-                      },
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Text(
-                    //   translateText('OTP'),
-                    //   style: TextStyle(
-                    //     fontSize: 14,
-                    //     fontWeight: FontWeight.w600,
-                    //   ),
-                    // ),
-                    // SizedBox(height: 8),
-                    // TextFormField(
-                    //   enabled: false,
-                    //   controller: _otpCtrl,
-                    //   keyboardType: TextInputType.number,
-                    //   autovalidateMode: _showGlobalErrors
-                    //       ? AutovalidateMode.onUserInteraction
-                    //       : AutovalidateMode.disabled,
-                    //   decoration: _decor(hint: translateText('Enter otp')),
-                    //   validator: _vOtp,
-                    //   onChanged: (_) {
-                    //     if (!_suppressOtpError) {
-                    //       setState(() => _suppressOtpError = true);
-                    //     }
-                    //   },
-                    // ),
-
-                    // SizedBox(height: 16),
-
-                    Text(
-                      translateText('Gender').toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF5E564F),
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Radio<String>(
-                          value: 'Male',
-                          groupValue: _gender,
-                          activeColor: _teamMemberAccent,
-                          onChanged: (v) => setState(() {
-                            _gender = v ?? '';
-                            _suppressGenderError = true;
-                          }),
-                        ),
-                        Text(translateText('Male')),
-                        SizedBox(width: 16),
-                        Radio<String>(
-                          value: 'Female',
-                          groupValue: _gender,
-                          activeColor: _teamMemberAccent,
-                          onChanged: (v) => setState(() {
-                            _gender = v ?? '';
-                            _suppressGenderError = true;
-                          }),
-                        ),
-                        Text(translateText('Female')),
-                        SizedBox(width: 16),
-                        Radio<String>(
-                          value: 'Other',
-                          groupValue: _gender,
-                          activeColor: _teamMemberAccent,
-                          onChanged: (v) => setState(() {
-                            _gender = v ?? '';
-                            _suppressGenderError = true;
-                          }),
-                        ),
-                        Text(translateText('Other')),
-                      ],
-                    ),
-                    if (_showGlobalErrors)
-                      FormField<String>(
-                        autovalidateMode: AutovalidateMode.always,
-                        validator: (_) => _vGender(),
-                        builder: (state) => state.hasError
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  state.errorText!,
-                                  style: TextStyle(
-                                      color: _errorColor, fontSize: 12),
+                                SizedBox(width: 4),
+                                Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 16,
+                                  color: Color(0xFF8D867F),
                                 ),
-                              )
-                            : SizedBox.shrink(),
-                      ),
-
-                    const SizedBox(height: 22),
-
-                    _sectionTitle('Professional\nRoles'),
-
-                    const SizedBox(height: 16),
-
-                    _reqLabel(translateText('Roles')),
-                    const SizedBox(height: 8),
-                    _PickField(
-                      hint: translateText('Select Roles'),
-                      values: _selectedRoles,
-                      onTap: () => _openMultiSelect(
-                        title: translateText('Select Roles'),
-                        source: _allRoles,
-                        target: _selectedRoles,
-                      ),
-                    ),
-                    if (_showGlobalErrors)
-                      FormField<List<String>>(
-                        autovalidateMode: AutovalidateMode.always,
-                        validator: (_) => _vRoles(),
-                        builder: (state) => state.hasError
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  state.errorText!,
-                                  style: TextStyle(
-                                      color: _errorColor, fontSize: 12),
-                                ),
-                              )
-                            : SizedBox.shrink(),
-                      ),
-
-                    const SizedBox(height: 16),
-
-                    _reqLabel(translateText('Specializations')),
-                    const SizedBox(height: 8),
-                    _PickField(
-                      hint: translateText('Select Specializations'),
-                      values: _selectedSpecs,
-                      onTap: () => _openMultiSelect(
-                        title: translateText('Select Specializations'),
-                        source: _allSpecs,
-                        target: _selectedSpecs,
-                      ),
-                    ),
-                    if (_showGlobalErrors)
-                      FormField<List<String>>(
-                        autovalidateMode: AutovalidateMode.always,
-                        validator: (_) => _vSpecs(),
-                        builder: (state) => state.hasError
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  state.errorText!,
-                                  style: TextStyle(
-                                      color: _errorColor, fontSize: 12),
-                                ),
-                              )
-                            : SizedBox.shrink(),
-                      ),
-
-                    const SizedBox(height: 16),
-
-                    _reqLabel(translateText('Joining Date')),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: _pickJoiningDate,
-                      child: AbsorbPointer(
-                        child: TextFormField(
-                          readOnly: true,
-                          decoration: _decor(
-                            hint: _joiningDate == null
-                                ? translateText('dd-mm-yyyy')
-                                : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
-                            suffix: const Icon(
-                              Icons.calendar_month_outlined,
-                              color: Color(0xFF8D867F),
+                              ],
                             ),
                           ),
-                          validator: (_) => null,
+                        ),
+                        validator: _vPhone,
+                        onChanged: (_) {
+                          if (!_suppressPhoneError || !_suppressVerifyError) {
+                            setState(() {
+                              _suppressPhoneError = true;
+                              _suppressVerifyError = true;
+                            });
+                          }
+                        },
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (_phoneVerified && !widget.isEdit)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            translateText('Phone verified'),
+                            style: TextStyle(
+                              color: _successColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      else if (_showGlobalErrors)
+                        FormField<bool>(
+                          autovalidateMode: AutovalidateMode.always,
+                          builder: (state) => state.hasError
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    state.errorText!,
+                                    style: TextStyle(
+                                      color: _verifyWarnColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      const SizedBox(height: 16),
+                      _reqLabel(translateText('First Name')),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        focusNode: _firstNameFocus,
+                        controller: _firstNameCtrl,
+                        maxLength: AppInputRules.nameMaxLength,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.sentences,
+                        inputFormatters: AppInputRules.nameFormatters,
+                        autovalidateMode: _showGlobalErrors
+                            ? AutovalidateMode.onUserInteraction
+                            : AutovalidateMode.disabled,
+                        decoration:
+                            _decor(hint: translateText('Enter first name')),
+                        validator: _vFirstName,
+                        onChanged: (_) {
+                          if (!_suppressFirstNameError) {
+                            setState(() => _suppressFirstNameError = true);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _reqLabel(translateText('Last Name')),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        focusNode: _lastNameFocus,
+                        controller: _lastNameCtrl,
+                        maxLength: AppInputRules.nameMaxLength,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.sentences,
+                        inputFormatters: AppInputRules.nameFormatters,
+                        autovalidateMode: _showGlobalErrors
+                            ? AutovalidateMode.onUserInteraction
+                            : AutovalidateMode.disabled,
+                        decoration:
+                            _decor(hint: translateText('Enter last name')),
+                        validator: _vLastName,
+                        onChanged: (_) {
+                          if (!_suppressLastNameError) {
+                            setState(() => _suppressLastNameError = true);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _reqLabel(translateText('Email')),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        focusNode: _emailFocus,
+                        controller: _emailCtrl,
+                        maxLength: AppInputRules.emailMaxLength,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        keyboardType: TextInputType.emailAddress,
+                        textCapitalization: TextCapitalization.none,
+                        inputFormatters: AppInputRules.emailFormatters,
+                        autovalidateMode: _showGlobalErrors
+                            ? AutovalidateMode.onUserInteraction
+                            : AutovalidateMode.disabled,
+                        decoration: _decor(
+                          hint: translateText('Enter email address'),
+                          suffix: const Icon(
+                            Icons.mail_outline_rounded,
+                            color: Color(0xFF8D867F),
+                          ),
+                        ),
+                        validator: _vEmail,
+                        onChanged: (_) {
+                          if (!_suppressEmailError) {
+                            setState(() => _suppressEmailError = true);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      _addressField(),
+                      const SizedBox(height: 16),
+                      Text(
+                        translateText('Gender').toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF5E564F),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.4,
                         ),
                       ),
-                    ),
-                    if (_showGlobalErrors)
-                      FormField<DateTime>(
-                        autovalidateMode: AutovalidateMode.always,
-                        validator: (_) => _vJoiningDate(),
-                        builder: (state) => state.hasError
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  state.errorText!,
-                                  style: TextStyle(
-                                      color: _errorColor, fontSize: 12),
-                                ),
-                              )
-                            : SizedBox.shrink(),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Radio<String>(
+                            value: 'Male',
+                            groupValue: _gender,
+                            activeColor: _teamMemberAccent,
+                            onChanged: (v) => setState(() {
+                              _gender = v ?? '';
+                              _suppressGenderError = true;
+                            }),
+                          ),
+                          Text(translateText('Male')),
+                          const SizedBox(width: 16),
+                          Radio<String>(
+                            value: 'Female',
+                            groupValue: _gender,
+                            activeColor: _teamMemberAccent,
+                            onChanged: (v) => setState(() {
+                              _gender = v ?? '';
+                              _suppressGenderError = true;
+                            }),
+                          ),
+                          Text(translateText('Female')),
+                          const SizedBox(width: 16),
+                          Radio<String>(
+                            value: 'Other',
+                            groupValue: _gender,
+                            activeColor: _teamMemberAccent,
+                            onChanged: (v) => setState(() {
+                              _gender = v ?? '';
+                              _suppressGenderError = true;
+                            }),
+                          ),
+                          Text(translateText('Other')),
+                        ],
                       ),
-
-                    const SizedBox(height: 16),
-
-                    _optionalLabel('Brief About Team Member'),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      focusNode: _brieftFocus,
-                      controller: _briefCtrl,
-                      maxLines: 4,
-                      maxLength: AppInputRules.mediumTextMaxLength,
-                      maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                      keyboardType: TextInputType.text,
-                      textCapitalization: TextCapitalization.sentences,
-                      inputFormatters: AppInputRules.generalTextFormatters(),
-                      decoration: _decor(
-                        hint: translateText(
-                          "Tell us about the team member's experience and expertise...",
+                      if (_showGlobalErrors)
+                        FormField<String>(
+                          autovalidateMode: AutovalidateMode.always,
+                          validator: (_) => _vGender(),
+                          builder: (state) => state.hasError
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    state.errorText!,
+                                    style: TextStyle(
+                                      color: _errorColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
                         ),
-                      ).copyWith(
-                        contentPadding: const EdgeInsets.all(14),
+                      const SizedBox(height: 22),
+                      _sectionTitle('Professional\nRoles'),
+                      const SizedBox(height: 16),
+                      _reqLabel(translateText('Roles')),
+                      const SizedBox(height: 8),
+                      _PickField(
+                        hint: translateText('Select Roles'),
+                        values: _selectedRoles,
+                        onTap: () => _openMultiSelect(
+                          title: translateText('Select Roles'),
+                          source: _allRoles,
+                          target: _selectedRoles,
+                        ),
                       ),
-                      validator: (_) => null, // Brief excluded
-                    ),
-
-                    const SizedBox(height: 34),
-
-                    _promoCard(),
-
-                    const SizedBox(height: 28),
-
-                    _PrimaryButton(
-                      text: widget.isEdit
-                          ? translateText('Save Changes')
-                          : '${translateText('Next Step')}  →',
-                      height: 54,
-                      flowStyle: true,
-                      isLoading: _isSubmitting,
-                      onPressed: _goToScheduleStep,
-                    ),
-
-                    const SizedBox(height: 20),
-                  ],
+                      if (_showGlobalErrors)
+                        FormField<List<String>>(
+                          autovalidateMode: AutovalidateMode.always,
+                          validator: (_) => _vRoles(),
+                          builder: (state) => state.hasError
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    state.errorText!,
+                                    style: TextStyle(
+                                      color: _errorColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      const SizedBox(height: 16),
+                      _reqLabel(translateText('Specializations')),
+                      const SizedBox(height: 8),
+                      _PickField(
+                        hint: translateText('Select Specializations'),
+                        values: _selectedSpecs,
+                        onTap: () => _openMultiSelect(
+                          title: translateText('Select Specializations'),
+                          source: _allSpecs,
+                          target: _selectedSpecs,
+                        ),
+                      ),
+                      if (_showGlobalErrors)
+                        FormField<List<String>>(
+                          autovalidateMode: AutovalidateMode.always,
+                          validator: (_) => _vSpecs(),
+                          builder: (state) => state.hasError
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    state.errorText!,
+                                    style: TextStyle(
+                                      color: _errorColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      const SizedBox(height: 16),
+                      _reqLabel(translateText('Joining Date')),
+                      const SizedBox(height: 8),
+                      GestureDetector(
+                        onTap: _pickJoiningDate,
+                        child: AbsorbPointer(
+                          child: TextFormField(
+                            readOnly: true,
+                            decoration: _decor(
+                              hint: _joiningDate == null
+                                  ? translateText('dd-mm-yyyy')
+                                  : '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
+                              suffix: const Icon(
+                                Icons.calendar_month_outlined,
+                                color: Color(0xFF8D867F),
+                              ),
+                            ),
+                            validator: (_) => null,
+                          ),
+                        ),
+                      ),
+                      if (_showGlobalErrors)
+                        FormField<DateTime>(
+                          autovalidateMode: AutovalidateMode.always,
+                          validator: (_) => _vJoiningDate(),
+                          builder: (state) => state.hasError
+                              ? Padding(
+                                  padding: const EdgeInsets.only(top: 6),
+                                  child: Text(
+                                    state.errorText!,
+                                    style: TextStyle(
+                                      color: _errorColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      const SizedBox(height: 16),
+                      _optionalLabel('Brief About Team Member'),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        focusNode: _brieftFocus,
+                        controller: _briefCtrl,
+                        maxLines: 4,
+                        maxLength: AppInputRules.mediumTextMaxLength,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.sentences,
+                        inputFormatters: AppInputRules.generalTextFormatters(),
+                        decoration: _decor(
+                          hint: translateText(
+                            "Tell us about the team member's experience and expertise...",
+                          ),
+                        ).copyWith(
+                          contentPadding: const EdgeInsets.all(14),
+                        ),
+                        validator: (_) => null,
+                      ),
+                      const SizedBox(height: 34),
+                      _promoCard(),
+                      const SizedBox(height: 28),
+                      _PrimaryButton(
+                        text: '${translateText('Next Step')}  →',
+                        height: 54,
+                        flowStyle: true,
+                        isLoading: _isSubmitting,
+                        onPressed: _goToScheduleStep,
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
@@ -1640,6 +1914,7 @@ class _PickField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = values.isEmpty ? hint : values.join(', ');
+
     return GestureDetector(
       onTap: onTap,
       child: AbsorbPointer(
@@ -1672,7 +1947,6 @@ class _PickField extends StatelessWidget {
               ),
             ),
           ),
-          // No validator here â€” inline errors are handled via FormField wrappers above.
         ),
       ),
     );

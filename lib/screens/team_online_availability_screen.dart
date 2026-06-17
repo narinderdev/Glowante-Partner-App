@@ -350,23 +350,87 @@ class _TeamOnlineAvailabilityScreenState
         );
       }
 
-      if (widget.mode == TeamAvailabilityMode.editMember) {
-        final payload = Map<String, dynamic>.from(widget.payload ?? {});
-        payload['allowOnlineBooking'] = _allowOnlineBooking;
-        final response = await ApiService().updateTeamMember(
-          branchId: widget.branchId,
-          userId: widget.userId!,
-          payload: payload,
-        );
-        if (!mounted) return;
-        if (response['success'] == true) {
-          Navigator.pop(context, true);
-          return;
-        }
-        throw Exception(
-          response['message']?.toString() ?? 'Failed to update team member',
-        );
-      }
+      // if (widget.mode == TeamAvailabilityMode.editMember) {
+      //   final payload = Map<String, dynamic>.from(widget.payload ?? {});
+      //   payload['allowOnlineBooking'] = _allowOnlineBooking;
+      //   final response = await ApiService().updateTeamMember(
+      //     branchId: widget.branchId,
+      //     userId: widget.userId!,
+      //     payload: payload,
+      //   );
+      //   if (!mounted) return;
+      //   if (response['success'] == true) {
+      //     Navigator.pop(context, true);
+      //     return;
+      //   }
+      //   throw Exception(
+      //     response['message']?.toString() ?? 'Failed to update team member',
+      //   );
+      // }
+      if (widget.mode == TeamAvailabilityMode.addMember) {
+  final payload = Map<String, dynamic>.from(widget.payload ?? {});
+  payload['allowOnlineBooking'] = _allowOnlineBooking;
+
+  final response = await ApiService().addTeamMember(
+    widget.branchId,
+    payload,
+  );
+
+  if (!mounted) return;
+
+  if (response['success'] == true) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText('Team member added successfully'),
+        ),
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 700));
+
+    if (!mounted) return;
+    Navigator.pop(context, true);
+    return;
+  }
+
+  throw Exception(
+    response['message']?.toString() ?? 'Failed to add team member',
+  );
+}
+
+if (widget.mode == TeamAvailabilityMode.editMember) {
+  final payload = Map<String, dynamic>.from(widget.payload ?? {});
+  payload['allowOnlineBooking'] = _allowOnlineBooking;
+
+  final response = await ApiService().updateTeamMember(
+    branchId: widget.branchId,
+    userId: widget.userId!,
+    payload: payload,
+  );
+
+  if (!mounted) return;
+
+  if (response['success'] == true) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText('Team member updated successfully'),
+        ),
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 700));
+
+    if (!mounted) return;
+    Navigator.pop(context, true);
+    return;
+  }
+
+  throw Exception(
+    response['message']?.toString() ?? 'Failed to update team member',
+  );
+}
 
       final joiningDate =
           '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}';
@@ -379,10 +443,21 @@ class _TeamOnlineAvailabilityScreenState
         _allowOnlineBooking,
       );
       if (!mounted) return;
-      if (response['success'] == true) {
-        Navigator.pop(context, true);
-        return;
-      }
+     if (response['success'] == true) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        translateText('User assigned successfully'),
+      ),
+    ),
+  );
+
+  await Future.delayed(const Duration(milliseconds: 700));
+
+  if (!mounted) return;
+  Navigator.pop(context, true);
+  return;
+}
       throw Exception(
         response['message']?.toString() ?? 'Failed to assign user',
       );

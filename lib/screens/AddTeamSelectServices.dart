@@ -153,11 +153,63 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   }
 
   /// Build exactly what the API expects.
+  // Map<String, dynamic> _buildPayloadForApi(
+  //   Map<String, dynamic> base,
+  //   List<int> branchServiceIds,
+  // ) {
+  //   // roles & specs normalization
+  //   final roles = (base['roles'] as List? ?? const [])
+  //       .map((e) => _roleToCode(e.toString()))
+  //       .toList();
+
+  //   final specs = (base['specialities'] as List? ??
+  //           base['specializations'] as List? ??
+  //           const [])
+  //       .map((e) => _specToCode(e.toString()))
+  //       .toList();
+
+  //   // schedules normalization to HH:mm
+  //   final schedules =
+  //       (base['schedules'] as List? ?? const []).map<Map<String, dynamic>>((s) {
+  //     final sm = (s as Map).cast<String, dynamic>();
+  //     return {
+  //       'day': (sm['day'] ?? '').toString().toLowerCase(),
+  //       'startTime': _to24h((sm['startTime'] ?? sm['start'] ?? '').toString()),
+  //       'endTime': _to24h((sm['endTime'] ?? sm['end'] ?? '').toString()),
+  //     };
+  //   }).toList();
+
+  //   // countryCode default
+  //   final countryCode = (base['countryCode'] ?? '+91').toString();
+
+  //   // joiningDate passthrough (string "YYYY-MM-DD" preferred)
+  //   final joiningDate = base['joiningDate'];
+
+  //   final result = <String, dynamic>{
+  //     'countryCode': countryCode,
+  //     'phoneNumber': base['phoneNumber'],
+  //     'firstName': base['firstName'],
+  //     'lastName': base['lastName'],
+  //     'email': base['email'],
+  //     'gender': (base['gender'] ?? '').toString().toLowerCase(),
+  //     'joiningDate': joiningDate, // ensure it's "yyyy-MM-dd"
+  //     'info': base['info'] ?? base['brief'],
+  //     'roles': roles,
+  //     'specialities': specs,
+  //     'schedules': schedules,
+  //     'branchServiceIds': branchServiceIds,
+  //     'profilePictureUrl': base['profilePictureUrl'],
+  //     'allowOnlineBooking': base['allowOnlineBooking'] ?? false,
+
+  //   };
+
+  //   return _cleanBody(result);
+  // }
+
   Map<String, dynamic> _buildPayloadForApi(
     Map<String, dynamic> base,
     List<int> branchServiceIds,
   ) {
-    // roles & specs normalization
     final roles = (base['roles'] as List? ?? const [])
         .map((e) => _roleToCode(e.toString()))
         .toList();
@@ -168,10 +220,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
         .map((e) => _specToCode(e.toString()))
         .toList();
 
-    // schedules normalization to HH:mm
     final schedules =
         (base['schedules'] as List? ?? const []).map<Map<String, dynamic>>((s) {
       final sm = (s as Map).cast<String, dynamic>();
+
       return {
         'day': (sm['day'] ?? '').toString().toLowerCase(),
         'startTime': _to24h((sm['startTime'] ?? sm['start'] ?? '').toString()),
@@ -179,11 +231,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       };
     }).toList();
 
-    // countryCode default
     final countryCode = (base['countryCode'] ?? '+91').toString();
-
-    // joiningDate passthrough (string "YYYY-MM-DD" preferred)
-    final joiningDate = base['joiningDate'];
 
     final result = <String, dynamic>{
       'countryCode': countryCode,
@@ -192,7 +240,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       'lastName': base['lastName'],
       'email': base['email'],
       'gender': (base['gender'] ?? '').toString().toLowerCase(),
-      'joiningDate': joiningDate, // ensure it's "yyyy-MM-dd"
+      'joiningDate': base['joiningDate'],
       'info': base['info'] ?? base['brief'],
       'roles': roles,
       'specialities': specs,
@@ -200,7 +248,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       'branchServiceIds': branchServiceIds,
       'profilePictureUrl': base['profilePictureUrl'],
       'allowOnlineBooking': base['allowOnlineBooking'] ?? false,
+      if (base['address'] != null) 'address': base['address'],
     };
+
+    debugPrint('FINAL PAYLOAD TO AVAILABILITY SCREEN: $result');
 
     return _cleanBody(result);
   }

@@ -35,27 +35,36 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   bool _isSubmitting = false;
   bool _useSalonHours = false;
   bool _isLoadingOperatingSchedule = false;
+  bool _hasPrefilledMemberSchedule = false;
+
+bool get _isEditFlow => widget.formData['isEdit'] == true;
   final Set<String> _closedDays = <String>{};
   final Map<String, List<_OperatingSlot>> _operatingSlotsByDay =
       <String, List<_OperatingSlot>>{};
 
   @override
-  void initState() {
-    super.initState();
-    weeklySchedule = {
-      'Monday': [],
-      'Tuesday': [],
-      'Wednesday': [],
-      'Thursday': [],
-      'Friday': [],
-      'Saturday': [],
-      'Sunday': [],
-    };
-    mondaySchedule = {}; // Initializing Monday's schedule separately
-    _prefillSchedules();
-    _loadOperatingSchedule();
-  }
+void initState() {
+  super.initState();
 
+  weeklySchedule = {
+    'Monday': [],
+    'Tuesday': [],
+    'Wednesday': [],
+    'Thursday': [],
+    'Friday': [],
+    'Saturday': [],
+    'Sunday': [],
+  };
+
+  mondaySchedule = {};
+
+  _hasPrefilledMemberSchedule = _prefillSchedules();
+
+  _useSalonHours = widget.formData['useSalonHours'] == true &&
+      !_hasPrefilledMemberSchedule;
+
+  _loadOperatingSchedule();
+}
   String _dayKey(String day) => day.trim().toLowerCase();
 
   bool _isClosedDay(String day) => _closedDays.contains(_dayKey(day));
@@ -132,43 +141,94 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     return null;
   }
 
-  bool _applyOperatingSchedule(dynamic rawSchedule) {
-    final schedule = _extractSchedule(rawSchedule);
-    final operatingSlots = _operatingSlotsFromSchedule(schedule);
-    if (operatingSlots == null) return false;
-    final closedDays = _weekDays
-        .map(_dayKey)
-        .where((day) => !operatingSlots.containsKey(day))
-        .toSet();
+  // bool _applyOperatingSchedule(dynamic rawSchedule) {
+  //   final schedule = _extractSchedule(rawSchedule);
+  //   final operatingSlots = _operatingSlotsFromSchedule(schedule);
+  //   if (operatingSlots == null) return false;
+  //   final closedDays = _weekDays
+  //       .map(_dayKey)
+  //       .where((day) => !operatingSlots.containsKey(day))
+  //       .toSet();
 
-    if (!mounted) {
-      _operatingSlotsByDay
-        ..clear()
-        ..addAll(operatingSlots);
-      _closedDays
-        ..clear()
-        ..addAll(closedDays);
-      for (final day in _closedDays) {
-        weeklySchedule[_displayDay(day)]?.clear();
-      }
-      _fillEmptyDaysFromOperatingSlots(operatingSlots);
-      return true;
+  //   if (!mounted) {
+  //     _operatingSlotsByDay
+  //       ..clear()
+  //       ..addAll(operatingSlots);
+  //     _closedDays
+  //       ..clear()
+  //       ..addAll(closedDays);
+  //     for (final day in _closedDays) {
+  //       weeklySchedule[_displayDay(day)]?.clear();
+  //     }
+  //     _fillEmptyDaysFromOperatingSlots(operatingSlots);
+  //     return true;
+  //   }
+
+  //   setState(() {
+  //     _operatingSlotsByDay
+  //       ..clear()
+  //       ..addAll(operatingSlots);
+  //     _closedDays
+  //       ..clear()
+  //       ..addAll(closedDays);
+  //     for (final day in _closedDays) {
+  //       weeklySchedule[_displayDay(day)]?.clear();
+  //     }
+  //     _fillEmptyDaysFromOperatingSlots(operatingSlots);
+  //   });
+  //   return true;
+  // }
+  bool _applyOperatingSchedule(dynamic rawSchedule) {
+  final schedule = _extractSchedule(rawSchedule);
+  final operatingSlots = _operatingSlotsFromSchedule(schedule);
+
+  if (operatingSlots == null) return false;
+
+  final closedDays = _weekDays
+      .map(_dayKey)
+      .where((day) => !operatingSlots.containsKey(day))
+      .toSet();
+
+  void apply() {
+    _operatingSlotsByDay
+      ..clear()
+      ..addAll(operatingSlots);
+
+    _closedDays
+      ..clear()
+      ..addAll(closedDays);
+
+    for (final day in _closedDays) {
+      weeklySchedule[_displayDay(day)]?.clear();
     }
 
-    setState(() {
-      _operatingSlotsByDay
-        ..clear()
-        ..addAll(operatingSlots);
-      _closedDays
-        ..clear()
-        ..addAll(closedDays);
-      for (final day in _closedDays) {
-        weeklySchedule[_displayDay(day)]?.clear();
-      }
+    // Important:
+    // Add flow can default empty days to salon/branch hours.
+    // Edit flow must keep only the member's saved slots.
+    if (!_isEditFlow && !_hasPrefilledMemberSchedule) {
       _fillEmptyDaysFromOperatingSlots(operatingSlots);
-    });
+      return;
+    }
+
+    // For edit: only normalize existing saved slots if possible.
+    for (final day in _weekDays) {
+      final slots = weeklySchedule[day];
+      if (slots == null || slots.isEmpty) continue;
+
+      weeklySchedule[day] = slots
+          .map((slot) => _normalizeSlotWithinDay(day, slot))
+          .toList();
+    }
+  }
+
+  if (!mounted) {
+    apply();
     return true;
   }
+
+  setState(apply);
+  return true;
+}
 
   Map<String, List<_OperatingSlot>>? _operatingSlotsFromSchedule(
     dynamic schedule,
@@ -370,27 +430,66 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     }).toList();
   }
 
-  void _prefillSchedules() {
-    final rawSchedules = widget.formData['schedules'];
-    if (rawSchedules is! List || rawSchedules.isEmpty) return;
+  // void _prefillSchedules() {
+  //   final rawSchedules = widget.formData['schedules'];
+  //   if (rawSchedules is! List || rawSchedules.isEmpty) return;
 
-    for (final raw in rawSchedules.whereType<Map>()) {
-      final day = (raw['day'] ?? '').toString().trim().toLowerCase();
-      if (day.isEmpty) continue;
-      final normalizedDay = '${day[0].toUpperCase()}${day.substring(1)}';
-      if (!weeklySchedule.containsKey(normalizedDay)) continue;
-      weeklySchedule[normalizedDay] = [
-        {
-          'start': _normalizeDisplayTime(
-            (raw['startTime'] ?? raw['start'] ?? '').toString(),
-          ),
-          'end': _normalizeDisplayTime(
-            (raw['endTime'] ?? raw['end'] ?? '').toString(),
-          ),
-        },
-      ];
-    }
+  //   for (final raw in rawSchedules.whereType<Map>()) {
+  //     final day = (raw['day'] ?? '').toString().trim().toLowerCase();
+  //     if (day.isEmpty) continue;
+  //     final normalizedDay = '${day[0].toUpperCase()}${day.substring(1)}';
+  //     if (!weeklySchedule.containsKey(normalizedDay)) continue;
+  //     weeklySchedule[normalizedDay] = [
+  //       {
+  //         'start': _normalizeDisplayTime(
+  //           (raw['startTime'] ?? raw['start'] ?? '').toString(),
+  //         ),
+  //         'end': _normalizeDisplayTime(
+  //           (raw['endTime'] ?? raw['end'] ?? '').toString(),
+  //         ),
+  //       },
+  //     ];
+  //   }
+  // }
+  bool _prefillSchedules() {
+  final rawSchedules = widget.formData['schedules'];
+
+  if (rawSchedules is! List || rawSchedules.isEmpty) {
+    return false;
   }
+
+  var foundAny = false;
+
+  for (final raw in rawSchedules.whereType<Map>()) {
+    final day = (raw['day'] ?? '').toString().trim().toLowerCase();
+    if (day.isEmpty) continue;
+
+    final normalizedDay = _displayDay(day);
+
+    if (!weeklySchedule.containsKey(normalizedDay)) continue;
+
+    final startRaw = (raw['startTime'] ?? raw['start'] ?? '').toString();
+    final endRaw = (raw['endTime'] ?? raw['end'] ?? '').toString();
+
+    final startMinutes = _parseTimeToMinutes(startRaw);
+    final endMinutes = _parseTimeToMinutes(endRaw);
+
+    if (startMinutes == null || endMinutes == null || endMinutes <= startMinutes) {
+      continue;
+    }
+
+    weeklySchedule[normalizedDay] ??= [];
+
+    weeklySchedule[normalizedDay]!.add({
+      'start': _formatMinutes(startMinutes),
+      'end': _formatMinutes(endMinutes),
+    });
+
+    foundAny = true;
+  }
+
+  return foundAny;
+}
 
   // Method to add a slot to a specific day
   void addSlot(String day) {
@@ -1048,21 +1147,43 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                     ],
                   ),
                 ],
+                // CheckboxListTile(
+                //   contentPadding: EdgeInsets.zero,
+                //   value: _useSalonHours,
+                //   onChanged: (value) {
+                //     setState(() {
+                //       _useSalonHours = value ?? false;
+                //     });
+                //   },
+                //   title: Text(translateText('Use salon open & close time')),
+                //   subtitle: Text(
+                //     translateText(
+                //         'Apply the salon\'s operating hours instead of defining custom time slots.'),
+                //   ),
+                //   controlAffinity: ListTileControlAffinity.leading,
+                // ),
                 CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _useSalonHours,
-                  onChanged: (value) {
-                    setState(() {
-                      _useSalonHours = value ?? false;
-                    });
-                  },
-                  title: Text(translateText('Use salon open & close time')),
-                  subtitle: Text(
-                    translateText(
-                        'Apply the salon\'s operating hours instead of defining custom time slots.'),
-                  ),
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
+  contentPadding: EdgeInsets.zero,
+  value: _useSalonHours,
+  onChanged: (value) {
+    setState(() {
+      _useSalonHours = value ?? false;
+
+      if (_useSalonHours) {
+        for (final day in _weekDays) {
+          weeklySchedule[day]?.clear();
+        }
+      }
+    });
+  },
+  title: Text(translateText('Use salon open & close time')),
+  subtitle: Text(
+    translateText(
+      'Apply the salon\'s operating hours instead of defining custom time slots.',
+    ),
+  ),
+  controlAffinity: ListTileControlAffinity.leading,
+),
                 if (_useSalonHours)
                   Container(
                     width: double.infinity,
