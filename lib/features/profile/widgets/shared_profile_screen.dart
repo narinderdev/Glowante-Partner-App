@@ -104,9 +104,18 @@ class SharedProfileScreen extends StatelessWidget {
                 section,
               ],
               const SizedBox(height: 14),
-              for (final item in menuItems) ...[
-                _ProfileMenuCard(item: item),
-                const SizedBox(height: 12),
+              for (var index = 0; index < menuItems.length; index++) ...[
+                _ProfileMenuCard(item: menuItems[index]),
+                if (index != menuItems.length - 1) ...[
+                  const SizedBox(height: 8),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFE8DED6),
+                  ),
+                  const SizedBox(height: 8),
+                ] else
+                  const SizedBox(height: 12),
               ],
               const SizedBox(height: 16),
               _ProfileSectionLabel(

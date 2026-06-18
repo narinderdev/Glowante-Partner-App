@@ -198,6 +198,11 @@ class ApiService {
 
   static String getBranchServicesAPI(int branchId) =>
       "branches/$branchId/services";
+  static const String membershipPlansAPI = "membership-plans";
+  static String salonSubscriptionAPI(int salonId) =>
+      "admin/salons/$salonId/subscription";
+  static String salonSubscriptionsAPI(int salonId) =>
+      "admin/salons/$salonId/subscriptions";
   static String getBranchServicesFlatAPI(int branchId) =>
       "branches/$branchId/services/flat";
   static String importPredefinedServicesAPI(int branchId) =>
@@ -213,6 +218,9 @@ class ApiService {
   static String getVendorDetailsAPI(int branchId, int vendorId) =>
       "branches/$branchId/vendors/$vendorId";
   static String getBranchStoreAPI(int branchId) => "branches/$branchId/store";
+  static String branchRolesAPI(int branchId) => "branches/$branchId/roles";
+  static String branchRoleDetailsAPI(int branchId, int roleId) =>
+      "branches/$branchId/roles/$roleId";
   static String branchDashboardAPI(int branchId) =>
       "v2/branches/$branchId/dashboard";
   static String payrollSetupTeamMembersAPI(int branchId) =>
@@ -506,6 +514,106 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
     }
     return urls;
   }
+
+  Future<Map<String, dynamic>> getMembershipPlans() {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: membershipPlansAPI,
+      debugTag: 'MembershipPlans',
+    );
+  }
+
+  Future<Map<String, dynamic>> getSalonSubscription(int salonId) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: salonSubscriptionAPI(salonId),
+      debugTag: 'SalonSubscription',
+    );
+  }
+
+  Future<Map<String, dynamic>> createSalonSubscription({
+    required int salonId,
+    required int planId,
+    required String billingCycle,
+    required String paymentReference,
+    String? razorpayOrderId,
+    String? razorpaySignature,
+    int? amountMinor,
+    String currency = 'INR',
+  }) async {
+    final normalizedBillingCycle =
+        billingCycle.toUpperCase() == 'YEARLY' ? 'ANNUAL' : billingCycle;
+    final payload = <String, dynamic>{
+      'planId': planId,
+      'billingCycle': normalizedBillingCycle,
+      'paymentReference': paymentReference,
+      'razorpayPaymentId': paymentReference,
+      if (razorpayOrderId != null && razorpayOrderId.isNotEmpty)
+        'razorpayOrderId': razorpayOrderId,
+      if (razorpaySignature != null && razorpaySignature.isNotEmpty)
+        'razorpaySignature': razorpaySignature,
+      if (amountMinor != null) 'amountMinor': amountMinor,
+      'currency': currency,
+    };
+
+    final response = await _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: salonSubscriptionsAPI(salonId),
+      debugTag: 'CreateSalonSubscription',
+      body: payload,
+    );
+    if (response['success'] == true) return response;
+    final statusCode = response['statusCode'];
+    if (statusCode != 404 && statusCode != 405) return response;
+
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: salonSubscriptionAPI(salonId),
+      debugTag: 'CreateSalonSubscriptionSingular',
+      body: payload,
+    );
+  }
+
+  Future<Map<String, dynamic>> getBranchRoles(int branchId) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: branchRolesAPI(branchId),
+      debugTag: 'BranchRoles',
+    );
+  }
+
+  Future<Map<String, dynamic>> createBranchRole({
+    required int branchId,
+    required String label,
+    required List<int> permissionIds,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: branchRolesAPI(branchId),
+      debugTag: 'CreateBranchRole',
+      body: <String, dynamic>{
+        'label': label,
+        'permissionIds': permissionIds,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> updateBranchRole({
+    required int branchId,
+    required int roleId,
+    required String label,
+    required List<int> permissionIds,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: branchRoleDetailsAPI(branchId, roleId),
+      debugTag: 'UpdateBranchRole',
+      body: <String, dynamic>{
+        'label': label,
+        'permissionIds': permissionIds,
+      },
+    );
+  }
   // ---------------------- AUTH HELPERS ----------------------
 
   Future<String> getAuthToken() async {
@@ -610,6 +718,7 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
           'success': false,
           'message': decoded['message']?.toString() ?? 'Request failed',
           'data': decoded['data'] ?? decoded,
+          'statusCode': response.statusCode,
         };
       }
 

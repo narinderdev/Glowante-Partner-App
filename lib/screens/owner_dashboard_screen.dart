@@ -14,6 +14,8 @@ import '../utils/localization_helper.dart';
 import 'bottom_nav.dart';
 import 'owner_ai_insights_screen.dart';
 import 'owner_branch_clients_screen.dart';
+import 'owner_membership_screen.dart';
+import 'owner_roles_permissions_screen.dart';
 import 'owner_sales_reports_screen.dart';
 import 'SalonReviews.dart';
 
@@ -875,6 +877,16 @@ class _DashboardDrawer extends StatelessWidget {
         screen: const OwnerBranchClientsScreen(),
       ),
       _DashboardDrawerItem(
+        icon: Icons.workspace_premium_outlined,
+        label: context.t('Membership'),
+        screen: const OwnerMembershipScreen(),
+      ),
+      _DashboardDrawerItem(
+        icon: Icons.admin_panel_settings_outlined,
+        label: context.t('Roles'),
+        screen: const OwnerRolesPermissionsScreen(),
+      ),
+      _DashboardDrawerItem(
         icon: Icons.tune_rounded,
         label: context.t('Commission'),
         screen: const ProfileCompensationScreen(
@@ -978,7 +990,11 @@ class _DashboardDrawer extends StatelessWidget {
               Expanded(
                 child: ListView.separated(
                   itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  separatorBuilder: (_, __) => const Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: Color(0xFFE8DED6),
+                  ),
                   itemBuilder: (context, index) {
                     final item = items[index];
                     return Material(
