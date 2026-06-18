@@ -830,101 +830,253 @@ class _DashboardLoadingOverlay extends StatelessWidget {
   }
 }
 
-class _DashboardDrawer extends StatelessWidget {
+class _DashboardDrawer extends StatefulWidget {
   const _DashboardDrawer({required this.onOpen});
 
   final ValueChanged<Widget> onOpen;
 
   @override
+  State<_DashboardDrawer> createState() => _DashboardDrawerState();
+}
+
+class _DashboardDrawerState extends State<_DashboardDrawer> {
+  final Set<String> _expandedGroups = <String>{};
+  String? _selectedDrawerItem;
+
+  @override
   Widget build(BuildContext context) {
-    final items = <_DashboardDrawerItem>[
-      _DashboardDrawerItem(
-        icon: Icons.inventory_2_outlined,
-        label: context.t('Inventory'),
-        screen: const OwnerProfileOperationsScreen(
-          initialModule: OwnerOperationsModule.inventory,
-        ),
-      ),
-      _DashboardDrawerItem(
-        icon: Icons.auto_awesome_outlined,
-        label: context.t('AI Insights'),
-        screen: const OwnerAiInsightsScreen(),
-      ),
-      _DashboardDrawerItem(
-        icon: Icons.insert_chart_outlined_rounded,
-        label: context.t('Sales & Reports'),
-        screen: const OwnerSalesReportsScreen(
-          initialModule: OwnerSalesReportModule.revenueSales,
-        ),
-      ),
-      _DashboardDrawerItem(
+    final entries = <Widget>[
+      _DashboardDrawerGroupTile(
+        id: 'payroll',
         icon: Icons.payments_outlined,
         label: context.t('Payroll'),
-        screen: const ProfileCompensationScreen(
-          initialModule: CompensationModule.payroll,
+        isExpanded: _expandedGroups.contains('payroll'),
+        isSelected: _isGroupSelected('payroll'),
+        onToggle: () => _toggleGroup('payroll'),
+        children: [
+          _DashboardDrawerChildItem(
+            id: 'payroll.payroll',
+            label: context.t('Payroll'),
+            screen: const ProfileCompensationScreen(
+              initialModule: CompensationModule.payroll,
+            ),
+          ),
+          _DashboardDrawerChildItem(
+            id: 'payroll.commission',
+            label: context.t('Commission Setup'),
+            screen: const ProfileCompensationScreen(
+              initialModule: CompensationModule.commission,
+            ),
+          ),
+          _DashboardDrawerChildItem(
+            id: 'payroll.advance',
+            label: context.t('Advance'),
+            screen: const ProfileCompensationScreen(
+              initialModule: CompensationModule.advance,
+            ),
+          ),
+        ],
+        selectedId: _selectedDrawerItem,
+        onOpen: _openDrawerChild,
+      ),
+      _DashboardDrawerGroupTile(
+        id: 'inventory',
+        icon: Icons.inventory_2_outlined,
+        label: context.t('Inventory'),
+        isExpanded: _expandedGroups.contains('inventory'),
+        isSelected: _isGroupSelected('inventory'),
+        onToggle: () => _toggleGroup('inventory'),
+        children: [
+          _DashboardDrawerChildItem(
+            id: 'inventory.store',
+            label: context.t('Store'),
+            screen: const OwnerProfileOperationsScreen(
+              initialModule: OwnerOperationsModule.inventory,
+              initialInventorySection: OwnerInventorySection.store,
+              showInventoryTabs: false,
+            ),
+          ),
+          _DashboardDrawerChildItem(
+            id: 'inventory.item',
+            label: context.t('Inventory Item'),
+            screen: const OwnerProfileOperationsScreen(
+              initialModule: OwnerOperationsModule.inventory,
+              initialInventorySection: OwnerInventorySection.inventoryItem,
+              showInventoryTabs: false,
+            ),
+          ),
+          _DashboardDrawerChildItem(
+            id: 'inventory.purchaseOrder',
+            label: context.t('Purchase Order'),
+            screen: const OwnerProfileOperationsScreen(
+              initialModule: OwnerOperationsModule.inventory,
+              initialInventorySection: OwnerInventorySection.purchaseOrder,
+              showInventoryTabs: false,
+            ),
+          ),
+          _DashboardDrawerChildItem(
+            id: 'inventory.goodsReceiptNote',
+            label: context.t('Goods Receipt Note'),
+            screen: const OwnerProfileOperationsScreen(
+              initialModule: OwnerOperationsModule.inventory,
+              initialInventorySection: OwnerInventorySection.goodsReceiptNote,
+              showInventoryTabs: false,
+            ),
+          ),
+        ],
+        selectedId: _selectedDrawerItem,
+        onOpen: _openDrawerChild,
+      ),
+      _DashboardDrawerGroupTile(
+        id: 'sales',
+        icon: Icons.insert_chart_outlined_rounded,
+        label: context.t('Sales & Reports'),
+        isExpanded: _expandedGroups.contains('sales'),
+        isSelected: _isGroupSelected('sales'),
+        onToggle: () => _toggleGroup('sales'),
+        children: [
+          _DashboardDrawerChildItem(
+            id: 'sales.revenue',
+            label: context.t('Revenue & Sales'),
+            screen: const OwnerSalesReportsScreen(
+              initialModule: OwnerSalesReportModule.revenueSales,
+              showModuleTabs: false,
+            ),
+          ),
+          _DashboardDrawerChildItem(
+            id: 'sales.staffPerformance',
+            label: context.t('Staff Performance'),
+            screen: const OwnerSalesReportsScreen(
+              initialModule: OwnerSalesReportModule.staffPerformance,
+              showModuleTabs: false,
+            ),
+          ),
+          _DashboardDrawerChildItem(
+            id: 'sales.operations',
+            label: context.t('Operations'),
+            screen: const OwnerSalesReportsScreen(
+              initialModule: OwnerSalesReportModule.operations,
+              showModuleTabs: false,
+            ),
+          ),
+        ],
+        selectedId: _selectedDrawerItem,
+        onOpen: _openDrawerChild,
+      ),
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.auto_awesome_outlined,
+          label: context.t('AI Insights'),
+          screen: const OwnerAiInsightsScreen(),
+        ),
+        selected: _selectedDrawerItem == 'aiInsights',
+        onTap: () => _openDrawerItem(
+          'aiInsights',
+          const OwnerAiInsightsScreen(),
         ),
       ),
-      _DashboardDrawerItem(
-        icon: Icons.event_available_outlined,
-        label: context.t('Attendance'),
-        screen: const ProfileCompensationScreen(
-          initialModule: CompensationModule.attendance,
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.event_available_outlined,
+          label: context.t('Attendance'),
+          screen: const ProfileCompensationScreen(
+            initialModule: CompensationModule.attendance,
+          ),
+        ),
+        selected: _selectedDrawerItem == 'attendance',
+        onTap: () => _openDrawerItem(
+          'attendance',
+          const ProfileCompensationScreen(
+            initialModule: CompensationModule.attendance,
+          ),
         ),
       ),
-      _DashboardDrawerItem(
-        icon: Icons.groups_outlined,
-        label: context.t('Clients'),
-        screen: const OwnerBranchClientsScreen(),
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.groups_outlined,
+          label: context.t('Clients'),
+          screen: const OwnerBranchClientsScreen(),
+        ),
+        selected: _selectedDrawerItem == 'clients',
+        onTap: () =>
+            _openDrawerItem('clients', const OwnerBranchClientsScreen()),
       ),
-      _DashboardDrawerItem(
-        icon: Icons.workspace_premium_outlined,
-        label: context.t('Membership'),
-        screen: const OwnerMembershipScreen(),
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.workspace_premium_outlined,
+          label: context.t('Membership'),
+          screen: const OwnerMembershipScreen(),
+        ),
+        selected: _selectedDrawerItem == 'membership',
+        onTap: () =>
+            _openDrawerItem('membership', const OwnerMembershipScreen()),
       ),
-      _DashboardDrawerItem(
-        icon: Icons.admin_panel_settings_outlined,
-        label: context.t('Roles'),
-        screen: const OwnerRolesPermissionsScreen(),
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.admin_panel_settings_outlined,
+          label: context.t('Roles'),
+          screen: const OwnerRolesPermissionsScreen(),
+        ),
+        selected: _selectedDrawerItem == 'roles',
+        onTap: () =>
+            _openDrawerItem('roles', const OwnerRolesPermissionsScreen()),
       ),
-      _DashboardDrawerItem(
-        icon: Icons.tune_rounded,
-        label: context.t('Commission'),
-        screen: const ProfileCompensationScreen(
-          initialModule: CompensationModule.commission,
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.beach_access_outlined,
+          label: context.t('Leaves'),
+          screen: const ProfileCompensationScreen(
+            initialModule: CompensationModule.leaves,
+          ),
+        ),
+        selected: _selectedDrawerItem == 'leaves',
+        onTap: () => _openDrawerItem(
+          'leaves',
+          const ProfileCompensationScreen(
+            initialModule: CompensationModule.leaves,
+          ),
         ),
       ),
-      _DashboardDrawerItem(
-        icon: Icons.account_balance_wallet_outlined,
-        label: context.t('Advance'),
-        screen: const ProfileCompensationScreen(
-          initialModule: CompensationModule.advance,
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.calendar_month_outlined,
+          label: context.t('Holidays Calendar'),
+          screen: const ProfileCompensationScreen(
+            initialModule: CompensationModule.holidays,
+          ),
+        ),
+        selected: _selectedDrawerItem == 'holidays',
+        onTap: () => _openDrawerItem(
+          'holidays',
+          const ProfileCompensationScreen(
+            initialModule: CompensationModule.holidays,
+          ),
         ),
       ),
-      _DashboardDrawerItem(
-        icon: Icons.beach_access_outlined,
-        label: context.t('Leaves'),
-        screen: const ProfileCompensationScreen(
-          initialModule: CompensationModule.leaves,
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.badge_outlined,
+          label: context.t('Vendor'),
+          screen: const OwnerProfileOperationsScreen(
+            initialModule: OwnerOperationsModule.vendor,
+          ),
+        ),
+        selected: _selectedDrawerItem == 'vendor',
+        onTap: () => _openDrawerItem(
+          'vendor',
+          const OwnerProfileOperationsScreen(
+            initialModule: OwnerOperationsModule.vendor,
+          ),
         ),
       ),
-      _DashboardDrawerItem(
-        icon: Icons.calendar_month_outlined,
-        label: context.t('Holidays Calendar'),
-        screen: const ProfileCompensationScreen(
-          initialModule: CompensationModule.holidays,
+      _DashboardDrawerTile(
+        item: _DashboardDrawerItem(
+          icon: Icons.rate_review_outlined,
+          label: context.t('Reviews'),
+          screen: const SalonReviews(),
         ),
-      ),
-      _DashboardDrawerItem(
-        icon: Icons.badge_outlined,
-        label: context.t('Vendor'),
-        screen: const OwnerProfileOperationsScreen(
-          initialModule: OwnerOperationsModule.vendor,
-        ),
-      ),
-      _DashboardDrawerItem(
-        icon: Icons.rate_review_outlined,
-        label: context.t('Reviews'),
-        screen: const SalonReviews(),
+        selected: _selectedDrawerItem == 'reviews',
+        onTap: () => _openDrawerItem('reviews', const SalonReviews()),
       ),
     ];
 
@@ -989,55 +1141,13 @@ class _DashboardDrawer extends StatelessWidget {
               const SizedBox(height: 10),
               Expanded(
                 child: ListView.separated(
-                  itemCount: items.length,
+                  itemCount: entries.length,
                   separatorBuilder: (_, __) => const Divider(
                     height: 1,
                     thickness: 1,
                     color: Color(0xFFE8DED6),
                   ),
-                  itemBuilder: (context, index) {
-                    final item = items[index];
-                    return Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        overlayColor: WidgetStateProperty.resolveWith((states) {
-                          if (states.contains(WidgetState.pressed) ||
-                              states.contains(WidgetState.hovered) ||
-                              states.contains(WidgetState.focused)) {
-                            return const Color(0xFFD0A244);
-                          }
-                          return null;
-                        }),
-                        onTap: () => onOpen(item.screen),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                item.icon,
-                                size: 18,
-                                color: const Color(0xFF5F574F),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                item.label,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF2D2926),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                  itemBuilder: (context, index) => entries[index],
                 ),
               ),
             ],
@@ -1046,6 +1156,226 @@ class _DashboardDrawer extends StatelessWidget {
       ),
     );
   }
+
+  void _toggleGroup(String id) {
+    setState(() {
+      if (_expandedGroups.contains(id)) {
+        _expandedGroups.remove(id);
+      } else {
+        _expandedGroups.add(id);
+      }
+    });
+  }
+
+  void _openDrawerChild(_DashboardDrawerChildItem item) {
+    setState(() {
+      _selectedDrawerItem = item.id;
+      _expandedGroups
+        ..clear()
+        ..add(item.groupId);
+    });
+    widget.onOpen(item.screen);
+  }
+
+  void _openDrawerItem(String id, Widget screen) {
+    setState(() {
+      _selectedDrawerItem = id;
+      _expandedGroups.clear();
+    });
+    widget.onOpen(screen);
+  }
+
+  bool _isGroupSelected(String id) =>
+      _selectedDrawerItem?.startsWith('$id.') ?? false;
+}
+
+class _DashboardDrawerTile extends StatelessWidget {
+  const _DashboardDrawerTile({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _DashboardDrawerItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFFF5EFE6) : Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        overlayColor: _drawerOverlayColor(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                item.icon,
+                size: 18,
+                color: const Color(0xFF5F574F),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF2D2926),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardDrawerGroupTile extends StatelessWidget {
+  const _DashboardDrawerGroupTile({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.isExpanded,
+    required this.isSelected,
+    required this.onToggle,
+    required this.children,
+    required this.selectedId,
+    required this.onOpen,
+  });
+
+  final String id;
+  final IconData icon;
+  final String label;
+  final bool isExpanded;
+  final bool isSelected;
+  final VoidCallback onToggle;
+  final List<_DashboardDrawerChildItem> children;
+  final String? selectedId;
+  final ValueChanged<_DashboardDrawerChildItem> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Material(
+          color: isSelected ? AppColors.starColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            overlayColor: _drawerOverlayColor(),
+            onTap: onToggle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: 18,
+                    color: isSelected ? Colors.white : const Color(0xFF5F574F),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color:
+                            isSelected ? Colors.white : const Color(0xFF2D2926),
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: isSelected ? Colors.white : const Color(0xFF5F574F),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (isExpanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 36, right: 2, bottom: 8),
+            child: Column(
+              children: children
+                  .map(
+                    (child) => _DashboardDrawerChildTile(
+                      item: child,
+                      selected: selectedId == child.id,
+                      onTap: () => onOpen(child),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _DashboardDrawerChildTile extends StatelessWidget {
+  const _DashboardDrawerChildTile({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _DashboardDrawerChildItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Material(
+        color: selected ? const Color(0xFFF5EFE6) : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(6),
+          overlayColor: _drawerOverlayColor(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                item.label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color:
+                      selected ? AppColors.starColor : const Color(0xFF756A61),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+WidgetStateProperty<Color?> _drawerOverlayColor() {
+  return WidgetStateProperty.resolveWith((states) {
+    if (states.contains(WidgetState.pressed) ||
+        states.contains(WidgetState.hovered) ||
+        states.contains(WidgetState.focused)) {
+      return const Color(0x1FC19A6B);
+    }
+    return null;
+  });
 }
 
 class _DashboardDrawerItem {
@@ -1058,6 +1388,20 @@ class _DashboardDrawerItem {
   final IconData icon;
   final String label;
   final Widget screen;
+}
+
+class _DashboardDrawerChildItem {
+  const _DashboardDrawerChildItem({
+    required this.id,
+    required this.label,
+    required this.screen,
+  });
+
+  final String id;
+  final String label;
+  final Widget screen;
+
+  String get groupId => id.split('.').first;
 }
 
 class _DashboardProfileAvatar extends StatelessWidget {

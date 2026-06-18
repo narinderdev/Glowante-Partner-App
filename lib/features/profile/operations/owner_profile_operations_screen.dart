@@ -20,6 +20,13 @@ part 'owner_goods_receipt_note.dart';
 
 enum OwnerOperationsModule { vendor, inventory }
 
+enum OwnerInventorySection {
+  store,
+  inventoryItem,
+  purchaseOrder,
+  goodsReceiptNote
+}
+
 enum _InventoryTab { store, inventoryItem, purchaseOrder, goodsReceiptNote }
 
 int? _toInt(dynamic value) {
@@ -215,9 +222,13 @@ class OwnerProfileOperationsScreen extends StatefulWidget {
   const OwnerProfileOperationsScreen({
     super.key,
     required this.initialModule,
+    this.initialInventorySection = OwnerInventorySection.store,
+    this.showInventoryTabs = true,
   });
 
   final OwnerOperationsModule initialModule;
+  final OwnerInventorySection initialInventorySection;
+  final bool showInventoryTabs;
 
   @override
   State<OwnerProfileOperationsScreen> createState() =>
@@ -266,6 +277,12 @@ class _OwnerProfileOperationsScreenState
   @override
   void initState() {
     super.initState();
+    _inventoryTab = switch (widget.initialInventorySection) {
+      OwnerInventorySection.store => _InventoryTab.store,
+      OwnerInventorySection.inventoryItem => _InventoryTab.inventoryItem,
+      OwnerInventorySection.purchaseOrder => _InventoryTab.purchaseOrder,
+      OwnerInventorySection.goodsReceiptNote => _InventoryTab.goodsReceiptNote,
+    };
     _logOperations('init');
     _loadBranches();
   }
@@ -1671,7 +1688,7 @@ class _OwnerProfileOperationsScreenState
         children: [
           _buildBranchSelector(),
           const SizedBox(height: 16),
-          if (!_isVendorModule) ...[
+          if (!_isVendorModule && widget.showInventoryTabs) ...[
             _buildInventoryTabs(),
             const SizedBox(height: 16),
           ],

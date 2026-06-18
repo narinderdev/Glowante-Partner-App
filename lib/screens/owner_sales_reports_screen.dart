@@ -33,9 +33,11 @@ class OwnerSalesReportsScreen extends StatefulWidget {
   const OwnerSalesReportsScreen({
     super.key,
     required this.initialModule,
+    this.showModuleTabs = true,
   });
 
   final OwnerSalesReportModule initialModule;
+  final bool showModuleTabs;
 
   @override
   State<OwnerSalesReportsScreen> createState() =>
@@ -258,8 +260,10 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
               children: [
                 _buildBranchSelector(),
                 const SizedBox(height: 18),
-                _buildModuleTabs(),
-                const SizedBox(height: 18),
+                if (widget.showModuleTabs) ...[
+                  _buildModuleTabs(),
+                  const SizedBox(height: 18),
+                ],
                 if (_errorMessage != null)
                   _ReportEmptyState(
                     icon: Icons.error_outline_rounded,
