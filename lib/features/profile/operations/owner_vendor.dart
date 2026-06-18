@@ -143,23 +143,52 @@ class _VendorFormViewState extends State<_VendorFormView> {
                   _isSaving ? null : (value) => setState(() => _active = value),
             ),
             const SizedBox(height: 14),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.starColor,
-                  foregroundColor: Colors.white,
-                ),
-                child: Text(_isSaving
-                    ? (widget.isEdit
-                        ? context.t('Updating...')
-                        : context.t('Saving...'))
-                    : (widget.isEdit
-                        ? context.t('Update Vendor')
-                        : context.t('Save Vendor'))),
-              ),
-            ),
+            // Align(
+            //   alignment: Alignment.centerRight,
+            //   child: ElevatedButton(
+            //     onPressed: _isSaving ? null : _submit,
+            //     style: ElevatedButton.styleFrom(
+            //       backgroundColor: AppColors.starColor,
+            //       foregroundColor: Colors.white,
+            //     ),
+            //     child: Text(_isSaving
+            //         ? (widget.isEdit
+            //             ? context.t('Updating...')
+            //             : context.t('Saving...'))
+            //         : (widget.isEdit
+            //             ? context.t('Update Vendor')
+            //             : context.t('Save Vendor'))),
+            //   ),
+            // ),
+      Align(
+  alignment: Alignment.centerRight,
+  child: SizedBox(
+    width: widget.isEdit ? 160 : 140,
+    height: 44,
+    child: ElevatedButton(
+      onPressed: _isSaving ? null : _submit,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.starColor,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+      child: Text(
+        _isSaving
+            ? (widget.isEdit
+                ? context.t('Updating...')
+                : context.t('Saving...'))
+            : (widget.isEdit
+                ? context.t('Update Vendor')
+                : context.t('Save Vendor')),
+        overflow: TextOverflow.ellipsis,
+      ),
+    ),
+  ),
+),
           ],
         ),
       ),

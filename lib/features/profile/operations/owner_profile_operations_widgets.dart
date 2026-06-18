@@ -62,15 +62,39 @@ class _SectionCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (actionLabel != null && onAction != null)
-                ElevatedButton(
-                  onPressed: onAction,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.starColor,
-                    foregroundColor: Colors.white,
+              // if (actionLabel != null && onAction != null)
+              //   ElevatedButton(
+              //     onPressed: onAction,
+              //     style: ElevatedButton.styleFrom(
+              //       backgroundColor: AppColors.starColor,
+              //       foregroundColor: Colors.white,
+              //     ),
+              //     child: Text(actionLabel!),
+              //   ),
+              if (actionLabel != null && onAction != null) ...[
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 150,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: onAction,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.starColor,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 44),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: Text(
+                      actionLabel!,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
-                  child: Text(actionLabel!),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -138,13 +162,25 @@ class _ErrorStateCard extends StatelessWidget {
             style: const TextStyle(color: Color(0xFF7F1D1D)),
           ),
           const SizedBox(height: 14),
-          ElevatedButton(
-            onPressed: onRetry,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.starColor,
-              foregroundColor: Colors.white,
+          SizedBox(
+            width: 120,
+            height: 44,
+            child: ElevatedButton(
+              onPressed: onRetry,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: Text(
+                context.t('Retry'),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            child: Text(context.t('Retry')),
           ),
         ],
       ),
