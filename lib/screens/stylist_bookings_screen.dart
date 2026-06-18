@@ -1067,7 +1067,16 @@ bool _showsConfirmAction(String status, {required bool isOwnerMode}) =>
     isOwnerMode && status == 'PENDING';
 
 bool _showsStartAction(String status) => status == 'CONFIRMED';
+bool _canStartJob(Map<String, dynamic> booking) {
+  final status = _normalizeStatus(booking['status']);
+  if (!_showsStartAction(status)) return false;
 
+  final start = _bookingStart(booking);
+  if (start == null) return false;
+
+  final now = DateTime.now();
+  return now.isAtSameMomentAs(start) || now.isAfter(start);
+}
 bool _showsFinishAction(String status) => status == 'IN_PROGRESS';
 
 bool _showsNoShowAction(String status) =>
@@ -2320,16 +2329,26 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           widget.isOwnerMode ? _assignedStaffSummary(context, booking) : '',
       isOwnerMode: widget.isOwnerMode,
       onTap: () => _openBookingDetail(booking),
-      onPrimaryActionTap: _showsConfirmAction(
-        status,
-        isOwnerMode: widget.isOwnerMode,
-      )
-          ? () => _handleConfirmFromList(booking)
-          : _showsStartAction(status)
-              ? () => _handleStartFromList(booking)
-              : _showsFinishAction(status)
-                  ? () => _handleCompleteFromList(booking)
-                  : null,
+      // onPrimaryActionTap: _showsConfirmAction(
+      //   status,
+      //   isOwnerMode: widget.isOwnerMode,
+      // )
+      //     ? () => _handleConfirmFromList(booking)
+      //     : _showsStartAction(status)
+      //         ? () => _handleStartFromList(booking)
+      //         : _showsFinishAction(status)
+      //             ? () => _handleCompleteFromList(booking)
+      //             : null,
+     onPrimaryActionTap: _showsConfirmAction(
+  status,
+  isOwnerMode: widget.isOwnerMode,
+)
+    ? () => _handleConfirmFromList(booking)
+    : _showsStartAction(status)
+        ? (_canStartJob(booking) ? () => _handleStartFromList(booking) : null)
+        : _showsFinishAction(status)
+            ? () => _handleCompleteFromList(booking)
+            : null,
       isProcessing: (_confirmingAppointmentId != null &&
               _confirmingAppointmentId == _asInt(booking['id'])) ||
           (_startingAppointmentId != null &&
@@ -2521,36 +2540,83 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     await _reloadBookingsForSelectedOption();
   }
 
-  Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
-    final selected = _selectedOption;
-    final appointmentId = _asInt(booking['id']);
-    if (selected == null ||
-        appointmentId == null ||
-        _startingAppointmentId != null) {
-      return;
-    }
+  // Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
+  //   final selected = _selectedOption;
+  //   final appointmentId = _asInt(booking['id']);
+  //   if (selected == null ||
+  //       appointmentId == null ||
+  //       _startingAppointmentId != null) {
+  //     return;
+  //   }
 
-    setState(() => _startingAppointmentId = appointmentId);
-    final resp = await _showStartJobOtpDialog(
-      context,
-      branchId: selected.branchId,
-      appointmentId: appointmentId,
-    );
-    if (!mounted) return;
-    setState(() => _startingAppointmentId = null);
-    if (resp == null) return;
+  //   setState(() => _startingAppointmentId = appointmentId);
+  //   final resp = await _showStartJobOtpDialog(
+  //     context,
+  //     branchId: selected.branchId,
+  //     appointmentId: appointmentId,
+  //   );
+  //   if (!mounted) return;
+  //   setState(() => _startingAppointmentId = null);
+  //   if (resp == null) return;
 
-    final newStatus =
-        _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
-    booking['status'] = newStatus;
+  //   final newStatus =
+  //       _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
+  //   booking['status'] = newStatus;
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(
+  //       content: Text(resp['message']?.toString() ?? 'Job started'),
+  //     ),
+  //   );
+  //   await _reloadBookingsForSelectedOption();
+  // }
+Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
+  final selected = _selectedOption;
+  final appointmentId = _asInt(booking['id']);
+
+  if (!_canStartJob(booking)) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(resp['message']?.toString() ?? 'Job started'),
+        content: Text(
+          translateText('You can start this job at appointment time'),
+        ),
       ),
     );
-    await _reloadBookingsForSelectedOption();
+    return;
   }
 
+  if (selected == null ||
+      appointmentId == null ||
+      _startingAppointmentId != null) {
+    return;
+  }
+
+  setState(() => _startingAppointmentId = appointmentId);
+
+  final resp = await _showStartJobOtpDialog(
+    context,
+    branchId: selected.branchId,
+    appointmentId: appointmentId,
+  );
+
+  if (!mounted) return;
+
+  setState(() => _startingAppointmentId = null);
+
+  if (resp == null) return;
+
+  final newStatus =
+      _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
+
+  booking['status'] = newStatus;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(resp['message']?.toString() ?? 'Job started'),
+    ),
+  );
+
+  await _reloadBookingsForSelectedOption();
+}
   Future<void> _handleCompleteFromList(Map<String, dynamic> booking) async {
     final selected = _selectedOption;
     final appointmentId = _asInt(booking['id']);
@@ -5898,11 +5964,19 @@ class _BookingListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _normalizeStatus(booking['status']);
     final visuals = _statusVisuals(context, status);
-    final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
-        ? context.t('Accept').toUpperCase()
-        : (_showsStartAction(status)
-            ? context.t('Start Job').toUpperCase()
-            : null);
+    // final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
+    //     ? context.t('Accept').toUpperCase()
+    //     : (_showsStartAction(status)
+    //         ? context.t('Start Job').toUpperCase()
+    //         : null);
+   final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
+    ? context.t('Accept').toUpperCase()
+    : (_showsStartAction(status)
+        ? context.t('Start Job').toUpperCase()
+        : (_showsFinishAction(status)
+            ? context.t('Finish Job').toUpperCase()
+            : null));
+
     final finishLabel = _showsFinishAction(status)
         ? context.t('Finish Job').toUpperCase()
         : null;
@@ -6264,34 +6338,79 @@ class _StylistBookingDetailScreenState
     }
   }
 
-  Future<void> _handleStartJob() async {
-    if (_loadingStart) return;
+  // Future<void> _handleStartJob() async {
+  //   if (_loadingStart) return;
 
-    setState(() => _loadingStart = true);
-    final resp = await _showStartJobOtpDialog(
-      context,
-      branchId: widget.branchId,
-      appointmentId: _booking['id'] as int,
-    );
-    if (!mounted) return;
-    setState(() => _loadingStart = false);
-    if (resp == null) return;
+  //   setState(() => _loadingStart = true);
+  //   final resp = await _showStartJobOtpDialog(
+  //     context,
+  //     branchId: widget.branchId,
+  //     appointmentId: _booking['id'] as int,
+  //   );
+  //   if (!mounted) return;
+  //   setState(() => _loadingStart = false);
+  //   if (resp == null) return;
 
-    final newStatus =
-        _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
-    setState(() {
-      _statusUpper = newStatus;
-      _booking['status'] = newStatus;
-      _didChange = true;
-    });
-    _syncElapsedTicker();
+  //   final newStatus =
+  //       _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
+  //   setState(() {
+  //     _statusUpper = newStatus;
+  //     _booking['status'] = newStatus;
+  //     _didChange = true;
+  //   });
+  //   _syncElapsedTicker();
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(
+  //       content: Text(resp['message']?.toString() ?? 'Job started'),
+  //     ),
+  //   );
+  // }
+
+Future<void> _handleStartJob() async {
+  if (!_canStartJob(_booking)) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(resp['message']?.toString() ?? 'Job started'),
+        content: Text(
+          translateText('You can start this job at appointment time'),
+        ),
       ),
     );
+    return;
   }
 
+  if (_loadingStart) return;
+
+  setState(() => _loadingStart = true);
+
+  final resp = await _showStartJobOtpDialog(
+    context,
+    branchId: widget.branchId,
+    appointmentId: _booking['id'] as int,
+  );
+
+  if (!mounted) return;
+
+  setState(() => _loadingStart = false);
+
+  if (resp == null) return;
+
+  final newStatus =
+      _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
+
+  setState(() {
+    _statusUpper = newStatus;
+    _booking['status'] = newStatus;
+    _didChange = true;
+  });
+
+  _syncElapsedTicker();
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(resp['message']?.toString() ?? 'Job started'),
+    ),
+  );
+}
   Future<void> _handleConfirmJob() async {
     if (_loadingConfirm) return;
 
@@ -6808,16 +6927,29 @@ class _StylistBookingDetailScreenState
         dateLabel: 'MAY 2023',
       ),
     ];
-    final primaryAction = _showsConfirmAction(
-      _statusUpper,
-      isOwnerMode: widget.isOwnerMode,
-    )
-        ? context.t('Accept').toUpperCase()
-        : (_showsFinishAction(_statusUpper)
-            ? context.t('Finish Job').toUpperCase()
-            : (_showsStartAction(_statusUpper)
-                ? context.t('Start Job').toUpperCase()
-                : null));
+    // final primaryAction = _showsConfirmAction(
+    //   _statusUpper,
+    //   isOwnerMode: widget.isOwnerMode,
+    // )
+    //     ? context.t('Accept').toUpperCase()
+    //     : (_showsFinishAction(_statusUpper)
+    //         ? context.t('Finish Job').toUpperCase()
+    //         : (_showsStartAction(_statusUpper)
+    //             ? context.t('Start Job').toUpperCase()
+    //             : null));
+   final canStartJob = _canStartJob(_booking);
+
+final primaryAction = _showsConfirmAction(
+  _statusUpper,
+  isOwnerMode: widget.isOwnerMode,
+)
+    ? context.t('Accept').toUpperCase()
+    : (_showsFinishAction(_statusUpper)
+        ? context.t('Finish Job').toUpperCase()
+        : (_showsStartAction(_statusUpper)
+            ? context.t('Start Job').toUpperCase()
+            : null));
+
     final primaryColor =
         _showsFinishAction(_statusUpper) ? _bookingsDark : _bookingsAccent;
     final showNoShowAction = _showsNoShowAction(_statusUpper);
@@ -6858,18 +6990,30 @@ class _StylistBookingDetailScreenState
         primaryAction: primaryAction,
         primaryActionColor: primaryColor,
         isPrimaryLoading: isPrimaryProcessing,
+        // onPrimaryAction: _loadingNoShow
+        //     ? null
+        //     : (_showsConfirmAction(
+        //         _statusUpper,
+        //         isOwnerMode: widget.isOwnerMode,
+        //       )
+        //         ? _handleConfirmJob
+        //         : (_showsFinishAction(_statusUpper)
+        //             ? _handleCompleteJob
+        //             : (_showsStartAction(_statusUpper)
+        //                 ? _handleStartJob
+        //                 : null))),
         onPrimaryAction: _loadingNoShow
-            ? null
-            : (_showsConfirmAction(
-                _statusUpper,
-                isOwnerMode: widget.isOwnerMode,
-              )
-                ? _handleConfirmJob
-                : (_showsFinishAction(_statusUpper)
-                    ? _handleCompleteJob
-                    : (_showsStartAction(_statusUpper)
-                        ? _handleStartJob
-                        : null))),
+    ? null
+    : (_showsConfirmAction(
+        _statusUpper,
+        isOwnerMode: widget.isOwnerMode,
+      )
+        ? _handleConfirmJob
+        : (_showsFinishAction(_statusUpper)
+            ? _handleCompleteJob
+            : (canStartJob
+                ? _handleStartJob
+                : null))),
         secondaryAction:
             showNoShowAction ? context.t('No Show').toUpperCase() : null,
         secondaryActionColor: const Color(0xFF374151),
