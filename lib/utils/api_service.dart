@@ -811,62 +811,153 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
   }
 
   // Verify OTP
-  Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
-    final response = await _sharedClient.post(
-      Uri.parse(baseUrl + verifyOtpEndpoint),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode({"phoneNumber": phoneNumber, "otp": otp}),
-    );
+  // Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
+  //   final response = await _sharedClient.post(
+  //     Uri.parse(baseUrl + verifyOtpEndpoint),
+  //     headers: {"Content-Type": "application/json"},
+  //     body: json.encode({"phoneNumber": phoneNumber, "otp": otp}),
+  //   );
 
-    debugPrint("[VerifyOTP] status=${response.statusCode}");
-    _debugPrintChunked("VerifyOTP body", response.body);
+  //   debugPrint("[VerifyOTP] status=${response.statusCode}");
+  //   _debugPrintChunked("VerifyOTP body", response.body);
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      final decoded = json.decode(response.body);
-      _debugPrintChunked("VerifyOTP decoded", decoded);
-      return decoded;
-    } else {
-      throw Exception("Failed OTP: ${response.body}");
-    }
-  }
-
-  Future<Map<String, dynamic>> registerCustomer({
-    required String phoneNumber,
-    required String firstName,
-    required String lastName,
-    String source = 'salon_app',
-    String? deviceToken,
-  }) async {
-    String? resolvedToken = deviceToken;
-    if (resolvedToken == null || resolvedToken.isEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      resolvedToken = prefs.getString('fcm_device_token');
-    }
-
-    final payload = <String, dynamic>{
+  //   if (response.statusCode == 200 || response.statusCode == 201) {
+  //     final decoded = json.decode(response.body);
+  //     _debugPrintChunked("VerifyOTP decoded", decoded);
+  //     return decoded;
+  //   } else {
+  //     throw Exception("Failed OTP: ${response.body}");
+  //   }
+  // }
+Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
+  final response = await _sharedClient.post(
+    Uri.parse(baseUrl + verifyOtpEndpoint),
+    headers: {"Content-Type": "application/json"},
+    body: json.encode({
       "phoneNumber": phoneNumber,
-      "source": source,
-      "firstName": firstName,
-      "lastName": lastName,
-      if (resolvedToken != null && resolvedToken.isNotEmpty)
-        "deviceToken": resolvedToken,
-    };
+      "otp": otp,
+    }),
+  );
 
-    final response = await _sharedClient.post(
-      Uri.parse(baseUrl + registerUserEndpoint),
-      headers: {"Content-Type": "application/json"},
-      body: json.encode(payload),
-    );
+  debugPrint("[VerifyOTP] status=${response.statusCode}");
+  _debugPrintChunked("VerifyOTP body", response.body);
 
-    debugPrint("[RegisterCustomer] status=${response.statusCode}");
-    _debugPrintChunked("RegisterCustomer body", response.body);
-
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      return json.decode(response.body) as Map<String, dynamic>;
-    }
-    throw Exception("Failed register customer: ${response.body}");
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    final decoded = json.decode(response.body);
+    _debugPrintChunked("VerifyOTP decoded", decoded);
+    return decoded;
   }
 
+  final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+
+  if (decoded is Map<String, dynamic>) {
+    return {
+      'success': false,
+      'message': decoded['message']?.toString() ?? 'Invalid OTP',
+      'statusCode': response.statusCode,
+    };
+  }
+
+  return {
+    'success': false,
+    'message': 'Invalid OTP',
+    'statusCode': response.statusCode,
+  };
+}
+  // Future<Map<String, dynamic>> registerCustomer({
+  //   required String phoneNumber,
+  //   required String firstName,
+  //   required String lastName,
+  //   String source = 'salon_app',
+  //   String? deviceToken,
+  // }) async {
+  //   String? resolvedToken = deviceToken;
+  //   if (resolvedToken == null || resolvedToken.isEmpty) {
+  //     final prefs = await SharedPreferences.getInstance();
+  //     resolvedToken = prefs.getString('fcm_device_token');
+  //   }
+
+  //   final payload = <String, dynamic>{
+  //     "phoneNumber": phoneNumber,
+  //     "source": source,
+  //     "firstName": firstName,
+  //     "lastName": lastName,
+  //     if (resolvedToken != null && resolvedToken.isNotEmpty)
+  //       "deviceToken": resolvedToken,
+  //   };
+
+  //   final response = await _sharedClient.post(
+  //     Uri.parse(baseUrl + registerUserEndpoint),
+  //     headers: {"Content-Type": "application/json"},
+  //     body: json.encode(payload),
+  //   );
+
+  //   debugPrint("[RegisterCustomer] status=${response.statusCode}");
+  //   _debugPrintChunked("RegisterCustomer body", response.body);
+
+  //   if (response.statusCode == 200 || response.statusCode == 201) {
+  //     return json.decode(response.body) as Map<String, dynamic>;
+  //   }
+  //   throw Exception("Failed register customer: ${response.body}");
+  // }
+Future<Map<String, dynamic>> registerCustomer({
+  required String phoneNumber,
+  required String firstName,
+  required String lastName,
+  String source = 'salon_app',
+  String? deviceToken,
+}) async {
+  String resolvedToken = deviceToken?.trim() ?? '';
+
+  if (resolvedToken.isEmpty) {
+    final prefs = await SharedPreferences.getInstance();
+    resolvedToken = prefs.getString('fcm_device_token')?.trim() ?? '';
+  }
+
+  if (resolvedToken.isEmpty) {
+    resolvedToken = 'unknown';
+  }
+
+  final payload = <String, dynamic>{
+    "phoneNumber": phoneNumber,
+    "source": source,
+    "firstName": firstName,
+    "lastName": lastName,
+    "deviceToken": resolvedToken,
+  };
+
+  debugPrint("[RegisterCustomer payload] $payload");
+
+  final response = await _sharedClient.post(
+    Uri.parse(baseUrl + registerUserEndpoint),
+    headers: {"Content-Type": "application/json"},
+    body: json.encode(payload),
+  );
+
+  debugPrint("[RegisterCustomer] status=${response.statusCode}");
+  _debugPrintChunked("RegisterCustomer body", response.body);
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return json.decode(response.body) as Map<String, dynamic>;
+  }
+
+  final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+  if (decoded is Map<String, dynamic>) {
+    return {
+      'success': false,
+      'message': decoded['message'] is List
+          ? (decoded['message'] as List).join('\n')
+          : decoded['message']?.toString() ?? 'Failed register customer',
+      'statusCode': response.statusCode,
+    };
+  }
+
+  return {
+    'success': false,
+    'message': 'Failed register customer',
+    'statusCode': response.statusCode,
+  };
+}
   Future<Map<String, dynamic>> linkBranchClient({
     required int branchId,
     required int userId,

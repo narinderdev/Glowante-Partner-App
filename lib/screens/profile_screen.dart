@@ -304,34 +304,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
           label: context.t('Account Security'),
           subtitle: context.t('Passwords & 2FA'),
         ),
-        ProfileMenuItemData(
-          icon: Icons.workspace_premium_outlined,
-          label: context.t('Membership'),
-          subtitle: context.t('Plans, billing & payment history'),
-          onTap: () {
-            _logProfile('open_membership');
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const OwnerMembershipScreen(),
-              ),
-            );
-          },
-        ),
-        ProfileMenuItemData(
-          icon: Icons.admin_panel_settings_outlined,
-          label: context.t('Roles'),
-          subtitle: context.t('Roles & permissions'),
-          onTap: () {
-            _logProfile('open_roles');
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const OwnerRolesPermissionsScreen(),
-              ),
-            );
-          },
-        ),
+        // ProfileMenuItemData(
+        //   icon: Icons.workspace_premium_outlined,
+        //   label: context.t('Membership'),
+        //   subtitle: context.t('Plans, billing & payment history'),
+        //   onTap: () {
+        //     _logProfile('open_membership');
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(
+        //         builder: (_) => const OwnerMembershipScreen(),
+        //       ),
+        //     );
+        //   },
+        // ),
+        // ProfileMenuItemData(
+        //   icon: Icons.admin_panel_settings_outlined,
+        //   label: context.t('Roles'),
+        //   subtitle: context.t('Roles & permissions'),
+        //   onTap: () {
+        //     _logProfile('open_roles');
+        //     Navigator.push(
+        //       context,
+        //       MaterialPageRoute(
+        //         builder: (_) => const OwnerRolesPermissionsScreen(),
+        //       ),
+        //     );
+        //   },
+        // ),
         ProfileMenuItemData(
           icon: Icons.privacy_tip_outlined,
           label: context.t('Privacy Policy'),

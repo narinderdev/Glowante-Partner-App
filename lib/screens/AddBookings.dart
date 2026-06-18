@@ -457,7 +457,13 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final fullPhone = _customerDisplayPhone(customer);
 
     setState(() {
-      _clientIdCtrl.text = (customer['id'] ?? '').toString();
+   final resolvedUserId =
+    _extractUserId(customer) ??
+    _intValue(customer['userId']) ??
+    _intValue(customer['customerId']) ??
+    _intValue(customer['clientId']);
+
+_clientIdCtrl.text = resolvedUserId?.toString() ?? '';
       _clientfNameCtrl.text = firstName;
       _clientlNameCtrl.text = lastName;
       _mobileCtrl.text = fullPhone.isNotEmpty ? fullPhone : phoneDigits;
@@ -1392,11 +1398,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                       setDialogState(() => isSubmitting = true);
 
                                       try {
-                                        await ApiService().registerCustomer(
-                                          phoneNumber: phone,
-                                          firstName: firstName,
-                                          lastName: lastName,
-                                        );
+                                      final response = await ApiService().registerCustomer(
+  phoneNumber: phone,
+  firstName: firstName,
+  lastName: lastName,
+);
+
+if (response['success'] == false) {
+  _showError(response['message']?.toString() ?? 'Failed register customer');
+  return;
+}
 
                                         if (!ctx.mounted) return;
 
