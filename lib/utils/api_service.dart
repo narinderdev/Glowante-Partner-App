@@ -481,6 +481,8 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
       "reports/revenue-sales-dashboard";
   static const String staffPerformanceAPI = "reports/staff-performance";
   static const String operationsDashboardAPI = "reports/operations-dashboard";
+  static const String aiInsightsDashboardSummaryAPI =
+      "insights/dashboard-summary";
 
   // / ---------------------- IMAGE UPLOAD ----------------------
 
@@ -578,7 +580,12 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
       }
 
       debugPrint('[$debugTag] status=${response.statusCode}');
-      _debugPrintChunked('$debugTag body', response.body);
+      _debugPrintChunked(
+        '$debugTag body',
+        debugTag == 'MarkTeamAttendance'
+            ? _attendanceBodyWithIst(response.body)
+            : response.body,
+      );
 
       dynamic decoded;
       if (response.body.isNotEmpty) {
@@ -620,6 +627,41 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
         'data': const <String, dynamic>{},
       };
     }
+  }
+
+  String _attendanceBodyWithIst(String rawBody) {
+    if (rawBody.isEmpty) return rawBody;
+    try {
+      final decoded = jsonDecode(rawBody);
+      if (decoded is! Map<String, dynamic>) return rawBody;
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) {
+        for (final key in const ['checkedInAt', 'checkedOutAt']) {
+          data[key] = _utcIsoToIstIso(data[key]);
+        }
+      }
+      return jsonEncode(decoded);
+    } catch (_) {
+      return rawBody;
+    }
+  }
+
+  String? _utcIsoToIstIso(dynamic value) {
+    final parsed = DateTime.tryParse((value ?? '').toString().trim());
+    if (parsed == null) return value?.toString();
+    final utc = parsed.isUtc ? parsed : parsed.toUtc();
+    final ist = utc.add(const Duration(hours: 5, minutes: 30));
+    final localIst = DateTime(
+      ist.year,
+      ist.month,
+      ist.day,
+      ist.hour,
+      ist.minute,
+      ist.second,
+      ist.millisecond,
+      ist.microsecond,
+    );
+    return localIst.toIso8601String();
   }
 
   // Login
@@ -4779,6 +4821,21 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
       return json.decode(response.body) as Map<String, dynamic>;
     }
     throw Exception("Failed to load operations dashboard: ${response.body}");
+  }
+
+  Future<Map<String, dynamic>> getAiInsightsDashboardSummary({
+    required int branchId,
+    required DateTime fromDate,
+    required DateTime toDate,
+  }) {
+    final from = DateFormat('yyyy-MM-dd').format(fromDate);
+    final to = DateFormat('yyyy-MM-dd').format(toDate);
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint:
+          '$aiInsightsDashboardSummaryAPI?branch_id=$branchId&from_date=$from&to_date=$to',
+      debugTag: 'AiInsightsDashboardSummary',
+    );
   }
 
   Future<Map<String, dynamic>> getBranchDashboard({

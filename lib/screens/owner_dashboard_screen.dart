@@ -12,6 +12,7 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import 'bottom_nav.dart';
+import 'owner_ai_insights_screen.dart';
 import 'owner_branch_clients_screen.dart';
 import 'owner_sales_reports_screen.dart';
 import 'SalonReviews.dart';
@@ -843,11 +844,16 @@ class _DashboardDrawer extends StatelessWidget {
         ),
       ),
       _DashboardDrawerItem(
+        icon: Icons.auto_awesome_outlined,
+        label: context.t('AI Insights'),
+        screen: const OwnerAiInsightsScreen(),
+      ),
+      _DashboardDrawerItem(
         icon: Icons.insert_chart_outlined_rounded,
-        label: context.t('Reports'),
-       screen: const OwnerSalesReportsScreen(
-  initialModule: OwnerSalesReportModule.revenueSales,
-),
+        label: context.t('Sales & Reports'),
+        screen: const OwnerSalesReportsScreen(
+          initialModule: OwnerSalesReportModule.revenueSales,
+        ),
       ),
       _DashboardDrawerItem(
         icon: Icons.payments_outlined,
@@ -963,20 +969,31 @@ class _DashboardDrawer extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: Color(0xFFE8DED6),
+              ),
+              const SizedBox(height: 10),
               Expanded(
                 child: ListView.separated(
                   itemCount: items.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 6),
                   itemBuilder: (context, index) {
                     final item = items[index];
-                    final highlighted = index == 0;
                     return Material(
-                      color: highlighted
-                          ? const Color(0xFFD0A244)
-                          : Colors.transparent,
+                      color: Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(10),
+                        overlayColor: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.pressed) ||
+                              states.contains(WidgetState.hovered) ||
+                              states.contains(WidgetState.focused)) {
+                            return const Color(0xFFD0A244);
+                          }
+                          return null;
+                        }),
                         onTap: () => onOpen(item.screen),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -988,21 +1005,15 @@ class _DashboardDrawer extends StatelessWidget {
                               Icon(
                                 item.icon,
                                 size: 18,
-                                color: highlighted
-                                    ? Colors.white
-                                    : const Color(0xFF5F574F),
+                                color: const Color(0xFF5F574F),
                               ),
                               const SizedBox(width: 12),
                               Text(
                                 item.label,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 14,
-                                  fontWeight: highlighted
-                                      ? FontWeight.w800
-                                      : FontWeight.w600,
-                                  color: highlighted
-                                      ? Colors.white
-                                      : const Color(0xFF2D2926),
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF2D2926),
                                 ),
                               ),
                             ],

@@ -168,7 +168,7 @@ class StylistAttendanceRecord {
   final String status;
   final String attendanceType;
 
-  DateTime? get markedAt => DateTime.tryParse(markedAtIso);
+  DateTime? get markedAt => _parseIstDateTime(markedAtIso);
   StylistAttendanceAction get action =>
       StylistAttendanceAction.fromId(attendanceType);
 
@@ -218,9 +218,9 @@ class StylistAttendanceHistoryEntry {
   final String? status;
   final int? updatedByUserId;
 
-  DateTime? get attendanceDate => DateTime.tryParse(attendanceDateIso ?? '');
-  DateTime? get checkedInAt => DateTime.tryParse(checkedInAtIso ?? '');
-  DateTime? get checkedOutAt => DateTime.tryParse(checkedOutAtIso ?? '');
+  DateTime? get attendanceDate => _parseIstDateTime(attendanceDateIso);
+  DateTime? get checkedInAt => _parseIstDateTime(checkedInAtIso);
+  DateTime? get checkedOutAt => _parseIstDateTime(checkedOutAtIso);
   bool get hasAttendance {
     if (checkedInAt != null || checkedOutAt != null) {
       return true;
@@ -249,4 +249,21 @@ class StylistAttendanceHistoryEntry {
           (json['attendanceUpdatedByUserId'] as num?)?.toInt(),
     );
   }
+}
+
+DateTime? _parseIstDateTime(String? value) {
+  final parsed = DateTime.tryParse((value ?? '').trim());
+  if (parsed == null) return null;
+  final utc = parsed.isUtc ? parsed : parsed.toUtc();
+  final ist = utc.add(const Duration(hours: 5, minutes: 30));
+  return DateTime(
+    ist.year,
+    ist.month,
+    ist.day,
+    ist.hour,
+    ist.minute,
+    ist.second,
+    ist.millisecond,
+    ist.microsecond,
+  );
 }

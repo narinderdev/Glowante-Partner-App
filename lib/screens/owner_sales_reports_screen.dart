@@ -52,7 +52,7 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
   ];
 
   late OwnerSalesReportModule _module;
-String _selectedRange = 'today';
+  String _selectedRange = 'today';
   List<_ReportBranchOption> _branchOptions = const [];
   int? _selectedBranchId;
   Map<String, dynamic> _data = const {};
@@ -440,14 +440,16 @@ String _selectedRange = 'today';
             fontFamily: 'Playfair Display',
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: const TextStyle(
-            color: Color(0xFF6B5B4D),
-            fontSize: 13,
+        if (subtitle.trim().isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: Color(0xFF6B5B4D),
+              fontSize: 13,
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 14),
         Row(
           children: [
@@ -512,8 +514,20 @@ String _selectedRange = 'today';
     );
   }
 
+  String _periodLabel(String key) {
+    for (final period in _periods) {
+      if (period.key == key) return context.t(period.label);
+    }
+    return context.t('This Month');
+  }
+
   Widget _buildRevenueSales() {
     final page = _mapValue(_data['page']);
+    final revenueTrend = _mapValue(_data['revenueTrend']);
+    final paymentMethod = _mapValue(_data['revenueByPaymentMethod']);
+    final serviceCategory = _mapValue(_data['revenueByServiceCategory']);
+    final topServices = _mapValue(_data['topServicesByRevenue']);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -528,31 +542,70 @@ String _selectedRange = 'today';
         const SizedBox(height: 16),
         _buildSummaryCards(_mapList(_data['summaryCards'])),
         const SizedBox(height: 16),
-        _RevenueTrendCard(
-          data: _mapValue(_data['revenueTrend']),
-          cleanText: _cleanText,
-          asDouble: _asDouble,
-        ),
-        const SizedBox(height: 16),
-        _PaymentMethodCard(
-          data: _mapValue(_data['revenueByPaymentMethod']),
-          cleanText: _cleanText,
-          asDouble: _asDouble,
-        ),
-        const SizedBox(height: 16),
-        _CategoryRevenueCard(
-          data: _mapValue(_data['revenueByServiceCategory']),
-          cleanText: _cleanText,
-          asDouble: _asDouble,
-        ),
-        const SizedBox(height: 16),
-        _TopServicesCard(
-          data: _mapValue(_data['topServicesByRevenue']),
-          cleanText: _cleanText,
-          onViewAllServices: () {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 2)),
-              (route) => false,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final trendCard = _RevenueTrendCard(
+              data: revenueTrend,
+              cleanText: _cleanText,
+              asDouble: _asDouble,
+              periodLabel: _periodLabel(_selectedRange),
+            );
+            final paymentCard = _PaymentMethodCard(
+              data: paymentMethod,
+              cleanText: _cleanText,
+              asDouble: _asDouble,
+            );
+            final categoryCard = _CategoryRevenueCard(
+              data: serviceCategory,
+              cleanText: _cleanText,
+              asDouble: _asDouble,
+            );
+            final topServicesCard = _TopServicesCard(
+              data: topServices,
+              cleanText: _cleanText,
+              onViewAllServices: () {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                      builder: (_) => const BottomNav(tabIndex: 2)),
+                  (route) => false,
+                );
+              },
+            );
+
+            if (constraints.maxWidth >= 760) {
+              return Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: trendCard),
+                      const SizedBox(width: 16),
+                      Expanded(child: paymentCard),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: categoryCard),
+                      const SizedBox(width: 16),
+                      Expanded(child: topServicesCard),
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              children: [
+                trendCard,
+                const SizedBox(height: 16),
+                paymentCard,
+                const SizedBox(height: 16),
+                categoryCard,
+                const SizedBox(height: 16),
+                topServicesCard,
+              ],
             );
           },
         ),
@@ -573,7 +626,7 @@ String _selectedRange = 'today';
       children: [
         _buildReportHeader(
           title: context.t('Staff Performance'),
-          subtitle: context.t('Track staff revenue, services and clients.'),
+          subtitle: '',
         ),
         const SizedBox(height: 16),
         _buildSummaryCards([
@@ -601,51 +654,52 @@ String _selectedRange = 'today';
         const SizedBox(height: 16),
         _ReportSection(
           padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  context.t('Staff Performance'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final useTable = constraints.maxWidth >= 680;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (useTable) const _StaffPerformanceTableHeader(),
+                  if (rows.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                      child: _ReportEmptyState(
+                        icon: Icons.groups_outlined,
+                        title: context.t('No staff performance data'),
+                        message: context
+                            .t('No staff activity found for this range.'),
+                        compact: true,
+                      ),
+                    )
+                  else
+                    ...rows.map((row) {
+                      return useTable
+                          ? _StaffPerformanceRow(
+                              row: row,
+                              cleanText: _cleanText,
+                            )
+                          : _StaffPerformanceMobileRow(
+                              row: row,
+                              cleanText: _cleanText,
+                            );
+                    }),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      total == 0
+                          ? context.t('Showing 0 results')
+                          : 'Showing $from to $to of $total results',
+                      style: const TextStyle(
+                        color: Color(0xFF78716C),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              if (rows.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: _ReportEmptyState(
-                    icon: Icons.groups_outlined,
-                    title: context.t('No staff performance data'),
-                    message:
-                        context.t('No staff activity found for this range.'),
-                    compact: true,
-                  ),
-                )
-              else
-                ...rows.map((row) {
-                  return _StaffPerformanceRow(
-                    row: row,
-                    cleanText: _cleanText,
-                  );
-                }),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  total == 0
-                      ? context.t('Showing 0 results')
-                      : 'Showing $from to $to of $total results',
-                  style: const TextStyle(
-                    color: Color(0xFF78716C),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -656,11 +710,13 @@ String _selectedRange = 'today';
     if (cards.isEmpty) return const SizedBox.shrink();
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth >= 760
-            ? 4
-            : constraints.maxWidth >= 420
-                ? 2
-                : 1;
+        final crossAxisCount = constraints.maxWidth >= 1100
+            ? 5
+            : constraints.maxWidth >= 760
+                ? 4
+                : constraints.maxWidth >= 420
+                    ? 2
+                    : 1;
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -708,18 +764,33 @@ String _selectedRange = 'today';
 
   Widget _buildOperations() {
     final summary = _mapValue(_data['summary']);
-    final appointmentsOverview = _mapValue(_data['appointmentsOverview']);
-    final peakBookingHours = _mapValue(_data['peakBookingHours']);
-    final bookingStatus = _mapValue(_data['bookingStatus']);
-    final cancellationReasons = _mapList(_data['topCancellationReasons']);
+    final page = _mapValue(_data['page']);
+    final charts = _mapValue(_data['charts']);
+    final appointmentsOverview =
+        _mapValue(charts['appointmentsOverview']).isNotEmpty
+            ? _mapValue(charts['appointmentsOverview'])
+            : _mapValue(_data['appointmentsOverview']);
+    final peakBookingHours = _mapValue(charts['peakBookingHours']).isNotEmpty
+        ? _mapValue(charts['peakBookingHours'])
+        : _mapValue(_data['peakBookingHours']);
+    final bookingStatus = _mapValue(charts['bookingStatus']).isNotEmpty
+        ? _mapValue(charts['bookingStatus'])
+        : _mapValue(_data['bookingStatus']);
+    final cancellationChart = _mapValue(charts['topCancellationReasons']);
+    final cancellationReasons = _mapList(cancellationChart['data']).isNotEmpty
+        ? _mapList(cancellationChart['data'])
+        : _mapList(_data['topCancellationReasons']);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildReportHeader(
-          title: context.t('Operations'),
-          subtitle:
-              context.t('Monitor daily operations and business efficiency.'),
+          title: _cleanText(page['title']).isEmpty
+              ? context.t('Operations')
+              : _cleanText(page['title']),
+          subtitle: _cleanText(page['subtitle']).isEmpty
+              ? context.t('Monitor daily operations and business efficiency.')
+              : _cleanText(page['subtitle']),
         ),
         const SizedBox(height: 16),
         _buildSummaryCards([
@@ -742,31 +813,70 @@ String _selectedRange = 'today';
           _operationSummaryCard(
             title: context.t('Avg. Service Time'),
             metric: _mapValue(summary['averageServiceTime']),
-            suffix: context.t('mins'),
+            suffix: context.t('minutes'),
           ),
         ]),
         const SizedBox(height: 16),
-        _OperationsOverviewCard(
-          data: appointmentsOverview,
-          cleanText: _cleanText,
-          asDouble: _asDouble,
-        ),
-        const SizedBox(height: 16),
-        _PeakBookingHoursCard(
-          data: peakBookingHours,
-          cleanText: _cleanText,
-          asDouble: _asDouble,
-        ),
-        const SizedBox(height: 16),
-        _BookingStatusCard(
-          data: bookingStatus,
-          cleanText: _cleanText,
-          asDouble: _asDouble,
-        ),
-        const SizedBox(height: 16),
-        _CancellationReasonsCard(
-          rows: cancellationReasons,
-          cleanText: _cleanText,
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final overviewCard = _OperationsOverviewCard(
+              data: appointmentsOverview,
+              cleanText: _cleanText,
+              asDouble: _asDouble,
+            );
+            final peakCard = _PeakBookingHoursCard(
+              data: peakBookingHours,
+              cleanText: _cleanText,
+              asDouble: _asDouble,
+            );
+            final statusCard = _BookingStatusCard(
+              data: bookingStatus,
+              cleanText: _cleanText,
+              asDouble: _asDouble,
+            );
+            final cancellationCard = _CancellationReasonsCard(
+              title: _cleanText(cancellationChart['title']),
+              emptyMessage: _cleanText(cancellationChart['emptyMessage']),
+              rows: cancellationReasons,
+              cleanText: _cleanText,
+            );
+
+            if (constraints.maxWidth >= 760) {
+              return Column(
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 5, child: overviewCard),
+                      const SizedBox(width: 16),
+                      Expanded(flex: 3, child: peakCard),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: statusCard),
+                      const SizedBox(width: 16),
+                      Expanded(child: cancellationCard),
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              children: [
+                overviewCard,
+                const SizedBox(height: 16),
+                peakCard,
+                const SizedBox(height: 16),
+                statusCard,
+                const SizedBox(height: 16),
+                cancellationCard,
+              ],
+            );
+          },
         ),
       ],
     );
@@ -808,7 +918,11 @@ class _OperationsOverviewCard extends StatelessWidget {
                   ),
                 ),
               ),
-              _PeriodBadge(label: context.t('This Month')),
+              _PeriodBadge(
+                label: cleanText(data['periodLabel']).isEmpty
+                    ? context.t('This Month')
+                    : cleanText(data['periodLabel']),
+              ),
             ],
           ),
           const SizedBox(height: 14),
@@ -866,8 +980,9 @@ class _PeakBookingHoursCard extends StatelessWidget {
             .map((item) => Map<String, dynamic>.from(item))
             .toList()
         : <Map<String, dynamic>>[];
-    final maxBookings =
-        rows.map((row) => asDouble(row['bookings'])).fold<double>(0, math.max);
+    final maxBookings = rows
+        .map((row) => asDouble(row['bookingCount'] ?? row['bookings']))
+        .fold<double>(0, math.max);
 
     return _ReportSection(
       child: Column(
@@ -920,16 +1035,30 @@ class _BookingStatusCard extends StatelessWidget {
         ? Map<String, dynamic>.from(data['data'] as Map)
         : const <String, dynamic>{};
     final rows = [
+      _statusRow(context.t('Pending'), statusData['pending']),
+      _statusRow(context.t('Confirmed'), statusData['confirmed']),
+      _statusRow(context.t('Approved'), statusData['approved']),
       _statusRow(context.t('Completed'), statusData['completed']),
+      _statusRow(context.t('In Progress'), statusData['inProgress']),
       _statusRow(context.t('Cancelled'), statusData['cancelled']),
-      _statusRow(context.t('No Shows'), statusData['noShow']),
+      _statusRow(context.t('No Show'), statusData['noShow']),
+      _statusRow(context.t('Hold'), statusData['hold']),
+      _statusRow(context.t('Expired'), statusData['expired']),
+      _statusRow(context.t('Other'), statusData['other']),
     ];
     const colors = [
       Color(0xFF7A5A10),
       Color(0xFFB48A45),
       Color(0xFFE75A70),
+      Color(0xFF4CAF50),
+      Color(0xFF2F80ED),
+      Color(0xFFF59E0B),
+      Color(0xFF9C27B0),
+      Color(0xFF795548),
+      Color(0xFF607D8B),
+      Color(0xFF26A69A),
     ];
-    final hasData = rows.any((row) => asDouble(row['percentage']) > 0);
+    final hasData = rows.any((row) => asDouble(row['count']) > 0);
 
     return _ReportSection(
       child: Column(
@@ -948,11 +1077,12 @@ class _BookingStatusCard extends StatelessWidget {
               compact: true,
             )
           else
-            Row(
-              children: [
-                SizedBox(
-                  width: 128,
-                  height: 128,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compact = constraints.maxWidth < 420;
+                final donut = SizedBox(
+                  width: compact ? 96 : 128,
+                  height: compact ? 96 : 128,
                   child: CustomPaint(
                     painter: _PaymentDonutPainter(
                       rows: rows,
@@ -960,51 +1090,73 @@ class _BookingStatusCard extends StatelessWidget {
                       asDouble: asDouble,
                     ),
                   ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    children: rows.asMap().entries.map((entry) {
-                      final row = entry.value;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 14),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 9,
-                              height: 9,
-                              decoration: BoxDecoration(
-                                color: colors[entry.key % colors.length],
-                                shape: BoxShape.circle,
-                              ),
+                );
+                final legend = Column(
+                  children: rows.asMap().entries.map((entry) {
+                    final row = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 9,
+                            height: 9,
+                            decoration: BoxDecoration(
+                              color: colors[entry.key % colors.length],
+                              shape: BoxShape.circle,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                cleanText(row['paymentMethod']),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${cleanText(row['percentage'])}% (${cleanText(row['count'])})',
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              cleanText(row['paymentMethod']),
                               style: const TextStyle(
-                                color: Color(0xFF78716C),
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 12,
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
+                          ),
+                          Text(
+                            '${_formatPercent(asDouble(row['percentage']))}% (${cleanText(row['count'])})',
+                            style: const TextStyle(
+                              color: Color(0xFF78716C),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+                if (compact) {
+                  return Column(
+                    children: [
+                      Center(child: donut),
+                      const SizedBox(height: 16),
+                      legend,
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    donut,
+                    const SizedBox(width: 20),
+                    Expanded(child: legend),
+                  ],
+                );
+              },
             ),
         ],
       ),
     );
+  }
+
+  String _formatPercent(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toStringAsFixed(1);
   }
 
   Map<String, dynamic> _statusRow(String label, dynamic value) {
@@ -1019,10 +1171,14 @@ class _BookingStatusCard extends StatelessWidget {
 
 class _CancellationReasonsCard extends StatelessWidget {
   const _CancellationReasonsCard({
+    required this.title,
+    required this.emptyMessage,
     required this.rows,
     required this.cleanText,
   });
 
+  final String title;
+  final String emptyMessage;
   final List<Map<String, dynamic>> rows;
   final String Function(dynamic value) cleanText;
 
@@ -1033,16 +1189,40 @@ class _CancellationReasonsCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            context.t('Top Cancellation Reasons'),
+            title.isEmpty ? context.t('Top Cancellation Reasons') : title,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 18),
           if (rows.isEmpty)
-            _ReportEmptyState(
-              icon: Icons.close_rounded,
-              title: context.t('No cancellation reasons'),
-              message: context.t('No cancellation reasons available.'),
-              compact: true,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFCF8),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFEAD7BF)),
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.close_rounded,
+                    color: Color(0xFFE11D48),
+                    size: 26,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    emptyMessage.isEmpty
+                        ? context.t('No cancellation reasons available.')
+                        : emptyMessage,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Color(0xFF78716C),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
             )
           else
             ...rows.map((row) {
@@ -1222,7 +1402,7 @@ class _ReportSummaryCard extends StatelessWidget {
         : cleanText(data['title']);
     final value = cleanText(data['displayValue']).isEmpty
         ? cleanText(data['formatted_value']).isEmpty
-            ? cleanText(data['value'])
+            ? _formatSummaryValue(data)
             : cleanText(data['formatted_value'])
         : cleanText(data['displayValue']);
     final comparison = data['comparison'] is Map
@@ -1287,6 +1467,16 @@ class _ReportSummaryCard extends StatelessWidget {
       ),
     );
   }
+
+  String _formatSummaryValue(Map<String, dynamic> data) {
+    final moneyValue = data['majorValue'] ?? data['minorValue'];
+    if (moneyValue != null) {
+      return formatMinorAmount(moneyValue, trimZeroDecimals: true);
+    }
+    return cleanText(data['value']).isEmpty
+        ? cleanText(data['count'])
+        : cleanText(data['value']);
+  }
 }
 
 class _RevenueTrendCard extends StatelessWidget {
@@ -1294,11 +1484,13 @@ class _RevenueTrendCard extends StatelessWidget {
     required this.data,
     required this.cleanText,
     required this.asDouble,
+    required this.periodLabel,
   });
 
   final Map<String, dynamic> data;
   final String Function(dynamic value) cleanText;
   final double Function(dynamic value) asDouble;
+  final String periodLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1313,11 +1505,21 @@ class _RevenueTrendCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            cleanText(data['title']).isEmpty
-                ? context.t('Revenue Trend')
-                : cleanText(data['title']),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  cleanText(data['title']).isEmpty
+                      ? context.t('Revenue Trend')
+                      : cleanText(data['title']),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              _PeriodBadge(label: periodLabel),
+            ],
           ),
           const SizedBox(height: 18),
           SizedBox(
@@ -1371,7 +1573,12 @@ class _PaymentMethodCard extends StatelessWidget {
       Color(0xFFE7C98B),
     ];
     final totalRevenue = cleanText(data['displayTotalRevenue']).isEmpty
-        ? cleanText(data['formattedTotalRevenue'])
+        ? cleanText(data['formattedTotalRevenue']).isEmpty
+            ? formatMinorAmount(
+                data['majorTotalRevenue'] ?? data['totalRevenue'],
+                trimZeroDecimals: true,
+              )
+            : cleanText(data['formattedTotalRevenue'])
         : cleanText(data['displayTotalRevenue']);
 
     return _ReportSection(
@@ -1469,7 +1676,8 @@ class _PaymentMethodCard extends StatelessWidget {
                       cleanText(row['displayAmount']).isNotEmpty
                           ? cleanText(row['displayAmount'])
                           : formatMinorAmount(
-                              row['amount'] ??
+                              row['majorAmount'] ??
+                                  row['amount'] ??
                                   row['totalAmount'] ??
                                   row['revenue'],
                               trimZeroDecimals: true,
@@ -1545,7 +1753,14 @@ class _CategoryRevenueCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          cleanText(row['displayRevenue']),
+                          cleanText(row['displayRevenue']).isNotEmpty
+                              ? cleanText(row['displayRevenue'])
+                              : formatMinorAmount(
+                                  row['majorRevenue'] ??
+                                      row['revenueMinor'] ??
+                                      row['revenue'],
+                                  trimZeroDecimals: true,
+                                ),
                           style: TextStyle(
                             color: AppColors.starColor,
                             fontWeight: FontWeight.w900,
@@ -1600,7 +1815,7 @@ class _TopServicesCard extends StatelessWidget {
             .map((item) => Map<String, dynamic>.from(item))
             .toList()
         : <Map<String, dynamic>>[];
-    final viewAllEnabled = data['viewAllEnabled'] == true;
+    final viewAllEnabled = data['viewAllEnabled'] == true || rows.isNotEmpty;
     final viewAllLabel = cleanText(data['viewAllLabel']).isEmpty
         ? context.t('View all services')
         : cleanText(data['viewAllLabel']);
@@ -1653,7 +1868,14 @@ class _TopServicesCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      cleanText(row['displayRevenue']),
+                      cleanText(row['displayRevenue']).isNotEmpty
+                          ? cleanText(row['displayRevenue'])
+                          : formatMinorAmount(
+                              row['majorRevenue'] ??
+                                  row['revenueMinor'] ??
+                                  row['revenue'],
+                              trimZeroDecimals: true,
+                            ),
                       style: TextStyle(
                         color: AppColors.starColor,
                         fontWeight: FontWeight.w900,
@@ -1687,8 +1909,127 @@ class _TopServicesCard extends StatelessWidget {
   }
 }
 
+class _StaffPerformanceTableHeader extends StatelessWidget {
+  const _StaffPerformanceTableHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    const headerStyle = TextStyle(
+      color: Color(0xFF8B7B6C),
+      fontSize: 10,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 1.1,
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFFCF8),
+        border: Border(bottom: BorderSide(color: Color(0xFFE8D8C8))),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+              width: 54,
+              child: Text(context.t('Rank').toUpperCase(), style: headerStyle)),
+          Expanded(
+              flex: 3,
+              child:
+                  Text(context.t('Staff').toUpperCase(), style: headerStyle)),
+          Expanded(
+              child:
+                  Text(context.t('Revenue').toUpperCase(), style: headerStyle)),
+          Expanded(
+              child: Text(context.t('Services').toUpperCase(),
+                  style: headerStyle)),
+          Expanded(
+              child:
+                  Text(context.t('Clients').toUpperCase(), style: headerStyle)),
+          Expanded(
+              child: Text(context.t('Avg. Rating').toUpperCase(),
+                  style: headerStyle)),
+          Expanded(
+              child: Text(context.t('Rebook Rate').toUpperCase(),
+                  style: headerStyle)),
+        ],
+      ),
+    );
+  }
+}
+
 class _StaffPerformanceRow extends StatelessWidget {
   const _StaffPerformanceRow({
+    required this.row,
+    required this.cleanText,
+  });
+
+  final Map<String, dynamic> row;
+  final String Function(dynamic value) cleanText;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = cleanText(row['name']);
+    final initial = name.isEmpty ? 'S' : name.characters.first.toUpperCase();
+    final rowStyle = const TextStyle(
+      color: Color(0xFF1C1917),
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+    );
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 13, 16, 13),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFE8D8C8))),
+      ),
+      child: Row(
+        children: [
+          SizedBox(width: 54, child: _RankBadge(rank: row['rank'])),
+          Expanded(
+            flex: 3,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 15,
+                  backgroundColor: const Color(0xFFF1EBE6),
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      color: AppColors.starColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    name.isEmpty ? context.t('Staff') : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: rowStyle.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              formatMinorAmount(row['revenue'], trimZeroDecimals: true),
+              style: rowStyle.copyWith(color: AppColors.starColor),
+            ),
+          ),
+          Expanded(
+              child: Text('${row['totalServices'] ?? 0}', style: rowStyle)),
+          Expanded(child: Text('${row['totalClients'] ?? 0}', style: rowStyle)),
+          Expanded(
+              child: Text('${row['averageRating'] ?? 0}', style: rowStyle)),
+          Expanded(child: Text('${row['rebookRate'] ?? 0}', style: rowStyle)),
+        ],
+      ),
+    );
+  }
+}
+
+class _StaffPerformanceMobileRow extends StatelessWidget {
+  const _StaffPerformanceMobileRow({
     required this.row,
     required this.cleanText,
   });
@@ -1703,7 +2044,7 @@ class _StaffPerformanceRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFF1EBE6))),
+        border: Border(bottom: BorderSide(color: Color(0xFFE8D8C8))),
       ),
       child: Row(
         children: [
@@ -1913,8 +2254,9 @@ class _PeakBookingHoursPainter extends CustomPainter {
     final chartBottom = size.height - 32;
     final chartWidth = chartRight - chartLeft;
     final chartHeight = chartBottom - chartTop;
-    final maxBookings =
-        rows.map((row) => asDouble(row['bookings'])).fold<double>(0, math.max);
+    final maxBookings = rows
+        .map((row) => asDouble(row['bookingCount'] ?? row['bookings']))
+        .fold<double>(0, math.max);
     final yAxisMax = math.max(4, maxBookings.ceil()).toDouble();
 
     for (var i = 0; i <= 4; i++) {
@@ -1934,7 +2276,7 @@ class _PeakBookingHoursPainter extends CustomPainter {
     final slotWidth = chartWidth / rows.length;
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
-      final bookings = asDouble(row['bookings']);
+      final bookings = asDouble(row['bookingCount'] ?? row['bookings']);
       final barHeight = bookings <= 0 ? 0.0 : chartHeight * bookings / yAxisMax;
       final barWidth = math.min(34.0, slotWidth * 0.38);
       final left = chartLeft + slotWidth * i + (slotWidth - barWidth) / 2;
@@ -1950,7 +2292,7 @@ class _PeakBookingHoursPainter extends CustomPainter {
       );
       _drawText(
         canvas,
-        _formatHour(cleanText(row['hour'])),
+        _formatHourLabel(row),
         Offset(
             chartLeft + slotWidth * i + slotWidth / 2 - 28, chartBottom + 12),
         const Color(0xFF9CA3AF),
@@ -1959,6 +2301,12 @@ class _PeakBookingHoursPainter extends CustomPainter {
         align: TextAlign.center,
       );
     }
+  }
+
+  String _formatHourLabel(Map<String, dynamic> row) {
+    final label = cleanText(row['label']);
+    if (label.isNotEmpty) return label;
+    return _formatHour(cleanText(row['hour']));
   }
 
   String _formatHour(String value) {
@@ -2206,8 +2554,9 @@ class _RevenueBarPainter extends CustomPainter {
       ..color = const Color(0xFFF1E7DC)
       ..strokeWidth = 1;
     final barPaint = Paint()..color = AppColors.starColor;
-    final maxRevenue =
-        rows.map((row) => asDouble(row['revenue'])).fold<double>(0, math.max);
+    final maxRevenue = rows
+        .map((row) => asDouble(row['majorRevenue'] ?? row['revenue']))
+        .fold<double>(0, math.max);
     final maxValue = maxRevenue <= 0 ? 1 : maxRevenue;
     final chartTop = 10.0;
     final chartBottom = size.height - 34;
@@ -2223,7 +2572,7 @@ class _RevenueBarPainter extends CustomPainter {
     final slotWidth = size.width / rows.length;
     for (var i = 0; i < rows.length; i++) {
       final row = rows[i];
-      final value = asDouble(row['revenue']);
+      final value = asDouble(row['majorRevenue'] ?? row['revenue']);
       final barHeight = value <= 0 ? 0.0 : chartHeight * (value / maxValue);
       final barWidth = math.min(42.0, slotWidth * 0.48);
       final left = slotWidth * i + (slotWidth - barWidth) / 2;
