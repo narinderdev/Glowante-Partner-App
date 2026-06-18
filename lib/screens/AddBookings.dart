@@ -334,6 +334,24 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return base;
   }
 
+  int? _extractUserId(dynamic raw) {
+    if (raw is! Map) return null;
+    final map = Map<String, dynamic>.from(raw);
+    for (final key in const ['userId', 'id']) {
+      final value = map[key];
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      final parsed = int.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    for (final key in const ['user', 'customer', 'client', 'data']) {
+      final nested = map[key];
+      final parsed = _extractUserId(nested);
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
   List<Map<String, dynamic>> _extractBranchClients(dynamic raw) {
     if (raw is List) {
       return raw
@@ -1004,6 +1022,23 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               final data = response['data'];
               if (data is Map) {
                 customer = _normalizeCustomer(data);
+              }
+              final verifiedUserId =
+                  _extractUserId(data) ?? _extractUserId(response);
+              if (verifiedUserId != null && widget.branchId != null) {
+                final linkResponse = await ApiService().linkBranchClient(
+                  branchId: widget.branchId!,
+                  userId: verifiedUserId,
+                );
+                final linkedData = linkResponse['data'];
+                if (linkedData is Map && linkedData.isNotEmpty) {
+                  customer = {
+                    ...customer,
+                    ..._normalizeCustomer(linkedData),
+                  };
+                }
+                customer['id'] = verifiedUserId;
+                customer['userId'] = verifiedUserId;
               }
               if (customer.isEmpty && widget.branchId != null) {
                 final clients = await _fetchBranchCustomers();

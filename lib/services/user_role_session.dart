@@ -24,6 +24,7 @@ class UserRoleSession {
   static const String _stylistSalonsJsonKey = 'stylist_user_salons_json';
   static const String _stylistUserBranchesJsonKey =
       'stylist_user_branches_json';
+  static const String branchPermissionsJsonKey = 'user_branch_permissions_json';
 
   static bool usesStylistShellForUser(Map<String, dynamic>? user) {
     final roles = user?['roles'];
@@ -133,6 +134,107 @@ class UserRoleSession {
         _stylistUserBranchesJsonKey, jsonEncode(userBranches));
   }
 
+  Future<void> persistUserPermissions(Map<String, dynamic>? user) async {
+    final prefs = await SharedPreferences.getInstance();
+    final permissionsByBranch = <String, Set<String>>{};
+
+    void addPermissions(dynamic branchIdValue, dynamic rawPermissions) {
+      final branchId = _asInt(branchIdValue);
+      if (branchId == null || rawPermissions is! List) return;
+      final bucket =
+          permissionsByBranch.putIfAbsent('$branchId', () => <String>{});
+      for (final permission in rawPermissions) {
+        final code = permission?.toString().trim();
+        if (code != null && code.isNotEmpty) bucket.add(code);
+      }
+    }
+
+    final salons = user?['salons'];
+    if (salons is List) {
+      for (final salonEntry in salons) {
+        if (salonEntry is! Map) continue;
+        final salon = Map<String, dynamic>.from(salonEntry);
+        final branches = salon['branches'];
+        if (branches is! List) continue;
+        for (final branchEntry in branches) {
+          if (branchEntry is! Map) continue;
+          final branch = Map<String, dynamic>.from(branchEntry);
+          final role = branch['role'];
+          final roleMap = role is Map ? Map<String, dynamic>.from(role) : null;
+          addPermissions(branch['id'] ?? branch['branchId'],
+              roleMap?['permissions'] ?? branch['permissions']);
+        }
+      }
+    }
+
+    final userBranches = user?['userBranches'];
+    if (userBranches is List) {
+      for (final branchEntry in userBranches) {
+        if (branchEntry is! Map) continue;
+        final branch = Map<String, dynamic>.from(branchEntry);
+        final role = branch['role'];
+        final roleMap = role is Map ? Map<String, dynamic>.from(role) : null;
+        addPermissions(branch['id'] ?? branch['branchId'],
+            roleMap?['permissions'] ?? branch['permissions']);
+      }
+    }
+
+    if (permissionsByBranch.isEmpty) {
+      await prefs.remove(branchPermissionsJsonKey);
+      return;
+    }
+
+    await prefs.setString(
+      branchPermissionsJsonKey,
+      jsonEncode(
+        permissionsByBranch.map(
+          (branchId, permissions) => MapEntry(branchId, permissions.toList()),
+        ),
+      ),
+    );
+  }
+
+  Future<bool> hasPersistedPermissions() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.containsKey(branchPermissionsJsonKey);
+  }
+
+  Future<Set<String>> loadPermissions({int? branchId}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(branchPermissionsJsonKey);
+    if (raw == null || raw.trim().isEmpty) return <String>{};
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return <String>{};
+
+      if (branchId != null) {
+        return _permissionsFromList(decoded['$branchId']);
+      }
+
+      final allPermissions = <String>{};
+      for (final value in decoded.values) {
+        allPermissions.addAll(_permissionsFromList(value));
+      }
+      return allPermissions;
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  Future<bool> hasPermission(String permission, {int? branchId}) async {
+    final permissions = await loadPermissions(branchId: branchId);
+    return permissions.contains(permission);
+  }
+
+  Future<bool> hasAnyPermission(
+    Iterable<String> permissionCodes, {
+    int? branchId,
+  }) async {
+    final permissions = await loadPermissions(branchId: branchId);
+    return permissionCodes.any(permissions.contains);
+  }
+
   Future<List<Map<String, dynamic>>> loadUserSalons() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_stylistSalonsJsonKey);
@@ -229,8 +331,17 @@ class UserRoleSession {
 
   static int? _asInt(dynamic value) {
     if (value is int) return value;
+    if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  static Set<String> _permissionsFromList(dynamic raw) {
+    if (raw is! List) return <String>{};
+    return raw
+        .map((item) => item?.toString().trim() ?? '')
+        .where((code) => code.isNotEmpty)
+        .toSet();
   }
 
   static int? _resolvePrimaryRoleId(List<String> roleIds) {

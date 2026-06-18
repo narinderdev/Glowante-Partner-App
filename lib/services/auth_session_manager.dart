@@ -38,6 +38,7 @@ class AuthSessionManager {
     'primary_role_code',
     'stylist_user_salons_json',
     'stylist_user_branches_json',
+    'user_branch_permissions_json',
     'selected_branch_id',
     'selected_salon_id',
     'stylist_selected_salon_name',

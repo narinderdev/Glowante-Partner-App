@@ -168,29 +168,91 @@ class _TeamScreenState extends State<TeamScreen> {
     });
   }
 
-  Future<void> _toggleMemberActive(int userId, bool makeActive) async {
-    final branchId = selectedBranchId;
-    if (branchId == null) return;
-    setState(() => _statusUpdatingIds.add(userId));
-    try {
-      await ApiService().setTeamMemberActive(
-        branchId: branchId,
-        userId: userId,
-        active: makeActive,
-      );
-      await _refreshTeamMembers();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _statusUpdatingIds.remove(userId));
-      }
-    }
+  // Future<void> _toggleMemberActive(int userId, bool makeActive) async {
+  //   final branchId = selectedBranchId;
+  //   if (branchId == null) return;
+  //   setState(() => _statusUpdatingIds.add(userId));
+  //   try {
+  //     await ApiService().setTeamMemberActive(
+  //       branchId: branchId,
+  //       userId: userId,
+  //       active: makeActive,
+  //     );
+  //     await _refreshTeamMembers();
+  //   } catch (e) {
+  //     if (!mounted) return;
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text(e.toString())),
+  //     );
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _statusUpdatingIds.remove(userId));
+  //     }
+  //   }
+  // }
+Future<void> _toggleMemberActive(int userId, bool makeActive) async {
+  final branchId = selectedBranchId;
+
+  if (branchId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(translateText('Please select a branch first'))),
+    );
+    return;
   }
 
+  setState(() => _statusUpdatingIds.add(userId));
+
+  try {
+    final response = await ApiService().setTeamMemberActive(
+      branchId: branchId,
+      userId: userId,
+      active: makeActive,
+    );
+
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText(
+              makeActive
+                  ? 'Team member activated successfully'
+                  : 'Team member deactivated successfully',
+            ),
+          ),
+        ),
+      );
+
+      await _refreshTeamMembers();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response['message']?.toString() ??
+                (makeActive
+                    ? 'Failed to activate team member'
+                    : 'Failed to deactivate team member'),
+          ),
+        ),
+      );
+    }
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+        ),
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _statusUpdatingIds.remove(userId));
+    }
+  }
+}
   // Future<void> _deleteMember(int userId) async {
   //   final branchId = selectedBranchId;
   //   if (branchId == null) return;
@@ -236,79 +298,166 @@ class _TeamScreenState extends State<TeamScreen> {
   //     }
   //   }
   // }
-  Future<void> _deleteMember(int userId) async {
-    final branchId = selectedBranchId;
+  // Future<void> _deleteMember(int userId) async {
+  //   final branchId = selectedBranchId;
 
-    if (branchId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select a branch first'))),
-      );
-      return;
-    }
+  //   if (branchId == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text(translateText('Please select a branch first'))),
+  //     );
+  //     return;
+  //   }
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        title: Text(translateText('Delete Team Member')),
-        content: Text(
-          translateText(
-            'Are you sure you want to delete this team member? This action cannot be undone.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(translateText('Cancel')),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.starColor,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              translateText('Delete'),
-              style: const TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
+  //   final confirmed = await showDialog<bool>(
+  //     context: context,
+  //     builder: (ctx) => AlertDialog(
+  //       shape: RoundedRectangleBorder(
+  //         borderRadius: BorderRadius.circular(12),
+  //       ),
+  //       title: Text(translateText('Delete Team Member')),
+  //       content: Text(
+  //         translateText(
+  //           'Are you sure you want to delete this team member? This action cannot be undone.',
+  //         ),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(ctx, false),
+  //           child: Text(translateText('Cancel')),
+  //         ),
+  //         ElevatedButton(
+  //           style: ElevatedButton.styleFrom(
+  //             backgroundColor: AppColors.starColor,
+  //           ),
+  //           onPressed: () => Navigator.pop(ctx, true),
+  //           child: Text(
+  //             translateText('Delete'),
+  //             style: const TextStyle(color: Colors.white),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+
+  //   if (confirmed != true) return;
+
+  //   setState(() => _deletingMemberIds.add(userId));
+
+  //   try {
+  //     await ApiService().deleteTeamMember(
+  //       branchId: branchId,
+  //       userId: userId,
+  //     );
+
+  //     if (!mounted) return;
+
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(translateText('Team member deleted successfully')),
+  //       ),
+  //     );
+
+  //     await _refreshTeamMembers();
+  //   } catch (e) {
+  //     if (!mounted) return;
+
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text(e.toString())),
+  //     );
+  //   } finally {
+  //     if (mounted) {
+  //       setState(() => _deletingMemberIds.remove(userId));
+  //     }
+  //   }
+  // }
+Future<void> _deleteMember(int userId) async {
+  final branchId = selectedBranchId;
+
+  if (branchId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(translateText('Please select a branch first'))),
+    );
+    return;
+  }
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
       ),
+      title: Text(translateText('Delete Team Member')),
+      content: Text(
+        translateText(
+          'Are you sure you want to delete this team member? This action cannot be undone.',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx, false),
+          child: Text(translateText('Cancel')),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.starColor,
+          ),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: Text(
+            translateText('Delete'),
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed != true) return;
+
+  setState(() => _deletingMemberIds.add(userId));
+
+  try {
+    final response = await ApiService().deleteTeamMember(
+      branchId: branchId,
+      userId: userId,
     );
 
-    if (confirmed != true) return;
+    if (!mounted) return;
 
-    setState(() => _deletingMemberIds.add(userId));
-
-    try {
-      await ApiService().deleteTeamMember(
-        branchId: branchId,
-        userId: userId,
-      );
-
-      if (!mounted) return;
-
+    if (response['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(translateText('Team member deleted successfully')),
+          content: Text(
+            translateText('Team member deleted successfully'),
+          ),
         ),
       );
 
       await _refreshTeamMembers();
-    } catch (e) {
-      if (!mounted) return;
-
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(
+          content: Text(
+            response['message']?.toString() ?? 'Failed to delete team member',
+          ),
+        ),
       );
-    } finally {
-      if (mounted) {
-        setState(() => _deletingMemberIds.remove(userId));
-      }
+    }
+  } catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+        ),
+      ),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _deletingMemberIds.remove(userId));
     }
   }
-
+}
   // void _pickBranch(Map<String, dynamic> branchOpt) {
   //   selectedBranch = branchOpt;
   //   selectedBranchId = _asInt(branchOpt['branchId']);

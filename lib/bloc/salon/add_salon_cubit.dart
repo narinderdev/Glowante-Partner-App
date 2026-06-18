@@ -119,7 +119,7 @@ class AddSalonCubit extends Cubit<AddSalonState> {
         return;
       }
 
-      await _repository.createSalon(
+      final response = await _repository.createSalon(
         name: formData.name,
         phone: formData.phone,
         startTime: formData.startTime,
@@ -145,6 +145,7 @@ class AddSalonCubit extends Cubit<AddSalonState> {
         clearImages: true,
         clearAddress: true,
         clearSelectedServiceCodes: true,
+        createdSalonResponse: response,
       ));
     } catch (error) {
       emit(state.copyWith(
@@ -155,6 +156,10 @@ class AddSalonCubit extends Cubit<AddSalonState> {
   }
 
   void resetStatus() {
-    emit(state.copyWith(status: AddSalonStatus.ready, clearError: true));
+    emit(state.copyWith(
+      status: AddSalonStatus.ready,
+      clearError: true,
+      clearCreatedSalonResponse: true,
+    ));
   }
 }

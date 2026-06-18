@@ -99,7 +99,7 @@ class AddBranchCubit extends Cubit<AddBranchState> {
     emit(state.copyWith(status: BranchFormStatus.submitting, clearError: true));
 
     try {
-      await _repository.addBranch(
+      final response = await _repository.addBranch(
         salonId: salonId,
         name: formData.name,
         phone: formData.phone,
@@ -122,6 +122,7 @@ class AddBranchCubit extends Cubit<AddBranchState> {
           clearAddress: true,
           clearImages: true,
           clearError: true,
+          createdBranchResponse: response,
         ),
       );
     } catch (error) {
@@ -139,6 +140,7 @@ class AddBranchCubit extends Cubit<AddBranchState> {
       state.copyWith(
         status: BranchFormStatus.ready,
         clearError: true,
+        clearCreatedBranchResponse: true,
       ),
     );
   }

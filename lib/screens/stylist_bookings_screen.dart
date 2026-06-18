@@ -329,11 +329,39 @@ List<Map<String, dynamic>> _bookingServices(Map<String, dynamic> booking) {
       .toList();
 }
 
+DateTime? _bookingDate(Map<String, dynamic> booking) {
+  return _parseLocal(
+        booking['date'] ??
+            booking['appointmentDate'] ??
+            booking['bookingDate'] ??
+            booking['scheduledDate'],
+      ) ??
+      _bookingStart(booking);
+}
+
 DateTime? _bookingStart(Map<String, dynamic> booking) {
   final items = _bookingItems(booking);
-  return _parseLocal(
+  final explicitStart = _parseLocal(
     booking['startAt'] ?? (items.isNotEmpty ? items.first['startAt'] : null),
   );
+  if (explicitStart != null) return explicitStart;
+
+  final dateText = (booking['date'] ??
+          booking['appointmentDate'] ??
+          booking['bookingDate'] ??
+          booking['scheduledDate'] ??
+          '')
+      .toString()
+      .trim();
+  final timeText = (booking['startTime'] ??
+          booking['start'] ??
+          booking['start_at'] ??
+          booking['time'] ??
+          '')
+      .toString()
+      .trim();
+  if (dateText.isEmpty || timeText.isEmpty) return null;
+  return _parseLocal('${dateText.split('T').first}T$timeText');
 }
 
 DateTime? _bookingEnd(Map<String, dynamic> booking) {
@@ -410,6 +438,7 @@ String _customerName(BuildContext context, Map<String, dynamic> booking) {
 
   return translateText('Customer');
 }
+
 String _customerPhone(Map<String, dynamic> booking) {
   final user = booking['user'];
   final client = booking['client'];
@@ -660,8 +689,7 @@ void _logBookingsFetchSnapshot(
 String _serviceLabel(BuildContext context, Map<String, dynamic> booking) {
   final items = _bookingItems(booking);
   if (items.isNotEmpty) {
-   final firstName =
-    items.first['serviceName']?.toString().trim() ??
+    final firstName = items.first['serviceName']?.toString().trim() ??
         items.first['branchService']?['displayName']?.toString().trim() ??
         items.first['service']?.toString().trim() ??
         items.first['displayName']?.toString().trim() ??
@@ -715,18 +743,18 @@ String _serviceCardSummary(BuildContext context, Map<String, dynamic> booking) {
 
   final items = _bookingItems(booking);
   if (items.isNotEmpty) {
-   final names = items
-    .map(
-      (item) =>
-          item['serviceName']?.toString().trim() ??
-          item['branchService']?['displayName']?.toString().trim() ??
-          item['service']?.toString().trim() ??
-          item['displayName']?.toString().trim() ??
-          item['name']?.toString().trim() ??
-          '',
-    )
-    .where((name) => name.isNotEmpty)
-    .toList();
+    final names = items
+        .map(
+          (item) =>
+              item['serviceName']?.toString().trim() ??
+              item['branchService']?['displayName']?.toString().trim() ??
+              item['service']?.toString().trim() ??
+              item['displayName']?.toString().trim() ??
+              item['name']?.toString().trim() ??
+              '',
+        )
+        .where((name) => name.isNotEmpty)
+        .toList();
 
     if (names.isEmpty) return appointmentLabel;
     if (names.length == 1) return names.first;
@@ -819,12 +847,12 @@ List<StylistAppointmentServiceSegment> _detailServiceSegments(
     DateTime? fallbackStart = _bookingStart(booking);
 
     return items.map((item) {
-     final name = item['serviceName']?.toString().trim() ??
-    item['branchService']?['displayName']?.toString().trim() ??
-    item['service']?.toString().trim() ??
-    item['displayName']?.toString().trim() ??
-    item['name']?.toString().trim() ??
-    appointmentLabel;
+      final name = item['serviceName']?.toString().trim() ??
+          item['branchService']?['displayName']?.toString().trim() ??
+          item['service']?.toString().trim() ??
+          item['displayName']?.toString().trim() ??
+          item['name']?.toString().trim() ??
+          appointmentLabel;
 
       final durationMin = _asInt(
         item['durationMin'] ?? item['branchService']?['durationMin'],
@@ -906,7 +934,21 @@ int _bookingDurationMinutes(Map<String, dynamic> booking) {
 }
 
 String _bookingTotalPrice(Map<String, dynamic> booking) {
-  final totalPriceMinor = _asInt(booking['totalPriceMinor']);
+  final totalPriceMinor = _asInt(
+    booking['totalPriceMinor'] ??
+        booking['totalAmountMinor'] ??
+        booking['amountMinor'] ??
+        booking['paymentAmountMinor'] ??
+        booking['payableAmountMinor'] ??
+        booking['finalAmountMinor'] ??
+        booking['subtotalMinor'] ??
+        booking['totalPrice'] ??
+        booking['totalAmount'] ??
+        booking['amount'] ??
+        booking['paymentAmount'] ??
+        booking['payableAmount'] ??
+        booking['finalAmount'],
+  );
   if (totalPriceMinor != null && totalPriceMinor > 0) {
     return formatMinorAmount(totalPriceMinor);
   }
@@ -2224,7 +2266,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     addName(_personName(booking['assignedUserBranch']?['user']));
     addName(_personName(booking['professional']));
-addFromUserId(booking['professional']?['id']);
+    addFromUserId(booking['professional']?['id']);
     addFromUserId(booking['assignedUserId']);
     addFromUserId(booking['teamMemberId']);
     addFromUserBranchId(booking['assignedUserBranchId']);
@@ -2235,7 +2277,7 @@ addFromUserId(booking['professional']?['id']);
     for (final item in _bookingItems(booking)) {
       addName(_personName(item['assignedUserBranch']?['user']));
       addName(_personName(item['professional']));
-addFromUserId(item['professional']?['id']);
+      addFromUserId(item['professional']?['id']);
       addFromUserId(item['assignedUserId']);
       addFromUserId(item['teamMemberId']);
       addFromUserBranchId(item['assignedUserBranchId']);
@@ -6176,11 +6218,28 @@ class _StylistBookingDetailScreen extends StatefulWidget {
       _StylistBookingDetailScreenState();
 }
 
+class _BookingServiceOption {
+  const _BookingServiceOption({
+    required this.id,
+    required this.name,
+    required this.priceMinor,
+    required this.durationMin,
+    required this.path,
+  });
+
+  final int id;
+  final String name;
+  final int priceMinor;
+  final int durationMin;
+  final String path;
+}
+
 class _StylistBookingDetailScreenState
     extends State<_StylistBookingDetailScreen> {
   late Map<String, dynamic> _booking;
   late String _statusUpper;
   final List<StylistUsedItem> _addedItems = [];
+  final List<StylistAppointmentServiceSegment> _addedServiceSegments = [];
   bool _loadingConfirm = false;
   bool _loadingStart = false;
   bool _loadingComplete = false;
@@ -6397,6 +6456,224 @@ class _StylistBookingDetailScreenState
     );
   }
 
+  List<_BookingServiceOption> _extractServiceOptions(dynamic raw) {
+    final options = <_BookingServiceOption>[];
+    void visit(dynamic node, [List<String> path = const []]) {
+      if (node is List) {
+        for (final item in node) {
+          visit(item, path);
+        }
+        return;
+      }
+      if (node is! Map) return;
+      final map = Map<String, dynamic>.from(node);
+      final name = (map['displayName'] ??
+              map['name'] ??
+              map['title'] ??
+              map['serviceName'] ??
+              '')
+          .toString()
+          .trim();
+      final id = _asInt(map['id'] ?? map['branchServiceId']);
+      final priceMinor = _asInt(
+            map['priceMinor'] ??
+                map['defaultPriceMinor'] ??
+                map['price'] ??
+                map['amountMinor'],
+          ) ??
+          0;
+      final durationMin = _asInt(map['durationMin'] ?? map['duration']) ?? 0;
+      final looksLikeService =
+          id != null && name.isNotEmpty && (durationMin > 0 || priceMinor > 0);
+      if (looksLikeService) {
+        options.add(
+          _BookingServiceOption(
+            id: id,
+            name: name,
+            priceMinor: priceMinor,
+            durationMin: durationMin,
+            path: path.where((part) => part.isNotEmpty).join(' • '),
+          ),
+        );
+      }
+
+      final nextPath =
+          name.isEmpty || looksLikeService ? path : [...path, name];
+      for (final key in const [
+        'data',
+        'categories',
+        'subCategories',
+        'subcategories',
+        'services',
+        'items',
+        'results',
+      ]) {
+        visit(map[key], nextPath);
+      }
+    }
+
+    visit(raw);
+    final seen = <int>{};
+    return options.where((option) => seen.add(option.id)).toList();
+  }
+
+  Future<void> _showAddServicesDialog() async {
+    try {
+      final response = await ApiService().getBranchService(
+        branchId: widget.branchId,
+      );
+      if (!mounted) return;
+      final services = _extractServiceOptions(response['data'] ?? response);
+      if (services.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(translateText('No services found'))),
+        );
+        return;
+      }
+
+      final selected = <int>{};
+      final picked = await showDialog<List<_BookingServiceOption>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ConstrainedBox(
+                constraints:
+                    const BoxConstraints(maxWidth: 520, maxHeight: 620),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 10, 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              translateText('Add Services'),
+                              style: _bookingTextStyle(
+                                size: 18,
+                                weight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.pop(dialogContext),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: services.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final service = services[index];
+                          final isSelected = selected.contains(service.id);
+                          return CheckboxListTile(
+                            value: isSelected,
+                            onChanged: (value) {
+                              setDialogState(() {
+                                if (value == true) {
+                                  selected.add(service.id);
+                                } else {
+                                  selected.remove(service.id);
+                                }
+                              });
+                            },
+                            controlAffinity: ListTileControlAffinity.leading,
+                            title: Text(
+                              service.name,
+                              style: _bookingTextStyle(
+                                size: 14,
+                                weight: FontWeight.w700,
+                              ),
+                            ),
+                            subtitle: Text(
+                              [
+                                if (service.path.isNotEmpty) service.path,
+                                if (service.durationMin > 0)
+                                  '${service.durationMin} min',
+                                if (service.priceMinor > 0)
+                                  formatMinorAmount(service.priceMinor),
+                              ].join(' • '),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.pop(dialogContext),
+                              child: Text(translateText('Cancel')),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: selected.isEmpty
+                                  ? null
+                                  : () {
+                                      Navigator.pop(
+                                        dialogContext,
+                                        services
+                                            .where((service) =>
+                                                selected.contains(service.id))
+                                            .toList(),
+                                      );
+                                    },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _bookingsGold,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: Text(translateText('Add')),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+      if (!mounted || picked == null || picked.isEmpty) return;
+      setState(() {
+        _addedServiceSegments.addAll(
+          picked.map(
+            (service) => StylistAppointmentServiceSegment(
+              title: service.name,
+              timeLabel: service.durationMin > 0
+                  ? '${service.durationMin} min'
+                  : translateText('Added'),
+              metaLabel: service.priceMinor > 0
+                  ? formatMinorAmount(service.priceMinor)
+                  : null,
+            ),
+          ),
+        );
+        _didChange = true;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
   Future<void> _refreshBookingDetails() async {
     try {
       final start = _bookingStart(_booking);
@@ -6502,11 +6779,15 @@ class _StylistBookingDetailScreenState
 
     final visuals = _statusVisuals(context, _statusUpper);
     final serviceSummary = _serviceCardSummary(context, _booking);
-    final serviceSegments = _detailServiceSegments(context, _booking);
+    final serviceSegments = [
+      ..._detailServiceSegments(context, _booking),
+      ..._addedServiceSegments,
+    ];
     final assignedStaffLabel =
         widget.isOwnerMode ? _assignedStaffSummary(context, _booking) : '';
     final timeRange = _bookingTimeRange(_booking);
     final totalAmount = _bookingTotalPrice(_booking);
+    final bookingDate = _bookingDate(_booking);
     final elapsed = _detailElapsedTime();
     final scheduledMinutes = _bookingDurationMinutes(_booking);
     final progress = scheduledMinutes <= 0
@@ -6565,6 +6846,7 @@ class _StylistBookingDetailScreenState
         progress: progress,
         elapsedMinutes: elapsed.inMinutes,
         scheduledMinutes: scheduledMinutes,
+        dateLabel: bookingDate == null ? '-' : _formatScheduleDate(bookingDate),
         timeRange: timeRange,
         customerName: _customerName(context, _booking),
         customerPhone: _customerPhone(_booking),
@@ -6595,6 +6877,7 @@ class _StylistBookingDetailScreenState
         onSecondaryAction: canNoShow ? _handleNoShow : null,
         addedItems: _addedItems,
         onAddItems: _showAddItemsInfo,
+        onAddServices: _showAddServicesDialog,
         onRefresh: _refreshBookingDetails,
       ),
     );

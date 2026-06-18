@@ -265,6 +265,17 @@ class _OwnerProfileOperationsScreenState
   String get _moduleLogLabel =>
       _isVendorModule ? 'vendor' : 'inventory/${_inventoryTab.name}';
 
+  String _screenTitle(BuildContext context) {
+    if (_isVendorModule) return context.t('Vendor');
+    if (widget.showInventoryTabs) return context.t('Inventory');
+    return switch (_inventoryTab) {
+      _InventoryTab.store => context.t('Store'),
+      _InventoryTab.inventoryItem => context.t('Inventory Item'),
+      _InventoryTab.purchaseOrder => context.t('Purchase Order'),
+      _InventoryTab.goodsReceiptNote => context.t('Goods Receipt Note'),
+    };
+  }
+
   void _logOperations(String event, {Object? details}) {
     debugPrint(
       '[OwnerOperations:$_moduleLogLabel] $event${details == null ? '' : ' | $details'}',
@@ -2088,7 +2099,7 @@ class _OwnerProfileOperationsScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(
-        title: _isVendorModule ? context.t('Vendor') : context.t('Inventory'),
+        title: _screenTitle(context),
       ),
       body: _buildBodyContent(),
     );

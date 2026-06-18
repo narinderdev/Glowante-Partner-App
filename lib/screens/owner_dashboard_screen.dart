@@ -1,13 +1,17 @@
 import 'dart:math' as math;
-
+import '../../../utils/price_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'gallery.dart';
+import 'SalonDeal.dart';
+import 'SalonPackage.dart';
+import 'SalonTeams.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/profile/compensation/profile_compensation_screen.dart';
 import '../features/profile/operations/owner_profile_operations_screen.dart';
 import '../services/stylist_branch_selection.dart';
+import '../services/user_role_session.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
@@ -18,6 +22,7 @@ import 'owner_membership_screen.dart';
 import 'owner_roles_permissions_screen.dart';
 import 'owner_sales_reports_screen.dart';
 import 'SalonReviews.dart';
+import 'ad.dart';
 
 const String _dashboardFontFamily = 'Manrope';
 const Color _dashboardAccent = Color(0xFFC19A6B);
@@ -416,7 +421,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
-      drawer: _DashboardDrawer(onOpen: _openDrawerRoute),
+      drawer: _DashboardDrawer(
+        onOpen: _openDrawerRoute,
+        selectedBranchId: _selectedBranchId,
+      ),
       appBar: buildProfileSubpageAppBar(
         title: context.t('Dashboard'),
         automaticallyImplyLeading: false,
@@ -831,65 +839,596 @@ class _DashboardLoadingOverlay extends StatelessWidget {
 }
 
 class _DashboardDrawer extends StatefulWidget {
-  const _DashboardDrawer({required this.onOpen});
+  const _DashboardDrawer({
+    required this.onOpen,
+    required this.selectedBranchId,
+  });
 
   final ValueChanged<Widget> onOpen;
+  final int? selectedBranchId;
 
   @override
   State<_DashboardDrawer> createState() => _DashboardDrawerState();
 }
 
+// class _DashboardDrawerState extends State<_DashboardDrawer> {
+//   final Set<String> _expandedGroups = <String>{};
+//   String? _selectedDrawerItem;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final entries = <Widget>[
+//       _DashboardDrawerGroupTile(
+//         id: 'payroll',
+//         icon: Icons.payments_outlined,
+//         label: context.t('Payroll'),
+//         isExpanded: _expandedGroups.contains('payroll'),
+//         isSelected: _isGroupSelected('payroll'),
+//         onToggle: () => _toggleGroup('payroll'),
+//         children: [
+//           _DashboardDrawerChildItem(
+//             id: 'payroll.payroll',
+//             label: context.t('Payroll'),
+//             screen: const ProfileCompensationScreen(
+//               initialModule: CompensationModule.payroll,
+//             ),
+//           ),
+//           _DashboardDrawerChildItem(
+//             id: 'payroll.commission',
+//             label: context.t('Commission Setup'),
+//             screen: const ProfileCompensationScreen(
+//               initialModule: CompensationModule.commission,
+//             ),
+//           ),
+//           _DashboardDrawerChildItem(
+//             id: 'payroll.advance',
+//             label: context.t('Advance'),
+//             screen: const ProfileCompensationScreen(
+//               initialModule: CompensationModule.advance,
+//             ),
+//           ),
+//         ],
+//         selectedId: _selectedDrawerItem,
+//         onOpen: _openDrawerChild,
+//       ),
+//       _DashboardDrawerGroupTile(
+//         id: 'inventory',
+//         icon: Icons.inventory_2_outlined,
+//         label: context.t('Inventory'),
+//         isExpanded: _expandedGroups.contains('inventory'),
+//         isSelected: _isGroupSelected('inventory'),
+//         onToggle: () => _toggleGroup('inventory'),
+//         children: [
+//           _DashboardDrawerChildItem(
+//             id: 'inventory.store',
+//             label: context.t('Store'),
+//             screen: const OwnerProfileOperationsScreen(
+//               initialModule: OwnerOperationsModule.inventory,
+//               initialInventorySection: OwnerInventorySection.store,
+//               showInventoryTabs: false,
+//             ),
+//           ),
+//           _DashboardDrawerChildItem(
+//             id: 'inventory.item',
+//             label: context.t('Inventory Item'),
+//             screen: const OwnerProfileOperationsScreen(
+//               initialModule: OwnerOperationsModule.inventory,
+//               initialInventorySection: OwnerInventorySection.inventoryItem,
+//               showInventoryTabs: false,
+//             ),
+//           ),
+//           _DashboardDrawerChildItem(
+//             id: 'inventory.purchaseOrder',
+//             label: context.t('Purchase Order'),
+//             screen: const OwnerProfileOperationsScreen(
+//               initialModule: OwnerOperationsModule.inventory,
+//               initialInventorySection: OwnerInventorySection.purchaseOrder,
+//               showInventoryTabs: false,
+//             ),
+//           ),
+//           _DashboardDrawerChildItem(
+//             id: 'inventory.goodsReceiptNote',
+//             label: context.t('Goods Receipt Note'),
+//             screen: const OwnerProfileOperationsScreen(
+//               initialModule: OwnerOperationsModule.inventory,
+//               initialInventorySection: OwnerInventorySection.goodsReceiptNote,
+//               showInventoryTabs: false,
+//             ),
+//           ),
+//         ],
+//         selectedId: _selectedDrawerItem,
+//         onOpen: _openDrawerChild,
+//       ),
+//       _DashboardDrawerGroupTile(
+//         id: 'sales',
+//         icon: Icons.insert_chart_outlined_rounded,
+//         label: context.t('Sales & Reports'),
+//         isExpanded: _expandedGroups.contains('sales'),
+//         isSelected: _isGroupSelected('sales'),
+//         onToggle: () => _toggleGroup('sales'),
+//         children: [
+//           _DashboardDrawerChildItem(
+//             id: 'sales.revenue',
+//             label: context.t('Revenue & Sales'),
+//             screen: const OwnerSalesReportsScreen(
+//               initialModule: OwnerSalesReportModule.revenueSales,
+//               showModuleTabs: false,
+//             ),
+//           ),
+//           _DashboardDrawerChildItem(
+//             id: 'sales.staffPerformance',
+//             label: context.t('Staff Performance'),
+//             screen: const OwnerSalesReportsScreen(
+//               initialModule: OwnerSalesReportModule.staffPerformance,
+//               showModuleTabs: false,
+//             ),
+//           ),
+//           _DashboardDrawerChildItem(
+//             id: 'sales.operations',
+//             label: context.t('Operations'),
+//             screen: const OwnerSalesReportsScreen(
+//               initialModule: OwnerSalesReportModule.operations,
+//               showModuleTabs: false,
+//             ),
+//           ),
+//         ],
+//         selectedId: _selectedDrawerItem,
+//         onOpen: _openDrawerChild,
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.auto_awesome_outlined,
+//           label: context.t('AI Insights'),
+//           screen: const OwnerAiInsightsScreen(),
+//         ),
+//         selected: _selectedDrawerItem == 'aiInsights',
+//         onTap: () => _openDrawerItem(
+//           'aiInsights',
+//           const OwnerAiInsightsScreen(),
+//         ),
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.event_available_outlined,
+//           label: context.t('Attendance'),
+//           screen: const ProfileCompensationScreen(
+//             initialModule: CompensationModule.attendance,
+//           ),
+//         ),
+//         selected: _selectedDrawerItem == 'attendance',
+//         onTap: () => _openDrawerItem(
+//           'attendance',
+//           const ProfileCompensationScreen(
+//             initialModule: CompensationModule.attendance,
+//           ),
+//         ),
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.groups_outlined,
+//           label: context.t('Clients'),
+//           screen: const OwnerBranchClientsScreen(),
+//         ),
+//         selected: _selectedDrawerItem == 'clients',
+//         onTap: () =>
+//             _openDrawerItem('clients', const OwnerBranchClientsScreen()),
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.workspace_premium_outlined,
+//           label: context.t('Membership'),
+//           screen: const OwnerMembershipScreen(),
+//         ),
+//         selected: _selectedDrawerItem == 'membership',
+//         onTap: () =>
+//             _openDrawerItem('membership', const OwnerMembershipScreen()),
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.admin_panel_settings_outlined,
+//           label: context.t('Roles'),
+//           screen: const OwnerRolesPermissionsScreen(),
+//         ),
+//         selected: _selectedDrawerItem == 'roles',
+//         onTap: () =>
+//             _openDrawerItem('roles', const OwnerRolesPermissionsScreen()),
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.beach_access_outlined,
+//           label: context.t('Leaves'),
+//           screen: const ProfileCompensationScreen(
+//             initialModule: CompensationModule.leaves,
+//           ),
+//         ),
+//         selected: _selectedDrawerItem == 'leaves',
+//         onTap: () => _openDrawerItem(
+//           'leaves',
+//           const ProfileCompensationScreen(
+//             initialModule: CompensationModule.leaves,
+//           ),
+//         ),
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.calendar_month_outlined,
+//           label: context.t('Holidays Calendar'),
+//           screen: const ProfileCompensationScreen(
+//             initialModule: CompensationModule.holidays,
+//           ),
+//         ),
+//         selected: _selectedDrawerItem == 'holidays',
+//         onTap: () => _openDrawerItem(
+//           'holidays',
+//           const ProfileCompensationScreen(
+//             initialModule: CompensationModule.holidays,
+//           ),
+//         ),
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.badge_outlined,
+//           label: context.t('Vendor'),
+//           screen: const OwnerProfileOperationsScreen(
+//             initialModule: OwnerOperationsModule.vendor,
+//           ),
+//         ),
+//         selected: _selectedDrawerItem == 'vendor',
+//         onTap: () => _openDrawerItem(
+//           'vendor',
+//           const OwnerProfileOperationsScreen(
+//             initialModule: OwnerOperationsModule.vendor,
+//           ),
+//         ),
+//       ),
+//       _DashboardDrawerTile(
+//         item: _DashboardDrawerItem(
+//           icon: Icons.rate_review_outlined,
+//           label: context.t('Reviews'),
+//           screen: const SalonReviews(),
+//         ),
+//         selected: _selectedDrawerItem == 'reviews',
+//         onTap: () => _openDrawerItem('reviews', const SalonReviews()),
+//       ),
+//     ];
+
+//     return SafeArea(
+//       top: true,
+//       bottom: false,
+//       child: Drawer(
+//         backgroundColor: const Color(0xFFFBF9F8),
+//         shape: const RoundedRectangleBorder(
+//           borderRadius: BorderRadius.zero,
+//         ),
+//         child: Padding(
+//           padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+//           child: Column(
+//             crossAxisAlignment: CrossAxisAlignment.start,
+//             children: [
+//               Row(
+//                 children: [
+//                   Container(
+//                     width: 42,
+//                     height: 42,
+//                     decoration: const BoxDecoration(
+//                       color: Color(0xFFF6E8C8),
+//                       shape: BoxShape.circle,
+//                     ),
+//                     child: const Icon(
+//                       Icons.spa_outlined,
+//                       color: AppColors.starColor,
+//                     ),
+//                   ),
+//                   const SizedBox(width: 12),
+//                   Expanded(
+//                     child: Column(
+//                       crossAxisAlignment: CrossAxisAlignment.start,
+//                       children: [
+//                         Text(
+//                           context.t('Glowante'),
+//                           style: const TextStyle(
+//                             fontSize: 18,
+//                             fontWeight: FontWeight.w800,
+//                             color: AppColors.starColor,
+//                           ),
+//                         ),
+//                         Text(
+//                           context.t('Salon Operations'),
+//                           style: const TextStyle(
+//                             fontSize: 12,
+//                             color: Color(0xFF756A61),
+//                           ),
+//                         ),
+//                       ],
+//                     ),
+//                   ),
+//                 ],
+//               ),
+//               const SizedBox(height: 24),
+//               const Divider(
+//                 height: 1,
+//                 thickness: 1,
+//                 color: Color(0xFFE8DED6),
+//               ),
+//               const SizedBox(height: 10),
+//               Expanded(
+//   child: ListView.separated(
+//     itemCount: entries.length + 1,
+//     separatorBuilder: (_, __) => const Divider(
+//       height: 1,
+//       thickness: 1,
+//       color: Color(0xFFE8DED6),
+//     ),
+//     itemBuilder: (context, index) {
+//       if (index == entries.length) {
+//         return const Padding(
+//           padding: EdgeInsets.only(top: 16, bottom: 8),
+//           child: _DrawerProfileQuoteCard(),
+//         );
+//       }
+
+//       return entries[index];
+//     },
+//   ),
+// ),
+//             ],
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+
+//   void _toggleGroup(String id) {
+//     setState(() {
+//       if (_expandedGroups.contains(id)) {
+//         _expandedGroups.remove(id);
+//       } else {
+//         _expandedGroups.add(id);
+//       }
+//     });
+//   }
+
+//   void _openDrawerChild(_DashboardDrawerChildItem item) {
+//     setState(() {
+//       _selectedDrawerItem = item.id;
+//       _expandedGroups
+//         ..clear()
+//         ..add(item.groupId);
+//     });
+//     widget.onOpen(item.screen);
+//   }
+
+//   void _openDrawerItem(String id, Widget screen) {
+//     setState(() {
+//       _selectedDrawerItem = id;
+//       _expandedGroups.clear();
+//     });
+//     widget.onOpen(screen);
+//   }
+
+//   bool _isGroupSelected(String id) =>
+//       _selectedDrawerItem?.startsWith('$id.') ?? false;
+// }
+
 class _DashboardDrawerState extends State<_DashboardDrawer> {
   final Set<String> _expandedGroups = <String>{};
   String? _selectedDrawerItem;
+  bool _permissionsLoaded = false;
+  bool _hasPermissionPayload = false;
+  Set<String> _branchPermissions = const <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDrawerPermissions();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DashboardDrawer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedBranchId != widget.selectedBranchId) {
+      _loadDrawerPermissions();
+    }
+  }
+
+  Future<void> _loadDrawerPermissions() async {
+    final hasPermissionPayload =
+        await UserRoleSession.instance.hasPersistedPermissions();
+    final branchPermissions = await UserRoleSession.instance.loadPermissions(
+      branchId: widget.selectedBranchId,
+    );
+    if (!mounted) return;
+    setState(() {
+      _permissionsLoaded = true;
+      _hasPermissionPayload = hasPermissionPayload;
+      _branchPermissions = branchPermissions;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    List<_DashboardDrawerChildItem> allowedChildren(
+      List<_DashboardDrawerChildItem> children,
+    ) {
+      return children.where((child) => _canAccess(child.permissions)).toList();
+    }
+
+    Widget? drawerTile({
+      required String id,
+      required _DashboardDrawerItem item,
+      required VoidCallback onTap,
+    }) {
+      if (!_canAccess(item.permissions)) return null;
+      return _DashboardDrawerTile(
+        item: item,
+        selected: _selectedDrawerItem == id,
+        onTap: onTap,
+      );
+    }
+
+    Widget? drawerGroup({
+      required String id,
+      required IconData icon,
+      required String label,
+      required List<_DashboardDrawerChildItem> children,
+    }) {
+      final visibleChildren = allowedChildren(children);
+      if (visibleChildren.isEmpty) return null;
+      return _DashboardDrawerGroupTile(
+        id: id,
+        icon: icon,
+        label: label,
+        isExpanded: _expandedGroups.contains(id),
+        isSelected: _isGroupSelected(id),
+        onToggle: () => _toggleGroup(id),
+        children: visibleChildren,
+        selectedId: _selectedDrawerItem,
+        onOpen: _openDrawerChild,
+      );
+    }
+
     final entries = <Widget>[
-      _DashboardDrawerGroupTile(
-        id: 'payroll',
-        icon: Icons.payments_outlined,
-        label: context.t('Payroll'),
-        isExpanded: _expandedGroups.contains('payroll'),
-        isSelected: _isGroupSelected('payroll'),
-        onToggle: () => _toggleGroup('payroll'),
+      if (drawerGroup(
+        id: 'sales',
+        icon: Icons.insert_chart_outlined_rounded,
+        label: context.t('Sales & Reports'),
         children: [
           _DashboardDrawerChildItem(
-            id: 'payroll.payroll',
-            label: context.t('Payroll'),
-            screen: const ProfileCompensationScreen(
-              initialModule: CompensationModule.payroll,
+            id: 'sales.revenue',
+            label: context.t('Revenue & Sales'),
+            permissions: const ['revenue_sales.view'],
+            screen: const OwnerSalesReportsScreen(
+              initialModule: OwnerSalesReportModule.revenueSales,
+              showModuleTabs: false,
             ),
           ),
           _DashboardDrawerChildItem(
-            id: 'payroll.commission',
-            label: context.t('Commission Setup'),
-            screen: const ProfileCompensationScreen(
-              initialModule: CompensationModule.commission,
+            id: 'sales.staffPerformance',
+            label: context.t('Staff Performance'),
+            permissions: const ['staff_performance.view'],
+            screen: const OwnerSalesReportsScreen(
+              initialModule: OwnerSalesReportModule.staffPerformance,
+              showModuleTabs: false,
             ),
           ),
           _DashboardDrawerChildItem(
-            id: 'payroll.advance',
-            label: context.t('Advance'),
-            screen: const ProfileCompensationScreen(
-              initialModule: CompensationModule.advance,
+            id: 'sales.operations',
+            label: context.t('Operations'),
+            permissions: const ['operations.view'],
+            screen: const OwnerSalesReportsScreen(
+              initialModule: OwnerSalesReportModule.operations,
+              showModuleTabs: false,
             ),
           ),
         ],
-        selectedId: _selectedDrawerItem,
-        onOpen: _openDrawerChild,
-      ),
-      _DashboardDrawerGroupTile(
+      )
+          case final group?)
+        group,
+      if (drawerTile(
+        id: 'aiInsights',
+        item: _DashboardDrawerItem(
+          icon: Icons.auto_awesome_outlined,
+          label: context.t('AI Insights'),
+          permissions: const ['insights_dashboard.view'],
+          screen: const OwnerAiInsightsScreen(),
+        ),
+        onTap: () => _openDrawerItem(
+          'aiInsights',
+          const OwnerAiInsightsScreen(),
+        ),
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'team',
+        item: _DashboardDrawerItem(
+          icon: Icons.groups_outlined,
+          label: context.t('Team'),
+          permissions: const ['team.view'],
+          screen: TeamScreen(),
+        ),
+        onTap: () => _openDrawerItem('team', TeamScreen()),
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'package',
+        item: _DashboardDrawerItem(
+          icon: Icons.card_giftcard_outlined,
+          label: context.t('Package'),
+          permissions: const ['packages.view'],
+          screen: PackageScreen(),
+        ),
+        onTap: () => _openDrawerItem('package', PackageScreen()),
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'membership',
+        item: _DashboardDrawerItem(
+          icon: Icons.workspace_premium_outlined,
+          label: context.t('Membership'),
+          permissions: const ['membership.view'],
+          screen: const OwnerMembershipScreen(),
+        ),
+        onTap: () =>
+            _openDrawerItem('membership', const OwnerMembershipScreen()),
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'roles',
+        item: _DashboardDrawerItem(
+          icon: Icons.admin_panel_settings_outlined,
+          label: context.t('Roles'),
+          permissions: const ['roles.view'],
+          screen: const OwnerRolesPermissionsScreen(),
+        ),
+        onTap: () =>
+            _openDrawerItem('roles', const OwnerRolesPermissionsScreen()),
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'deal',
+        item: _DashboardDrawerItem(
+          icon: Icons.local_offer_outlined,
+          label: context.t('Deal'),
+          permissions: const ['deals.view'],
+          screen: DealScreen(),
+        ),
+        onTap: () => _openDrawerItem('deal', DealScreen()),
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'vendor',
+        item: _DashboardDrawerItem(
+          icon: Icons.badge_outlined,
+          label: context.t('Vendor'),
+          permissions: const ['vendor.view'],
+          screen: const OwnerProfileOperationsScreen(
+            initialModule: OwnerOperationsModule.vendor,
+          ),
+        ),
+        onTap: () => _openDrawerItem(
+          'vendor',
+          const OwnerProfileOperationsScreen(
+            initialModule: OwnerOperationsModule.vendor,
+          ),
+        ),
+      )
+          case final tile?)
+        tile,
+      if (drawerGroup(
         id: 'inventory',
         icon: Icons.inventory_2_outlined,
         label: context.t('Inventory'),
-        isExpanded: _expandedGroups.contains('inventory'),
-        isSelected: _isGroupSelected('inventory'),
-        onToggle: () => _toggleGroup('inventory'),
         children: [
           _DashboardDrawerChildItem(
             id: 'inventory.store',
             label: context.t('Store'),
+            permissions: const ['store.view'],
             screen: const OwnerProfileOperationsScreen(
               initialModule: OwnerOperationsModule.inventory,
               initialInventorySection: OwnerInventorySection.store,
@@ -899,6 +1438,7 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
           _DashboardDrawerChildItem(
             id: 'inventory.item',
             label: context.t('Inventory Item'),
+            permissions: const ['inventory_item.view'],
             screen: const OwnerProfileOperationsScreen(
               initialModule: OwnerOperationsModule.inventory,
               initialInventorySection: OwnerInventorySection.inventoryItem,
@@ -908,6 +1448,7 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
           _DashboardDrawerChildItem(
             id: 'inventory.purchaseOrder',
             label: context.t('Purchase Order'),
+            permissions: const ['purchase_order.view'],
             screen: const OwnerProfileOperationsScreen(
               initialModule: OwnerOperationsModule.inventory,
               initialInventorySection: OwnerInventorySection.purchaseOrder,
@@ -917,6 +1458,7 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
           _DashboardDrawerChildItem(
             id: 'inventory.goodsReceiptNote',
             label: context.t('Goods Receipt Note'),
+            permissions: const ['goods_receipt_note.view'],
             screen: const OwnerProfileOperationsScreen(
               initialModule: OwnerOperationsModule.inventory,
               initialInventorySection: OwnerInventorySection.goodsReceiptNote,
@@ -924,160 +1466,170 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
             ),
           ),
         ],
-        selectedId: _selectedDrawerItem,
-        onOpen: _openDrawerChild,
-      ),
-      _DashboardDrawerGroupTile(
-        id: 'sales',
-        icon: Icons.insert_chart_outlined_rounded,
-        label: context.t('Sales & Reports'),
-        isExpanded: _expandedGroups.contains('sales'),
-        isSelected: _isGroupSelected('sales'),
-        onToggle: () => _toggleGroup('sales'),
+      )
+          case final group?)
+        group,
+      if (drawerTile(
+        id: 'gallery',
+        item: _DashboardDrawerItem(
+          icon: Icons.image_outlined,
+          label: context.t('Gallery'),
+          permissions: const ['gallery.view'],
+          screen: GalleryScreen(
+            initialBranchId: widget.selectedBranchId,
+          ),
+        ),
+        onTap: () {
+          final branchId = widget.selectedBranchId;
+
+          if (branchId == null) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(context.t('Please select a branch first.')),
+              ),
+            );
+            return;
+          }
+
+          _openDrawerItem(
+            'gallery',
+            GalleryScreen(initialBranchId: branchId),
+          );
+        },
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'clients',
+        item: _DashboardDrawerItem(
+          icon: Icons.groups_outlined,
+          label: context.t('Clients'),
+          permissions: const ['clients.view'],
+          screen: const OwnerBranchClientsScreen(),
+        ),
+        onTap: () =>
+            _openDrawerItem('clients', const OwnerBranchClientsScreen()),
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'reviews',
+        item: _DashboardDrawerItem(
+          icon: Icons.rate_review_outlined,
+          label: context.t('Reviews'),
+          permissions: const ['reviews.view'],
+          screen: const SalonReviews(),
+        ),
+        onTap: () => _openDrawerItem('reviews', const SalonReviews()),
+      )
+          case final tile?)
+        tile,
+      if (drawerGroup(
+        id: 'payroll',
+        icon: Icons.payments_outlined,
+        label: context.t('Payroll'),
         children: [
           _DashboardDrawerChildItem(
-            id: 'sales.revenue',
-            label: context.t('Revenue & Sales'),
-            screen: const OwnerSalesReportsScreen(
-              initialModule: OwnerSalesReportModule.revenueSales,
-              showModuleTabs: false,
+            id: 'payroll.payroll',
+            label: context.t('Payroll'),
+            permissions: const ['payroll.view'],
+            screen: const ProfileCompensationScreen(
+              initialModule: CompensationModule.payroll,
             ),
           ),
           _DashboardDrawerChildItem(
-            id: 'sales.staffPerformance',
-            label: context.t('Staff Performance'),
-            screen: const OwnerSalesReportsScreen(
-              initialModule: OwnerSalesReportModule.staffPerformance,
-              showModuleTabs: false,
+            id: 'payroll.commission',
+            label: context.t('Commission Setup'),
+            permissions: const ['commission_setup.view'],
+            screen: const ProfileCompensationScreen(
+              initialModule: CompensationModule.commission,
             ),
           ),
           _DashboardDrawerChildItem(
-            id: 'sales.operations',
-            label: context.t('Operations'),
-            screen: const OwnerSalesReportsScreen(
-              initialModule: OwnerSalesReportModule.operations,
-              showModuleTabs: false,
+            id: 'payroll.advance',
+            label: context.t('Advance'),
+            permissions: const ['advances.view'],
+            screen: const ProfileCompensationScreen(
+              initialModule: CompensationModule.advance,
             ),
           ),
         ],
-        selectedId: _selectedDrawerItem,
-        onOpen: _openDrawerChild,
-      ),
-      _DashboardDrawerTile(
+      )
+          case final group?)
+        group,
+      if (drawerTile(
+        id: 'advertisement',
         item: _DashboardDrawerItem(
-          icon: Icons.auto_awesome_outlined,
-          label: context.t('AI Insights'),
-          screen: const OwnerAiInsightsScreen(),
+          icon: Icons.campaign_outlined,
+          label: context.t('Advertisement'),
+          permissions: const ['advertisement.view'],
+          screen: const AdScreen(),
         ),
-        selected: _selectedDrawerItem == 'aiInsights',
         onTap: () => _openDrawerItem(
-          'aiInsights',
-          const OwnerAiInsightsScreen(),
+          'advertisement',
+          const AdScreen(),
         ),
-      ),
-      _DashboardDrawerTile(
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'attendance',
         item: _DashboardDrawerItem(
           icon: Icons.event_available_outlined,
           label: context.t('Attendance'),
+          permissions: const ['attendance.view'],
           screen: const ProfileCompensationScreen(
             initialModule: CompensationModule.attendance,
           ),
         ),
-        selected: _selectedDrawerItem == 'attendance',
         onTap: () => _openDrawerItem(
           'attendance',
           const ProfileCompensationScreen(
             initialModule: CompensationModule.attendance,
           ),
         ),
-      ),
-      _DashboardDrawerTile(
-        item: _DashboardDrawerItem(
-          icon: Icons.groups_outlined,
-          label: context.t('Clients'),
-          screen: const OwnerBranchClientsScreen(),
-        ),
-        selected: _selectedDrawerItem == 'clients',
-        onTap: () =>
-            _openDrawerItem('clients', const OwnerBranchClientsScreen()),
-      ),
-      _DashboardDrawerTile(
-        item: _DashboardDrawerItem(
-          icon: Icons.workspace_premium_outlined,
-          label: context.t('Membership'),
-          screen: const OwnerMembershipScreen(),
-        ),
-        selected: _selectedDrawerItem == 'membership',
-        onTap: () =>
-            _openDrawerItem('membership', const OwnerMembershipScreen()),
-      ),
-      _DashboardDrawerTile(
-        item: _DashboardDrawerItem(
-          icon: Icons.admin_panel_settings_outlined,
-          label: context.t('Roles'),
-          screen: const OwnerRolesPermissionsScreen(),
-        ),
-        selected: _selectedDrawerItem == 'roles',
-        onTap: () =>
-            _openDrawerItem('roles', const OwnerRolesPermissionsScreen()),
-      ),
-      _DashboardDrawerTile(
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'leaves',
         item: _DashboardDrawerItem(
           icon: Icons.beach_access_outlined,
           label: context.t('Leaves'),
+          permissions: const ['leaves.view'],
           screen: const ProfileCompensationScreen(
             initialModule: CompensationModule.leaves,
           ),
         ),
-        selected: _selectedDrawerItem == 'leaves',
         onTap: () => _openDrawerItem(
           'leaves',
           const ProfileCompensationScreen(
             initialModule: CompensationModule.leaves,
           ),
         ),
-      ),
-      _DashboardDrawerTile(
+      )
+          case final tile?)
+        tile,
+      if (drawerTile(
+        id: 'holidays',
         item: _DashboardDrawerItem(
           icon: Icons.calendar_month_outlined,
           label: context.t('Holidays Calendar'),
+          permissions: const ['holidays_calendar.view'],
           screen: const ProfileCompensationScreen(
             initialModule: CompensationModule.holidays,
           ),
         ),
-        selected: _selectedDrawerItem == 'holidays',
         onTap: () => _openDrawerItem(
           'holidays',
           const ProfileCompensationScreen(
             initialModule: CompensationModule.holidays,
           ),
         ),
-      ),
-      _DashboardDrawerTile(
-        item: _DashboardDrawerItem(
-          icon: Icons.badge_outlined,
-          label: context.t('Vendor'),
-          screen: const OwnerProfileOperationsScreen(
-            initialModule: OwnerOperationsModule.vendor,
-          ),
-        ),
-        selected: _selectedDrawerItem == 'vendor',
-        onTap: () => _openDrawerItem(
-          'vendor',
-          const OwnerProfileOperationsScreen(
-            initialModule: OwnerOperationsModule.vendor,
-          ),
-        ),
-      ),
-      _DashboardDrawerTile(
-        item: _DashboardDrawerItem(
-          icon: Icons.rate_review_outlined,
-          label: context.t('Reviews'),
-          screen: const SalonReviews(),
-        ),
-        selected: _selectedDrawerItem == 'reviews',
-        onTap: () => _openDrawerItem('reviews', const SalonReviews()),
-      ),
+      )
+          case final tile?)
+        tile,
     ];
 
     return SafeArea(
@@ -1141,13 +1693,22 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
               const SizedBox(height: 10),
               Expanded(
                 child: ListView.separated(
-                  itemCount: entries.length,
+                  itemCount: entries.length + 1,
                   separatorBuilder: (_, __) => const Divider(
                     height: 1,
                     thickness: 1,
                     color: Color(0xFFE8DED6),
                   ),
-                  itemBuilder: (context, index) => entries[index],
+                  itemBuilder: (context, index) {
+                    if (index == entries.length) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 16, bottom: 8),
+                        child: _DrawerProfileQuoteCard(),
+                      );
+                    }
+
+                    return entries[index];
+                  },
                 ),
               ),
             ],
@@ -1183,6 +1744,12 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
       _expandedGroups.clear();
     });
     widget.onOpen(screen);
+  }
+
+  bool _canAccess(List<String> permissionCodes) {
+    if (permissionCodes.isEmpty) return true;
+    if (!_permissionsLoaded || !_hasPermissionPayload) return true;
+    return permissionCodes.any(_branchPermissions.contains);
   }
 
   bool _isGroupSelected(String id) =>
@@ -1383,11 +1950,13 @@ class _DashboardDrawerItem {
     required this.icon,
     required this.label,
     required this.screen,
+    this.permissions = const <String>[],
   });
 
   final IconData icon;
   final String label;
   final Widget screen;
+  final List<String> permissions;
 }
 
 class _DashboardDrawerChildItem {
@@ -1395,11 +1964,13 @@ class _DashboardDrawerChildItem {
     required this.id,
     required this.label,
     required this.screen,
+    this.permissions = const <String>[],
   });
 
   final String id;
   final String label;
   final Widget screen;
+  final List<String> permissions;
 
   String get groupId => id.split('.').first;
 }
@@ -1547,6 +2118,81 @@ class _DateButton extends StatelessWidget {
   }
 }
 
+// class _KpiCard extends StatelessWidget {
+//   const _KpiCard({
+//     required this.data,
+//     required this.percentBuilder,
+//     required this.cleanText,
+//   });
+
+//   final Map<String, dynamic> data;
+//   final String Function(dynamic value) percentBuilder;
+//   final String Function(dynamic value) cleanText;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final label = cleanText(data['label']);
+//     final value = cleanText(data['formatted_value']).isEmpty
+//         ? cleanText(data['value'])
+//         : cleanText(data['formatted_value']);
+//     final changeLabel = cleanText(data['change_label']);
+//     final hasChange = data.containsKey('change_percent');
+//     final direction = cleanText(data['change_direction']).toLowerCase();
+//     final changeColor = direction == 'up'
+//         ? const Color(0xFF047857)
+//         : direction == 'down'
+//             ? const Color(0xFFBE123C)
+//             : const Color(0xFF6B5B4D);
+//     final changeIcon = direction == 'up'
+//         ? '↑'
+//         : direction == 'down'
+//             ? '↓'
+//             : '•';
+
+//     return _DashboardSection(
+//       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         mainAxisAlignment: MainAxisAlignment.start,
+//         children: [
+//           Text(
+//             label.toUpperCase(),
+//             maxLines: 1,
+//             overflow: TextOverflow.ellipsis,
+//             style: const TextStyle(
+//               fontSize: 9,
+//               fontWeight: FontWeight.w700,
+//               letterSpacing: 0.7,
+//               color: Color(0xFF6D6259),
+//             ),
+//           ),
+//           const SizedBox(height: 9),
+//           Text(
+//             value.isEmpty ? '0' : value,
+//             maxLines: 1,
+//             overflow: TextOverflow.ellipsis,
+//             style: const TextStyle(
+//               fontSize: 21,
+//               fontWeight: FontWeight.w500,
+//               color: Colors.black,
+//             ),
+//           ),
+//           if (hasChange) ...[
+//             const SizedBox(height: 4),
+//             Text(
+//               '$changeIcon ${percentBuilder(data['change_percent'])} $changeLabel',
+//               style: TextStyle(
+//                 fontSize: 10,
+//                 fontWeight: FontWeight.w700,
+//                 color: changeColor,
+//               ),
+//             ),
+//           ],
+//         ],
+//       ),
+//     );
+//   }
+// }
 class _KpiCard extends StatelessWidget {
   const _KpiCard({
     required this.data,
@@ -1558,20 +2204,44 @@ class _KpiCard extends StatelessWidget {
   final String Function(dynamic value) percentBuilder;
   final String Function(dynamic value) cleanText;
 
+  bool _isMoneyKpi(String label) {
+    final normalized = label.toLowerCase();
+
+    return normalized.contains('revenue') ||
+        normalized.contains('payment') ||
+        normalized.contains('payments') ||
+        normalized.contains('earning') ||
+        normalized.contains('earnings') ||
+        normalized.contains('sales') ||
+        normalized.contains('amount') ||
+        normalized.contains('collection') ||
+        normalized.contains('collections');
+  }
+
   @override
   Widget build(BuildContext context) {
     final label = cleanText(data['label']);
-    final value = cleanText(data['formatted_value']).isEmpty
-        ? cleanText(data['value'])
-        : cleanText(data['formatted_value']);
+
+    final formattedValue = cleanText(data['formatted_value']);
+    final rawValue = data['value'];
+
+    final value = formattedValue.isNotEmpty
+        ? formattedValue
+        : _isMoneyKpi(label)
+            ? formatMinorAmount(rawValue)
+            : cleanText(rawValue);
+
     final changeLabel = cleanText(data['change_label']);
     final hasChange = data.containsKey('change_percent');
+
     final direction = cleanText(data['change_direction']).toLowerCase();
+
     final changeColor = direction == 'up'
         ? const Color(0xFF047857)
         : direction == 'down'
             ? const Color(0xFFBE123C)
             : const Color(0xFF6B5B4D);
+
     final changeIcon = direction == 'up'
         ? '↑'
         : direction == 'down'
@@ -1648,8 +2318,9 @@ class _RevenueOverviewCard extends StatelessWidget {
     final formattedTotal = cleanText(data['formatted_total']).isEmpty
         ? cleanText(data['formatted_value'])
         : cleanText(data['formatted_total']);
-    final total =
-        formattedTotal.isEmpty ? _plainNumber(data['total']) : formattedTotal;
+    final total = formattedTotal.isEmpty
+        ? formatMinorAmount(data['total'])
+        : formattedTotal;
     final direction = cleanText(data['change_direction']).toLowerCase();
     final changeColor =
         direction == 'down' ? const Color(0xFFBE123C) : const Color(0xFF047857);
@@ -2061,11 +2732,31 @@ class _TodayAppointmentsCardState extends State<_TodayAppointmentsCard> {
     BuildContext context,
     Map<String, dynamic> appointment,
   ) {
+    final appointmentDate = widget.cleanText(
+      appointment['date'] ??
+          appointment['appointmentDate'] ??
+          appointment['bookingDate'] ??
+          appointment['scheduledDate'],
+    );
+    final paymentMinor = appointment['totalPriceMinor'] ??
+        appointment['totalAmountMinor'] ??
+        appointment['amountMinor'] ??
+        appointment['paymentAmountMinor'] ??
+        appointment['payableAmountMinor'] ??
+        appointment['finalAmountMinor'] ??
+        appointment['totalPrice'] ??
+        appointment['totalAmount'] ??
+        appointment['amount'] ??
+        appointment['paymentAmount'] ??
+        appointment['payableAmount'] ??
+        appointment['finalAmount'];
     final details = <String, String>{
+      'Date': appointmentDate,
       'Time': widget.cleanText(appointment['time_label']),
       'Customer': widget.cleanText(appointment['customer_name']),
       'Service': widget.cleanText(appointment['service_name']),
       'Professional': widget.cleanText(appointment['professional_name']),
+      'Payment': paymentMinor == null ? '' : formatMinorAmount(paymentMinor),
       'Status': widget.cleanText(appointment['status_label']).isEmpty
           ? widget.cleanText(appointment['status'])
           : widget.cleanText(appointment['status_label']),
@@ -2787,7 +3478,8 @@ class _RevenueChartPainter extends CustomPainter {
     const rightPadding = 8.0;
     final chartWidth = size.width - leftPadding - rightPadding;
     final chartHeight = size.height - topPadding - bottomPadding;
-    final values = chartData.map((item) => asDouble(item['value'])).toList();
+    final values =
+        chartData.map((item) => asDouble(item['value']) / 100).toList();
     final maxValue = _niceMaxValue(
       values.fold<double>(0, (max, value) => math.max(max, value)),
     );
@@ -2819,7 +3511,7 @@ class _RevenueChartPainter extends CustomPainter {
 
     for (var index = 0; index < chartData.length; index++) {
       final item = chartData[index];
-      final value = asDouble(item['value']);
+      final value = asDouble(item['value']) / 100;
       final x = leftPadding + slotWidth * index + slotWidth / 2;
       final y = topPadding + chartHeight - (value / maxValue) * chartHeight;
 
@@ -3171,6 +3863,99 @@ class _DashboardBranchDropdownItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DrawerProfileQuoteCard extends StatelessWidget {
+  const _DrawerProfileQuoteCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEEDDD2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            '"Investing in your hair is the\ncrown you never take off."',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 8.5,
+              height: 1.25,
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w600,
+              color: Colors.black.withValues(alpha: 0.72),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEEDDD2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/profile_placeholder.png',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.person_outline_rounded,
+                      size: 18,
+                      color: AppColors.starColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Jandrotia Amitabh',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        height: 1.1,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black.withValues(alpha: 0.75),
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'APP USER',
+                      style: TextStyle(
+                        fontSize: 7.5,
+                        height: 1.1,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                        color: Colors.black.withValues(alpha: 0.38),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

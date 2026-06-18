@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../services/network_listener.dart';
+import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -14,6 +15,7 @@ import '../widgets/salon_flow_step_header.dart';
 import 'bottom_nav.dart';
 
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
+import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 
 class AddSalonServices extends StatefulWidget {
@@ -129,13 +131,34 @@ class _AddSalonServicesState extends State<AddSalonServices> {
     }
   }
 
+  Future<void> _refreshSalonListForCreatedSelection(
+      BuildContext context) async {
+    try {
+      final selection = await StylistBranchSelectionStore.load();
+      if (!context.mounted) return;
+      final salonId = selection.salonId;
+      final branchId = selection.branchId;
+      if (salonId != null && branchId != null) {
+        context.read<SalonListCubit>().setSelectedSalon({
+          'salonId': salonId,
+          'salonName': selection.salonName,
+          'branchId': branchId,
+          'branchName': selection.branchName,
+        });
+      }
+      await context.read<SalonListCubit>().loadSalons();
+    } catch (_) {
+      // Catalog also reads the persisted branch selection when it opens.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool copyServicesSelected =
         widget.branchFormData != null && _selectedSourceBranchId != null;
     return BlocConsumer<AddSalonCubit, AddSalonState>(
       listenWhen: (previous, current) => previous.status != current.status,
-      listener: (context, state) {
+      listener: (context, state) async {
         if (state.status == AddSalonStatus.failure &&
             state.errorMessage != null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -147,9 +170,18 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(translateText('Salon added successfully'))),
           );
+          final savedSelection =
+              await StylistBranchSelectionStore.saveFromSalonCreateResponse(
+            state.createdSalonResponse,
+          );
+          if (!context.mounted) return;
+          if (savedSelection) {
+            await _refreshSalonListForCreatedSelection(context);
+            if (!context.mounted) return;
+          }
           context.read<AddSalonCubit>().resetStatus();
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 1)),
+            MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 3)),
             (route) => false,
           );
         }
@@ -703,7 +735,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         final address = widget.branchAddress!;
         final images = widget.branchImages;
 
-        await branchCubit.repository.addBranch(
+        final response = await branchCubit.repository.addBranch(
           salonId: widget.salonId!,
           name: branch.name,
           phone: branch.phone,
@@ -726,8 +758,20 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           SnackBar(content: Text(translateText('Branch added successfully!'))),
         );
 
+        final savedSelection =
+            await StylistBranchSelectionStore.saveFromBranchCreateResponse(
+          salonId: widget.salonId!,
+          response: response,
+          fallbackBranchName: branch.name,
+        );
+        if (!context.mounted) return;
+        if (savedSelection) {
+          await _refreshSalonListForCreatedSelection(context);
+          if (!context.mounted) return;
+        }
+
         navigator.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 1)),
+          MaterialPageRoute(builder: (_) => BottomNav(tabIndex: 3)),
           (route) => false,
         );
         return;

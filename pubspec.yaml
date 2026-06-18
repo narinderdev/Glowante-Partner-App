@@ -50,6 +50,9 @@ dependencies:
   webview_flutter_android: ^3.16.1
   webview_flutter_wkwebview: ^3.13.1
   razorpay_flutter: ^1.4.5
+  screenshot: ^3.0.0
+  pdf: ^3.11.1
+  printing: ^5.13.4
 
 dev_dependencies:
   flutter_test:

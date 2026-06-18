@@ -81,6 +81,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
     required this.progress,
     required this.elapsedMinutes,
     required this.scheduledMinutes,
+    required this.dateLabel,
     required this.timeRange,
     required this.customerName,
     required this.customerPhone,
@@ -95,6 +96,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
     required this.onPrimaryAction,
     required this.addedItems,
     required this.onAddItems,
+    required this.onAddServices,
     this.secondaryAction,
     this.secondaryActionColor = const Color(0xFF374151),
     this.isSecondaryLoading = false,
@@ -113,6 +115,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   final double progress;
   final int elapsedMinutes;
   final int scheduledMinutes;
+  final String dateLabel;
   final String timeRange;
   final String customerName;
   final String customerPhone;
@@ -131,6 +134,7 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
   final VoidCallback? onSecondaryAction;
   final List<StylistUsedItem> addedItems;
   final VoidCallback onAddItems;
+  final VoidCallback onAddServices;
   final Future<void> Function()? onRefresh;
 
   @override
@@ -311,6 +315,30 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                         ],
                       ),
                     ],
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DetailInfoPill(
+                            icon: Icons.calendar_month_outlined,
+                            label: context.t('Date'),
+                            value: dateLabel.trim().isEmpty
+                                ? '-'
+                                : dateLabel.trim(),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _DetailInfoPill(
+                            icon: Icons.payments_outlined,
+                            label: context.t('Payment'),
+                            value: totalAmount.trim().isEmpty
+                                ? '-'
+                                : totalAmount.trim(),
+                          ),
+                        ),
+                      ],
+                    ),
                     if (assignedStaffLabel.trim().isNotEmpty) ...[
                       const SizedBox(height: 12),
                       Row(
@@ -536,6 +564,30 @@ class StylistAppointmentDetailsComponent extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: onAddServices,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    foregroundColor: _detailsPrimaryText,
+                    side: const BorderSide(color: _detailsBorder),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    context.t('Add Services').toUpperCase(),
+                    style: _detailsTextStyle(
+                      size: 13,
+                      weight: FontWeight.w700,
+                      color: _detailsPrimaryText,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -716,6 +768,65 @@ class _DetailServiceRow extends StatelessWidget {
               size: 12,
               weight: FontWeight.w700,
               color: _detailsAccent,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailInfoPill extends StatelessWidget {
+  const _DetailInfoPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFCFBF9),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _detailsBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: _detailsAccent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _detailsTextStyle(
+                    size: 9,
+                    weight: FontWeight.w800,
+                    color: _detailsSecondaryText,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _detailsTextStyle(
+                    size: 12,
+                    weight: FontWeight.w800,
+                    color: _detailsPrimaryText,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

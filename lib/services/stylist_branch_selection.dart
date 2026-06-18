@@ -46,6 +46,93 @@ class StylistBranchSelectionStore {
     await prefs.setString(_selectedBranchNameKey, branchName);
   }
 
+  static Future<bool> saveFromSalonCreateResponse(
+    Map<String, dynamic>? response,
+  ) async {
+    if (response == null || response.isEmpty) return false;
+
+    final root = _mapFrom(response['data']) ?? response;
+    final salon =
+        _mapFrom(root['salon']) ?? _mapFrom(root['createdSalon']) ?? root;
+    final branch = _firstBranchFrom(salon) ??
+        _mapFrom(root['branch']) ??
+        _mapFrom(root['createdBranch']);
+    final salonId = _readDynamicInt(
+      salon['id'] ?? salon['salonId'] ?? root['salonId'],
+    );
+    final branchId = _readDynamicInt(
+      branch?['id'] ??
+          branch?['branchId'] ??
+          root['branchId'] ??
+          root['defaultBranchId'],
+    );
+
+    if (salonId == null || branchId == null) return false;
+
+    final salonName = _readDynamicString(
+      salon['name'] ?? salon['salonName'] ?? root['salonName'],
+    );
+    final branchName = _readDynamicString(
+      branch?['name'] ?? branch?['branchName'] ?? root['branchName'],
+    );
+
+    await save(
+      salonId: salonId,
+      branchId: branchId,
+      salonName: salonName.isEmpty ? 'Salon' : salonName,
+      branchName: branchName.isEmpty
+          ? (salonName.isEmpty ? 'Branch' : salonName)
+          : branchName,
+    );
+    return true;
+  }
+
+  static Future<bool> saveFromBranchCreateResponse({
+    required int salonId,
+    required Map<String, dynamic>? response,
+    String fallbackSalonName = '',
+    String fallbackBranchName = '',
+  }) async {
+    if (response == null || response.isEmpty) return false;
+
+    final root = _mapFrom(response['data']) ?? response;
+    final branch =
+        _mapFrom(root['branch']) ?? _mapFrom(root['createdBranch']) ?? root;
+    final salon = _mapFrom(root['salon']);
+    final branchId = _readDynamicInt(
+      branch['id'] ?? branch['branchId'] ?? root['branchId'],
+    );
+    if (branchId == null) return false;
+
+    final existing = await load();
+    final existingSalonName =
+        existing.salonId == salonId ? existing.salonName : '';
+    final salonName = _firstNonEmpty([
+      salon?['name'],
+      salon?['salonName'],
+      root['salonName'],
+      fallbackSalonName,
+      existingSalonName,
+      'Salon',
+    ]);
+    final branchName = _firstNonEmpty([
+      branch['name'],
+      branch['branchName'],
+      root['branchName'],
+      fallbackBranchName,
+      salonName,
+      'Branch',
+    ]);
+
+    await save(
+      salonId: salonId,
+      branchId: branchId,
+      salonName: salonName,
+      branchName: branchName,
+    );
+    return true;
+  }
+
   static Future<StylistBranchSelection> load() async {
     final prefs = await SharedPreferences.getInstance();
     final salonId = _readInt(prefs, _selectedSalonIdKey);
@@ -78,5 +165,41 @@ class StylistBranchSelectionStore {
       return '';
     }
     return value.toString();
+  }
+
+  static Map<String, dynamic>? _mapFrom(dynamic value) {
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return null;
+  }
+
+  static Map<String, dynamic>? _firstBranchFrom(Map<String, dynamic>? salon) {
+    final branches = salon?['branches'];
+    if (branches is! List || branches.isEmpty) return null;
+    for (final branch in branches) {
+      final mapped = _mapFrom(branch);
+      if (mapped != null) return mapped;
+    }
+    return null;
+  }
+
+  static int? _readDynamicInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  static String _readDynamicString(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.toLowerCase() == 'null') return '';
+    return text;
+  }
+
+  static String _firstNonEmpty(List<dynamic> values) {
+    for (final value in values) {
+      final text = _readDynamicString(value);
+      if (text.isNotEmpty) return text;
+    }
+    return '';
   }
 }

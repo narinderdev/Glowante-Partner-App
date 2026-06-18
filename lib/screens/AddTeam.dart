@@ -166,7 +166,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
     return null;
   }
+String? _vBrief(String? v) {
+  final x = (v ?? '').trim();
 
+  if (x.isEmpty) {
+    return translateText('Brief about team member is required');
+  }
+
+  return null;
+}
   String? _vEmail(String? v) {
     if (_suppressEmailError) return null;
 
@@ -621,21 +629,37 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _addressFocus.requestFocus();
   }
 
+  // Map<String, dynamic>? _teamAddressPayload() {
+  //   final selected = _selectedAddress;
+
+  //   if (selected == null) return null;
+
+  //   final address = Map<String, dynamic>.from(selected);
+
+  //   address.removeWhere((key, value) {
+  //     if (value == null) return true;
+  //     if (value is String && value.trim().isEmpty) return true;
+  //     return false;
+  //   });
+
+  //   return address.isEmpty ? null : address;
+  // }
   Map<String, dynamic>? _teamAddressPayload() {
-    final selected = _selectedAddress;
+  final selected = _selectedAddress;
 
-    if (selected == null) return null;
+  if (selected == null) return null;
 
-    final address = Map<String, dynamic>.from(selected);
-
-    address.removeWhere((key, value) {
-      if (value == null) return true;
-      if (value is String && value.trim().isEmpty) return true;
-      return false;
-    });
-
-    return address.isEmpty ? null : address;
-  }
+  return {
+    'line1': (selected['line1'] ?? '').toString(),
+    'line2': (selected['line2'] ?? '').toString(),
+    'village': (selected['village'] ?? '').toString(),
+    'district': (selected['district'] ?? '').toString(),
+    'city': (selected['city'] ?? '').toString(),
+    'state': (selected['state'] ?? '').toString(),
+    'country': (selected['country'] ?? '').toString(),
+    'postalCode': (selected['postalCode'] ?? '').toString(),
+  };
+}
 
   String _normalizeGender(String value) {
     switch (value.toLowerCase()) {
@@ -1030,6 +1054,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     push(_vRoles());
     push(_vSpecs());
     push(_vJoiningDate());
+    push(_vBrief(_briefCtrl.text));
 
     if (errors.isNotEmpty) {
       await _showValidationDialog(errors);
@@ -1857,7 +1882,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                               : const SizedBox.shrink(),
                         ),
                       const SizedBox(height: 16),
-                      _optionalLabel('Brief About Team Member'),
+                     _reqLabel(translateText('Brief About Team Member')),
                       const SizedBox(height: 8),
                       TextFormField(
                         focusNode: _brieftFocus,
@@ -1875,7 +1900,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         ).copyWith(
                           contentPadding: const EdgeInsets.all(14),
                         ),
-                        validator: (_) => null,
+                        validator: _vBrief,
                       ),
                       const SizedBox(height: 34),
                       _promoCard(),

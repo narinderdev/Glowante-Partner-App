@@ -1,11 +1,13 @@
 import 'dart:io';
 import '../utils/colors.dart';
 import '../services/language_listener.dart';
+import '../services/stylist_branch_selection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
+import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import 'add_location_screen.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../screens/bottom_nav.dart';
@@ -71,7 +73,7 @@ class AddSalonScreen extends StatefulWidget {
   final String? imageUrl;
   final String? email;
   final String? isProceedFrom;
-  final String? completeAddress; 
+  final String? completeAddress;
   // legacy inputs (we’ll continue mapping completeAddress into buildingName)
   final String? buildingName;
   final String? city;
@@ -936,7 +938,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     context.watch<LanguageListener>();
     return BlocConsumer<AddSalonCubit, AddSalonState>(
       listenWhen: (previous, current) => previous.status != current.status,
-      listener: (context, state) {
+      listener: (context, state) async {
         if (!_savedPhoneApplied &&
             state.savedPhone != null &&
             _phoneController.text.isEmpty) {
@@ -958,15 +960,33 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(translateText('Salon added successfully'))),
           );
+          if (widget.isEdit) {
+            Navigator.pop(context, true);
+            return;
+          }
+
+          final savedSelection =
+              await StylistBranchSelectionStore.saveFromSalonCreateResponse(
+            state.createdSalonResponse,
+          );
+          if (!context.mounted) return;
+          if (savedSelection) {
+            await _refreshSalonListForCreatedSelection(context);
+            if (!context.mounted) return;
+          }
+
           if (_isOnboardingFlow) {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => const BottomNav(tabIndex: 2),
+                builder: (context) => const BottomNav(tabIndex: 3),
               ),
             );
           } else {
-            Navigator.pop(context, true);
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 3)),
+              (route) => false,
+            );
           }
         }
       },
@@ -1829,5 +1849,26 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _refreshSalonListForCreatedSelection(
+      BuildContext context) async {
+    try {
+      final selection = await StylistBranchSelectionStore.load();
+      if (!context.mounted) return;
+      final salonId = selection.salonId;
+      final branchId = selection.branchId;
+      if (salonId != null && branchId != null) {
+        context.read<SalonListCubit>().setSelectedSalon({
+          'salonId': salonId,
+          'salonName': selection.salonName,
+          'branchId': branchId,
+          'branchName': selection.branchName,
+        });
+      }
+      await context.read<SalonListCubit>().loadSalons();
+    } catch (_) {
+      // The catalog screen can still sync from SharedPreferences after it opens.
+    }
   }
 }

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/language_listener.dart';
+import '../services/stylist_branch_selection.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
+import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import 'add_location_screen.dart';
 import 'package:flutter/services.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -16,6 +18,7 @@ import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/api_service.dart';
+import 'bottom_nav.dart';
 
 enum _BranchField { name, phone, startTime, endTime, description }
 
@@ -626,9 +629,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       );
       return;
     }
-debugPrint('BRANCH ADDRESS = ${state.address?.toJson()}');
-debugPrint('LAT = ${state.address?.latitude}');
-debugPrint('LNG = ${state.address?.longitude}');
+    debugPrint('BRANCH ADDRESS = ${state.address?.toJson()}');
+    debugPrint('LAT = ${state.address?.latitude}');
+    debugPrint('LNG = ${state.address?.longitude}');
     // 🟢 Require address completeness based on new flow
     if (!_isAddressComplete(state.address)) {
       scaffoldMessenger.showSnackBar(
@@ -779,7 +782,7 @@ debugPrint('LNG = ${state.address?.longitude}');
     context.watch<LanguageListener>();
     return BlocConsumer<AddBranchCubit, AddBranchState>(
       listenWhen: (previous, current) => previous.status != current.status,
-      listener: (context, state) {
+      listener: (context, state) async {
         if (!widget.isEdit &&
             !_savedPhoneApplied &&
             state.savedPhone != null &&
@@ -808,7 +811,26 @@ debugPrint('LNG = ${state.address?.longitude}');
               ),
             ),
           );
-          Navigator.pop(context, true);
+          if (widget.isEdit) {
+            Navigator.pop(context, true);
+            return;
+          }
+
+          final savedSelection =
+              await StylistBranchSelectionStore.saveFromBranchCreateResponse(
+            salonId: widget.salonId,
+            response: state.createdBranchResponse,
+            fallbackBranchName: _branchNameController.text.trim(),
+          );
+          if (!context.mounted) return;
+          if (savedSelection) {
+            await _refreshSalonListForCreatedSelection(context);
+            if (!context.mounted) return;
+          }
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 3)),
+            (route) => false,
+          );
         }
       },
       builder: (context, state) {
@@ -1410,7 +1432,7 @@ debugPrint('LNG = ${state.address?.longitude}');
                       return null;
                     },
                     decoration: InputDecoration(
-                        counterText: '',
+                      counterText: '',
                       hintText: localizedHint,
                       hintStyle: const TextStyle(
                         color: Color(0xFF948C84),
@@ -1547,5 +1569,26 @@ debugPrint('LNG = ${state.address?.longitude}');
         ),
       ),
     );
+  }
+
+  Future<void> _refreshSalonListForCreatedSelection(
+      BuildContext context) async {
+    try {
+      final selection = await StylistBranchSelectionStore.load();
+      if (!context.mounted) return;
+      final salonId = selection.salonId;
+      final branchId = selection.branchId;
+      if (salonId != null && branchId != null) {
+        context.read<SalonListCubit>().setSelectedSalon({
+          'salonId': salonId,
+          'salonName': selection.salonName,
+          'branchId': branchId,
+          'branchName': selection.branchName,
+        });
+      }
+      await context.read<SalonListCubit>().loadSalons();
+    } catch (_) {
+      // Catalog also reads the persisted branch selection when it opens.
+    }
   }
 }

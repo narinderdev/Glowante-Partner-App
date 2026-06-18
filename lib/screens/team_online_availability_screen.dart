@@ -306,7 +306,28 @@ class _TeamOnlineAvailabilityScreenState
       ),
     );
   }
+String _to24h(String input) {
+  final s = input.trim();
 
+  final reg24 = RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d$');
+  if (reg24.hasMatch(s)) return s;
+
+  final reg12 = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
+  final m = reg12.firstMatch(s);
+
+  if (m != null) {
+    int h = int.parse(m.group(1)!);
+    final min = int.parse(m.group(2)!);
+    final mer = m.group(3)!.toUpperCase();
+
+    if (h == 12) h = 0;
+    if (mer == 'PM') h += 12;
+
+    return '${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
+  }
+
+  return s;
+}
   Future<void> _pickJoiningDate() async {
     final today = DateTime.now();
     final picked = await showDatePicker(
@@ -434,14 +455,29 @@ if (widget.mode == TeamAvailabilityMode.editMember) {
 
       final joiningDate =
           '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}';
-      final response = await ApiService().assignUserToBranch(
-        widget.branchId,
-        widget.assignUserId!,
-        joiningDate,
-        widget.assignSchedules!,
-        widget.assignBranchServiceIds!,
-        _allowOnlineBooking,
-      );
+          debugPrint('FINAL ASSIGN BRANCH ID: ${widget.branchId}');
+debugPrint('FINAL ASSIGN USER ID: ${widget.assignUserId}');
+debugPrint('FINAL ASSIGN SCHEDULES: ${widget.assignSchedules}');
+debugPrint('FINAL ASSIGN SERVICES: ${widget.assignBranchServiceIds}');
+     final normalizedSchedules = widget.assignSchedules!.map((slot) {
+  return {
+    'day': slot['day'].toString().toLowerCase(),
+    'startTime': _to24h(slot['startTime'].toString()),
+    'endTime': _to24h(slot['endTime'].toString()),
+  };
+}).toList();
+
+debugPrint('FINAL ASSIGN BRANCH ID: ${widget.branchId}');
+debugPrint('FINAL NORMALIZED ASSIGN SCHEDULES: $normalizedSchedules');
+
+final response = await ApiService().assignUserToBranch(
+  widget.branchId,
+  widget.assignUserId!,
+  joiningDate,
+  normalizedSchedules,
+  widget.assignBranchServiceIds!,
+  _allowOnlineBooking,
+);
       if (!mounted) return;
      if (response['success'] == true) {
   ScaffoldMessenger.of(context).showSnackBar(

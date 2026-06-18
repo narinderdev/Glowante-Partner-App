@@ -48,6 +48,7 @@ class AddSalonState {
     this.savedPhone,
     this.errorMessage,
     this.selectedServiceCodes = const <String>[],
+    this.createdSalonResponse,
   });
 
   final AddSalonStatus status;
@@ -56,6 +57,7 @@ class AddSalonState {
   final String? savedPhone;
   final String? errorMessage;
   final List<String> selectedServiceCodes;
+  final Map<String, dynamic>? createdSalonResponse;
 
   bool get isSubmitting => status == AddSalonStatus.submitting;
   bool get isSuccess => status == AddSalonStatus.success;
@@ -71,6 +73,8 @@ class AddSalonState {
     bool clearError = false,
     List<String>? selectedServiceCodes,
     bool clearSelectedServiceCodes = false,
+    Map<String, dynamic>? createdSalonResponse,
+    bool clearCreatedSalonResponse = false,
   }) {
     return AddSalonState(
       status: status ?? this.status,
@@ -82,6 +86,9 @@ class AddSalonState {
       selectedServiceCodes: clearSelectedServiceCodes
           ? const <String>[]
           : (selectedServiceCodes ?? this.selectedServiceCodes),
+      createdSalonResponse: clearCreatedSalonResponse
+          ? null
+          : (createdSalonResponse ?? this.createdSalonResponse),
     );
   }
 }
