@@ -1339,7 +1339,6 @@ class _UsageCard extends StatelessWidget {
     );
   }
 }
-
 class _PaymentHistoryDialog extends StatelessWidget {
   const _PaymentHistoryDialog({required this.history});
 
@@ -1347,11 +1346,16 @@ class _PaymentHistoryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.all(22),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720),
+        constraints: BoxConstraints(
+          maxWidth: 720,
+          maxHeight: maxHeight,
+        ),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -1365,8 +1369,6 @@ class _PaymentHistoryDialog extends StatelessWidget {
             ],
           ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(22, 18, 14, 14),
@@ -1410,26 +1412,33 @@ class _PaymentHistoryDialog extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1, color: _membershipBorder),
-              Padding(
-                padding: const EdgeInsets.all(22),
+
+              Expanded(
                 child: history.isEmpty
-                    ? Text(
-                        context.t('No payment history available.'),
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: 13,
-                          color: _membershipMuted,
+                    ? Padding(
+                        padding: const EdgeInsets.all(22),
+                        child: Align(
+                          alignment: Alignment.topLeft,
+                          child: Text(
+                            context.t('No payment history available.'),
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 13,
+                              color: _membershipMuted,
+                            ),
+                          ),
                         ),
                       )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (final item in history.take(5)) ...[
-                            _PaymentHistoryItem(item: item),
-                            if (item != history.take(5).last)
-                              const SizedBox(height: 12),
-                          ],
-                        ],
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(22),
+                        itemCount: history.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          return _PaymentHistoryItem(
+                            item: history[index],
+                          );
+                        },
                       ),
               ),
             ],
@@ -1439,7 +1448,6 @@ class _PaymentHistoryDialog extends StatelessWidget {
     );
   }
 }
-
 class _PaymentHistoryItem extends StatelessWidget {
   const _PaymentHistoryItem({required this.item});
 

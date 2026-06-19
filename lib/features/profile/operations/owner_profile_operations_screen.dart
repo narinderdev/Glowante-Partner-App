@@ -1580,41 +1580,61 @@ class _OwnerProfileOperationsScreenState
     _openStoreFormDialog();
   }
 
-  Widget _buildBranchSelector() {
-    final selected = _selectedBranch;
-    final options = _branchOptions
-        .map(
-          (item) => OwnerBranchHeaderSelectorOption<_BranchOption>(
-            value: item,
-            label: item.label,
-            subtitle: item.subtitle,
-          ),
-        )
-        .toList();
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFF1EBE6)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OwnerBranchHeaderSelector<_BranchOption>(
-              label: selected?.label ?? context.t('Select Branch'),
-              options: options,
-              selectedValue: selected,
-              placeholder: context.t('Select Branch'),
-              isInteractive: _branchOptions.length > 1,
-              onSelected: _switchBranch,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildBranchSelector() {
+  //   final selected = _selectedBranch;
+  //   final options = _branchOptions
+  //       .map(
+  //         (item) => OwnerBranchHeaderSelectorOption<_BranchOption>(
+  //           value: item,
+  //           label: item.label,
+  //           subtitle: item.subtitle,
+  //         ),
+  //       )
+  //       .toList();
+  //   return Container(
+  //     padding: const EdgeInsets.all(16),
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.circular(18),
+  //       border: Border.all(color: const Color(0xFFF1EBE6)),
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         Expanded(
+  //           child: OwnerBranchHeaderSelector<_BranchOption>(
+  //             label: selected?.label ?? context.t('Select Branch'),
+  //             options: options,
+  //             selectedValue: selected,
+  //             placeholder: context.t('Select Branch'),
+  //             isInteractive: _branchOptions.length > 1,
+  //             onSelected: _switchBranch,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+Widget _buildBranchSelector() {
+  final selected = _selectedBranch;
+  final options = _branchOptions
+      .map(
+        (item) => OwnerBranchHeaderSelectorOption<_BranchOption>(
+          value: item,
+          label: item.label,
+          subtitle: item.subtitle,
+        ),
+      )
+      .toList();
 
+  return OwnerBranchHeaderSelector<_BranchOption>(
+    label: selected?.label ?? context.t('Select Branch'),
+    options: options,
+    selectedValue: selected,
+    placeholder: context.t('Select Branch'),
+    isInteractive: _branchOptions.length > 1,
+    onSelected: _switchBranch,
+  );
+}
   Widget _buildInventoryTabs() {
     final tabs = <_InventoryTab, String>{
       _InventoryTab.store: context.t('Store'),
