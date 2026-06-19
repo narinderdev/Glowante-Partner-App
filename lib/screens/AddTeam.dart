@@ -441,29 +441,30 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return normalized.isEmpty ? null : normalized;
   }
 
-  String _addressDisplayText(Map<String, dynamic> address) {
-    final parts = <String>[];
+String _addressDisplayText(Map<String, dynamic> address) {
+  final parts = <String>[];
 
-    void push(dynamic value) {
-      final text = value?.toString().trim() ?? '';
+  void push(dynamic value) {
+    final text = value?.toString().trim() ?? '';
 
-      if (text.isEmpty || text.toLowerCase() == 'null') return;
-      if (parts.contains(text)) return;
+    if (text.isEmpty || text.toLowerCase() == 'null') return;
+    if (parts.contains(text)) return;
 
-      parts.add(text);
-    }
-
-    push(address['line1']);
-    push(address['line2']);
-    push(address['village']);
-    push(address['district']);
-    push(address['city']);
-    push(address['state']);
-    push(address['postalCode']);
-    push(address['country']);
-
-    return parts.join(', ');
+    parts.add(text);
   }
+
+  // Show manual address first, same as salon flow
+  push(address['line2']);
+  push(address['line1']);
+  push(address['village']);
+  push(address['district']);
+  push(address['city']);
+  push(address['state']);
+  push(address['postalCode']);
+  push(address['country']);
+
+  return parts.join(', ');
+}
 
   Future<void> _getAddressPredictions(String input) async {
     final query = input.trim();
@@ -1593,28 +1594,33 @@ Future<void> _chooseTeamLocation() async {
   final latitude = (result['latitude'] as num?)?.toDouble();
   final longitude = (result['longitude'] as num?)?.toDouble();
 
-  final line1 = baseCompleteAddress.isNotEmpty
-      ? baseCompleteAddress
-      : completeAddress;
+final line1 = baseCompleteAddress.isNotEmpty
+    ? baseCompleteAddress
+    : completeAddress;
 
-  setState(() {
-    _selectedAddress = {
-      'line1': line1,
-      'line2': scoFlatHouse,
-      'village': '',
-      'district': '',
-      'city': streetSectorArea,
-      'state': '',
-      'country': 'India',
-      'postalCode': '',
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
-    };
+final line2 = [
+  scoFlatHouse,
+  streetSectorArea,
+].where((part) => part.trim().isNotEmpty).join(', ');
 
-    _addressCtrl.text = _addressDisplayText(_selectedAddress!);
-    _addressPredictions = [];
-    _suppressAddressError = true;
-  });
+setState(() {
+  _selectedAddress = {
+    'line1': line1,
+    'line2': line2,
+    'village': '',
+    'district': '',
+    'city': '',
+    'state': '',
+    'country': 'India',
+    'postalCode': '',
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+  };
+
+  _addressCtrl.text = _addressDisplayText(_selectedAddress!);
+  _addressPredictions = [];
+  _suppressAddressError = true;
+});
 }
   @override
   Widget build(BuildContext context) {
