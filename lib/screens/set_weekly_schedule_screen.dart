@@ -139,7 +139,9 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                 ),
                 const SizedBox(height: 28),
                 _buildCopyMondayControl(),
-                const SizedBox(height: 28),
+                const SizedBox(height: 18),
+                _buildScheduleModeDivider(),
+                const SizedBox(height: 18),
                 for (final day in _days) ...[
                   _buildDayCard(day),
                 ],
@@ -238,6 +240,9 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
 
   Widget _buildDayCard(String day) {
     final config = _scheduleByDay[day]!;
+    final followsMondaySchedule = _copyMondayToAll && day != 'monday';
+    final canEditDay = !followsMondaySchedule;
+    final canEditTime = !config.isClosed && canEditDay;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 17),
@@ -266,7 +271,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                 Expanded(
                   child: _TimeDropdown(
                     value: config.startTime,
-                    enabled: !config.isClosed,
+                    enabled: canEditTime,
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() {
@@ -288,7 +293,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
                 Expanded(
                   child: _TimeDropdown(
                     value: config.endTime,
-                    enabled: !config.isClosed,
+                    enabled: canEditTime,
                     onChanged: (value) {
                       if (value == null) return;
                       setState(() {
@@ -304,7 +309,19 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          if (config.isClosed)
+          if (followsMondaySchedule)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text(
+                translateText('MON'),
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF8B6500),
+                ),
+              ),
+            )
+          else if (config.isClosed)
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Text(
@@ -324,14 +341,16 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
               activeTrackColor: const Color(0xFF8B6500),
               inactiveThumbColor: Colors.white,
               inactiveTrackColor: const Color(0xFFE1DFDD),
-              onChanged: (enabled) {
-                setState(() {
-                  _applyDayConfig(
-                    day,
-                    config.copyWith(isClosed: !enabled),
-                  );
-                });
-              },
+              onChanged: canEditDay
+                  ? (enabled) {
+                      setState(() {
+                        _applyDayConfig(
+                          day,
+                          config.copyWith(isClosed: !enabled),
+                        );
+                      });
+                    }
+                  : null,
             ),
           ),
         ],
@@ -384,6 +403,43 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildScheduleModeDivider() {
+    return Row(
+      children: [
+        const Expanded(
+          child: Divider(
+            color: Color(0xFFE8DED6),
+            thickness: 1,
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF5EAD2),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFFD0A244)),
+          ),
+          child: Text(
+            translateText('OR'),
+            style: const TextStyle(
+              color: Color(0xFF8B6500),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+            ),
+          ),
+        ),
+        const Expanded(
+          child: Divider(
+            color: Color(0xFFE8DED6),
+            thickness: 1,
+          ),
+        ),
+      ],
     );
   }
 
