@@ -2744,41 +2744,145 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       ),
     );
   }
+int? _selectedDateBranchEndMinute() {
+  final selected = _selectedOption;
+  if (selected == null) return null;
 
-  Future<void> _openAddBooking() async {
-    final selected = _selectedOption;
-    if (selected == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select a salon'))),
-      );
-      return;
-    }
-    if (selected.isClosedOnDate(_selectedDate)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Salon is closed on the selected date'),
-          ),
-        ),
-      );
-      return;
-    }
+  final selectedDaySlots = selected.slotsForDate(_selectedDate);
 
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddBookingScreen(
-          salonId: selected.salonId,
-          branchId: selected.branchId,
+  if (selectedDaySlots.isNotEmpty) {
+    return selectedDaySlots
+        .map((slot) => slot.endMinute)
+        .reduce((first, second) => first > second ? first : second);
+  }
+
+  return selected.endMinute;
+}
+
+bool _isSelectedBranchBookingWindowOver() {
+  final selected = _selectedOption;
+  if (selected == null) return false;
+
+  final today = _dateOnly(DateTime.now());
+  final selectedDate = _dateOnly(_selectedDate);
+
+  // Only block for today's date.
+  // Future dates should still allow booking.
+  if (!_isSameDay(today, selectedDate)) return false;
+
+  final branchEndMinute = _selectedDateBranchEndMinute();
+  if (branchEndMinute == null) return false;
+
+  final now = DateTime.now();
+  final nowMinutes = now.hour * 60 + now.minute;
+
+  return nowMinutes >= branchEndMinute;
+}
+
+String _selectedBranchEndTimeLabel() {
+  final endMinute = _selectedDateBranchEndMinute();
+  if (endMinute == null) return '';
+  return _formatMinutesLabel(endMinute);
+}
+  // Future<void> _openAddBooking() async {
+  //   final selected = _selectedOption;
+  //   if (selected == null) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(content: Text(translateText('Please select a salon'))),
+  //     );
+  //     return;
+  //   }
+  //   if (selected.isClosedOnDate(_selectedDate)) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(
+  //           translateText('Salon is closed on the selected date'),
+  //         ),
+  //       ),
+  //     );
+  //     return;
+  //   }
+
+  //   final result = await Navigator.push(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder: (_) => AddBookingScreen(
+  //         salonId: selected.salonId,
+  //         branchId: selected.branchId,
+  //       ),
+  //     ),
+  //   );
+
+  //   if (!mounted || result == null) return;
+  //   setState(() => _selectedBookingView = 0);
+  //   await _reloadBookingsForSelectedOption();
+  // }
+Future<void> _openAddBooking() async {
+  final selected = _selectedOption;
+
+  if (selected == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(translateText('Please select a salon'))),
+    );
+    return;
+  }
+
+  if (selected.isClosedOnDate(_selectedDate)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText('Salon is closed on the selected date'),
         ),
       ),
     );
-
-    if (!mounted || result == null) return;
-    setState(() => _selectedBookingView = 0);
-    await _reloadBookingsForSelectedOption();
+    return;
   }
 
+  if (_isSelectedBranchBookingWindowOver()) {
+    final endTime = _selectedBranchEndTimeLabel();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          endTime.isEmpty
+              ? translateText('Booking time is over for today')
+              : translateText(
+                  'Booking time is over for today. Branch closed at $endTime',
+                ),
+        ),
+      ),
+    );
+    return;
+  }
+
+  if (widget.isOwnerMode &&
+      _teamMemberNames.isEmpty &&
+      _selectedBookingView == 0) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText('No team member available for this date'),
+        ),
+      ),
+    );
+    return;
+  }
+
+  final result = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => AddBookingScreen(
+        salonId: selected.salonId,
+        branchId: selected.branchId,
+      ),
+    ),
+  );
+
+  if (!mounted || result == null) return;
+
+  setState(() => _selectedBookingView = 0);
+  await _reloadBookingsForSelectedOption();
+}
   // Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
   //   final selected = _selectedOption;
   //   final appointmentId = _asInt(booking['id']);
@@ -2927,8 +3031,20 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     );
     final selectedDaySlots = _selectedOption?.slotsForDate(_selectedDate) ??
         const <_BranchDaySlot>[];
-    final isSelectedDateClosed =
-        _selectedOption?.isClosedOnDate(_selectedDate) == true;
+final isSelectedDateClosed =
+    _selectedOption?.isClosedOnDate(_selectedDate) == true;
+
+final bool noTeamMembersAvailable = widget.isOwnerMode &&
+    selectedBookingView == _BookingViewTab.teamMembers &&
+    _teamMemberNames.isEmpty;
+
+final bool isBranchBookingWindowOver =
+    _isSelectedBranchBookingWindowOver();
+
+final bool disableAddBooking =
+    isSelectedDateClosed ||
+    noTeamMembersAvailable ||
+    isBranchBookingWindowOver;
     final selectedStartMinute = selectedDaySlots.isNotEmpty
         ? selectedDaySlots.first.startMinute
         : _selectedOption?.startMinute;
@@ -3176,23 +3292,24 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               ),
             ),
         ],
-      ),
-      floatingActionButton: widget.isOwnerMode &&
-              selectedBookingView == _BookingViewTab.teamMembers
-          ? FloatingActionButton(
-              heroTag: 'owner_team_add_booking_fab',
-              onPressed: _openAddBooking,
-              backgroundColor: isSelectedDateClosed
-                  ? const Color(0xFFD6D3D1)
-                  : _bookingsGold,
-              foregroundColor:
-                  isSelectedDateClosed ? _bookingsSecondaryText : Colors.white,
-              elevation: isSelectedDateClosed ? 2 : 8,
-              child: const Icon(Icons.add_rounded, size: 30),
-            )
-          : null,
-      floatingActionButtonLocation:
-          widget.isOwnerMode ? FloatingActionButtonLocation.endFloat : null,
+      ),floatingActionButton: widget.isOwnerMode &&
+        selectedBookingView == _BookingViewTab.teamMembers
+    ? IgnorePointer(
+        ignoring: disableAddBooking,
+        child: FloatingActionButton(
+          heroTag: 'owner_team_add_booking_fab',
+          onPressed: _openAddBooking,
+          backgroundColor:
+              disableAddBooking ? const Color(0xFFD6D3D1) : _bookingsGold,
+          foregroundColor:
+              disableAddBooking ? _bookingsSecondaryText : Colors.white,
+          elevation: disableAddBooking ? 2 : 8,
+          child: const Icon(Icons.add_rounded, size: 30),
+        ),
+      )
+    : null,
+floatingActionButtonLocation:
+    widget.isOwnerMode ? FloatingActionButtonLocation.endFloat : null,
     );
   }
 }

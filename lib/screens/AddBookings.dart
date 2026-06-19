@@ -1316,9 +1316,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final phoneCtrl = TextEditingController(text: _digitsOnly(initialPhone));
     final firstCtrl = TextEditingController();
     final lastCtrl = TextEditingController();
-    final firstFocus = FocusNode();
-    final lastFocus = FocusNode();
-    final phoneFocus = FocusNode();
+    // final firstFocus = FocusNode();
+    // final lastFocus = FocusNode();
+    // final phoneFocus = FocusNode();
     bool isSubmitting = false;
     String? firstNameError;
     String? lastNameError;
@@ -1370,73 +1370,128 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       ),
                       const SizedBox(height: 22),
                       _dialogRequiredLabel('First Name'),
+                      // _dialogTextField(
+                      //   controller: firstCtrl,
+                      //   focusNode: firstFocus,
+                      //   hint: "Enter guest's first name",
+                      //   textInputAction: TextInputAction.next,
+                      //   textCapitalization: TextCapitalization.words,
+                      //   maxLength: 30,
+                      //   height: 56,
+                      //   inputFormatters: [
+                      //     FilteringTextInputFormatter.allow(
+                      //         RegExp(r'[A-Za-z ]')),
+                      //     LengthLimitingTextInputFormatter(30),
+                      //   ],
+                      //   onChanged: (_) {
+                      //     if (firstNameError != null) {
+                      //       setDialogState(() => firstNameError = null);
+                      //     }
+                      //   },
+                      //   onSubmitted: (_) => lastFocus.requestFocus(),
+                      // ),
                       _dialogTextField(
-                        controller: firstCtrl,
-                        focusNode: firstFocus,
-                        hint: "Enter guest's first name",
-                        textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.words,
-                        maxLength: 30,
-                        height: 56,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              RegExp(r'[A-Za-z ]')),
-                          LengthLimitingTextInputFormatter(30),
-                        ],
-                        onChanged: (_) {
-                          if (firstNameError != null) {
-                            setDialogState(() => firstNameError = null);
-                          }
-                        },
-                        onSubmitted: (_) => lastFocus.requestFocus(),
-                      ),
+  controller: firstCtrl,
+  hint: "Enter guest's first name",
+  textInputAction: TextInputAction.next,
+  textCapitalization: TextCapitalization.words,
+  maxLength: 30,
+  height: 56,
+  inputFormatters: [
+    FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+    LengthLimitingTextInputFormatter(30),
+  ],
+  onChanged: (_) {
+    if (firstNameError != null) {
+      setDialogState(() => firstNameError = null);
+    }
+  },
+  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+),
                       if (firstNameError != null) _errorText(firstNameError!),
                       const SizedBox(height: 14),
                       _dialogRequiredLabel('Last Name'),
+                      // _dialogTextField(
+                      //   controller: lastCtrl,
+                      //   focusNode: lastFocus,
+                      //   hint: "Enter guest's last name",
+                      //   textInputAction: TextInputAction.next,
+                      //   textCapitalization: TextCapitalization.words,
+                      //   maxLength: 30,
+                      //   height: 56,
+                      //   inputFormatters: [
+                      //     FilteringTextInputFormatter.allow(
+                      //         RegExp(r'[A-Za-z ]')),
+                      //     LengthLimitingTextInputFormatter(30),
+                      //   ],
+                      //   onChanged: (_) {
+                      //     if (lastNameError != null) {
+                      //       setDialogState(() => lastNameError = null);
+                      //     }
+                      //   },
+                      //   onSubmitted: (_) => phoneFocus.requestFocus(),
+                      // ),
                       _dialogTextField(
-                        controller: lastCtrl,
-                        focusNode: lastFocus,
-                        hint: "Enter guest's last name",
-                        textInputAction: TextInputAction.next,
-                        textCapitalization: TextCapitalization.words,
-                        maxLength: 30,
-                        height: 56,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              RegExp(r'[A-Za-z ]')),
-                          LengthLimitingTextInputFormatter(30),
-                        ],
-                        onChanged: (_) {
-                          if (lastNameError != null) {
-                            setDialogState(() => lastNameError = null);
-                          }
-                        },
-                        onSubmitted: (_) => phoneFocus.requestFocus(),
-                      ),
+  controller: lastCtrl,
+  hint: "Enter guest's last name",
+  textInputAction: TextInputAction.next,
+  textCapitalization: TextCapitalization.words,
+  maxLength: 30,
+  height: 56,
+  inputFormatters: [
+    FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+    LengthLimitingTextInputFormatter(30),
+  ],
+  onChanged: (_) {
+    if (lastNameError != null) {
+      setDialogState(() => lastNameError = null);
+    }
+  },
+  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+),
                       if (lastNameError != null) _errorText(lastNameError!),
                       const SizedBox(height: 14),
                       _dialogRequiredLabel('Phone Number'),
+                      // _dialogTextField(
+                      //   controller: phoneCtrl,
+                      //   focusNode: phoneFocus,
+                      //   hint: 'Enter phone no',
+                      //   keyboardType: TextInputType.phone,
+                      //   textInputAction: TextInputAction.done,
+                      //   maxLength: 10,
+                      //   height: 56,
+                      //   inputFormatters: [
+                      //     FilteringTextInputFormatter.digitsOnly,
+                      //     LengthLimitingTextInputFormatter(10),
+                      //   ],
+                      //   prefixText: '+91  ',
+                      //   onChanged: (_) {
+                      //     if (phoneError != null) {
+                      //       setDialogState(() => phoneError = null);
+                      //     }
+                      //   },
+                      //   onSubmitted: (_) =>
+                      //       FocusManager.instance.primaryFocus?.unfocus(),
+                      // ),
                       _dialogTextField(
-                        controller: phoneCtrl,
-                        focusNode: phoneFocus,
-                        hint: 'Enter phone no',
-                        keyboardType: TextInputType.phone,
-                        textInputAction: TextInputAction.done,
-                        maxLength: 10,
-                        height: 56,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                        prefixText: '+91  ',
-                        onChanged: (_) {
-                          if (phoneError != null) {
-                            setDialogState(() => phoneError = null);
-                          }
-                        },
-                        onSubmitted: (_) =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
-                      ),
+  controller: phoneCtrl,
+  hint: 'Enter phone no',
+  keyboardType: TextInputType.phone,
+  textInputAction: TextInputAction.done,
+  maxLength: 10,
+  height: 56,
+  inputFormatters: [
+    FilteringTextInputFormatter.digitsOnly,
+    LengthLimitingTextInputFormatter(10),
+  ],
+  prefixText: '+91  ',
+  onChanged: (_) {
+    if (phoneError != null) {
+      setDialogState(() => phoneError = null);
+    }
+  },
+  onSubmitted: (_) => FocusScope.of(context).unfocus(),
+),
                       if (phoneError != null) _errorText(phoneError!),
                       const SizedBox(height: 22),
                       Row(
@@ -1493,23 +1548,38 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                           return;
                                         }
 
-                                        if (!ctx.mounted) return;
+                                        // if (!ctx.mounted) return;
 
-                                        Navigator.pop(ctx);
+                                        // Navigator.pop(ctx);
 
-                                        Future.delayed(
-                                            const Duration(milliseconds: 300),
-                                            () {
-                                          if (!mounted) return;
+                                        // Future.delayed(
+                                        //     const Duration(milliseconds: 300),
+                                        //     () {
+                                        //   if (!mounted) return;
 
-                                          _showOtpBox(
-                                            phone,
-                                            firstName: firstName,
-                                            lastName: lastName,
-                                          );
-                                        });
+                                        //   _showOtpBox(
+                                        //     phone,
+                                        //     firstName: firstName,
+                                        //     lastName: lastName,
+                                        //   );
+                                        // });
+if (!ctx.mounted) return;
 
-                                        return;
+// Remove focus before closing dialog.
+FocusScope.of(ctx).unfocus();
+Navigator.pop(ctx);
+
+Future.delayed(const Duration(milliseconds: 350), () {
+  if (!mounted) return;
+
+  _showOtpBox(
+    phone,
+    firstName: firstName,
+    lastName: lastName,
+  );
+});
+
+return;
                                       } catch (e) {
                                         _showError(e.toString());
                                       } finally {
@@ -1574,15 +1644,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         ),
       );
     } finally {
-      firstFocus.dispose();
-      lastFocus.dispose();
-      phoneFocus.dispose();
-      // WidgetsBinding.instance.addPostFrameCallback((_) {
-      //   phoneCtrl.dispose();
-      //   firstCtrl.dispose();
-      //   lastCtrl.dispose();
-      // });
-    }
+  FocusManager.instance.primaryFocus?.unfocus();
+
+  Future.delayed(const Duration(milliseconds: 600), () {
+    phoneCtrl.dispose();
+    firstCtrl.dispose();
+    lastCtrl.dispose();
+  });
+}
   }
 
   Future<void> _showCustomerSearch() async {
@@ -4141,34 +4210,47 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     return true;
   }
 
-  List<TimeOfDay> _availableSlots() {
-    if (_availabilityLoaded) {
-      return _availabilitySlots;
-    }
+  // List<TimeOfDay> _availableSlots() {
+  //   if (_availabilityLoaded) {
+  //     return _availabilitySlots;
+  //   }
 
-    final start = widget.branchStartTime ?? const TimeOfDay(hour: 9, minute: 0);
-    final end = widget.branchEndTime ?? const TimeOfDay(hour: 18, minute: 30);
+  //   final start = widget.branchStartTime ?? const TimeOfDay(hour: 9, minute: 0);
+  //   final end = widget.branchEndTime ?? const TimeOfDay(hour: 18, minute: 30);
 
-    final duration = widget.durationMinutes <= 0 ? 30 : widget.durationMinutes;
+  //   final duration = widget.durationMinutes <= 0 ? 30 : widget.durationMinutes;
 
-    final slots = <TimeOfDay>[];
+  //   final slots = <TimeOfDay>[];
 
-    for (var minutes = _toMinutes(start);
-        minutes + duration <= _toMinutes(end);
-        minutes += 30) {
-      final slot = TimeOfDay(
-        hour: minutes ~/ 60,
-        minute: minutes % 60,
-      );
+  //   for (var minutes = _toMinutes(start);
+  //       minutes + duration <= _toMinutes(end);
+  //       minutes += 30) {
+  //     final slot = TimeOfDay(
+  //       hour: minutes ~/ 60,
+  //       minute: minutes % 60,
+  //     );
 
-      if (_isSlotAvailable(slot)) {
-        slots.add(slot);
-      }
-    }
+  //     if (_isSlotAvailable(slot)) {
+  //       slots.add(slot);
+  //     }
+  //   }
 
-    return slots;
+  //   return slots;
+  // }
+List<TimeOfDay> _availableSlots() {
+  // Do not show salon/branch default slots before team member is selected.
+  if (!_hasTeamMemberSelectionsForAvailability()) {
+    return const <TimeOfDay>[];
   }
 
+  // Show only API availability slots after team member is selected.
+  if (_availabilityLoaded) {
+    return _availabilitySlots;
+  }
+
+  // While API availability is not loaded yet, show nothing.
+  return const <TimeOfDay>[];
+}
   Future<void> _confirm() async {
     if (!_validateTeamMembersForEveryService()) return;
 
@@ -4560,7 +4642,8 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final slots = _availableSlots();
+  final hasTeamMemberSelections = _hasTeamMemberSelectionsForAvailability();
+final slots = _availableSlots();
     final today = _dateOnly(DateTime.now());
     final canGoBack = _visibleWeekStart.isAfter(today);
     final days = List.generate(
@@ -4687,51 +4770,117 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              if (_loadingAppointments)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: _bookingBorder),
-                  ),
-                  child: const Center(
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        color: _bookingGold,
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  ),
-                )
-              else if (slots.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: _bookingBorder),
-                  ),
-                  child: Text(
-                    translateText(
-                      'No available slots for the selected date and artisan.',
-                    ),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: _bookingMuted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      height: 1.4,
-                    ),
-                  ),
-                )
-              else
-                LayoutBuilder(
+              // if (_loadingAppointments)
+              //   Container(
+              //     width: double.infinity,
+              //     padding: const EdgeInsets.symmetric(vertical: 24),
+              //     decoration: BoxDecoration(
+              //       color: Colors.white,
+              //       borderRadius: BorderRadius.circular(9),
+              //       border: Border.all(color: _bookingBorder),
+              //     ),
+              //     child: const Center(
+              //       child: SizedBox(
+              //         width: 22,
+              //         height: 22,
+              //         child: CircularProgressIndicator(
+              //           color: _bookingGold,
+              //           strokeWidth: 2,
+              //         ),
+              //       ),
+              //     ),
+              //   )
+              // else if (slots.isEmpty)
+              //   Container(
+              //     width: double.infinity,
+              //     padding:
+              //         const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+              //     decoration: BoxDecoration(
+              //       color: Colors.white,
+              //       borderRadius: BorderRadius.circular(9),
+              //       border: Border.all(color: _bookingBorder),
+              //     ),
+              //     child: Text(
+              //       translateText(
+              //         'No available slots for the selected date and artisan.',
+              //       ),
+              //       textAlign: TextAlign.center,
+              //       style: const TextStyle(
+              //         color: _bookingMuted,
+              //         fontSize: 12,
+              //         fontWeight: FontWeight.w700,
+              //         height: 1.4,
+              //       ),
+              //     ),
+              //   )
+              // else
+              //   LayoutBuilder(
+              if (!hasTeamMemberSelections)
+  Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(9),
+      border: Border.all(color: _bookingBorder),
+    ),
+    child: Text(
+      translateText(
+        'Please select a team member to view available slots.',
+      ),
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: _bookingMuted,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        height: 1.4,
+      ),
+    ),
+  )
+else if (_loadingAppointments)
+  Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 24),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(9),
+      border: Border.all(color: _bookingBorder),
+    ),
+    child: const Center(
+      child: SizedBox(
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          color: _bookingGold,
+          strokeWidth: 2,
+        ),
+      ),
+    ),
+  )
+else if (slots.isEmpty)
+  Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(9),
+      border: Border.all(color: _bookingBorder),
+    ),
+    child: Text(
+      translateText(
+        'No available slots for the selected date and team member.',
+      ),
+      textAlign: TextAlign.center,
+      style: const TextStyle(
+        color: _bookingMuted,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        height: 1.4,
+      ),
+    ),
+  )
+else
+  LayoutBuilder(
                   builder: (context, constraints) {
                     const columns = 3;
                     const gap = 9.0;

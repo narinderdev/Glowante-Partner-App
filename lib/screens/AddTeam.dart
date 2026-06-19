@@ -2,14 +2,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
+import 'add_location_screen.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
 import 'package:image_picker/image_picker.dart';
-
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../screens/AddTeamChooseTimeSlots.dart';
 import '../utils/api_service.dart';
@@ -647,22 +646,41 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   //   return address.isEmpty ? null : address;
   // }
-  Map<String, dynamic>? _teamAddressPayload() {
-    final selected = _selectedAddress;
+  // Map<String, dynamic>? _teamAddressPayload() {
+  //   final selected = _selectedAddress;
 
-    if (selected == null) return null;
+  //   if (selected == null) return null;
 
-    return {
-      'line1': (selected['line1'] ?? '').toString(),
-      'line2': (selected['line2'] ?? '').toString(),
-      'village': (selected['village'] ?? '').toString(),
-      'district': (selected['district'] ?? '').toString(),
-      'city': (selected['city'] ?? '').toString(),
-      'state': (selected['state'] ?? '').toString(),
-      'country': (selected['country'] ?? '').toString(),
-      'postalCode': (selected['postalCode'] ?? '').toString(),
-    };
-  }
+  //   return {
+  //     'line1': (selected['line1'] ?? '').toString(),
+  //     'line2': (selected['line2'] ?? '').toString(),
+  //     'village': (selected['village'] ?? '').toString(),
+  //     'district': (selected['district'] ?? '').toString(),
+  //     'city': (selected['city'] ?? '').toString(),
+  //     'state': (selected['state'] ?? '').toString(),
+  //     'country': (selected['country'] ?? '').toString(),
+  //     'postalCode': (selected['postalCode'] ?? '').toString(),
+  //   };
+  // }
+
+Map<String, dynamic>? _teamAddressPayload() {
+  final selected = _selectedAddress;
+
+  if (selected == null) return null;
+
+  return {
+    'line1': (selected['line1'] ?? '').toString(),
+    'line2': (selected['line2'] ?? '').toString(),
+    'village': (selected['village'] ?? '').toString(),
+    'district': (selected['district'] ?? '').toString(),
+    'city': (selected['city'] ?? '').toString(),
+    'state': (selected['state'] ?? '').toString(),
+    'country': (selected['country'] ?? '').toString(),
+    'postalCode': (selected['postalCode'] ?? '').toString(),
+    if (selected['latitude'] != null) 'latitude': selected['latitude'],
+    if (selected['longitude'] != null) 'longitude': selected['longitude'],
+  };
+}
 
   String _normalizeGender(String value) {
     switch (value.toLowerCase()) {
@@ -798,43 +816,76 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _addressFocus.unfocus();
   }
 
-  Future<void> _pickJoiningDate() async {
-    _dismissKeyboard();
+  // Future<void> _pickJoiningDate() async {
+  //   _dismissKeyboard();
 
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+  //   final now = DateTime.now();
+  //   final today = DateTime(now.year, now.month, now.day);
 
-    final res = await showDatePicker(
-      context: context,
-      firstDate: today,
-      lastDate: DateTime(now.year + 5),
-      initialDate: _joiningDate != null && _joiningDate!.isAfter(today)
-          ? _joiningDate!
-          : today,
-      builder: (ctx, child) {
-        return Theme(
-          data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.black,
-              onPrimary: Colors.white,
-              onSurface: Colors.black87,
-            ),
+  //   final res = await showDatePicker(
+  //     context: context,
+  //     firstDate: today,
+  //     lastDate: DateTime(now.year + 5),
+  //     initialDate: _joiningDate != null && _joiningDate!.isAfter(today)
+  //         ? _joiningDate!
+  //         : today,
+  //     builder: (ctx, child) {
+  //       return Theme(
+  //         data: Theme.of(ctx).copyWith(
+  //           colorScheme: const ColorScheme.light(
+  //             primary: Colors.black,
+  //             onPrimary: Colors.white,
+  //             onSurface: Colors.black87,
+  //           ),
+  //         ),
+  //         child: child!,
+  //       );
+  //     },
+  //   );
+
+  //   _dismissKeyboard();
+
+  //   if (res != null) {
+  //     setState(() {
+  //       _joiningDate = res;
+  //       _suppressDateError = true;
+  //     });
+  //   }
+  // }
+Future<void> _pickJoiningDate() async {
+  _dismissKeyboard();
+
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+
+  final res = await showDatePicker(
+    context: context,
+    firstDate: DateTime(now.year - 50),
+    lastDate: DateTime(now.year + 5),
+    initialDate: _joiningDate ?? today,
+    builder: (ctx, child) {
+      return Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: Colors.black,
+            onPrimary: Colors.white,
+            onSurface: Colors.black87,
           ),
-          child: child!,
-        );
-      },
-    );
+        ),
+        child: child!,
+      );
+    },
+  );
 
-    _dismissKeyboard();
+  _dismissKeyboard();
 
-    if (res != null) {
-      setState(() {
-        _joiningDate = res;
-        _suppressDateError = true;
-      });
-    }
+  if (res != null) {
+    setState(() {
+      _joiningDate = res;
+      _suppressDateError = true;
+    });
   }
-
+}
   Future<void> _openMultiSelect({
     required String title,
     required List<Map<String, dynamic>> source,
@@ -1337,101 +1388,234 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     );
   }
 
-  Widget _addressField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _reqLabel(translateText('Address')),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _addressCtrl,
-          focusNode: _addressFocus,
-          autovalidateMode: _showGlobalErrors
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
-          decoration: _decor(
-            hint: translateText('Search address'),
-            prefix: const Icon(
-              Icons.location_on_outlined,
-              color: Color(0xFF8D867F),
+  // Widget _addressField() {
+  //   return Column(
+  //     crossAxisAlignment: CrossAxisAlignment.start,
+  //     children: [
+  //       _reqLabel(translateText('Address')),
+  //       const SizedBox(height: 8),
+  //       TextFormField(
+  //         controller: _addressCtrl,
+  //         focusNode: _addressFocus,
+  //         autovalidateMode: _showGlobalErrors
+  //             ? AutovalidateMode.onUserInteraction
+  //             : AutovalidateMode.disabled,
+  //         decoration: _decor(
+  //           hint: translateText('Search address'),
+  //           prefix: const Icon(
+  //             Icons.location_on_outlined,
+  //             color: Color(0xFF8D867F),
+  //           ),
+  //           suffix: _addressCtrl.text.trim().isEmpty
+  //               ? null
+  //               : IconButton(
+  //                   icon: const Icon(
+  //                     Icons.close_rounded,
+  //                     color: Color(0xFF8D867F),
+  //                   ),
+  //                   onPressed: _clearAddress,
+  //                 ),
+  //         ),
+  //         validator: (_) => _vAddress(),
+  //         onChanged: (value) {
+  //           if (_isSelectingAddress) return;
+
+  //           setState(() {
+  //             _selectedAddress = null;
+  //             _suppressAddressError = true;
+  //           });
+
+  //           _getAddressPredictions(value);
+  //         },
+  //       ),
+  //       if (_addressPredictions.isNotEmpty) ...[
+  //         const SizedBox(height: 6),
+  //         Container(
+  //           decoration: BoxDecoration(
+  //             color: Colors.white,
+  //             borderRadius: BorderRadius.circular(12),
+  //             border: Border.all(color: const Color(0xFFE2D3BF)),
+  //             boxShadow: const [
+  //               BoxShadow(
+  //                 color: Color(0x12000000),
+  //                 blurRadius: 12,
+  //                 offset: Offset(0, 4),
+  //               ),
+  //             ],
+  //           ),
+  //           child: ListView.separated(
+  //             shrinkWrap: true,
+  //             physics: const NeverScrollableScrollPhysics(),
+  //             itemCount: _addressPredictions.length,
+  //             separatorBuilder: (_, __) => const Divider(height: 1),
+  //             itemBuilder: (context, index) {
+  //               final prediction = _addressPredictions[index];
+
+  //               return ListTile(
+  //                 dense: true,
+  //                 leading: const Icon(
+  //                   Icons.location_on_outlined,
+  //                   color: _teamMemberAccent,
+  //                   size: 20,
+  //                 ),
+  //                 title: Text(
+  //                   prediction.primaryText,
+  //                   maxLines: 1,
+  //                   overflow: TextOverflow.ellipsis,
+  //                   style: const TextStyle(
+  //                     fontSize: 13,
+  //                     fontWeight: FontWeight.w700,
+  //                   ),
+  //                 ),
+  //                 subtitle: Text(
+  //                   prediction.secondaryText,
+  //                   maxLines: 1,
+  //                   overflow: TextOverflow.ellipsis,
+  //                   style: const TextStyle(fontSize: 12),
+  //                 ),
+  //                 onTap: () => _selectAddressPrediction(prediction),
+  //               );
+  //             },
+  //           ),
+  //         ),
+  //       ],
+  //     ],
+  //   );
+  // }
+Widget _addressField() {
+  final hasAddress = _selectedAddress != null &&
+      _addressDisplayText(_selectedAddress!).trim().isNotEmpty;
+
+  final displayAddress = hasAddress
+      ? _addressDisplayText(_selectedAddress!)
+      : translateText('Add Location');
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      _reqLabel(translateText('Address')),
+      const SizedBox(height: 8),
+      InkWell(
+        onTap: _chooseTeamLocation,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 58),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: const Color(0xFFD3A94C),
+              width: 1,
             ),
-            suffix: _addressCtrl.text.trim().isEmpty
-                ? null
-                : IconButton(
-                    icon: const Icon(
-                      Icons.close_rounded,
-                      color: Color(0xFF8D867F),
-                    ),
-                    onPressed: _clearAddress,
-                  ),
           ),
-          validator: (_) => _vAddress(),
-          onChanged: (value) {
-            if (_isSelectingAddress) return;
-
-            setState(() {
-              _selectedAddress = null;
-              _suppressAddressError = true;
-            });
-
-            _getAddressPredictions(value);
-          },
-        ),
-        if (_addressPredictions.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2D3BF)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x12000000),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.add_location_alt_rounded,
+                color: _teamMemberAccent,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  displayAddress,
+                  maxLines: hasAddress ? 2 : 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: hasAddress
+                        ? const Color(0xFF3B332B)
+                        : const Color(0xFF7A4A09),
+                    fontWeight: hasAddress ? FontWeight.w700 : FontWeight.w600,
+                    fontSize: hasAddress ? 13 : 14,
+                  ),
                 ),
-              ],
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _addressPredictions.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final prediction = _addressPredictions[index];
-
-                return ListTile(
-                  dense: true,
-                  leading: const Icon(
-                    Icons.location_on_outlined,
-                    color: _teamMemberAccent,
-                    size: 20,
+              ),
+              if (hasAddress)
+                IconButton(
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Color(0xFF8D867F),
                   ),
-                  title: Text(
-                    prediction.primaryText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  subtitle: Text(
-                    prediction.secondaryText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  onTap: () => _selectAddressPrediction(prediction),
-                );
-              },
-            ),
+                  onPressed: _clearAddress,
+                ),
+            ],
           ),
-        ],
+        ),
+      ),
+      if (_showGlobalErrors && _vAddress() != null) ...[
+        const SizedBox(height: 6),
+        Text(
+          _vAddress()!,
+          style: const TextStyle(
+            color: AppColors.red,
+            fontSize: 12,
+          ),
+        ),
       ],
-    );
-  }
+    ],
+  );
+}
+Future<void> _chooseTeamLocation() async {
+  _dismissKeyboard();
 
+  final selected = _selectedAddress;
+
+  final result = await Navigator.push<Map<String, dynamic>?>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => AddLocationScreen(
+        initialCompleteAddress: selected == null
+            ? null
+            : _addressDisplayText(selected),
+        initialScoFlatHouse: selected?['line2']?.toString(),
+        initialStreetSectorArea: [
+          selected?['district']?.toString() ?? '',
+          selected?['city']?.toString() ?? '',
+          selected?['state']?.toString() ?? '',
+          selected?['postalCode']?.toString() ?? '',
+        ].where((part) => part.trim().isNotEmpty).join(', '),
+      ),
+    ),
+  );
+
+  if (!mounted || result == null) return;
+
+  final completeAddress =
+      (result['completeAddress'] as String?)?.trim() ?? '';
+  final baseCompleteAddress =
+      (result['baseCompleteAddress'] as String?)?.trim() ?? '';
+  final scoFlatHouse =
+      (result['scoFlatHouse'] as String?)?.trim() ?? '';
+  final streetSectorArea =
+      (result['streetSectorArea'] as String?)?.trim() ?? '';
+  final latitude = (result['latitude'] as num?)?.toDouble();
+  final longitude = (result['longitude'] as num?)?.toDouble();
+
+  final line1 = baseCompleteAddress.isNotEmpty
+      ? baseCompleteAddress
+      : completeAddress;
+
+  setState(() {
+    _selectedAddress = {
+      'line1': line1,
+      'line2': scoFlatHouse,
+      'village': '',
+      'district': '',
+      'city': streetSectorArea,
+      'state': '',
+      'country': 'India',
+      'postalCode': '',
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+    };
+
+    _addressCtrl.text = _addressDisplayText(_selectedAddress!);
+    _addressPredictions = [];
+    _suppressAddressError = true;
+  });
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
