@@ -4339,6 +4339,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
     required List<_WorkingDayHours> hours,
     required String emptyMessage,
   }) {
+    final weeklyHours = _weeklyHoursWithClosedDays(hours);
     showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -4411,95 +4412,86 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  if (hours.isEmpty)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFAF7F3),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: _bookingsBorder),
-                      ),
-                      child: Text(
-                        context.t(emptyMessage),
-                        style: _bookingTextStyle(
-                          size: 13,
-                          weight: FontWeight.w800,
-                          color: _bookingsSecondaryText,
-                        ),
-                      ),
-                    )
-                  else
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.sizeOf(context).height * 0.52,
-                      ),
-                      child: ListView.separated(
-                        shrinkWrap: true,
-                        itemCount: hours.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final item = hours[index];
-                          return Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFAF7F3),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: _bookingsBorder),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 92,
-                                  child: Text(
-                                    context.t(item.day),
-                                    style: _bookingTextStyle(
-                                      size: 13,
-                                      weight: FontWeight.w900,
-                                      color: _bookingsGold,
-                                    ),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.sizeOf(context).height * 0.52,
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: weeklyHours.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final item = weeklyHours[index];
+                        final slots = item.slots.isEmpty
+                            ? [context.t('Off day')]
+                            : item.slots;
+                        final isClosed = item.slots.isEmpty;
+                        return Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFAF7F3),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: _bookingsBorder),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 92,
+                                child: Text(
+                                  context.t(item.day),
+                                  style: _bookingTextStyle(
+                                    size: 13,
+                                    weight: FontWeight.w900,
+                                    color: _bookingsGold,
                                   ),
                                 ),
-                                Expanded(
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: item.slots
-                                        .map(
-                                          (slot) => Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                              border: Border.all(
-                                                color: _bookingsBorder,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              slot,
-                                              style: _bookingTextStyle(
-                                                size: 11,
-                                                weight: FontWeight.w800,
-                                                color: _bookingsDateText,
-                                              ),
+                              ),
+                              Expanded(
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: slots
+                                      .map(
+                                        (slot) => Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isClosed
+                                                ? const Color(0xFFFFF1F2)
+                                                : Colors.white,
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                            border: Border.all(
+                                              color: isClosed
+                                                  ? const Color(0xFFFECACA)
+                                                  : _bookingsBorder,
                                             ),
                                           ),
-                                        )
-                                        .toList(),
-                                  ),
+                                          child: Text(
+                                            slot,
+                                            style: _bookingTextStyle(
+                                              size: 11,
+                                              weight: FontWeight.w800,
+                                              color: isClosed
+                                                  ? const Color(0xFF991B1B)
+                                                  : _bookingsDateText,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                     ),
+                  ),
                 ],
               ),
             ),
@@ -4507,6 +4499,46 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
         );
       },
     );
+  }
+
+  List<_WorkingDayHours> _weeklyHoursWithClosedDays(
+    List<_WorkingDayHours> hours,
+  ) {
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final slotsByDay = <String, List<String>>{};
+    final rangesByDay = <String, List<_WorkingHourRange>>{};
+
+    for (final item in hours) {
+      final day = item.day.trim().toLowerCase();
+      if (day.isEmpty) continue;
+      slotsByDay.putIfAbsent(day, () => <String>[]).addAll(item.slots);
+      rangesByDay
+          .putIfAbsent(day, () => <_WorkingHourRange>[])
+          .addAll(item.ranges);
+    }
+
+    return days
+        .map(
+          (day) => _WorkingDayHours(
+            day: _weeklyDayLabel(day),
+            slots: slotsByDay[day] ?? const <String>[],
+            ranges: rangesByDay[day] ?? const <_WorkingHourRange>[],
+          ),
+        )
+        .toList();
+  }
+
+  String _weeklyDayLabel(String day) {
+    if (day.isEmpty) return day;
+    return '${day.substring(0, 1).toUpperCase()}${day.substring(1)}';
   }
 
   @override
