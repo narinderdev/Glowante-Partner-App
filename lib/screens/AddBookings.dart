@@ -521,6 +521,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             ? branchMap['id'] as int
             : int.tryParse('${branchMap['id'] ?? ''}');
         if (currentBranchId != null && branchId != currentBranchId) continue;
+        if (!_memberCanWorkOnSelectedDate(branchEntry)) continue;
 
         final hasService =
             _hasAssignedServiceForSelection(member, branchEntry, serviceId);
@@ -651,6 +652,32 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     if (value is int) return value;
     if (value is num) return value.toInt();
     return int.tryParse('${value ?? ''}');
+  }
+
+  DateTime _dateOnly(DateTime date) {
+    return DateTime(date.year, date.month, date.day);
+  }
+
+  DateTime? _parseDateOnly(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return null;
+    final parsed = DateTime.tryParse(raw);
+    return parsed == null ? null : _dateOnly(parsed.toLocal());
+  }
+
+  bool _memberCanWorkOnSelectedDate(Map<String, dynamic> branchEntry) {
+    final selectedDate = _dateOnly(_selectedDate ?? DateTime.now());
+    final joiningDate = _parseDateOnly(branchEntry['joiningDate']);
+    if (joiningDate != null && joiningDate.isAfter(selectedDate)) {
+      return false;
+    }
+
+    final leavingDate = _parseDateOnly(branchEntry['leavingDate']);
+    if (leavingDate != null && leavingDate.isBefore(selectedDate)) {
+      return false;
+    }
+
+    return true;
   }
 
   List<dynamic> _listValue(dynamic value) {
