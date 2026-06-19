@@ -1,5 +1,13 @@
 part of 'profile_compensation_screen.dart';
 
+const Color _leaveGold = Color(0xFF8B6500);
+const Color _leaveGoldLight = Color(0xFFD0A244);
+const Color _leaveInk = Color(0xFF1F1B18);
+const Color _leaveMuted = Color(0xFF6F665E);
+const Color _leaveBorder = Color(0xFFE8DED6);
+const Color _leaveFieldFill = Color(0xFFF7F4F3);
+const Color _leaveSoftGold = Color(0xFFF5EAD2);
+
 extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
   Widget _buildAttendanceScreen() {
     final attendance = _attendanceOverview;
@@ -64,7 +72,15 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: _leaveBorder),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x06000000),
+                blurRadius: 12,
+                offset: Offset(0, 6),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,9 +91,9 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                     child: Text(
                       'Default Paid Leaves',
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1917),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w900,
+                        color: _leaveInk,
                       ),
                     ),
                   ),
@@ -97,8 +113,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFCFAF8),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFE9DFD1)),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _leaveBorder),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -107,8 +123,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                       'DEFAULT PAID LEAVES',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF9A6B00),
+                        fontWeight: FontWeight.w900,
+                        color: _leaveGold,
                         letterSpacing: 0.4,
                       ),
                     ),
@@ -117,8 +133,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                       '${config?.paidLeaveDays ?? 0}',
                       style: const TextStyle(
                         fontSize: 32,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1917),
+                        fontWeight: FontWeight.w900,
+                        color: _leaveInk,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -126,7 +142,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                       branchName,
                       style: const TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF6B7280),
+                        color: _leaveMuted,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -249,12 +266,12 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFF1EBE6)),
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: _leaveBorder),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x11000000),
-                blurRadius: 18,
+                color: Color(0x08000000),
+                blurRadius: 14,
                 offset: Offset(0, 8),
               ),
             ],
@@ -269,8 +286,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                       title,
                       style: const TextStyle(
                         fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1917),
+                        fontWeight: FontWeight.w900,
+                        color: _leaveInk,
                       ),
                     ),
                   ),
@@ -289,7 +306,9 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 description,
                 style: const TextStyle(
                   fontSize: 13,
-                  color: Color(0xFF6B7280),
+                  color: _leaveMuted,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
               if (showPayrollDropdown && _payrollRuns.isNotEmpty) ...[
@@ -300,14 +319,19 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                   decoration: InputDecoration(
                     labelText: 'Payroll run',
                     filled: true,
-                    fillColor: const Color(0xFFFCFAF8),
+                    fillColor: _leaveFieldFill,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      borderRadius: BorderRadius.circular(7),
+                      borderSide: const BorderSide(color: _leaveBorder),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                      borderRadius: BorderRadius.circular(7),
+                      borderSide: const BorderSide(color: _leaveBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(7),
+                      borderSide:
+                          const BorderSide(color: _leaveGoldLight, width: 1.2),
                     ),
                   ),
                   items: _payrollRuns
@@ -346,7 +370,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _leaveBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,8 +383,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                   'Paid Leaves',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1917),
+                    fontWeight: FontWeight.w900,
+                    color: _leaveInk,
                   ),
                 ),
               ),
@@ -381,14 +406,19 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 : 'Payroll: ${paidLeaves.payrollName}',
             style: const TextStyle(
               fontSize: 13,
-              color: Color(0xFF6B7280),
+              color: _leaveMuted,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 16),
           if (paidLeaves.employees.isEmpty)
             const Text(
               'No employees found for paid leaves.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: TextStyle(
+                fontSize: 13,
+                color: _leaveMuted,
+                fontWeight: FontWeight.w600,
+              ),
             )
           else
             ...paidLeaves.employees.map((employee) {
@@ -397,9 +427,9 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFCFAF8),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE9DFD1)),
+                    color: _leaveFieldFill,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _leaveBorder),
                   ),
                   child: Row(
                     children: [
@@ -411,8 +441,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                               employee.employeeName,
                               style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF1C1917),
+                                fontWeight: FontWeight.w900,
+                                color: _leaveInk,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -420,7 +450,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                               '${employee.role} • Paid ${employee.paidLeaveDays} • Unpaid ${employee.leaveDays}',
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF6B7280),
+                                color: _leaveMuted,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -456,7 +487,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _leaveBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,8 +497,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
             'Branch Attendance',
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1917),
+              fontWeight: FontWeight.w900,
+              color: _leaveInk,
             ),
           ),
           const SizedBox(height: 6),
@@ -474,14 +506,19 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
             '${attendance.recordsCount} records • ${attendance.totalEmployees} employees',
             style: const TextStyle(
               fontSize: 13,
-              color: Color(0xFF6B7280),
+              color: _leaveMuted,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 16),
           if (attendance.employees.isEmpty)
             const Text(
               'No attendance records found for this month.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: TextStyle(
+                fontSize: 13,
+                color: _leaveMuted,
+                fontWeight: FontWeight.w600,
+              ),
             )
           else
             ...attendance.employees.map((employee) {
@@ -492,9 +529,9 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFCFAF8),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE9DFD1)),
+                    color: _leaveFieldFill,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _leaveBorder),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,7 +543,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                               employee.userName,
                               style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w900,
+                                color: _leaveInk,
                               ),
                             ),
                           ),
@@ -523,7 +561,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                         '${employee.role} • Attended ${employee.daysAttended} • Leaves ${employee.leaves}',
                         style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF6B7280),
+                          color: _leaveMuted,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       if (lastRecord != null) ...[
@@ -532,7 +571,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                           'Last record: ${lastRecord.checkedInAtIndianTime.isEmpty ? _formatDate(lastRecord.checkedInAt ?? DateTime.now()) : lastRecord.checkedInAtIndianTime}',
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF1C1917),
+                            color: _leaveInk,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -559,7 +599,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _leaveBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -571,8 +612,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                   'Holiday Calendar',
                   style: TextStyle(
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1917),
+                    fontWeight: FontWeight.w900,
+                    color: _leaveInk,
                   ),
                 ),
               ),
@@ -592,14 +633,19 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 : holidayCalendar.salonName,
             style: const TextStyle(
               fontSize: 13,
-              color: Color(0xFF6B7280),
+              color: _leaveMuted,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 16),
           if (holidayCalendar.holidays.isEmpty)
             const Text(
               'No holidays added for this month.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              style: TextStyle(
+                fontSize: 13,
+                color: _leaveMuted,
+                fontWeight: FontWeight.w600,
+              ),
             )
           else
             ...holidayCalendar.holidays.map((holiday) {
@@ -608,9 +654,9 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFCFAF8),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFE9DFD1)),
+                    color: _leaveFieldFill,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: _leaveBorder),
                   ),
                   child: Row(
                     children: [
@@ -622,7 +668,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                               holiday.title.isEmpty ? 'Holiday' : holiday.title,
                               style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w900,
+                                color: _leaveInk,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -630,7 +677,8 @@ extension _OwnerLeaveCalendarUi on _ProfileCompensationScreenState {
                               '${_formatDate(holiday.holidayDate)}${holiday.description.isEmpty ? '' : ' • ${holiday.description}'}',
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF6B7280),
+                                color: _leaveMuted,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],

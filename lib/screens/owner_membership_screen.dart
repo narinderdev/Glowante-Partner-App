@@ -166,13 +166,29 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     if (response['success'] != true) return null;
     final data = response['data'];
     if (data is! Map) return null;
-    return _SalonSubscription.fromJson(Map<String, dynamic>.from(data));
+    final root = Map<String, dynamic>.from(data);
+    final current = root['currentMembership'] ??
+        root['currentSubscription'] ??
+        root['subscription'] ??
+        root['membership'];
+    if (current is Map) {
+      return _SalonSubscription.fromJson({
+        ...root,
+        ...Map<String, dynamic>.from(current),
+      });
+    }
+    return _SalonSubscription.fromJson(root);
   }
 
   Future<void> _choosePlan(_MembershipPlan plan) async {
     final salonId = _salonId;
     if (salonId == null) {
       _showSnack('Please create or select a salon first.');
+      return;
+    }
+    final subscription = _subscription;
+    if (subscription != null && !subscription.canUpgrade) {
+      _showSnack(subscription.membershipMessage);
       return;
     }
 
@@ -194,6 +210,10 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     final subscription = _subscription;
     final salonId = _salonId;
     if (subscription == null || salonId == null) return;
+    if (!subscription.canRenew) {
+      _showSnack(subscription.membershipMessage);
+      return;
+    }
 
     final plan = _planForSubscription(subscription);
     if (plan.id == null) {
@@ -237,6 +257,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         plans: _plans,
         yearlyBilling: _yearlyBilling,
         currentPlanId: _subscription?.currentPlanId,
+        subscription: _subscription,
         onBillingChanged: (value) => setState(() => _yearlyBilling = value),
       ),
     );
@@ -309,6 +330,8 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       planId: selection.plan.id!,
       billingCycle: selection.billingCycle,
       paymentReference: result.paymentId!,
+      renew: selection.renew,
+      startDate: selection.startDate,
       razorpayOrderId: result.orderId,
       razorpaySignature: result.signature,
       amountMinor: selection.amountMinor,
@@ -467,12 +490,13 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         if (_subscription != null) ...[
           _ExpiryBanner(
             subscription: _subscription!,
-            onRenew: _renewCurrentPlan,
+            onRenew: _subscription!.canRenew ? _renewCurrentPlan : null,
           ),
           const SizedBox(height: 18),
           _MembershipSummaryRow(
             subscription: _subscription!,
             actions: _MembershipActions(
+              subscription: _subscription!,
               onRenew: _renewCurrentPlan,
               onPlans: _showAvailablePlans,
               onPaymentHistory: _showPaymentHistory,
@@ -501,6 +525,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
               plans: _plans,
               yearlyBilling: _yearlyBilling,
               currentPlanId: _subscription?.currentPlanId,
+              subscription: _subscription,
               onChoose: _choosePlan,
             ),
         ],
@@ -626,12 +651,14 @@ class _PlansGrid extends StatelessWidget {
     required this.plans,
     required this.yearlyBilling,
     required this.currentPlanId,
+    required this.subscription,
     required this.onChoose,
   });
 
   final List<_MembershipPlan> plans;
   final bool yearlyBilling;
   final int? currentPlanId;
+  final _SalonSubscription? subscription;
   final ValueChanged<_MembershipPlan> onChoose;
 
   @override
@@ -654,6 +681,8 @@ class _PlansGrid extends StatelessWidget {
                   plan: plan,
                   yearlyBilling: yearlyBilling,
                   isCurrent: currentPlanId == plan.id,
+                  canChoose: _canChoosePlan(plan),
+                  disabledMessage: subscription?.membershipMessage,
                   onChoose: () => onChoose(plan),
                 ),
               ),
@@ -662,6 +691,13 @@ class _PlansGrid extends StatelessWidget {
       },
     );
   }
+
+  bool _canChoosePlan(_MembershipPlan plan) {
+    final current = subscription;
+    if (current == null) return true;
+    if (current.currentPlanId == plan.id) return current.canRenew;
+    return current.canUpgrade;
+  }
 }
 
 class _PlanCard extends StatelessWidget {
@@ -669,12 +705,16 @@ class _PlanCard extends StatelessWidget {
     required this.plan,
     required this.yearlyBilling,
     required this.isCurrent,
+    required this.canChoose,
+    required this.disabledMessage,
     required this.onChoose,
   });
 
   final _MembershipPlan plan;
   final bool yearlyBilling;
   final bool isCurrent;
+  final bool canChoose;
+  final String? disabledMessage;
   final VoidCallback onChoose;
 
   @override
@@ -768,9 +808,18 @@ class _PlanCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: onChoose,
+              onPressed: canChoose
+                  ? onChoose
+                  : () {
+                      final message = disabledMessage?.trim();
+                      if (message == null || message.isEmpty) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(context.t(message))),
+                      );
+                    },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
+                backgroundColor:
+                    canChoose ? AppColors.starColor : const Color(0xFFD8CEC5),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 13),
@@ -779,9 +828,11 @@ class _PlanCard extends StatelessWidget {
                 ),
               ),
               child: Text(
-                isCurrent
-                    ? context.t('Renew Plan')
-                    : context.t('Choose ${plan.name}'),
+                !canChoose
+                    ? context.t('Not Eligible')
+                    : isCurrent
+                        ? context.t('Renew Plan')
+                        : context.t('Choose ${plan.name}'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -976,6 +1027,75 @@ class _CurrentMembershipCard extends StatelessWidget {
               ],
             ),
           ),
+          if (subscription.upcomingMembership != null) ...[
+            const SizedBox(height: 14),
+            _UpcomingMembershipPanel(
+              upcomingMembership: subscription.upcomingMembership!,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _UpcomingMembershipPanel extends StatelessWidget {
+  const _UpcomingMembershipPanel({required this.upcomingMembership});
+
+  final _UpcomingMembership upcomingMembership;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF8F1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFB8DEC0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.event_available_rounded,
+                size: 18,
+                color: Color(0xFF2F8A4C),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                context.t('Upcoming Membership'),
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF2F8A4C),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 18,
+            runSpacing: 10,
+            children: [
+              _Fact(label: 'Plan', value: upcomingMembership.planName),
+              _Fact(
+                label: 'Billing',
+                value: _cycleLabel(upcomingMembership.billingCycle),
+              ),
+              _Fact(
+                label: 'Starts',
+                value: _formatDate(upcomingMembership.startDate),
+              ),
+              _Fact(
+                label: 'Expires',
+                value: _formatDate(upcomingMembership.expiryDate),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1023,11 +1143,13 @@ class _MembershipSummaryRow extends StatelessWidget {
 
 class _MembershipActions extends StatelessWidget {
   const _MembershipActions({
+    required this.subscription,
     required this.onRenew,
     required this.onPlans,
     required this.onPaymentHistory,
   });
 
+  final _SalonSubscription subscription;
   final VoidCallback onRenew;
   final VoidCallback onPlans;
   final VoidCallback onPaymentHistory;
@@ -1039,12 +1161,18 @@ class _MembershipActions extends StatelessWidget {
       child: Column(
         children: [
           _ActionRow(
-              icon: Icons.refresh_rounded, label: 'Renew Plan', onTap: onRenew),
+            icon: Icons.refresh_rounded,
+            label: 'Renew Plan',
+            onTap: subscription.canRenew ? onRenew : null,
+            disabledMessage: subscription.membershipMessage,
+          ),
           const Divider(height: 1, color: _membershipBorder),
           _ActionRow(
-              icon: Icons.trending_up_rounded,
-              label: 'Upgrade Plan',
-              onTap: onPlans),
+            icon: Icons.trending_up_rounded,
+            label: 'Upgrade Plan',
+            onTap: subscription.canUpgrade ? onPlans : null,
+            disabledMessage: subscription.membershipMessage,
+          ),
           const Divider(height: 1, color: _membershipBorder),
           _ActionRow(
             icon: Icons.workspace_premium_outlined,
@@ -1068,14 +1196,18 @@ class _ActionRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.disabledMessage,
   });
 
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final String? disabledMessage;
 
   @override
   Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    final message = _cleanText(disabledMessage);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -1090,21 +1222,48 @@ class _ActionRow extends StatelessWidget {
                 color: const Color(0xFFFFF3D5),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 16, color: AppColors.starColor),
+              child: Icon(
+                icon,
+                size: 16,
+                color: enabled ? AppColors.starColor : _membershipMuted,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                context.t(label),
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _membershipText,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.t(label),
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: enabled ? _membershipText : _membershipMuted,
+                    ),
+                  ),
+                  if (!enabled && message.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      context.t(message),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: _membershipMuted,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: _membershipMuted),
+            Icon(
+              enabled ? Icons.chevron_right_rounded : Icons.lock_outline,
+              color: _membershipMuted,
+              size: enabled ? 24 : 16,
+            ),
           ],
         ),
       ),
@@ -1119,7 +1278,7 @@ class _ExpiryBanner extends StatelessWidget {
   });
 
   final _SalonSubscription subscription;
-  final VoidCallback onRenew;
+  final VoidCallback? onRenew;
 
   @override
   Widget build(BuildContext context) {
@@ -1339,6 +1498,7 @@ class _UsageCard extends StatelessWidget {
     );
   }
 }
+
 class _PaymentHistoryDialog extends StatelessWidget {
   const _PaymentHistoryDialog({required this.history});
 
@@ -1412,7 +1572,6 @@ class _PaymentHistoryDialog extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1, color: _membershipBorder),
-
               Expanded(
                 child: history.isEmpty
                     ? Padding(
@@ -1432,8 +1591,7 @@ class _PaymentHistoryDialog extends StatelessWidget {
                     : ListView.separated(
                         padding: const EdgeInsets.all(22),
                         itemCount: history.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 12),
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           return _PaymentHistoryItem(
                             item: history[index],
@@ -1448,6 +1606,7 @@ class _PaymentHistoryDialog extends StatelessWidget {
     );
   }
 }
+
 class _PaymentHistoryItem extends StatelessWidget {
   const _PaymentHistoryItem({required this.item});
 
@@ -1564,12 +1723,14 @@ class _AvailablePlansDialog extends StatefulWidget {
     required this.plans,
     required this.yearlyBilling,
     required this.currentPlanId,
+    required this.subscription,
     required this.onBillingChanged,
   });
 
   final List<_MembershipPlan> plans;
   final bool yearlyBilling;
   final int? currentPlanId;
+  final _SalonSubscription? subscription;
   final ValueChanged<bool> onBillingChanged;
 
   @override
@@ -1618,6 +1779,7 @@ class _AvailablePlansDialogState extends State<_AvailablePlansDialog> {
                 plans: widget.plans,
                 yearlyBilling: _yearlyBilling,
                 currentPlanId: widget.currentPlanId,
+                subscription: widget.subscription,
                 onChoose: (plan) => Navigator.pop(context, plan),
               ),
             ],
@@ -1860,6 +2022,8 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                                   billingCycle:
                                       _billingCycleApiValue(_yearlyBilling),
                                   amountMinor: amount,
+                                  renew: true,
+                                  startDate: DateTime.now(),
                                 ),
                               );
                             },
@@ -1910,10 +2074,13 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
   Widget build(BuildContext context) {
     final amount = widget.plan.amountFor(_yearlyBilling);
     final startDate = DateTime.now();
+    final baseDate = widget.subscription == null
+        ? startDate
+        : _renewalBaseDate(widget.subscription!.expiryDate);
     final validUntil = DateTime(
-      startDate.year + (_yearlyBilling ? 1 : 0),
-      startDate.month + (_yearlyBilling ? 0 : 1),
-      startDate.day,
+      baseDate.year + (_yearlyBilling ? 1 : 0),
+      baseDate.month + (_yearlyBilling ? 0 : 1),
+      baseDate.day,
     );
 
     return Dialog(
@@ -2057,6 +2224,8 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                             plan: widget.plan,
                             billingCycle: _billingCycleApiValue(_yearlyBilling),
                             amountMinor: amount,
+                            renew: widget.subscription != null,
+                            startDate: DateTime.now(),
                           ),
                         );
                       },
@@ -2368,9 +2537,45 @@ class _SalonSubscription {
     required this.staffUsage,
     required this.storageUsage,
     required this.history,
+    required this.remainingDays,
+    required this.canRenew,
+    required this.canUpgrade,
+    required this.renewalEligibleAfterDays,
+    required this.membershipMessage,
+    required this.upcomingMembership,
   });
 
   factory _SalonSubscription.fromJson(Map<String, dynamic> json) {
+    final expiryDate = _parseDate(json['expiryDate']);
+    final computedRemainingDays = _remainingDaysFromExpiry(expiryDate);
+    final remainingDays = _readInt(json['remainingDays']) ??
+        _readInt(json['daysLeft']) ??
+        computedRemainingDays;
+    final billingCycle = _subscriptionBillingCycleFromJson(
+      json,
+      remainingDays: remainingDays,
+    );
+    final ruleEligible =
+        _canRenewOrUpgradeFallback(billingCycle, remainingDays);
+    final backendRenew =
+        _readBool(json['renew']) ?? _readBool(json['canRenew']);
+    final canRenew = ruleEligible && (backendRenew ?? true);
+    final canUpgrade =
+        ruleEligible && (_readBool(json['canUpgrade']) ?? backendRenew ?? true);
+    final renewalEligibleAfterDays =
+        _readInt(json['renewalEligibleAfterDays']) ??
+            _renewalEligibleAfterDaysFallback(billingCycle, remainingDays);
+    final message = _cleanText(json['membershipMessage']).isNotEmpty
+        ? _cleanText(json['membershipMessage'])
+        : _membershipEligibilityMessage(
+            billingCycle: billingCycle,
+            remainingDays: remainingDays,
+            canRenew: canRenew,
+            canUpgrade: canUpgrade,
+            renewalEligibleAfterDays: renewalEligibleAfterDays,
+          );
+    final upcomingRaw = json['upcomingMembership'];
+
     return _SalonSubscription(
       salonName: _cleanText(json['salonName']).isEmpty
           ? 'Salon'
@@ -2386,10 +2591,8 @@ class _SalonSubscription {
           ? 'UNKNOWN'
           : _cleanText(json['membershipStatus']),
       startDate: _parseDate(json['startDate']),
-      expiryDate: _parseDate(json['expiryDate']),
-      billingCycle: _cleanText(json['billingCycle']).isEmpty
-          ? 'MONTHLY'
-          : _cleanText(json['billingCycle']),
+      expiryDate: expiryDate,
+      billingCycle: billingCycle,
       amountMinor: _readInt(json['amountMinor']) ?? 0,
       currency: _cleanText(json['currency']).isEmpty
           ? 'INR'
@@ -2405,6 +2608,14 @@ class _SalonSubscription {
                   ))
               .toList()
           : const [],
+      remainingDays: remainingDays,
+      canRenew: canRenew,
+      canUpgrade: canUpgrade,
+      renewalEligibleAfterDays: renewalEligibleAfterDays,
+      membershipMessage: message,
+      upcomingMembership: upcomingRaw is Map
+          ? _UpcomingMembership.fromJson(Map<String, dynamic>.from(upcomingRaw))
+          : null,
     );
   }
 
@@ -2422,15 +2633,54 @@ class _SalonSubscription {
   final _Usage staffUsage;
   final _Usage storageUsage;
   final List<_SubscriptionHistory> history;
+  final int remainingDays;
+  final bool canRenew;
+  final bool canUpgrade;
+  final int? renewalEligibleAfterDays;
+  final String membershipMessage;
+  final _UpcomingMembership? upcomingMembership;
 
-  int get daysRemaining {
-    final expiry = expiryDate;
-    if (expiry == null) return 0;
-    final today = DateTime.now();
-    final todayDate = DateTime(today.year, today.month, today.day);
-    final expiryDateOnly = DateTime(expiry.year, expiry.month, expiry.day);
-    return expiryDateOnly.difference(todayDate).inDays;
+  int get daysRemaining => remainingDays;
+}
+
+class _UpcomingMembership {
+  const _UpcomingMembership({
+    required this.planName,
+    required this.billingCycle,
+    required this.startDate,
+    required this.expiryDate,
+    required this.amountMinor,
+    required this.currency,
+    required this.membershipStatus,
+  });
+
+  factory _UpcomingMembership.fromJson(Map<String, dynamic> json) {
+    return _UpcomingMembership(
+      planName: _cleanText(json['planName'] ?? json['currentPlan']).isEmpty
+          ? 'Plan'
+          : _cleanText(json['planName'] ?? json['currentPlan']),
+      billingCycle: _cleanText(json['billingCycle']).isEmpty
+          ? 'MONTHLY'
+          : _cleanText(json['billingCycle']),
+      startDate: _parseDate(json['startDate']),
+      expiryDate: _parseDate(json['expiryDate']),
+      amountMinor: _readInt(json['amountMinor']) ?? 0,
+      currency: _cleanText(json['currency']).isEmpty
+          ? 'INR'
+          : _cleanText(json['currency']),
+      membershipStatus: _cleanText(json['membershipStatus']).isEmpty
+          ? 'UPCOMING'
+          : _cleanText(json['membershipStatus']),
+    );
   }
+
+  final String planName;
+  final String billingCycle;
+  final DateTime? startDate;
+  final DateTime? expiryDate;
+  final int amountMinor;
+  final String currency;
+  final String membershipStatus;
 }
 
 class _SubscriptionHistory {
@@ -2514,11 +2764,15 @@ class _PurchaseSelection {
     required this.plan,
     required this.billingCycle,
     required this.amountMinor,
+    required this.renew,
+    required this.startDate,
   });
 
   final _MembershipPlan plan;
   final String billingCycle;
   final int amountMinor;
+  final bool renew;
+  final DateTime startDate;
 }
 
 BoxDecoration _cardDecoration() {
@@ -2605,4 +2859,128 @@ DateTime? _parseDate(dynamic value) {
   final raw = _cleanText(value);
   if (raw.isEmpty) return null;
   return DateTime.tryParse(raw);
+}
+
+bool? _readBool(dynamic value) {
+  if (value is bool) return value;
+  final text = _cleanText(value).toLowerCase();
+  if (text == 'true' || text == '1' || text == 'yes') return true;
+  if (text == 'false' || text == '0' || text == 'no') return false;
+  return null;
+}
+
+int _remainingDaysFromExpiry(DateTime? expiryDate) {
+  if (expiryDate == null) return 0;
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final expiryOnly = DateTime(
+    expiryDate.year,
+    expiryDate.month,
+    expiryDate.day,
+  );
+  return expiryOnly.difference(today).inDays;
+}
+
+bool _isYearlyCycle(String billingCycle) {
+  final normalized = billingCycle.trim().toUpperCase();
+  return normalized == 'YEARLY' || normalized == 'ANNUAL';
+}
+
+String _subscriptionBillingCycleFromJson(
+  Map<String, dynamic> json, {
+  required int remainingDays,
+}) {
+  final cycle = _subscriptionBillingCycleValueFromJson(json);
+  if (cycle != null) return cycle;
+  return remainingDays > 330 ? 'ANNUAL' : 'MONTHLY';
+}
+
+String? _subscriptionBillingCycleValueFromJson(Map<String, dynamic> json) {
+  for (final key in const [
+    'billingCycle',
+    'billing_cycle',
+    'billingInterval',
+    'billing_interval',
+    'cycle',
+    'interval',
+  ]) {
+    final cycle = _normalizeBillingCycle(json[key]);
+    if (cycle != null) return cycle;
+  }
+
+  for (final key in const [
+    'plan',
+    'membershipPlan',
+    'currentPlan',
+    'subscriptionPlan',
+  ]) {
+    final value = json[key];
+    if (value is Map) {
+      final cycle = _subscriptionBillingCycleValueFromJson(
+          Map<String, dynamic>.from(value));
+      if (cycle != null) return cycle;
+    }
+  }
+
+  for (final key in const [
+    'currentPlan',
+    'planName',
+    'name',
+    'displayName',
+  ]) {
+    final cycle = _normalizeBillingCycle(json[key]);
+    if (cycle != null) return cycle;
+  }
+
+  return null;
+}
+
+String? _normalizeBillingCycle(dynamic value) {
+  final text = _cleanText(value).toUpperCase();
+  if (text.isEmpty) return null;
+  if (text.contains('ANNUAL') ||
+      text.contains('YEARLY') ||
+      text.contains('YEAR')) {
+    return 'ANNUAL';
+  }
+  if (text.contains('MONTHLY') || text.contains('MONTH')) {
+    return 'MONTHLY';
+  }
+  return null;
+}
+
+bool _canRenewOrUpgradeFallback(String billingCycle, int remainingDays) {
+  if (!_isYearlyCycle(billingCycle)) return true;
+  return remainingDays <= 330;
+}
+
+int? _renewalEligibleAfterDaysFallback(String billingCycle, int remainingDays) {
+  if (!_isYearlyCycle(billingCycle) || remainingDays <= 330) return null;
+  return remainingDays - 330;
+}
+
+String _membershipEligibilityMessage({
+  required String billingCycle,
+  required int remainingDays,
+  required bool canRenew,
+  required bool canUpgrade,
+  int? renewalEligibleAfterDays,
+}) {
+  if (canRenew && canUpgrade) {
+    if (_isYearlyCycle(billingCycle)) {
+      return 'Yearly membership is eligible for renewal or upgrade.';
+    }
+    return 'Monthly membership can be renewed or upgraded at any time.';
+  }
+
+  if (_isYearlyCycle(billingCycle)) {
+    final waitDays = renewalEligibleAfterDays ??
+        _renewalEligibleAfterDaysFallback(billingCycle, remainingDays);
+    if (waitDays != null && waitDays > 0) {
+      return 'Yearly membership can be renewed or upgraded when 330 days or fewer remain. Try again in $waitDays days.';
+    }
+    return 'Yearly membership is not eligible for renewal or upgrade yet.';
+  }
+
+  return 'Membership is not eligible for renewal or upgrade yet.';
 }

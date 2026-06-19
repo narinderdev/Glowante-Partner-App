@@ -2,10 +2,17 @@
 import 'package:flutter/material.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
-import '../utils/colors.dart';
 import '../utils/price_formatter.dart';
-import 'package:flutter/services.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+
+const Color _servicePickerGold = Color(0xFF8B6500);
+const Color _servicePickerGoldLight = Color(0xFFD0A244);
+const Color _servicePickerInk = Color(0xFF1F1B18);
+const Color _servicePickerMuted = Color(0xFF6F665E);
+const Color _servicePickerBorder = Color(0xFFE8DED6);
+const Color _servicePickerFieldFill = Color(0xFFF7F4F3);
+const Color _servicePickerSurface = Color(0xFFFBFAF8);
+const Color _servicePickerSoftGold = Color(0xFFF5EAD2);
 
 class SelectServicesModal extends StatefulWidget {
   final int? salonId;
@@ -142,6 +149,103 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
     return sum;
   }
 
+  int get _selectedCount => selectedQty.values.fold<int>(0, (sum, qty) {
+        return sum + (qty > 0 ? qty : 0);
+      });
+
+  Widget _statePanel({
+    required IconData icon,
+    required String title,
+    required String message,
+    bool loading = false,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: _servicePickerBorder),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: _servicePickerSoftGold,
+                  shape: BoxShape.circle,
+                ),
+                child: loading
+                    ? const Padding(
+                        padding: EdgeInsets.all(13),
+                        child: CircularProgressIndicator(
+                          color: _servicePickerGold,
+                          strokeWidth: 2.4,
+                        ),
+                      )
+                    : Icon(icon, color: _servicePickerGold, size: 24),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                translateText(title),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _servicePickerInk,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                translateText(message),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _servicePickerMuted,
+                  fontSize: 12,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _quantityButton({
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    final enabled = onPressed != null;
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: enabled ? _servicePickerSoftGold : _servicePickerFieldFill,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: enabled ? _servicePickerGoldLight : _servicePickerBorder,
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: enabled ? _servicePickerGold : _servicePickerMuted,
+          size: 18,
+        ),
+      ),
+    );
+  }
+
   Widget _buildServiceItem(Map<String, dynamic> s) {
     final int id = s['id'] as int;
     final String name = (s['displayName'] ?? '').toString();
@@ -152,39 +256,94 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
     // Filtering is already handled inside _buildCategory().
     // Keeping it here hides your entire widget during search.
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: qty > 0 ? _servicePickerGoldLight : _servicePickerBorder,
+        ),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Text(
-              "$name\n${formatMinorAmount(price)}",
-              style: const TextStyle(fontSize: 14),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: qty > 0 ? _servicePickerSoftGold : _servicePickerFieldFill,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(
+              qty > 0 ? Icons.check_rounded : Icons.spa_rounded,
+              color: _servicePickerGold,
+              size: 17,
             ),
           ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _servicePickerInk,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  formatMinorAmount(price),
+                  style: const TextStyle(
+                    color: _servicePickerGold,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
           Row(
             children: [
-              IconButton(
-                icon: const Icon(Icons.remove_circle_outline),
+              _quantityButton(
+                icon: Icons.remove_rounded,
                 onPressed: qty > 0
                     ? () => setState(() => selectedQty[id] = qty - 1)
                     : null,
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black26),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  qty.toString(),
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+              const SizedBox(width: 6),
+              SizedBox(
+                width: 38,
+                height: 34,
+                child: Container(
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: _servicePickerFieldFill,
+                    border: Border.all(color: _servicePickerBorder),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    qty.toString(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _servicePickerInk,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
+              const SizedBox(width: 6),
+              _quantityButton(
+                icon: Icons.add_rounded,
                 onPressed: () => setState(() => selectedQty[id] = qty + 1),
               ),
             ],
@@ -225,76 +384,169 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
       return const SizedBox.shrink();
     }
 
-    return ExpansionTile(
-      initiallyExpanded: searchQuery.isNotEmpty,
-      title: Text(
-        cat['displayName']?.toString() ?? '',
-        style: const TextStyle(fontWeight: FontWeight.w600),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _servicePickerBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
-      children: [
-        // Category-level services
-        ...filteredServices.map<Widget>(
-            (s) => _buildServiceItem((s as Map).cast<String, dynamic>())),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: searchQuery.isNotEmpty,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          iconColor: _servicePickerGold,
+          collapsedIconColor: _servicePickerGold,
+          leading: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: _servicePickerSoftGold,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.content_cut_rounded,
+              color: _servicePickerGold,
+              size: 19,
+            ),
+          ),
+          title: Text(
+            cat['displayName']?.toString() ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _servicePickerInk,
+              fontSize: 15,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          children: [
+            // Category-level services
+            ...filteredServices.map<Widget>(
+                (s) => _buildServiceItem((s as Map).cast<String, dynamic>())),
 
-        // Subcategories
-        ...filteredSubs.map<Widget>((sub) {
-          final subMap = (sub as Map).cast<String, dynamic>();
-          final subName =
-              (subMap['displayName'] ?? '').toString().toLowerCase();
-          final subServices = (subMap['services'] ?? []) as List;
+            // Subcategories
+            ...filteredSubs.map<Widget>((sub) {
+              final subMap = (sub as Map).cast<String, dynamic>();
+              final subName =
+                  (subMap['displayName'] ?? '').toString().toLowerCase();
+              final subServices = (subMap['services'] ?? []) as List;
 
-          // 🔥 If the subcategory name matches, show all its services.
-          // Otherwise, only show the ones that match the search.
-          final bool subMatches = subName.contains(q);
-          final filteredSubServices = subMatches
-              ? subServices
-              : subServices.where((svc) {
-                  final name =
-                      (svc['displayName'] ?? '').toString().toLowerCase();
-                  return q.isEmpty || name.contains(q);
-                }).toList();
+              // 🔥 If the subcategory name matches, show all its services.
+              // Otherwise, only show the ones that match the search.
+              final bool subMatches = subName.contains(q);
+              final filteredSubServices = subMatches
+                  ? subServices
+                  : subServices.where((svc) {
+                      final name =
+                          (svc['displayName'] ?? '').toString().toLowerCase();
+                      return q.isEmpty || name.contains(q);
+                    }).toList();
 
-          return ExpansionTile(
-            initiallyExpanded: searchQuery.isNotEmpty,
-            title: Text(subMap['displayName']?.toString() ?? ''),
-            children: filteredSubServices
-                .map<Widget>((s) =>
-                    _buildServiceItem((s as Map).cast<String, dynamic>()))
-                .toList(),
-          );
-        }).toList(),
-      ],
+              return Container(
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                  color: _servicePickerFieldFill,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Theme(
+                  data: Theme.of(context)
+                      .copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    initiallyExpanded: searchQuery.isNotEmpty,
+                    tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                    childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    iconColor: _servicePickerGold,
+                    collapsedIconColor: _servicePickerGold,
+                    title: Text(
+                      subMap['displayName']?.toString() ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _servicePickerInk,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    children: filteredSubServices
+                        .map<Widget>(
+                          (s) => _buildServiceItem(
+                            (s as Map).cast<String, dynamic>(),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _servicePickerSurface,
       appBar: buildProfileSubpageAppBar(
         title: translateText('Select Services'),
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: const Icon(Icons.close_rounded, color: _servicePickerGold),
             onPressed: () => Navigator.pop(context),
           ),
         ],
       ),
       body: isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? _statePanel(
+              icon: Icons.content_cut_rounded,
+              title: 'Loading services',
+              message: 'Fetching services for this branch.',
+              loading: true,
+            )
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.all(12.0),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
                   child: TextField(
                     controller: _searchController,
                     // maxLength: 60,
+                    cursorColor: _servicePickerGold,
+                    style: const TextStyle(
+                      color: _servicePickerInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                     decoration: InputDecoration(
                       hintText: translateText('Search Services'),
-                      prefixIcon: const Icon(Icons.search),
+                      hintStyle: const TextStyle(
+                        color: _servicePickerMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: _servicePickerGold,
+                        size: 19,
+                      ),
                       suffixIcon: searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.close),
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: _servicePickerMuted,
+                                size: 18,
+                              ),
                               onPressed: () {
                                 setState(() {
                                   _searchController.clear(); // clear UI text
@@ -305,8 +557,28 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
                               },
                             )
                           : null,
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: _servicePickerBorder),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: _servicePickerBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: _servicePickerGoldLight,
+                          width: 1.2,
+                        ),
                       ),
                     ),
                     onChanged: (val) =>
@@ -316,36 +588,63 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
 
                 // List
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: categories.length,
-                    itemBuilder: (ctx, i) => _buildCategory(
-                      (categories[i] as Map).cast<String, dynamic>(),
-                    ),
-                  ),
+                  child: categories.isEmpty
+                      ? _statePanel(
+                          icon: Icons.content_cut_rounded,
+                          title: 'No services available',
+                          message: 'Add services before creating deals.',
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          itemCount: categories.length,
+                          itemBuilder: (ctx, i) => _buildCategory(
+                            (categories[i] as Map).cast<String, dynamic>(),
+                          ),
+                        ),
                 ),
 
                 // Bottom bar
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
                   decoration: BoxDecoration(
                     color: Colors.white,
+                    border: const Border(
+                      top: BorderSide(color: _servicePickerBorder),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(.05),
-                        blurRadius: 6,
+                        color: Colors.black.withValues(alpha: .05),
+                        blurRadius: 12,
+                        offset: const Offset(0, -4),
                       )
                     ],
                   ),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          "Total: ${formatMinorAmount(total)}",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 16,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '${translateText('Selected')}: $_selectedCount',
+                              style: const TextStyle(
+                                color: _servicePickerMuted,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 10,
+                                letterSpacing: .7,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "${translateText('Total')}: ${formatMinorAmount(total)}",
+                              style: const TextStyle(
+                                color: _servicePickerInk,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       // ElevatedButton(
@@ -370,13 +669,21 @@ class _SelectServicesModalState extends State<SelectServicesModal> {
                             Navigator.pop(context, _collectSelected());
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
+                            backgroundColor: _servicePickerGold,
                             foregroundColor: Colors.white,
+                            elevation: 8,
+                            shadowColor: const Color(0x338B6500),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(7),
                             ),
                           ),
-                          child: Text(translateText('Done')),
+                          child: Text(
+                            translateText('Done'),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
                         ),
                       ),
                     ],

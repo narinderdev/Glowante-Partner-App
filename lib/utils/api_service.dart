@@ -554,6 +554,8 @@ class ApiService {
     required int planId,
     required String billingCycle,
     required String paymentReference,
+    required bool renew,
+    required DateTime startDate,
     String? razorpayOrderId,
     String? razorpaySignature,
     int? amountMinor,
@@ -564,6 +566,8 @@ class ApiService {
     final payload = <String, dynamic>{
       'planId': planId,
       'billingCycle': normalizedBillingCycle,
+      'renew': renew,
+      'startDate': DateFormat('yyyy-MM-dd').format(startDate),
       'paymentReference': paymentReference,
       'razorpayPaymentId': paymentReference,
       if (razorpayOrderId != null && razorpayOrderId.isNotEmpty)

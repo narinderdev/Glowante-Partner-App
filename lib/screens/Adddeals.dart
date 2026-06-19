@@ -6,10 +6,18 @@ import 'offer_review_summary_screen.dart';
 import 'package:flutter/services.dart';
 import 'SelectServices.dart';
 import '../utils/api_service.dart';
-import '../utils/colors.dart';
 import '../utils/price_formatter.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+
+const Color _dealGold = Color(0xFF8B6500);
+const Color _dealGoldLight = Color(0xFFD0A244);
+const Color _dealInk = Color(0xFF1F1B18);
+const Color _dealMuted = Color(0xFF6F665E);
+const Color _dealBorder = Color(0xFFE8DED6);
+const Color _dealFieldFill = Color(0xFFF7F4F3);
+const Color _dealSurface = Color(0xFFFBFAF8);
+const Color _dealSoftGold = Color(0xFFF5EAD2);
 
 class AddDealsScreen extends StatefulWidget {
   final int branchId;
@@ -86,9 +94,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   bool _autoSetMaxFromPercent = true;
   bool _isSubmitting = false;
 
-  final _fg = Colors.black;
-  final _border = const Color(0xFFE5E5E5);
-  final _radius = BorderRadius.circular(12);
+  final _border = _dealBorder;
+  final _radius = BorderRadius.circular(7);
 
   bool get _isPackage => widget.source.toUpperCase() == 'PACKAGE';
 
@@ -345,9 +352,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
           colorScheme: const ColorScheme.light(
-            primary: Colors.black,
+            primary: _dealGold,
             onPrimary: Colors.white,
-            onSurface: Colors.black87,
+            onSurface: _dealInk,
           ),
         ),
         child: child!,
@@ -1001,9 +1008,25 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       counterText: '',
       labelText: label,
       hintText: hint,
-      prefixIcon: prefix == null ? null : Icon(prefix, color: _fg),
+      labelStyle: const TextStyle(
+        color: _dealMuted,
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+      ),
+      floatingLabelStyle: const TextStyle(
+        color: _dealGold,
+        fontSize: 12,
+        fontWeight: FontWeight.w800,
+      ),
+      hintStyle: const TextStyle(
+        color: Color(0xFFAAA19A),
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+      ),
+      prefixIcon: prefix == null ? null : Icon(prefix, color: _dealGold),
       suffixIcon: suffix,
-      filled: false,
+      filled: true,
+      fillColor: _dealFieldFill,
       helperText: ' ',
       helperStyle: const TextStyle(height: 1),
       errorStyle: const TextStyle(height: 1.1),
@@ -1013,9 +1036,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         borderRadius: _radius,
         borderSide: BorderSide(color: _border),
       ),
-      focusedBorder: const OutlineInputBorder(
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-        borderSide: BorderSide(color: Colors.black, width: 1.6),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: _radius,
+        borderSide: const BorderSide(color: _dealGoldLight, width: 1.2),
       ),
       errorMaxLines: 2,
     );
@@ -1054,14 +1077,113 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   }
 
   Widget _section(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontWeight: FontWeight.w800,
-          fontSize: 16,
-        ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 18,
+            decoration: BoxDecoration(
+              color: _dealGold,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title.toUpperCase(),
+              style: const TextStyle(
+                color: Color(0xFF4B4038),
+                fontWeight: FontWeight.w900,
+                fontSize: 11,
+                letterSpacing: 1,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _formHeader() {
+    final title = widget.isEdit
+        ? (_isPackage ? 'Update Package' : 'Update Deal')
+        : (_isPackage ? 'Create Package' : 'Create Deal');
+    final message = _isPackage
+        ? 'Bundle services with a clear price and validity.'
+        : 'Create a focused offer with service selection and discount rules.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _dealBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 16,
+            offset: Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: _dealSoftGold,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _isPackage
+                  ? Icons.inventory_2_rounded
+                  : Icons.local_offer_rounded,
+              color: _dealGold,
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  translateText(title),
+                  style: const TextStyle(
+                    color: _dealInk,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  translateText(message),
+                  style: const TextStyle(
+                    color: _dealMuted,
+                    fontSize: 12,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.branchName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _dealGold,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1260,9 +1382,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
           },
           borderRadius: _radius,
           child: Container(
-            height: 48,
+            constraints: const BoxConstraints(minHeight: 50),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+              color: _dealFieldFill,
               borderRadius: _radius,
               border: Border.all(color: _border),
             ),
@@ -1273,10 +1395,16 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                   child: Text(
                     translateText('Select services'),
                     style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.w500,
+                      color: _dealInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: _dealGold,
+                  size: 21,
                 ),
               ],
             ),
@@ -1304,8 +1432,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         Text(
           translateText('Selected Services'),
           style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
+            color: _dealInk,
+            fontWeight: FontWeight.w900,
+            fontSize: 13,
           ),
         ),
         const SizedBox(height: 6),
@@ -1328,7 +1457,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                   child: Text(
                     name,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w600,
+                      color: _dealInk,
+                      fontWeight: FontWeight.w800,
                       fontSize: 14,
                     ),
                   ),
@@ -1336,9 +1466,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                 Text(
                   'Qty: $qty  ${formatMinorAmount(price)}',
                   style: const TextStyle(
-                    color: Colors.black54,
+                    color: _dealGold,
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ],
@@ -1610,9 +1740,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         Text(
           translateText('Validity Date Range'),
           style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: Colors.black,
+            color: _dealInk,
+            fontSize: 14,
+            fontWeight: FontWeight.w900,
           ),
         ),
         const SizedBox(height: 14),
@@ -1629,7 +1759,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                   label: '${translateText('Start Date')} *',
                   hint: translateText('Select start date'),
                   suffix: IconButton(
-                    icon: const Icon(Icons.date_range, color: Colors.black),
+                    icon: const Icon(Icons.date_range, color: _dealGold),
                     onPressed: () =>
                         _pickDate(validFromController, isFrom: true),
                   ),
@@ -1650,7 +1780,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                   label: '${translateText('End Date')} *',
                   hint: translateText('Select end date'),
                   suffix: IconButton(
-                    icon: const Icon(Icons.date_range, color: Colors.black),
+                    icon: const Icon(Icons.date_range, color: _dealGold),
                     onPressed: () =>
                         _pickDate(validTillController, isFrom: false),
                   ),
@@ -1674,7 +1804,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     final buttonLabel = translateText('Review Summary');
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _dealSurface,
       appBar: buildProfileSubpageAppBar(
         title: translateText(titleKey),
       ),
@@ -1682,10 +1812,18 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: EdgeInsets.fromLTRB(
+              16,
+              18,
+              16,
+              28 + MediaQuery.of(context).viewInsets.bottom,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _formHeader(),
+                const SizedBox(height: 18),
                 _section(
                   translateText(
                     _isPackage ? 'Package Information' : 'Deal Information',
@@ -1696,9 +1834,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                 Text(
                   '${translateText('Select Services')} *',
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: Color(0xFF4B4038),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -1724,12 +1863,14 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
                   child: ElevatedButton(
                     onPressed: _isSubmitting ? null : _openReviewSummary,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.starColor,
+                      backgroundColor: _dealGold,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: _dealGold.withValues(alpha: .55),
                       shape: RoundedRectangleBorder(
                         borderRadius: _radius,
                       ),
-                      elevation: 0,
+                      elevation: 8,
+                      shadowColor: const Color(0x338B6500),
                     ),
                     child: _isSubmitting
                         ? const SizedBox(

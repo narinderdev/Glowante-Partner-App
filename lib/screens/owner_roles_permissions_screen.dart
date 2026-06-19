@@ -188,40 +188,36 @@ class _OwnerRolesPermissionsScreenState
   Future<void> _openAddRole() async {
     final branchId = _selectedBranchId;
     if (branchId == null) return;
-    final result = await showDialog<_RoleEditorResult>(
+    await showDialog<void>(
       context: context,
       builder: (context) => _RoleEditorDialog(
         title: 'Add Role',
         permissions: _permissions,
+        onSubmitRole: (result) => _saveRole(
+          branchId: branchId,
+          label: result.label,
+          permissionIds: result.permissionIds,
+        ),
       ),
-    );
-    if (result == null) return;
-
-    await _saveRole(
-      branchId: branchId,
-      label: result.label,
-      permissionIds: result.permissionIds,
     );
   }
 
   Future<void> _openEditRole(_RoleItem role) async {
     final branchId = _selectedBranchId;
     if (branchId == null) return;
-    final result = await showDialog<_RoleEditorResult>(
+    await showDialog<void>(
       context: context,
       builder: (context) => _RoleEditorDialog(
         title: 'Edit Role',
         role: role,
         permissions: _permissions,
+        onSubmitRole: (result) => _saveRole(
+          branchId: branchId,
+          roleId: role.id,
+          label: result.label,
+          permissionIds: result.permissionIds,
+        ),
       ),
-    );
-    if (result == null) return;
-
-    await _saveRole(
-      branchId: branchId,
-      roleId: role.id,
-      label: result.label,
-      permissionIds: result.permissionIds,
     );
   }
 
@@ -237,7 +233,7 @@ class _OwnerRolesPermissionsScreenState
     );
   }
 
-  Future<void> _saveRole({
+  Future<bool> _saveRole({
     required int branchId,
     int? roleId,
     required String label,
@@ -256,7 +252,7 @@ class _OwnerRolesPermissionsScreenState
             permissionIds: permissionIds,
           );
 
-    if (!mounted) return;
+    if (!mounted) return false;
     final success = response['success'] == true;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -269,6 +265,7 @@ class _OwnerRolesPermissionsScreenState
     if (success) {
       await _loadRoles(branchId);
     }
+    return success;
   }
 
   @override
@@ -795,12 +792,14 @@ class _RoleEditorDialog extends StatefulWidget {
     required this.permissions,
     this.role,
     this.readOnly = false,
+    this.onSubmitRole,
   });
 
   final String title;
   final _RoleItem? role;
   final List<_PermissionItem> permissions;
   final bool readOnly;
+  final Future<bool> Function(_RoleEditorResult result)? onSubmitRole;
 
   @override
   State<_RoleEditorDialog> createState() => _RoleEditorDialogState();
@@ -809,6 +808,7 @@ class _RoleEditorDialog extends StatefulWidget {
 class _RoleEditorDialogState extends State<_RoleEditorDialog> {
   late final TextEditingController _nameController;
   late final Set<int> _selectedPermissionIds;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -855,16 +855,30 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
     });
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_isSubmitting) return;
     final label = _nameController.text.trim();
     if (label.isEmpty) return;
-    Navigator.pop(
-      context,
-      _RoleEditorResult(
-        label: label,
-        permissionIds: _selectedPermissionIds.toList()..sort(),
-      ),
+
+    final result = _RoleEditorResult(
+      label: label,
+      permissionIds: _selectedPermissionIds.toList()..sort(),
     );
+
+    final onSubmitRole = widget.onSubmitRole;
+    if (onSubmitRole == null) {
+      Navigator.pop(context, result);
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final saved = await onSubmitRole(result);
+    if (!mounted) return;
+    if (saved) {
+      Navigator.pop(context);
+      return;
+    }
+    setState(() => _isSubmitting = false);
   }
 
   @override
@@ -926,7 +940,8 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => Navigator.pop(context),
+                      onPressed:
+                          _isSubmitting ? null : () => Navigator.pop(context),
                       icon: const Icon(Icons.close_rounded, size: 18),
                     ),
                   ],
@@ -948,7 +963,7 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
                         width: 260,
                         child: TextField(
                           controller: _nameController,
-                          readOnly: readOnly,
+                          readOnly: readOnly || _isSubmitting,
                           decoration: InputDecoration(
                             hintText: context.t('Receptionist'),
                             filled: true,
@@ -972,7 +987,7 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
                       ),
                       const SizedBox(height: 18),
                       _PermissionToolbar(
-                        readOnly: readOnly,
+                        readOnly: readOnly || _isSubmitting,
                         onSelectAll: _selectAll,
                         onSelectViewOnly: _selectViewOnly,
                         onClearAll: () =>
@@ -985,7 +1000,7 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
                           modules: modules,
                           permissionsByModule: _permissionsByModule,
                           selectedPermissionIds: _selectedPermissionIds,
-                          readOnly: readOnly,
+                          readOnly: readOnly || _isSubmitting,
                           onChanged: (permissionId, selected) {
                             setState(() {
                               if (selected) {
@@ -1007,9 +1022,10 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
                 child: _RoleDialogFooter(
                   selectedCount: _selectedPermissionIds.length,
                   readOnly: readOnly,
+                  isSubmitting: _isSubmitting,
                   actionLabel: context
                       .t(widget.role == null ? 'Create Role' : 'Save Changes'),
-                  onCancel: () => Navigator.pop(context),
+                  onCancel: _isSubmitting ? null : () => Navigator.pop(context),
                   onSubmit: _submit,
                 ),
               ),
@@ -1107,6 +1123,7 @@ class _RoleDialogFooter extends StatelessWidget {
   const _RoleDialogFooter({
     required this.selectedCount,
     required this.readOnly,
+    required this.isSubmitting,
     required this.actionLabel,
     required this.onCancel,
     required this.onSubmit,
@@ -1114,9 +1131,10 @@ class _RoleDialogFooter extends StatelessWidget {
 
   final int selectedCount;
   final bool readOnly;
+  final bool isSubmitting;
   final String actionLabel;
-  final VoidCallback onCancel;
-  final VoidCallback onSubmit;
+  final VoidCallback? onCancel;
+  final Future<void> Function()? onSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -1129,7 +1147,7 @@ class _RoleDialogFooter extends StatelessWidget {
       ),
     );
 
-    Widget outlinedButton(String label, VoidCallback onPressed) {
+    Widget outlinedButton(String label, VoidCallback? onPressed) {
       return SizedBox(
         height: 44,
         child: OutlinedButton(
@@ -1143,13 +1161,22 @@ class _RoleDialogFooter extends StatelessWidget {
       return SizedBox(
         height: 44,
         child: ElevatedButton(
-          onPressed: onSubmit,
+          onPressed: isSubmitting ? null : onSubmit,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.starColor,
             foregroundColor: Colors.white,
             elevation: 0,
           ),
-          child: Text(actionLabel),
+          child: isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(actionLabel),
         ),
       );
     }

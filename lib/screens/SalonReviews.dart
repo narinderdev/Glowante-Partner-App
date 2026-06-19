@@ -7,6 +7,13 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
+const Color _reviewGold = Color(0xFF8B6500);
+const Color _reviewInk = Color(0xFF1F1B18);
+const Color _reviewMuted = Color(0xFF6F665E);
+const Color _reviewBorder = Color(0xFFE8DED6);
+const Color _reviewSoftGold = Color(0xFFF5EAD2);
+const Color _reviewSurface = Color(0xFFFBFAF8);
+
 class SalonReviews extends StatefulWidget {
   final int? branchId;
 
@@ -252,17 +259,82 @@ class _SalonReviewsState extends State<SalonReviews> {
       children: List.generate(5, (i) {
         return Icon(
           i < rating ? Icons.star : Icons.star_border,
-          color: Colors.amber,
+          color: _reviewGold,
           size: 18,
         );
       }),
     );
   }
 
+  Widget _statePanel({
+    required IconData icon,
+    required String title,
+    required String message,
+    bool loading = false,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: _reviewBorder),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(
+                  color: _reviewSoftGold,
+                  shape: BoxShape.circle,
+                ),
+                child: loading
+                    ? const Padding(
+                        padding: EdgeInsets.all(13),
+                        child: CircularProgressIndicator(
+                          color: _reviewGold,
+                          strokeWidth: 2.4,
+                        ),
+                      )
+                    : Icon(icon, color: _reviewGold, size: 24),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                translateText(title),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _reviewInk,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                translateText(message),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _reviewMuted,
+                  fontSize: 12,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFBF9F8),
+      backgroundColor: _reviewSurface,
       appBar: buildProfileSubpageAppBar(title: translateText('Reviews')),
       body: _buildBody(context),
     );
@@ -310,39 +382,25 @@ class _SalonReviewsState extends State<SalonReviews> {
 
   Widget _buildReviewsContent(BuildContext context) {
     if (loading) {
-      return const Center(child: CircularProgressIndicator());
+      return _statePanel(
+        icon: Icons.reviews_rounded,
+        title: 'Loading reviews',
+        message: 'Fetching customer and appointment reviews.',
+        loading: true,
+      );
     }
     if (_branchId == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            context.t('Select a branch to view reviews'),
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return _statePanel(
+        icon: Icons.storefront_rounded,
+        title: 'Select a branch',
+        message: 'Select a branch to view reviews.',
       );
     }
     if (_error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                context.t('Failed to reach server'),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _error!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
+      return _statePanel(
+        icon: Icons.error_outline_rounded,
+        title: 'Failed to reach server',
+        message: _error!,
       );
     }
 
@@ -352,34 +410,59 @@ class _SalonReviewsState extends State<SalonReviews> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (totalReviews > 0) ...[
-            Row(
-              children: [
-                Text(
-                  overallRating.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    buildStars(overallRating.round()),
-                    Text(
-                      '($totalReviews Reviews)',
-                      style: TextStyle(color: Colors.grey[600]),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: _reviewBorder),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 62,
+                    height: 62,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: _reviewSoftGold,
+                      shape: BoxShape.circle,
                     ),
-                  ],
-                ),
-              ],
+                    child: Text(
+                      overallRating.toStringAsFixed(1),
+                      style: const TextStyle(
+                        color: _reviewGold,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      buildStars(overallRating.round()),
+                      const SizedBox(height: 4),
+                      Text(
+                        '($totalReviews Reviews)',
+                        style: const TextStyle(
+                          color: _reviewMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
           ],
           appointmentReviews.isEmpty
-              ? Text(
-                  translateText('No reviews yet.'),
-                  style: const TextStyle(color: Colors.grey),
+              ? _statePanel(
+                  icon: Icons.reviews_outlined,
+                  title: 'No reviews yet',
+                  message: 'Reviews will appear here after appointments.',
                 )
               : Column(
                   children: appointmentReviews
@@ -395,9 +478,20 @@ class _SalonReviewsState extends State<SalonReviews> {
                     final hasProfessionalReviews =
                         (appt['professionalReviews'] as List).isNotEmpty;
 
-                    return Card(
-                      color: Colors.white,
-                      margin: const EdgeInsets.only(bottom: 15),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(9),
+                        border: Border.all(color: _reviewBorder),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x06000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: Column(
@@ -406,20 +500,35 @@ class _SalonReviewsState extends State<SalonReviews> {
                             Text(
                               translateText('Appointment Details'),
                               style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                                color: _reviewInk,
+                                fontWeight: FontWeight.w900,
                                 fontSize: 16,
                               ),
                             ),
-                            Text('${appt["client"]}'),
+                            const SizedBox(height: 4),
                             Text(
-                                'Start: ${dateFormat.format(appt["startAt"])}'),
-                            Text('End: ${dateFormat.format(appt["endAt"])}'),
+                              '${appt["client"]}',
+                              style: const TextStyle(
+                                color: _reviewMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'Start: ${dateFormat.format(appt["startAt"])}',
+                              style: const TextStyle(color: _reviewMuted),
+                            ),
+                            Text(
+                              'End: ${dateFormat.format(appt["endAt"])}',
+                              style: const TextStyle(color: _reviewMuted),
+                            ),
                             const SizedBox(height: 10),
                             if (hasBranchReview) ...[
                               Text(
-                                translateText('🏢 Review given for you'),
+                                translateText('Review given for you'),
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600),
+                                  color: _reviewInk,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                               Row(
                                 children: [
@@ -430,7 +539,10 @@ class _SalonReviewsState extends State<SalonReviews> {
                               ),
                               if ((appt['branchReview']['comment'] ?? '')
                                   .isNotEmpty)
-                                Text(appt['branchReview']['comment']),
+                                Text(
+                                  appt['branchReview']['comment'],
+                                  style: const TextStyle(color: _reviewMuted),
+                                ),
                               if (hasClientReview || hasProfessionalReviews)
                                 const Divider(),
                             ],
@@ -438,6 +550,7 @@ class _SalonReviewsState extends State<SalonReviews> {
                               Text(
                                 translateText('Customer Review'),
                                 style: const TextStyle(
+                                  color: _reviewInk,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -450,7 +563,10 @@ class _SalonReviewsState extends State<SalonReviews> {
                               ),
                               if ((appt['clientReview']['comment'] ?? '')
                                   .isNotEmpty)
-                                Text(appt['clientReview']['comment']),
+                                Text(
+                                  appt['clientReview']['comment'],
+                                  style: const TextStyle(color: _reviewMuted),
+                                ),
                               if (hasProfessionalReviews) const Divider(),
                             ],
                             if (hasProfessionalReviews)
@@ -465,7 +581,8 @@ class _SalonReviewsState extends State<SalonReviews> {
                                             Text(
                                               '${r["professional"]}',
                                               style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
+                                                color: _reviewInk,
+                                                fontWeight: FontWeight.w900,
                                               ),
                                             ),
                                             Row(
@@ -476,7 +593,12 @@ class _SalonReviewsState extends State<SalonReviews> {
                                               ],
                                             ),
                                             if ((r['comment'] ?? '').isNotEmpty)
-                                              Text(r['comment']),
+                                              Text(
+                                                r['comment'],
+                                                style: const TextStyle(
+                                                  color: _reviewMuted,
+                                                ),
+                                              ),
                                           ],
                                         ),
                                       ))),

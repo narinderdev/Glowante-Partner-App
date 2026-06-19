@@ -2,14 +2,19 @@ import 'package:flutter/material.dart';
 import '../utils/api_service.dart';
 import '../utils/price_formatter.dart';
 import 'Adddeals.dart';
-import 'package:flutter/services.dart';
-import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
 
 // ---- UI constants ----
 const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
+const Color _offerGold = Color(0xFF8B6500);
+const Color _offerInk = Color(0xFF1F1B18);
+const Color _offerMuted = Color(0xFF6F665E);
+const Color _offerBorder = Color(0xFFE8DED6);
+const Color _offerFieldFill = Color(0xFFF7F4F3);
+const Color _offerSurface = Color(0xFFFBFAF8);
+const Color _offerSoftGold = Color(0xFFF5EAD2);
 
 class PackageScreen extends StatefulWidget {
   @override
@@ -176,8 +181,7 @@ class _PackageScreenState extends State<PackageScreen> {
             child: Text(translateText('Cancel')),
           ),
           ElevatedButton(
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.starColor),
+            style: ElevatedButton.styleFrom(backgroundColor: _offerGold),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(translateText('Delete'),
                 style: const TextStyle(color: Colors.white)),
@@ -322,12 +326,162 @@ class _PackageScreenState extends State<PackageScreen> {
     );
   }
 
+  Widget _offersHeader() {
+    final branchName = (selectedSalon?['branchName'] ?? '').toString().trim();
+    final salonName = (selectedSalon?['salonName'] ?? '').toString().trim();
+    final subtitle = [
+      if (branchName.isNotEmpty) branchName,
+      if (salonName.isNotEmpty && salonName != branchName) salonName,
+    ].join(' • ');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: _offerBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: const BoxDecoration(
+              color: _offerSoftGold,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.inventory_2_rounded,
+              color: _offerGold,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  translateText('Salon Packages'),
+                  style: const TextStyle(
+                    color: _offerInk,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle.isEmpty
+                      ? translateText('Manage service bundles for this branch')
+                      : subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _offerMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: _offerFieldFill,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _offerBorder),
+            ),
+            child: Text(
+              '${offers.length}',
+              style: const TextStyle(
+                color: _offerGold,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statePanel({
+    required IconData icon,
+    required String title,
+    required String message,
+    bool loading = false,
+  }) {
+    return Center(
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: _offerBorder),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: const BoxDecoration(
+                color: _offerSoftGold,
+                shape: BoxShape.circle,
+              ),
+              child: loading
+                  ? const Padding(
+                      padding: EdgeInsets.all(13),
+                      child: CircularProgressIndicator(
+                        color: _offerGold,
+                        strokeWidth: 2.4,
+                      ),
+                    )
+                  : Icon(icon, color: _offerGold, size: 24),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              translateText(title),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _offerInk,
+                fontSize: 15,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              translateText(message),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _offerMuted,
+                fontSize: 12,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _offerSurface,
       appBar: buildProfileSubpageAppBar(
-        title: translateText('Package'),
+        title: translateText('Packages'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -335,18 +489,23 @@ class _PackageScreenState extends State<PackageScreen> {
           future: salonsList,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
+              return _statePanel(
+                icon: Icons.inventory_2_rounded,
+                title: 'Loading packages',
+                message: 'Fetching branch packages.',
+                loading: true,
+              );
             } else if (snapshot.hasError) {
-              return Center(child: Text("Error: ${snapshot.error}"));
+              return _statePanel(
+                icon: Icons.error_outline_rounded,
+                title: 'Unable to load packages',
+                message: snapshot.error.toString(),
+              );
             } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Center(
-                        child: Text(translateText('No salons available'))),
-                  ),
-                ],
+              return _statePanel(
+                icon: Icons.storefront_rounded,
+                title: 'No salons available',
+                message: 'Create a salon branch before adding packages.',
               );
             } else {
               final salons = snapshot.data!;
@@ -373,22 +532,34 @@ class _PackageScreenState extends State<PackageScreen> {
                 children: [
                   _buildSalonSelector(salons),
                   const SizedBox(height: 12),
+                  _offersHeader(),
+                  const SizedBox(height: 12),
                   Expanded(
                     child: Builder(builder: (context) {
                       if (selectedSalonId == null) {
-                        return Center(
-                          child: Text(translateText("Please select a salon")),
+                        return _statePanel(
+                          icon: Icons.storefront_rounded,
+                          title: 'Select a branch',
+                          message: 'Choose a branch to view packages.',
                         );
                       }
                       if (loadingOffers) {
-                        return const Center(child: CircularProgressIndicator());
+                        return _statePanel(
+                          icon: Icons.inventory_2_rounded,
+                          title: 'Loading packages',
+                          message: 'Fetching branch packages.',
+                          loading: true,
+                        );
                       }
                       if (offers.isEmpty) {
-                        return Center(
-                          child: Text(translateText("No packages available")),
+                        return _statePanel(
+                          icon: Icons.inventory_2_outlined,
+                          title: 'No packages available',
+                          message: 'Add a package to bundle services together.',
                         );
                       }
                       return ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 96),
                         itemCount: offers.length,
                         itemBuilder: (context, i) {
                           final offer = offers[i];
@@ -410,25 +581,7 @@ class _PackageScreenState extends State<PackageScreen> {
                             ),
                             onDelete: () =>
                                 _confirmDeleteOffer(offerId, offer['name']),
-                            onEdit: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => AddDealsScreen(
-                                    branchId: selectedSalon!['branchId'],
-                                    branchName: selectedSalon!['branchName'],
-                                    source: 'PACKAGE',
-                                    isEdit: true,
-                                    existingOffer: offer,
-                                    onPackageCreated: (branchId) =>
-                                        _fetchOffers(branchId),
-                                  ),
-                                ),
-                              );
-                              if (selectedSalonId != null) {
-                                _fetchOffers(selectedSalonId!);
-                              }
-                            },
+                            onEdit: () => _editOffer(offer),
                           );
                         },
                       );
@@ -469,7 +622,7 @@ class _PackageScreenState extends State<PackageScreen> {
               const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
         icon: const Icon(Icons.add, color: Colors.white),
-        backgroundColor: AppColors.starColor,
+        backgroundColor: _offerGold,
       ),
     );
   }
@@ -592,15 +745,6 @@ class _OfferCard extends StatelessWidget {
       final List items = (offer['items'] is List) ? offer['items'] as List : [];
 
       final bool isDiscount = pricingMode.toUpperCase() == 'DISCOUNT';
-      final num savings = _calcSavings(
-        pricingMode: pricingMode,
-        discountType: discountType,
-        actualPrice: actualPrice,
-        finalPrice: finalPrice,
-        discountAmt: discountAmt,
-        discountPct: discountPct,
-      );
-
       final String? discountChipText = () {
         if (!isDiscount) return null;
         if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
@@ -613,10 +757,20 @@ class _OfferCard extends StatelessWidget {
       }();
 
       // --------- build UI ---------
-      return Card(
-        elevation: 1.5,
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(9),
+          border: Border.all(color: _offerBorder),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x07000000),
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -632,8 +786,9 @@ class _OfferCard extends StatelessWidget {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
+                        color: _offerInk,
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
                   ),
@@ -665,7 +820,7 @@ class _OfferCard extends StatelessWidget {
                       rs(actualPrice),
                       style: const TextStyle(
                         fontSize: 14,
-                        color: Colors.grey,
+                        color: _offerMuted,
                         decoration: TextDecoration.lineThrough,
                         decorationThickness: 1, // ✅ thin line
                       ),
@@ -679,8 +834,8 @@ class _OfferCard extends StatelessWidget {
                         rs(finalPrice),
                         style: TextStyle(
                           fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: isDiscount ? Colors.orange : Colors.black,
+                          fontWeight: FontWeight.w900,
+                          color: isDiscount ? _offerGold : _offerInk,
                         ),
                       ),
                       const Spacer(),
@@ -705,7 +860,10 @@ class _OfferCard extends StatelessWidget {
                 Text(
                   translateText('Includes'),
                   style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.w700),
+                    color: _offerInk,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Wrap(
@@ -717,7 +875,13 @@ class _OfferCard extends StatelessWidget {
                     final q = (m['qty'] ?? 1) as num;
                     return Chip(
                       label: Text('$n × ${q.toStringAsFixed(0)}'),
-                      backgroundColor: const Color(0xFFF3F4F6),
+                      labelStyle: const TextStyle(
+                        color: _offerInk,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      backgroundColor: _offerFieldFill,
+                      side: const BorderSide(color: _offerBorder),
                       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity:
                           const VisualDensity(horizontal: -4, vertical: -4),
@@ -731,13 +895,16 @@ class _OfferCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.event, size: 16, color: Colors.grey),
+                    const Icon(Icons.event, size: 16, color: _offerGold),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         _formatValidity(validFrom, validTo),
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: _offerMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],
@@ -750,13 +917,16 @@ class _OfferCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(Icons.article_outlined,
-                          size: 16, color: Colors.grey),
+                          size: 16, color: _offerGold),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           'Terms: $terms',
-                          style:
-                              const TextStyle(fontSize: 12, color: Colors.grey),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: _offerMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -942,15 +1112,18 @@ class _OfferCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFFDFF5E1) : const Color(0xFFF3F4F6),
+        color: isActive ? const Color(0xFFE9F8EF) : _offerFieldFill,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isActive ? const Color(0xFFD4EBDD) : _offerBorder,
+        ),
       ),
       child: Text(
         s.isEmpty ? 'UNKNOWN' : s,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: isActive ? const Color(0xFF138A36) : Colors.grey[700],
+          color: isActive ? const Color(0xFF168546) : _offerMuted,
         ),
       ),
     );
@@ -960,7 +1133,7 @@ class _OfferCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.orange[400],
+        color: _offerGold,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -978,12 +1151,16 @@ class _OfferCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF1F4),
+        color: _offerSoftGold,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        style: const TextStyle(
+          color: _offerGold,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -992,16 +1169,16 @@ class _OfferCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: _offerFieldFill,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: _offerBorder),
       ),
       child: Text(
         text,
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: Colors.black87,
+          color: _offerMuted,
         ),
       ),
     );
@@ -1010,15 +1187,15 @@ class _OfferCard extends StatelessWidget {
 
 // ✅ Shared button style
 ButtonStyle get _blackButtonStyle => ElevatedButton.styleFrom(
-      backgroundColor: AppColors.starColor,
+      backgroundColor: _offerGold,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       elevation: 0,
     ).copyWith(
-      foregroundColor: MaterialStateProperty.resolveWith(
-        (states) => states.contains(MaterialState.disabled)
-            ? Colors.white.withOpacity(0.6)
+      foregroundColor: WidgetStateProperty.resolveWith(
+        (states) => states.contains(WidgetState.disabled)
+            ? Colors.white.withValues(alpha: 0.6)
             : Colors.white,
       ),
     );
@@ -1044,25 +1221,4 @@ String _formatValidity(String? isoFrom, String? isoTo) {
   if (from.isNotEmpty) return 'Valid from: $from';
   if (to.isNotEmpty) return 'Valid till: $to';
   return '';
-}
-
-num _calcSavings({
-  required String pricingMode,
-  required String discountType,
-  required num actualPrice,
-  required num finalPrice,
-  required num? discountAmt,
-  required num? discountPct,
-}) {
-  if (pricingMode != 'DISCOUNT') return 0;
-  if (actualPrice > 0 && finalPrice > 0) {
-    final s = actualPrice - finalPrice;
-    return s > 0 ? s : 0;
-  }
-  if (discountType == 'AMOUNT') return (discountAmt ?? 0);
-  if (discountType == 'PERCENT' && actualPrice > 0) {
-    final pct = (discountPct ?? 0).clamp(0, 100);
-    return (actualPrice * (pct / 100.0));
-  }
-  return 0;
 }

@@ -1667,16 +1667,19 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
                     );
                   }
 
-                  final tableWidth =
-                      constraints.maxWidth < 900 ? 900.0 : constraints.maxWidth;
-                  final rowContentWidth =
-                      tableWidth - (_tableHorizontalPadding * 2);
                   final baseFlexibleWidth = _nameColWidth +
                       _visitsColWidth +
                       _spendColWidth +
                       _lastVisitColWidth +
                       _statusColWidth +
                       _actionColWidth;
+                  final minimumTableWidth =
+                      baseFlexibleWidth + (_tableHorizontalPadding * 2);
+                  final tableWidth = constraints.maxWidth < minimumTableWidth
+                      ? minimumTableWidth
+                      : constraints.maxWidth;
+                  final rowContentWidth =
+                      tableWidth - (_tableHorizontalPadding * 2);
                   final extraWidth = rowContentWidth > baseFlexibleWidth
                       ? rowContentWidth - baseFlexibleWidth
                       : 0.0;

@@ -3085,7 +3085,15 @@ class _MetricCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x06000000),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3094,8 +3102,9 @@ class _MetricCard extends StatelessWidget {
             label,
             style: const TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF6B7280),
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF6F665E),
+              letterSpacing: .4,
             ),
           ),
           const SizedBox(height: 10),
@@ -3103,8 +3112,8 @@ class _MetricCard extends StatelessWidget {
             value,
             style: const TextStyle(
               fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF1C1917),
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF1F1B18),
             ),
           ),
           const SizedBox(height: 4),
@@ -3112,7 +3121,8 @@ class _MetricCard extends StatelessWidget {
             subtitle,
             style: const TextStyle(
               fontSize: 12,
-              color: Color(0xFF9CA3AF),
+              color: Color(0xFF6F665E),
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
