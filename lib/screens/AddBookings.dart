@@ -1391,23 +1391,24 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       //   onSubmitted: (_) => lastFocus.requestFocus(),
                       // ),
                       _dialogTextField(
-  controller: firstCtrl,
-  hint: "Enter guest's first name",
-  textInputAction: TextInputAction.next,
-  textCapitalization: TextCapitalization.words,
-  maxLength: 30,
-  height: 56,
-  inputFormatters: [
-    FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
-    LengthLimitingTextInputFormatter(30),
-  ],
-  onChanged: (_) {
-    if (firstNameError != null) {
-      setDialogState(() => firstNameError = null);
-    }
-  },
-  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-),
+                        controller: firstCtrl,
+                        hint: "Enter guest's first name",
+                        textInputAction: TextInputAction.next,
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 30,
+                        height: 56,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z ]')),
+                          LengthLimitingTextInputFormatter(30),
+                        ],
+                        onChanged: (_) {
+                          if (firstNameError != null) {
+                            setDialogState(() => firstNameError = null);
+                          }
+                        },
+                        onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                      ),
                       if (firstNameError != null) _errorText(firstNameError!),
                       const SizedBox(height: 14),
                       _dialogRequiredLabel('Last Name'),
@@ -1432,23 +1433,24 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       //   onSubmitted: (_) => phoneFocus.requestFocus(),
                       // ),
                       _dialogTextField(
-  controller: lastCtrl,
-  hint: "Enter guest's last name",
-  textInputAction: TextInputAction.next,
-  textCapitalization: TextCapitalization.words,
-  maxLength: 30,
-  height: 56,
-  inputFormatters: [
-    FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
-    LengthLimitingTextInputFormatter(30),
-  ],
-  onChanged: (_) {
-    if (lastNameError != null) {
-      setDialogState(() => lastNameError = null);
-    }
-  },
-  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
-),
+                        controller: lastCtrl,
+                        hint: "Enter guest's last name",
+                        textInputAction: TextInputAction.next,
+                        textCapitalization: TextCapitalization.words,
+                        maxLength: 30,
+                        height: 56,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z ]')),
+                          LengthLimitingTextInputFormatter(30),
+                        ],
+                        onChanged: (_) {
+                          if (lastNameError != null) {
+                            setDialogState(() => lastNameError = null);
+                          }
+                        },
+                        onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                      ),
                       if (lastNameError != null) _errorText(lastNameError!),
                       const SizedBox(height: 14),
                       _dialogRequiredLabel('Phone Number'),
@@ -1474,24 +1476,24 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       //       FocusManager.instance.primaryFocus?.unfocus(),
                       // ),
                       _dialogTextField(
-  controller: phoneCtrl,
-  hint: 'Enter phone no',
-  keyboardType: TextInputType.phone,
-  textInputAction: TextInputAction.done,
-  maxLength: 10,
-  height: 56,
-  inputFormatters: [
-    FilteringTextInputFormatter.digitsOnly,
-    LengthLimitingTextInputFormatter(10),
-  ],
-  prefixText: '+91  ',
-  onChanged: (_) {
-    if (phoneError != null) {
-      setDialogState(() => phoneError = null);
-    }
-  },
-  onSubmitted: (_) => FocusScope.of(context).unfocus(),
-),
+                        controller: phoneCtrl,
+                        hint: 'Enter phone no',
+                        keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.done,
+                        maxLength: 10,
+                        height: 56,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        prefixText: '+91  ',
+                        onChanged: (_) {
+                          if (phoneError != null) {
+                            setDialogState(() => phoneError = null);
+                          }
+                        },
+                        onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                      ),
                       if (phoneError != null) _errorText(phoneError!),
                       const SizedBox(height: 22),
                       Row(
@@ -1563,23 +1565,25 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                         //     lastName: lastName,
                                         //   );
                                         // });
-if (!ctx.mounted) return;
+                                        if (!ctx.mounted) return;
 
 // Remove focus before closing dialog.
-FocusScope.of(ctx).unfocus();
-Navigator.pop(ctx);
+                                        FocusScope.of(ctx).unfocus();
+                                        Navigator.pop(ctx);
 
-Future.delayed(const Duration(milliseconds: 350), () {
-  if (!mounted) return;
+                                        Future.delayed(
+                                            const Duration(milliseconds: 350),
+                                            () {
+                                          if (!mounted) return;
 
-  _showOtpBox(
-    phone,
-    firstName: firstName,
-    lastName: lastName,
-  );
-});
+                                          _showOtpBox(
+                                            phone,
+                                            firstName: firstName,
+                                            lastName: lastName,
+                                          );
+                                        });
 
-return;
+                                        return;
                                       } catch (e) {
                                         _showError(e.toString());
                                       } finally {
@@ -1644,14 +1648,14 @@ return;
         ),
       );
     } finally {
-  FocusManager.instance.primaryFocus?.unfocus();
+      FocusManager.instance.primaryFocus?.unfocus();
 
-  Future.delayed(const Duration(milliseconds: 600), () {
-    phoneCtrl.dispose();
-    firstCtrl.dispose();
-    lastCtrl.dispose();
-  });
-}
+      Future.delayed(const Duration(milliseconds: 600), () {
+        phoneCtrl.dispose();
+        firstCtrl.dispose();
+        lastCtrl.dispose();
+      });
+    }
   }
 
   Future<void> _showCustomerSearch() async {
@@ -2729,6 +2733,32 @@ return;
     }
   }
 
+  Future<void> _clearBookingCartItemsAfterSuccess() async {
+    final branchId = widget.branchId;
+    if (branchId == null || _cartItemIdByService.isEmpty) return;
+
+    final itemIds = _cartItemIdByService.values.toSet();
+    for (final itemId in itemIds) {
+      debugPrint('[AddBookingCart] clearing booked cart item=$itemId');
+      try {
+        final deleteResponse = await ApiService().deleteCartItem(
+          branchId: branchId,
+          itemId: itemId,
+        );
+        if (deleteResponse['success'] == false) {
+          debugPrint(
+            '[AddBookingCart] failed to clear booked item=$itemId '
+            'message=${deleteResponse['message']}',
+          );
+        }
+      } catch (e) {
+        debugPrint('[AddBookingCart] failed to clear booked item=$itemId: $e');
+      }
+    }
+
+    _cartItemIdByService.clear();
+  }
+
   Future<void> _syncSelectedServicesToCart() async {
     final branchId = widget.branchId;
     if (branchId == null || _selectedServices.isEmpty) return;
@@ -2936,6 +2966,7 @@ return;
           await ApiService().createManualBooking(widget.branchId!, payload);
 
       debugPrint("✅ Appointment Created: $result");
+      await _clearBookingCartItemsAfterSuccess();
 
       if (!mounted) return null;
       final resultMap = Map<String, dynamic>.from(result);
@@ -4206,10 +4237,6 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     }
   }
 
-  bool _isSlotAvailable(TimeOfDay slot) {
-    return true;
-  }
-
   // List<TimeOfDay> _availableSlots() {
   //   if (_availabilityLoaded) {
   //     return _availabilitySlots;
@@ -4237,20 +4264,21 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
   //   return slots;
   // }
-List<TimeOfDay> _availableSlots() {
-  // Do not show salon/branch default slots before team member is selected.
-  if (!_hasTeamMemberSelectionsForAvailability()) {
+  List<TimeOfDay> _availableSlots() {
+    // Do not show salon/branch default slots before team member is selected.
+    if (!_hasTeamMemberSelectionsForAvailability()) {
+      return const <TimeOfDay>[];
+    }
+
+    // Show only API availability slots after team member is selected.
+    if (_availabilityLoaded) {
+      return _availabilitySlots;
+    }
+
+    // While API availability is not loaded yet, show nothing.
     return const <TimeOfDay>[];
   }
 
-  // Show only API availability slots after team member is selected.
-  if (_availabilityLoaded) {
-    return _availabilitySlots;
-  }
-
-  // While API availability is not loaded yet, show nothing.
-  return const <TimeOfDay>[];
-}
   Future<void> _confirm() async {
     if (!_validateTeamMembersForEveryService()) return;
 
@@ -4642,8 +4670,8 @@ List<TimeOfDay> _availableSlots() {
 
   @override
   Widget build(BuildContext context) {
-  final hasTeamMemberSelections = _hasTeamMemberSelectionsForAvailability();
-final slots = _availableSlots();
+    final hasTeamMemberSelections = _hasTeamMemberSelectionsForAvailability();
+    final slots = _availableSlots();
     final today = _dateOnly(DateTime.now());
     final canGoBack = _visibleWeekStart.isAfter(today);
     final days = List.generate(
@@ -4816,71 +4844,73 @@ final slots = _availableSlots();
               // else
               //   LayoutBuilder(
               if (!hasTeamMemberSelections)
-  Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(9),
-      border: Border.all(color: _bookingBorder),
-    ),
-    child: Text(
-      translateText(
-        'Please select a team member to view available slots.',
-      ),
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: _bookingMuted,
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        height: 1.4,
-      ),
-    ),
-  )
-else if (_loadingAppointments)
-  Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(vertical: 24),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(9),
-      border: Border.all(color: _bookingBorder),
-    ),
-    child: const Center(
-      child: SizedBox(
-        width: 22,
-        height: 22,
-        child: CircularProgressIndicator(
-          color: _bookingGold,
-          strokeWidth: 2,
-        ),
-      ),
-    ),
-  )
-else if (slots.isEmpty)
-  Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(9),
-      border: Border.all(color: _bookingBorder),
-    ),
-    child: Text(
-      translateText(
-        'No available slots for the selected date and team member.',
-      ),
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: _bookingMuted,
-        fontSize: 12,
-        fontWeight: FontWeight.w700,
-        height: 1.4,
-      ),
-    ),
-  )
-else
-  LayoutBuilder(
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: _bookingBorder),
+                  ),
+                  child: Text(
+                    translateText(
+                      'Please select a team member to view available slots.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _bookingMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.4,
+                    ),
+                  ),
+                )
+              else if (_loadingAppointments)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: _bookingBorder),
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        color: _bookingGold,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ),
+                )
+              else if (slots.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: _bookingBorder),
+                  ),
+                  child: Text(
+                    translateText(
+                      'No available slots for the selected date and team member.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _bookingMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      height: 1.4,
+                    ),
+                  ),
+                )
+              else
+                LayoutBuilder(
                   builder: (context, constraints) {
                     const columns = 3;
                     const gap = 9.0;
