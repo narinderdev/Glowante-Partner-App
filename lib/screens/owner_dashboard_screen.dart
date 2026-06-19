@@ -23,7 +23,6 @@ import 'ad.dart';
 
 const String _dashboardFontFamily = 'Manrope';
 const Color _dashboardAccent = Color(0xFFC19A6B);
-const Color _dashboardGold = Color(0xFF8B6500);
 const Color _dashboardPrimaryText = Color(0xFF1C1917);
 const Color _dashboardSecondaryText = Color(0xFF78716C);
 const Color _dashboardBorder = Color(0xFFE7E5E4);
@@ -3634,39 +3633,29 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         onTap: isInteractive ? onTap : null,
-        child: Ink(
-          height: 68,
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 70),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFA),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: const Color(0xFFE8E1DB),
-              width: 1,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x08000000),
-                blurRadius: 10,
-                offset: Offset(0, 2),
-              ),
-            ],
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFD9CBBB)),
           ),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 42,
+                height: 42,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF5D46A),
+                  color: Color(0xFFF3E8D1),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.location_on_outlined,
                   color: Color(0xFF8B6500),
-                  size: 22,
+                  size: 24,
                 ),
               ),
               const SizedBox(width: 14),
@@ -3681,24 +3670,22 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Manrope',
-                        fontSize: 13.5,
-                        height: 1.05,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF44403C),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _dashboardPrimaryText,
                       ),
                     ),
                     if (addressSummary.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         addressSummary,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontFamily: 'Manrope',
-                          fontSize: 9.5,
-                          height: 1.05,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF78716C),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _dashboardSecondaryText,
                         ),
                       ),
                     ],
@@ -3708,8 +3695,7 @@ class _DashboardHeaderBranchSelector extends StatelessWidget {
               if (isInteractive)
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: Color(0xFF8B6500),
-                  size: 22,
+                  color: _dashboardSecondaryText,
                 ),
             ],
           ),

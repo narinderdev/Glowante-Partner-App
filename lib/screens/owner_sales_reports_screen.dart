@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
@@ -1316,13 +1317,16 @@ class _ReportBranchSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = branches.cast<_ReportBranchOption?>().firstWhere(
-          (branch) => branch?.branchId == selectedBranchId,
-          orElse: () => null,
-        );
+    _ReportBranchOption? selected;
+    for (final branch in branches) {
+      if (branch.branchId == selectedBranchId) {
+        selected = branch;
+        break;
+      }
+    }
 
     if (isLoading) {
-      return const _ReportBranchSelectorShell(
+      return const _SharedBranchSelectorShell(
         child: Align(
           alignment: Alignment.centerLeft,
           child: CircularProgressIndicator(
@@ -1334,7 +1338,7 @@ class _ReportBranchSelector extends StatelessWidget {
     }
 
     if (branches.isEmpty) {
-      return _ReportBranchSelectorShell(
+      return _SharedBranchSelectorShell(
         child: Text(
           context.t('No branches available'),
           style: const TextStyle(
@@ -1346,41 +1350,33 @@ class _ReportBranchSelector extends StatelessWidget {
     }
 
     final selectedBranch = selected ?? branches.first;
-    final child = _ReportBranchSelectorContent(
-      branch: selectedBranch,
-      showDropdown: branches.length > 1,
-    );
-
-    if (branches.length <= 1) return child;
-
-    return PopupMenuButton<_ReportBranchOption>(
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      elevation: 10,
-      constraints: const BoxConstraints(minWidth: 280),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Color(0xFFE8DED6)),
-      ),
-      onSelected: onBranchSelected,
-      itemBuilder: (context) {
-        return branches.map((branch) {
-          return PopupMenuItem<_ReportBranchOption>(
-            value: branch,
-            child: _ReportBranchMenuItem(
-              branch: branch,
-              isSelected: branch.branchId == selectedBranch.branchId,
+    return OwnerBranchHeaderSelector<int>(
+      label: selectedBranch.displayLabel,
+      options: branches
+          .map(
+            (branch) => OwnerBranchHeaderSelectorOption<int>(
+              value: branch.branchId,
+              label: branch.displayLabel,
+              subtitle: branch.address,
             ),
-          );
-        }).toList();
+          )
+          .toList(),
+      selectedValue: selectedBranch.branchId,
+      placeholder: context.t('Select Branch'),
+      isInteractive: branches.length > 1,
+      onSelected: (branchId) {
+        final branch = branches.firstWhere(
+          (item) => item.branchId == branchId,
+          orElse: () => selectedBranch,
+        );
+        onBranchSelected(branch);
       },
-      child: child,
     );
   }
 }
 
-class _ReportBranchSelectorShell extends StatelessWidget {
-  const _ReportBranchSelectorShell({required this.child});
+class _SharedBranchSelectorShell extends StatelessWidget {
+  const _SharedBranchSelectorShell({required this.child});
 
   final Widget child;
 
@@ -1388,112 +1384,14 @@ class _ReportBranchSelectorShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 58),
+      constraints: const BoxConstraints(minHeight: 70),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE8DED6)),
+        border: Border.all(color: const Color(0xFFD9CBBB)),
       ),
       child: child,
-    );
-  }
-}
-
-class _ReportBranchSelectorContent extends StatelessWidget {
-  const _ReportBranchSelectorContent({
-    required this.branch,
-    required this.showDropdown,
-  });
-
-  final _ReportBranchOption branch;
-  final bool showDropdown;
-
-  @override
-  Widget build(BuildContext context) {
-    return _ReportBranchSelectorShell(
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: Color(0xFFF3E8D1),
-            child: Icon(
-              Icons.storefront_outlined,
-              color: Color(0xFF8B6500),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  branch.displayLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF2D2926),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (branch.address.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    branch.address,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF756A61),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (showDropdown)
-            const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: Color(0xFF8B6500),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReportBranchMenuItem extends StatelessWidget {
-  const _ReportBranchMenuItem({
-    required this.branch,
-    required this.isSelected,
-  });
-
-  final _ReportBranchOption branch;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          isSelected
-              ? Icons.check_circle_outline_rounded
-              : Icons.storefront_outlined,
-          size: 18,
-          color: const Color(0xFF8B6500),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _ReportBranchSelectorContent(
-            branch: branch,
-            showDropdown: false,
-          ),
-        ),
-      ],
     );
   }
 }

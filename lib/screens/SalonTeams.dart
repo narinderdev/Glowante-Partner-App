@@ -6,6 +6,7 @@ import 'AssignUser.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../features/salon/widgets/owner_branch_header_selector.dart';
 
 const Color _teamGold = Color(0xFF8B6500);
 const Color _teamInk = Color(0xFF2D2926);
@@ -35,8 +36,8 @@ class _TeamScreenState extends State<TeamScreen> {
   Map<String, dynamic>?
       selectedBranch; // {branchId, branchName, salonId, salonName}
   Future<List<dynamic>>? teamMembersFuture;
+  List<dynamic> _teamMembersCache = [];
   List<Map<String, dynamic>> _salons = const [];
-  final GlobalKey _branchSelectorKey = GlobalKey();
   bool _hasTeamMembers = false;
   bool _autoPicked = false;
   final Set<int> _statusUpdatingIds = {};
@@ -138,7 +139,7 @@ class _TeamScreenState extends State<TeamScreen> {
       final members = response['success'] == true && response['data'] is List
           ? List<dynamic>.from(response['data'] as List)
           : <dynamic>[];
-
+_teamMembersCache = members;
       if (mounted && selectedBranchId == branchId) {
         final hasMembers = members.isNotEmpty;
         if (_hasTeamMembers != hasMembers) {
@@ -212,21 +213,35 @@ class _TeamScreenState extends State<TeamScreen> {
 
       if (!mounted) return;
 
-      if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText(
-                makeActive
-                    ? 'Team member activated successfully'
-                    : 'Team member deactivated successfully',
-              ),
-            ),
-          ),
-        );
+   if (response['success'] == true) {
+  _teamMembersCache = _teamMembersCache.map((item) {
+    if (item is! Map) return item;
 
-        await _refreshTeamMembers();
-      } else {
+    final map = Map<String, dynamic>.from(item);
+
+    if (_asInt(map['id']) == userId) {
+      map['active'] = makeActive;
+    }
+
+    return map;
+  }).toList();
+
+  setState(() {
+    teamMembersFuture = Future.value(_teamMembersCache);
+  });
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        translateText(
+          makeActive
+              ? 'Team member activated successfully'
+              : 'Team member deactivated successfully',
+        ),
+      ),
+    ),
+  );
+} else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -482,140 +497,6 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
-  Future<void> _openBranchPicker(
-    List<Map<String, dynamic>> branches,
-  ) async {
-    if (branches.isEmpty) return;
-
-    final selectorContext = _branchSelectorKey.currentContext;
-    if (selectorContext == null) return;
-
-    final selectorBox = selectorContext.findRenderObject() as RenderBox?;
-    final overlayBox =
-        Overlay.of(context).context.findRenderObject() as RenderBox?;
-    if (selectorBox == null || overlayBox == null) return;
-
-    final selectorOffset = selectorBox.localToGlobal(
-      Offset.zero,
-      ancestor: overlayBox,
-    );
-    final top = selectorOffset.dy + selectorBox.size.height + 6;
-    final maxHeight = (overlayBox.size.height - top - 18).clamp(160.0, 360.0);
-
-    final selected = await showGeneralDialog<Map<String, dynamic>>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.transparent,
-      transitionDuration: const Duration(milliseconds: 160),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-          child: child,
-        );
-      },
-      pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        return Stack(
-          children: [
-            Positioned(
-              left: selectorOffset.dx,
-              top: top,
-              width: selectorBox.size.width,
-              child: Material(
-                color: Colors.white,
-                elevation: 10,
-                shadowColor: const Color(0x26000000),
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(color: _teamBorder),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: maxHeight),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-                    itemCount: branches.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (context, index) {
-                      final item = branches[index];
-                      final isSelected = _asInt(item['branchId']) ==
-                          _asInt(selectedBranch?['branchId']);
-                      return InkWell(
-                        onTap: () => Navigator.pop(dialogContext, item),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          child: Row(
-                            children: [
-                              const CircleAvatar(
-                                radius: 18,
-                                backgroundColor: Color(0xFFF3E8D1),
-                                child: Icon(
-                                  Icons.storefront_outlined,
-                                  color: _teamGold,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _teamBranchLabel(item),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: _teamInk,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        decoration: TextDecoration.none,
-                                      ),
-                                    ),
-                                    if ((item['addressSummary'] ?? '')
-                                        .toString()
-                                        .trim()
-                                        .isNotEmpty) ...[
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        (item['addressSummary'] ?? '')
-                                            .toString(),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: _teamMuted,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          decoration: TextDecoration.none,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              if (isSelected)
-                                const Icon(
-                                  Icons.check_circle,
-                                  color: _teamGold,
-                                  size: 20,
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (!mounted || selected == null) return;
-    setState(() => _pickBranch(selected));
-  }
-
   bool _memberHasAssignments(Map<String, dynamic> member) {
     final rawAssignments = member['userBranches'];
     return rawAssignments is List && rawAssignments.isNotEmpty;
@@ -788,6 +669,23 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
+  List<OwnerBranchHeaderSelectorOption<int>> _teamBranchOptions(
+    List<Map<String, dynamic>> branches,
+  ) {
+    return branches
+        .map((branch) {
+          final branchId = _asInt(branch['branchId']);
+          if (branchId == null) return null;
+          return OwnerBranchHeaderSelectorOption<int>(
+            value: branchId,
+            label: _teamBranchLabel(branch),
+            subtitle: (branch['addressSummary'] ?? '').toString(),
+          );
+        })
+        .whereType<OwnerBranchHeaderSelectorOption<int>>()
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -808,9 +706,12 @@ class _TeamScreenState extends State<TeamScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _TeamBranchSelector(
-                    selectedBranch: null,
-                    onTap: null,
+                  OwnerBranchHeaderSelector<int>(
+                    label: '',
+                    options: const [],
+                    selectedValue: null,
+                    placeholder: translateText('Select Branch'),
+                    isInteractive: false,
                   ),
                   const SizedBox(height: 16),
                   Expanded(
@@ -833,13 +734,19 @@ class _TeamScreenState extends State<TeamScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _TeamBranchSelector(
-                    key: _branchSelectorKey,
-                    selectedBranch: selectedBranch,
-                    showDropdown: branches.length > 1,
-                    onTap: branches.length > 1
-                        ? () => _openBranchPicker(branches)
-                        : null,
+                  OwnerBranchHeaderSelector<int>(
+                    label: _teamBranchLabel(selectedBranch),
+                    options: _teamBranchOptions(branches),
+                    selectedValue: selectedBranchId,
+                    placeholder: translateText('Select Branch'),
+                    isInteractive: branches.length > 1,
+                    onSelected: (branchId) {
+                      final branch = branches.firstWhere(
+                        (item) => _asInt(item['branchId']) == branchId,
+                        orElse: () => branches.first,
+                      );
+                      setState(() => _pickBranch(branch));
+                    },
                   ),
                   const SizedBox(height: 16),
                   Expanded(
@@ -876,7 +783,6 @@ class _TeamScreenState extends State<TeamScreen> {
                           salons: _salons,
                           statusUpdatingIds: _statusUpdatingIds,
                           deletingMemberIds: _deletingMemberIds,
-                          onAddMember: _openAddMember,
                           onEditMember: _openEditMember,
                           onDeleteMember: _deleteMember,
                           onToggleMemberActive: _toggleMemberActive,
@@ -905,6 +811,16 @@ class _TeamScreenState extends State<TeamScreen> {
           },
         ),
       ),
+      floatingActionButton: _hasTeamMembers
+          ? FloatingActionButton.extended(
+              heroTag: 'salon_teams_add_member_fab',
+              onPressed: _openAddMember,
+              label: Text(translateText("Add Member")),
+              icon: const Icon(Icons.add),
+              backgroundColor: AppColors.starColor,
+              foregroundColor: Colors.white,
+            )
+          : null,
     );
   }
 }
@@ -916,7 +832,6 @@ class _TeamMembersGrid extends StatelessWidget {
     required this.salons,
     required this.statusUpdatingIds,
     required this.deletingMemberIds,
-    required this.onAddMember,
     required this.onEditMember,
     required this.onDeleteMember,
     required this.onToggleMemberActive,
@@ -932,7 +847,6 @@ class _TeamMembersGrid extends StatelessWidget {
   final List<Map<String, dynamic>> salons;
   final Set<int> statusUpdatingIds;
   final Set<int> deletingMemberIds;
-  final VoidCallback onAddMember;
   final Future<void> Function(Map<String, dynamic> member) onEditMember;
   final Future<void> Function(int userId) onDeleteMember;
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
@@ -956,8 +870,6 @@ class _TeamMembersGrid extends StatelessWidget {
       children: [
         _TeamListHeader(
           count: members.length,
-          branchName: _teamBranchLabel(selectedBranch),
-          onAddMember: onAddMember,
         ),
         const SizedBox(height: 14),
         Expanded(
@@ -1008,13 +920,9 @@ class _TeamMembersGrid extends StatelessWidget {
 class _TeamListHeader extends StatelessWidget {
   const _TeamListHeader({
     required this.count,
-    required this.branchName,
-    required this.onAddMember,
   });
 
   final int count;
-  final String branchName;
-  final VoidCallback onAddMember;
 
   @override
   Widget build(BuildContext context) {
@@ -1055,7 +963,7 @@ class _TeamListHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '$count ${translateText(count == 1 ? 'member' : 'members')} · $branchName',
+                  translateText('Total team members'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1067,23 +975,19 @@ class _TeamListHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          ElevatedButton.icon(
-            onPressed: onAddMember,
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(translateText('Add')),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.starColor,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              minimumSize: const Size(86, 42),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              textStyle: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: _teamGoldLight,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: _teamBorder),
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                color: _teamGold,
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -1493,94 +1397,6 @@ class _TeamIconButton extends StatelessWidget {
                   ),
                 )
               : Icon(icon, size: 20),
-        ),
-      ),
-    );
-  }
-}
-
-class _TeamBranchSelector extends StatelessWidget {
-  const _TeamBranchSelector({
-    super.key,
-    required this.selectedBranch,
-    this.showDropdown = false,
-    required this.onTap,
-  });
-
-  final Map<String, dynamic>? selectedBranch;
-  final bool showDropdown;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final branchLabel = _teamBranchLabel(selectedBranch);
-    final addressSummary =
-        (selectedBranch?['addressSummary'] ?? '').toString().trim();
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 58),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: _teamBorder),
-          ),
-          child: Row(
-            children: [
-              const CircleAvatar(
-                radius: 18,
-                backgroundColor: Color(0xFFF3E8D1),
-                child: Icon(
-                  Icons.storefront_outlined,
-                  color: _teamGold,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      branchLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _teamInk,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    if (addressSummary.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        addressSummary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _teamMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (showDropdown)
-                Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: onTap == null ? Colors.grey.shade400 : _teamGold,
-                ),
-            ],
-          ),
         ),
       ),
     );

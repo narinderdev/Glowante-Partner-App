@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../features/salon/widgets/owner_branch_header_selector.dart';
 
 // ---- UI constants ----
 const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
@@ -494,151 +495,45 @@ class _BranchSelectorField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = _BranchSelectorContent(
-      branch: selectedBranch,
-      labelBuilder: labelBuilder,
-      showDropdown: showDropdown,
-    );
-
-    if (!showDropdown) return child;
-
-    return PopupMenuButton<Map<String, dynamic>>(
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      elevation: 10,
-      constraints: const BoxConstraints(minWidth: 280),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Color(0xFFE8DED6)),
-      ),
-      onSelected: onSelected,
-      itemBuilder: (context) {
-        return branches.map((branch) {
-          final isSelected = branch['branchId'] == selectedBranch['branchId'];
-          return PopupMenuItem<Map<String, dynamic>>(
-            value: branch,
-            child: _BranchMenuItem(
-              branch: branch,
-              labelBuilder: labelBuilder,
-              isSelected: isSelected,
-            ),
-          );
-        }).toList();
+    return OwnerBranchHeaderSelector<int>(
+      label: labelBuilder(selectedBranch),
+      options: branches
+          .map((branch) {
+            final branchId = branch['branchId'];
+            final id = branchId is int
+                ? branchId
+                : branchId is num
+                    ? branchId.toInt()
+                    : int.tryParse('${branchId ?? ''}');
+            if (id == null) return null;
+            return OwnerBranchHeaderSelectorOption<int>(
+              value: id,
+              label: labelBuilder(branch),
+              subtitle: (branch['addressSummary'] ?? '').toString(),
+            );
+          })
+          .whereType<OwnerBranchHeaderSelectorOption<int>>()
+          .toList(),
+      selectedValue: selectedBranch['branchId'] is int
+          ? selectedBranch['branchId'] as int
+          : int.tryParse('${selectedBranch['branchId'] ?? ''}'),
+      placeholder: translateText('Select Branch'),
+      isInteractive: showDropdown,
+      onSelected: (branchId) {
+        final branch = branches.firstWhere(
+          (item) {
+            final raw = item['branchId'];
+            final id = raw is int
+                ? raw
+                : raw is num
+                    ? raw.toInt()
+                    : int.tryParse('${raw ?? ''}');
+            return id == branchId;
+          },
+          orElse: () => selectedBranch,
+        );
+        onSelected(branch);
       },
-      child: child,
-    );
-  }
-}
-
-class _BranchSelectorContent extends StatelessWidget {
-  const _BranchSelectorContent({
-    required this.branch,
-    required this.labelBuilder,
-    required this.showDropdown,
-  });
-
-  final Map<String, dynamic> branch;
-  final String Function(Map<String, dynamic>) labelBuilder;
-  final bool showDropdown;
-
-  @override
-  Widget build(BuildContext context) {
-    final address = (branch['addressSummary'] ?? '').toString().trim();
-
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 58),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE8DED6)),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: Color(0xFFF3E8D1),
-            child: Icon(
-              Icons.storefront_outlined,
-              color: Color(0xFF8B6500),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  labelBuilder(branch),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF2D2926),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (address.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    address,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF756A61),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (showDropdown)
-            const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: Color(0xFF8B6500),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BranchMenuItem extends StatelessWidget {
-  const _BranchMenuItem({
-    required this.branch,
-    required this.labelBuilder,
-    required this.isSelected,
-  });
-
-  final Map<String, dynamic> branch;
-  final String Function(Map<String, dynamic>) labelBuilder;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          isSelected
-              ? Icons.check_circle_outline_rounded
-              : Icons.storefront_outlined,
-          size: 18,
-          color: const Color(0xFF8B6500),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _BranchSelectorContent(
-            branch: branch,
-            labelBuilder: labelBuilder,
-            showDropdown: false,
-          ),
-        ),
-      ],
     );
   }
 }

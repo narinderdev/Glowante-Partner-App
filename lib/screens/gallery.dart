@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/localization_helper.dart';
+import '../features/salon/widgets/owner_branch_header_selector.dart';
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({
@@ -594,20 +595,23 @@ class _BranchSelectorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selected = branches
-        .where((branch) => branch.branchId == selectedBranchId)
-        .cast<_GalleryBranchOption?>()
-        .firstOrNull;
+    _GalleryBranchOption? selected;
+    for (final branch in branches) {
+      if (branch.branchId == selectedBranchId) {
+        selected = branch;
+        break;
+      }
+    }
 
     if (isLoading) {
       return Container(
         width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 58),
+        constraints: const BoxConstraints(minHeight: 70),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE8DED6)),
+          border: Border.all(color: const Color(0xFFD9CBBB)),
         ),
         child: const Align(
           alignment: Alignment.centerLeft,
@@ -622,12 +626,12 @@ class _BranchSelectorCard extends StatelessWidget {
     if (branches.isEmpty) {
       return Container(
         width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 58),
+        constraints: const BoxConstraints(minHeight: 70),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE8DED6)),
+          border: Border.all(color: const Color(0xFFD9CBBB)),
         ),
         alignment: Alignment.centerLeft,
         child: Text(
@@ -642,141 +646,27 @@ class _BranchSelectorCard extends StatelessWidget {
     }
 
     final selectedBranch = selected ?? branches.first;
-    final child = _GalleryBranchSelectorContent(
-      branch: selectedBranch,
-      showDropdown: branches.length > 1,
-    );
-
-    if (branches.length <= 1) return child;
-
-    return PopupMenuButton<_GalleryBranchOption>(
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      elevation: 10,
-      constraints: const BoxConstraints(minWidth: 280),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: const BorderSide(color: Color(0xFFE8DED6)),
-      ),
-      onSelected: onBranchSelected,
-      itemBuilder: (context) {
-        return branches.map((branch) {
-          return PopupMenuItem<_GalleryBranchOption>(
-            value: branch,
-            child: _GalleryBranchMenuItem(
-              branch: branch,
-              isSelected: branch.branchId == selectedBranch.branchId,
+    return OwnerBranchHeaderSelector<int>(
+      label: selectedBranch.displayLabel,
+      options: branches
+          .map(
+            (branch) => OwnerBranchHeaderSelectorOption<int>(
+              value: branch.branchId,
+              label: branch.displayLabel,
+              subtitle: branch.address,
             ),
-          );
-        }).toList();
+          )
+          .toList(),
+      selectedValue: selectedBranch.branchId,
+      placeholder: context.t('Select Branch'),
+      isInteractive: branches.length > 1,
+      onSelected: (branchId) {
+        final branch = branches.firstWhere(
+          (item) => item.branchId == branchId,
+          orElse: () => selectedBranch,
+        );
+        onBranchSelected(branch);
       },
-      child: child,
-    );
-  }
-}
-
-class _GalleryBranchSelectorContent extends StatelessWidget {
-  const _GalleryBranchSelectorContent({
-    required this.branch,
-    required this.showDropdown,
-  });
-
-  final _GalleryBranchOption branch;
-  final bool showDropdown;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 58),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE8DED6)),
-      ),
-      child: Row(
-        children: [
-          const CircleAvatar(
-            radius: 18,
-            backgroundColor: Color(0xFFF3E8D1),
-            child: Icon(
-              Icons.storefront_outlined,
-              color: Color(0xFF8B6500),
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  branch.displayLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF2D2926),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                if (branch.address.trim().isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    branch.address,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF756A61),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (showDropdown)
-            const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: Color(0xFF8B6500),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GalleryBranchMenuItem extends StatelessWidget {
-  const _GalleryBranchMenuItem({
-    required this.branch,
-    required this.isSelected,
-  });
-
-  final _GalleryBranchOption branch;
-  final bool isSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          isSelected
-              ? Icons.check_circle_outline_rounded
-              : Icons.storefront_outlined,
-          size: 18,
-          color: const Color(0xFF8B6500),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _GalleryBranchSelectorContent(
-            branch: branch,
-            showDropdown: false,
-          ),
-        ),
-      ],
     );
   }
 }
