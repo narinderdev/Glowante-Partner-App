@@ -3,10 +3,6 @@ import '../../../utils/price_formatter.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'gallery.dart';
-import 'SalonDeal.dart';
-import 'SalonPackage.dart';
-import 'SalonTeams.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/profile/compensation/profile_compensation_screen.dart';
 import '../features/profile/operations/owner_profile_operations_screen.dart';
@@ -21,6 +17,7 @@ import 'owner_branch_clients_screen.dart';
 import 'owner_membership_screen.dart';
 import 'owner_roles_permissions_screen.dart';
 import 'owner_sales_reports_screen.dart';
+import 'profile_screen.dart';
 import 'SalonReviews.dart';
 import 'ad.dart';
 
@@ -50,7 +47,9 @@ TextStyle _dashboardTextStyle({
 }
 
 class OwnerDashboardScreen extends StatefulWidget {
-  const OwnerDashboardScreen({super.key});
+  const OwnerDashboardScreen({super.key, this.onOpenMoreTab});
+
+  final VoidCallback? onOpenMoreTab;
 
   @override
   State<OwnerDashboardScreen> createState() => _OwnerDashboardScreenState();
@@ -344,6 +343,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
 
+  void _openMoreTab() {
+    final onOpenMoreTab = widget.onOpenMoreTab;
+    if (onOpenMoreTab != null) {
+      onOpenMoreTab();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
+  }
+
   Future<void> _showBranchPicker() async {
     if (_branchOptions.length <= 1) return;
 
@@ -439,7 +449,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 14),
-            child: _DashboardProfileAvatar(imageUrl: _profileImageUrl),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(22),
+              onTap: _openMoreTab,
+              child: _DashboardProfileAvatar(imageUrl: _profileImageUrl),
+            ),
           ),
         ],
       ),
@@ -1340,30 +1354,6 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
           case final tile?)
         tile,
       if (drawerTile(
-        id: 'team',
-        item: _DashboardDrawerItem(
-          icon: Icons.groups_outlined,
-          label: context.t('Team'),
-          permissions: const ['team.view'],
-          screen: TeamScreen(),
-        ),
-        onTap: () => _openDrawerItem('team', TeamScreen()),
-      )
-          case final tile?)
-        tile,
-      if (drawerTile(
-        id: 'package',
-        item: _DashboardDrawerItem(
-          icon: Icons.card_giftcard_outlined,
-          label: context.t('Package'),
-          permissions: const ['packages.view'],
-          screen: PackageScreen(),
-        ),
-        onTap: () => _openDrawerItem('package', PackageScreen()),
-      )
-          case final tile?)
-        tile,
-      if (drawerTile(
         id: 'membership',
         item: _DashboardDrawerItem(
           icon: Icons.workspace_premium_outlined,
@@ -1386,18 +1376,6 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
         ),
         onTap: () =>
             _openDrawerItem('roles', const OwnerRolesPermissionsScreen()),
-      )
-          case final tile?)
-        tile,
-      if (drawerTile(
-        id: 'deal',
-        item: _DashboardDrawerItem(
-          icon: Icons.local_offer_outlined,
-          label: context.t('Deal'),
-          permissions: const ['deals.view'],
-          screen: DealScreen(),
-        ),
-        onTap: () => _openDrawerItem('deal', DealScreen()),
       )
           case final tile?)
         tile,
@@ -1469,37 +1447,6 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
       )
           case final group?)
         group,
-      if (drawerTile(
-        id: 'gallery',
-        item: _DashboardDrawerItem(
-          icon: Icons.image_outlined,
-          label: context.t('Gallery'),
-          permissions: const ['gallery.view'],
-          screen: GalleryScreen(
-            initialBranchId: widget.selectedBranchId,
-          ),
-        ),
-        onTap: () {
-          final branchId = widget.selectedBranchId;
-
-          if (branchId == null) {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(context.t('Please select a branch first.')),
-              ),
-            );
-            return;
-          }
-
-          _openDrawerItem(
-            'gallery',
-            GalleryScreen(initialBranchId: branchId),
-          );
-        },
-      )
-          case final tile?)
-        tile,
       if (drawerTile(
         id: 'clients',
         item: _DashboardDrawerItem(

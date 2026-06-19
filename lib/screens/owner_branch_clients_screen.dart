@@ -1487,70 +1487,12 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE7E5E4)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.t('Branches').toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_isLoadingBranches)
-                    const Center(child: CircularProgressIndicator())
-                  else if (_branchOptions.isEmpty)
-                    Text(context.t('No branches available'))
-                  else
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      children: _branchOptions.map((option) {
-                        final isSelected = option.branchId == _selectedBranchId;
-                        return InkWell(
-                          onTap: () => _loadClientsForBranch(option.branchId),
-                          child: Container(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: isSelected
-                                      ? AppColors.starColor
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              option.branchName.isEmpty
-                                  ? option.salonName
-                                  : option.branchName,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.w500,
-                                color: isSelected
-                                    ? AppColors.starColor
-                                    : const Color(0xFF374151),
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                ],
-              ),
+            _ClientsBranchSelector(
+              isLoading: _isLoadingBranches,
+              branches: _branchOptions,
+              selectedBranchId: _selectedBranchId,
+              onBranchSelected: (branch) =>
+                  _loadClientsForBranch(branch.branchId),
             ),
             const SizedBox(height: 18),
             LayoutBuilder(
@@ -2182,4 +2124,203 @@ class _OwnerBranchOption {
   final String salonName;
   final String branchName;
   final String address;
+
+  String get displayLabel => branchName.isEmpty ? salonName : branchName;
+}
+
+class _ClientsBranchSelector extends StatelessWidget {
+  const _ClientsBranchSelector({
+    required this.isLoading,
+    required this.branches,
+    required this.selectedBranchId,
+    required this.onBranchSelected,
+  });
+
+  final bool isLoading;
+  final List<_OwnerBranchOption> branches;
+  final int? selectedBranchId;
+  final ValueChanged<_OwnerBranchOption> onBranchSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = branches.cast<_OwnerBranchOption?>().firstWhere(
+          (branch) => branch?.branchId == selectedBranchId,
+          orElse: () => null,
+        );
+
+    if (isLoading) {
+      return const _ClientsBranchSelectorShell(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFF8B6500),
+          ),
+        ),
+      );
+    }
+
+    if (branches.isEmpty) {
+      return _ClientsBranchSelectorShell(
+        child: Text(
+          context.t('No branches available'),
+          style: const TextStyle(
+            color: Color(0xFF78716C),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final selectedBranch = selected ?? branches.first;
+    final child = _ClientsBranchSelectorContent(
+      branch: selectedBranch,
+      showDropdown: branches.length > 1,
+    );
+
+    if (branches.length <= 1) return child;
+
+    return PopupMenuButton<_OwnerBranchOption>(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      constraints: const BoxConstraints(minWidth: 280),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFFE8DED6)),
+      ),
+      onSelected: onBranchSelected,
+      itemBuilder: (context) {
+        return branches.map((branch) {
+          return PopupMenuItem<_OwnerBranchOption>(
+            value: branch,
+            child: _ClientsBranchMenuItem(
+              branch: branch,
+              isSelected: branch.branchId == selectedBranch.branchId,
+            ),
+          );
+        }).toList();
+      },
+      child: child,
+    );
+  }
+}
+
+class _ClientsBranchSelectorShell extends StatelessWidget {
+  const _ClientsBranchSelectorShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _ClientsBranchSelectorContent extends StatelessWidget {
+  const _ClientsBranchSelectorContent({
+    required this.branch,
+    required this.showDropdown,
+  });
+
+  final _OwnerBranchOption branch;
+  final bool showDropdown;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ClientsBranchSelectorShell(
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 18,
+            backgroundColor: Color(0xFFF3E8D1),
+            child: Icon(
+              Icons.storefront_outlined,
+              color: Color(0xFF8B6500),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  branch.displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF2D2926),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (branch.address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    branch.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF756A61),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (showDropdown)
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF8B6500),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ClientsBranchMenuItem extends StatelessWidget {
+  const _ClientsBranchMenuItem({
+    required this.branch,
+    required this.isSelected,
+  });
+
+  final _OwnerBranchOption branch;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          isSelected
+              ? Icons.check_circle_outline_rounded
+              : Icons.storefront_outlined,
+          size: 18,
+          color: const Color(0xFF8B6500),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _ClientsBranchSelectorContent(
+            branch: branch,
+            showDropdown: false,
+          ),
+        ),
+      ],
+    );
+  }
 }

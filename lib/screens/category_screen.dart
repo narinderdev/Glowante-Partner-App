@@ -18,6 +18,7 @@ import '../utils/api_service.dart';
 
 const Color _catalogGold = Color(0xFF8B6500);
 const Color _catalogGoldLight = Color(0xFFD0A244);
+const Color _catalogSelectedText = Color(0xFFC88400);
 const Color _catalogInk = Color(0xFF2D2926);
 const Color _catalogMuted = Color(0xFF756A61);
 const Color _catalogBorder = Color(0xFFE8DED6);
@@ -90,6 +91,36 @@ String _catalogSortLabel(Map<String, dynamic> item) {
     if (value.isNotEmpty) return value.toLowerCase();
   }
   return '';
+}
+
+IconData _catalogIconForCategory(Map<String, dynamic> category) {
+  final name = (category['displayName'] ?? category['name'] ?? '')
+      .toString()
+      .toLowerCase();
+  if (name.contains('hair') || name.contains('cut') || name.contains('salon')) {
+    return Icons.content_cut_rounded;
+  }
+  if (name.contains('men') ||
+      name.contains('beard') ||
+      name.contains('groom')) {
+    return Icons.face_retouching_natural_rounded;
+  }
+  if (name.contains('spa') ||
+      name.contains('massage') ||
+      name.contains('therapy')) {
+    return Icons.spa_rounded;
+  }
+  if (name.contains('nail') ||
+      name.contains('manicure') ||
+      name.contains('pedicure')) {
+    return Icons.back_hand_rounded;
+  }
+  if (name.contains('make') ||
+      name.contains('beauty') ||
+      name.contains('facial')) {
+    return Icons.brush_rounded;
+  }
+  return Icons.room_service_rounded;
 }
 
 int _compareCatalogItems(
@@ -1057,7 +1088,7 @@ class CategoryScreenState extends State<CategoryScreen> {
             tooltip: translateText('Add predefined services'),
             onPressed:
                 _selectedSalon == null ? null : _showPredefinedServicesModal,
-            icon: const Icon(Icons.menu_rounded),
+            icon: const Icon(Icons.playlist_add_check_rounded),
             color: _catalogGold,
           ),
         ],
@@ -1131,6 +1162,7 @@ class CategoryScreenState extends State<CategoryScreen> {
   ) {
     final visibleCategories = _visibleCategories(catState.categories);
     final isInitialLoading = catState.isLoading && catState.categories.isEmpty;
+    final canChangeSalonBranch = _catalogBranchSelections(salons).length > 1;
 
     return RefreshIndicator(
       color: _catalogGold,
@@ -1146,7 +1178,10 @@ class CategoryScreenState extends State<CategoryScreen> {
           _CatalogBranchSelector(
             key: _branchSelectorKey,
             selectedSalon: _selectedSalon,
-            onTap: salons.isEmpty ? null : () => _showSalonBranchPicker(salons),
+            showDropdown: canChangeSalonBranch,
+            onTap: canChangeSalonBranch
+                ? () => _showSalonBranchPicker(salons)
+                : null,
           ),
           const SizedBox(height: 16),
           _CatalogSectionLabel(text: translateText('QUICK  SEARCH')),
@@ -1410,7 +1445,8 @@ class CategoryScreenState extends State<CategoryScreen> {
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.2,
                         ).copyWith(
-                          color: selected ? _catalogGold : _catalogMuted,
+                          color:
+                              selected ? _catalogSelectedText : _catalogMuted,
                         ),
                       ),
                     ),
@@ -1427,36 +1463,8 @@ class CategoryScreenState extends State<CategoryScreen> {
   Future<void> _showSalonBranchPicker(List<Map<String, dynamic>> salons) async {
     _dismissCatalogKeyboard();
 
-    final selections = <Map<String, dynamic>>[];
-    for (final salon in salons) {
-      final salonId = _asInt(salon['id']);
-      if (salonId == null) continue;
-      final branches = salon['branches'];
-      if (branches is List && branches.isNotEmpty) {
-        for (final rawBranch in branches) {
-          if (rawBranch is! Map) continue;
-          final branch = Map<String, dynamic>.from(rawBranch);
-          final branchId = _asInt(branch['id']);
-          if (branchId == null) continue;
-          selections.add({
-            'salonId': salonId,
-            'salonName': salon['name'],
-            'branchId': branchId,
-            'branchName': branch['name'] ?? salon['name'],
-            'addressSummary': _catalogBranchAddressSummary(branch['address']),
-          });
-        }
-      } else {
-        selections.add({
-          'salonId': salonId,
-          'salonName': salon['name'],
-          'branchName': salon['name'],
-          'addressSummary': _catalogBranchAddressSummary(salon['address']),
-        });
-      }
-    }
-
-    if (selections.isEmpty) return;
+    final selections = _catalogBranchSelections(salons);
+    if (selections.length <= 1) return;
 
     final selectorContext = _branchSelectorKey.currentContext;
     final selectorBox = selectorContext?.findRenderObject() as RenderBox?;
@@ -1505,6 +1513,41 @@ class CategoryScreenState extends State<CategoryScreen> {
     if (!mounted || selected == null) return;
     _dismissCatalogKeyboard();
     await _selectSalonBranch(selected);
+  }
+
+  List<Map<String, dynamic>> _catalogBranchSelections(
+    List<Map<String, dynamic>> salons,
+  ) {
+    final selections = <Map<String, dynamic>>[];
+    for (final salon in salons) {
+      final salonId = _asInt(salon['id']);
+      if (salonId == null) continue;
+      final branches = salon['branches'];
+      if (branches is List && branches.isNotEmpty) {
+        for (final rawBranch in branches) {
+          if (rawBranch is! Map) continue;
+          final branch = Map<String, dynamic>.from(rawBranch);
+          final branchId = _asInt(branch['id']);
+          if (branchId == null) continue;
+          selections.add({
+            'salonId': salonId,
+            'salonName': salon['name'],
+            'branchId': branchId,
+            'branchName': branch['name'] ?? salon['name'],
+            'addressSummary': _catalogBranchAddressSummary(branch['address']),
+          });
+        }
+      } else {
+        selections.add({
+          'salonId': salonId,
+          'salonName': salon['name'],
+          'branchName': salon['name'],
+          'addressSummary': _catalogBranchAddressSummary(salon['address']),
+        });
+      }
+    }
+
+    return selections;
   }
 
   Future<void> _selectSalonBranch(Map<String, dynamic> selection) async {
@@ -1613,10 +1656,12 @@ class _CatalogBranchSelector extends StatelessWidget {
   const _CatalogBranchSelector({
     super.key,
     required this.selectedSalon,
+    required this.showDropdown,
     required this.onTap,
   });
 
   final Map<String, dynamic>? selectedSalon;
+  final bool showDropdown;
   final VoidCallback? onTap;
 
   @override
@@ -1685,10 +1730,11 @@ class _CatalogBranchSelector extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.keyboard_arrow_down_rounded,
-                color: _catalogMuted,
-              ),
+              if (showDropdown)
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: _catalogMuted,
+                ),
             ],
           ),
         ),
@@ -1975,8 +2021,8 @@ class _CategoryList extends StatelessWidget {
                                 color: _catalogGoldLight,
                                 borderRadius: BorderRadius.circular(10),
                               ),
-                              child: const Icon(
-                                Icons.content_cut_rounded,
+                              child: Icon(
+                                _catalogIconForCategory(category),
                                 color: _catalogGold,
                                 size: 23,
                               ),

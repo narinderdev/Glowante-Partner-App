@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-const Color _selectorPage = Color(0xFFFBF9F8);
 const Color _selectorPrimaryText = Color(0xFF1C1917);
 const Color _selectorSecondaryText = Color(0xFF78716C);
 const Color _selectorAccent = Color(0xFFC19A6B);
@@ -39,10 +38,17 @@ class OwnerBranchHeaderSelector<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayLabel = label.trim().isEmpty ? placeholder : label.trim();
+    final selectedOption =
+        options.cast<OwnerBranchHeaderSelectorOption<T>?>().firstWhere(
+              (option) => option?.value == selectedValue,
+              orElse: () => null,
+            );
+    final displaySubtitle = selectedOption?.subtitle.trim() ?? '';
 
     if (!isInteractive) {
       return _SelectorChrome(
         label: displayLabel,
+        subtitle: displaySubtitle,
         isInteractive: false,
       );
     }
@@ -56,7 +62,7 @@ class OwnerBranchHeaderSelector<T> extends StatelessWidget {
       tooltip: '',
       elevation: 10,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
         side: const BorderSide(color: _selectorBorder),
       ),
       itemBuilder: (context) {
@@ -76,6 +82,7 @@ class OwnerBranchHeaderSelector<T> extends StatelessWidget {
       },
       child: _SelectorChrome(
         label: displayLabel,
+        subtitle: displaySubtitle,
         isInteractive: true,
       ),
     );
@@ -85,10 +92,12 @@ class OwnerBranchHeaderSelector<T> extends StatelessWidget {
 class _SelectorChrome extends StatelessWidget {
   const _SelectorChrome({
     required this.label,
+    required this.subtitle,
     required this.isInteractive,
   });
 
   final String label;
+  final String subtitle;
   final bool isInteractive;
 
   @override
@@ -96,48 +105,62 @@ class _SelectorChrome extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: Container(
-        constraints: const BoxConstraints(minWidth: 164),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 58),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: _selectorPage,
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _selectorBorder),
         ),
         child: Row(
           children: [
-            const Icon(
-              Icons.storefront_outlined,
-              color: _selectorAccent,
-              size: 20,
+            const CircleAvatar(
+              radius: 18,
+              backgroundColor: Color(0xFFF3E8D1),
+              child: Icon(
+                Icons.storefront_outlined,
+                color: Color(0xFF8B6500),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
-            Flexible(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Flexible(
-                    child: Text(
-                      label.toUpperCase(),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _selectorPrimaryText,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: _selectorPrimaryText,
-                        fontSize: 14,
+                        color: _selectorSecondaryText,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: 0.6,
                       ),
-                    ),
-                  ),
-                  if (isInteractive) ...[
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      color: _selectorSecondaryText,
-                      size: 18,
                     ),
                   ],
                 ],
               ),
             ),
+            if (isInteractive)
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Color(0xFF8B6500),
+              ),
           ],
         ),
       ),

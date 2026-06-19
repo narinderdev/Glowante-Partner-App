@@ -198,6 +198,7 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
             branchId: branchId,
             salonName: salonName,
             branchName: _cleanText(branch['name']),
+            address: _branchAddressSummary(branch['address']),
           ),
         );
       }
@@ -209,6 +210,27 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty || text.toLowerCase() == 'null') return '';
     return text;
+  }
+
+  String _branchAddressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+
+    void push(dynamic value) {
+      final text = _cleanText(value);
+      if (text.isNotEmpty && !parts.contains(text)) parts.add(text);
+    }
+
+    push(address['line1']);
+    push(address['line2']);
+    push(address['village']);
+    push(address['district']);
+    push(address['city']);
+    push(address['state']);
+    push(address['postalCode']);
+    push(address['country']);
+    return parts.join(', ');
   }
 
   int _asInt(dynamic value) {
@@ -293,76 +315,11 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
   }
 
   Widget _buildBranchSelector() {
-    return _ReportSection(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _ReportEyebrow(context.t('Select Branch')),
-          const SizedBox(height: 12),
-          if (_loadingBranches)
-            const Center(child: CircularProgressIndicator())
-          else if (_branchOptions.isEmpty)
-            Text(
-              context.t('No branches available'),
-              style: const TextStyle(color: Color(0xFF78716C)),
-            )
-          else
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: _branchOptions.map((option) {
-                final isSelected = option.branchId == _selectedBranchId;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: () => _loadReport(option.branchId),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected ? const Color(0xFFF7EFE4) : Colors.white,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.starColor
-                            : const Color(0xFFE8D8C8),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline_rounded,
-                          size: 15,
-                          color: isSelected
-                              ? AppColors.starColor
-                              : const Color(0xFF9CA3AF),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          option.branchName.isEmpty
-                              ? option.salonName
-                              : option.branchName,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight:
-                                isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected
-                                ? AppColors.starColor
-                                : const Color(0xFF5F574F),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
-      ),
+    return _ReportBranchSelector(
+      isLoading: _loadingBranches,
+      branches: _branchOptions,
+      selectedBranchId: _selectedBranchId,
+      onBranchSelected: (branch) => _loadReport(branch.branchId),
     );
   }
 
@@ -1332,12 +1289,213 @@ class _ReportBranchOption {
     required this.branchId,
     required this.salonName,
     required this.branchName,
+    required this.address,
   });
 
   final int salonId;
   final int branchId;
   final String salonName;
   final String branchName;
+  final String address;
+
+  String get displayLabel => branchName.isEmpty ? salonName : branchName;
+}
+
+class _ReportBranchSelector extends StatelessWidget {
+  const _ReportBranchSelector({
+    required this.isLoading,
+    required this.branches,
+    required this.selectedBranchId,
+    required this.onBranchSelected,
+  });
+
+  final bool isLoading;
+  final List<_ReportBranchOption> branches;
+  final int? selectedBranchId;
+  final ValueChanged<_ReportBranchOption> onBranchSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = branches.cast<_ReportBranchOption?>().firstWhere(
+          (branch) => branch?.branchId == selectedBranchId,
+          orElse: () => null,
+        );
+
+    if (isLoading) {
+      return const _ReportBranchSelectorShell(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFF8B6500),
+          ),
+        ),
+      );
+    }
+
+    if (branches.isEmpty) {
+      return _ReportBranchSelectorShell(
+        child: Text(
+          context.t('No branches available'),
+          style: const TextStyle(
+            color: Color(0xFF78716C),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final selectedBranch = selected ?? branches.first;
+    final child = _ReportBranchSelectorContent(
+      branch: selectedBranch,
+      showDropdown: branches.length > 1,
+    );
+
+    if (branches.length <= 1) return child;
+
+    return PopupMenuButton<_ReportBranchOption>(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      constraints: const BoxConstraints(minWidth: 280),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFFE8DED6)),
+      ),
+      onSelected: onBranchSelected,
+      itemBuilder: (context) {
+        return branches.map((branch) {
+          return PopupMenuItem<_ReportBranchOption>(
+            value: branch,
+            child: _ReportBranchMenuItem(
+              branch: branch,
+              isSelected: branch.branchId == selectedBranch.branchId,
+            ),
+          );
+        }).toList();
+      },
+      child: child,
+    );
+  }
+}
+
+class _ReportBranchSelectorShell extends StatelessWidget {
+  const _ReportBranchSelectorShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _ReportBranchSelectorContent extends StatelessWidget {
+  const _ReportBranchSelectorContent({
+    required this.branch,
+    required this.showDropdown,
+  });
+
+  final _ReportBranchOption branch;
+  final bool showDropdown;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ReportBranchSelectorShell(
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 18,
+            backgroundColor: Color(0xFFF3E8D1),
+            child: Icon(
+              Icons.storefront_outlined,
+              color: Color(0xFF8B6500),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  branch.displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF2D2926),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (branch.address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    branch.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF756A61),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (showDropdown)
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF8B6500),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportBranchMenuItem extends StatelessWidget {
+  const _ReportBranchMenuItem({
+    required this.branch,
+    required this.isSelected,
+  });
+
+  final _ReportBranchOption branch;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          isSelected
+              ? Icons.check_circle_outline_rounded
+              : Icons.storefront_outlined,
+          size: 18,
+          color: const Color(0xFF8B6500),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _ReportBranchSelectorContent(
+            branch: branch,
+            showDropdown: false,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ReportSection extends StatelessWidget {
@@ -1367,25 +1525,6 @@ class _ReportSection extends StatelessWidget {
         ],
       ),
       child: child,
-    );
-  }
-}
-
-class _ReportEyebrow extends StatelessWidget {
-  const _ReportEyebrow(this.label);
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      label.toUpperCase(),
-      style: const TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.7,
-        color: Color(0xFF6B7280),
-      ),
     );
   }
 }

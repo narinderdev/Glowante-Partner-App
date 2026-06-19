@@ -6,6 +6,11 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:screenshot/screenshot.dart';
 
+import '../features/salon/widgets/owner_branch_header_selector.dart';
+import '../services/stylist_branch_selection.dart';
+import '../utils/api_service.dart';
+import '../utils/localization_helper.dart';
+
 class AdScreen extends StatefulWidget {
   const AdScreen({super.key});
 
@@ -16,13 +21,127 @@ class AdScreen extends StatefulWidget {
 class _AdScreenState extends State<AdScreen> {
   static const Color _bg = Color(0xFFF5EFE8);
   static const Color _paper = Color(0xFFF6EFE7);
-  static const Color _brown = Color(0xFF8B6F52);
   static const Color _darkBrown = Color(0xFF2B160C);
   static const Color _muted = Color(0xFF9B8A78);
 
   final ScreenshotController _screenshotController = ScreenshotController();
 
+  List<_AdBranchOption> _branchOptions = const <_AdBranchOption>[];
+  _AdBranchOption? _selectedBranch;
   bool _isExporting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBranches();
+  }
+
+  Future<void> _loadBranches() async {
+    try {
+      final selection = await StylistBranchSelectionStore.load();
+      final response = await ApiService().getSalonListApi();
+      final rawSalons =
+          response['data'] is List ? response['data'] as List : const [];
+      final options = _extractBranchOptions(rawSalons);
+      final selected = options.cast<_AdBranchOption?>().firstWhere(
+            (option) => option?.branchId == selection.branchId,
+            orElse: () => options.isEmpty ? null : options.first,
+          );
+      if (!mounted) return;
+      setState(() {
+        _branchOptions = options;
+        _selectedBranch = selected;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _branchOptions = const <_AdBranchOption>[];
+        _selectedBranch = null;
+      });
+    }
+  }
+
+  List<_AdBranchOption> _extractBranchOptions(List<dynamic> rawSalons) {
+    final options = <_AdBranchOption>[];
+    for (final salonEntry in rawSalons) {
+      if (salonEntry is! Map) continue;
+      final salon = Map<String, dynamic>.from(salonEntry);
+      final salonId = _asInt(salon['id']);
+      if (salonId == null) continue;
+      final salonName = _cleanText(salon['name']);
+      final branches = (salon['branches'] as List?) ?? const [];
+      for (final branchEntry in branches) {
+        if (branchEntry is! Map) continue;
+        final branch = Map<String, dynamic>.from(branchEntry);
+        final branchId = _asInt(branch['id']);
+        if (branchId == null) continue;
+        options.add(
+          _AdBranchOption(
+            salonId: salonId,
+            branchId: branchId,
+            salonName: salonName,
+            branchName: _cleanText(branch['name']),
+            address: _addressSummary(branch['address']),
+          ),
+        );
+      }
+    }
+    return options;
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? ''}');
+  }
+
+  String _cleanText(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null') return '';
+    return text;
+  }
+
+  String _addressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+    for (final key in ['line1', 'line2', 'city', 'state']) {
+      final value = _cleanText(address[key]);
+      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
+    }
+    return parts.take(2).join(', ');
+  }
+
+  Future<void> _switchBranch(_AdBranchOption branch) async {
+    setState(() => _selectedBranch = branch);
+    await StylistBranchSelectionStore.save(
+      salonId: branch.salonId,
+      branchId: branch.branchId,
+      salonName: branch.salonName,
+      branchName: branch.branchName,
+    );
+  }
+
+  Widget _buildBranchSelector() {
+    final selected = _selectedBranch;
+    if (selected == null) return const SizedBox.shrink();
+    return OwnerBranchHeaderSelector<_AdBranchOption>(
+      label: selected.displayLabel,
+      options: _branchOptions
+          .map(
+            (option) => OwnerBranchHeaderSelectorOption<_AdBranchOption>(
+              value: option,
+              label: option.displayLabel,
+              subtitle: option.address,
+            ),
+          )
+          .toList(),
+      selectedValue: selected,
+      placeholder: translateText('Select Branch'),
+      isInteractive: _branchOptions.length > 1,
+      onSelected: _switchBranch,
+    );
+  }
 
   Future<Uint8List> _buildPdfBytes() async {
     final imageBytes = await _screenshotController.capture(
@@ -130,6 +249,10 @@ class _AdScreenState extends State<AdScreen> {
           padding: const EdgeInsets.fromLTRB(18, 28, 18, 32),
           child: Column(
             children: [
+              if (_selectedBranch != null) ...[
+                _buildBranchSelector(),
+                const SizedBox(height: 20),
+              ],
               const Text(
                 'H O V E R   P H O T O S   T O   R E P L A C E   -   E D I T   T E X T   I N   P A N E L',
                 textAlign: TextAlign.center,
@@ -185,7 +308,8 @@ class _AdScreenState extends State<AdScreen> {
                               ),
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(26, 30, 16, 20),
+                              padding:
+                                  const EdgeInsets.fromLTRB(26, 30, 16, 20),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -285,7 +409,8 @@ class _AdScreenState extends State<AdScreen> {
                           ? const SizedBox(
                               width: 12,
                               height: 12,
-                              child: CircularProgressIndicator(strokeWidth: 1.5),
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 1.5),
                             )
                           : const Text(
                               'S H A R E',
@@ -316,7 +441,8 @@ class _AdScreenState extends State<AdScreen> {
                           ? const SizedBox(
                               width: 12,
                               height: 12,
-                              child: CircularProgressIndicator(strokeWidth: 1.5),
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 1.5),
                             )
                           : const Text(
                               'D O W N L O A D   P D F',
@@ -419,6 +545,28 @@ class _AdTextPanel extends StatelessWidget {
   }
 }
 
+class _AdBranchOption {
+  const _AdBranchOption({
+    required this.salonId,
+    required this.branchId,
+    required this.salonName,
+    required this.branchName,
+    required this.address,
+  });
+
+  final int salonId;
+  final int branchId;
+  final String salonName;
+  final String branchName;
+  final String address;
+
+  String get displayLabel {
+    if (branchName.trim().isNotEmpty) return branchName.trim();
+    if (salonName.trim().isNotEmpty) return salonName.trim();
+    return 'Branch #$branchId';
+  }
+}
+
 class _ServiceLine extends StatelessWidget {
   const _ServiceLine(this.text);
 
@@ -512,10 +660,26 @@ class _ImageTile extends StatelessWidget {
       child: grayscale
           ? ColorFiltered(
               colorFilter: const ColorFilter.matrix([
-                0.2126, 0.7152, 0.0722, 0, 0,
-                0.2126, 0.7152, 0.0722, 0, 0,
-                0.2126, 0.7152, 0.0722, 0, 0,
-                0, 0, 0, 1, 0,
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0.2126,
+                0.7152,
+                0.0722,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+                0,
               ]),
               child: image,
             )

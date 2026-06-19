@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
@@ -75,6 +77,30 @@ class _TeamOnlineAvailabilityScreenState
         _joiningDate = DateTime.tryParse(raw.trim());
       }
     }
+  }
+
+  String _friendlyErrorMessage(Object error) {
+    var text = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+    final jsonStart = text.indexOf('{');
+    final jsonEnd = text.lastIndexOf('}');
+    if (jsonStart != -1 && jsonEnd > jsonStart) {
+      final jsonText = text.substring(jsonStart, jsonEnd + 1);
+      try {
+        final decoded = jsonDecode(jsonText);
+        if (decoded is Map && decoded['message'] != null) {
+          final message = decoded['message'];
+          if (message is List) return message.join('\n');
+          return message.toString();
+        }
+      } catch (_) {}
+    }
+
+    text = text
+        .replaceFirst(RegExp(r'^Failed to update team member:\s*'), '')
+        .replaceFirst(RegExp(r'^Failed to add team member:\s*'), '')
+        .replaceFirst(RegExp(r'^Failed to assign user:\s*'), '')
+        .trim();
+    return text.isEmpty ? translateText('Something went wrong') : text;
   }
 
   @override
@@ -306,28 +332,30 @@ class _TeamOnlineAvailabilityScreenState
       ),
     );
   }
-String _to24h(String input) {
-  final s = input.trim();
 
-  final reg24 = RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d$');
-  if (reg24.hasMatch(s)) return s;
+  String _to24h(String input) {
+    final s = input.trim();
 
-  final reg12 = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
-  final m = reg12.firstMatch(s);
+    final reg24 = RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d$');
+    if (reg24.hasMatch(s)) return s;
 
-  if (m != null) {
-    int h = int.parse(m.group(1)!);
-    final min = int.parse(m.group(2)!);
-    final mer = m.group(3)!.toUpperCase();
+    final reg12 = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
+    final m = reg12.firstMatch(s);
 
-    if (h == 12) h = 0;
-    if (mer == 'PM') h += 12;
+    if (m != null) {
+      int h = int.parse(m.group(1)!);
+      final min = int.parse(m.group(2)!);
+      final mer = m.group(3)!.toUpperCase();
 
-    return '${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
+      if (h == 12) h = 0;
+      if (mer == 'PM') h += 12;
+
+      return '${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
+    }
+
+    return s;
   }
 
-  return s;
-}
   Future<void> _pickJoiningDate() async {
     final today = DateTime.now();
     final picked = await showDatePicker(
@@ -389,122 +417,118 @@ String _to24h(String input) {
       //   );
       // }
       if (widget.mode == TeamAvailabilityMode.addMember) {
-  final payload = Map<String, dynamic>.from(widget.payload ?? {});
-  payload['allowOnlineBooking'] = _allowOnlineBooking;
+        final payload = Map<String, dynamic>.from(widget.payload ?? {});
+        payload['allowOnlineBooking'] = _allowOnlineBooking;
 
-  final response = await ApiService().addTeamMember(
-    widget.branchId,
-    payload,
-  );
+        final response = await ApiService().addTeamMember(
+          widget.branchId,
+          payload,
+        );
 
-  if (!mounted) return;
+        if (!mounted) return;
 
-  if (response['success'] == true) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('Team member added successfully'),
-        ),
-      ),
-    );
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                translateText('Team member added successfully'),
+              ),
+            ),
+          );
 
-    await Future.delayed(const Duration(milliseconds: 700));
+          await Future.delayed(const Duration(milliseconds: 700));
 
-    if (!mounted) return;
-    Navigator.pop(context, true);
-    return;
-  }
+          if (!mounted) return;
+          Navigator.pop(context, true);
+          return;
+        }
 
-  throw Exception(
-    response['message']?.toString() ?? 'Failed to add team member',
-  );
-}
+        throw Exception(
+          response['message']?.toString() ?? 'Failed to add team member',
+        );
+      }
 
-if (widget.mode == TeamAvailabilityMode.editMember) {
-  final payload = Map<String, dynamic>.from(widget.payload ?? {});
-  payload['allowOnlineBooking'] = _allowOnlineBooking;
+      if (widget.mode == TeamAvailabilityMode.editMember) {
+        final payload = Map<String, dynamic>.from(widget.payload ?? {});
+        payload['allowOnlineBooking'] = _allowOnlineBooking;
 
-  final response = await ApiService().updateTeamMember(
-    branchId: widget.branchId,
-    userId: widget.userId!,
-    payload: payload,
-  );
+        final response = await ApiService().updateTeamMember(
+          branchId: widget.branchId,
+          userId: widget.userId!,
+          payload: payload,
+        );
 
-  if (!mounted) return;
+        if (!mounted) return;
 
-  if (response['success'] == true) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('Team member updated successfully'),
-        ),
-      ),
-    );
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                translateText('Team member updated successfully'),
+              ),
+            ),
+          );
 
-    await Future.delayed(const Duration(milliseconds: 700));
+          await Future.delayed(const Duration(milliseconds: 700));
 
-    if (!mounted) return;
-    Navigator.pop(context, true);
-    return;
-  }
+          if (!mounted) return;
+          Navigator.pop(context, true);
+          return;
+        }
 
-  throw Exception(
-    response['message']?.toString() ?? 'Failed to update team member',
-  );
-}
+        throw Exception(
+          response['message']?.toString() ?? 'Failed to update team member',
+        );
+      }
 
       final joiningDate =
           '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}';
-          debugPrint('FINAL ASSIGN BRANCH ID: ${widget.branchId}');
-debugPrint('FINAL ASSIGN USER ID: ${widget.assignUserId}');
-debugPrint('FINAL ASSIGN SCHEDULES: ${widget.assignSchedules}');
-debugPrint('FINAL ASSIGN SERVICES: ${widget.assignBranchServiceIds}');
-     final normalizedSchedules = widget.assignSchedules!.map((slot) {
-  return {
-    'day': slot['day'].toString().toLowerCase(),
-    'startTime': _to24h(slot['startTime'].toString()),
-    'endTime': _to24h(slot['endTime'].toString()),
-  };
-}).toList();
+      debugPrint('FINAL ASSIGN BRANCH ID: ${widget.branchId}');
+      debugPrint('FINAL ASSIGN USER ID: ${widget.assignUserId}');
+      debugPrint('FINAL ASSIGN SCHEDULES: ${widget.assignSchedules}');
+      debugPrint('FINAL ASSIGN SERVICES: ${widget.assignBranchServiceIds}');
+      final normalizedSchedules = widget.assignSchedules!.map((slot) {
+        return {
+          'day': slot['day'].toString().toLowerCase(),
+          'startTime': _to24h(slot['startTime'].toString()),
+          'endTime': _to24h(slot['endTime'].toString()),
+        };
+      }).toList();
 
-debugPrint('FINAL ASSIGN BRANCH ID: ${widget.branchId}');
-debugPrint('FINAL NORMALIZED ASSIGN SCHEDULES: $normalizedSchedules');
+      debugPrint('FINAL ASSIGN BRANCH ID: ${widget.branchId}');
+      debugPrint('FINAL NORMALIZED ASSIGN SCHEDULES: $normalizedSchedules');
 
-final response = await ApiService().assignUserToBranch(
-  widget.branchId,
-  widget.assignUserId!,
-  joiningDate,
-  normalizedSchedules,
-  widget.assignBranchServiceIds!,
-  _allowOnlineBooking,
-);
+      final response = await ApiService().assignUserToBranch(
+        widget.branchId,
+        widget.assignUserId!,
+        joiningDate,
+        normalizedSchedules,
+        widget.assignBranchServiceIds!,
+        _allowOnlineBooking,
+      );
       if (!mounted) return;
-     if (response['success'] == true) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        translateText('User assigned successfully'),
-      ),
-    ),
-  );
+      if (response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              translateText('User assigned successfully'),
+            ),
+          ),
+        );
 
-  await Future.delayed(const Duration(milliseconds: 700));
+        await Future.delayed(const Duration(milliseconds: 700));
 
-  if (!mounted) return;
-  Navigator.pop(context, true);
-  return;
-}
+        if (!mounted) return;
+        Navigator.pop(context, true);
+        return;
+      }
       throw Exception(
         response['message']?.toString() ?? 'Failed to assign user',
       );
     } catch (error) {
       if (!mounted) return;
-      final message = error.toString().replaceFirst(
-            RegExp(r'^Exception:\s*'),
-            '',
-          );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(content: Text(_friendlyErrorMessage(error))),
       );
     } finally {
       if (mounted) {

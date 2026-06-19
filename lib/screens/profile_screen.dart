@@ -8,11 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
+import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'login_screen.dart';
-import 'owner_membership_screen.dart';
-import 'owner_roles_permissions_screen.dart';
 import 'web_doc_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -289,6 +288,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final langListener = Provider.of<LanguageListener>(context);
+    final menuItems = <ProfileMenuItemData>[
+      ProfileMenuItemData(
+        icon: Icons.shield_outlined,
+        label: context.t('Account Security'),
+        subtitle: context.t('Passwords & 2FA'),
+        onTap: () {
+          _logProfile('open_account_security');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const _AccountSecurityScreen()),
+          );
+        },
+      ),
+      ProfileMenuItemData(
+        icon: Icons.privacy_tip_outlined,
+        label: context.t('Privacy Policy'),
+        subtitle: context.t('Data usage & protection'),
+        onTap: () {
+          _logProfile('open_privacy_policy');
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => WebDocScreen(
+                title: translateText('Privacy Policy'),
+                url: 'https://glowante.com/privacy-policy',
+              ),
+            ),
+          );
+        },
+      ),
+      ProfileMenuItemData(
+        icon: Icons.policy_outlined,
+        label: context.t('Terms & Conditions'),
+        subtitle: context.t('Service agreements'),
+        onTap: () {
+          _logProfile('open_terms_conditions');
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => WebDocScreen(
+                title: translateText('Terms & Conditions'),
+                url: 'https://glowante.com/terms-of-services',
+              ),
+            ),
+          );
+        },
+      ),
+    ];
 
     return SharedProfileScreen(
       userName: userName?.trim().isNotEmpty == true ? userName! : '',
@@ -298,77 +345,101 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onRefresh: _loadUserData,
       roleLabel: context.t('Salon Owner'),
       topSections: const <Widget>[],
-      menuItems: [
-        ProfileMenuItemData(
-          icon: Icons.shield_outlined,
-          label: context.t('Account Security'),
-          subtitle: context.t('Passwords & 2FA'),
-        ),
-        // ProfileMenuItemData(
-        //   icon: Icons.workspace_premium_outlined,
-        //   label: context.t('Membership'),
-        //   subtitle: context.t('Plans, billing & payment history'),
-        //   onTap: () {
-        //     _logProfile('open_membership');
-        //     Navigator.push(
-        //       context,
-        //       MaterialPageRoute(
-        //         builder: (_) => const OwnerMembershipScreen(),
-        //       ),
-        //     );
-        //   },
-        // ),
-        // ProfileMenuItemData(
-        //   icon: Icons.admin_panel_settings_outlined,
-        //   label: context.t('Roles'),
-        //   subtitle: context.t('Roles & permissions'),
-        //   onTap: () {
-        //     _logProfile('open_roles');
-        //     Navigator.push(
-        //       context,
-        //       MaterialPageRoute(
-        //         builder: (_) => const OwnerRolesPermissionsScreen(),
-        //       ),
-        //     );
-        //   },
-        // ),
-        ProfileMenuItemData(
-          icon: Icons.privacy_tip_outlined,
-          label: context.t('Privacy Policy'),
-          subtitle: context.t('Data usage & protection'),
-          onTap: () {
-            _logProfile('open_privacy_policy');
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => WebDocScreen(
-                  title: translateText('Privacy Policy'),
-                  url: 'https://glowante.com/privacy-policy',
-                ),
-              ),
-            );
-          },
-        ),
-        ProfileMenuItemData(
-          icon: Icons.policy_outlined,
-          label: context.t('Terms & Conditions'),
-          subtitle: context.t('Service agreements'),
-          onTap: () {
-            _logProfile('open_terms_conditions');
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => WebDocScreen(
-                  title: translateText('Terms & Conditions'),
-                  url: 'https://glowante.com/terms-of-services',
-                ),
-              ),
-            );
-          },
-        ),
-      ],
+      menuItems: menuItems,
       onLogout: () => _showLogoutModal(context),
       onDeleteAccount: () => _showDeleteAccountDialog(context),
+    );
+  }
+}
+
+class _AccountSecurityScreen extends StatelessWidget {
+  const _AccountSecurityScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFBF9F8),
+      appBar: buildProfileSubpageAppBar(
+        title: context.t('Account Security'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          _SecurityCard(
+            icon: Icons.lock_outline_rounded,
+            title: context.t('Password'),
+            subtitle: context.t('Password management will be available soon.'),
+          ),
+          const SizedBox(height: 12),
+          _SecurityCard(
+            icon: Icons.verified_user_outlined,
+            title: context.t('Two-factor authentication'),
+            subtitle: context.t('2FA settings will be available soon.'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SecurityCard extends StatelessWidget {
+  const _SecurityCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: const Color(0xFFF3E8D1),
+            child: Icon(
+              icon,
+              color: const Color(0xFF8B6500),
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF2D2926),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Color(0xFF756A61),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -149,6 +149,7 @@ class _OwnerRolesPermissionsScreenState
             branchId: branchId,
             salonName: salonName,
             branchName: _cleanText(branch['name']),
+            address: _branchAddressSummary(branch['address']),
           ),
         );
       }
@@ -421,84 +422,172 @@ class _BranchSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final selected = branches.cast<_RolesBranchOption?>().firstWhere(
+          (branch) => branch?.branchId == selectedBranchId,
+          orElse: () => null,
+        );
+
+    if (branches.isEmpty) {
+      return _RolesBranchSelectorShell(
+        child: Text(
+          context.t('No branches available'),
+          style: const TextStyle(
+            color: _rolesMuted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final selectedBranch = selected ?? branches.first;
+    final child = _RolesBranchSelectorContent(
+      branch: selectedBranch,
+      showDropdown: branches.length > 1,
+    );
+
+    if (branches.length <= 1) return child;
+
+    return PopupMenuButton<_RolesBranchOption>(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      constraints: const BoxConstraints(minWidth: 280),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: _rolesBorder),
+      ),
+      onSelected: (branch) => onChanged(branch.branchId),
+      itemBuilder: (context) {
+        return branches.map((branch) {
+          return PopupMenuItem<_RolesBranchOption>(
+            value: branch,
+            child: _RolesBranchMenuItem(
+              branch: branch,
+              isSelected: branch.branchId == selectedBranch.branchId,
+            ),
+          );
+        }).toList();
+      },
+      child: child,
+    );
+  }
+}
+
+class _RolesBranchSelectorShell extends StatelessWidget {
+  const _RolesBranchSelectorShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-      decoration: _rolesCardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _rolesBorder),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _RolesBranchSelectorContent extends StatelessWidget {
+  const _RolesBranchSelectorContent({
+    required this.branch,
+    required this.showDropdown,
+  });
+
+  final _RolesBranchOption branch;
+  final bool showDropdown;
+
+  @override
+  Widget build(BuildContext context) {
+    return _RolesBranchSelectorShell(
+      child: Row(
         children: [
-          Text(
-            context.t('Select Branch').toUpperCase(),
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.8,
-              color: Color(0xFF6B7280),
+          const CircleAvatar(
+            radius: 18,
+            backgroundColor: Color(0xFFF3E8D1),
+            child: Icon(
+              Icons.storefront_outlined,
+              color: AppColors.starColor,
+              size: 20,
             ),
           ),
-          const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                for (final branch in branches) ...[
-                  InkWell(
-                    borderRadius: BorderRadius.circular(8),
-                    onTap: branch.branchId == selectedBranchId
-                        ? null
-                        : () => onChanged(branch.branchId),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 2,
-                        vertical: 2,
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            branch.branchId == selectedBranchId
-                                ? Icons.verified_outlined
-                                : Icons.storefront_outlined,
-                            size: 16,
-                            color: branch.branchId == selectedBranchId
-                                ? AppColors.starColor
-                                : _rolesMuted,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            branch.displayName,
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: 13,
-                              fontWeight: branch.branchId == selectedBranchId
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                              color: branch.branchId == selectedBranchId
-                                  ? AppColors.starColor
-                                  : _rolesMuted,
-                              decoration: branch.branchId == selectedBranchId
-                                  ? TextDecoration.underline
-                                  : TextDecoration.none,
-                            ),
-                          ),
-                        ],
-                      ),
+                Text(
+                  branch.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _rolesText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (branch.address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    branch.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _rolesMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (branch != branches.last)
-                    Container(
-                      height: 20,
-                      width: 1,
-                      margin: const EdgeInsets.symmetric(horizontal: 18),
-                      color: _rolesBorder,
-                    ),
                 ],
               ],
             ),
           ),
+          if (showDropdown)
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppColors.starColor,
+            ),
         ],
       ),
+    );
+  }
+}
+
+class _RolesBranchMenuItem extends StatelessWidget {
+  const _RolesBranchMenuItem({
+    required this.branch,
+    required this.isSelected,
+  });
+
+  final _RolesBranchOption branch;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          isSelected
+              ? Icons.check_circle_outline_rounded
+              : Icons.storefront_outlined,
+          size: 18,
+          color: AppColors.starColor,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _RolesBranchSelectorContent(
+            branch: branch,
+            showDropdown: false,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1408,12 +1497,14 @@ class _RolesBranchOption {
     required this.branchId,
     required this.salonName,
     required this.branchName,
+    required this.address,
   });
 
   final int salonId;
   final int branchId;
   final String salonName;
   final String branchName;
+  final String address;
 
   String get displayName => branchName.isEmpty ? salonName : branchName;
 }
@@ -1561,6 +1652,27 @@ String _cleanText(dynamic value) {
   final text = value?.toString().trim() ?? '';
   if (text.isEmpty || text.toLowerCase() == 'null') return '';
   return text;
+}
+
+String _branchAddressSummary(dynamic rawAddress) {
+  if (rawAddress is! Map) return '';
+  final address = Map<String, dynamic>.from(rawAddress);
+  final parts = <String>[];
+
+  void push(dynamic value) {
+    final text = _cleanText(value);
+    if (text.isNotEmpty && !parts.contains(text)) parts.add(text);
+  }
+
+  push(address['line1']);
+  push(address['line2']);
+  push(address['village']);
+  push(address['district']);
+  push(address['city']);
+  push(address['state']);
+  push(address['postalCode']);
+  push(address['country']);
+  return parts.join(', ');
 }
 
 int? _readInt(dynamic value) {

@@ -1,5 +1,6 @@
 // lib/screens/AddTeam.dart
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -166,15 +167,17 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
     return null;
   }
-String? _vBrief(String? v) {
-  final x = (v ?? '').trim();
 
-  if (x.isEmpty) {
-    return translateText('Brief about team member is required');
+  String? _vBrief(String? v) {
+    final x = (v ?? '').trim();
+
+    if (x.isEmpty) {
+      return translateText('Brief about team member is required');
+    }
+
+    return null;
   }
 
-  return null;
-}
   String? _vEmail(String? v) {
     if (_suppressEmailError) return null;
 
@@ -645,21 +648,21 @@ String? _vBrief(String? v) {
   //   return address.isEmpty ? null : address;
   // }
   Map<String, dynamic>? _teamAddressPayload() {
-  final selected = _selectedAddress;
+    final selected = _selectedAddress;
 
-  if (selected == null) return null;
+    if (selected == null) return null;
 
-  return {
-    'line1': (selected['line1'] ?? '').toString(),
-    'line2': (selected['line2'] ?? '').toString(),
-    'village': (selected['village'] ?? '').toString(),
-    'district': (selected['district'] ?? '').toString(),
-    'city': (selected['city'] ?? '').toString(),
-    'state': (selected['state'] ?? '').toString(),
-    'country': (selected['country'] ?? '').toString(),
-    'postalCode': (selected['postalCode'] ?? '').toString(),
-  };
-}
+    return {
+      'line1': (selected['line1'] ?? '').toString(),
+      'line2': (selected['line2'] ?? '').toString(),
+      'village': (selected['village'] ?? '').toString(),
+      'district': (selected['district'] ?? '').toString(),
+      'city': (selected['city'] ?? '').toString(),
+      'state': (selected['state'] ?? '').toString(),
+      'country': (selected['country'] ?? '').toString(),
+      'postalCode': (selected['postalCode'] ?? '').toString(),
+    };
+  }
 
   String _normalizeGender(String value) {
     switch (value.toLowerCase()) {
@@ -761,6 +764,29 @@ String? _vBrief(String? v) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  String _friendlyErrorMessage(Object error) {
+    var text = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+    final jsonStart = text.indexOf('{');
+    final jsonEnd = text.lastIndexOf('}');
+    if (jsonStart != -1 && jsonEnd > jsonStart) {
+      final jsonText = text.substring(jsonStart, jsonEnd + 1);
+      try {
+        final decoded = jsonDecode(jsonText);
+        if (decoded is Map && decoded['message'] != null) {
+          final message = decoded['message'];
+          if (message is List) return message.join('\n');
+          return message.toString();
+        }
+      } catch (_) {}
+    }
+
+    text = text
+        .replaceFirst(RegExp(r'^Failed to update team member:\s*'), '')
+        .replaceFirst(RegExp(r'^Failed to add team member:\s*'), '')
+        .trim();
+    return text.isEmpty ? translateText('Something went wrong') : text;
   }
 
   void _dismissKeyboard() {
@@ -1128,7 +1154,7 @@ String? _vBrief(String? v) {
 
       Navigator.pop(context, true);
     } catch (error) {
-      _toast(error.toString());
+      _toast(_friendlyErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -1882,7 +1908,7 @@ String? _vBrief(String? v) {
                               : const SizedBox.shrink(),
                         ),
                       const SizedBox(height: 16),
-                     _reqLabel(translateText('Brief About Team Member')),
+                      _reqLabel(translateText('Brief About Team Member')),
                       const SizedBox(height: 8),
                       TextFormField(
                         focusNode: _brieftFocus,

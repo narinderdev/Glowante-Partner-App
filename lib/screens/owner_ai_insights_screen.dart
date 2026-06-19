@@ -184,6 +184,7 @@ class _OwnerAiInsightsScreenState extends State<OwnerAiInsightsScreen> {
             branchId: branchId,
             salonName: salonName,
             branchName: _cleanText(branch['name']),
+            address: _branchAddressSummary(branch['address']),
           ),
         );
       }
@@ -195,6 +196,27 @@ class _OwnerAiInsightsScreenState extends State<OwnerAiInsightsScreen> {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty || text.toLowerCase() == 'null') return '';
     return text;
+  }
+
+  String _branchAddressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+
+    void push(dynamic value) {
+      final text = _cleanText(value);
+      if (text.isNotEmpty && !parts.contains(text)) parts.add(text);
+    }
+
+    push(address['line1']);
+    push(address['line2']);
+    push(address['village']);
+    push(address['district']);
+    push(address['city']);
+    push(address['state']);
+    push(address['postalCode']);
+    push(address['country']);
+    return parts.join(', ');
   }
 
   int _asInt(dynamic value) {
@@ -267,76 +289,11 @@ class _OwnerAiInsightsScreenState extends State<OwnerAiInsightsScreen> {
   }
 
   Widget _buildBranchSelector() {
-    return _AiSection(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _AiEyebrow(context.t('Select Branch')),
-          const SizedBox(height: 12),
-          if (_loadingBranches)
-            const Center(child: CircularProgressIndicator())
-          else if (_branchOptions.isEmpty)
-            Text(
-              context.t('No branches available'),
-              style: const TextStyle(color: Color(0xFF78716C)),
-            )
-          else
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: _branchOptions.map((option) {
-                final isSelected = option.branchId == _selectedBranchId;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: () => _loadInsights(option.branchId),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isSelected ? const Color(0xFFF7EFE4) : Colors.white,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.starColor
-                            : const Color(0xFFE8D8C8),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.check_circle_outline_rounded,
-                          size: 15,
-                          color: isSelected
-                              ? AppColors.starColor
-                              : const Color(0xFF9CA3AF),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          option.branchName.isEmpty
-                              ? option.salonName
-                              : option.branchName,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight:
-                                isSelected ? FontWeight.w800 : FontWeight.w600,
-                            color: isSelected
-                                ? AppColors.starColor
-                                : const Color(0xFF5F574F),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
-      ),
+    return _AiBranchSelector(
+      isLoading: _loadingBranches,
+      branches: _branchOptions,
+      selectedBranchId: _selectedBranchId,
+      onBranchSelected: (branch) => _loadInsights(branch.branchId),
     );
   }
 
@@ -684,12 +641,213 @@ class _AiBranchOption {
     required this.branchId,
     required this.salonName,
     required this.branchName,
+    required this.address,
   });
 
   final int salonId;
   final int branchId;
   final String salonName;
   final String branchName;
+  final String address;
+
+  String get displayLabel => branchName.isEmpty ? salonName : branchName;
+}
+
+class _AiBranchSelector extends StatelessWidget {
+  const _AiBranchSelector({
+    required this.isLoading,
+    required this.branches,
+    required this.selectedBranchId,
+    required this.onBranchSelected,
+  });
+
+  final bool isLoading;
+  final List<_AiBranchOption> branches;
+  final int? selectedBranchId;
+  final ValueChanged<_AiBranchOption> onBranchSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = branches.cast<_AiBranchOption?>().firstWhere(
+          (branch) => branch?.branchId == selectedBranchId,
+          orElse: () => null,
+        );
+
+    if (isLoading) {
+      return const _AiBranchSelectorShell(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFF8B6500),
+          ),
+        ),
+      );
+    }
+
+    if (branches.isEmpty) {
+      return _AiBranchSelectorShell(
+        child: Text(
+          context.t('No branches available'),
+          style: const TextStyle(
+            color: Color(0xFF78716C),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final selectedBranch = selected ?? branches.first;
+    final child = _AiBranchSelectorContent(
+      branch: selectedBranch,
+      showDropdown: branches.length > 1,
+    );
+
+    if (branches.length <= 1) return child;
+
+    return PopupMenuButton<_AiBranchOption>(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      constraints: const BoxConstraints(minWidth: 280),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFFE8DED6)),
+      ),
+      onSelected: onBranchSelected,
+      itemBuilder: (context) {
+        return branches.map((branch) {
+          return PopupMenuItem<_AiBranchOption>(
+            value: branch,
+            child: _AiBranchMenuItem(
+              branch: branch,
+              isSelected: branch.branchId == selectedBranch.branchId,
+            ),
+          );
+        }).toList();
+      },
+      child: child,
+    );
+  }
+}
+
+class _AiBranchSelectorShell extends StatelessWidget {
+  const _AiBranchSelectorShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _AiBranchSelectorContent extends StatelessWidget {
+  const _AiBranchSelectorContent({
+    required this.branch,
+    required this.showDropdown,
+  });
+
+  final _AiBranchOption branch;
+  final bool showDropdown;
+
+  @override
+  Widget build(BuildContext context) {
+    return _AiBranchSelectorShell(
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 18,
+            backgroundColor: Color(0xFFF3E8D1),
+            child: Icon(
+              Icons.storefront_outlined,
+              color: Color(0xFF8B6500),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  branch.displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF2D2926),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (branch.address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    branch.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF756A61),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (showDropdown)
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF8B6500),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiBranchMenuItem extends StatelessWidget {
+  const _AiBranchMenuItem({
+    required this.branch,
+    required this.isSelected,
+  });
+
+  final _AiBranchOption branch;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          isSelected
+              ? Icons.check_circle_outline_rounded
+              : Icons.storefront_outlined,
+          size: 18,
+          color: const Color(0xFF8B6500),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _AiBranchSelectorContent(
+            branch: branch,
+            showDropdown: false,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _SummaryCardData {
@@ -1294,25 +1452,6 @@ class _AiSection extends StatelessWidget {
         ],
       ),
       child: child,
-    );
-  }
-}
-
-class _AiEyebrow extends StatelessWidget {
-  const _AiEyebrow(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text.toUpperCase(),
-      style: const TextStyle(
-        color: Color(0xFF81736A),
-        fontSize: 10,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 1.5,
-      ),
     );
   }
 }

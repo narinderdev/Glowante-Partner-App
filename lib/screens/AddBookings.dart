@@ -457,13 +457,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final fullPhone = _customerDisplayPhone(customer);
 
     setState(() {
-   final resolvedUserId =
-    _extractUserId(customer) ??
-    _intValue(customer['userId']) ??
-    _intValue(customer['customerId']) ??
-    _intValue(customer['clientId']);
+      final resolvedUserId = _extractUserId(customer) ??
+          _intValue(customer['userId']) ??
+          _intValue(customer['customerId']) ??
+          _intValue(customer['clientId']);
 
-_clientIdCtrl.text = resolvedUserId?.toString() ?? '';
+      _clientIdCtrl.text = resolvedUserId?.toString() ?? '';
       _clientfNameCtrl.text = firstName;
       _clientlNameCtrl.text = lastName;
       _mobileCtrl.text = fullPhone.isNotEmpty ? fullPhone : phoneDigits;
@@ -1398,16 +1397,19 @@ _clientIdCtrl.text = resolvedUserId?.toString() ?? '';
                                       setDialogState(() => isSubmitting = true);
 
                                       try {
-                                      final response = await ApiService().registerCustomer(
-  phoneNumber: phone,
-  firstName: firstName,
-  lastName: lastName,
-);
+                                        final response =
+                                            await ApiService().registerCustomer(
+                                          phoneNumber: phone,
+                                          firstName: firstName,
+                                          lastName: lastName,
+                                        );
 
-if (response['success'] == false) {
-  _showError(response['message']?.toString() ?? 'Failed register customer');
-  return;
-}
+                                        if (response['success'] == false) {
+                                          _showError(
+                                              response['message']?.toString() ??
+                                                  'Failed register customer');
+                                          return;
+                                        }
 
                                         if (!ctx.mounted) return;
 
@@ -2166,68 +2168,103 @@ if (response['success'] == false) {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        children: [
-          Theme(
-            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-            child: ExpansionTile(
-              initiallyExpanded: query.isNotEmpty,
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: EdgeInsets.zero,
-              iconColor: _bookingGold,
-              collapsedIconColor: _bookingGold,
-              leading: const Icon(Icons.spa_outlined, color: _bookingGold),
-              title: Text(
-                catName.isEmpty ? translateText('Services') : catName,
-                style: const TextStyle(
-                  color: _bookingInk,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              children: [
-                for (final service in visibleCatServices)
-                  _serviceSheetTile(
-                    Map<String, dynamic>.from(service),
-                    pendingIds,
-                    onToggle,
-                  ),
-                for (final sub in visibleSubs) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.content_cut_rounded,
-                          color: _bookingGold,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          (sub['name'] ?? '').toString(),
-                          style: const TextStyle(
-                            color: _bookingInk,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  for (final service in ((sub['services'] as List?) ?? const [])
-                      .whereType<Map>())
-                    if (serviceVisible(service))
-                      _serviceSheetTile(
-                        Map<String, dynamic>.from(service),
-                        pendingIds,
-                        onToggle,
-                      ),
-                ],
-              ],
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _bookingBorder),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D000000),
+              blurRadius: 8,
+              offset: Offset(0, 3),
             ),
-          ),
-          const Divider(height: 1, color: _bookingBorder),
-        ],
+          ],
+        ),
+        child: Column(
+          children: [
+            Theme(
+              data:
+                  Theme.of(context).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                initiallyExpanded: query.isNotEmpty,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+                childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                iconColor: _bookingGold,
+                collapsedIconColor: _bookingGold,
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3E8D1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.content_cut_rounded,
+                    color: _bookingGold,
+                    size: 21,
+                  ),
+                ),
+                title: Text(
+                  catName.isEmpty ? translateText('Services') : catName,
+                  style: const TextStyle(
+                    color: _bookingInk,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                children: [
+                  for (final service in visibleCatServices)
+                    _serviceSheetTile(
+                      Map<String, dynamic>.from(service),
+                      pendingIds,
+                      onToggle,
+                    ),
+                  for (final sub in visibleSubs) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(2, 12, 2, 6),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3E8D1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(
+                              Icons.content_cut_rounded,
+                              color: _bookingGold,
+                              size: 15,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            (sub['name'] ?? '').toString(),
+                            style: const TextStyle(
+                              color: _bookingInk,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    for (final service
+                        in ((sub['services'] as List?) ?? const [])
+                            .whereType<Map>())
+                      if (serviceVisible(service))
+                        _serviceSheetTile(
+                          Map<String, dynamic>.from(service),
+                          pendingIds,
+                          onToggle,
+                        ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2244,53 +2281,78 @@ if (response['success'] == false) {
     final selected = id is int && pendingIds.contains(id);
     return InkWell(
       onTap: () => onToggle(service),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        margin: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? _bookingGoldLight : _bookingBorder,
           ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0D000000),
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      color: _bookingInk,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    [
-                      if (duration is num && duration > 0)
-                        '${duration.toInt()} min',
-                      if (price is num) _formatServicePrice(price),
-                    ].join('  •  '),
-                    style: const TextStyle(
-                      color: _bookingMuted,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+            Container(
+              width: 22,
+              height: 22,
+              margin: const EdgeInsets.only(top: 13),
+              decoration: BoxDecoration(
+                color: selected ? _bookingGold : Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: selected ? _bookingGold : const Color(0xFFD8CBBE),
+                  width: 1.5,
+                ),
               ),
+              child: selected
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 17,
+                    )
+                  : null,
             ),
-            Icon(
-              selected
-                  ? Icons.radio_button_checked_rounded
-                  : Icons.radio_button_unchecked_rounded,
-              color: selected ? _bookingGold : const Color(0xFFD8CEC5),
-              size: 20,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        color: _bookingInk,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      [
+                        if (price is num) _formatServicePrice(price),
+                        if (duration is num && duration > 0)
+                          '${duration.toInt()} min',
+                      ].join('  •  '),
+                      style: const TextStyle(
+                        color: _bookingMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

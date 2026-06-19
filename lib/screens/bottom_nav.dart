@@ -10,6 +10,7 @@ import '../widgets/shared_bottom_nav_bar.dart';
 import 'Bookings.dart';
 import 'category_screen.dart';
 import 'owner_dashboard_screen.dart';
+import 'owner_more_screen.dart';
 import 'profile_screen.dart';
 import 'salons_screen.dart';
 
@@ -38,11 +39,11 @@ class _BottomNavState extends State<BottomNav> {
     _salonsScreenKey = GlobalKey<SalonsScreenState>();
     _categoryScreenKey = GlobalKey<CategoryScreenState>();
     _screens = [
-      const OwnerDashboardScreen(),
+      OwnerDashboardScreen(onOpenMoreTab: _openProfileMenu),
       const BookingsScreen(),
       SalonsScreen(key: _salonsScreenKey),
       CategoryScreen(key: _categoryScreenKey),
-      const ProfileScreen(),
+      const OwnerMoreScreen(),
     ];
     _currentIndex = widget.tabIndex.clamp(0, _screens.length - 1);
     debugPrint(
@@ -108,6 +109,12 @@ class _BottomNavState extends State<BottomNav> {
       });
     }
     debugPrint('[HomeReach] Owner home shell active tab=$_currentIndex');
+  }
+
+  void _openProfileMenu() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
   }
 
   @override

@@ -16,6 +16,7 @@ const Color _serviceMuted = Color(0xFF6F665E);
 const Color _serviceBorder = Color(0xFFE3DCD7);
 const Color _serviceFieldFill = Colors.white;
 const Color _serviceSurface = Color(0xFFFBFAF8);
+const List<int> _durationOptions = <int>[15, 30, 45, 60, 90, 120, 180];
 
 class AddServices extends StatefulWidget {
   final int branchId;
@@ -81,6 +82,18 @@ class _AddServicesState extends State<AddServices> {
   int? get _enteredPrice => int.tryParse(priceController.text.trim());
   bool get _hasValidPrice => (_enteredPrice ?? 0) > 0;
   bool get _isEditMode => widget.serviceToEdit != null;
+
+  int? get _selectedDuration => _asInt(durationController.text.trim());
+
+  List<int> get _durationMenuOptions {
+    final selected = _selectedDuration;
+    final options = <int>{..._durationOptions};
+    if (selected != null && selected > 0) {
+      options.add(selected);
+    }
+    final sorted = options.toList()..sort();
+    return sorted;
+  }
 
   int? _asInt(dynamic value) {
     if (value is int) return value;
@@ -405,6 +418,14 @@ class _AddServicesState extends State<AddServices> {
     return null;
   }
 
+  String _durationLabel(int minutes) {
+    if (minutes < 60) return '${minutes}m';
+    if (minutes % 60 == 0) return '${minutes ~/ 60}h';
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    return '${hours}h ${mins}m';
+  }
+
   int? _minorIntFromRupeeText(String value) {
     final parsed = num.tryParse(value.trim());
     return parsed == null ? null : rupeesToMinorAmount(parsed);
@@ -462,6 +483,7 @@ class _AddServicesState extends State<AddServices> {
   Widget build(BuildContext context) {
     final categoryItems =
         buildCategoryAndSubcategoryKeyItems(widget.categories ?? []);
+    final durationMenuOptions = _durationMenuOptions;
 
     return Scaffold(
       backgroundColor: _serviceSurface,
@@ -634,28 +656,88 @@ class _AddServicesState extends State<AddServices> {
                               children: [
                                 _FieldLabel(translateText("Duration *")),
                                 const SizedBox(height: 7),
-                                TextFormField(
-                                  controller: durationController,
-                                  maxLength: 4,
-                                  maxLengthEnforcement:
-                                      MaxLengthEnforcement.enforced,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  onChanged: (_) => setState(() {}),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(4),
-                                  ],
+                                DropdownButtonFormField<int>(
+                                  initialValue: durationMenuOptions
+                                          .contains(_selectedDuration)
+                                      ? _selectedDuration
+                                      : null,
+                                  isExpanded: true,
+                                  dropdownColor: const Color(0xFF6B665F),
+                                  borderRadius: BorderRadius.circular(8),
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    color: _serviceGold,
+                                  ),
+                                  selectedItemBuilder: (context) {
+                                    return durationMenuOptions
+                                        .map(
+                                          (minutes) => Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              _durationLabel(minutes),
+                                              style: const TextStyle(
+                                                color: _serviceInk,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList();
+                                  },
+                                  items: durationMenuOptions.map((minutes) {
+                                    final selected =
+                                        minutes == _selectedDuration;
+                                    return DropdownMenuItem<int>(
+                                      value: minutes,
+                                      child: Row(
+                                        children: [
+                                          SizedBox(
+                                            width: 18,
+                                            child: selected
+                                                ? const Icon(
+                                                    Icons.check_rounded,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  )
+                                                : null,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            _durationLabel(minutes),
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      durationController.text =
+                                          value.toString();
+                                    });
+                                  },
                                   decoration: _inputDecoration(
-                                    hint: translateText("Minutes"),
+                                    hint: translateText("Duration"),
                                     suffixIcon: Icons.timer_outlined,
                                   ),
-                                  validator: _validateDuration,
+                                  validator: (value) => _validateDuration(
+                                    value?.toString(),
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
-                                _FieldCounter(
-                                  currentLength: durationController.text.length,
-                                  maxLength: 4,
+                                Text(
+                                  translateText('Select service duration'),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _serviceMuted,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ],
                             ),

@@ -1455,7 +1455,7 @@ class _SalonCard extends StatelessWidget {
 
   Widget _heroImage(String? imageUrl) {
     final usableImageUrl = _usableSalonImageUrl(imageUrl);
-    if (usableImageUrl == null) return _localHeroImage();
+    if (usableImageUrl == null) return _noSalonImageCard();
     return SizedBox(
       height: _salonHeroImageHeight,
       width: double.infinity,
@@ -1465,27 +1465,40 @@ class _SalonCard extends StatelessWidget {
           const ColoredBox(color: Color(0xFFF1EFEC)),
           _AdaptiveSalonNetworkImage(
             imageUrl: usableImageUrl,
-            fallback: _localHeroImage(),
+            fallback: _noSalonImageCard(),
           ),
         ],
       ),
     );
   }
 
-  Widget _localHeroImage() {
+  Widget _noSalonImageCard() {
     return SizedBox(
       height: _salonHeroImageHeight,
       width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const ColoredBox(color: Color(0xFFF1EFEC)),
-          Image.asset(
-            'assets/images/salonImage.png',
-            fit: BoxFit.contain,
-            alignment: Alignment.center,
-          ),
-        ],
+      child: Container(
+        width: double.infinity,
+        color: const Color(0xFFF7F3EF),
+        alignment: Alignment.center,
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.image_not_supported_outlined,
+              color: Color(0xFF8B6500),
+              size: 30,
+            ),
+            SizedBox(height: 8),
+            Text(
+              'No image available',
+              style: TextStyle(
+                color: Color(0xFF756A61),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1890,7 +1903,7 @@ class _SalonCard extends StatelessWidget {
               children: [
                 _AutoSlidingHeroImage(
                   imageUrls: heroImageUrls,
-                  fallback: _localHeroImage(),
+                  fallback: _noSalonImageCard(),
                   imageBuilder: _heroImage,
                 ),
                 Positioned(

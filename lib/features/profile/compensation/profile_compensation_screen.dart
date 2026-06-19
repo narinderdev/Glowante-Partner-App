@@ -27,9 +27,11 @@ enum CompensationModule {
 }
 
 enum _CommissionTab { services, overrides }
+
 String _formatCurrency(num minorAmount) {
   return '₹${(minorAmount / 100).toStringAsFixed(2)}';
 }
+
 class ProfileCompensationScreen extends StatefulWidget {
   const ProfileCompensationScreen({
     super.key,
@@ -2979,7 +2981,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                     .toList(),
                 selectedValue: _selectedBranch?.branchId,
                 placeholder: context.t('Select Branch'),
-                isInteractive: true,
+                isInteractive: _branchOptions.length > 1,
                 onSelected: (branchId) {
                   final next = _branchOptions.firstWhere(
                     (item) => item.branchId == branchId,

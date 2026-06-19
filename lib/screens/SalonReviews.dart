@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
@@ -20,27 +22,50 @@ class _SalonReviewsState extends State<SalonReviews> {
   double overallRating = 0;
   int totalReviews = 0;
 
-  int? _branchId; // ✅ Added
-  String? _error; // ✅ Added
+  List<_ReviewBranchOption> _branchOptions = const <_ReviewBranchOption>[];
+  _ReviewBranchOption? _selectedBranch;
+  int? _branchId;
+  String? _error;
 
   final dateFormat = DateFormat('dd MMM yyyy, h:mm a');
 
   @override
   void initState() {
     super.initState();
-    _resolveBranchId();
+    _loadBranchesAndReviews();
   }
 
-  Future<void> _resolveBranchId() async {
+  Future<void> _loadBranchesAndReviews() async {
+    setState(() {
+      loading = true;
+      _error = null;
+    });
+
     int? id = widget.branchId;
     if (id == null) {
       final prefs = await SharedPreferences.getInstance();
-      id = prefs.getInt('selected_branch_id');
+      id = prefs.getInt('selected_branch_id') ??
+          (await StylistBranchSelectionStore.load()).branchId;
     }
+
+    final response = await ApiService().getSalonListApi();
+    final rawSalons =
+        response['data'] is List ? response['data'] as List : const [];
+    final options = _extractBranchOptions(rawSalons);
+    final selected = options.cast<_ReviewBranchOption?>().firstWhere(
+          (option) => option?.branchId == id,
+          orElse: () => options.isEmpty ? null : options.first,
+        );
 
     if (!mounted) return;
 
-    if (id == null) {
+    setState(() {
+      _branchOptions = options;
+      _selectedBranch = selected;
+      _branchId = selected?.branchId;
+    });
+
+    if (selected == null) {
       setState(() {
         loading = false;
         _branchId = null;
@@ -52,13 +77,74 @@ class _SalonReviewsState extends State<SalonReviews> {
       return;
     }
 
+    await fetchReviews(selected.branchId);
+  }
+
+  List<_ReviewBranchOption> _extractBranchOptions(List<dynamic> rawSalons) {
+    final options = <_ReviewBranchOption>[];
+    for (final salonEntry in rawSalons) {
+      if (salonEntry is! Map) continue;
+      final salon = Map<String, dynamic>.from(salonEntry);
+      final salonId = _asInt(salon['id']);
+      if (salonId == null) continue;
+      final salonName = _cleanText(salon['name']);
+      final branches = (salon['branches'] as List?) ?? const [];
+      for (final branchEntry in branches) {
+        if (branchEntry is! Map) continue;
+        final branch = Map<String, dynamic>.from(branchEntry);
+        final branchId = _asInt(branch['id']);
+        if (branchId == null) continue;
+        options.add(
+          _ReviewBranchOption(
+            salonId: salonId,
+            branchId: branchId,
+            salonName: salonName,
+            branchName: _cleanText(branch['name']),
+            address: _addressSummary(branch['address']),
+          ),
+        );
+      }
+    }
+    return options;
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('${value ?? ''}');
+  }
+
+  String _cleanText(dynamic value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null') return '';
+    return text;
+  }
+
+  String _addressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+    for (final key in ['line1', 'line2', 'city', 'state']) {
+      final value = _cleanText(address[key]);
+      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
+    }
+    return parts.take(2).join(', ');
+  }
+
+  Future<void> _switchBranch(_ReviewBranchOption branch) async {
     setState(() {
-      _branchId = id;
+      _selectedBranch = branch;
+      _branchId = branch.branchId;
       loading = true;
       _error = null;
     });
-
-    await fetchReviews(id);
+    await StylistBranchSelectionStore.save(
+      salonId: branch.salonId,
+      branchId: branch.branchId,
+      salonName: branch.salonName,
+      branchName: branch.branchName,
+    );
+    await fetchReviews(branch.branchId);
   }
 
   Future<void> fetchReviews(int branchId) async {
@@ -189,10 +275,36 @@ class _SalonReviewsState extends State<SalonReviews> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (_branchOptions.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: _buildBranchSelector(),
+              ),
+            ],
             Expanded(child: _buildReviewsContent(context)),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBranchSelector() {
+    final selected = _selectedBranch;
+    return OwnerBranchHeaderSelector<_ReviewBranchOption>(
+      label: selected?.displayLabel ?? context.t('Select Branch'),
+      options: _branchOptions
+          .map(
+            (option) => OwnerBranchHeaderSelectorOption<_ReviewBranchOption>(
+              value: option,
+              label: option.displayLabel,
+              subtitle: option.address,
+            ),
+          )
+          .toList(),
+      selectedValue: selected,
+      placeholder: context.t('Select Branch'),
+      isInteractive: _branchOptions.length > 1,
+      onSelected: _switchBranch,
     );
   }
 
@@ -377,5 +489,27 @@ class _SalonReviewsState extends State<SalonReviews> {
         ],
       ),
     );
+  }
+}
+
+class _ReviewBranchOption {
+  const _ReviewBranchOption({
+    required this.salonId,
+    required this.branchId,
+    required this.salonName,
+    required this.branchName,
+    required this.address,
+  });
+
+  final int salonId;
+  final int branchId;
+  final String salonName;
+  final String branchName;
+  final String address;
+
+  String get displayLabel {
+    if (branchName.trim().isNotEmpty) return branchName.trim();
+    if (salonName.trim().isNotEmpty) return salonName.trim();
+    return 'Branch #$branchId';
   }
 }

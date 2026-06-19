@@ -51,6 +51,9 @@ class _PackageScreenState extends State<PackageScreen> {
               'branchName': branch['name'],
               'salonId': salon['id'],
               'salonName': salon['name'],
+              'addressSummary': _branchAddressSummary(
+                branch['address'] ?? salon['address'],
+              ),
             };
           }).toList();
         }).toList();
@@ -249,6 +252,75 @@ class _PackageScreenState extends State<PackageScreen> {
 
   String _rs(num? n) => formatMinorAmount(n ?? 0, trimZeroDecimals: true);
 
+  Map<String, dynamic> _selectedSalonPayload(Map<String, dynamic> branch) {
+    return {
+      'salonId': branch['salonId'],
+      'salonName': branch['salonName'],
+      'branchId': branch['branchId'],
+      'branchName': branch['branchName'],
+      'addressSummary': branch['addressSummary'],
+    };
+  }
+
+  String _branchLabel(Map<String, dynamic> branch) {
+    final branchName = (branch['branchName'] ?? '').toString().trim();
+    final salonName = (branch['salonName'] ?? '').toString().trim();
+    return branchName.isNotEmpty ? branchName : salonName;
+  }
+
+  String _branchAddressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+
+    void push(dynamic value) {
+      final text = value?.toString().trim() ?? '';
+      if (text.isEmpty ||
+          text.toLowerCase() == 'null' ||
+          parts.contains(text)) {
+        return;
+      }
+      parts.add(text);
+    }
+
+    push(address['line1']);
+    push(address['line2']);
+    push(address['village']);
+    push(address['district']);
+    push(address['city']);
+    push(address['state']);
+    push(address['postalCode']);
+    push(address['country']);
+    return parts.join(', ');
+  }
+
+  Future<void> _selectSalonBranch(Map<String, dynamic> branch) async {
+    setState(() {
+      selectedSalonId = branch['branchId'] as int?;
+      selectedSalon = _selectedSalonPayload(branch);
+    });
+    final branchId = branch['branchId'];
+    if (branchId is int) {
+      await _fetchOffers(branchId);
+    }
+  }
+
+  Widget _buildSalonSelector(List<Map<String, dynamic>> salons) {
+    final selected = salons.cast<Map<String, dynamic>?>().firstWhere(
+              (salon) => salon?['branchId'] == selectedSalonId,
+              orElse: () => null,
+            ) ??
+        salons.first;
+
+    return _BranchSelectorField(
+      selectedBranch: selected,
+      branches: salons,
+      showDropdown: salons.length > 1,
+      labelBuilder: _branchLabel,
+      onSelected: _selectSalonBranch,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -269,41 +341,6 @@ class _PackageScreenState extends State<PackageScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DropdownButtonFormField<int>(
-                    value: selectedSalonId,
-                    isExpanded: true,
-                    items: snapshot.data!
-                        .map<DropdownMenuItem<int>>(
-                          (branch) => DropdownMenuItem(
-                            value: branch['branchId'],
-                            child: Text(
-                              "${branch['salonName']} - ${branch['branchName']}",
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) async {
-                      setState(() => selectedSalonId = value);
-                      if (value != null) {
-                        final branch = snapshot.data!
-                            .firstWhere((b) => b['branchId'] == value);
-                        selectedSalon = branch;
-                        await _fetchOffers(branch['branchId']);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: translateText('Branch'),
-                      filled: true,
-                      fillColor: kDropdownFill,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
                   Expanded(
                     child: Center(
                         child: Text(translateText('No salons available'))),
@@ -333,42 +370,7 @@ class _PackageScreenState extends State<PackageScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DropdownButtonFormField<int>(
-                    value: selectedSalonId,
-                    isExpanded: true,
-                    items: salons.map<DropdownMenuItem<int>>((salon) {
-                      return DropdownMenuItem(
-                        value: salon['branchId'] as int,
-                        child: Text(
-                          "${salon['branchName']}", // 👈 show both
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (value) async {
-                      setState(() => selectedSalonId = value);
-                      if (value != null) {
-                        final selected =
-                            salons.firstWhere((s) => s['branchId'] == value);
-                        selectedSalon = {
-                          'salonId': selected['salonId'],
-                          'salonName': selected['salonName'],
-                          'branchId': selected['branchId'],
-                          'branchName': selected['branchName'],
-                        };
-                        await _fetchOffers(selected['branchId']);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: translateText('Salon'),
-                      filled: true,
-                      fillColor: kDropdownFill,
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
+                  _buildSalonSelector(salons),
                   const SizedBox(height: 12),
                   Expanded(
                     child: Builder(builder: (context) {
@@ -475,6 +477,172 @@ class _PackageScreenState extends State<PackageScreen> {
 // ✅ _OfferCard widget stays as-is (no crash after sanitization)
 
 // keep button styles and helpers as you already had them...
+class _BranchSelectorField extends StatelessWidget {
+  const _BranchSelectorField({
+    required this.selectedBranch,
+    required this.branches,
+    required this.showDropdown,
+    required this.labelBuilder,
+    required this.onSelected,
+  });
+
+  final Map<String, dynamic> selectedBranch;
+  final List<Map<String, dynamic>> branches;
+  final bool showDropdown;
+  final String Function(Map<String, dynamic>) labelBuilder;
+  final ValueChanged<Map<String, dynamic>> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = _BranchSelectorContent(
+      branch: selectedBranch,
+      labelBuilder: labelBuilder,
+      showDropdown: showDropdown,
+    );
+
+    if (!showDropdown) return child;
+
+    return PopupMenuButton<Map<String, dynamic>>(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      constraints: const BoxConstraints(minWidth: 280),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFFE8DED6)),
+      ),
+      onSelected: onSelected,
+      itemBuilder: (context) {
+        return branches.map((branch) {
+          final isSelected = branch['branchId'] == selectedBranch['branchId'];
+          return PopupMenuItem<Map<String, dynamic>>(
+            value: branch,
+            child: _BranchMenuItem(
+              branch: branch,
+              labelBuilder: labelBuilder,
+              isSelected: isSelected,
+            ),
+          );
+        }).toList();
+      },
+      child: child,
+    );
+  }
+}
+
+class _BranchSelectorContent extends StatelessWidget {
+  const _BranchSelectorContent({
+    required this.branch,
+    required this.labelBuilder,
+    required this.showDropdown,
+  });
+
+  final Map<String, dynamic> branch;
+  final String Function(Map<String, dynamic>) labelBuilder;
+  final bool showDropdown;
+
+  @override
+  Widget build(BuildContext context) {
+    final address = (branch['addressSummary'] ?? '').toString().trim();
+
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 18,
+            backgroundColor: Color(0xFFF3E8D1),
+            child: Icon(
+              Icons.storefront_outlined,
+              color: Color(0xFF8B6500),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  labelBuilder(branch),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF2D2926),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (address.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF756A61),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (showDropdown)
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF8B6500),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BranchMenuItem extends StatelessWidget {
+  const _BranchMenuItem({
+    required this.branch,
+    required this.labelBuilder,
+    required this.isSelected,
+  });
+
+  final Map<String, dynamic> branch;
+  final String Function(Map<String, dynamic>) labelBuilder;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          isSelected
+              ? Icons.check_circle_outline_rounded
+              : Icons.storefront_outlined,
+          size: 18,
+          color: const Color(0xFF8B6500),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _BranchSelectorContent(
+            branch: branch,
+            labelBuilder: labelBuilder,
+            showDropdown: false,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _OfferCard extends StatelessWidget {
   const _OfferCard({
     required this.offer,

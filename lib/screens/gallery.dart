@@ -336,9 +336,8 @@ class _GalleryScreenState extends State<GalleryScreen> {
         ? _branchName
         : selectedBranch?.displayLabel ?? context.t('Gallery');
 
-    final displayAddress = _address.isNotEmpty
-        ? _address
-        : selectedBranch?.address ?? '';
+    final displayAddress =
+        _address.isNotEmpty ? _address : selectedBranch?.address ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
@@ -600,101 +599,184 @@ class _BranchSelectorCard extends StatelessWidget {
         .cast<_GalleryBranchOption?>()
         .firstOrNull;
 
+    if (isLoading) {
+      return Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 58),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE8DED6)),
+        ),
+        child: const Align(
+          alignment: Alignment.centerLeft,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: Color(0xFF8B6500),
+          ),
+        ),
+      );
+    }
+
+    if (branches.isEmpty) {
+      return Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 58),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE8DED6)),
+        ),
+        alignment: Alignment.centerLeft,
+        child: Text(
+          context.t('No branches available'),
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF78716C),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    final selectedBranch = selected ?? branches.first;
+    final child = _GalleryBranchSelectorContent(
+      branch: selectedBranch,
+      showDropdown: branches.length > 1,
+    );
+
+    if (branches.length <= 1) return child;
+
+    return PopupMenuButton<_GalleryBranchOption>(
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 10,
+      constraints: const BoxConstraints(minWidth: 280),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: Color(0xFFE8DED6)),
+      ),
+      onSelected: onBranchSelected,
+      itemBuilder: (context) {
+        return branches.map((branch) {
+          return PopupMenuItem<_GalleryBranchOption>(
+            value: branch,
+            child: _GalleryBranchMenuItem(
+              branch: branch,
+              isSelected: branch.branchId == selectedBranch.branchId,
+            ),
+          );
+        }).toList();
+      },
+      child: child,
+    );
+  }
+}
+
+class _GalleryBranchSelectorContent extends StatelessWidget {
+  const _GalleryBranchSelectorContent({
+    required this.branch,
+    required this.showDropdown,
+  });
+
+  final _GalleryBranchOption branch;
+  final bool showDropdown;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+      constraints: const BoxConstraints(minHeight: 58),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFE8E1DB),
-        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8DED6)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Text(
-            'SELECT BRANCH',
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 1.3,
-              color: Color(0xFF6B7280),
-              fontWeight: FontWeight.w800,
+          const CircleAvatar(
+            radius: 18,
+            backgroundColor: Color(0xFFF3E8D1),
+            child: Icon(
+              Icons.storefront_outlined,
+              color: Color(0xFF8B6500),
+              size: 20,
             ),
           ),
-          const SizedBox(height: 12),
-          if (isLoading)
-            const SizedBox(
-              height: 28,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Color(0xFFFF6B00),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  branch.displayLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF2D2926),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
-            )
-          else if (branches.isEmpty)
-            Text(
-              context.t('No branches available'),
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF78716C),
-                fontWeight: FontWeight.w600,
-              ),
-            )
-          else
-            DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                value: selected?.branchId,
-                isDense: true,
-                icon: const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  color: Color(0xFF9A6A00),
-                ),
-                items: branches.map((branch) {
-                  return DropdownMenuItem<int>(
-                    value: branch.branchId,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          branch.branchId == selectedBranchId
-                              ? Icons.check_circle_outline_rounded
-                              : Icons.storefront_outlined,
-                          size: 16,
-                          color: branch.branchId == selectedBranchId
-                              ? const Color(0xFF9A6A00)
-                              : const Color(0xFF78716C),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          branch.displayLabel,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: branch.branchId == selectedBranchId
-                                ? const Color(0xFF9A6A00)
-                                : const Color(0xFF78716C),
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
+                if (branch.address.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    branch.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF756A61),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
-                  );
-                }).toList(),
-                onChanged: (branchId) {
-                  if (branchId == null) return;
-
-                  final branch = branches.firstWhere(
-                    (item) => item.branchId == branchId,
-                  );
-
-                  onBranchSelected(branch);
-                },
-              ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (showDropdown)
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: Color(0xFF8B6500),
             ),
         ],
       ),
+    );
+  }
+}
+
+class _GalleryBranchMenuItem extends StatelessWidget {
+  const _GalleryBranchMenuItem({
+    required this.branch,
+    required this.isSelected,
+  });
+
+  final _GalleryBranchOption branch;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          isSelected
+              ? Icons.check_circle_outline_rounded
+              : Icons.storefront_outlined,
+          size: 18,
+          color: const Color(0xFF8B6500),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _GalleryBranchSelectorContent(
+            branch: branch,
+            showDropdown: false,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -785,7 +867,7 @@ class _EmptyGalleryBox extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           const Text(
-            'No images yet',
+            'No image available',
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
@@ -794,7 +876,7 @@ class _EmptyGalleryBox extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Upload stunning salon visuals from the Glowante apps to bring this gallery to life. We will showcase them here automatically.',
+            'Salon images will appear here once they are available.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,

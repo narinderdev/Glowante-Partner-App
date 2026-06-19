@@ -327,6 +327,7 @@ class _OwnerProfileOperationsScreenState
               branchId: branchId,
               salonName: salonName,
               branchName: _stringValue(branch['name']),
+              address: _branchAddressSummary(branch['address']),
             ),
           );
         }
@@ -386,6 +387,17 @@ class _OwnerProfileOperationsScreenState
       branchName: option.branchName,
     );
     await _reloadCurrent();
+  }
+
+  String _branchAddressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+    for (final key in ['line1', 'line2', 'city', 'state']) {
+      final value = _stringValue(address[key]);
+      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
+    }
+    return parts.take(2).join(', ');
   }
 
   Future<void> _reloadCurrent({bool showLoader = true}) async {
@@ -1575,7 +1587,7 @@ class _OwnerProfileOperationsScreenState
           (item) => OwnerBranchHeaderSelectorOption<_BranchOption>(
             value: item,
             label: item.label,
-            subtitle: item.branchName,
+            subtitle: item.subtitle,
           ),
         )
         .toList();
@@ -1594,17 +1606,10 @@ class _OwnerProfileOperationsScreenState
               options: options,
               selectedValue: selected,
               placeholder: context.t('Select Branch'),
-              isInteractive: _branchOptions.isNotEmpty,
+              isInteractive: _branchOptions.length > 1,
               onSelected: _switchBranch,
             ),
           ),
-          if (_selectedBranch != null) ...[
-            const SizedBox(width: 12),
-            IconButton(
-              onPressed: _isLoadingContent ? null : () => _reloadCurrent(),
-              icon: const Icon(Icons.refresh_rounded),
-            ),
-          ],
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../services/razorpay_checkout/razorpay_checkout.dart';
 import '../services/razorpay_checkout/razorpay_checkout_models.dart';
@@ -28,6 +29,8 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
   GlowanteRazorpayCheckout? _checkout;
 
   List<_MembershipPlan> _plans = const [];
+  List<_MembershipSalonOption> _salonOptions = const [];
+  _MembershipSalonOption? _selectedSalon;
   _SalonSubscription? _subscription;
   int? _salonId;
   bool _isLoading = true;
@@ -54,7 +57,8 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     });
 
     try {
-      final salonId = await _resolveSalonId();
+      final salonOptions = await _loadSalonOptions();
+      final salonId = salonOptions.selected?.salonId;
       final plansResponse = await _apiService.getMembershipPlans();
       final subscriptionResponse = salonId == null
           ? <String, dynamic>{'success': false}
@@ -63,6 +67,8 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       if (!mounted) return;
       setState(() {
         _salonId = salonId;
+        _salonOptions = salonOptions.options;
+        _selectedSalon = salonOptions.selected;
         _plans = _parsePlans(plansResponse);
         _subscription = _parseSubscription(subscriptionResponse);
         _isLoading = false;
@@ -76,28 +82,69 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     }
   }
 
-  Future<int?> _resolveSalonId() async {
+  Future<_MembershipSalonSelection> _loadSalonOptions() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = _readInt(prefs.get('selected_salon_id'));
-    if (stored != null) return stored;
 
     final response = await _apiService.getSalonListApi();
     final salons =
         response['data'] is List ? response['data'] as List : const [];
+    final options = <_MembershipSalonOption>[];
     for (final entry in salons) {
       if (entry is! Map) continue;
       final salon = Map<String, dynamic>.from(entry);
       final salonId = _readInt(salon['id']);
-      if (salonId != null) {
-        await prefs.setInt('selected_salon_id', salonId);
-        final name = _cleanText(salon['name']);
-        if (name.isNotEmpty) {
-          await prefs.setString('stylist_selected_salon_name', name);
-        }
-        return salonId;
+      if (salonId == null) continue;
+      final salonAddress = _addressSummary(salon['address']);
+      final branches = (salon['branches'] as List?) ?? const [];
+      var fallbackBranchAddress = '';
+      for (final branchEntry in branches) {
+        if (branchEntry is! Map) continue;
+        fallbackBranchAddress = _addressSummary(branchEntry['address']);
+        if (fallbackBranchAddress.isNotEmpty) break;
       }
+      options.add(
+        _MembershipSalonOption(
+          salonId: salonId,
+          name: _cleanText(salon['name']).isEmpty
+              ? 'Salon #$salonId'
+              : _cleanText(salon['name']),
+          address:
+              salonAddress.isNotEmpty ? salonAddress : fallbackBranchAddress,
+        ),
+      );
     }
-    return null;
+
+    final selected = options.cast<_MembershipSalonOption?>().firstWhere(
+          (option) => option?.salonId == stored,
+          orElse: () => options.isEmpty ? null : options.first,
+        );
+
+    if (selected != null) {
+      await _saveSelectedSalon(selected);
+    }
+
+    return _MembershipSalonSelection(
+      options: options,
+      selected: selected,
+    );
+  }
+
+  Future<void> _saveSelectedSalon(_MembershipSalonOption salon) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('selected_salon_id', salon.salonId);
+    await prefs.setString('stylist_selected_salon_name', salon.name);
+  }
+
+  String _addressSummary(dynamic rawAddress) {
+    if (rawAddress is! Map) return '';
+    final address = Map<String, dynamic>.from(rawAddress);
+    final parts = <String>[];
+    for (final key in ['line1', 'line2', 'city', 'state']) {
+      final value = _cleanText(address[key]);
+      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
+    }
+    return parts.take(2).join(', ');
   }
 
   List<_MembershipPlan> _parsePlans(Map<String, dynamic> response) {
@@ -288,6 +335,52 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     );
   }
 
+  Future<void> _switchSalon(_MembershipSalonOption salon) async {
+    await _saveSelectedSalon(salon);
+    if (!mounted) return;
+    setState(() {
+      _selectedSalon = salon;
+      _salonId = salon.salonId;
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final subscriptionResponse =
+          await _apiService.getSalonSubscription(salon.salonId);
+      if (!mounted) return;
+      setState(() {
+        _subscription = _parseSubscription(subscriptionResponse);
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Widget _buildSalonSelector() {
+    if (_selectedSalon == null) return const SizedBox.shrink();
+    return OwnerBranchHeaderSelector<_MembershipSalonOption>(
+      label: _selectedSalon!.name,
+      options: _salonOptions
+          .map(
+            (salon) => OwnerBranchHeaderSelectorOption<_MembershipSalonOption>(
+              value: salon,
+              label: salon.name,
+              subtitle: salon.address,
+            ),
+          )
+          .toList(),
+      selectedValue: _selectedSalon,
+      placeholder: context.t('Select Salon'),
+      isInteractive: _salonOptions.length > 1,
+      onSelected: _switchSalon,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -368,6 +461,8 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
             color: _membershipMuted,
           ),
         ),
+        const SizedBox(height: 18),
+        _buildSalonSelector(),
         const SizedBox(height: 18),
         if (_subscription != null) ...[
           _ExpiryBanner(
@@ -502,6 +597,28 @@ class _BillingLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MembershipSalonSelection {
+  const _MembershipSalonSelection({
+    required this.options,
+    required this.selected,
+  });
+
+  final List<_MembershipSalonOption> options;
+  final _MembershipSalonOption? selected;
+}
+
+class _MembershipSalonOption {
+  const _MembershipSalonOption({
+    required this.salonId,
+    required this.name,
+    required this.address,
+  });
+
+  final int salonId;
+  final String name;
+  final String address;
 }
 
 class _PlansGrid extends StatelessWidget {
