@@ -6,12 +6,13 @@ import 'AssignUser.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
-import '../screens/AssignUser.dart';
 
 const Color _teamGold = Color(0xFF8B6500);
 const Color _teamInk = Color(0xFF2D2926);
 const Color _teamMuted = Color(0xFF756A61);
 const Color _teamBorder = Color(0xFFE8DED6);
+const Color _teamSurface = Color(0xFFFBF8F4);
+const Color _teamGoldLight = Color(0xFFF3E8D1);
 
 String _teamBranchLabel(Map<String, dynamic>? branch) {
   if (branch == null) return translateText('Select Branch');
@@ -733,10 +734,64 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
+  String _memberDisplayName(Map<String, dynamic> member) {
+    final firstName = (member['firstName'] ?? '').toString().trim();
+    final lastName = (member['lastName'] ?? '').toString().trim();
+    final fullName = '$firstName $lastName'.trim();
+    if (fullName.isNotEmpty) return fullName;
+    return translateText('Team Member');
+  }
+
+  String _memberRoleLabel(Map<String, dynamic> member) {
+    final roles = member['roles'];
+    if (roles is List && roles.isNotEmpty && roles.first is Map) {
+      final label =
+          (roles.first['label'] ?? roles.first['name'] ?? '').toString().trim();
+      if (label.isNotEmpty) return label;
+    }
+    return translateText('Staff');
+  }
+
+  Future<void> _openEditMember(Map<String, dynamic> member) async {
+    if (selectedBranch == null) return;
+    final refresh = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddTeamScreen(
+          branchId: selectedBranch!['branchId'],
+          salonId: selectedBranch!['salonId'],
+          salonName: selectedBranch!['salonName'],
+          isEdit: true,
+          initialMember: Map<String, dynamic>.from(member),
+        ),
+      ),
+    );
+    if (refresh == true) {
+      await _refreshTeamMembers();
+    }
+  }
+
+  Future<void> _openAssignMember(Map<String, dynamic> member) async {
+    if (selectedBranch == null || _salons.isEmpty) return;
+    final assigned = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AssignUserScreen(
+          member: Map<String, dynamic>.from(member),
+          salons: _salons,
+          salonId: selectedBranch!['salonId'],
+        ),
+      ),
+    );
+    if (assigned == true) {
+      await _refreshTeamMembers();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _teamSurface,
       appBar: buildProfileSubpageAppBar(
         title: translateText('Team Members'),
       ),
@@ -794,422 +849,53 @@ class _TeamScreenState extends State<TeamScreen> {
                         if (snapshot.connectionState ==
                             ConnectionState.waiting) {
                           return Center(
-                              child: CircularProgressIndicator(
-                                  color: AppColors.starColor));
+                            child: CircularProgressIndicator(
+                              color: AppColors.starColor,
+                            ),
+                          );
                         } else if (snapshot.hasError) {
                           return Center(
-                              child: Text("Error: ${snapshot.error}"));
+                            child: Text("Error: ${snapshot.error}"),
+                          );
                         } else if (!snapshot.hasData ||
                             snapshot.data!.isEmpty) {
                           return _NoTeamMembersState(
                             onAddTeamMember:
                                 selectedBranch == null ? null : _openAddMember,
                           );
-                        } else {
-                          final members = snapshot.data!;
-                          final screenWidth = MediaQuery.of(context).size.width;
-                          final isCompactPhone = screenWidth < 390;
-                          final crossAxisCount = screenWidth >= 1024 ? 3 : 2;
-                          final cardHeight = isCompactPhone ? 390.0 : 370.0;
-                          return GridView.builder(
-                            padding: const EdgeInsets.only(bottom: 96),
-                            gridDelegate:
-                                SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: crossAxisCount,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              mainAxisExtent: cardHeight,
-                            ),
-                            itemCount: members.length,
-                            itemBuilder: (context, index) {
-                              final m = members[index];
-                              final userId = (m['id'] as num?)?.toInt() ?? 0;
-                              final isActive = m['active'] != false;
-                              final isStatusUpdating =
-                                  _statusUpdatingIds.contains(userId);
-                              final isDeleting =
-                                  _deletingMemberIds.contains(userId);
-                              return Card(
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16)),
-                                elevation: 3,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12.0),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      ClipRRect(
-                                        child: (m['profilePictureUrl'] !=
-                                                    null &&
-                                                m['profilePictureUrl']
-                                                    .toString()
-                                                    .isNotEmpty)
-                                            ? Image.network(
-                                                m['profilePictureUrl'],
-                                                height: 44,
-                                                width: 44,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) =>
-                                                    Image.asset(
-                                                  'assets/images/image.png',
-                                                  height: 44,
-                                                  width: 44,
-                                                  fit: BoxFit.cover,
-                                                ),
-                                              )
-                                            : Image.asset(
-                                                'assets/images/image.png',
-                                                height: 44,
-                                                width: 44,
-                                                fit: BoxFit.cover,
-                                              ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        "${m['firstName']} ${m['lastName'] ?? ''}",
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13,
-                                        ),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        (m['roles'] != null &&
-                                                m['roles'].isNotEmpty)
-                                            ? m['roles'][0]['label']
-                                            : "Staff",
-                                        style: TextStyle(
-                                          color: Colors.grey[600],
-                                          fontSize: 10.5,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.work,
-                                            size: 13,
-                                            color: AppColors.starColor,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Flexible(
-                                            child: Text(
-                                              translateText(
-                                                  "2 year+ Experience"),
-                                              style: const TextStyle(
-                                                  fontSize: 9.5),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.star,
-                                            size: 13,
-                                            color: AppColors.starColor,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            translateText("4.5 (43)"),
-                                            style:
-                                                const TextStyle(fontSize: 9.5),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: (isDeleting ||
-                                                      isStatusUpdating)
-                                                  ? null
-                                                  : () async {
-                                                      final refresh =
-                                                          await Navigator.push<
-                                                              bool>(
-                                                        context,
-                                                        MaterialPageRoute(
-                                                          builder: (_) =>
-                                                              AddTeamScreen(
-                                                            branchId:
-                                                                selectedBranch![
-                                                                    'branchId'],
-                                                            salonId:
-                                                                selectedBranch![
-                                                                    'salonId'],
-                                                            salonName:
-                                                                selectedBranch![
-                                                                    'salonName'],
-                                                            isEdit: true,
-                                                            initialMember: Map<
-                                                                String,
-                                                                dynamic>.from(
-                                                              m,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      );
-                                                      if (refresh == true) {
-                                                        await _refreshTeamMembers();
-                                                      }
-                                                    },
-                                              style: OutlinedButton.styleFrom(
-                                                side: BorderSide(
-                                                  color: AppColors.starColor,
-                                                ),
-                                                foregroundColor:
-                                                    AppColors.starColor,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                minimumSize:
-                                                    const Size.fromHeight(34),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 4,
-                                                  vertical: 8,
-                                                ),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                textStyle: const TextStyle(
-                                                  fontSize: 10.5,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              child: Text(
-                                                translateText("Edit"),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Expanded(
-                                            child: OutlinedButton(
-                                              onPressed: (isDeleting ||
-                                                      isStatusUpdating)
-                                                  ? null
-                                                  : () => _deleteMember(
-                                                        userId,
-                                                      ),
-                                              style: OutlinedButton.styleFrom(
-                                                side: const BorderSide(
-                                                  color: Colors.red,
-                                                ),
-                                                foregroundColor: Colors.red,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                minimumSize:
-                                                    const Size.fromHeight(34),
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 4,
-                                                  vertical: 8,
-                                                ),
-                                                visualDensity:
-                                                    VisualDensity.compact,
-                                                textStyle: const TextStyle(
-                                                  fontSize: 10.5,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                              child: isDeleting
-                                                  ? const SizedBox(
-                                                      width: 16,
-                                                      height: 16,
-                                                      child:
-                                                          CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: Colors.red,
-                                                      ),
-                                                    )
-                                                  : Text(
-                                                      translateText("Delete"),
-                                                    ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: OutlinedButton(
-                                          onPressed:
-                                              (isDeleting || isStatusUpdating)
-                                                  ? null
-                                                  : () => _toggleMemberActive(
-                                                        userId,
-                                                        !isActive,
-                                                      ),
-                                          style: OutlinedButton.styleFrom(
-                                            side: BorderSide(
-                                              color: AppColors.starColor,
-                                            ),
-                                            foregroundColor:
-                                                AppColors.starColor,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            minimumSize:
-                                                const Size.fromHeight(34),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 8,
-                                            ),
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            textStyle: const TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          child: isStatusUpdating
-                                              ? const SizedBox(
-                                                  width: 16,
-                                                  height: 16,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                    strokeWidth: 2,
-                                                  ),
-                                                )
-                                              : Text(
-                                                  translateText(
-                                                    isActive
-                                                        ? "Deactivate"
-                                                        : "Activate",
-                                                  ),
-                                                ),
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: ElevatedButton(
-                                          onPressed:
-                                              (isDeleting || isStatusUpdating)
-                                                  ? null
-                                                  : () {
-                                                      Navigator.push(
-                                                        context,
-                                                        MaterialPageRoute(
-                                                          builder: (_) =>
-                                                              TeamMemberDetails(
-                                                            member: m,
-                                                            salons: null,
-                                                          ),
-                                                        ),
-                                                      );
-                                                    },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                AppColors.starColor,
-                                            foregroundColor: AppColors.white,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            minimumSize:
-                                                const Size.fromHeight(34),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 8,
-                                            ),
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            textStyle: const TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            translateText("View Member"),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      SizedBox(
-                                        width: double.infinity,
-                                        child: OutlinedButton(
-                                          onPressed: (isDeleting ||
-                                                  isStatusUpdating ||
-                                                  selectedBranch == null ||
-                                                  _salons.isEmpty)
-                                              ? null
-                                              : () async {
-                                                  final assigned =
-                                                      await Navigator.push<
-                                                          bool>(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder: (_) =>
-                                                          AssignUserScreen(
-                                                        member: Map<String,
-                                                            dynamic>.from(
-                                                          m,
-                                                        ),
-                                                        salons: _salons,
-                                                        salonId:
-                                                            selectedBranch![
-                                                                'salonId'],
-                                                      ),
-                                                    ),
-                                                  );
-                                                  if (assigned == true) {
-                                                    await _refreshTeamMembers();
-                                                  }
-                                                },
-                                          style: OutlinedButton.styleFrom(
-                                            side: BorderSide(
-                                              color: AppColors.starColor,
-                                            ),
-                                            foregroundColor:
-                                                AppColors.starColor,
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                            ),
-                                            minimumSize:
-                                                const Size.fromHeight(36),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 6,
-                                              vertical: 8,
-                                            ),
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            textStyle: const TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          child: _buildAssignButtonChild(
-                                            Map<String, dynamic>.from(m),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
                         }
+
+                        final members = snapshot.data!
+                            .whereType<Map>()
+                            .map((item) => Map<String, dynamic>.from(item))
+                            .toList();
+
+                        return _TeamMembersGrid(
+                          members: members,
+                          selectedBranch: selectedBranch,
+                          salons: _salons,
+                          statusUpdatingIds: _statusUpdatingIds,
+                          deletingMemberIds: _deletingMemberIds,
+                          onAddMember: _openAddMember,
+                          onEditMember: _openEditMember,
+                          onDeleteMember: _deleteMember,
+                          onToggleMemberActive: _toggleMemberActive,
+                          onViewMember: (member) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TeamMemberDetails(
+                                  member: member,
+                                  salons: null,
+                                ),
+                              ),
+                            );
+                          },
+                          onAssignMember: _openAssignMember,
+                          assignButtonBuilder: _buildAssignButtonChild,
+                          memberNameBuilder: _memberDisplayName,
+                          memberRoleBuilder: _memberRoleLabel,
+                        );
                       },
                     ),
                   ),
@@ -1219,16 +905,596 @@ class _TeamScreenState extends State<TeamScreen> {
           },
         ),
       ),
-      floatingActionButton: _hasTeamMembers
-          ? FloatingActionButton.extended(
-              heroTag: 'salon_teams_add_member_fab',
-              onPressed: _openAddMember,
-              label: Text(translateText("Add Member")),
-              icon: const Icon(Icons.add),
-              backgroundColor: const Color(0xFFD0A244),
+    );
+  }
+}
+
+class _TeamMembersGrid extends StatelessWidget {
+  const _TeamMembersGrid({
+    required this.members,
+    required this.selectedBranch,
+    required this.salons,
+    required this.statusUpdatingIds,
+    required this.deletingMemberIds,
+    required this.onAddMember,
+    required this.onEditMember,
+    required this.onDeleteMember,
+    required this.onToggleMemberActive,
+    required this.onViewMember,
+    required this.onAssignMember,
+    required this.assignButtonBuilder,
+    required this.memberNameBuilder,
+    required this.memberRoleBuilder,
+  });
+
+  final List<Map<String, dynamic>> members;
+  final Map<String, dynamic>? selectedBranch;
+  final List<Map<String, dynamic>> salons;
+  final Set<int> statusUpdatingIds;
+  final Set<int> deletingMemberIds;
+  final VoidCallback onAddMember;
+  final Future<void> Function(Map<String, dynamic> member) onEditMember;
+  final Future<void> Function(int userId) onDeleteMember;
+  final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
+  final void Function(Map<String, dynamic> member) onViewMember;
+  final Future<void> Function(Map<String, dynamic> member) onAssignMember;
+  final Widget Function(Map<String, dynamic> member) assignButtonBuilder;
+  final String Function(Map<String, dynamic> member) memberNameBuilder;
+  final String Function(Map<String, dynamic> member) memberRoleBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final crossAxisCount = screenWidth >= 1024
+        ? 3
+        : screenWidth >= 700
+            ? 2
+            : 1;
+    final cardHeight = screenWidth >= 700 ? 318.0 : 296.0;
+
+    return Column(
+      children: [
+        _TeamListHeader(
+          count: members.length,
+          branchName: _teamBranchLabel(selectedBranch),
+          onAddMember: onAddMember,
+        ),
+        const SizedBox(height: 14),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.only(bottom: 96),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              mainAxisSpacing: 14,
+              crossAxisSpacing: 14,
+              mainAxisExtent: cardHeight,
+            ),
+            itemCount: members.length,
+            itemBuilder: (context, index) {
+              final member = members[index];
+              final rawId = member['id'];
+              final userId = rawId is int
+                  ? rawId
+                  : rawId is num
+                      ? rawId.toInt()
+                      : int.tryParse('${rawId ?? ''}') ?? 0;
+              final isActive = member['active'] != false;
+              final isStatusUpdating = statusUpdatingIds.contains(userId);
+              final isDeleting = deletingMemberIds.contains(userId);
+
+              return _TeamMemberCard(
+                member: member,
+                name: memberNameBuilder(member),
+                role: memberRoleBuilder(member),
+                isActive: isActive,
+                isDeleting: isDeleting,
+                isStatusUpdating: isStatusUpdating,
+                canAssign: selectedBranch != null && salons.isNotEmpty,
+                assignButtonChild: assignButtonBuilder(member),
+                onEdit: () => onEditMember(member),
+                onDelete: () => onDeleteMember(userId),
+                onToggleActive: () => onToggleMemberActive(userId, !isActive),
+                onView: () => onViewMember(member),
+                onAssign: () => onAssignMember(member),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TeamListHeader extends StatelessWidget {
+  const _TeamListHeader({
+    required this.count,
+    required this.branchName,
+    required this.onAddMember,
+  });
+
+  final int count;
+  final String branchName;
+  final VoidCallback onAddMember;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _teamBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 21,
+            backgroundColor: _teamGoldLight,
+            child: Icon(Icons.groups_2_outlined, color: _teamGold, size: 23),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  translateText('Team members'),
+                  style: const TextStyle(
+                    color: _teamInk,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$count ${translateText(count == 1 ? 'member' : 'members')} · $branchName',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _teamMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton.icon(
+            onPressed: onAddMember,
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: Text(translateText('Add')),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.starColor,
               foregroundColor: Colors.white,
-            )
-          : null,
+              elevation: 0,
+              minimumSize: const Size(86, 42),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeamMemberCard extends StatelessWidget {
+  const _TeamMemberCard({
+    required this.member,
+    required this.name,
+    required this.role,
+    required this.isActive,
+    required this.isDeleting,
+    required this.isStatusUpdating,
+    required this.canAssign,
+    required this.assignButtonChild,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onToggleActive,
+    required this.onView,
+    required this.onAssign,
+  });
+
+  final Map<String, dynamic> member;
+  final String name;
+  final String role;
+  final bool isActive;
+  final bool isDeleting;
+  final bool isStatusUpdating;
+  final bool canAssign;
+  final Widget assignButtonChild;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onToggleActive;
+  final VoidCallback onView;
+  final VoidCallback onAssign;
+
+  bool get _isBusy => isDeleting || isStatusUpdating;
+
+  String get _initials {
+    final parts = name
+        .split(RegExp(r'\s+'))
+        .where((part) => part.trim().isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'TM';
+    final first = parts.first.substring(0, 1).toUpperCase();
+    final second = parts.length > 1 ? parts.last.substring(0, 1) : '';
+    return '$first$second'.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = (member['profilePictureUrl'] ?? '').toString().trim();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _teamBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _TeamAvatar(
+                imageUrl: imageUrl,
+                initials: _initials,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _teamInk,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      role,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _teamMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _TeamStatusPill(isActive: isActive),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _TeamInfoChip(
+                  icon: Icons.workspace_premium_outlined,
+                  label: translateText('2 year+'),
+                  value: translateText('Experience'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _TeamInfoChip(
+                  icon: Icons.star_rounded,
+                  label: translateText('4.5'),
+                  value: translateText('Rating'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _TeamIconButton(
+                icon: Icons.edit_outlined,
+                tooltip: translateText('Edit'),
+                onPressed: _isBusy ? null : onEdit,
+              ),
+              const SizedBox(width: 8),
+              _TeamIconButton(
+                icon: Icons.delete_outline_rounded,
+                tooltip: translateText('Delete'),
+                color: Colors.red,
+                isLoading: isDeleting,
+                onPressed: _isBusy ? null : onDelete,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isBusy ? null : onToggleActive,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.starColor),
+                    foregroundColor: AppColors.starColor,
+                    minimumSize: const Size.fromHeight(42),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: isStatusUpdating
+                      ? SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.starColor,
+                          ),
+                        )
+                      : Text(
+                          translateText(isActive ? 'Deactivate' : 'Activate')),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _isBusy ? null : onView,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: Text(translateText('View')),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isBusy || !canAssign ? null : onAssign,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AppColors.starColor),
+                    foregroundColor: AppColors.starColor,
+                    minimumSize: const Size.fromHeight(44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  child: assignButtonChild,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeamAvatar extends StatelessWidget {
+  const _TeamAvatar({
+    required this.imageUrl,
+    required this.initials,
+  });
+
+  final String imageUrl;
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageUrl.isNotEmpty) {
+      return ClipOval(
+        child: Image.network(
+          imageUrl,
+          height: 56,
+          width: 56,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _InitialsAvatar(initials: initials),
+        ),
+      );
+    }
+    return _InitialsAvatar(initials: initials);
+  }
+}
+
+class _InitialsAvatar extends StatelessWidget {
+  const _InitialsAvatar({required this.initials});
+
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      width: 56,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: _teamGoldLight,
+      ),
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: _teamGold,
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamStatusPill extends StatelessWidget {
+  const _TeamStatusPill({required this.isActive});
+
+  final bool isActive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? const Color(0xFF18864B) : _teamMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        translateText(isActive ? 'Active' : 'Inactive').toUpperCase(),
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamInfoChip extends StatelessWidget {
+  const _TeamInfoChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: _teamSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _teamBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.starColor, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _teamInk,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _teamMuted,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TeamIconButton extends StatelessWidget {
+  const _TeamIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.color,
+    this.isLoading = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Color? color;
+  final bool isLoading;
+
+  @override
+  Widget build(BuildContext context) {
+    final actionColor = color ?? AppColors.starColor;
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox(
+        height: 42,
+        width: 42,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            padding: EdgeInsets.zero,
+            side: BorderSide(color: actionColor.withValues(alpha: 0.35)),
+            foregroundColor: actionColor,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          child: isLoading
+              ? SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    color: actionColor,
+                    strokeWidth: 2,
+                  ),
+                )
+              : Icon(icon, size: 20),
+        ),
+      ),
     );
   }
 }
