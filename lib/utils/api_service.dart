@@ -273,24 +273,24 @@ class ApiService {
           ? "v2/branches/$branchId/review/paid-leaves"
           : "v2/branches/$branchId/review/paid-leaves?payrollId=$payrollId";
   static String payrollEmployeeAdjustmentsAPI(int payrollEmployeeId) =>
-    "v2/payroll/$payrollEmployeeId/adjustments";
+      "v2/payroll/$payrollEmployeeId/adjustments";
 
-static String payrollEmployeeAdjustmentDetailsAPI(
-  int payrollEmployeeId,
-  String adjustmentId,
-) =>
-    "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
+  static String payrollEmployeeAdjustmentDetailsAPI(
+    int payrollEmployeeId,
+    String adjustmentId,
+  ) =>
+      "v2/payroll/$payrollEmployeeId/adjustments/$adjustmentId";
 
-static const String payrollAdditionalChargesAPI =
-    "payroll/additional-charges";
+  static const String payrollAdditionalChargesAPI =
+      "payroll/additional-charges";
 
-static String payrollAdditionalChargeDetailsAPI(String chargeId) =>
-    "payroll/additional-charges/$chargeId";
+  static String payrollAdditionalChargeDetailsAPI(String chargeId) =>
+      "payroll/additional-charges/$chargeId";
 
-static const String payrollDeductionsAPI = "payroll/deductions";
+  static const String payrollDeductionsAPI = "payroll/deductions";
 
-static String payrollDeductionDetailsAPI(String deductionId) =>
-    "payroll/deductions/$deductionId";
+  static String payrollDeductionDetailsAPI(String deductionId) =>
+      "payroll/deductions/$deductionId";
   static String payrollEmployeePaidLeaveAPI(int payrollEmployeeId) =>
       "v2/payroll/$payrollEmployeeId/paid-leave";
   static String branchPayrollPaidLeaveConfigAPI(int branchId) =>
@@ -451,6 +451,14 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
     return "branches/$branchId/cart/purchases?clientId=$clientId";
   }
 
+  static String addCartItemsBulkAPI(int branchId) {
+    return "branches/$branchId/cart/items/bulk";
+  }
+
+  static String updateCartItemAPI(int branchId, int itemId) {
+    return "branches/$branchId/cart/items/$itemId";
+  }
+
   static String updateSalonOffer(int salonId, int offerId) {
     return "salons/$salonId/offers/$offerId";
   }
@@ -463,6 +471,10 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
 
   static String createManualBookingAPI(int branchId) {
     return "branches/$branchId/appointments/branch";
+  }
+
+  static String appointmentAvailabilityAPI(int branchId) {
+    return "branches/$branchId/appointments/availability";
   }
 
   static String assignUserToBranchAPI(int branchId) {
@@ -616,6 +628,50 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
       },
     );
   }
+
+  Future<Map<String, dynamic>> addCartItemsBulk({
+    required int branchId,
+    required List<Map<String, dynamic>> items,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: addCartItemsBulkAPI(branchId),
+      debugTag: 'AddCartItemsBulk',
+      body: <String, dynamic>{'items': items},
+    );
+  }
+
+  Future<Map<String, dynamic>> updateCartItem({
+    required int branchId,
+    required int itemId,
+    required int qty,
+    required String notes,
+    int? selectedProId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'PATCH',
+      endpoint: updateCartItemAPI(branchId, itemId),
+      debugTag: 'UpdateCartItem',
+      body: <String, dynamic>{
+        'qty': qty,
+        'notes': notes,
+        if (selectedProId != null) 'selectedProId': selectedProId,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> loadAppointmentAvailability({
+    required int branchId,
+    required String date,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: appointmentAvailabilityAPI(branchId),
+      debugTag: 'AppointmentAvailability',
+      body: <String, dynamic>{'date': date},
+    );
+  }
+
   // ---------------------- AUTH HELPERS ----------------------
 
   Future<String> getAuthToken() async {
@@ -829,41 +885,41 @@ static String payrollDeductionDetailsAPI(String deductionId) =>
   //     throw Exception("Failed OTP: ${response.body}");
   //   }
   // }
-Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
-  final response = await _sharedClient.post(
-    Uri.parse(baseUrl + verifyOtpEndpoint),
-    headers: {"Content-Type": "application/json"},
-    body: json.encode({
-      "phoneNumber": phoneNumber,
-      "otp": otp,
-    }),
-  );
+  Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
+    final response = await _sharedClient.post(
+      Uri.parse(baseUrl + verifyOtpEndpoint),
+      headers: {"Content-Type": "application/json"},
+      body: json.encode({
+        "phoneNumber": phoneNumber,
+        "otp": otp,
+      }),
+    );
 
-  debugPrint("[VerifyOTP] status=${response.statusCode}");
-  _debugPrintChunked("VerifyOTP body", response.body);
+    debugPrint("[VerifyOTP] status=${response.statusCode}");
+    _debugPrintChunked("VerifyOTP body", response.body);
 
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    final decoded = json.decode(response.body);
-    _debugPrintChunked("VerifyOTP decoded", decoded);
-    return decoded;
-  }
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final decoded = json.decode(response.body);
+      _debugPrintChunked("VerifyOTP decoded", decoded);
+      return decoded;
+    }
 
-  final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
+    final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : {};
 
-  if (decoded is Map<String, dynamic>) {
+    if (decoded is Map<String, dynamic>) {
+      return {
+        'success': false,
+        'message': decoded['message']?.toString() ?? 'Invalid OTP',
+        'statusCode': response.statusCode,
+      };
+    }
+
     return {
       'success': false,
-      'message': decoded['message']?.toString() ?? 'Invalid OTP',
+      'message': 'Invalid OTP',
       'statusCode': response.statusCode,
     };
   }
-
-  return {
-    'success': false,
-    'message': 'Invalid OTP',
-    'statusCode': response.statusCode,
-  };
-}
   // Future<Map<String, dynamic>> registerCustomer({
   //   required String phoneNumber,
   //   required String firstName,
@@ -900,64 +956,65 @@ Future<Map<String, dynamic>> verifyOTP(String phoneNumber, String otp) async {
   //   }
   //   throw Exception("Failed register customer: ${response.body}");
   // }
-Future<Map<String, dynamic>> registerCustomer({
-  required String phoneNumber,
-  required String firstName,
-  required String lastName,
-  String source = 'salon_app',
-  String? deviceToken,
-}) async {
-  String resolvedToken = deviceToken?.trim() ?? '';
+  Future<Map<String, dynamic>> registerCustomer({
+    required String phoneNumber,
+    required String firstName,
+    required String lastName,
+    String source = 'salon_app',
+    String? deviceToken,
+  }) async {
+    String resolvedToken = deviceToken?.trim() ?? '';
 
-  if (resolvedToken.isEmpty) {
-    final prefs = await SharedPreferences.getInstance();
-    resolvedToken = prefs.getString('fcm_device_token')?.trim() ?? '';
-  }
+    if (resolvedToken.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      resolvedToken = prefs.getString('fcm_device_token')?.trim() ?? '';
+    }
 
-  if (resolvedToken.isEmpty) {
-    resolvedToken = 'unknown';
-  }
+    if (resolvedToken.isEmpty) {
+      resolvedToken = 'unknown';
+    }
 
-  final payload = <String, dynamic>{
-    "phoneNumber": phoneNumber,
-    "source": source,
-    "firstName": firstName,
-    "lastName": lastName,
-    "deviceToken": resolvedToken,
-  };
+    final payload = <String, dynamic>{
+      "phoneNumber": phoneNumber,
+      "source": source,
+      "firstName": firstName,
+      "lastName": lastName,
+      "deviceToken": resolvedToken,
+    };
 
-  debugPrint("[RegisterCustomer payload] $payload");
+    debugPrint("[RegisterCustomer payload] $payload");
 
-  final response = await _sharedClient.post(
-    Uri.parse(baseUrl + registerUserEndpoint),
-    headers: {"Content-Type": "application/json"},
-    body: json.encode(payload),
-  );
+    final response = await _sharedClient.post(
+      Uri.parse(baseUrl + registerUserEndpoint),
+      headers: {"Content-Type": "application/json"},
+      body: json.encode(payload),
+    );
 
-  debugPrint("[RegisterCustomer] status=${response.statusCode}");
-  _debugPrintChunked("RegisterCustomer body", response.body);
+    debugPrint("[RegisterCustomer] status=${response.statusCode}");
+    _debugPrintChunked("RegisterCustomer body", response.body);
 
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    return json.decode(response.body) as Map<String, dynamic>;
-  }
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
 
-  final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
-  if (decoded is Map<String, dynamic>) {
+    final decoded = response.body.isNotEmpty ? jsonDecode(response.body) : null;
+    if (decoded is Map<String, dynamic>) {
+      return {
+        'success': false,
+        'message': decoded['message'] is List
+            ? (decoded['message'] as List).join('\n')
+            : decoded['message']?.toString() ?? 'Failed register customer',
+        'statusCode': response.statusCode,
+      };
+    }
+
     return {
       'success': false,
-      'message': decoded['message'] is List
-          ? (decoded['message'] as List).join('\n')
-          : decoded['message']?.toString() ?? 'Failed register customer',
+      'message': 'Failed register customer',
       'statusCode': response.statusCode,
     };
   }
 
-  return {
-    'success': false,
-    'message': 'Failed register customer',
-    'statusCode': response.statusCode,
-  };
-}
   Future<Map<String, dynamic>> linkBranchClient({
     required int branchId,
     required int userId,
@@ -4855,62 +4912,62 @@ Future<Map<String, dynamic>> registerCustomer({
   //   throw Exception("Failed to update team member status: ${response.body}");
   // }
   Future<Map<String, dynamic>> setTeamMemberActive({
-  required int branchId,
-  required int userId,
-  required bool active,
-}) async {
-  final token = await getAuthToken();
+    required int branchId,
+    required int userId,
+    required bool active,
+  }) async {
+    final token = await getAuthToken();
 
-  final endpoint = active
-      ? activateTeamMemberEndpoint(branchId, userId)
-      : deactivateTeamMemberEndpoint(branchId, userId);
+    final endpoint = active
+        ? activateTeamMemberEndpoint(branchId, userId)
+        : deactivateTeamMemberEndpoint(branchId, userId);
 
-  final url = Uri.parse('$baseUrl$endpoint');
+    final url = Uri.parse('$baseUrl$endpoint');
 
-  try {
-    final response = await _sharedClient.patch(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: '{}',
-    );
+    try {
+      final response = await _sharedClient.patch(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: '{}',
+      );
 
-    Map<String, dynamic> body = {};
-    if (response.body.isNotEmpty) {
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) {
-        body = decoded;
+      Map<String, dynamic> body = {};
+      if (response.body.isNotEmpty) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          body = decoded;
+        }
       }
-    }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': active
+              ? 'Team member activated successfully'
+              : 'Team member deactivated successfully',
+          'data': body['data'],
+        };
+      }
+
       return {
-        'success': true,
-        'message': active
-            ? 'Team member activated successfully'
-            : 'Team member deactivated successfully',
+        'success': false,
+        'message': body['message']?.toString() ??
+            (active
+                ? 'Failed to activate team member'
+                : 'Failed to deactivate team member'),
+        'statusCode': response.statusCode,
         'data': body['data'],
       };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+      };
     }
-
-    return {
-      'success': false,
-      'message': body['message']?.toString() ??
-          (active
-              ? 'Failed to activate team member'
-              : 'Failed to deactivate team member'),
-      'statusCode': response.statusCode,
-      'data': body['data'],
-    };
-  } catch (e) {
-    return {
-      'success': false,
-      'message': e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
-    };
   }
-}
 
   // Future<Map<String, dynamic>> deleteTeamMember({
   //   required int branchId,
@@ -4935,53 +4992,54 @@ Future<Map<String, dynamic>> registerCustomer({
   //   }
   //   throw Exception("Failed to delete team member: ${response.body}");
   // }
-Future<Map<String, dynamic>> deleteTeamMember({
-  required int branchId,
-  required int userId,
-}) async {
-  final token = await getAuthToken();
-  final url =
-      Uri.parse('$baseUrl${updateTeamMemberEndpoint(branchId, userId)}');
+  Future<Map<String, dynamic>> deleteTeamMember({
+    required int branchId,
+    required int userId,
+  }) async {
+    final token = await getAuthToken();
+    final url =
+        Uri.parse('$baseUrl${updateTeamMemberEndpoint(branchId, userId)}');
 
-  try {
-    final response = await _sharedClient.delete(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: '{}',
-    );
+    try {
+      final response = await _sharedClient.delete(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: '{}',
+      );
 
-    Map<String, dynamic> body = {};
-    if (response.body.isNotEmpty) {
-      final decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic>) {
-        body = decoded;
+      Map<String, dynamic> body = {};
+      if (response.body.isNotEmpty) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          body = decoded;
+        }
       }
-    }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return {
+          'success': true,
+          'message': 'Team member deleted successfully',
+          'data': body['data'],
+        };
+      }
+
       return {
-        'success': true,
-        'message': 'Team member deleted successfully',
+        'success': false,
+        'message':
+            body['message']?.toString() ?? 'Failed to delete team member',
+        'statusCode': response.statusCode,
         'data': body['data'],
       };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
+      };
     }
-
-    return {
-      'success': false,
-      'message': body['message']?.toString() ?? 'Failed to delete team member',
-      'statusCode': response.statusCode,
-      'data': body['data'],
-    };
-  } catch (e) {
-    return {
-      'success': false,
-      'message': e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
-    };
   }
-}
 
   Future<Map<String, dynamic>> importClientsByPhone({
     required int branchId,

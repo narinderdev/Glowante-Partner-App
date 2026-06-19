@@ -37,6 +37,22 @@ int? _serviceInt(dynamic value) {
   return null;
 }
 
+List<Map<String, dynamic>> _uniqueCatalogServices(
+  Iterable<Map<String, dynamic>> services, {
+  Set<int>? seenIds,
+}) {
+  final ids = seenIds ?? <int>{};
+  final unique = <Map<String, dynamic>>[];
+
+  for (final service in services) {
+    final serviceId = _serviceInt(service['id']);
+    if (serviceId != null && !ids.add(serviceId)) continue;
+    unique.add(service);
+  }
+
+  return unique;
+}
+
 double? _serviceDouble(dynamic value) {
   if (value is double) return value;
   if (value is int) return value.toDouble();
@@ -179,16 +195,31 @@ String _serviceCommissionTagLabel(Map<String, dynamic> service) {
 }
 
 int _serviceCountForCategory(Map<String, dynamic> category) {
+  final seenIds = <int>{};
   int count = 0;
   final services = category['services'];
-  if (services is List) count += services.length;
+  if (services is List) {
+    count += _uniqueCatalogServices(
+      services
+          .whereType<Map>()
+          .map((entry) => Map<String, dynamic>.from(entry)),
+      seenIds: seenIds,
+    ).length;
+  }
 
   final subCategories = category['subCategories'];
   if (subCategories is List) {
     for (final subCategory in subCategories) {
       if (subCategory is! Map) continue;
       final subServices = subCategory['services'];
-      if (subServices is List) count += subServices.length;
+      if (subServices is List) {
+        count += _uniqueCatalogServices(
+          subServices
+              .whereType<Map>()
+              .map((entry) => Map<String, dynamic>.from(entry)),
+          seenIds: seenIds,
+        ).length;
+      }
     }
   }
 
@@ -1966,15 +1997,37 @@ class _CategoryList extends StatelessWidget {
       separatorBuilder: (_, __) => SizedBox(height: 18),
       itemBuilder: (context, index) {
         final category = sortedCategories[index];
-        final List<Map<String, dynamic>> subCategories = _sortedCatalogItems(
+        final List<Map<String, dynamic>> rawSubCategories = _sortedCatalogItems(
           (category['subCategories'] as List? ?? const []).whereType<Map>().map(
                 (e) => Map<String, dynamic>.from(e),
               ),
         );
-        final List<Map<String, dynamic>> categoryServices = _sortedCatalogItems(
-          (category['services'] as List? ?? const []).whereType<Map>().map(
-                (e) => Map<String, dynamic>.from(e),
-              ),
+        final subServiceIds = <int>{};
+        final List<Map<String, dynamic>> subCategories =
+            rawSubCategories.map((subCategory) {
+          final services = _uniqueCatalogServices(
+            _sortedCatalogItems(
+              (subCategory['services'] as List? ?? const [])
+                  .whereType<Map>()
+                  .map((e) => Map<String, dynamic>.from(e)),
+            ),
+            seenIds: subServiceIds,
+          );
+          return {
+            ...subCategory,
+            'services': services,
+          };
+        }).toList();
+        final List<Map<String, dynamic>> categoryServices =
+            _uniqueCatalogServices(
+          _sortedCatalogItems(
+            (category['services'] as List? ?? const []).whereType<Map>().map(
+                  (e) => Map<String, dynamic>.from(e),
+                ),
+          ).where((service) {
+            final serviceId = _serviceInt(service['id']);
+            return serviceId == null || !subServiceIds.contains(serviceId);
+          }),
         );
         final int categoryId = _serviceInt(category['id']) ?? index;
         final bool isCategoryExpanded = categoryExpanded[categoryId] ?? false;

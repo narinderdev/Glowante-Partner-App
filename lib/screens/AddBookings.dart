@@ -101,7 +101,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
       for (final option in options) {
         if (option['label'] == selectedName) {
-          final id = option['userBranchId'];
+          final id = option['assignedUserBranchId'] ?? option['userBranchId'];
 
           if (id is int) {
             ids.add(id);
@@ -132,6 +132,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   /// Per-service professional selection (key = serviceId, value = assigned professional name)
   final Map<int, String> _professionalByService = {};
+  final Map<int, int> _cartItemIdByService = {};
 
   @override
   void initState() {
@@ -167,6 +168,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       final List<Map<String, dynamic>> flat = [];
       final List<Map<String, dynamic>> tree = [];
       final categories = data['categories'] as List? ?? [];
+      final seenServiceIds = <int>{};
 
       for (final cat in categories) {
         final catName = (cat['displayName'] ?? '').toString().trim();
@@ -181,8 +183,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
         // services directly under category
         for (final svc in catServices) {
+          final serviceId = _intValue(svc['id']);
+          if (serviceId != null && !seenServiceIds.add(serviceId)) {
+            continue;
+          }
           final svcMap = {
-            'id': svc['id'],
+            'id': serviceId ?? svc['id'],
             'name': (svc['displayName'] ?? '').toString(),
             'priceMinor': svc['priceMinor'],
             'durationMin': svc['durationMin'],
@@ -212,8 +218,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             'services': <Map<String, dynamic>>[],
           };
           for (final svc in subServices) {
+            final serviceId = _intValue(svc['id']);
+            if (serviceId != null && !seenServiceIds.add(serviceId)) {
+              continue;
+            }
             final svcMap = {
-              'id': svc['id'],
+              'id': serviceId ?? svc['id'],
               'name': (svc['displayName'] ?? '').toString(),
               'priceMinor': svc['priceMinor'],
               'durationMin': svc['durationMin'],
@@ -527,8 +537,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         final assignedBranchUserId =
             _resolveAssignedBranchUserIdFromBranchServices(
                 branchEntry, serviceId);
+        final assignedUserBranchId = assignedBranchUserId ?? userBranchId;
         debugPrint(
-          "TEAM OPTION name=$name userId=${member['id']} userBranchId=$userBranchId",
+          "TEAM OPTION name=$name userId=${member['id']} assignedUserBranchId=$assignedUserBranchId userBranchId=$userBranchId",
         );
         debugPrint('TEAM BRANCH ENTRY keys=${branchEntry.keys.toList()}');
         debugPrint('TEAM BRANCH ENTRY raw=$branchEntry');
@@ -537,6 +548,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
         members.add({
           'label': name,
+          'assignedUserBranchId': assignedUserBranchId,
           'userBranchId': userBranchId,
           'assignedBranchUserId': assignedBranchUserId,
           'userId': member['id'] is int
@@ -556,36 +568,74 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   ) {
     final userBranchServices =
         branchEntry['userBranchServices'] as List? ?? const [];
+    final service = _serviceById(serviceId);
+    final masterServiceId = _intValue(service?['masterServiceId']);
+    final serviceName =
+        (service?['name'] ?? '').toString().trim().toLowerCase();
+    final masterServiceName =
+        (service?['masterServiceName'] ?? '').toString().trim().toLowerCase();
+    final masterServiceCode =
+        (service?['masterServiceCode'] ?? '').toString().trim().toLowerCase();
+
+    bool matchesId(dynamic value) {
+      return _idsMatch(value, serviceId) ||
+          (masterServiceId != null && _idsMatch(value, masterServiceId));
+    }
+
+    bool matchesText(dynamic value) {
+      final text = value?.toString().trim().toLowerCase() ?? '';
+      if (text.isEmpty) return false;
+      return text == serviceName ||
+          (masterServiceName.isNotEmpty && text == masterServiceName) ||
+          (masterServiceCode.isNotEmpty && text == masterServiceCode);
+    }
+
+    bool matchesAssignment(Map<String, dynamic> item) {
+      if (matchesId(item['branchServiceId']) ||
+          matchesId(item['branch_service_id']) ||
+          matchesId(item['serviceId']) ||
+          matchesId(item['service_id'])) {
+        return true;
+      }
+
+      final branchService = item['branchService'];
+      if (branchService is! Map) return false;
+      final branchServiceMap = Map<String, dynamic>.from(branchService);
+      for (final key in const [
+        'id',
+        'branchServiceId',
+        'serviceId',
+        'masterServiceId',
+        'code',
+        'name',
+        'displayName',
+      ]) {
+        if (matchesId(branchServiceMap[key]) ||
+            matchesText(branchServiceMap[key])) {
+          return true;
+        }
+      }
+
+      final masterService = branchServiceMap['masterService'];
+      if (masterService is Map) {
+        final masterServiceMap = Map<String, dynamic>.from(masterService);
+        for (final key in const ['id', 'code', 'name', 'displayName']) {
+          if (matchesId(masterServiceMap[key]) ||
+              matchesText(masterServiceMap[key])) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
 
     for (final raw in userBranchServices) {
       if (raw is! Map) continue;
 
       final item = Map<String, dynamic>.from(raw);
-      final branchService = item['branchService'];
-
-      final branchServiceId = branchService is Map
-          ? _intValue(branchService['id'])
-          : _intValue(item['branchServiceId']);
-
-      if (branchServiceId == serviceId) {
+      if (matchesAssignment(item)) {
         return _intValue(item['id']);
-      }
-    }
-
-    return null;
-  }
-
-  int? _resolveAssignedBranchUserId(int serviceId) {
-    final selectedProfessional = _professionalByService[serviceId];
-
-    if (selectedProfessional == null || selectedProfessional.isEmpty) {
-      return null;
-    }
-
-    for (final option in _membersForService(serviceId)) {
-      if (option['label'] == selectedProfessional) {
-        return _intValue(option['assignedBranchUserId']) ??
-            _intValue(option['userBranchId']);
       }
     }
 
@@ -821,31 +871,19 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     );
   }
 
-  Widget _dialogLabel(String label) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Text(
-        translateText(label).toUpperCase(),
-        style: const TextStyle(
-          color: Color(0xFF4B4038),
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
-        ),
-      ),
-    );
-  }
-
   Widget _dialogTextField({
     required TextEditingController controller,
     required String hint,
+    FocusNode? focusNode,
     TextInputType keyboardType = TextInputType.text,
+    TextInputAction? textInputAction,
     TextCapitalization textCapitalization = TextCapitalization.none,
     List<TextInputFormatter>? inputFormatters,
     int? maxLength,
     String? prefixText,
     double height = 56,
     ValueChanged<String>? onChanged,
+    ValueChanged<String>? onSubmitted,
   }) {
     return SizedBox(
       height: height,
@@ -853,8 +891,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         children: [
           TextField(
             controller: controller,
+            focusNode: focusNode,
             onChanged: onChanged,
+            onSubmitted: onSubmitted,
+            onTapOutside: (_) {},
             keyboardType: keyboardType,
+            textInputAction: textInputAction,
             textCapitalization: textCapitalization,
             inputFormatters: inputFormatters,
             maxLength: maxLength,
@@ -1247,6 +1289,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final phoneCtrl = TextEditingController(text: _digitsOnly(initialPhone));
     final firstCtrl = TextEditingController();
     final lastCtrl = TextEditingController();
+    final firstFocus = FocusNode();
+    final lastFocus = FocusNode();
+    final phoneFocus = FocusNode();
     bool isSubmitting = false;
     String? firstNameError;
     String? lastNameError;
@@ -1300,7 +1345,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       _dialogRequiredLabel('First Name'),
                       _dialogTextField(
                         controller: firstCtrl,
+                        focusNode: firstFocus,
                         hint: "Enter guest's first name",
+                        textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.words,
                         maxLength: 30,
                         height: 56,
@@ -1314,13 +1361,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                             setDialogState(() => firstNameError = null);
                           }
                         },
+                        onSubmitted: (_) => lastFocus.requestFocus(),
                       ),
                       if (firstNameError != null) _errorText(firstNameError!),
                       const SizedBox(height: 14),
                       _dialogRequiredLabel('Last Name'),
                       _dialogTextField(
                         controller: lastCtrl,
+                        focusNode: lastFocus,
                         hint: "Enter guest's last name",
+                        textInputAction: TextInputAction.next,
                         textCapitalization: TextCapitalization.words,
                         maxLength: 30,
                         height: 56,
@@ -1334,14 +1384,17 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                             setDialogState(() => lastNameError = null);
                           }
                         },
+                        onSubmitted: (_) => phoneFocus.requestFocus(),
                       ),
                       if (lastNameError != null) _errorText(lastNameError!),
                       const SizedBox(height: 14),
                       _dialogRequiredLabel('Phone Number'),
                       _dialogTextField(
                         controller: phoneCtrl,
+                        focusNode: phoneFocus,
                         hint: 'Enter phone no',
                         keyboardType: TextInputType.phone,
+                        textInputAction: TextInputAction.done,
                         maxLength: 10,
                         height: 56,
                         inputFormatters: [
@@ -1354,6 +1407,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                             setDialogState(() => phoneError = null);
                           }
                         },
+                        onSubmitted: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
                       ),
                       if (phoneError != null) _errorText(phoneError!),
                       const SizedBox(height: 22),
@@ -1492,6 +1547,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         ),
       );
     } finally {
+      firstFocus.dispose();
+      lastFocus.dispose();
+      phoneFocus.dispose();
       // WidgetsBinding.instance.addPostFrameCallback((_) {
       //   phoneCtrl.dispose();
       //   firstCtrl.dispose();
@@ -2081,9 +2139,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                           width: double.infinity,
                           height: 48,
                           child: ElevatedButton(
-                            onPressed: () {
-                              _applyPickedServices(pendingIds);
-                              Navigator.pop(dialogContext);
+                            onPressed: () async {
+                              try {
+                                await _applyPickedServices(pendingIds);
+                                if (dialogContext.mounted) {
+                                  Navigator.pop(dialogContext);
+                                }
+                              } catch (e) {
+                                if (!mounted) return;
+                                _showError(_extractApiErrorMessage(e));
+                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _bookingGold,
@@ -2159,9 +2224,32 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       );
     }
 
-    final visibleCatServices =
-        catServices.whereType<Map>().where(serviceVisible).toList();
-    final visibleSubs = subs.whereType<Map>().where(subVisible).toList();
+    final renderedServiceIds = <int>{};
+    bool markUniqueService(Map service) {
+      final serviceId = _intValue(service['id']);
+      return serviceId == null || renderedServiceIds.add(serviceId);
+    }
+
+    final visibleCatServices = catServices
+        .whereType<Map>()
+        .where(serviceVisible)
+        .where(markUniqueService)
+        .toList();
+    final visibleSubs = <Map<String, dynamic>>[];
+    for (final sub in subs.whereType<Map>()) {
+      if (!subVisible(sub)) continue;
+      final visibleSubServices = ((sub['services'] as List?) ?? const [])
+          .whereType<Map>()
+          .where(serviceVisible)
+          .where(markUniqueService)
+          .map((service) => Map<String, dynamic>.from(service))
+          .toList();
+      if (visibleSubServices.isEmpty) continue;
+      visibleSubs.add({
+        ...Map<String, dynamic>.from(sub),
+        'services': visibleSubServices,
+      });
+    }
     if (visibleCatServices.isEmpty && visibleSubs.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -2360,7 +2448,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     );
   }
 
-  void _applyPickedServices(Set<int> pickedIds) {
+  Future<void> _applyPickedServices(Set<int> pickedIds) async {
     setState(() {
       _selectedServices = _branchServices
           .where((service) {
@@ -2391,6 +2479,128 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _serviceError = null;
       _syncEndTimeWithDuration();
     });
+
+    await _syncSelectedServicesToCart();
+  }
+
+  List<dynamic> _cartItemsFromResponse(dynamic data) {
+    if (data is List) return data;
+    if (data is! Map) return const [];
+
+    for (final key in const ['items', 'cartItems', 'cart_items']) {
+      final value = data[key];
+      if (value is List) return value;
+    }
+
+    final cart = data['cart'];
+    if (cart is Map) {
+      return _cartItemsFromResponse(cart);
+    }
+
+    return const [];
+  }
+
+  int? _cartItemIdFrom(Map<String, dynamic> item) {
+    for (final key in const ['id', 'itemId', 'cartItemId', 'cart_item_id']) {
+      final id = _intValue(item[key]);
+      if (id != null) return id;
+    }
+    return null;
+  }
+
+  int? _cartBranchServiceIdFrom(Map<String, dynamic> item) {
+    for (final key in const [
+      'branchServiceId',
+      'branch_service_id',
+      'serviceId',
+      'service_id',
+    ]) {
+      final id = _intValue(item[key]);
+      if (id != null) return id;
+    }
+
+    final branchService = item['branchService'];
+    if (branchService is Map) {
+      return _intValue(branchService['id']);
+    }
+
+    final service = item['service'];
+    if (service is Map) {
+      return _intValue(service['id']);
+    }
+
+    return null;
+  }
+
+  void _storeCartItemIdsFromResponse(
+    Map<String, dynamic> response,
+    List<int> fallbackServiceIds,
+  ) {
+    var items = _cartItemsFromResponse(response['data']);
+    if (items.isEmpty) {
+      items = _cartItemsFromResponse(response);
+    }
+    for (var index = 0; index < items.length; index++) {
+      final rawItem = items[index];
+      if (rawItem is! Map) continue;
+
+      final item = Map<String, dynamic>.from(rawItem);
+      final itemId = _cartItemIdFrom(item);
+      final serviceId = _cartBranchServiceIdFrom(item) ??
+          (index < fallbackServiceIds.length
+              ? fallbackServiceIds[index]
+              : null);
+
+      if (itemId != null && serviceId != null) {
+        _cartItemIdByService[serviceId] = itemId;
+      }
+    }
+  }
+
+  Future<void> _syncSelectedServicesToCart() async {
+    final branchId = widget.branchId;
+    if (branchId == null || _selectedServices.isEmpty) return;
+
+    final selectedIds = _selectedServices
+        .map((service) => _intValue(service['id']))
+        .whereType<int>()
+        .toSet();
+    _cartItemIdByService.removeWhere(
+      (serviceId, _) => !selectedIds.contains(serviceId),
+    );
+
+    final servicesToAdd = _selectedServices.where((service) {
+      final serviceId = _intValue(service['id']);
+      return serviceId != null && !_cartItemIdByService.containsKey(serviceId);
+    }).toList();
+
+    if (servicesToAdd.isEmpty) return;
+
+    final items = servicesToAdd.map((service) {
+      return <String, dynamic>{
+        'type': 'SERVICE',
+        'branchServiceId': _intValue(service['id']),
+        'qty': 1,
+        'notes': 'Added',
+      };
+    }).toList();
+
+    final response = await ApiService().addCartItemsBulk(
+      branchId: branchId,
+      items: items,
+    );
+
+    if (response['success'] == false) {
+      throw Exception(response['message'] ?? 'Failed to add services in cart');
+    }
+
+    _storeCartItemIdsFromResponse(
+      response,
+      servicesToAdd
+          .map((service) => _intValue(service['id']))
+          .whereType<int>()
+          .toList(),
+    );
   }
 
   Future<void> _loadTeamMembers() async {
@@ -2410,7 +2620,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
   }
 
-  int? _resolveAssignedUserBranchId(int serviceId) {
+  int? _resolveSelectedProId(int serviceId) {
     final selectedProfessional = _professionalByService[serviceId];
     if (selectedProfessional == null || selectedProfessional.isEmpty) {
       return null;
@@ -2418,21 +2628,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
     for (final option in _membersForService(serviceId)) {
       if (option['label'] == selectedProfessional) {
-        return option['userBranchId'] as int?;
-      }
-    }
-    return null;
-  }
-
-  int? _resolveAssignedUserId(int serviceId) {
-    final selectedProfessional = _professionalByService[serviceId];
-    if (selectedProfessional == null || selectedProfessional.isEmpty) {
-      return null;
-    }
-
-    for (final option in _membersForService(serviceId)) {
-      if (option['label'] == selectedProfessional) {
-        return option['userId'] as int?;
+        return _intValue(option['userId']);
       }
     }
     return null;
@@ -2443,6 +2639,17 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final now = DateTime.now();
     final dt = DateTime(now.year, now.month, now.day, t.hour, t.minute);
     return DateFormat('h:mm a').format(dt);
+  }
+
+  String _formatAppointmentUtc(DateTime date, TimeOfDay time) {
+    final local = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    return DateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").format(local.toUtc());
   }
 
   String _formatDate(DateTime? d) {
@@ -2512,12 +2719,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       final serviceId = service['id'];
 
       if (serviceId is! int) continue;
-      final assignedBranchUserId = _resolveAssignedBranchUserId(serviceId);
+      final selectedProId = _resolveSelectedProId(serviceId);
 
-      if (assignedBranchUserId == null) {
+      if (selectedProId == null) {
         _showError(
           translateText(
-            'Selected team member branch assignment is missing. Please reselect team member.',
+            'Please select team member for ${(service['name'] ?? '').toString()}',
           ),
         );
         return null;
@@ -2526,19 +2733,17 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final payload = {
       "userId": userId,
       "date": DateFormat('yyyy-MM-dd').format(_selectedDate!),
-      "startAt":
-          '${_startTime!.hour.toString().padLeft(2, '0')}:${_startTime!.minute.toString().padLeft(2, '0')}',
-      "endAt":
-          '${_endTime!.hour.toString().padLeft(2, '0')}:${_endTime!.minute.toString().padLeft(2, '0')}',
+      "startAt": _formatAppointmentUtc(_selectedDate!, _startTime!),
+      "endAt": _formatAppointmentUtc(_selectedDate!, _endTime!),
       "services": _selectedServices.map((s) {
         final serviceId = s['id'] as int;
+        final selectedProId = _resolveSelectedProId(serviceId);
         final servicePayload = <String, dynamic>{
           "branchServiceId": serviceId,
         };
-        final assignedBranchUserId = _resolveAssignedBranchUserId(serviceId);
 
-        if (assignedBranchUserId != null) {
-          servicePayload['assignedBranchUserId'] = assignedBranchUserId;
+        if (selectedProId != null) {
+          servicePayload['selectedProId'] = selectedProId;
         }
         return servicePayload;
       }).toList(),
@@ -2548,6 +2753,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     debugPrint(
       'SELECTED USER BRANCH IDS = ${_selectedProfessionalUserBranchIds()}',
     );
+    debugPrint('BOOKING API BRANCH ID = ${widget.branchId}');
     debugPrint("Booking payload: $payload");
     setState(() {
       _isSaving = true;
@@ -2620,6 +2826,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           serviceMembers: serviceMembers,
           selectedUserBranchIds: _selectedProfessionalUserBranchIds(),
           selectedUserIds: _selectedProfessionalUserIds(),
+          cartItemIdsByService: Map<int, int>.from(_cartItemIdByService),
           branchId: widget.branchId,
           totalPrice: _selectedTotalPrice(),
           initialDate: _selectedDate,
@@ -3489,13 +3696,6 @@ class _BookingScheduleSelection {
   final TimeOfDay endTime;
 }
 
-class _BookedInterval {
-  const _BookedInterval(this.start, this.end);
-
-  final DateTime start;
-  final DateTime end;
-}
-
 class _BookingScheduleScreen extends StatefulWidget {
   const _BookingScheduleScreen({
     required this.customerName,
@@ -3505,6 +3705,7 @@ class _BookingScheduleScreen extends StatefulWidget {
     required this.serviceMembers,
     required this.selectedUserBranchIds,
     required this.selectedUserIds,
+    required this.cartItemIdsByService,
     required this.branchId,
     required this.totalPrice,
     required this.initialDate,
@@ -3524,6 +3725,7 @@ class _BookingScheduleScreen extends StatefulWidget {
   final Map<int, List<Map<String, dynamic>>> serviceMembers;
   final List<int> selectedUserBranchIds;
   final List<int> selectedUserIds;
+  final Map<int, int> cartItemIdsByService;
   final int? branchId;
   final num totalPrice;
   final DateTime? initialDate;
@@ -3547,7 +3749,8 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   late DateTime _visibleWeekStart;
   TimeOfDay? _selectedTime;
   bool _loadingAppointments = false;
-  List<_BookedInterval> _bookedIntervals = [];
+  List<TimeOfDay> _availabilitySlots = [];
+  bool _availabilityLoaded = false;
   late final Map<int, String> _selectedProfessionals;
 
   @override
@@ -3586,16 +3789,6 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     return TimeOfDay(
       hour: (totalMinutes ~/ 60) % 24,
       minute: totalMinutes % 60,
-    );
-  }
-
-  DateTime _dateWithMinutes(int minutes) {
-    return DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day,
-      minutes ~/ 60,
-      minutes % 60,
     );
   }
 
@@ -3643,102 +3836,91 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     return true;
   }
 
-  DateTime? _parseAppointmentDate(dynamic value) {
-    final raw = value?.toString().trim() ?? '';
+  List<dynamic> _availabilityListFrom(dynamic value) {
+    if (value is List) return value;
+    if (value is! Map) return const [];
 
-    if (raw.isEmpty) return null;
-
-    return DateTime.tryParse(raw)?.toLocal();
-  }
-
-  bool _isActiveAppointment(Map<String, dynamic> appointment) {
-    final status = (appointment['status'] ?? '').toString().toUpperCase();
-
-    return !const {
-      'CANCELLED',
-      'CANCELED',
-      'COMPLETED',
-      'NO_SHOW',
-    }.contains(status);
-  }
-
-  Map<String, dynamic> _mapFrom(dynamic value) {
-    return value is Map ? Map<String, dynamic>.from(value) : {};
-  }
-
-  List<_BookedInterval> _extractBookedIntervals(dynamic responseData) {
-    final selectedUserBranchIds = widget.selectedUserBranchIds.toSet();
-    final selectedUserIds = widget.selectedUserIds.toSet();
-
-    final appointments = responseData is List
-        ? responseData
-        : responseData is Map && responseData['data'] is List
-            ? responseData['data'] as List
-            : const [];
-
-    final intervals = <_BookedInterval>[];
-
-    for (final rawAppointment in appointments) {
-      if (rawAppointment is! Map) continue;
-
-      final appointment = Map<String, dynamic>.from(rawAppointment);
-
-      if (!_isActiveAppointment(appointment)) continue;
-
-      final items = appointment['items'] is List
-          ? appointment['items'] as List
-          : const [];
-
-      for (final rawItem in items) {
-        if (rawItem is! Map) continue;
-
-        final item = Map<String, dynamic>.from(rawItem);
-        final assignedMap = _mapFrom(item['assignedUserBranch']);
-        final assignedUserMap = _mapFrom(assignedMap['user']);
-        final professionalMap = _mapFrom(item['professional']);
-
-        final assignedUserBranchId = _idFrom(assignedMap['id']);
-        final assignedUserId = _idFrom(assignedUserMap['id']);
-        final professionalUserId = _idFrom(professionalMap['id']);
-
-        final itemUserBranchId =
-            assignedUserBranchId ?? _idFrom(item['assignedUserBranchId']);
-
-        final itemUserId = assignedUserId ??
-            _idFrom(item['assignedUserId']) ??
-            professionalUserId;
-
-        final hasSelectedProfessionals =
-            selectedUserBranchIds.isNotEmpty || selectedUserIds.isNotEmpty;
-
-        final matchesSelectedProfessional = !hasSelectedProfessionals ||
-            (itemUserBranchId != null &&
-                selectedUserBranchIds.contains(itemUserBranchId)) ||
-            (itemUserId != null && selectedUserIds.contains(itemUserId));
-
-        if (!matchesSelectedProfessional) continue;
-
-        final start = _parseAppointmentDate(item['startAt']);
-        final end = _parseAppointmentDate(item['endAt']);
-
-        if (start == null || end == null || !end.isAfter(start)) continue;
-
-        intervals.add(_BookedInterval(start, end));
-      }
-
-      if (items.isEmpty &&
-          selectedUserBranchIds.isEmpty &&
-          selectedUserIds.isEmpty) {
-        final start = _parseAppointmentDate(appointment['startAt']);
-        final end = _parseAppointmentDate(appointment['endAt']);
-
-        if (start != null && end != null && end.isAfter(start)) {
-          intervals.add(_BookedInterval(start, end));
-        }
+    for (final key in const [
+      'slots',
+      'availableSlots',
+      'available_slots',
+      'availability',
+      'data',
+    ]) {
+      final nested = value[key];
+      if (nested is List) return nested;
+      if (nested is Map && nested != value) {
+        final extracted = _availabilityListFrom(nested);
+        if (extracted.isNotEmpty) return extracted;
       }
     }
 
-    return intervals;
+    return const [];
+  }
+
+  TimeOfDay? _parseSlotTime(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return null;
+
+    final dateTime = DateTime.tryParse(raw);
+    if (dateTime != null) {
+      final local = dateTime.toLocal();
+      return TimeOfDay(hour: local.hour, minute: local.minute);
+    }
+
+    final normalized = raw.toUpperCase();
+    final twelveHour =
+        RegExp(r'^(\d{1,2}):(\d{2})\s*(AM|PM)$').firstMatch(normalized);
+    if (twelveHour != null) {
+      var hour = int.tryParse(twelveHour.group(1) ?? '');
+      final minute = int.tryParse(twelveHour.group(2) ?? '');
+      final meridiem = twelveHour.group(3);
+      if (hour == null || minute == null) return null;
+      if (meridiem == 'PM' && hour < 12) hour += 12;
+      if (meridiem == 'AM' && hour == 12) hour = 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+
+    final twentyFourHour = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(normalized);
+    if (twentyFourHour != null) {
+      final hour = int.tryParse(twentyFourHour.group(1) ?? '');
+      final minute = int.tryParse(twentyFourHour.group(2) ?? '');
+      if (hour == null || minute == null || hour > 23 || minute > 59) {
+        return null;
+      }
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+
+    return null;
+  }
+
+  List<TimeOfDay> _extractAvailabilitySlots(dynamic responseData) {
+    final rawSlots = _availabilityListFrom(responseData);
+    final slots = <TimeOfDay>[];
+    final seen = <int>{};
+
+    for (final rawSlot in rawSlots) {
+      dynamic candidate = rawSlot;
+      if (rawSlot is Map) {
+        final map = Map<String, dynamic>.from(rawSlot);
+        final available = map['available'];
+        if (available == false) continue;
+        candidate = map['startAt'] ??
+            map['start'] ??
+            map['startTime'] ??
+            map['time'] ??
+            map['from'] ??
+            map['slot'];
+      }
+
+      final parsed = _parseSlotTime(candidate);
+      if (parsed == null) continue;
+      final minutes = _toMinutes(parsed);
+      if (seen.add(minutes)) slots.add(parsed);
+    }
+
+    slots.sort((a, b) => _toMinutes(a).compareTo(_toMinutes(b)));
+    return slots;
   }
 
   Future<void> _loadAppointmentsForDate() async {
@@ -3749,52 +3931,49 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     setState(() => _loadingAppointments = true);
 
     try {
-      final response = await ApiService().fetchAppointments(
-        branchId,
-        DateFormat('yyyy-MM-dd').format(_selectedDate),
+      final response = await ApiService().loadAppointmentAvailability(
+        branchId: branchId,
+        date: DateFormat('yyyy-MM-dd').format(_selectedDate),
       );
 
       if (!mounted) return;
 
-      final intervals = _extractBookedIntervals(response['data']);
+      final slots = _extractAvailabilitySlots(response['data']);
 
       setState(() {
-        _bookedIntervals = intervals;
+        _availabilitySlots = slots;
+        _availabilityLoaded = true;
         _loadingAppointments = false;
 
         final current = _selectedTime;
 
-        if (current != null && !_isSlotAvailable(current)) {
+        if (current != null &&
+            !slots.any((slot) => _toMinutes(slot) == _toMinutes(current))) {
           _selectedTime = null;
         }
       });
     } catch (e) {
-      debugPrint('[AddBookingSlots] failed=$e');
+      debugPrint('[AddBookingAvailability] failed=$e');
 
       if (!mounted) return;
 
       setState(() {
-        _bookedIntervals = [];
+        _availabilitySlots = [];
+        _availabilityLoaded = false;
         _loadingAppointments = false;
       });
     }
   }
 
   bool _isSlotAvailable(TimeOfDay slot) {
-    final duration = widget.durationMinutes <= 0 ? 30 : widget.durationMinutes;
-    final startMinutes = _toMinutes(slot);
-
-    final proposedStart = _dateWithMinutes(startMinutes);
-    final proposedEnd = proposedStart.add(Duration(minutes: duration));
-
-    return !_bookedIntervals.any(
-      (booked) =>
-          proposedStart.isBefore(booked.end) &&
-          proposedEnd.isAfter(booked.start),
-    );
+    return true;
   }
 
   List<TimeOfDay> _availableSlots() {
+    if (_availabilityLoaded) {
+      return _availabilitySlots;
+    }
+
     final start = widget.branchStartTime ?? const TimeOfDay(hour: 9, minute: 0);
     final end = widget.branchEndTime ?? const TimeOfDay(hour: 18, minute: 30);
 
@@ -3946,6 +4125,69 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     );
   }
 
+  Map<String, dynamic>? _memberForLabel(int serviceId, String? label) {
+    if (label == null || label.trim().isEmpty) return null;
+    final members =
+        widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
+    for (final member in members) {
+      if (member['label'] == label) return member;
+    }
+    return null;
+  }
+
+  String _apiMessage(Object error) {
+    final raw = error.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is Map && decoded['message'] != null) {
+        final message = decoded['message'];
+        if (message is List) return message.join('\n');
+        return message.toString();
+      }
+    } catch (_) {
+      // Keep the original backend string when it is not JSON.
+    }
+    return raw;
+  }
+
+  Future<void> _assignProfessionalInCart({
+    required int serviceId,
+    required String? label,
+  }) async {
+    final branchId = widget.branchId;
+    final itemId = widget.cartItemIdsByService[serviceId];
+    if (branchId == null || itemId == null) return;
+
+    final member = _memberForLabel(serviceId, label);
+    final selectedProId = member == null ? null : _idFrom(member['userId']);
+
+    try {
+      final response = await ApiService().updateCartItem(
+        branchId: branchId,
+        itemId: itemId,
+        qty: 1,
+        notes: '',
+        selectedProId: selectedProId,
+      );
+
+      if (response['success'] == false && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              response['message']?.toString() ??
+                  translateText('Failed to assign team member'),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_apiMessage(e))),
+      );
+    }
+  }
+
   Widget _selectedServiceTeamCard(Map<String, dynamic> service) {
     final serviceId = _idFrom(service['id']);
     final name = (service['name'] ?? '').toString();
@@ -4056,7 +4298,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                     .toList(),
                 onChanged: serviceId == null || members.isEmpty
                     ? null
-                    : (value) {
+                    : (value) async {
                         setState(() {
                           if (value == null || value.isEmpty) {
                             _selectedProfessionals.remove(serviceId);
@@ -4068,6 +4310,12 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                         widget.onProfessionalsChanged(
                           Map<int, String>.from(_selectedProfessionals),
                         );
+                        await _assignProfessionalInCart(
+                          serviceId: serviceId,
+                          label: value,
+                        );
+                        if (!mounted) return;
+                        await _loadAppointmentsForDate();
                       },
                 selectedItemBuilder: (_) => members
                     .map(
@@ -4850,10 +5098,6 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
         ],
       ),
     );
-  }
-
-  String _formatServicePrice(num price) {
-    return formatMinorAmount(price);
   }
 
   Widget _assignedArtisanServices() {
