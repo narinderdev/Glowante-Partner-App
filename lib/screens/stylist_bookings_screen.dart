@@ -122,18 +122,27 @@ class _BranchDaySlot {
   final int endMinute;
 }
 
+enum _NoTeamMembersForDateReason {
+  none,
+  joiningDate,
+  employmentDate,
+  notScheduled,
+}
+
 class _TeamMemberDirectory {
   const _TeamMemberDirectory({
     this.serviceNames = const <String, List<String>>{},
     this.workingHours = const <String, List<_WorkingDayHours>>{},
     this.namesByUserId = const <int, String>{},
     this.namesByUserBranchId = const <int, String>{},
+    this.noMembersReason = _NoTeamMembersForDateReason.none,
   });
 
   final Map<String, List<String>> serviceNames;
   final Map<String, List<_WorkingDayHours>> workingHours;
   final Map<int, String> namesByUserId;
   final Map<int, String> namesByUserBranchId;
+  final _NoTeamMembersForDateReason noMembersReason;
 
   List<String> get names => serviceNames.keys.toList();
 }
@@ -1479,6 +1488,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       const <String, List<_WorkingDayHours>>{};
   Map<int, String> _teamMemberNamesByUserId = const <int, String>{};
   Map<int, String> _teamMemberNamesByUserBranchId = const <int, String>{};
+  _NoTeamMembersForDateReason _noTeamMembersForDateReason =
+      _NoTeamMembersForDateReason.none;
   _SalonBranchOption? _selectedOption;
   DateTime _selectedDate = DateTime.now();
   DateTime _visibleDateStart = DateTime.now();
@@ -1756,9 +1767,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return days[value.weekday - 1];
   }
 
-  bool _memberWorksOnDate(
+  bool _memberIsEmployedOnDate(
     Map<String, dynamic> branchEntry,
-    Map<String, dynamic> member,
     DateTime date,
   ) {
     final selectedDate = _dateOnly(date);
@@ -1772,6 +1782,30 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       return false;
     }
 
+    return true;
+  }
+
+  bool _memberHasFutureJoiningDate(
+    Map<String, dynamic> branchEntry,
+    DateTime date,
+  ) {
+    final joiningDate = _parseDateOnly(branchEntry['joiningDate']);
+    return joiningDate != null && joiningDate.isAfter(_dateOnly(date));
+  }
+
+  bool _memberHasPastLeavingDate(
+    Map<String, dynamic> branchEntry,
+    DateTime date,
+  ) {
+    final leavingDate = _parseDateOnly(branchEntry['leavingDate']);
+    return leavingDate != null && leavingDate.isBefore(_dateOnly(date));
+  }
+
+  bool _memberHasScheduleOnDate(
+    Map<String, dynamic> branchEntry,
+    Map<String, dynamic> member,
+    DateTime date,
+  ) {
     final schedules = _teamMemberScheduleItems(branchEntry, member);
     if (schedules.isEmpty) return false;
 
@@ -1953,6 +1987,10 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       final workingHoursByMember = <String, List<_WorkingDayHours>>{};
       final namesByUserId = <int, String>{};
       final namesByUserBranchId = <int, String>{};
+      var hasBranchTeamMember = false;
+      var hasFutureJoiningDateMember = false;
+      var hasPastLeavingDateMember = false;
+      var hasEmployedMemberWithoutSchedule = false;
 
       for (final item in data) {
         if (item is! Map) continue;
@@ -1986,6 +2024,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             if (memberBranchId != branchId) {
               continue;
             }
+            hasBranchTeamMember = true;
 
             final workingHours = _workingHoursFromTeamMember(
               branchEntry,
@@ -1995,7 +2034,17 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               workingHoursByMember[name] = workingHours;
             }
 
-            if (!_memberWorksOnDate(branchEntry, member, date)) {
+            if (!_memberIsEmployedOnDate(branchEntry, date)) {
+              if (_memberHasFutureJoiningDate(branchEntry, date)) {
+                hasFutureJoiningDateMember = true;
+              } else if (_memberHasPastLeavingDate(branchEntry, date)) {
+                hasPastLeavingDateMember = true;
+              }
+              continue;
+            }
+
+            if (!_memberHasScheduleOnDate(branchEntry, member, date)) {
+              hasEmployedMemberWithoutSchedule = true;
               continue;
             }
             worksOnSelectedDate = true;
@@ -2037,11 +2086,25 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         }
       }
 
+      var noMembersReason = _NoTeamMembersForDateReason.none;
+      if (serviceNamesByMember.isEmpty && hasBranchTeamMember) {
+        if (hasEmployedMemberWithoutSchedule) {
+          noMembersReason = _NoTeamMembersForDateReason.notScheduled;
+        } else if (hasFutureJoiningDateMember) {
+          noMembersReason = _NoTeamMembersForDateReason.joiningDate;
+        } else if (hasPastLeavingDateMember) {
+          noMembersReason = _NoTeamMembersForDateReason.employmentDate;
+        } else {
+          noMembersReason = _NoTeamMembersForDateReason.notScheduled;
+        }
+      }
+
       return _TeamMemberDirectory(
         serviceNames: serviceNamesByMember,
         workingHours: workingHoursByMember,
         namesByUserId: namesByUserId,
         namesByUserBranchId: namesByUserBranchId,
+        noMembersReason: noMembersReason,
       );
     } catch (e) {
       debugPrint('[BookingsTeamMemberServices] failed=$e');
@@ -2126,6 +2189,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _teamMemberWorkingHours = teamMemberDirectory.workingHours;
       _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
+      _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
       _errorMessage = errorMessage;
       _isLoading = false;
       _loadingDate = false;
@@ -2149,6 +2213,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             workingHours: _teamMemberWorkingHours,
             namesByUserId: _teamMemberNamesByUserId,
             namesByUserBranchId: _teamMemberNamesByUserBranchId,
+            noMembersReason: _noTeamMembersForDateReason,
           );
     final teamMemberServiceNames = widget.isOwnerMode
         ? teamMemberDirectory.serviceNames
@@ -2169,6 +2234,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _teamMemberWorkingHours = teamMemberDirectory.workingHours;
       _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
+      _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
       _errorMessage = result.errorMessage;
     });
   }
@@ -2195,6 +2261,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       workingHours: _teamMemberWorkingHours,
       namesByUserId: _teamMemberNamesByUserId,
       namesByUserBranchId: _teamMemberNamesByUserBranchId,
+      noMembersReason: _noTeamMembersForDateReason,
     );
     String? errorMessage;
     if (!widget.isOwnerMode && _userId == null) {
@@ -2225,6 +2292,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       _teamMemberWorkingHours = teamMemberDirectory.workingHours;
       _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
       _teamMemberNamesByUserBranchId = teamMemberDirectory.namesByUserBranchId;
+      _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
       _errorMessage = errorMessage;
       _loadingDate = false;
     });
@@ -2248,6 +2316,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       workingHours: _teamMemberWorkingHours,
       namesByUserId: _teamMemberNamesByUserId,
       namesByUserBranchId: _teamMemberNamesByUserBranchId,
+      noMembersReason: _noTeamMembersForDateReason,
     );
 
     if (selected != null && (widget.isOwnerMode || userId != null)) {
@@ -2276,6 +2345,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
         _teamMemberNamesByUserId = teamMemberDirectory.namesByUserId;
         _teamMemberNamesByUserBranchId =
             teamMemberDirectory.namesByUserBranchId;
+        _noTeamMembersForDateReason = teamMemberDirectory.noMembersReason;
       }
       _errorMessage = errorMessage;
       _loadingDate = false;
@@ -2744,46 +2814,47 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       ),
     );
   }
-int? _selectedDateBranchEndMinute() {
-  final selected = _selectedOption;
-  if (selected == null) return null;
 
-  final selectedDaySlots = selected.slotsForDate(_selectedDate);
+  int? _selectedDateBranchEndMinute() {
+    final selected = _selectedOption;
+    if (selected == null) return null;
 
-  if (selectedDaySlots.isNotEmpty) {
-    return selectedDaySlots
-        .map((slot) => slot.endMinute)
-        .reduce((first, second) => first > second ? first : second);
+    final selectedDaySlots = selected.slotsForDate(_selectedDate);
+
+    if (selectedDaySlots.isNotEmpty) {
+      return selectedDaySlots
+          .map((slot) => slot.endMinute)
+          .reduce((first, second) => first > second ? first : second);
+    }
+
+    return selected.endMinute;
   }
 
-  return selected.endMinute;
-}
+  bool _isSelectedBranchBookingWindowOver() {
+    final selected = _selectedOption;
+    if (selected == null) return false;
 
-bool _isSelectedBranchBookingWindowOver() {
-  final selected = _selectedOption;
-  if (selected == null) return false;
+    final today = _dateOnly(DateTime.now());
+    final selectedDate = _dateOnly(_selectedDate);
 
-  final today = _dateOnly(DateTime.now());
-  final selectedDate = _dateOnly(_selectedDate);
+    // Only block for today's date.
+    // Future dates should still allow booking.
+    if (!_isSameDay(today, selectedDate)) return false;
 
-  // Only block for today's date.
-  // Future dates should still allow booking.
-  if (!_isSameDay(today, selectedDate)) return false;
+    final branchEndMinute = _selectedDateBranchEndMinute();
+    if (branchEndMinute == null) return false;
 
-  final branchEndMinute = _selectedDateBranchEndMinute();
-  if (branchEndMinute == null) return false;
+    final now = DateTime.now();
+    final nowMinutes = now.hour * 60 + now.minute;
 
-  final now = DateTime.now();
-  final nowMinutes = now.hour * 60 + now.minute;
+    return nowMinutes >= branchEndMinute;
+  }
 
-  return nowMinutes >= branchEndMinute;
-}
-
-String _selectedBranchEndTimeLabel() {
-  final endMinute = _selectedDateBranchEndMinute();
-  if (endMinute == null) return '';
-  return _formatMinutesLabel(endMinute);
-}
+  String _selectedBranchEndTimeLabel() {
+    final endMinute = _selectedDateBranchEndMinute();
+    if (endMinute == null) return '';
+    return _formatMinutesLabel(endMinute);
+  }
   // Future<void> _openAddBooking() async {
   //   final selected = _selectedOption;
   //   if (selected == null) {
@@ -2817,72 +2888,72 @@ String _selectedBranchEndTimeLabel() {
   //   setState(() => _selectedBookingView = 0);
   //   await _reloadBookingsForSelectedOption();
   // }
-Future<void> _openAddBooking() async {
-  final selected = _selectedOption;
+  Future<void> _openAddBooking() async {
+    final selected = _selectedOption;
 
-  if (selected == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(translateText('Please select a salon'))),
-    );
-    return;
-  }
+    if (selected == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(translateText('Please select a salon'))),
+      );
+      return;
+    }
 
-  if (selected.isClosedOnDate(_selectedDate)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('Salon is closed on the selected date'),
+    if (selected.isClosedOnDate(_selectedDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('Salon is closed on the selected date'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (_isSelectedBranchBookingWindowOver()) {
+      final endTime = _selectedBranchEndTimeLabel();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            endTime.isEmpty
+                ? translateText('Booking time is over for today')
+                : translateText(
+                    'Booking time is over for today. Branch closed at $endTime',
+                  ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (widget.isOwnerMode &&
+        _teamMemberNames.isEmpty &&
+        _selectedBookingView == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('No team member available for this date'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddBookingScreen(
+          salonId: selected.salonId,
+          branchId: selected.branchId,
         ),
       ),
     );
-    return;
+
+    if (!mounted || result == null) return;
+
+    setState(() => _selectedBookingView = 0);
+    await _reloadBookingsForSelectedOption();
   }
-
-  if (_isSelectedBranchBookingWindowOver()) {
-    final endTime = _selectedBranchEndTimeLabel();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          endTime.isEmpty
-              ? translateText('Booking time is over for today')
-              : translateText(
-                  'Booking time is over for today. Branch closed at $endTime',
-                ),
-        ),
-      ),
-    );
-    return;
-  }
-
-  if (widget.isOwnerMode &&
-      _teamMemberNames.isEmpty &&
-      _selectedBookingView == 0) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('No team member available for this date'),
-        ),
-      ),
-    );
-    return;
-  }
-
-  final result = await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AddBookingScreen(
-        salonId: selected.salonId,
-        branchId: selected.branchId,
-      ),
-    ),
-  );
-
-  if (!mounted || result == null) return;
-
-  setState(() => _selectedBookingView = 0);
-  await _reloadBookingsForSelectedOption();
-}
   // Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
   //   final selected = _selectedOption;
   //   final appointmentId = _asInt(booking['id']);
@@ -3031,20 +3102,18 @@ Future<void> _openAddBooking() async {
     );
     final selectedDaySlots = _selectedOption?.slotsForDate(_selectedDate) ??
         const <_BranchDaySlot>[];
-final isSelectedDateClosed =
-    _selectedOption?.isClosedOnDate(_selectedDate) == true;
+    final isSelectedDateClosed =
+        _selectedOption?.isClosedOnDate(_selectedDate) == true;
 
-final bool noTeamMembersAvailable = widget.isOwnerMode &&
-    selectedBookingView == _BookingViewTab.teamMembers &&
-    _teamMemberNames.isEmpty;
+    final bool noTeamMembersAvailable = widget.isOwnerMode &&
+        selectedBookingView == _BookingViewTab.teamMembers &&
+        _teamMemberNames.isEmpty;
 
-final bool isBranchBookingWindowOver =
-    _isSelectedBranchBookingWindowOver();
+    final bool isBranchBookingWindowOver = _isSelectedBranchBookingWindowOver();
 
-final bool disableAddBooking =
-    isSelectedDateClosed ||
-    noTeamMembersAvailable ||
-    isBranchBookingWindowOver;
+    final bool disableAddBooking = isSelectedDateClosed ||
+        noTeamMembersAvailable ||
+        isBranchBookingWindowOver;
     final selectedStartMinute = selectedDaySlots.isNotEmpty
         ? selectedDaySlots.first.startMinute
         : _selectedOption?.startMinute;
@@ -3190,7 +3259,9 @@ final bool disableAddBooking =
                       ],
                     ),
                   ),
-                  if (!_isLoading && isSelectedDateClosed)
+                  if (!_isLoading &&
+                      isSelectedDateClosed &&
+                      visibleBookings.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _BranchClosedState(
@@ -3200,10 +3271,13 @@ final bool disableAddBooking =
                     )
                   else if (!_isLoading &&
                       selectedBookingView == _BookingViewTab.teamMembers &&
-                      _teamMemberNames.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      child: _NoTeamMembersForDateState(),
+                      _teamMemberNames.isEmpty &&
+                      visibleBookings.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _NoTeamMembersForDateState(
+                        reason: _noTeamMembersForDateReason,
+                      ),
                     )
                   else if (!_isLoading && visibleBookings.isEmpty)
                     Padding(
@@ -3292,24 +3366,25 @@ final bool disableAddBooking =
               ),
             ),
         ],
-      ),floatingActionButton: widget.isOwnerMode &&
-        selectedBookingView == _BookingViewTab.teamMembers
-    ? IgnorePointer(
-        ignoring: disableAddBooking,
-        child: FloatingActionButton(
-          heroTag: 'owner_team_add_booking_fab',
-          onPressed: _openAddBooking,
-          backgroundColor:
-              disableAddBooking ? const Color(0xFFD6D3D1) : _bookingsGold,
-          foregroundColor:
-              disableAddBooking ? _bookingsSecondaryText : Colors.white,
-          elevation: disableAddBooking ? 2 : 8,
-          child: const Icon(Icons.add_rounded, size: 30),
-        ),
-      )
-    : null,
-floatingActionButtonLocation:
-    widget.isOwnerMode ? FloatingActionButtonLocation.endFloat : null,
+      ),
+      floatingActionButton: widget.isOwnerMode &&
+              selectedBookingView == _BookingViewTab.teamMembers
+          ? IgnorePointer(
+              ignoring: disableAddBooking,
+              child: FloatingActionButton(
+                heroTag: 'owner_team_add_booking_fab',
+                onPressed: _openAddBooking,
+                backgroundColor:
+                    disableAddBooking ? const Color(0xFFD6D3D1) : _bookingsGold,
+                foregroundColor:
+                    disableAddBooking ? _bookingsSecondaryText : Colors.white,
+                elevation: disableAddBooking ? 2 : 8,
+                child: const Icon(Icons.add_rounded, size: 30),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation:
+          widget.isOwnerMode ? FloatingActionButtonLocation.endFloat : null,
     );
   }
 }
@@ -6318,7 +6393,32 @@ class _BookingEmptyState extends StatelessWidget {
 }
 
 class _NoTeamMembersForDateState extends StatelessWidget {
-  const _NoTeamMembersForDateState();
+  const _NoTeamMembersForDateState({
+    required this.reason,
+  });
+
+  final _NoTeamMembersForDateReason reason;
+
+  String _message(BuildContext context) {
+    switch (reason) {
+      case _NoTeamMembersForDateReason.joiningDate:
+        return context.t(
+          'Team members whose joining date is later than the selected date are hidden from the schedule.',
+        );
+      case _NoTeamMembersForDateReason.employmentDate:
+        return context.t(
+          'Team members are hidden when their employment dates do not include the selected date.',
+        );
+      case _NoTeamMembersForDateReason.notScheduled:
+        return context.t(
+          'Team members who do not have working hours on the selected day are hidden from the schedule.',
+        );
+      case _NoTeamMembersForDateReason.none:
+        return context.t(
+          'Add a team member or select another date to view the schedule.',
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -6349,9 +6449,7 @@ class _NoTeamMembersForDateState extends StatelessWidget {
           ),
           const SizedBox(height: 7),
           Text(
-            context.t(
-              'Team members whose joining date is later than the selected date are hidden from the schedule.',
-            ),
+            _message(context),
             textAlign: TextAlign.center,
             style: _bookingTextStyle(
               size: 12,
