@@ -191,6 +191,15 @@ DateTime? _parseLocal(dynamic iso) {
   }
 }
 
+DateTime _dateOnly(DateTime value) {
+  return DateTime(value.year, value.month, value.day);
+}
+
+DateTime? _parseDateOnly(dynamic value) {
+  final parsed = _parseLocal(value);
+  return parsed == null ? null : _dateOnly(parsed);
+}
+
 String _twoDigits(int value) => value.toString().padLeft(2, '0');
 
 String _formatApiDate(DateTime value) {
@@ -1077,6 +1086,7 @@ bool _canStartJob(Map<String, dynamic> booking) {
   final now = DateTime.now();
   return now.isAtSameMomentAs(start) || now.isAfter(start);
 }
+
 bool _showsFinishAction(String status) => status == 'IN_PROGRESS';
 
 bool _showsNoShowAction(String status) =>
@@ -1735,6 +1745,17 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   }
 
   bool _memberWorksOnDate(Map<String, dynamic> branchEntry, DateTime date) {
+    final selectedDate = _dateOnly(date);
+    final joiningDate = _parseDateOnly(branchEntry['joiningDate']);
+    if (joiningDate != null && joiningDate.isAfter(selectedDate)) {
+      return false;
+    }
+
+    final leavingDate = _parseDateOnly(branchEntry['leavingDate']);
+    if (leavingDate != null && leavingDate.isBefore(selectedDate)) {
+      return false;
+    }
+
     final schedules = branchEntry['schedules'];
     if (schedules is! List || schedules.isEmpty) return false;
 
@@ -2223,8 +2244,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   List<Map<String, dynamic>> _bookingsForCurrentView(
     List<Map<String, dynamic>> sortedBookings,
   ) {
+    final teamFilteredBookings =
+        sortedBookings.where(_shouldShowBookingForActiveTeam).toList();
+
     if (_isRecentBookingView) {
-      return sortedBookings
+      return teamFilteredBookings
           .where((booking) {
             final status = _normalizeStatus(booking['status']);
             return _isCompletedStatus(status);
@@ -2234,12 +2258,44 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           .toList();
     }
     if (!widget.isOwnerMode && _isScheduleBookingView) {
-      return sortedBookings.where((booking) {
+      return teamFilteredBookings.where((booking) {
         final status = _normalizeStatus(booking['status']);
         return _isUpcomingScheduleStatus(status);
       }).toList();
     }
-    return sortedBookings;
+    return teamFilteredBookings;
+  }
+
+  bool _isActiveTeamMemberName(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return _teamMemberNames
+        .any((name) => name.trim().toLowerCase() == normalized);
+  }
+
+  bool _hasAssignedStaffReference(Map<String, dynamic> booking) {
+    if (_assignedStaffNames(booking).isNotEmpty) return true;
+
+    bool hasId(dynamic value) => _asInt(value) != null;
+
+    bool hasReference(Map<String, dynamic> source) {
+      return hasId(source['assignedUserId']) ||
+          hasId(source['teamMemberId']) ||
+          hasId(source['assignedUserBranchId']) ||
+          hasId(source['userBranchId']) ||
+          hasId(source['professional']?['id']) ||
+          hasId(source['assignedUserBranch']?['id']) ||
+          hasId(source['assignedUserBranch']?['user']?['id']);
+    }
+
+    if (hasReference(booking)) return true;
+    return _bookingItems(booking).any(hasReference);
+  }
+
+  bool _shouldShowBookingForActiveTeam(Map<String, dynamic> booking) {
+    if (!widget.isOwnerMode) return true;
+    if (_assignedStaffNamesForGrouping(booking).isNotEmpty) return true;
+    return !_hasAssignedStaffReference(booking);
   }
 
   List<String> _assignedStaffNamesForGrouping(
@@ -2251,6 +2307,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     void addName(String value) {
       final normalized = value.trim();
       if (normalized.isEmpty) return;
+      if (widget.isOwnerMode && !_isActiveTeamMemberName(normalized)) return;
       final key = normalized.toLowerCase();
       if (seen.add(key)) {
         names.add(normalized);
@@ -2339,16 +2396,18 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       //         : _showsFinishAction(status)
       //             ? () => _handleCompleteFromList(booking)
       //             : null,
-     onPrimaryActionTap: _showsConfirmAction(
-  status,
-  isOwnerMode: widget.isOwnerMode,
-)
-    ? () => _handleConfirmFromList(booking)
-    : _showsStartAction(status)
-        ? (_canStartJob(booking) ? () => _handleStartFromList(booking) : null)
-        : _showsFinishAction(status)
-            ? () => _handleCompleteFromList(booking)
-            : null,
+      onPrimaryActionTap: _showsConfirmAction(
+        status,
+        isOwnerMode: widget.isOwnerMode,
+      )
+          ? () => _handleConfirmFromList(booking)
+          : _showsStartAction(status)
+              ? (_canStartJob(booking)
+                  ? () => _handleStartFromList(booking)
+                  : null)
+              : _showsFinishAction(status)
+                  ? () => _handleCompleteFromList(booking)
+                  : null,
       isProcessing: (_confirmingAppointmentId != null &&
               _confirmingAppointmentId == _asInt(booking['id'])) ||
           (_startingAppointmentId != null &&
@@ -2569,54 +2628,55 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   //   );
   //   await _reloadBookingsForSelectedOption();
   // }
-Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
-  final selected = _selectedOption;
-  final appointmentId = _asInt(booking['id']);
+  Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
+    final selected = _selectedOption;
+    final appointmentId = _asInt(booking['id']);
 
-  if (!_canStartJob(booking)) {
+    if (!_canStartJob(booking)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('You can start this job at appointment time'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (selected == null ||
+        appointmentId == null ||
+        _startingAppointmentId != null) {
+      return;
+    }
+
+    setState(() => _startingAppointmentId = appointmentId);
+
+    final resp = await _showStartJobOtpDialog(
+      context,
+      branchId: selected.branchId,
+      appointmentId: appointmentId,
+    );
+
+    if (!mounted) return;
+
+    setState(() => _startingAppointmentId = null);
+
+    if (resp == null) return;
+
+    final newStatus =
+        _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
+
+    booking['status'] = newStatus;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          translateText('You can start this job at appointment time'),
-        ),
+        content: Text(resp['message']?.toString() ?? 'Job started'),
       ),
     );
-    return;
+
+    await _reloadBookingsForSelectedOption();
   }
 
-  if (selected == null ||
-      appointmentId == null ||
-      _startingAppointmentId != null) {
-    return;
-  }
-
-  setState(() => _startingAppointmentId = appointmentId);
-
-  final resp = await _showStartJobOtpDialog(
-    context,
-    branchId: selected.branchId,
-    appointmentId: appointmentId,
-  );
-
-  if (!mounted) return;
-
-  setState(() => _startingAppointmentId = null);
-
-  if (resp == null) return;
-
-  final newStatus =
-      _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
-
-  booking['status'] = newStatus;
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(resp['message']?.toString() ?? 'Job started'),
-    ),
-  );
-
-  await _reloadBookingsForSelectedOption();
-}
   Future<void> _handleCompleteFromList(Map<String, dynamic> booking) async {
     final selected = _selectedOption;
     final appointmentId = _asInt(booking['id']);
@@ -2843,9 +2903,13 @@ Future<void> _handleStartFromList(Map<String, dynamic> booking) async {
                       ),
                     )
                   else if (!_isLoading &&
-                      visibleBookings.isEmpty &&
-                      !(selectedBookingView == _BookingViewTab.teamMembers &&
-                          _teamMemberNames.isNotEmpty))
+                      selectedBookingView == _BookingViewTab.teamMembers &&
+                      _teamMemberNames.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: _NoTeamMembersForDateState(),
+                    )
+                  else if (!_isLoading && visibleBookings.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _BookingEmptyState(),
@@ -5887,6 +5951,55 @@ class _BookingEmptyState extends StatelessWidget {
   }
 }
 
+class _NoTeamMembersForDateState extends StatelessWidget {
+  const _NoTeamMembersForDateState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _bookingsBorder),
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.groups_2_outlined,
+            size: 34,
+            color: _bookingsAccent,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.t('No team members available for this date'),
+            textAlign: TextAlign.center,
+            style: _bookingTextStyle(
+              size: 17,
+              weight: FontWeight.w800,
+              color: _bookingsPrimaryText,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            context.t(
+              'Team members whose joining date is later than the selected date are hidden from the schedule.',
+            ),
+            textAlign: TextAlign.center,
+            style: _bookingTextStyle(
+              size: 12,
+              weight: FontWeight.w600,
+              color: _bookingsSecondaryText,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _BranchClosedState extends StatelessWidget {
   const _BranchClosedState({
     required this.branchLabel,
@@ -5969,13 +6082,13 @@ class _BookingListCard extends StatelessWidget {
     //     : (_showsStartAction(status)
     //         ? context.t('Start Job').toUpperCase()
     //         : null);
-   final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
-    ? context.t('Accept').toUpperCase()
-    : (_showsStartAction(status)
-        ? context.t('Start Job').toUpperCase()
-        : (_showsFinishAction(status)
-            ? context.t('Finish Job').toUpperCase()
-            : null));
+    final actionLabel = _showsConfirmAction(status, isOwnerMode: isOwnerMode)
+        ? context.t('Accept').toUpperCase()
+        : (_showsStartAction(status)
+            ? context.t('Start Job').toUpperCase()
+            : (_showsFinishAction(status)
+                ? context.t('Finish Job').toUpperCase()
+                : null));
 
     final finishLabel = _showsFinishAction(status)
         ? context.t('Finish Job').toUpperCase()
@@ -6366,51 +6479,52 @@ class _StylistBookingDetailScreenState
   //   );
   // }
 
-Future<void> _handleStartJob() async {
-  if (!_canStartJob(_booking)) {
+  Future<void> _handleStartJob() async {
+    if (!_canStartJob(_booking)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('You can start this job at appointment time'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (_loadingStart) return;
+
+    setState(() => _loadingStart = true);
+
+    final resp = await _showStartJobOtpDialog(
+      context,
+      branchId: widget.branchId,
+      appointmentId: _booking['id'] as int,
+    );
+
+    if (!mounted) return;
+
+    setState(() => _loadingStart = false);
+
+    if (resp == null) return;
+
+    final newStatus =
+        _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
+
+    setState(() {
+      _statusUpper = newStatus;
+      _booking['status'] = newStatus;
+      _didChange = true;
+    });
+
+    _syncElapsedTicker();
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          translateText('You can start this job at appointment time'),
-        ),
+        content: Text(resp['message']?.toString() ?? 'Job started'),
       ),
     );
-    return;
   }
 
-  if (_loadingStart) return;
-
-  setState(() => _loadingStart = true);
-
-  final resp = await _showStartJobOtpDialog(
-    context,
-    branchId: widget.branchId,
-    appointmentId: _booking['id'] as int,
-  );
-
-  if (!mounted) return;
-
-  setState(() => _loadingStart = false);
-
-  if (resp == null) return;
-
-  final newStatus =
-      _normalizeStatus(resp['data']?['status'] ?? 'IN_PROGRESS');
-
-  setState(() {
-    _statusUpper = newStatus;
-    _booking['status'] = newStatus;
-    _didChange = true;
-  });
-
-  _syncElapsedTicker();
-
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(resp['message']?.toString() ?? 'Job started'),
-    ),
-  );
-}
   Future<void> _handleConfirmJob() async {
     if (_loadingConfirm) return;
 
@@ -6937,18 +7051,18 @@ Future<void> _handleStartJob() async {
     //         : (_showsStartAction(_statusUpper)
     //             ? context.t('Start Job').toUpperCase()
     //             : null));
-   final canStartJob = _canStartJob(_booking);
+    final canStartJob = _canStartJob(_booking);
 
-final primaryAction = _showsConfirmAction(
-  _statusUpper,
-  isOwnerMode: widget.isOwnerMode,
-)
-    ? context.t('Accept').toUpperCase()
-    : (_showsFinishAction(_statusUpper)
-        ? context.t('Finish Job').toUpperCase()
-        : (_showsStartAction(_statusUpper)
-            ? context.t('Start Job').toUpperCase()
-            : null));
+    final primaryAction = _showsConfirmAction(
+      _statusUpper,
+      isOwnerMode: widget.isOwnerMode,
+    )
+        ? context.t('Accept').toUpperCase()
+        : (_showsFinishAction(_statusUpper)
+            ? context.t('Finish Job').toUpperCase()
+            : (_showsStartAction(_statusUpper)
+                ? context.t('Start Job').toUpperCase()
+                : null));
 
     final primaryColor =
         _showsFinishAction(_statusUpper) ? _bookingsDark : _bookingsAccent;
@@ -7003,17 +7117,15 @@ final primaryAction = _showsConfirmAction(
         //                 ? _handleStartJob
         //                 : null))),
         onPrimaryAction: _loadingNoShow
-    ? null
-    : (_showsConfirmAction(
-        _statusUpper,
-        isOwnerMode: widget.isOwnerMode,
-      )
-        ? _handleConfirmJob
-        : (_showsFinishAction(_statusUpper)
-            ? _handleCompleteJob
-            : (canStartJob
-                ? _handleStartJob
-                : null))),
+            ? null
+            : (_showsConfirmAction(
+                _statusUpper,
+                isOwnerMode: widget.isOwnerMode,
+              )
+                ? _handleConfirmJob
+                : (_showsFinishAction(_statusUpper)
+                    ? _handleCompleteJob
+                    : (canStartJob ? _handleStartJob : null))),
         secondaryAction:
             showNoShowAction ? context.t('No Show').toUpperCase() : null,
         secondaryActionColor: const Color(0xFF374151),
