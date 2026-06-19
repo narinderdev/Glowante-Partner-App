@@ -188,7 +188,7 @@ class _OwnerRolesPermissionsScreenState
   Future<void> _openAddRole() async {
     final branchId = _selectedBranchId;
     if (branchId == null) return;
-    await showDialog<void>(
+    final saved = await showDialog<_RoleSaveResult>(
       context: context,
       builder: (context) => _RoleEditorDialog(
         title: 'Add Role',
@@ -200,12 +200,17 @@ class _OwnerRolesPermissionsScreenState
         ),
       ),
     );
+    if (saved?.success == true && mounted) {
+      await _loadRoles(branchId);
+      if (!mounted) return;
+      _showRoleSaveMessage(saved!.message);
+    }
   }
 
   Future<void> _openEditRole(_RoleItem role) async {
     final branchId = _selectedBranchId;
     if (branchId == null) return;
-    await showDialog<void>(
+    final saved = await showDialog<_RoleSaveResult>(
       context: context,
       builder: (context) => _RoleEditorDialog(
         title: 'Edit Role',
@@ -219,6 +224,11 @@ class _OwnerRolesPermissionsScreenState
         ),
       ),
     );
+    if (saved?.success == true && mounted) {
+      await _loadRoles(branchId);
+      if (!mounted) return;
+      _showRoleSaveMessage(saved!.message);
+    }
   }
 
   Future<void> _openRoleDetails(_RoleItem role) async {
@@ -233,7 +243,7 @@ class _OwnerRolesPermissionsScreenState
     );
   }
 
-  Future<bool> _saveRole({
+  Future<_RoleSaveResult> _saveRole({
     required int branchId,
     int? roleId,
     required String label,
@@ -252,20 +262,18 @@ class _OwnerRolesPermissionsScreenState
             permissionIds: permissionIds,
           );
 
-    if (!mounted) return false;
     final success = response['success'] == true;
+    final message = response['message']?.toString() ??
+        (success ? 'Role saved successfully.' : 'Unable to save role.');
+    return _RoleSaveResult(success: success, message: message);
+  }
+
+  void _showRoleSaveMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          response['message']?.toString() ??
-              (success ? 'Role saved successfully.' : 'Unable to save role.'),
-        ),
+        content: Text(message),
       ),
     );
-    if (success) {
-      await _loadRoles(branchId);
-    }
-    return success;
   }
 
   @override
@@ -799,7 +807,8 @@ class _RoleEditorDialog extends StatefulWidget {
   final _RoleItem? role;
   final List<_PermissionItem> permissions;
   final bool readOnly;
-  final Future<bool> Function(_RoleEditorResult result)? onSubmitRole;
+  final Future<_RoleSaveResult> Function(_RoleEditorResult result)?
+      onSubmitRole;
 
   @override
   State<_RoleEditorDialog> createState() => _RoleEditorDialogState();
@@ -809,6 +818,7 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
   late final TextEditingController _nameController;
   late final Set<int> _selectedPermissionIds;
   bool _isSubmitting = false;
+  String? _submitError;
 
   @override
   void initState() {
@@ -867,18 +877,24 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
 
     final onSubmitRole = widget.onSubmitRole;
     if (onSubmitRole == null) {
-      Navigator.pop(context, result);
-      return;
-    }
-
-    setState(() => _isSubmitting = true);
-    final saved = await onSubmitRole(result);
-    if (!mounted) return;
-    if (saved) {
       Navigator.pop(context);
       return;
     }
-    setState(() => _isSubmitting = false);
+
+    setState(() {
+      _isSubmitting = true;
+      _submitError = null;
+    });
+    final saved = await onSubmitRole(result);
+    if (!mounted) return;
+    if (saved.success) {
+      Navigator.pop(context, saved);
+      return;
+    }
+    setState(() {
+      _isSubmitting = false;
+      _submitError = saved.message;
+    });
   }
 
   @override
@@ -1019,14 +1035,25 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
               const Divider(height: 1, color: _rolesBorder),
               Padding(
                 padding: const EdgeInsets.all(14),
-                child: _RoleDialogFooter(
-                  selectedCount: _selectedPermissionIds.length,
-                  readOnly: readOnly,
-                  isSubmitting: _isSubmitting,
-                  actionLabel: context
-                      .t(widget.role == null ? 'Create Role' : 'Save Changes'),
-                  onCancel: _isSubmitting ? null : () => Navigator.pop(context),
-                  onSubmit: _submit,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_submitError != null) ...[
+                      _RoleDialogError(message: _submitError!),
+                      const SizedBox(height: 12),
+                    ],
+                    _RoleDialogFooter(
+                      selectedCount: _selectedPermissionIds.length,
+                      readOnly: readOnly,
+                      isSubmitting: _isSubmitting,
+                      actionLabel: context.t(
+                        widget.role == null ? 'Create Role' : 'Save Changes',
+                      ),
+                      onCancel:
+                          _isSubmitting ? null : () => Navigator.pop(context),
+                      onSubmit: _submit,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1115,6 +1142,48 @@ class _PermissionToolbar extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _RoleDialogError extends StatelessWidget {
+  const _RoleDialogError({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFFCCCC)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 18,
+            color: Color(0xFFD32F2F),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12,
+                height: 1.35,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFD32F2F),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1540,6 +1609,16 @@ class _RoleEditorResult {
 
   final String label;
   final List<int> permissionIds;
+}
+
+class _RoleSaveResult {
+  const _RoleSaveResult({
+    required this.success,
+    required this.message,
+  });
+
+  final bool success;
+  final String message;
 }
 
 BoxDecoration _rolesCardDecoration() {

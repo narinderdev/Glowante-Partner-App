@@ -695,7 +695,13 @@ class _PlansGrid extends StatelessWidget {
   bool _canChoosePlan(_MembershipPlan plan) {
     final current = subscription;
     if (current == null) return true;
-    if (current.currentPlanId == plan.id) return current.canRenew;
+    if (current.upcomingMembership != null) return false;
+    if (current.currentPlanId == plan.id) {
+      if (!_isYearlyCycle(current.billingCycle)) {
+        return yearlyBilling ? current.canUpgrade : false;
+      }
+      return current.canRenew;
+    }
     return current.canUpgrade;
   }
 }
@@ -2068,7 +2074,22 @@ class _PurchaseDialog extends StatefulWidget {
 }
 
 class _PurchaseDialogState extends State<_PurchaseDialog> {
-  late bool _yearlyBilling = widget.initialYearlyBilling;
+  late bool _yearlyBilling;
+
+  @override
+  void initState() {
+    super.initState();
+    _yearlyBilling =
+        _isMonthlyRepurchaseBlocked ? true : widget.initialYearlyBilling;
+  }
+
+  bool get _isMonthlyRepurchaseBlocked {
+    final subscription = widget.subscription;
+    return subscription != null &&
+        subscription.currentPlanId == widget.plan.id &&
+        !_isYearlyCycle(subscription.billingCycle) &&
+        subscription.remainingDays > 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2176,9 +2197,26 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                   ),
                 ),
                 onSelectionChanged: (values) {
-                  setState(() => _yearlyBilling = values.first);
+                  final nextValue = values.first;
+                  if (!nextValue && _isMonthlyRepurchaseBlocked) return;
+                  setState(() => _yearlyBilling = nextValue);
                 },
               ),
+              if (_isMonthlyRepurchaseBlocked) ...[
+                const SizedBox(height: 8),
+                Text(
+                  context.t(
+                    'Monthly renewal is available after the current membership ends. You can upgrade to yearly now.',
+                  ),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 11,
+                    height: 1.35,
+                    color: _membershipMuted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -2546,6 +2584,7 @@ class _SalonSubscription {
   });
 
   factory _SalonSubscription.fromJson(Map<String, dynamic> json) {
+    json = _subscriptionJsonWithDeferredUpcoming(json);
     final expiryDate = _parseDate(json['expiryDate']);
     final computedRemainingDays = _remainingDaysFromExpiry(expiryDate);
     final remainingDays = _readInt(json['remainingDays']) ??
@@ -2559,9 +2598,19 @@ class _SalonSubscription {
         _canRenewOrUpgradeFallback(billingCycle, remainingDays);
     final backendRenew =
         _readBool(json['renew']) ?? _readBool(json['canRenew']);
-    final canRenew = ruleEligible && (backendRenew ?? true);
-    final canUpgrade =
-        ruleEligible && (_readBool(json['canUpgrade']) ?? backendRenew ?? true);
+    final backendCanUpgrade = _readBool(json['canUpgrade']);
+    var canRenew = ruleEligible && (backendRenew ?? true);
+    var canUpgrade =
+        ruleEligible && (backendCanUpgrade ?? backendRenew ?? true);
+    final upcomingRaw = json['upcomingMembership'];
+    final hasUpcomingMembership = upcomingRaw is Map;
+    if (hasUpcomingMembership) {
+      canRenew = false;
+      canUpgrade = false;
+    } else if (!_isYearlyCycle(billingCycle) && remainingDays > 0) {
+      canRenew = false;
+      canUpgrade = backendCanUpgrade ?? true;
+    }
     final renewalEligibleAfterDays =
         _readInt(json['renewalEligibleAfterDays']) ??
             _renewalEligibleAfterDaysFallback(billingCycle, remainingDays);
@@ -2574,7 +2623,6 @@ class _SalonSubscription {
             canUpgrade: canUpgrade,
             renewalEligibleAfterDays: renewalEligibleAfterDays,
           );
-    final upcomingRaw = json['upcomingMembership'];
 
     return _SalonSubscription(
       salonName: _cleanText(json['salonName']).isEmpty
@@ -2685,6 +2733,7 @@ class _UpcomingMembership {
 
 class _SubscriptionHistory {
   const _SubscriptionHistory({
+    required this.planId,
     required this.planName,
     required this.billingCycle,
     required this.paymentStatus,
@@ -2699,6 +2748,7 @@ class _SubscriptionHistory {
 
   factory _SubscriptionHistory.fromJson(Map<String, dynamic> json) {
     return _SubscriptionHistory(
+      planId: _readInt(json['planId']),
       planName: _cleanText(json['planName']).isEmpty
           ? 'Plan'
           : _cleanText(json['planName']),
@@ -2718,6 +2768,7 @@ class _SubscriptionHistory {
     );
   }
 
+  final int? planId;
   final String planName;
   final String billingCycle;
   final String paymentStatus;
@@ -2869,16 +2920,152 @@ bool? _readBool(dynamic value) {
   return null;
 }
 
+Map<String, dynamic> _subscriptionJsonWithDeferredUpcoming(
+  Map<String, dynamic> json,
+) {
+  if (json['upcomingMembership'] is Map) return json;
+  final rawHistory = json['history'];
+  if (rawHistory is! List) return json;
+
+  final topExpiryDate = _parseDate(json['expiryDate']);
+  final topRemainingDays = _readInt(json['remainingDays']) ??
+      _readInt(json['daysLeft']) ??
+      _remainingDaysFromExpiry(topExpiryDate);
+  final topBillingCycle = _subscriptionBillingCycleFromJson(
+    json,
+    remainingDays: topRemainingDays,
+  );
+  final history = rawHistory
+      .whereType<Map>()
+      .map((item) =>
+          _SubscriptionHistory.fromJson(Map<String, dynamic>.from(item)))
+      .toList();
+
+  if (!_isYearlyCycle(topBillingCycle)) {
+    final upcomingYearlyHistory = history.where((item) {
+      if (!_isYearlyCycle(item.billingCycle)) return false;
+      final startDate = item.startDate;
+      final expiryDate = item.expiryDate;
+      if (startDate == null || expiryDate == null) return false;
+      return !_dateOnly(startDate).isBefore(_todayDateOnly());
+    }).toList()
+      ..sort((a, b) {
+        final startCompare =
+            (a.startDate ?? DateTime(0)).compareTo(b.startDate ?? DateTime(0));
+        if (startCompare != 0) return startCompare;
+        return (b.expiryDate ?? DateTime(0))
+            .compareTo(a.expiryDate ?? DateTime(0));
+      });
+
+    if (upcomingYearlyHistory.isEmpty) return json;
+    final upcoming = upcomingYearlyHistory.first;
+    return <String, dynamic>{
+      ...json,
+      'renew': false,
+      'canRenew': false,
+      'canUpgrade': false,
+      'membershipMessage':
+          'You already have an upcoming yearly membership. Renewal or upgrade will be available after the current monthly membership ends.',
+      'upcomingMembership': <String, dynamic>{
+        'planName': upcoming.planName,
+        'billingCycle':
+            upcoming.billingCycle.isEmpty ? 'ANNUAL' : upcoming.billingCycle,
+        'startDate': _apiDateString(upcoming.startDate),
+        'expiryDate': _apiDateString(upcoming.expiryDate),
+        'amountMinor': upcoming.amountMinor,
+        'currency': upcoming.currency,
+        'membershipStatus': 'UPCOMING',
+      },
+    };
+  }
+
+  final activeMonthlyHistory = history.where((item) {
+    if (_isYearlyCycle(item.billingCycle)) return false;
+    final startDate = item.startDate;
+    final expiryDate = item.expiryDate;
+    if (startDate == null || expiryDate == null) return false;
+    final today = _todayDateOnly();
+    final startOnly = _dateOnly(startDate);
+    final expiryOnly = _dateOnly(expiryDate);
+    return !startOnly.isAfter(today) && expiryOnly.isAfter(today);
+  }).toList()
+    ..sort((a, b) {
+      final expiryCompare =
+          (b.expiryDate ?? DateTime(0)).compareTo(a.expiryDate ?? DateTime(0));
+      if (expiryCompare != 0) return expiryCompare;
+      return (b.startDate ?? DateTime(0)).compareTo(a.startDate ?? DateTime(0));
+    });
+
+  if (activeMonthlyHistory.isEmpty) return json;
+
+  final currentMonthly = activeMonthlyHistory.first;
+  final currentExpiry = currentMonthly.expiryDate;
+  if (currentExpiry == null) return json;
+
+  final topStartDate = _parseDate(json['startDate']);
+  final topDurationDays = topStartDate == null || topExpiryDate == null
+      ? 365
+      : topExpiryDate.difference(topStartDate).inDays;
+  final upcomingStart = _dateOnly(currentExpiry);
+  final upcomingExpiry = upcomingStart.add(
+    Duration(days: topDurationDays > 0 ? topDurationDays : 365),
+  );
+  final currentRemainingDays = _remainingDaysFromExpiry(currentExpiry);
+
+  return <String, dynamic>{
+    ...json,
+    'currentPlanId': currentMonthly.planId ?? json['currentPlanId'],
+    'currentPlan': currentMonthly.planName,
+    'paymentStatus': currentMonthly.paymentStatus,
+    'membershipStatus': 'ACTIVE',
+    'startDate': _apiDateString(currentMonthly.startDate),
+    'expiryDate': _apiDateString(currentMonthly.expiryDate),
+    'billingCycle': currentMonthly.billingCycle.isEmpty
+        ? 'MONTHLY'
+        : currentMonthly.billingCycle,
+    'amountMinor': currentMonthly.amountMinor,
+    'currency': currentMonthly.currency,
+    'remainingDays': currentRemainingDays,
+    'daysLeft': currentRemainingDays,
+    'renew': false,
+    'canRenew': false,
+    'canUpgrade': false,
+    'renewalEligibleAfterDays': currentRemainingDays,
+    'membershipMessage':
+        'You already have an upcoming yearly membership. Renewal or upgrade will be available after the current monthly membership ends.',
+    'upcomingMembership': <String, dynamic>{
+      'planName': _cleanText(json['currentPlan']).isEmpty
+          ? currentMonthly.planName
+          : _cleanText(json['currentPlan']),
+      'billingCycle': topBillingCycle,
+      'startDate': _apiDateString(upcomingStart),
+      'expiryDate': _apiDateString(upcomingExpiry),
+      'amountMinor': _readInt(json['amountMinor']) ?? 0,
+      'currency': _cleanText(json['currency']).isEmpty
+          ? 'INR'
+          : _cleanText(json['currency']),
+      'membershipStatus': 'UPCOMING',
+    },
+  };
+}
+
+DateTime _todayDateOnly() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+}
+
+DateTime _dateOnly(DateTime date) {
+  return DateTime(date.year, date.month, date.day);
+}
+
+String? _apiDateString(DateTime? date) {
+  if (date == null) return null;
+  return DateFormat('yyyy-MM-dd').format(date);
+}
+
 int _remainingDaysFromExpiry(DateTime? expiryDate) {
   if (expiryDate == null) return 0;
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final expiryOnly = DateTime(
-    expiryDate.year,
-    expiryDate.month,
-    expiryDate.day,
-  );
-  return expiryOnly.difference(today).inDays;
+  return _dateOnly(expiryDate).difference(_todayDateOnly()).inDays;
 }
 
 bool _isYearlyCycle(String billingCycle) {
@@ -2980,6 +3167,10 @@ String _membershipEligibilityMessage({
       return 'Yearly membership can be renewed or upgraded when 330 days or fewer remain. Try again in $waitDays days.';
     }
     return 'Yearly membership is not eligible for renewal or upgrade yet.';
+  }
+
+  if (!canRenew && canUpgrade) {
+    return 'Monthly renewal is available after the current membership ends. You can upgrade to yearly now.';
   }
 
   return 'Membership is not eligible for renewal or upgrade yet.';
