@@ -2563,6 +2563,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     Map<String, dynamic> response,
     List<int> fallbackServiceIds,
   ) {
+    final changedItemId = _changedCartItemIdFrom(response);
+    if (changedItemId != null && fallbackServiceIds.length == 1) {
+      _cartItemIdByService[fallbackServiceIds.first] = changedItemId;
+      debugPrint(
+        '[AddBookingCart] serviceId=${fallbackServiceIds.first} '
+        'currentCartItemId=$changedItemId',
+      );
+      return;
+    }
+
     var items = _cartItemsFromResponse(response['data']);
     if (items.isEmpty) {
       items = _cartItemsFromResponse(response);
@@ -2580,6 +2590,72 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
       if (itemId != null && serviceId != null) {
         _cartItemIdByService[serviceId] = itemId;
+      }
+    }
+  }
+
+  int? _changedCartItemIdFrom(Map<String, dynamic> response) {
+    int? fromChanged(dynamic value) {
+      if (value is! Map) return null;
+      final changed = Map<String, dynamic>.from(value);
+      for (final key in const ['itemId', 'cartItemId', 'id']) {
+        final id = _intValue(changed[key]);
+        if (id != null) return id;
+      }
+      return null;
+    }
+
+    final data = response['data'];
+    if (data is Map) {
+      final id = fromChanged(data['changed']);
+      if (id != null) return id;
+    }
+
+    return fromChanged(response['changed']);
+  }
+
+  List<Map<String, dynamic>> _cartItemMapsFromResponse(
+    Map<String, dynamic> response,
+  ) {
+    var items = _cartItemsFromResponse(response['data']);
+    if (items.isEmpty) {
+      items = _cartItemsFromResponse(response);
+    }
+
+    return items
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  Future<void> _removeStaleCartItemsFromResponse(
+    Map<String, dynamic> response,
+  ) async {
+    final branchId = widget.branchId;
+    if (branchId == null) return;
+
+    final keepItemIds = _cartItemIdByService.values.toSet();
+    if (keepItemIds.isEmpty) return;
+
+    final cartItems = _cartItemMapsFromResponse(response);
+    for (final item in cartItems) {
+      final itemId = _cartItemIdFrom(item);
+      if (itemId == null || keepItemIds.contains(itemId)) continue;
+
+      debugPrint('[AddBookingCart] removing stale cart item=$itemId');
+      try {
+        final deleteResponse = await ApiService().deleteCartItem(
+          branchId: branchId,
+          itemId: itemId,
+        );
+        if (deleteResponse['success'] == false) {
+          debugPrint(
+            '[AddBookingCart] failed to remove stale item=$itemId '
+            'message=${deleteResponse['message']}',
+          );
+        }
+      } catch (e) {
+        debugPrint('[AddBookingCart] failed to remove stale item=$itemId: $e');
       }
     }
   }
@@ -2628,6 +2704,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           .whereType<int>()
           .toList(),
     );
+    await _removeStaleCartItemsFromResponse(response);
   }
 
   Future<void> _loadTeamMembers() async {
@@ -3795,7 +3872,10 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     _visibleWeekStart = _selectedDate.isAfter(today) ? _selectedDate : today;
     _selectedTime = widget.initialStartTime;
 
-    _loadAppointmentsForDate();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _refreshAvailabilityFromCart();
+    });
   }
 
   int _toMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
@@ -3861,6 +3941,62 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     }
 
     return true;
+  }
+
+  bool _hasTeamMemberSelectionsForAvailability() {
+    for (final service in widget.services) {
+      final serviceId = _idFrom(service['id']);
+      if (serviceId == null) continue;
+
+      final selected = _selectedProfessionals[serviceId];
+      if (selected == null || selected.trim().isEmpty) {
+        return false;
+      }
+
+      final members =
+          widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
+      if (!members.any((member) => member['label'] == selected)) {
+        return false;
+      }
+    }
+
+    return widget.services.isNotEmpty;
+  }
+
+  Future<void> _refreshAvailabilityFromCart() async {
+    if (!_hasTeamMemberSelectionsForAvailability()) {
+      setState(() {
+        _availabilitySlots = [];
+        _availabilityLoaded = false;
+        _loadingAppointments = false;
+        _selectedTime = null;
+      });
+      return;
+    }
+
+    for (final service in widget.services) {
+      final serviceId = _idFrom(service['id']);
+      if (serviceId == null) continue;
+
+      final assigned = await _assignProfessionalInCart(
+        serviceId: serviceId,
+        label: _selectedProfessionals[serviceId],
+      );
+
+      if (!mounted) return;
+      if (!assigned) {
+        setState(() {
+          _availabilitySlots = [];
+          _availabilityLoaded = true;
+          _loadingAppointments = false;
+          _selectedTime = null;
+        });
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    await _loadAppointmentsForDate();
   }
 
   List<dynamic> _availabilityListFrom(dynamic value) {
@@ -3954,6 +4090,15 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     final branchId = widget.branchId;
 
     if (branchId == null) return;
+    if (!_hasTeamMemberSelectionsForAvailability()) {
+      setState(() {
+        _availabilitySlots = [];
+        _availabilityLoaded = false;
+        _loadingAppointments = false;
+        _selectedTime = null;
+      });
+      return;
+    }
 
     setState(() => _loadingAppointments = true);
 
@@ -4177,18 +4322,40 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     return raw;
   }
 
-  Future<void> _assignProfessionalInCart({
+  Future<bool> _assignProfessionalInCart({
     required int serviceId,
     required String? label,
   }) async {
     final branchId = widget.branchId;
     final itemId = widget.cartItemIdsByService[serviceId];
-    if (branchId == null || itemId == null) return;
+    if (branchId == null || itemId == null) {
+      debugPrint(
+        '[AddBookingAvailability] missing cart item for serviceId=$serviceId '
+        'branchId=$branchId cartItemIds=${widget.cartItemIdsByService}',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              translateText(
+                'Please reselect services before checking availability',
+              ),
+            ),
+          ),
+        );
+      }
+      return false;
+    }
 
     final member = _memberForLabel(serviceId, label);
     final selectedProId = member == null ? null : _idFrom(member['userId']);
+    if (selectedProId == null) return false;
 
     try {
+      debugPrint(
+        '[AddBookingAvailability] assigning cart item=$itemId '
+        'serviceId=$serviceId selectedProId=$selectedProId',
+      );
       final response = await ApiService().updateCartItem(
         branchId: branchId,
         itemId: itemId,
@@ -4206,12 +4373,15 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
             ),
           ),
         );
+        return false;
       }
+      return true;
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_apiMessage(e))),
       );
+      return false;
     }
   }
 
@@ -4337,12 +4507,8 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                         widget.onProfessionalsChanged(
                           Map<int, String>.from(_selectedProfessionals),
                         );
-                        await _assignProfessionalInCart(
-                          serviceId: serviceId,
-                          label: value,
-                        );
                         if (!mounted) return;
-                        await _loadAppointmentsForDate();
+                        await _refreshAvailabilityFromCart();
                       },
                 selectedItemBuilder: (_) => members
                     .map(

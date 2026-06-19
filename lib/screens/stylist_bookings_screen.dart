@@ -4321,6 +4321,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
       subtitle: widget.staffName,
       hours: widget.workingHours,
       emptyMessage: 'No working hours available',
+      closedLabel: 'Closed',
     );
   }
 
@@ -4330,6 +4331,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
       subtitle: 'Weekly working hours',
       hours: widget.salonWorkingHours,
       emptyMessage: 'No salon hours available',
+      closedLabel: 'Off day',
     );
   }
 
@@ -4338,6 +4340,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
     required String subtitle,
     required List<_WorkingDayHours> hours,
     required String emptyMessage,
+    required String closedLabel,
   }) {
     final weeklyHours = _weeklyHoursWithClosedDays(hours);
     showDialog<void>(
@@ -4423,7 +4426,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                       itemBuilder: (context, index) {
                         final item = weeklyHours[index];
                         final slots = item.slots.isEmpty
-                            ? [context.t('Off day')]
+                            ? [context.t(closedLabel)]
                             : item.slots;
                         final isClosed = item.slots.isEmpty;
                         return Container(

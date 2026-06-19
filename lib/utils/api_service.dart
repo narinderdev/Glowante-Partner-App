@@ -459,6 +459,10 @@ class ApiService {
     return "branches/$branchId/cart/items/$itemId";
   }
 
+  static String deleteCartItemAPI(int branchId, int itemId) {
+    return "branches/$branchId/cart/items/$itemId";
+  }
+
   static String updateSalonOffer(int salonId, int offerId) {
     return "salons/$salonId/offers/$offerId";
   }
@@ -657,6 +661,17 @@ class ApiService {
         'notes': notes,
         if (selectedProId != null) 'selectedProId': selectedProId,
       },
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteCartItem({
+    required int branchId,
+    required int itemId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'DELETE',
+      endpoint: deleteCartItemAPI(branchId, itemId),
+      debugTag: 'DeleteCartItem',
     );
   }
 
