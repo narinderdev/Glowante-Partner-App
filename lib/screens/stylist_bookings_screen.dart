@@ -142,10 +142,22 @@ class _WorkingDayHours {
   const _WorkingDayHours({
     required this.day,
     required this.slots,
+    this.ranges = const <_WorkingHourRange>[],
   });
 
   final String day;
   final List<String> slots;
+  final List<_WorkingHourRange> ranges;
+}
+
+class _WorkingHourRange {
+  const _WorkingHourRange({
+    required this.startMinute,
+    required this.endMinute,
+  });
+
+  final int startMinute;
+  final int endMinute;
 }
 
 class _BookingStatusVisuals {
@@ -1744,7 +1756,11 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return days[value.weekday - 1];
   }
 
-  bool _memberWorksOnDate(Map<String, dynamic> branchEntry, DateTime date) {
+  bool _memberWorksOnDate(
+    Map<String, dynamic> branchEntry,
+    Map<String, dynamic> member,
+    DateTime date,
+  ) {
     final selectedDate = _dateOnly(date);
     final joiningDate = _parseDateOnly(branchEntry['joiningDate']);
     if (joiningDate != null && joiningDate.isAfter(selectedDate)) {
@@ -1756,16 +1772,17 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       return false;
     }
 
-    final schedules = branchEntry['schedules'];
-    if (schedules is! List || schedules.isEmpty) return false;
+    final schedules = _teamMemberScheduleItems(branchEntry, member);
+    if (schedules.isEmpty) return false;
 
     final targetDay = _weekdayKey(date);
     for (final schedule in schedules) {
-      if (schedule is! Map) continue;
       final day = schedule['day']?.toString().trim().toLowerCase() ?? '';
       if (day != targetDay) continue;
-      final start = schedule['startTime']?.toString().trim() ?? '';
-      final end = schedule['endTime']?.toString().trim() ?? '';
+      final start =
+          (schedule['startTime'] ?? schedule['start'])?.toString().trim() ?? '';
+      final end =
+          (schedule['endTime'] ?? schedule['end'])?.toString().trim() ?? '';
       if (start.isNotEmpty && end.isNotEmpty) return true;
     }
 
@@ -1791,24 +1808,115 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     return order[day.trim().toLowerCase()] ?? 99;
   }
 
-  List<_WorkingDayHours> _workingHoursFromBranchEntry(
+  dynamic _rawTeamMemberSchedules(
     Map<String, dynamic> branchEntry,
+    Map<String, dynamic> member,
   ) {
-    final schedules = branchEntry['schedules'];
-    if (schedules is! List || schedules.isEmpty) {
+    for (final value in [
+      branchEntry['schedules'],
+      member['schedules'],
+    ]) {
+      if (value is List && value.isNotEmpty) return value;
+      if (value is Map && value.isNotEmpty) return value;
+    }
+    return null;
+  }
+
+  List<Map<String, dynamic>> _teamMemberScheduleItems(
+    Map<String, dynamic> branchEntry,
+    Map<String, dynamic> member,
+  ) {
+    final raw = _rawTeamMemberSchedules(branchEntry, member);
+    if (raw is List) {
+      final items = <Map<String, dynamic>>[];
+      for (final item in raw.whereType<Map>()) {
+        _addTeamMemberScheduleItems(
+          items,
+          Map<String, dynamic>.from(item),
+        );
+      }
+      return items;
+    }
+    if (raw is Map) {
+      final items = <Map<String, dynamic>>[];
+      raw.forEach((key, value) {
+        final day = key.toString().trim().toLowerCase();
+        if (day.isEmpty) return;
+        if (value is List) {
+          for (final slot in value.whereType<Map>()) {
+            _addTeamMemberScheduleItems(
+              items,
+              Map<String, dynamic>.from(slot),
+              fallbackDay: day,
+            );
+          }
+          return;
+        }
+        if (value is Map) {
+          _addTeamMemberScheduleItems(
+            items,
+            Map<String, dynamic>.from(value),
+            fallbackDay: day,
+          );
+        }
+      });
+      return items;
+    }
+    return const <Map<String, dynamic>>[];
+  }
+
+  void _addTeamMemberScheduleItems(
+    List<Map<String, dynamic>> items,
+    Map<String, dynamic> schedule, {
+    String? fallbackDay,
+  }) {
+    final day =
+        (schedule['day'] ?? fallbackDay ?? '').toString().trim().toLowerCase();
+    if (day.isEmpty) return;
+
+    final slots = schedule['slots'];
+    if (slots is List) {
+      for (final slot in slots.whereType<Map>()) {
+        items.add({
+          'day': day,
+          ...Map<String, dynamic>.from(slot),
+        });
+      }
+      return;
+    }
+
+    items.add({
+      'day': day,
+      ...schedule,
+    });
+  }
+
+  List<_WorkingDayHours> _workingHoursFromTeamMember(
+    Map<String, dynamic> branchEntry,
+    Map<String, dynamic> member,
+  ) {
+    final schedules = _teamMemberScheduleItems(branchEntry, member);
+    if (schedules.isEmpty) {
       return const <_WorkingDayHours>[];
     }
 
     final slotsByDay = <String, List<String>>{};
+    final rangesByDay = <String, List<_WorkingHourRange>>{};
     for (final schedule in schedules) {
-      if (schedule is! Map) continue;
       final day = schedule['day']?.toString().trim().toLowerCase() ?? '';
-      final startMinute = _clockMinutes(schedule['startTime']);
-      final endMinute = _clockMinutes(schedule['endTime']);
+      final startMinute =
+          _clockMinutes(schedule['startTime'] ?? schedule['start']);
+      final endMinute = _clockMinutes(schedule['endTime'] ?? schedule['end']);
       if (day.isEmpty || startMinute == null || endMinute == null) continue;
       if (endMinute <= startMinute) continue;
       slotsByDay.putIfAbsent(day, () => <String>[]).add(
             '${_formatMinutesLabel(startMinute)} - ${_formatMinutesLabel(endMinute)}',
+          );
+      rangesByDay.putIfAbsent(day, () => <_WorkingHourRange>[]).add(
+            _WorkingHourRange(
+              startMinute: startMinute,
+              endMinute: endMinute,
+            ),
           );
     }
 
@@ -1820,6 +1928,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           (day) => _WorkingDayHours(
             day: _dayDisplayLabel(day),
             slots: slotsByDay[day] ?? const <String>[],
+            ranges: rangesByDay[day] ?? const <_WorkingHourRange>[],
           ),
         )
         .toList();
@@ -1874,16 +1983,19 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                 : rawBranchId is num
                     ? rawBranchId.toInt()
                     : int.tryParse('${rawBranchId ?? ''}');
-            if (memberBranchId != null && memberBranchId != branchId) {
+            if (memberBranchId != branchId) {
               continue;
             }
 
-            final workingHours = _workingHoursFromBranchEntry(branchEntry);
+            final workingHours = _workingHoursFromTeamMember(
+              branchEntry,
+              member,
+            );
             if (workingHours.isNotEmpty) {
               workingHoursByMember[name] = workingHours;
             }
 
-            if (!_memberWorksOnDate(branchEntry, date)) {
+            if (!_memberWorksOnDate(branchEntry, member, date)) {
               continue;
             }
             worksOnSelectedDate = true;
@@ -2495,6 +2607,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     String staffName,
     List<Map<String, dynamic>> bookings,
   ) {
+    final selectedOption = _selectedOption;
     final selectedDaySlots = _selectedOption?.slotsForDate(_selectedDate) ??
         const <_BranchDaySlot>[];
     final selectedStartMinute = selectedDaySlots.isNotEmpty
@@ -2514,14 +2627,81 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
           bookings: bookings,
           serviceNames: _teamMemberServiceNames[staffName] ?? const [],
           workingHours: _teamMemberWorkingHours[staffName] ?? const [],
+          salonWorkingHours: _workingHoursFromBranchOption(selectedOption),
           selectedDate: _selectedDate,
-          branchId: _selectedOption?.branchId,
+          branchId: selectedOption?.branchId,
           branchStartMinute: selectedStartMinute,
           branchEndMinute: selectedEndMinute,
           onBookingTap: _openBookingDetail,
         ),
       ),
     );
+  }
+
+  List<_WorkingDayHours> _workingHoursFromBranchOption(
+    _SalonBranchOption? option,
+  ) {
+    if (option == null) return const <_WorkingDayHours>[];
+
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+
+    final result = <_WorkingDayHours>[];
+    if (option.hasWeeklySchedule) {
+      for (final day in days) {
+        final slots = option.weeklySlots[day] ?? const <_BranchDaySlot>[];
+        if (slots.isEmpty) continue;
+        result.add(
+          _WorkingDayHours(
+            day: _dayDisplayLabel(day),
+            slots: slots
+                .map(
+                  (slot) =>
+                      '${_formatMinutesLabel(slot.startMinute)} - ${_formatMinutesLabel(slot.endMinute)}',
+                )
+                .toList(),
+            ranges: slots
+                .map(
+                  (slot) => _WorkingHourRange(
+                    startMinute: slot.startMinute,
+                    endMinute: slot.endMinute,
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      }
+      return result;
+    }
+
+    final startMinute = option.startMinute;
+    final endMinute = option.endMinute;
+    if (startMinute == null || endMinute == null || endMinute <= startMinute) {
+      return const <_WorkingDayHours>[];
+    }
+
+    final slotLabel =
+        '${_formatMinutesLabel(startMinute)} - ${_formatMinutesLabel(endMinute)}';
+    final range = _WorkingHourRange(
+      startMinute: startMinute,
+      endMinute: endMinute,
+    );
+    return days
+        .map(
+          (day) => _WorkingDayHours(
+            day: _dayDisplayLabel(day),
+            slots: [slotLabel],
+            ranges: [range],
+          ),
+        )
+        .toList();
   }
 
   Future<void> _handleConfirmFromList(Map<String, dynamic> booking) async {
@@ -4042,6 +4222,7 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
     required this.bookings,
     required this.serviceNames,
     required this.workingHours,
+    required this.salonWorkingHours,
     required this.selectedDate,
     required this.onBookingTap,
     this.branchId,
@@ -4053,6 +4234,7 @@ class _TeamMemberScheduleScreen extends StatefulWidget {
   final List<Map<String, dynamic>> bookings;
   final List<String> serviceNames;
   final List<_WorkingDayHours> workingHours;
+  final List<_WorkingDayHours> salonWorkingHours;
   final DateTime selectedDate;
   final int? branchId;
   final int? branchStartMinute;
@@ -4134,6 +4316,29 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
   }
 
   void _showWorkingHoursModal() {
+    _showHoursModal(
+      title: 'Working days and hours',
+      subtitle: widget.staffName,
+      hours: widget.workingHours,
+      emptyMessage: 'No working hours available',
+    );
+  }
+
+  void _showSalonHoursModal() {
+    _showHoursModal(
+      title: 'Salon hours',
+      subtitle: 'Weekly working hours',
+      hours: widget.salonWorkingHours,
+      emptyMessage: 'No salon hours available',
+    );
+  }
+
+  void _showHoursModal({
+    required String title,
+    required String subtitle,
+    required List<_WorkingDayHours> hours,
+    required String emptyMessage,
+  }) {
     showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -4175,7 +4380,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              context.t('Working days and hours'),
+                              context.t(title),
                               style: _bookingTextStyle(
                                 size: 18,
                                 weight: FontWeight.w900,
@@ -4184,7 +4389,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              widget.staffName,
+                              context.t(subtitle),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: _bookingTextStyle(
@@ -4206,7 +4411,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  if (widget.workingHours.isEmpty)
+                  if (hours.isEmpty)
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
@@ -4216,7 +4421,7 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                         border: Border.all(color: _bookingsBorder),
                       ),
                       child: Text(
-                        context.t('No working hours available'),
+                        context.t(emptyMessage),
                         style: _bookingTextStyle(
                           size: 13,
                           weight: FontWeight.w800,
@@ -4231,10 +4436,10 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                       ),
                       child: ListView.separated(
                         shrinkWrap: true,
-                        itemCount: widget.workingHours.length,
+                        itemCount: hours.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (context, index) {
-                          final item = widget.workingHours[index];
+                          final item = hours[index];
                           return Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(14),
@@ -4547,9 +4752,11 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                   ),
                 ),
               ],
-              if (startLabel != null && endLabel != null) ...[
-                const SizedBox(height: 14),
-                Container(
+              const SizedBox(height: 14),
+              InkWell(
+                onTap: _showSalonHoursModal,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 9,
@@ -4569,7 +4776,9 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${context.t('Salon Hours')}: $startLabel - $endLabel',
+                          startLabel != null && endLabel != null
+                              ? '${context.t('Salon Hours')}: $startLabel - $endLabel'
+                              : context.t('Salon Hours'),
                           style: _bookingTextStyle(
                             size: 12,
                             weight: FontWeight.w800,
@@ -4577,10 +4786,15 @@ class _TeamMemberScheduleScreenState extends State<_TeamMemberScheduleScreen> {
                           ),
                         ),
                       ),
+                      const Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        color: _bookingsGold,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ),
-              ],
+              ),
               const SizedBox(height: 10),
               InkWell(
                 onTap: _showWorkingHoursModal,
