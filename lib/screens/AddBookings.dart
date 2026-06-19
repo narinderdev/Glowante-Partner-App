@@ -2847,7 +2847,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         };
 
         if (selectedProId != null) {
-          servicePayload['selectedProId'] = selectedProId;
+          servicePayload['assignedUserBranchId'] = selectedProId;
         }
         return servicePayload;
       }).toList(),
