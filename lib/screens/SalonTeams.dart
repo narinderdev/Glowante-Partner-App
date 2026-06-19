@@ -136,9 +136,10 @@ class _TeamScreenState extends State<TeamScreen> {
     try {
       final response = await ApiService.getTeamMembers(branchId);
 
-      final members = response['success'] == true && response['data'] is List
-          ? List<dynamic>.from(response['data'] as List)
-          : <dynamic>[];
+     final members = response['success'] == true && response['data'] is List
+    ? List<dynamic>.from(response['data'] as List)
+    : <dynamic>[];
+
 _teamMembersCache = members;
       if (mounted && selectedBranchId == branchId) {
         final hasMembers = members.isNotEmpty;
@@ -264,10 +265,13 @@ _teamMembersCache = members;
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => _statusUpdatingIds.remove(userId));
-      }
-    }
+  if (mounted) {
+    setState(() {
+      _statusUpdatingIds.remove(userId);
+      teamMembersFuture = Future.value(_teamMembersCache);
+    });
+  }
+}
   }
   // Future<void> _deleteMember(int userId) async {
   //   final branchId = selectedBranchId;
