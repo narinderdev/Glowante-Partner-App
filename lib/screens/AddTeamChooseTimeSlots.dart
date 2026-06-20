@@ -660,7 +660,6 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         .toList()
       ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
 
-    const preferredDuration = 60;
     const minimumDuration = 15;
 
     for (final bound in bounds) {
@@ -678,11 +677,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         );
 
         if (usedStart - cursor >= minimumDuration) {
-          final end = (cursor + preferredDuration).clamp(cursor, usedStart);
-
           return _OperatingSlot(
             startMinutes: cursor,
-            endMinutes: end,
+            endMinutes: usedStart,
           );
         }
 
@@ -695,14 +692,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       }
 
       if (bound.endMinutes - cursor >= minimumDuration) {
-        final end = (cursor + preferredDuration).clamp(
-          cursor,
-          bound.endMinutes,
-        );
-
         return _OperatingSlot(
           startMinutes: cursor,
-          endMinutes: end,
+          endMinutes: bound.endMinutes,
         );
       }
     }
@@ -837,9 +829,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       decoration: InputDecoration(
         isDense: true,
         filled: true,
-        fillColor: _useSalonHours
-            ? const Color(0xFFF0EDE9)
-            : const Color(0xFFFAF8F6),
+        fillColor:
+            _useSalonHours ? const Color(0xFFF0EDE9) : const Color(0xFFFAF8F6),
         contentPadding: const EdgeInsets.fromLTRB(10, 9, 6, 9),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -957,87 +948,88 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   //     ),
   //   );
   // }
-Widget _weeklyHoursCard(String day) {
-  final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
-  final isClosed = _isClosedDay(day);
+  Widget _weeklyHoursCard(String day) {
+    final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+    final isClosed = _isClosedDay(day);
 
-  return Opacity(
-    opacity: _useSalonHours ? 0.55 : 1,
-    child: IgnorePointer(
-      ignoring: _useSalonHours,
-      child: Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-        decoration: BoxDecoration(
-          color: _useSalonHours ? const Color(0xFFF0EDE9) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _useSalonHours
-                ? const Color(0xFFD8D1CA)
-                : const Color(0xFFF0E8DF),
-          ),
-          boxShadow: _useSalonHours
-              ? const []
-              : const [
-                  BoxShadow(
-                    color: Color(0x08000000),
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              translateText(day),
-              style: TextStyle(
-                color: _useSalonHours
-                    ? const Color(0xFF8D867F)
-                    : const Color(0xFF1F1B18),
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
-              ),
+    return Opacity(
+      opacity: _useSalonHours ? 0.55 : 1,
+      child: IgnorePointer(
+        ignoring: _useSalonHours,
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          decoration: BoxDecoration(
+            color: _useSalonHours ? const Color(0xFFF0EDE9) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _useSalonHours
+                  ? const Color(0xFFD8D1CA)
+                  : const Color(0xFFF0E8DF),
             ),
-            const SizedBox(height: 18),
-            if (isClosed)
+            boxShadow: _useSalonHours
+                ? const []
+                : const [
+                    BoxShadow(
+                      color: Color(0x08000000),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                translateText('CLOSED'),
-                style: const TextStyle(
-                  color: Color(0xFFE54848),
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.8,
+                translateText(day),
+                style: TextStyle(
+                  color: _useSalonHours
+                      ? const Color(0xFF8D867F)
+                      : const Color(0xFF1F1B18),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
                 ),
-              )
-            else ...[
-              if (slots.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Text(
-                    translateText('No time slots added'),
-                    style: const TextStyle(
-                      color: Color(0xFF9A928B),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+              ),
+              const SizedBox(height: 18),
+              if (isClosed)
+                Text(
+                  translateText('CLOSED'),
+                  style: const TextStyle(
+                    color: Color(0xFFE54848),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                )
+              else ...[
+                if (slots.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      translateText('No time slots added'),
+                      style: const TextStyle(
+                        color: Color(0xFF9A928B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              for (var index = 0; index < slots.length; index++)
-                _weeklySlotRow(day, index),
-              if (!_useSalonHours)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _addSlotButton(day),
-                ),
+                for (var index = 0; index < slots.length; index++)
+                  _weeklySlotRow(day, index),
+                if (!_useSalonHours)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _addSlotButton(day),
+                  ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   Widget _weeklySlotRow(String day, int index) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1071,8 +1063,7 @@ Widget _weeklyHoursCard(String day) {
                     : const Color(0xFFE54848),
                 size: 17,
               ),
-              onPressed:
-                  _useSalonHours ? null : () => deleteSlot(day, index),
+              onPressed: _useSalonHours ? null : () => deleteSlot(day, index),
             ),
           ),
         ],
@@ -1101,39 +1092,41 @@ Widget _weeklyHoursCard(String day) {
       ],
     );
   }
-Widget _orDivider() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 18),
-    child: Row(
-      children: [
-        const Expanded(
-          child: Divider(
-            color: Color(0xFFE2D3BF),
-            thickness: 1,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(
-            translateText('OR'),
-            style: const TextStyle(
-              color: Color(0xFF8D867F),
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.8,
+
+  Widget _orDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Divider(
+              color: Color(0xFFE2D3BF),
+              thickness: 1,
             ),
           ),
-        ),
-        const Expanded(
-          child: Divider(
-            color: Color(0xFFE2D3BF),
-            thickness: 1,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              translateText('OR'),
+              style: const TextStyle(
+                color: Color(0xFF8D867F),
+                fontSize: 11,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.8,
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+          const Expanded(
+            child: Divider(
+              color: Color(0xFFE2D3BF),
+              thickness: 1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _addSlotButton(String day) {
     return OutlinedButton.icon(
       onPressed: () => addSlot(day),
@@ -1465,43 +1458,43 @@ Widget _orDivider() {
                 // const SizedBox(height: 16),
                 // ..._weekDays.map(_weeklyHoursCard),
                 if (_useSalonHours)
-  Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(top: 16),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF0EDE9),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: const Color(0xFFD8C7B3)),
-    ),
-    child: Text(
-      translateText(
-        'Salon operating hours will be used for this team member.',
-      ),
-      style: const TextStyle(
-        fontSize: 14,
-        color: Color(0xFF5E564F),
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  ),
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0EDE9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFD8C7B3)),
+                    ),
+                    child: Text(
+                      translateText(
+                        'Salon operating hours will be used for this team member.',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF5E564F),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
 
-_orDivider(),
+                _orDivider(),
 
-Text(
-  translateText('Or set custom working hours below'),
-  style: TextStyle(
-    fontSize: 13,
-    fontWeight: FontWeight.w700,
-    color: _useSalonHours
-        ? const Color(0xFF9A928B)
-        : const Color(0xFF1F1B18),
-  ),
-),
+                Text(
+                  translateText('Or set custom working hours below'),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _useSalonHours
+                        ? const Color(0xFF9A928B)
+                        : const Color(0xFF1F1B18),
+                  ),
+                ),
 
-const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-..._weekDays.map(_weeklyHoursCard),
+                ..._weekDays.map(_weeklyHoursCard),
 
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 16),

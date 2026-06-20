@@ -113,6 +113,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
     _fetchRolesAndSpecializations();
     _prefillFromInitialMember();
+    _joiningDate ??= _todayDateOnly();
   }
 
   @override
@@ -441,30 +442,30 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return normalized.isEmpty ? null : normalized;
   }
 
-String _addressDisplayText(Map<String, dynamic> address) {
-  final parts = <String>[];
+  String _addressDisplayText(Map<String, dynamic> address) {
+    final parts = <String>[];
 
-  void push(dynamic value) {
-    final text = value?.toString().trim() ?? '';
+    void push(dynamic value) {
+      final text = value?.toString().trim() ?? '';
 
-    if (text.isEmpty || text.toLowerCase() == 'null') return;
-    if (parts.contains(text)) return;
+      if (text.isEmpty || text.toLowerCase() == 'null') return;
+      if (parts.contains(text)) return;
 
-    parts.add(text);
+      parts.add(text);
+    }
+
+    // Show manual address first, same as salon flow
+    push(address['line2']);
+    push(address['line1']);
+    push(address['village']);
+    push(address['district']);
+    push(address['city']);
+    push(address['state']);
+    push(address['postalCode']);
+    push(address['country']);
+
+    return parts.join(', ');
   }
-
-  // Show manual address first, same as salon flow
-  push(address['line2']);
-  push(address['line1']);
-  push(address['village']);
-  push(address['district']);
-  push(address['city']);
-  push(address['state']);
-  push(address['postalCode']);
-  push(address['country']);
-
-  return parts.join(', ');
-}
 
   Future<void> _getAddressPredictions(String input) async {
     final query = input.trim();
@@ -664,24 +665,24 @@ String _addressDisplayText(Map<String, dynamic> address) {
   //   };
   // }
 
-Map<String, dynamic>? _teamAddressPayload() {
-  final selected = _selectedAddress;
+  Map<String, dynamic>? _teamAddressPayload() {
+    final selected = _selectedAddress;
 
-  if (selected == null) return null;
+    if (selected == null) return null;
 
-  return {
-    'line1': (selected['line1'] ?? '').toString(),
-    'line2': (selected['line2'] ?? '').toString(),
-    'village': (selected['village'] ?? '').toString(),
-    'district': (selected['district'] ?? '').toString(),
-    'city': (selected['city'] ?? '').toString(),
-    'state': (selected['state'] ?? '').toString(),
-    'country': (selected['country'] ?? '').toString(),
-    'postalCode': (selected['postalCode'] ?? '').toString(),
-    if (selected['latitude'] != null) 'latitude': selected['latitude'],
-    if (selected['longitude'] != null) 'longitude': selected['longitude'],
-  };
-}
+    return {
+      'line1': (selected['line1'] ?? '').toString(),
+      'line2': (selected['line2'] ?? '').toString(),
+      'village': (selected['village'] ?? '').toString(),
+      'district': (selected['district'] ?? '').toString(),
+      'city': (selected['city'] ?? '').toString(),
+      'state': (selected['state'] ?? '').toString(),
+      'country': (selected['country'] ?? '').toString(),
+      'postalCode': (selected['postalCode'] ?? '').toString(),
+      if (selected['latitude'] != null) 'latitude': selected['latitude'],
+      if (selected['longitude'] != null) 'longitude': selected['longitude'],
+    };
+  }
 
   String _normalizeGender(String value) {
     switch (value.toLowerCase()) {
@@ -817,6 +818,11 @@ Map<String, dynamic>? _teamAddressPayload() {
     _addressFocus.unfocus();
   }
 
+  DateTime _todayDateOnly() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
   // Future<void> _pickJoiningDate() async {
   //   _dismissKeyboard();
 
@@ -853,40 +859,43 @@ Map<String, dynamic>? _teamAddressPayload() {
   //     });
   //   }
   // }
-Future<void> _pickJoiningDate() async {
-  _dismissKeyboard();
+  Future<void> _pickJoiningDate() async {
+    _dismissKeyboard();
 
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
+    final today = _todayDateOnly();
+    final initialDate = _joiningDate != null && _joiningDate!.isBefore(today)
+        ? _joiningDate!
+        : today;
 
-  final res = await showDatePicker(
-    context: context,
-    firstDate: DateTime(now.year - 50),
-    lastDate: DateTime(now.year + 5),
-    initialDate: _joiningDate ?? today,
-    builder: (ctx, child) {
-      return Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
-            primary: Colors.black,
-            onPrimary: Colors.white,
-            onSurface: Colors.black87,
+    final res = await showDatePicker(
+      context: context,
+      firstDate: DateTime(today.year - 50),
+      lastDate: today,
+      initialDate: initialDate,
+      builder: (ctx, child) {
+        return Theme(
+          data: Theme.of(ctx).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Colors.black,
+              onPrimary: Colors.white,
+              onSurface: Colors.black87,
+            ),
           ),
-        ),
-        child: child!,
-      );
-    },
-  );
+          child: child!,
+        );
+      },
+    );
 
-  _dismissKeyboard();
+    _dismissKeyboard();
 
-  if (res != null) {
-    setState(() {
-      _joiningDate = res;
-      _suppressDateError = true;
-    });
+    if (res != null) {
+      setState(() {
+        _joiningDate = res;
+        _suppressDateError = true;
+      });
+    }
   }
-}
+
   Future<void> _openMultiSelect({
     required String title,
     required List<Map<String, dynamic>> source,
@@ -1483,145 +1492,145 @@ Future<void> _pickJoiningDate() async {
   //     ],
   //   );
   // }
-Widget _addressField() {
-  final hasAddress = _selectedAddress != null &&
-      _addressDisplayText(_selectedAddress!).trim().isNotEmpty;
+  Widget _addressField() {
+    final hasAddress = _selectedAddress != null &&
+        _addressDisplayText(_selectedAddress!).trim().isNotEmpty;
 
-  final displayAddress = hasAddress
-      ? _addressDisplayText(_selectedAddress!)
-      : translateText('Add Location');
+    final displayAddress = hasAddress
+        ? _addressDisplayText(_selectedAddress!)
+        : translateText('Add Location');
 
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      _reqLabel(translateText('Address')),
-      const SizedBox(height: 8),
-      InkWell(
-        onTap: _chooseTeamLocation,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 58),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: const Color(0xFFD3A94C),
-              width: 1,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _reqLabel(translateText('Address')),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _chooseTeamLocation,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: const Color(0xFFD3A94C),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.add_location_alt_rounded,
+                  color: _teamMemberAccent,
+                  size: 22,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    displayAddress,
+                    maxLines: hasAddress ? 2 : 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: hasAddress
+                          ? const Color(0xFF3B332B)
+                          : const Color(0xFF7A4A09),
+                      fontWeight:
+                          hasAddress ? FontWeight.w700 : FontWeight.w600,
+                      fontSize: hasAddress ? 13 : 14,
+                    ),
+                  ),
+                ),
+                if (hasAddress)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Color(0xFF8D867F),
+                    ),
+                    onPressed: _clearAddress,
+                  ),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.add_location_alt_rounded,
-                color: _teamMemberAccent,
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  displayAddress,
-                  maxLines: hasAddress ? 2 : 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: hasAddress
-                        ? const Color(0xFF3B332B)
-                        : const Color(0xFF7A4A09),
-                    fontWeight: hasAddress ? FontWeight.w700 : FontWeight.w600,
-                    fontSize: hasAddress ? 13 : 14,
-                  ),
-                ),
-              ),
-              if (hasAddress)
-                IconButton(
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    color: Color(0xFF8D867F),
-                  ),
-                  onPressed: _clearAddress,
-                ),
-            ],
-          ),
         ),
-      ),
-      if (_showGlobalErrors && _vAddress() != null) ...[
-        const SizedBox(height: 6),
-        Text(
-          _vAddress()!,
-          style: const TextStyle(
-            color: AppColors.red,
-            fontSize: 12,
+        if (_showGlobalErrors && _vAddress() != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _vAddress()!,
+            style: const TextStyle(
+              color: AppColors.red,
+              fontSize: 12,
+            ),
           ),
-        ),
+        ],
       ],
-    ],
-  );
-}
-Future<void> _chooseTeamLocation() async {
-  _dismissKeyboard();
+    );
+  }
 
-  final selected = _selectedAddress;
+  Future<void> _chooseTeamLocation() async {
+    _dismissKeyboard();
 
-  final result = await Navigator.push<Map<String, dynamic>?>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AddLocationScreen(
-        initialCompleteAddress: selected == null
-            ? null
-            : _addressDisplayText(selected),
-        initialScoFlatHouse: selected?['line2']?.toString(),
-        initialStreetSectorArea: [
-          selected?['district']?.toString() ?? '',
-          selected?['city']?.toString() ?? '',
-          selected?['state']?.toString() ?? '',
-          selected?['postalCode']?.toString() ?? '',
-        ].where((part) => part.trim().isNotEmpty).join(', '),
+    final selected = _selectedAddress;
+
+    final result = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddLocationScreen(
+          initialCompleteAddress:
+              selected == null ? null : _addressDisplayText(selected),
+          initialScoFlatHouse: selected?['line2']?.toString(),
+          initialStreetSectorArea: [
+            selected?['district']?.toString() ?? '',
+            selected?['city']?.toString() ?? '',
+            selected?['state']?.toString() ?? '',
+            selected?['postalCode']?.toString() ?? '',
+          ].where((part) => part.trim().isNotEmpty).join(', '),
+        ),
       ),
-    ),
-  );
+    );
 
-  if (!mounted || result == null) return;
+    if (!mounted || result == null) return;
 
-  final completeAddress =
-      (result['completeAddress'] as String?)?.trim() ?? '';
-  final baseCompleteAddress =
-      (result['baseCompleteAddress'] as String?)?.trim() ?? '';
-  final scoFlatHouse =
-      (result['scoFlatHouse'] as String?)?.trim() ?? '';
-  final streetSectorArea =
-      (result['streetSectorArea'] as String?)?.trim() ?? '';
-  final latitude = (result['latitude'] as num?)?.toDouble();
-  final longitude = (result['longitude'] as num?)?.toDouble();
+    final completeAddress =
+        (result['completeAddress'] as String?)?.trim() ?? '';
+    final baseCompleteAddress =
+        (result['baseCompleteAddress'] as String?)?.trim() ?? '';
+    final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
+    final streetSectorArea =
+        (result['streetSectorArea'] as String?)?.trim() ?? '';
+    final latitude = (result['latitude'] as num?)?.toDouble();
+    final longitude = (result['longitude'] as num?)?.toDouble();
 
-final line1 = baseCompleteAddress.isNotEmpty
-    ? baseCompleteAddress
-    : completeAddress;
+    final line1 =
+        baseCompleteAddress.isNotEmpty ? baseCompleteAddress : completeAddress;
 
-final line2 = [
-  scoFlatHouse,
-  streetSectorArea,
-].where((part) => part.trim().isNotEmpty).join(', ');
+    final line2 = [
+      scoFlatHouse,
+      streetSectorArea,
+    ].where((part) => part.trim().isNotEmpty).join(', ');
 
-setState(() {
-  _selectedAddress = {
-    'line1': line1,
-    'line2': line2,
-    'village': '',
-    'district': '',
-    'city': '',
-    'state': '',
-    'country': 'India',
-    'postalCode': '',
-    if (latitude != null) 'latitude': latitude,
-    if (longitude != null) 'longitude': longitude,
-  };
+    setState(() {
+      _selectedAddress = {
+        'line1': line1,
+        'line2': line2,
+        'village': '',
+        'district': '',
+        'city': '',
+        'state': '',
+        'country': 'India',
+        'postalCode': '',
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+      };
 
-  _addressCtrl.text = _addressDisplayText(_selectedAddress!);
-  _addressPredictions = [];
-  _suppressAddressError = true;
-});
-}
+      _addressCtrl.text = _addressDisplayText(_selectedAddress!);
+      _addressPredictions = [];
+      _suppressAddressError = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
