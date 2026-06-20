@@ -309,19 +309,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
             ),
           ),
           const SizedBox(width: 10),
-          if (followsMondaySchedule)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Text(
-                translateText('MON'),
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF8B6500),
-                ),
-              ),
-            )
-          else if (config.isClosed)
+          if (!followsMondaySchedule && config.isClosed)
             Padding(
               padding: const EdgeInsets.only(right: 4),
               child: Text(
