@@ -1268,76 +1268,162 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     );
   }
 
-  Widget _buildAddressField(AddSalonAddress? address, AddSalonState state) {
-    final hasAddress =
-        address != null && address.buildingName.trim().isNotEmpty;
-    final displayAddress = hasAddress
-        ? _composeAddressLine1(address)
-        : translateText('Add Location');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildFieldLabel('Salon Address *'),
-          InkWell(
-            onTap: () => _chooseLocation(state),
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              width: double.infinity,
-              constraints: const BoxConstraints(minHeight: 58),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: const Color(0xFFD3A94C),
-                  width: 1,
+  // Widget _buildAddressField(AddSalonAddress? address, AddSalonState state) {
+  //   final hasAddress =
+  //       address != null && address.buildingName.trim().isNotEmpty;
+  //   final displayAddress = hasAddress
+  //       ? _composeAddressLine1(address)
+  //       : translateText('Add Location');
+  //   return Padding(
+  //     padding: const EdgeInsets.only(bottom: 18),
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         _buildFieldLabel('Salon Address *'),
+  //         InkWell(
+  //           onTap: () => _chooseLocation(state),
+  //           borderRadius: BorderRadius.circular(8),
+  //           child: Container(
+  //             width: double.infinity,
+  //             constraints: const BoxConstraints(minHeight: 58),
+  //             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  //             decoration: BoxDecoration(
+  //               color: Colors.white,
+  //               borderRadius: BorderRadius.circular(8),
+  //               border: Border.all(
+  //                 color: const Color(0xFFD3A94C),
+  //                 width: 1,
+  //               ),
+  //             ),
+  //             child: Row(
+  //               children: [
+  //                 const Icon(
+  //                   Icons.add_location_alt_rounded,
+  //                   color: Color(0xFF8B6500),
+  //                   size: 22,
+  //                 ),
+  //                 const SizedBox(width: 12),
+  //                 Expanded(
+  //                   child: hasAddress
+  //                       ? Column(
+  //                           crossAxisAlignment: CrossAxisAlignment.start,
+  //                           children: [
+  //                             Text(
+  //                               displayAddress,
+  //                               maxLines: 2,
+  //                               overflow: TextOverflow.ellipsis,
+  //                               style: const TextStyle(
+  //                                 color: Color(0xFF3B332B),
+  //                                 fontWeight: FontWeight.w700,
+  //                                 fontSize: 13,
+  //                               ),
+  //                             ),
+  //                           ],
+  //                         )
+  //                       : Text(
+  //                           translateText('Add Location'),
+  //                           style: const TextStyle(
+  //                             color: Color(0xFF7A4A09),
+  //                             fontWeight: FontWeight.w600,
+  //                             fontSize: 14,
+  //                           ),
+  //                         ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+Widget _buildAddressField(AddSalonAddress? address, AddSalonState state) {
+  final hasAddressText =
+      address != null && address.buildingName.trim().isNotEmpty;
+
+  final hasCompleteAddress = _isAddressComplete(address);
+
+  final displayAddress = hasAddressText
+      ? _composeAddressLine1(address)
+      : translateText('Add Location');
+
+  final showError = _submitted && !widget.isEdit && !hasCompleteAddress;
+
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 18),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildFieldLabel('Salon Address *'),
+        InkWell(
+          onTap: () => _chooseLocation(state),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 58),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: showError
+                    ? AppColors.red
+                    : const Color(0xFFD3A94C),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.add_location_alt_rounded,
+                  color: showError
+                      ? AppColors.red
+                      : const Color(0xFF8B6500),
+                  size: 22,
                 ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.add_location_alt_rounded,
-                    color: Color(0xFF8B6500),
-                    size: 22,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: hasAddress
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                displayAddress,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Color(0xFF3B332B),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ],
-                          )
-                        : Text(
-                            translateText('Add Location'),
-                            style: const TextStyle(
-                              color: Color(0xFF7A4A09),
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                            ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: hasAddressText
+                      ? Text(
+                          displayAddress,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF3B332B),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
                           ),
-                  ),
-                ],
-              ),
+                        )
+                      : Text(
+                          translateText('Add Location'),
+                          style: TextStyle(
+                            color: showError
+                                ? AppColors.red
+                                : const Color(0xFF7A4A09),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (showError) ...[
+          const SizedBox(height: 6),
+          Text(
+            translateText('Salon Address is required'),
+            style: const TextStyle(
+              color: AppColors.red,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
-      ),
-    );
-  }
-
+      ],
+    ),
+  );
+}
   Widget _buildImageGrid(List<File> images, List<String> existingImageUrls) {
     final slots = <Widget>[];
     final selectedImages = images.take(10).toList();
