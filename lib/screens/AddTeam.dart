@@ -757,24 +757,43 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         borderRadius: _radius,
         borderSide: const BorderSide(color: AppColors.red, width: 1.5),
       ),
-      errorStyle: const TextStyle(color: AppColors.red, fontSize: 12),
+      errorMaxLines: 2,
+      errorStyle: const TextStyle(
+        color: AppColors.red,
+        fontSize: 12,
+        height: 1.15,
+      ),
+      counterStyle: const TextStyle(
+        color: Color(0xFF8D867F),
+        fontSize: 12,
+        height: 1.15,
+      ),
     );
   }
 
   Widget _reqLabel(String text) {
-    return RichText(
-      text: TextSpan(
-        text: text,
-        style: const TextStyle(
-          fontSize: 11,
-          color: Color(0xFF5E564F),
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.4,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          text.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            color: Color(0xFF5E564F),
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.4,
+          ),
         ),
-        children: [
-          TextSpan(text: ' *', style: TextStyle(color: AppColors.red)),
-        ],
-      ),
+        const SizedBox(width: 3),
+        const Text(
+          '*',
+          style: TextStyle(
+            color: AppColors.red,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1945,15 +1964,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       const SizedBox(height: 16),
                       _addressField(),
                       const SizedBox(height: 16),
-                      Text(
-                        translateText('Gender').toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF5E564F),
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.4,
-                        ),
-                      ),
+                      _reqLabel(translateText('Gender')),
                       const SizedBox(height: 4),
                       Row(
                         children: [

@@ -152,27 +152,24 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
                 create: (context) =>
                     AddSalonCubit(context.read<SalonRepository>()),
                 child: AddSalonScreen(
-  id: userData['id'].toString(),
-  phoneNumber: userData['phoneNumber'],
-  fullPhoneNumber: userData['fullPhoneNumber'],
-  firstName: userData['firstName'] ?? '',
-  lastName: userData['lastName'] ?? '',
-  email: userData['email'] ?? '',
-  isProceedFrom: "onboarding",
-
-  buildingName: userData['buildingName'] ?? '',
-  city: userData['city'] ?? '',
-  pincode: userData['pincode'] ?? '',
-  state: userData['state'] ?? '',
-
-  completeAddress: userData['completeAddress'] ??
-      userData['address'] ??
-      userData['fullAddress'] ??
-      '',
-
-  latitude: latitude,
-  longitude: longitude,
-),
+                  id: userData['id'].toString(),
+                  phoneNumber: userData['phoneNumber'],
+                  fullPhoneNumber: userData['fullPhoneNumber'],
+                  firstName: userData['firstName'] ?? '',
+                  lastName: userData['lastName'] ?? '',
+                  email: userData['email'] ?? '',
+                  isProceedFrom: "onboarding",
+                  buildingName: userData['buildingName'] ?? '',
+                  city: userData['city'] ?? '',
+                  pincode: userData['pincode'] ?? '',
+                  state: userData['state'] ?? '',
+                  completeAddress: userData['completeAddress'] ??
+                      userData['address'] ??
+                      userData['fullAddress'] ??
+                      '',
+                  latitude: latitude,
+                  longitude: longitude,
+                ),
               ),
             ),
           );
@@ -436,13 +433,24 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   Widget _fieldLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
-      child: Text(
-        translateText(label).toUpperCase(),
-        style: const TextStyle(
-          color: Color(0xFF4B4038),
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 0.8,
+      child: RichText(
+        text: TextSpan(
+          text: translateText(label).toUpperCase(),
+          style: const TextStyle(
+            color: Color(0xFF4B4038),
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.8,
+          ),
+          children: const [
+            TextSpan(
+              text: ' *',
+              style: TextStyle(
+                color: Colors.redAccent,
+                letterSpacing: 0,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -458,6 +466,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   ) {
     final bool isNameField =
         fieldType == 'firstName' || fieldType == 'lastName';
+    final maxLength = fieldType == 'email' ? 100 : 50;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,7 +496,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           keyboardType: fieldType == 'email'
               ? TextInputType.emailAddress
               : TextInputType.text,
-          maxLength: fieldType == 'email' ? 100 : 50,
+          maxLength: maxLength,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           inputFormatters: [
             if (isNameField)
@@ -504,6 +513,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           ),
           decoration: InputDecoration(
             hintText: translateText(hint),
+            counterText: '',
             filled: true,
             fillColor: _profileFieldFill,
             contentPadding:
@@ -536,20 +546,42 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
             ),
           ),
         ),
-        if (fieldError.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(
-            fieldError,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.redAccent,
-              fontSize: 12,
-              height: 1.25,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+        const SizedBox(height: 6),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, _) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    fieldError,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 12,
+                      height: 1.2,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${value.text.length}/$maxLength',
+                  style: TextStyle(
+                    color: value.text.length >= maxLength
+                        ? Colors.redAccent
+                        : _profileMuted,
+                    fontSize: 12,
+                    height: 1.2,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ],
     );
   }

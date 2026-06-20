@@ -1127,25 +1127,31 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         children: [
           const Expanded(
             child: Divider(
-              color: Color(0xFFE2D3BF),
+              color: Color(0xFFE8DED6),
               thickness: 1,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5EAD2),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFD0A244)),
+            ),
             child: Text(
               translateText('OR'),
               style: const TextStyle(
-                color: Color(0xFF8D867F),
-                fontSize: 11,
+                color: Color(0xFF8B6500),
+                fontSize: 10,
                 fontWeight: FontWeight.w900,
-                letterSpacing: 1.8,
+                letterSpacing: 0.8,
               ),
             ),
           ),
           const Expanded(
             child: Divider(
-              color: Color(0xFFE2D3BF),
+              color: Color(0xFFE8DED6),
               thickness: 1,
             ),
           ),
