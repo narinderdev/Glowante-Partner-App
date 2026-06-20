@@ -482,9 +482,14 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     ),
                   )
                 else ...[
-                  _buildBranchSelector(),
+                  if (_branchOptions.length > 1) _buildBranchSelector(),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 28, 16, 0),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      _branchOptions.length > 1 ? 28 : 16,
+                      16,
+                      0,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

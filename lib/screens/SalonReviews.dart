@@ -347,7 +347,7 @@ class _SalonReviewsState extends State<SalonReviews> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_branchOptions.isNotEmpty) ...[
+            if (_branchOptions.length > 1) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: _buildBranchSelector(),

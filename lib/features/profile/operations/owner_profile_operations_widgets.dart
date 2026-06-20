@@ -38,6 +38,7 @@ class _SectionCard extends StatelessWidget {
     this.actionLabel,
     this.onAction,
     this.footer,
+    this.icon = Icons.inventory_2_outlined,
   });
 
   final String title;
@@ -45,6 +46,7 @@ class _SectionCard extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
   final Widget? footer;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -52,58 +54,100 @@ class _SectionCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFF1EBE6)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1C1917),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 420;
+              final titleWidget = Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3D5),
+                      borderRadius: BorderRadius.circular(9),
+                      border: Border.all(color: const Color(0xFFE8C774)),
+                    ),
+                    child: Icon(
+                      icon,
+                      color: AppColors.starColor,
+                      size: 19,
+                    ),
                   ),
-                ),
-              ),
-              // if (actionLabel != null && onAction != null)
-              //   ElevatedButton(
-              //     onPressed: onAction,
-              //     style: ElevatedButton.styleFrom(
-              //       backgroundColor: AppColors.starColor,
-              //       foregroundColor: Colors.white,
-              //     ),
-              //     child: Text(actionLabel!),
-              //   ),
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 150,
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: onAction,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.starColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(0, 44),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF1C1917),
                       ),
                     ),
-                    child: Text(
-                      actionLabel!,
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
+                  ),
+                ],
+              );
+
+              if (actionLabel == null || onAction == null) {
+                return titleWidget;
+              }
+
+              final actionButton = SizedBox(
+                width: compact ? double.infinity : 150,
+                height: 44,
+                child: ElevatedButton.icon(
+                  onPressed: onAction,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    elevation: 7,
+                    shadowColor: const Color(0x338B6500),
+                  ),
+                  label: Text(
+                    actionLabel!,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
-              ],
-            ],
+              );
+
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleWidget,
+                    const SizedBox(height: 12),
+                    actionButton,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: titleWidget),
+                  const SizedBox(width: 12),
+                  actionButton,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           child,

@@ -136,11 +136,11 @@ class _TeamScreenState extends State<TeamScreen> {
     try {
       final response = await ApiService.getTeamMembers(branchId);
 
-     final members = response['success'] == true && response['data'] is List
-    ? List<dynamic>.from(response['data'] as List)
-    : <dynamic>[];
+      final members = response['success'] == true && response['data'] is List
+          ? List<dynamic>.from(response['data'] as List)
+          : <dynamic>[];
 
-_teamMembersCache = members;
+      _teamMembersCache = members;
       if (mounted && selectedBranchId == branchId) {
         final hasMembers = members.isNotEmpty;
         if (_hasTeamMembers != hasMembers) {
@@ -214,35 +214,35 @@ _teamMembersCache = members;
 
       if (!mounted) return;
 
-   if (response['success'] == true) {
-  _teamMembersCache = _teamMembersCache.map((item) {
-    if (item is! Map) return item;
+      if (response['success'] == true) {
+        _teamMembersCache = _teamMembersCache.map((item) {
+          if (item is! Map) return item;
 
-    final map = Map<String, dynamic>.from(item);
+          final map = Map<String, dynamic>.from(item);
 
-    if (_asInt(map['id']) == userId) {
-      map['active'] = makeActive;
-    }
+          if (_asInt(map['id']) == userId) {
+            map['active'] = makeActive;
+          }
 
-    return map;
-  }).toList();
+          return map;
+        }).toList();
 
-  setState(() {
-    teamMembersFuture = Future.value(_teamMembersCache);
-  });
+        setState(() {
+          teamMembersFuture = Future.value(_teamMembersCache);
+        });
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        translateText(
-          makeActive
-              ? 'Team member activated successfully'
-              : 'Team member deactivated successfully',
-        ),
-      ),
-    ),
-  );
-} else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              translateText(
+                makeActive
+                    ? 'Team member activated successfully'
+                    : 'Team member deactivated successfully',
+              ),
+            ),
+          ),
+        );
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -265,13 +265,13 @@ _teamMembersCache = members;
         ),
       );
     } finally {
-  if (mounted) {
-    setState(() {
-      _statusUpdatingIds.remove(userId);
-      teamMembersFuture = Future.value(_teamMembersCache);
-    });
-  }
-}
+      if (mounted) {
+        setState(() {
+          _statusUpdatingIds.remove(userId);
+          teamMembersFuture = Future.value(_teamMembersCache);
+        });
+      }
+    }
   }
   // Future<void> _deleteMember(int userId) async {
   //   final branchId = selectedBranchId;
@@ -738,21 +738,23 @@ _teamMembersCache = members;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  OwnerBranchHeaderSelector<int>(
-                    label: _teamBranchLabel(selectedBranch),
-                    options: _teamBranchOptions(branches),
-                    selectedValue: selectedBranchId,
-                    placeholder: translateText('Select Branch'),
-                    isInteractive: branches.length > 1,
-                    onSelected: (branchId) {
-                      final branch = branches.firstWhere(
-                        (item) => _asInt(item['branchId']) == branchId,
-                        orElse: () => branches.first,
-                      );
-                      setState(() => _pickBranch(branch));
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                  if (branches.length > 1) ...[
+                    OwnerBranchHeaderSelector<int>(
+                      label: _teamBranchLabel(selectedBranch),
+                      options: _teamBranchOptions(branches),
+                      selectedValue: selectedBranchId,
+                      placeholder: translateText('Select Branch'),
+                      isInteractive: true,
+                      onSelected: (branchId) {
+                        final branch = branches.firstWhere(
+                          (item) => _asInt(item['branchId']) == branchId,
+                          orElse: () => branches.first,
+                        );
+                        setState(() => _pickBranch(branch));
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Expanded(
                     child: FutureBuilder<List<dynamic>>(
                       future: teamMembersFuture,

@@ -485,8 +485,10 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        _buildSalonSelector(),
-        const SizedBox(height: 18),
+        if (_salonOptions.length > 1) ...[
+          _buildSalonSelector(),
+          const SizedBox(height: 18),
+        ],
         if (_subscription != null) ...[
           _ExpiryBanner(
             subscription: _subscription!,

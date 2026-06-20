@@ -1488,14 +1488,16 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            _ClientsBranchSelector(
-              isLoading: _isLoadingBranches,
-              branches: _branchOptions,
-              selectedBranchId: _selectedBranchId,
-              onBranchSelected: (branch) =>
-                  _loadClientsForBranch(branch.branchId),
-            ),
-            const SizedBox(height: 18),
+            if (_isLoadingBranches || _branchOptions.length > 1) ...[
+              _ClientsBranchSelector(
+                isLoading: _isLoadingBranches,
+                branches: _branchOptions,
+                selectedBranchId: _selectedBranchId,
+                onBranchSelected: (branch) =>
+                    _loadClientsForBranch(branch.branchId),
+              ),
+              const SizedBox(height: 18),
+            ],
             LayoutBuilder(
               builder: (context, constraints) {
                 final pageTitle = _cleanText(
@@ -2214,12 +2216,19 @@ class _SharedBranchSelectorShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 70),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: const BoxConstraints(minHeight: 82),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFD9CBBB)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: child,
     );

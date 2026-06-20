@@ -530,8 +530,10 @@ class _PackageScreenState extends State<PackageScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSalonSelector(salons),
-                  const SizedBox(height: 12),
+                  if (salons.length > 1) ...[
+                    _buildSalonSelector(salons),
+                    const SizedBox(height: 12),
+                  ],
                   _offersHeader(),
                   const SizedBox(height: 12),
                   Expanded(

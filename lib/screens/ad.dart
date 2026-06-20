@@ -249,7 +249,7 @@ class _AdScreenState extends State<AdScreen> {
           padding: const EdgeInsets.fromLTRB(18, 28, 18, 32),
           child: Column(
             children: [
-              if (_selectedBranch != null) ...[
+              if (_selectedBranch != null && _branchOptions.length > 1) ...[
                 _buildBranchSelector(),
                 const SizedBox(height: 20),
               ],

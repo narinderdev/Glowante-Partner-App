@@ -331,12 +331,14 @@ class _OwnerRolesPermissionsScreenState
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 26),
       children: [
-        _BranchSelector(
-          branches: _branches,
-          selectedBranchId: _selectedBranchId,
-          onChanged: _loadRoles,
-        ),
-        const SizedBox(height: 20),
+        if (_branches.length > 1) ...[
+          _BranchSelector(
+            branches: _branches,
+            selectedBranchId: _selectedBranchId,
+            onChanged: _loadRoles,
+          ),
+          const SizedBox(height: 20),
+        ],
         LayoutBuilder(
           builder: (context, constraints) {
             final compact = constraints.maxWidth < 560;
@@ -477,12 +479,19 @@ class _SharedBranchSelectorShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 70),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: const BoxConstraints(minHeight: 82),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFD9CBBB)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 14,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: child,
     );

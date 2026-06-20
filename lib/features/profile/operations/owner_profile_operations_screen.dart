@@ -603,9 +603,15 @@ class _OwnerProfileOperationsScreenState
       barrierDismissible: false,
       builder: (dialogContext) {
         return Dialog(
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
           insetPadding: fullscreen
               ? const EdgeInsets.symmetric(horizontal: 16, vertical: 16)
               : const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          clipBehavior: Clip.antiAlias,
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: maxWidth ?? (fullscreen ? 980 : 700),
@@ -1614,27 +1620,28 @@ class _OwnerProfileOperationsScreenState
   //     ),
   //   );
   // }
-Widget _buildBranchSelector() {
-  final selected = _selectedBranch;
-  final options = _branchOptions
-      .map(
-        (item) => OwnerBranchHeaderSelectorOption<_BranchOption>(
-          value: item,
-          label: item.label,
-          subtitle: item.subtitle,
-        ),
-      )
-      .toList();
+  Widget _buildBranchSelector() {
+    final selected = _selectedBranch;
+    final options = _branchOptions
+        .map(
+          (item) => OwnerBranchHeaderSelectorOption<_BranchOption>(
+            value: item,
+            label: item.label,
+            subtitle: item.subtitle,
+          ),
+        )
+        .toList();
 
-  return OwnerBranchHeaderSelector<_BranchOption>(
-    label: selected?.label ?? context.t('Select Branch'),
-    options: options,
-    selectedValue: selected,
-    placeholder: context.t('Select Branch'),
-    isInteractive: _branchOptions.length > 1,
-    onSelected: _switchBranch,
-  );
-}
+    return OwnerBranchHeaderSelector<_BranchOption>(
+      label: selected?.label ?? context.t('Select Branch'),
+      options: options,
+      selectedValue: selected,
+      placeholder: context.t('Select Branch'),
+      isInteractive: _branchOptions.length > 1,
+      onSelected: _switchBranch,
+    );
+  }
+
   Widget _buildInventoryTabs() {
     final tabs = <_InventoryTab, String>{
       _InventoryTab.store: context.t('Store'),
@@ -1709,8 +1716,10 @@ Widget _buildBranchSelector() {
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildBranchSelector(),
-          const SizedBox(height: 16),
+          if (_branchOptions.length > 1) ...[
+            _buildBranchSelector(),
+            const SizedBox(height: 16),
+          ],
           _EmptyStateCard(message: context.t('Select a branch to continue')),
         ],
       );
@@ -1722,8 +1731,10 @@ Widget _buildBranchSelector() {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _buildBranchSelector(),
-          const SizedBox(height: 16),
+          if (_branchOptions.length > 1) ...[
+            _buildBranchSelector(),
+            const SizedBox(height: 16),
+          ],
           if (!_isVendorModule && widget.showInventoryTabs) ...[
             _buildInventoryTabs(),
             const SizedBox(height: 16),
@@ -1760,6 +1771,7 @@ Widget _buildBranchSelector() {
   Widget _buildVendorList() {
     return _SectionCard(
       title: context.t('Vendor'),
+      icon: Icons.local_shipping_outlined,
       actionLabel: context.t('Add Vendor'),
       onAction: () {
         _logOperations('vendor_add_open');
@@ -1768,73 +1780,30 @@ Widget _buildBranchSelector() {
       child: _buildListState(
         records: _vendors,
         emptyText: context.t('No vendors found'),
-        table: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: [
-              DataColumn(label: Text(context.t('Name'))),
-              DataColumn(label: Text(context.t('Phone'))),
-              DataColumn(label: Text(context.t('Email'))),
-              DataColumn(label: Text(context.t('Status'))),
-              DataColumn(label: Text(context.t('Actions'))),
-            ],
-            rows: _vendors
-                .map(
-                  (vendor) => DataRow(
-                    onSelectChanged: (_) => _showVendorDetails(vendor),
-                    cells: [
-                      DataCell(
-                        Text(_firstText(vendor, const ['name', 'vendorName'],
-                            fallback: 'N/A')),
-                      ),
-                      DataCell(
-                        Text(_firstText(
-                            vendor,
-                            const [
-                              'phoneNumber',
-                              'phone',
-                              'mobileNumber',
-                              'contactNumber'
-                            ],
-                            fallback: 'N/A')),
-                      ),
-                      DataCell(
-                        Text(_firstText(vendor, const ['email'],
-                            fallback: 'N/A')),
-                      ),
-                      DataCell(Text(_statusLabel(vendor))),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () {
-                                _logOperations(
-                                  'vendor_edit_open',
-                                  details: 'vendorId=${_toInt(vendor['id'])}',
-                                );
-                                _openVendorFormDialog(initialVendor: vendor);
-                              },
-                              child: Text(context.t('Edit')),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: () => _confirmVendorDelete(vendor),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFB91C1C),
-                              ),
-                              child: Text(context.t('Delete')),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-                .toList(),
-          ),
-        ),
+        table: _buildVendorCards(),
       ),
+    );
+  }
+
+  Widget _buildVendorCards() {
+    return Column(
+      children: [
+        for (var index = 0; index < _vendors.length; index++) ...[
+          _VendorCard(
+            vendor: _vendors[index],
+            onView: () => _showVendorDetails(_vendors[index]),
+            onEdit: () {
+              _logOperations(
+                'vendor_edit_open',
+                details: 'vendorId=${_toInt(_vendors[index]['id'])}',
+              );
+              _openVendorFormDialog(initialVendor: _vendors[index]);
+            },
+            onDelete: () => _confirmVendorDelete(_vendors[index]),
+          ),
+          if (index != _vendors.length - 1) const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 
@@ -1846,57 +1815,24 @@ Widget _buildBranchSelector() {
       child: _buildListState(
         records: _stores,
         emptyText: context.t('No stores found'),
-        table: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columnSpacing: 20,
-            dataRowMinHeight: 64,
-            dataRowMaxHeight: 72,
-            columns: [
-              DataColumn(label: Text(context.t('Name'))),
-              DataColumn(label: Text(context.t('Address'))),
-              DataColumn(label: Text(context.t('Status'))),
-              DataColumn(label: Text(context.t('Actions'))),
-            ],
-            rows: _stores
-                .map(
-                  (store) => DataRow(
-                    onSelectChanged: (_) => _showStoreDetails(store),
-                    cells: [
-                      DataCell(Text(_firstText(
-                          store, const ['name', 'storeName'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_firstText(store, const ['address'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_statusLabel(store))),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () {
-                                _openStoreFormDialog(initialStore: store);
-                              },
-                              child: Text(context.t('Edit')),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: () => _confirmStoreDelete(store),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFB91C1C),
-                              ),
-                              child: Text(context.t('Delete')),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-                .toList(),
-          ),
-        ),
+        table: _buildStoreCards(),
       ),
+    );
+  }
+
+  Widget _buildStoreCards() {
+    return Column(
+      children: [
+        for (var index = 0; index < _stores.length; index++) ...[
+          _StoreCard(
+            store: _stores[index],
+            onView: () => _showStoreDetails(_stores[index]),
+            onEdit: () => _openStoreFormDialog(initialStore: _stores[index]),
+            onDelete: () => _confirmStoreDelete(_stores[index]),
+          ),
+          if (index != _stores.length - 1) const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 
@@ -1939,79 +1875,30 @@ Widget _buildBranchSelector() {
       child: _buildListState(
         records: _inventoryItems,
         emptyText: context.t('No inventory items found'),
-        table: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: [
-              DataColumn(label: Text(context.t('Name'))),
-              DataColumn(label: Text(context.t('SKU'))),
-              DataColumn(label: Text(context.t('Category'))),
-              DataColumn(label: Text(context.t('Brand'))),
-              DataColumn(label: Text(context.t('Quantity'))),
-              DataColumn(label: Text(context.t('Unit Price'))),
-              DataColumn(label: Text(context.t('Status'))),
-              DataColumn(label: Text(context.t('Actions'))),
-            ],
-            rows: _inventoryItems
-                .map(
-                  (item) => DataRow(
-                    onSelectChanged: (_) => _showInventoryItemDetails(item),
-                    cells: [
-                      DataCell(Text(_firstText(
-                          item, const ['itemName', 'name', 'title'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_firstText(item, const ['skuNumber', 'sku'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_firstText(
-                          item, const ['category', 'categoryName'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_firstText(
-                          item, const ['brand', 'manufacturer'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_firstText(
-                          item,
-                          const [
-                            'stockLevel',
-                            'availableStock',
-                            'currentStock'
-                          ],
-                          fallback: '0'))),
-                      DataCell(Text(_formatCurrency(
-                          item['costPerUnit'] ?? item['unitPrice']))),
-                      DataCell(Text(_statusLabel(item))),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            OutlinedButton(
-                              onPressed: () {
-                                _logOperations(
-                                  'inventory_item_edit_open',
-                                  details: 'inventoryId=${_toInt(item['id'])}',
-                                );
-                                _openInventoryItemFormDialog(initialItem: item);
-                              },
-                              child: Text(context.t('Edit')),
-                            ),
-                            const SizedBox(width: 8),
-                            OutlinedButton(
-                              onPressed: () =>
-                                  _confirmInventoryItemDelete(item),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFB91C1C),
-                              ),
-                              child: Text(context.t('Delete')),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-                .toList(),
-          ),
-        ),
+        table: _buildInventoryItemCards(),
       ),
+    );
+  }
+
+  Widget _buildInventoryItemCards() {
+    return Column(
+      children: [
+        for (var index = 0; index < _inventoryItems.length; index++) ...[
+          _InventoryItemCard(
+            item: _inventoryItems[index],
+            onView: () => _showInventoryItemDetails(_inventoryItems[index]),
+            onEdit: () {
+              _logOperations(
+                'inventory_item_edit_open',
+                details: 'inventoryId=${_toInt(_inventoryItems[index]['id'])}',
+              );
+              _openInventoryItemFormDialog(initialItem: _inventoryItems[index]);
+            },
+            onDelete: () => _confirmInventoryItemDelete(_inventoryItems[index]),
+          ),
+          if (index != _inventoryItems.length - 1) const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 
@@ -2026,34 +1913,23 @@ Widget _buildBranchSelector() {
       child: _buildListState(
         records: _purchaseOrders,
         emptyText: context.t('No purchase orders found'),
-        table: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: [
-              DataColumn(label: Text(context.t('PO ID'))),
-              DataColumn(label: Text(context.t('Vendor Name'))),
-              DataColumn(label: Text(context.t('Required Date'))),
-              DataColumn(label: Text(context.t('Status'))),
-            ],
-            rows: _purchaseOrders
-                .map(
-                  (order) => DataRow(
-                    onSelectChanged: (_) => _showPurchaseOrderDetails(order),
-                    cells: [
-                      DataCell(Text(_firstText(order, const ['poId', 'id'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_vendorDisplayLabel(order, _vendors))),
-                      DataCell(Text(_formatDateValue(
-                          order['requiredDeliveryDate'] ??
-                              order['requiredDate']))),
-                      DataCell(Text(_statusLabel(order))),
-                    ],
-                  ),
-                )
-                .toList(),
-          ),
-        ),
+        table: _buildPurchaseOrderCards(),
       ),
+    );
+  }
+
+  Widget _buildPurchaseOrderCards() {
+    return Column(
+      children: [
+        for (var index = 0; index < _purchaseOrders.length; index++) ...[
+          _PurchaseOrderCard(
+            order: _purchaseOrders[index],
+            vendors: _vendors,
+            onView: () => _showPurchaseOrderDetails(_purchaseOrders[index]),
+          ),
+          if (index != _purchaseOrders.length - 1) const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 
@@ -2068,37 +1944,24 @@ Widget _buildBranchSelector() {
       child: _buildListState(
         records: _goodsReceiptNotes,
         emptyText: context.t('No goods receipt notes found'),
-        table: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            columns: [
-              DataColumn(label: Text(context.t('GRN ID'))),
-              DataColumn(label: Text(context.t('PO ID'))),
-              DataColumn(label: Text(context.t('Vendor Name'))),
-              DataColumn(label: Text(context.t('Received Date'))),
-              DataColumn(label: Text(context.t('Status'))),
-            ],
-            rows: _goodsReceiptNotes
-                .map(
-                  (note) => DataRow(
-                    onSelectChanged: (_) => _showGoodsReceiptDetails(note),
-                    cells: [
-                      DataCell(Text(_firstText(note, const ['grnId', 'id'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_firstText(
-                          note, const ['poId', 'purchaseOrderId'],
-                          fallback: 'N/A'))),
-                      DataCell(Text(_vendorDisplayLabel(note, _vendors))),
-                      DataCell(Text(_formatDateValue(
-                          note['receivedDate'] ?? note['createdAt']))),
-                      DataCell(Text(_statusLabel(note))),
-                    ],
-                  ),
-                )
-                .toList(),
-          ),
-        ),
+        table: _buildGoodsReceiptNoteCards(),
       ),
+    );
+  }
+
+  Widget _buildGoodsReceiptNoteCards() {
+    return Column(
+      children: [
+        for (var index = 0; index < _goodsReceiptNotes.length; index++) ...[
+          _GoodsReceiptNoteCard(
+            note: _goodsReceiptNotes[index],
+            vendors: _vendors,
+            onView: () => _showGoodsReceiptDetails(_goodsReceiptNotes[index]),
+          ),
+          if (index != _goodsReceiptNotes.length - 1)
+            const SizedBox(height: 12),
+        ],
+      ],
     );
   }
 

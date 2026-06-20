@@ -371,13 +371,15 @@ class _GalleryScreenState extends State<GalleryScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
             children: [
-              _BranchSelectorCard(
-                isLoading: _isLoadingBranches,
-                branches: _branches,
-                selectedBranchId: _selectedBranchId,
-                onBranchSelected: _onBranchSelected,
-              ),
-              const SizedBox(height: 18),
+              if (_isLoadingBranches || _branches.length > 1) ...[
+                _BranchSelectorCard(
+                  isLoading: _isLoadingBranches,
+                  branches: _branches,
+                  selectedBranchId: _selectedBranchId,
+                  onBranchSelected: _onBranchSelected,
+                ),
+                const SizedBox(height: 18),
+              ],
               if (_errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -606,12 +608,19 @@ class _BranchSelectorCard extends StatelessWidget {
     if (isLoading) {
       return Container(
         width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 70),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: const BoxConstraints(minHeight: 82),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFD9CBBB)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x08000000),
+              blurRadius: 14,
+              offset: Offset(0, 8),
+            ),
+          ],
         ),
         child: const Align(
           alignment: Alignment.centerLeft,
@@ -626,12 +635,19 @@ class _BranchSelectorCard extends StatelessWidget {
     if (branches.isEmpty) {
       return Container(
         width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 70),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: const BoxConstraints(minHeight: 82),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFD9CBBB)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x08000000),
+              blurRadius: 14,
+              offset: Offset(0, 8),
+            ),
+          ],
         ),
         alignment: Alignment.centerLeft,
         child: Text(

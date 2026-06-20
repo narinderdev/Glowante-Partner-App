@@ -37,6 +37,10 @@ class OwnerBranchHeaderSelector<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (options.length == 1 && !isInteractive) {
+      return const SizedBox.shrink();
+    }
+
     final displayLabel = label.trim().isEmpty ? placeholder : label.trim();
     final selectedOption =
         options.cast<OwnerBranchHeaderSelectorOption<T>?>().firstWhere(
@@ -141,21 +145,28 @@ class _SelectorChrome extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: isInteractive ? onTap : null,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 70),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          constraints: const BoxConstraints(minHeight: 82),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFD9CBBB)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x08000000),
+                blurRadius: 14,
+                offset: Offset(0, 8),
+              ),
+            ],
           ),
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 54,
+                height: 54,
                 decoration: const BoxDecoration(
                   color: Color(0xFFF3E8D1),
                   shape: BoxShape.circle,
@@ -163,10 +174,10 @@ class _SelectorChrome extends StatelessWidget {
                 child: const Icon(
                   Icons.location_on_outlined,
                   color: _selectorAccent,
-                  size: 24,
+                  size: 28,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,19 +189,19 @@ class _SelectorChrome extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: _selectorPrimaryText,
-                        fontSize: 14,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: _selectorSecondaryText,
-                          fontSize: 12,
+                          fontSize: 13,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -201,7 +212,8 @@ class _SelectorChrome extends StatelessWidget {
               if (isInteractive)
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
-                  color: _selectorSecondaryText,
+                  color: _selectorAccent,
+                  size: 24,
                 ),
             ],
           ),

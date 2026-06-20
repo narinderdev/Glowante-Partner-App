@@ -2948,6 +2948,13 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
   }
 
   Widget _buildHeader() {
+    if (!_isLoadingBranches &&
+        _branchOptions.length <= 1 &&
+        !_isRefreshingContent &&
+        !_isActionInProgress) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
