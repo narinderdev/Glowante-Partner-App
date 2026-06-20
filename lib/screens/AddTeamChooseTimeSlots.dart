@@ -589,20 +589,47 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     weeklySchedule.forEach((day, slots) {
       if (_isClosedDay(day)) return;
 
-      for (final slot in slots) {
-        final start = slot['start']?.trim();
-        final end = slot['end']?.trim();
+      final normalizedSlots = slots
+          .map((slot) {
+            final start = _parseTimeToMinutes(slot['start'] ?? '');
+            final end = _parseTimeToMinutes(slot['end'] ?? '');
 
-        if (start != null &&
-            end != null &&
-            start.isNotEmpty &&
-            end.isNotEmpty) {
-          scheduleData.add({
-            'day': day.toLowerCase(),
-            'startTime': start,
-            'endTime': end,
-          });
+            if (start == null || end == null || end <= start) return null;
+
+            return _OperatingSlot(startMinutes: start, endMinutes: end);
+          })
+          .whereType<_OperatingSlot>()
+          .toList()
+        ..sort((a, b) => a.startMinutes.compareTo(b.startMinutes));
+
+      final mergedSlots = <_OperatingSlot>[];
+
+      for (final slot in normalizedSlots) {
+        if (mergedSlots.isEmpty) {
+          mergedSlots.add(slot);
+          continue;
         }
+
+        final previous = mergedSlots.last;
+
+        if (slot.startMinutes <= previous.endMinutes) {
+          mergedSlots[mergedSlots.length - 1] = _OperatingSlot(
+            startMinutes: previous.startMinutes,
+            endMinutes: slot.endMinutes > previous.endMinutes
+                ? slot.endMinutes
+                : previous.endMinutes,
+          );
+        } else {
+          mergedSlots.add(slot);
+        }
+      }
+
+      for (final slot in mergedSlots) {
+        scheduleData.add({
+          'day': day.toLowerCase(),
+          'startTime': _formatMinutes(slot.startMinutes),
+          'endTime': _formatMinutes(slot.endMinutes),
+        });
       }
     });
 
