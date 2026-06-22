@@ -607,33 +607,70 @@ class CategoryScreenState extends State<CategoryScreen> {
   }
 
   // ---------- CONFIRM DELETE CATEGORY ----------
-  Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
-    if (_selectedSalon == null) return;
+  // Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
+  //   if (_selectedSalon == null) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => _ConfirmDialog(
-        title: translateText('Delete Category'),
-        message:
-            translateText('Are you sure you want to delete this category?'),
-        confirmColor: Colors.black,
-      ),
-    );
+  //   final confirmed = await showDialog<bool>(
+  //     context: context,
+  //     builder: (dialogContext) => _ConfirmDialog(
+  //       title: translateText('Delete Category'),
+  //       message:
+  //           translateText('Are you sure you want to delete this category?'),
+  //       confirmColor: Colors.black,
+  //     ),
+  //   );
 
-    if (!mounted || confirmed != true) return;
+  //   if (!mounted || confirmed != true) return;
 
-    _rememberScrollPosition();
-    final branchId = _selectedSalon!['branchId'] as int;
-    try {
-      await context.read<CategoryCubit>().deleteCategory(
-            branchId,
-            category['id'] as int,
-          );
-    } finally {
-      _restoreScrollPosition();
-    }
+  //   _rememberScrollPosition();
+  //   final branchId = _selectedSalon!['branchId'] as int;
+  //   try {
+  //     await context.read<CategoryCubit>().deleteCategory(
+  //           branchId,
+  //           category['id'] as int,
+  //         );
+  //   } finally {
+  //     _restoreScrollPosition();
+  //   }
+  // }
+Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
+  if (_selectedSalon == null) return;
+
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => _ConfirmDialog(
+      title: translateText('Delete Category'),
+      message: translateText('Are you sure you want to delete this category?'),
+      confirmColor: Colors.black,
+    ),
+  );
+
+  if (!mounted || confirmed != true) return;
+
+  _rememberScrollPosition();
+  final branchId = _selectedSalon!['branchId'] as int;
+  final deletedCategoryId = category['id'] as int;
+
+  try {
+    await context.read<CategoryCubit>().deleteCategory(
+          branchId,
+          deletedCategoryId,
+        );
+
+    if (!mounted) return;
+
+    setState(() {
+      if (_selectedFilterCategoryId == deletedCategoryId) {
+        _selectedFilterCategoryId = null;
+      }
+
+      _expandedCategories.remove(deletedCategoryId);
+      _categoryItemKeys.remove(deletedCategoryId);
+    });
+  } finally {
+    _restoreScrollPosition();
   }
-
+}
   // ---------- CONFIRM DELETE SUBCATEGORY ----------
   Future<void> _confirmDeleteSubCategory(
     Map<String, dynamic> subCategory,

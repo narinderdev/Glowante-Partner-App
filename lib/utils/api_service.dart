@@ -87,7 +87,7 @@ class ApiService {
   // static const String baseUrl = "https://api.glowante.com/";
   static const String baseUrl = "https://dev-api.glowante.com/";
   // static const String baseUrl = "https://test-api.glowante.com/";
-  // static const String baseUrl = "https://68b4-203-190-154-162.ngrok-free.app/";
+  // static const String baseUrl = "https://b86c-203-190-154-162.ngrok-free.app/";
   static const String userLogin = "auth/login";
   static const String verifyOtpEndpoint = "auth/verify-otp";
   static const String registerUserEndpoint = "auth/register";
