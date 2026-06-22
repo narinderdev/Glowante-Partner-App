@@ -174,7 +174,14 @@ class TeamMemberDetails extends StatelessWidget {
       const ['name', 'label', 'code'],
     );
     final String rating = professionalRating.toStringAsFixed(1);
-    final String experience = member['experience']?.toString() ?? '3 years';
+    final branches = member['userBranches'];
+
+final String experience = branches is List &&
+        branches.isNotEmpty &&
+        branches.first is Map
+    ? '${branches.first['experience'] ?? 0} year'
+    : '${member['experience'] ?? 0} year';
+
     final assignedBranches = _assignedBranches(member['userBranches']);
     final List userBranches = (member['userBranches'] ?? []) as List;
     final String joinedAt = userBranches.isNotEmpty

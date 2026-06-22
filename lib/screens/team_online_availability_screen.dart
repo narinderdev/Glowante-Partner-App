@@ -382,22 +382,6 @@ class _TeamOnlineAvailabilityScreenState
 
     setState(() => _isSubmitting = true);
     try {
-      if (widget.mode == TeamAvailabilityMode.addMember) {
-        final payload = Map<String, dynamic>.from(widget.payload ?? {});
-        payload['allowOnlineBooking'] = _allowOnlineBooking;
-        final response = await ApiService().addTeamMember(
-          widget.branchId,
-          payload,
-        );
-        if (!mounted) return;
-        if (response['success'] == true) {
-          Navigator.pop(context, true);
-          return;
-        }
-        throw Exception(
-          response['message']?.toString() ?? 'Failed to add team member',
-        );
-      }
 
       // if (widget.mode == TeamAvailabilityMode.editMember) {
       //   final payload = Map<String, dynamic>.from(widget.payload ?? {});
@@ -419,7 +403,9 @@ class _TeamOnlineAvailabilityScreenState
       if (widget.mode == TeamAvailabilityMode.addMember) {
         final payload = Map<String, dynamic>.from(widget.payload ?? {});
         payload['allowOnlineBooking'] = _allowOnlineBooking;
-
+ payload['experience'] = int.tryParse(
+    payload['experience']?.toString() ?? '',
+  ) ?? 0;
         final response = await ApiService().addTeamMember(
           widget.branchId,
           payload,

@@ -1224,6 +1224,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "specialities": List<String>.from(rawSpecs.map((e) => e.toString())),
         "schedules": scheduleData,
         "useSalonHours": _useSalonHours,
+        "experience": int.tryParse(
+  widget.formData['experience']?.toString() ?? '',
+) ?? 0,
         "otp": widget.formData['otp']?.toString(),
       };
 
@@ -1302,6 +1305,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "userBranchServices": widget.formData['userBranchServices'] ?? const [],
         "address": widget.formData['address'],
         "branchId": widget.formData['branchId'],
+         "experience": int.tryParse(
+    widget.formData['experience']?.toString() ?? '',
+  ) ?? 0,
         "profilePictureUrl": widget.formData['profilePictureUrl'],
         "profileImage": widget.formData['profileImage'],
       };

@@ -249,7 +249,11 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       'branchServiceIds': branchServiceIds,
       'profilePictureUrl': base['profilePictureUrl'],
       'allowOnlineBooking': base['allowOnlineBooking'] ?? false,
+      'experience': int.tryParse(
+    base['experience']?.toString() ?? '',
+  ) ?? 0,
       if (base['address'] != null) 'address': base['address'],
+      
     };
 
     debugPrint('FINAL PAYLOAD TO AVAILABILITY SCREEN: $result');

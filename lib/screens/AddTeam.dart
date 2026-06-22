@@ -57,7 +57,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   bool _suppressRolesError = false;
   bool _suppressSpecsError = false;
   bool _suppressDateError = false;
-
+  bool _suppressExperienceError = false;
+  bool _suppressBriefError = false;
   final Color _errorColor = AppColors.red;
   final Color _verifyWarnColor = AppColors.red;
   final Color _successColor = Colors.green;
@@ -72,7 +73,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   final _otpCtrl = TextEditingController();
   final _briefCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
-
+final _experienceCtrl = TextEditingController();
   final FocusNode _firstNameFocus = FocusNode();
   final FocusNode _lastNameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
@@ -125,7 +126,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _otpCtrl.dispose();
     _briefCtrl.dispose();
     _addressCtrl.dispose();
-
+    _experienceCtrl.dispose();
     _firstNameFocus.dispose();
     _lastNameFocus.dispose();
     _emailFocus.dispose();
@@ -147,7 +148,20 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
     return null;
   }
+String? _vExperience(String? v) {
+  if (_suppressExperienceError) return null;
 
+  final x = (v ?? '').trim();
+
+  if (x.isEmpty) return translateText('Experience is required');
+
+  final exp = int.tryParse(x);
+  if (exp == null) return translateText('Enter valid experience');
+
+  if (exp < 0) return translateText('Experience cannot be negative');
+
+  return null;
+}
   String? _vFirstName(String? v) {
     if (_suppressFirstNameError) return null;
 
@@ -168,16 +182,17 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return null;
   }
 
-  String? _vBrief(String? v) {
-    final x = (v ?? '').trim();
+ String? _vBrief(String? v) {
+  if (_suppressBriefError) return null;
 
-    if (x.isEmpty) {
-      return translateText('Brief about team member is required');
-    }
+  final x = (v ?? '').trim();
 
-    return null;
+  if (x.isEmpty) {
+    return translateText('Brief about team member is required');
   }
 
+  return null;
+}
   String? _vEmail(String? v) {
     if (_suppressEmailError) return null;
 
@@ -298,7 +313,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         'professionalBio',
       ],
     );
-
+final exp = branchAssignment?['experience'] ?? member['experience'];
+_experienceCtrl.text = exp?.toString() ?? '';
     _existingImageUrl =
         (member['profilePictureUrl'] ?? '').toString().trim().isEmpty
             ? null
@@ -1272,6 +1288,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       _suppressRolesError = false;
       _suppressSpecsError = false;
       _suppressDateError = false;
+      _suppressExperienceError = false;
+      _suppressBriefError = false;
     });
 
     await _afterRebuild();
@@ -1296,7 +1314,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     push(_vSpecs());
     push(_vJoiningDate());
     push(_vBrief(_briefCtrl.text));
-
+push(_vExperience(_experienceCtrl.text));
     if (errors.isNotEmpty) {
       await _showValidationDialog(errors);
       return false;
@@ -1333,6 +1351,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         'lastName': capitalizeFirst(_lastNameCtrl.text.trim()),
         'email': _emailCtrl.text.trim(),
         'gender': _gender.toLowerCase(),
+        'experience': int.parse(_experienceCtrl.text.trim()),
         if (_joiningDate != null)
           'joiningDate':
               '${_joiningDate!.year}-${_joiningDate!.month.toString().padLeft(2, '0')}-${_joiningDate!.day.toString().padLeft(2, '0')}',
@@ -1409,6 +1428,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       'roles': _resolveCodes(_selectedRoles, _allRoles),
       'specializations': _resolveCodes(_selectedSpecs, _allSpecs),
       'specialities': _resolveCodes(_selectedSpecs, _allSpecs),
+      'experience': int.parse(_experienceCtrl.text.trim()),
       'profilePictureUrl': imageUrl ?? _existingImageUrl,
       'allowOnlineBooking': branchAssignment?['allowOnlineBooking'] ??
           widget.initialMember?['allowOnlineBooking'] ??
@@ -2253,26 +2273,72 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                               : const SizedBox.shrink(),
                         ),
                       const SizedBox(height: 16),
+                       _reqLabel(translateText('Experience')),
+const SizedBox(height: 8),
+TextFormField(
+  controller: _experienceCtrl,
+  keyboardType: TextInputType.number,
+  maxLength: 2,
+  buildCounter: (
+  context, {
+  required currentLength,
+  required isFocused,
+  required maxLength,
+}) {
+  return Text(
+    '$currentLength/$maxLength',
+    style: const TextStyle(
+      color: Color(0xFF8D867F),
+      fontSize: 12,
+      height: 1.15,
+    ),
+  );
+},
+  inputFormatters: [
+    FilteringTextInputFormatter.digitsOnly,
+    LengthLimitingTextInputFormatter(2),
+  ],
+  decoration: _decor(
+    hint: translateText('Enter experience in years'),
+  ),
+  validator: _vExperience,
+ onChanged: (_) {
+  if (!_suppressExperienceError) {
+    setState(() => _suppressExperienceError = true);
+  }
+
+  _formKey.currentState?.validate();
+},
+),
+const SizedBox(height: 16),
                       _reqLabel(translateText('Brief About Team Member')),
                       const SizedBox(height: 8),
+                     
                       TextFormField(
-                        focusNode: _brieftFocus,
-                        controller: _briefCtrl,
-                        maxLines: 4,
-                        maxLength: AppInputRules.mediumTextMaxLength,
-                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                        keyboardType: TextInputType.text,
-                        textCapitalization: TextCapitalization.sentences,
-                        inputFormatters: AppInputRules.generalTextFormatters(),
-                        decoration: _decor(
-                          hint: translateText(
-                            "Tell us about the team member's experience and expertise...",
-                          ),
-                        ).copyWith(
-                          contentPadding: const EdgeInsets.all(14),
-                        ),
-                        validator: _vBrief,
-                      ),
+  focusNode: _brieftFocus,
+  controller: _briefCtrl,
+  maxLines: 4,
+  maxLength: AppInputRules.mediumTextMaxLength,
+  maxLengthEnforcement: MaxLengthEnforcement.enforced,
+  keyboardType: TextInputType.text,
+  textCapitalization: TextCapitalization.sentences,
+  inputFormatters: AppInputRules.generalTextFormatters(),
+  decoration: _decor(
+    hint: translateText(
+      "Tell us about the team member's experience and expertise...",
+    ),
+  ).copyWith(
+    contentPadding: const EdgeInsets.all(14),
+  ),
+  validator: _vBrief,
+  onChanged: (_) {
+    if (!_suppressBriefError) {
+      setState(() => _suppressBriefError = true);
+    }
+
+    _formKey.currentState?.validate();
+  },
+),
                       const SizedBox(height: 34),
                       _promoCard(),
                       const SizedBox(height: 28),

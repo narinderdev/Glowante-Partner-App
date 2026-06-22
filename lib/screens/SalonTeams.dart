@@ -1147,6 +1147,7 @@ class _TeamMemberCard extends StatelessWidget {
     required this.onToggleActive,
     required this.onView,
     required this.onAssign,
+    
   });
 
   final Map<String, dynamic> member;
@@ -1165,7 +1166,16 @@ class _TeamMemberCard extends StatelessWidget {
   final VoidCallback onAssign;
 
   bool get _isBusy => isDeleting || isStatusUpdating;
+int get _teamExperienceValue {
+  final branches = member['userBranches'];
 
+  if (branches is List && branches.isNotEmpty && branches.first is Map) {
+    final exp = branches.first['experience'];
+    return int.tryParse(exp?.toString() ?? '') ?? 0;
+  }
+
+  return int.tryParse(member['experience']?.toString() ?? '') ?? 0;
+}
   String get _initials {
     final parts = name
         .split(RegExp(r'\s+'))
@@ -1180,7 +1190,8 @@ class _TeamMemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = (member['profilePictureUrl'] ?? '').toString().trim();
-
+final experienceUnit =
+    _teamExperienceValue <= 1 ? translateText('year') : translateText('years');
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1242,7 +1253,7 @@ class _TeamMemberCard extends StatelessWidget {
               Expanded(
                 child: _TeamInfoChip(
                   icon: Icons.workspace_premium_outlined,
-                  label: translateText('2 year+'),
+        label: '$_teamExperienceValue $experienceUnit',
                   value: translateText('Experience'),
                 ),
               ),

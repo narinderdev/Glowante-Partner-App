@@ -1334,6 +1334,146 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
   );
 }
 
+// Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
+//   BuildContext context, {
+//   required String customerName,
+// }) async {
+//   int selectedRating = 0;
+//   String commentText = '';
+
+//   return showModalBottomSheet<Map<String, dynamic>>(
+//     context: context,
+//     isScrollControlled: true,
+//     backgroundColor: Colors.transparent,
+//     builder: (ctx) {
+//       return StatefulBuilder(
+//         builder: (ctx, setSheetState) {
+//           return Padding(
+//             padding: EdgeInsets.only(
+//               left: 16,
+//               right: 16,
+//               bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+//             ),
+//             child: Container(
+//               padding: const EdgeInsets.all(18),
+//               decoration: const BoxDecoration(
+//                 color: Colors.white,
+//                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+//               ),
+//               child: SingleChildScrollView(
+//                 child: Column(
+//                   mainAxisSize: MainAxisSize.min,
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Center(
+//                       child: Container(
+//                         width: 44,
+//                         height: 4,
+//                         decoration: BoxDecoration(
+//                           color: const Color(0xFFD8D1C8),
+//                           borderRadius: BorderRadius.circular(999),
+//                         ),
+//                       ),
+//                     ),
+//                     const SizedBox(height: 18),
+//                     const Text(
+//                       'Finish Job',
+//                       style: TextStyle(
+//                         fontSize: 20,
+//                         fontWeight: FontWeight.w700,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 8),
+//                     Text(
+//                       customerName,
+//                       style: const TextStyle(
+//                         color: _bookingsUpcoming,
+//                         fontWeight: FontWeight.w500,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 18),
+//                     Text(
+//                       context.t('Rating'),
+//                       style: const TextStyle(
+//                         color: _bookingsUpcoming,
+//                         fontWeight: FontWeight.w700,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 8),
+//                     Row(
+//                       children: List.generate(5, (index) {
+//                         final rating = index + 1;
+//                         return IconButton(
+//                           onPressed: () {
+//                             setSheetState(() => selectedRating = rating);
+//                           },
+//                           icon: Icon(
+//                             rating <= selectedRating
+//                                 ? Icons.star_rounded
+//                                 : Icons.star_border_rounded,
+//                             color: _bookingsAccent,
+//                           ),
+//                         );
+//                       }),
+//                     ),
+//                     TextField(
+//                       maxLength: 120,
+//                       minLines: 3,
+//                       maxLines: 4,
+//                       onChanged: (value) => commentText = value,
+//                       decoration: InputDecoration(
+//                         hintText: context.t('Write comment'),
+//                         filled: true,
+//                         fillColor: _bookingsCard,
+//                         border: OutlineInputBorder(
+//                           borderRadius: BorderRadius.circular(16),
+//                           borderSide: const BorderSide(
+//                             color: Color(0xFFE6DFD7),
+//                           ),
+//                         ),
+//                         enabledBorder: OutlineInputBorder(
+//                           borderRadius: BorderRadius.circular(16),
+//                           borderSide: const BorderSide(
+//                             color: Color(0xFFE6DFD7),
+//                           ),
+//                         ),
+//                         focusedBorder: OutlineInputBorder(
+//                           borderRadius: BorderRadius.circular(16),
+//                           borderSide: const BorderSide(color: _bookingsAccent),
+//                         ),
+//                       ),
+//                     ),
+//                     const SizedBox(height: 16),
+//                     SizedBox(
+//                       width: double.infinity,
+//                       child: ElevatedButton(
+//                         onPressed: () {
+//                           Navigator.pop(ctx, {
+//                             'rating': selectedRating,
+//                             'comment': commentText.trim(),
+//                           });
+//                         },
+//                         style: ElevatedButton.styleFrom(
+//                           backgroundColor: _bookingsDark,
+//                           foregroundColor: Colors.white,
+//                           padding: const EdgeInsets.symmetric(vertical: 16),
+//                           shape: RoundedRectangleBorder(
+//                             borderRadius: BorderRadius.circular(18),
+//                           ),
+//                         ),
+//                         child: Text(context.t('Submit')),
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//             ),
+//           );
+//         },
+//       );
+//     },
+//   );
+// }
 Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
   BuildContext context, {
   required String customerName,
@@ -1341,81 +1481,152 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
   int selectedRating = 0;
   String commentText = '';
 
-  return showModalBottomSheet<Map<String, dynamic>>(
+  return showDialog<Map<String, dynamic>>(
     context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    barrierDismissible: true,
     builder: (ctx) {
       return StatefulBuilder(
-        builder: (ctx, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-            ),
+        builder: (ctx, setDialogState) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 22),
             child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: const BoxDecoration(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(color: _bookingsBorder),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 24,
+                    offset: Offset(0, 10),
+                  ),
+                ],
               ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 44,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD8D1C8),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Text(
-                      'Finish Job',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      customerName,
-                      style: const TextStyle(
-                        color: _bookingsUpcoming,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      context.t('Rating'),
-                      style: const TextStyle(
-                        color: _bookingsUpcoming,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
                     Row(
-                      children: List.generate(5, (index) {
-                        final rating = index + 1;
-                        return IconButton(
-                          onPressed: () {
-                            setSheetState(() => selectedRating = rating);
-                          },
-                          icon: Icon(
-                            rating <= selectedRating
-                                ? Icons.star_rounded
-                                : Icons.star_border_rounded,
-                            color: _bookingsAccent,
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: Color(0xFFF4EAD4),
+                            borderRadius: BorderRadius.circular(14),
                           ),
-                        );
-                      }),
+                          child: const Icon(
+                            Icons.task_alt_rounded,
+                            color: _bookingsGold,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.t('Finish Job'),
+                                style: _bookingTextStyle(
+                                  size: 20,
+                                  weight: FontWeight.w900,
+                                  color: _bookingsPrimaryText,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                customerName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _bookingTextStyle(
+                                  size: 12,
+                                  weight: FontWeight.w700,
+                                  color: _bookingsSecondaryText,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: const Icon(Icons.close_rounded),
+                          color: _bookingsSecondaryText,
+                        ),
+                      ],
                     ),
+
+                    const SizedBox(height: 22),
+
+                    Text(
+                      context.t('How was the service?'),
+                      style: _bookingTextStyle(
+                        size: 14,
+                        weight: FontWeight.w900,
+                        color: _bookingsPrimaryText,
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Center(
+                      child: Wrap(
+                        spacing: 4,
+                        children: List.generate(5, (index) {
+                          final rating = index + 1;
+                          final isSelected = rating <= selectedRating;
+
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(999),
+                            onTap: () {
+                              setDialogState(() => selectedRating = rating);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFFFFF4D6)
+                                    : const Color(0xFFFAF7F3),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? _bookingsAccent
+                                      : _bookingsBorder,
+                                ),
+                              ),
+                              child: Icon(
+                                isSelected
+                                    ? Icons.star_rounded
+                                    : Icons.star_border_rounded,
+                                color: isSelected
+                                    ? _bookingsGold
+                                    : _bookingsSecondaryText,
+                                size: 25,
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    Text(
+                      context.t('Comment'),
+                      style: _bookingTextStyle(
+                        size: 13,
+                        weight: FontWeight.w900,
+                        color: _bookingsSecondaryText,
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
                     TextField(
                       maxLength: 120,
                       minLines: 3,
@@ -1424,28 +1635,35 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                       decoration: InputDecoration(
                         hintText: context.t('Write comment'),
                         filled: true,
-                        fillColor: _bookingsCard,
+                        fillColor: const Color(0xFFFAF7F3),
+                        counterStyle: _bookingTextStyle(
+                          size: 11,
+                          weight: FontWeight.w600,
+                          color: _bookingsSecondaryText,
+                        ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE6DFD7),
-                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(color: _bookingsBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: Color(0xFFE6DFD7),
-                          ),
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(color: _bookingsBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(color: _bookingsAccent),
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: const BorderSide(
+                            color: _bookingsGold,
+                            width: 1.4,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+
+                    const SizedBox(height: 14),
+
                     SizedBox(
                       width: double.infinity,
+                      height: 52,
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.pop(ctx, {
@@ -1456,12 +1674,19 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _bookingsDark,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        child: Text(context.t('Submit')),
+                        child: Text(
+                          context.t('Submit'),
+                          style: _bookingTextStyle(
+                            size: 15,
+                            weight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -1474,7 +1699,6 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
     },
   );
 }
-
 class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();
