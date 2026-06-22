@@ -113,7 +113,12 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     return existingStatus;
   }
-
+String formatInputAmount(num value) {
+  if (value % 1 == 0) {
+    return value.toInt().toString();
+  }
+ return value.toStringAsFixed(2);
+}
   @override
   void initState() {
     super.initState();
@@ -200,7 +205,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         final maxD = (o['maxDiscount'] as num?)?.toDouble();
         if (maxD != null && maxD > 0) {
           maxDiscountController.text =
-              (minorAmountToRupees(maxD) ?? 0).toStringAsFixed(2);
+              formatInputAmount(minorAmountToRupees(maxD) ?? 0);
         }
       } else {
         discountType = 'Flat';
@@ -211,18 +216,17 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
         if (amt > 0) {
           amountOffController.text =
-              (minorAmountToRupees(amt) ?? 0).toStringAsFixed(2);
+             formatInputAmount(minorAmountToRupees(amt) ?? 0);
         }
       }
     } else {
       final amt = (o['discount'] as num?)?.toDouble() ??
           (o['amount'] as num?)?.toDouble() ??
           0.0;
-
-      amountOffController.text =
-          (amt > 0 ? (minorAmountToRupees(amt) ?? 0) : 0.0).toStringAsFixed(2);
-    }
-
+   amountOffController.text = formatInputAmount(
+  amt > 0 ? (minorAmountToRupees(amt) ?? 0) : 0,
+);
+}
     final List rawItems = (o['items'] as List?) ?? const [];
     final Map<int, int> selectedIdQty = {};
     _selectedServices = [];
@@ -255,10 +259,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     if (originalTotal != null && originalTotal > 0) {
       originalPriceController.text =
-          (minorAmountToRupees(originalTotal) ?? 0).toStringAsFixed(2);
+         formatInputAmount(minorAmountToRupees(originalTotal) ?? 0);
     } else {
       originalPriceController.text =
-          (minorAmountToRupees(_originalTotal()) ?? 0).toStringAsFixed(2);
+          formatInputAmount(minorAmountToRupees(_originalTotal()) ?? 0);
     }
 
     final double? discountedTotal = _asDouble(
@@ -270,7 +274,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     if (discountedTotal != null && discountedTotal >= 0) {
       discountedPriceController.text =
-          (minorAmountToRupees(discountedTotal) ?? 0).toStringAsFixed(2);
+          formatInputAmount(minorAmountToRupees(discountedTotal) ?? 0);
     }
 
     final double originalVal =
@@ -280,9 +284,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     if (pricingMode == 'Fixed') {
       if (originalVal > 0) {
-        amountOffController.text = (originalVal - discountedVal)
-            .clamp(0, originalVal)
-            .toStringAsFixed(2);
+        amountOffController.text = formatInputAmount(
+  (originalVal - discountedVal).clamp(0, originalVal),
+);
       }
     } else if (pricingMode == 'Discount' && discountType == 'Flat') {
       final double? amt = _asDouble(
@@ -291,11 +295,11 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
       if (amt != null && amt > 0) {
         amountOffController.text =
-            (minorAmountToRupees(amt) ?? 0).toStringAsFixed(2);
+            formatInputAmount(minorAmountToRupees(amt) ?? 0);
       } else if (originalVal > 0) {
-        amountOffController.text = (originalVal - discountedVal)
-            .clamp(0, originalVal)
-            .toStringAsFixed(2);
+        amountOffController.text = formatInputAmount(
+  (originalVal - discountedVal).clamp(0, originalVal),
+  );
       }
     }
 
@@ -607,9 +611,10 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
         if (total > 0) {
           originalPriceController.text =
-              (minorAmountToRupees(total) ?? 0).toStringAsFixed(2);
+    formatInputAmount(minorAmountToRupees(total) ?? 0);
         }
-
+originalPriceController.text =
+    formatInputAmount(minorAmountToRupees(total) ?? 0);
         _recalcDiscounted();
       });
     } catch (_) {
@@ -639,7 +644,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
         final pctValue = original * (pct / 100.0);
 
         if (_autoSetMaxFromPercent && maxDiscountController.text.isEmpty) {
-          _setTextSafe(maxDiscountController, pctValue.toStringAsFixed(2));
+        _setTextSafe(maxDiscountController, formatInputAmount(pctValue));
         }
 
         final cap = _parseNum(maxDiscountController.text);
@@ -648,7 +653,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       }
     }
 
-    _setTextSafe(discountedPriceController, discounted.toStringAsFixed(2));
+   _setTextSafe(discountedPriceController, formatInputAmount(discounted));
   }
 
   String? _vTitle(String? v) {
@@ -798,33 +803,145 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     return null;
   }
 
-  Future<void> _showValidationDialog(List<String> errors) async {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(translateText('Please fix the following')),
-        content: Column(
+  // Future<void> _showValidationDialog(List<String> errors) async {
+  //   await showDialog<void>(
+  //     context: context,
+  //     builder: (context) => AlertDialog(
+  //       title: Text(translateText('Please fix the following')),
+  //       content: Column(
+  //         mainAxisSize: MainAxisSize.min,
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: errors
+  //             .map(
+  //               (m) => Padding(
+  //                 padding: const EdgeInsets.only(bottom: 6),
+  //                 child: Text('• $m'),
+  //               ),
+  //             )
+  //             .toList(),
+  //       ),
+  //       actions: [
+  //         TextButton(
+  //           onPressed: () => Navigator.pop(context),
+  //           child: Text(translateText('OK')),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+Future<void> _showValidationDialog(List<String> errors) async {
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    builder: (context) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      backgroundColor: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+        child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: errors
-              .map(
-                (m) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text('• $m'),
-                ),
-              )
-              .toList(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(translateText('OK')),
-          ),
-        ],
-      ),
-    );
-  }
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: const BoxDecoration(
+                color: _dealSoftGold,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: _dealGold,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              translateText('Please fix the following'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _dealInk,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              translateText('Some required details are missing or invalid.'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: _dealMuted,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 16),
 
+            ...errors.map(
+              (m) => Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _dealFieldFill,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _dealBorder),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 17,
+                      color: _dealGold,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        m,
+                        style: const TextStyle(
+                          color: _dealInk,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _dealGold,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  translateText('OK'),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
   Future<void> _afterBuild() {
     final c = Completer<void>();
     WidgetsBinding.instance.addPostFrameCallback((_) => c.complete());
@@ -906,6 +1023,19 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       ),
     );
   }
+String? getApiGender(String? gender) {
+  switch (gender?.toUpperCase()) {
+    case 'MALE':
+      return 'male';
+    case 'FEMALE':
+      return 'female';
+    case 'OTHERS':
+      return 'other';
+    default:
+      return null;
+  }
+}
+
 
   Future<void> _submitOffer() async {
     if (_isSubmitting) return;
@@ -941,7 +1071,8 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       if (_isPackage)
         'durationValue': int.tryParse(durationValueController.text.trim()),
       if (_isPackage) 'durationUnit': durationUnit,
-      if (_isPackage) 'gender': packageGender?.toLowerCase(),
+     if (_isPackage)
+  'gender': getApiGender(packageGender),
     };
 
     if (pricingMode == 'Fixed') {
@@ -1407,9 +1538,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
             if (result is List) {
               setState(() {
                 _selectedServices = result.cast<Map<String, dynamic>>();
-                originalPriceController.text =
-                    (minorAmountToRupees(_originalTotal()) ?? 0)
-                        .toStringAsFixed(2);
+  originalPriceController.text = formatInputAmount(
+  minorAmountToRupees(_originalTotal()) ?? 0,
+);
                 _sServices = true;
                 _sDiscounted = true;
               });
