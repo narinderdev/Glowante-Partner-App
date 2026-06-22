@@ -700,7 +700,25 @@ Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
       _restoreScrollPosition();
     }
   }
+String? validateCommissionMax({
+  required int priceMinor,
+  required bool commissionEnabled,
+  required String commissionType,
+  required double commissionPercentage,
+  required int? commissionMaxAmountMinor,
+}) {
+  if (!commissionEnabled) return null;
+  if (commissionType.toLowerCase() != 'percentage') return null;
+  if (commissionMaxAmountMinor == null) return null;
 
+  final allowedMax = (priceMinor * commissionPercentage / 100).floor();
+
+  if (commissionMaxAmountMinor > allowedMax) {
+    return 'Max commission cannot exceed ${formatMinorAmount(allowedMax)} for the selected price and percentage.';
+  }
+
+  return null;
+}
   // ---------- EDIT SERVICE ----------
   Future<void> _showUpdateServiceSheet(Map<String, dynamic> service) async {
     if (_selectedSalon == null) return;
@@ -3688,7 +3706,7 @@ class _EditServiceSheetState extends State<_EditServiceSheet> {
   String? nameError;
   String? priceError;
   String? durationError;
-
+  String? commissionMaxError;
   bool isSaving = false; // spinner in the button while popping payload
 
   @override

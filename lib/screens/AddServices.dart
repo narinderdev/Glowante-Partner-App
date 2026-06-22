@@ -486,19 +486,35 @@ class _AddServicesState extends State<AddServices> {
   }
 
   String? _validateCommissionMax(String? value) {
-    if (!_commissionEnabled || _commissionType != 'percentage') return null;
-    final price = _enteredPrice;
-    final v = (value ?? '').trim();
-    if (v.isEmpty) return null;
-    final parsed = int.tryParse(v);
-    if (parsed == null || parsed <= 0) {
-      return translateText("Enter a valid max commission amount");
-    }
-    if (price != null && price > 0 && parsed > price) {
-      return translateText("Commission max cannot exceed price");
-    }
-    return null;
+  if (!_commissionEnabled || _commissionType != 'percentage') return null;
+
+  final price = _enteredPrice; // rupees from UI
+  final percentage =
+      double.tryParse(commissionValueController.text.trim()) ?? 0;
+
+  final v = (value ?? '').trim();
+  if (v.isEmpty) return null;
+
+  final parsed = int.tryParse(v);
+  if (parsed == null || parsed <= 0) {
+    return translateText("Enter a valid max commission amount");
   }
+
+  if (price != null && price > 0 && percentage > 0) {
+    final priceMinor = rupeesToMinorAmount(price);
+    final maxMinor = rupeesToMinorAmount(parsed);
+    final allowedMaxMinor = (priceMinor * percentage / 100).floor();
+
+    if (maxMinor > allowedMaxMinor) {
+      final allowedMaxRupee = minorAmountToRupees(allowedMaxMinor);
+      return translateText(
+        "Max commission cannot exceed ${allowedMaxRupee?.toStringAsFixed(0) ?? allowedMaxMinor}",
+      );
+    }
+  }
+
+  return null;
+}
 
   String? _validateCategory(Map<String, dynamic>? _) {
     if (_isEditMode) return null;
@@ -872,7 +888,10 @@ class _AddServicesState extends State<AddServices> {
                                   ? const TextInputType.numberWithOptions(
                                       decimal: true)
                                   : TextInputType.number,
-                              onChanged: (_) => setState(() {}),
+                              onChanged: (_) {
+  setState(() {});
+  _formKey.currentState?.validate();
+},
                               textInputAction: _commissionType == 'percentage'
                                   ? TextInputAction.next
                                   : TextInputAction.done,

@@ -4193,65 +4193,79 @@ class ApiService {
       return {'success': false, 'message': e.toString()};
     }
   }
+Future<Map<String, dynamic>> updateService({
+  required int branchId,
+  required int branchServiceId,
+  required Map<String, dynamic> body,
+}) async {
+  final token = await getAuthToken();
 
-  Future<Map<String, dynamic>> updateService({
-    required int branchId,
-    required int branchServiceId,
-    required Map<String, dynamic> body,
-  }) async {
-    final token = await getAuthToken();
-    if (token.isEmpty) {
-      throw Exception('{"message":["Authentication required"]}');
-    }
-
-    final url = Uri.parse(
-      '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/services/$branchServiceId',
-    );
-
-    // ✅ Clean and fix payload field names
-    final payload = {
-      'displayName': body['displayName'] ?? body['name'],
-      'description': body['description'] ?? '',
-      'durationMin': body['durationMin'] ?? body['defaultDurationMin'],
-      'priceType': body['priceType'] ?? 'fixed',
-      'priceMinor': body['priceMinor'] ?? body['defaultPriceMinor'],
-      'isActive': body['isActive'] ?? true,
-      if (body.containsKey('commissionEnabled'))
-        'commissionEnabled': body['commissionEnabled'],
-      if (body.containsKey('commissionType'))
-        'commissionType': body['commissionType'],
-      if (body.containsKey('commissionPercentage'))
-        'commissionPercentage': body['commissionPercentage'],
-      if (body.containsKey('commissionFixedAmountMinor'))
-        'commissionFixedAmountMinor': body['commissionFixedAmountMinor'],
-      if (body.containsKey('commissionMaxAmountMinor'))
-        'commissionMaxAmountMinor': body['commissionMaxAmountMinor'],
-    }..removeWhere((key, value) => value == null);
-
-    // ✅ Pretty logging
-    const encoder = JsonEncoder.withIndent('  ');
-    print('🟢 [UPDATE SERVICE] PATCH -> $url');
-    print('🔸 Request Body:\n${encoder.convert(payload)}');
-
-    final response = await _sharedClient.patch(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(payload),
-    );
-
-    print('🔹 Response Status: ${response.statusCode}');
-    print('🔹 Response Body: ${response.body}');
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final responseBody = response.body.isEmpty ? '{}' : response.body;
-      return jsonDecode(responseBody) as Map<String, dynamic>;
-    }
-
-    throw Exception('Failed to update service: ${response.body}');
+  if (token.isEmpty) {
+    throw Exception('Authentication required');
   }
+
+  final url = Uri.parse(
+    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/services/$branchServiceId',
+  );
+
+  final payload = {
+    'displayName': body['displayName'] ?? body['name'],
+    'description': body['description'] ?? '',
+    'durationMin': body['durationMin'] ?? body['defaultDurationMin'],
+    'priceType': body['priceType'] ?? 'fixed',
+    'priceMinor': body['priceMinor'] ?? body['defaultPriceMinor'],
+    'isActive': body['isActive'] ?? true,
+    if (body.containsKey('commissionEnabled'))
+      'commissionEnabled': body['commissionEnabled'],
+    if (body.containsKey('commissionType'))
+      'commissionType': body['commissionType'],
+    if (body.containsKey('commissionPercentage'))
+      'commissionPercentage': body['commissionPercentage'],
+    if (body.containsKey('commissionFixedAmountMinor'))
+      'commissionFixedAmountMinor': body['commissionFixedAmountMinor'],
+    if (body.containsKey('commissionMaxAmountMinor'))
+      'commissionMaxAmountMinor': body['commissionMaxAmountMinor'],
+  }..removeWhere((key, value) => value == null);
+
+  const encoder = JsonEncoder.withIndent('  ');
+  print('🟢 [UPDATE SERVICE] PATCH -> $url');
+  print('🔸 Request Body:\n${encoder.convert(payload)}');
+
+  final response = await _sharedClient.patch(
+    url,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode(payload),
+  );
+
+  print('🔹 Response Status: ${response.statusCode}');
+  print('🔹 Response Body: ${response.body}');
+
+  if (response.statusCode >= 200 && response.statusCode < 300) {
+    final responseBody = response.body.isEmpty ? '{}' : response.body;
+    return jsonDecode(responseBody) as Map<String, dynamic>;
+  }
+
+  String message = 'Failed to update service';
+
+  try {
+    final decoded = jsonDecode(response.body);
+
+    if (decoded is Map<String, dynamic>) {
+      final msg = decoded['message'];
+
+      if (msg is List) {
+        message = msg.join('\n');
+      } else if (msg != null) {
+        message = msg.toString();
+      }
+    }
+  } catch (_) {}
+
+  throw Exception(message);
+}
 
 // ---------------------- START APPOINTMENT ----------------------
   static Future<Map<String, dynamic>> startAppointment({
