@@ -80,8 +80,10 @@ String _teamBranchLabel(Map<String, dynamic>? branch) {
 }
 
 class TeamScreen extends StatefulWidget {
+  const TeamScreen({super.key});
+
   @override
-  _TeamScreenState createState() => _TeamScreenState();
+  State<TeamScreen> createState() => _TeamScreenState();
 }
 
 class _TeamScreenState extends State<TeamScreen> {
@@ -219,9 +221,11 @@ class _TeamScreenState extends State<TeamScreen> {
 
   Future<void> _refreshTeamMembers() async {
     if (selectedBranchId == null || !mounted) return;
+    final future = _getTeamMembersByBranch(selectedBranchId!);
     setState(() {
-      teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
+      teamMembersFuture = future;
     });
+    await future;
   }
 
   Future<Map<int, _TeamRatingSummary>> _loadProfessionalRatings(
@@ -862,67 +866,77 @@ class _TeamScreenState extends State<TeamScreen> {
                     const SizedBox(height: 16),
                   ],
                   Expanded(
-                    child: FutureBuilder<List<dynamic>>(
-                      future: teamMembersFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.starColor,
-                            ),
-                          );
-                        } else if (snapshot.hasError) {
-                          return Center(
-                            child: Text("Error: ${snapshot.error}"),
-                          );
-                        } else if (!snapshot.hasData ||
-                            snapshot.data!.isEmpty) {
-                          return _NoTeamMembersState(
-                            onAddTeamMember:
-                                selectedBranch == null ? null : _openAddMember,
-                          );
-                        }
-
-                        final members = snapshot.data!
-                            .whereType<Map>()
-                            .map((item) => Map<String, dynamic>.from(item))
-                            .toList();
-
-                        return _TeamMembersGrid(
-                          members: members,
-                          selectedBranch: selectedBranch,
-                          salons: _salons,
-                          statusUpdatingIds: _statusUpdatingIds,
-                          deletingMemberIds: _deletingMemberIds,
-                          professionalRatings: _professionalRatings,
-                          onEditMember: _openEditMember,
-                          onDeleteMember: _deleteMember,
-                          onToggleMemberActive: _toggleMemberActive,
-                          onViewMember: (member) {
-                            final userId = _asInt(member['id']) ?? 0;
-                            final ratingSummary =
-                                _professionalRatings[userId] ??
-                                    _TeamRatingSummary.empty;
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TeamMemberDetails(
-                                  member: member,
-                                  salons: null,
-                                  professionalRating:
-                                      ratingSummary.average.toDouble(),
-                                  professionalReviewCount: ratingSummary.count,
-                                ),
+                    child: RefreshIndicator(
+                      color: AppColors.starColor,
+                      onRefresh: _refreshTeamMembers,
+                      child: FutureBuilder<List<dynamic>>(
+                        future: teamMembersFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                                  ConnectionState.waiting &&
+                              !snapshot.hasData) {
+                            return _RefreshableTeamState(
+                              child: CircularProgressIndicator(
+                                color: AppColors.starColor,
                               ),
                             );
-                          },
-                          onAssignMember: _openAssignMember,
-                          assignButtonBuilder: _buildAssignButtonChild,
-                          memberNameBuilder: _memberDisplayName,
-                          memberRoleBuilder: _memberRoleLabel,
-                        );
-                      },
+                          } else if (snapshot.hasError) {
+                            return _RefreshableTeamState(
+                              child: Text("Error: ${snapshot.error}"),
+                            );
+                          } else if (!snapshot.hasData ||
+                              snapshot.data!.isEmpty) {
+                            return _RefreshableTeamState(
+                              center: false,
+                              child: _NoTeamMembersState(
+                                onAddTeamMember: selectedBranch == null
+                                    ? null
+                                    : _openAddMember,
+                              ),
+                            );
+                          }
+
+                          final members = snapshot.data!
+                              .whereType<Map>()
+                              .map((item) => Map<String, dynamic>.from(item))
+                              .toList();
+
+                          return _TeamMembersGrid(
+                            members: members,
+                            selectedBranch: selectedBranch,
+                            salons: _salons,
+                            statusUpdatingIds: _statusUpdatingIds,
+                            deletingMemberIds: _deletingMemberIds,
+                            professionalRatings: _professionalRatings,
+                            onEditMember: _openEditMember,
+                            onDeleteMember: _deleteMember,
+                            onToggleMemberActive: _toggleMemberActive,
+                            onViewMember: (member) {
+                              final userId = _asInt(member['id']) ?? 0;
+                              final ratingSummary =
+                                  _professionalRatings[userId] ??
+                                      _TeamRatingSummary.empty;
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TeamMemberDetails(
+                                    member: member,
+                                    salons: null,
+                                    professionalRating:
+                                        ratingSummary.average.toDouble(),
+                                    professionalReviewCount:
+                                        ratingSummary.count,
+                                  ),
+                                ),
+                              );
+                            },
+                            onAssignMember: _openAssignMember,
+                            assignButtonBuilder: _buildAssignButtonChild,
+                            memberNameBuilder: _memberDisplayName,
+                            memberRoleBuilder: _memberRoleLabel,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ],
@@ -1521,6 +1535,29 @@ class _TeamIconButton extends StatelessWidget {
               : Icon(icon, size: 20),
         ),
       ),
+    );
+  }
+}
+
+class _RefreshableTeamState extends StatelessWidget {
+  const _RefreshableTeamState({
+    required this.child,
+    this.center = true,
+  });
+
+  final Widget child;
+  final bool center;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: center ? Center(child: child) : child,
+        ),
+      ],
     );
   }
 }

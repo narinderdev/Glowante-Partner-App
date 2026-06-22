@@ -250,6 +250,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         _allSpecs = _readOptionMaps(
           data['specialities'] ?? data['specializations'],
         );
+        _normalizeSelectedOptions(_selectedRoles, _allRoles);
+        _normalizeSelectedOptions(_selectedSpecs, _allSpecs);
       });
     } catch (e) {
       debugPrint('Error fetching roles/specs: $e');
@@ -276,9 +278,26 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _firstNameCtrl.text = (member['firstName'] ?? '').toString().trim();
     _lastNameCtrl.text = (member['lastName'] ?? '').toString().trim();
     _emailCtrl.text = (member['email'] ?? '').toString().trim();
-    _gender = _normalizeGender((member['gender'] ?? '').toString().trim());
-    _briefCtrl.text =
-        (member['info'] ?? member['brief'] ?? '').toString().trim();
+    _gender = _normalizeGender(
+      _firstTextValue(
+        [branchAssignment, member],
+        const ['gender', 'sex'],
+      ),
+    );
+    _briefCtrl.text = _firstTextValue(
+      [branchAssignment, member],
+      const [
+        'info',
+        'brief',
+        'description',
+        'about',
+        'bio',
+        'aboutMe',
+        'profileSummary',
+        'professionalSummary',
+        'professionalBio',
+      ],
+    );
 
     _existingImageUrl =
         (member['profilePictureUrl'] ?? '').toString().trim().isEmpty
@@ -295,13 +314,36 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
     _selectedRoles
       ..clear()
-      ..addAll(_extractLabels(member['roles']));
+      ..addAll(
+        _extractLabels(
+          _firstListValue(
+            [branchAssignment, member],
+            const ['roles', 'roleCodes', 'roleIds'],
+          ),
+        ),
+      );
 
     _selectedSpecs
       ..clear()
       ..addAll(
         _extractLabels(
-          member['specialities'] ?? member['specializations'],
+          _firstListValue(
+            [branchAssignment, member],
+            const [
+              'specialities',
+              'specializations',
+              'specialties',
+              'specialitiesList',
+              'specializationsList',
+              'specialtiesList',
+              'specialityCodes',
+              'specializationCodes',
+              'specialtyCodes',
+              'specialityIds',
+              'specializationIds',
+              'specialtyIds',
+            ],
+          ),
         ),
       );
 
@@ -338,6 +380,42 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     }
 
     return null;
+  }
+
+  String _firstTextValue(
+    List<Map<String, dynamic>?> sources,
+    List<String> keys,
+  ) {
+    for (final source in sources) {
+      if (source == null) continue;
+      for (final key in keys) {
+        final value = source[key];
+        final text = value?.toString().trim() ?? '';
+        if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
+      }
+    }
+    return '';
+  }
+
+  List<dynamic> _firstListValue(
+    List<Map<String, dynamic>?> sources,
+    List<String> keys,
+  ) {
+    for (final source in sources) {
+      if (source == null) continue;
+      for (final key in keys) {
+        final value = source[key];
+        if (value is List && value.isNotEmpty) return value;
+        if (value is String && value.trim().isNotEmpty) {
+          return value
+              .split(',')
+              .map((part) => part.trim())
+              .where((part) => part.isNotEmpty)
+              .toList();
+        }
+      }
+    }
+    return const [];
   }
 
   List<int> _branchServiceIdsFromAssignment(Map<String, dynamic>? assignment) {
@@ -384,7 +462,12 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     return raw
         .map((entry) {
           if (entry is Map) {
-            return (entry['label'] ?? entry['name'] ?? entry['code'] ?? '')
+            return (entry['label'] ??
+                    entry['name'] ??
+                    entry['displayName'] ??
+                    entry['code'] ??
+                    entry['id'] ??
+                    '')
                 .toString()
                 .trim();
           }
@@ -392,6 +475,59 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         })
         .where((value) => value.isNotEmpty)
         .toList();
+  }
+
+  String _optionLabel(Map<String, dynamic> option) {
+    return (option['label'] ?? option['name'] ?? option['displayName'] ?? '')
+        .toString()
+        .trim();
+  }
+
+  Set<String> _optionKeys(Map<String, dynamic> option) {
+    return [
+      option['label'],
+      option['name'],
+      option['displayName'],
+      option['code'],
+      option['id'],
+    ]
+        .map((value) => value?.toString().trim().toLowerCase() ?? '')
+        .where((value) => value.isNotEmpty && value != 'null')
+        .toSet();
+  }
+
+  void _normalizeSelectedOptions(
+    List<String> selectedValues,
+    List<Map<String, dynamic>> source,
+  ) {
+    if (selectedValues.isEmpty || source.isEmpty) return;
+
+    final normalized = <String>[];
+    for (final selected in selectedValues) {
+      final selectedKey = selected.trim().toLowerCase();
+      if (selectedKey.isEmpty) continue;
+
+      String? matchedLabel;
+      for (final option in source) {
+        if (_optionKeys(option).contains(selectedKey)) {
+          final label = _optionLabel(option);
+          matchedLabel = label.isNotEmpty ? label : selected.trim();
+          break;
+        }
+      }
+
+      final value = matchedLabel ?? selected.trim();
+      final exists = normalized.any(
+        (current) => current.trim().toLowerCase() == value.toLowerCase(),
+      );
+      if (value.isNotEmpty && !exists) {
+        normalized.add(value);
+      }
+    }
+
+    selectedValues
+      ..clear()
+      ..addAll(normalized);
   }
 
   List<String> _resolveCodes(
@@ -402,19 +538,10 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       final normalizedSelected = selected.trim().toLowerCase();
 
       for (final option in source) {
-        final candidates = [
-          option['label'],
-          option['name'],
-          option['code'],
-        ]
-            .map((value) => (value ?? '').toString().trim())
-            .where((v) => v.isNotEmpty);
-
-        for (final candidate in candidates) {
-          if (candidate.toLowerCase() == normalizedSelected) {
-            final code = (option['code'] ?? candidate).toString().trim();
-            return code.isEmpty ? candidate : code;
-          }
+        if (_optionKeys(option).contains(normalizedSelected)) {
+          final code =
+              (option['code'] ?? _optionLabel(option)).toString().trim();
+          return code.isEmpty ? selected.trim() : code;
         }
       }
 
@@ -685,15 +812,23 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   }
 
   String _normalizeGender(String value) {
-    switch (value.toLowerCase()) {
+    switch (value.trim().toLowerCase()) {
       case 'male':
+      case 'm':
+      case '1':
         return 'Male';
       case 'female':
+      case 'f':
+      case '2':
         return 'Female';
       case 'other':
+      case 'o':
+      case '3':
+      case 'non-binary':
+      case 'nonbinary':
         return 'Other';
       default:
-        return value;
+        return value.trim();
     }
   }
 
