@@ -86,7 +86,9 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   final pricingModes = const ['Fixed', 'Discount'];
   final discountTypes = const ['Flat', 'Percent'];
   final durationUnits = const ['DAY', 'MONTH', 'YEAR'];
+  final packageGenderOptions = const ['MALE', 'FEMALE', 'OTHERS'];
   String durationUnit = 'MONTH';
+  String? packageGender;
 
   List<Map<String, dynamic>> _selectedServices = [];
 
@@ -98,6 +100,19 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   final _radius = BorderRadius.circular(7);
 
   bool get _isPackage => widget.source.toUpperCase() == 'PACKAGE';
+
+  String get _statusForSubmit {
+    if (!widget.isEdit) return _isPackage ? 'DRAFT' : 'ACTIVE';
+
+    final existingStatus =
+        widget.existingOffer?['status']?.toString().trim().toUpperCase() ?? '';
+
+    if (existingStatus.isEmpty || existingStatus == 'UNKNOWN') {
+      return 'DRAFT';
+    }
+
+    return existingStatus;
+  }
 
   @override
   void initState() {
@@ -161,6 +176,11 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     if (existingDurationUnit.isNotEmpty &&
         durationUnits.contains(existingDurationUnit.toUpperCase())) {
       durationUnit = existingDurationUnit.toUpperCase();
+    }
+
+    final existingGender = (o['gender'] ?? '').toString().trim().toUpperCase();
+    if (packageGenderOptions.contains(existingGender)) {
+      packageGender = existingGender;
     }
 
     final pmRaw = (o['pricingMode'] ?? '').toString().toUpperCase();
@@ -760,6 +780,21 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       return translateText('Select a valid duration unit.');
     }
 
+    if (durationUnit == 'MONTH' && durationValue > 12) {
+      return translateText('Package duration cannot exceed 12 months.');
+    }
+
+    return null;
+  }
+
+  String? _vPackageGender() {
+    if (!_isPackage) return null;
+
+    final gender = packageGender?.trim().toUpperCase() ?? '';
+    if (!packageGenderOptions.contains(gender)) {
+      return translateText('Please select a gender.');
+    }
+
     return null;
   }
 
@@ -827,6 +862,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
 
     if (_isPackage) {
       push(_vPackageDuration());
+      push(_vPackageGender());
     } else {
       push(_vValidFrom(validFromController.text));
       push(_vValidTill(validTillController.text));
@@ -887,7 +923,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
     final body = <String, dynamic>{
       'name': capitalizeFirst(dealTitleController.text.trim()),
       'type': widget.source,
-      'status': 'ACTIVE',
+      'status': _statusForSubmit,
       if (!_isPackage) 'validFrom': _toIsoDate(validFromController.text),
       if (!_isPackage) 'validTo': _toIsoDate(validTillController.text),
       'pricingMode': pricingMode.toUpperCase(),
@@ -905,6 +941,7 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
       if (_isPackage)
         'durationValue': int.tryParse(durationValueController.text.trim()),
       if (_isPackage) 'durationUnit': durationUnit,
+      if (_isPackage) 'gender': packageGender?.toLowerCase(),
     };
 
     if (pricingMode == 'Fixed') {
@@ -1679,55 +1716,87 @@ class _AddDealsScreenState extends State<AddDealsScreen> {
   }
 
   Widget _buildPackageDurationFields() {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _fieldWithBottomCounter(
-            controller: durationValueController,
-            maxLength: 4,
-            child: TextFormField(
-              controller: durationValueController,
-              maxLength: 4,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(4),
-              ],
-              decoration: _decor(
-                label: '${translateText('Duration')} *',
-                hint: translateText('e.g. 3'),
-              ),
-              validator: (_) => _vPackageDuration(),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            value: durationUnit,
-            items: durationUnits
-                .map(
-                  (unit) => DropdownMenuItem(
-                    value: unit,
-                    child: Text(
-                      translateText(
-                        unit[0] + unit.substring(1).toLowerCase(),
-                      ),
+        DropdownButtonFormField<String>(
+          value: packageGender,
+          autovalidateMode:
+              _showErrors ? AutovalidateMode.always : AutovalidateMode.disabled,
+          items: packageGenderOptions
+              .map(
+                (gender) => DropdownMenuItem(
+                  value: gender,
+                  child: Text(
+                    translateText(
+                      gender == 'OTHERS'
+                          ? 'Others'
+                          : gender[0] + gender.substring(1).toLowerCase(),
                     ),
                   ),
-                )
-                .toList(),
-            onChanged: (value) {
-              setState(() {
-                durationUnit = value ?? 'MONTH';
-              });
-            },
-            decoration: _decor(
-              label: '${translateText('Unit')} *',
-              hint: translateText('Select unit'),
-            ),
+                ),
+              )
+              .toList(),
+          onChanged: (value) {
+            setState(() => packageGender = value);
+          },
+          validator: (_) => _vPackageGender(),
+          decoration: _decor(
+            label: '${translateText('Gender')} *',
+            hint: translateText('Select gender'),
           ),
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: _fieldWithBottomCounter(
+                controller: durationValueController,
+                maxLength: 4,
+                child: TextFormField(
+                  controller: durationValueController,
+                  maxLength: 4,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(4),
+                  ],
+                  decoration: _decor(
+                    label: '${translateText('Duration')} *',
+                    hint: translateText('e.g. 3'),
+                  ),
+                  validator: (_) => _vPackageDuration(),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: durationUnit,
+                items: durationUnits
+                    .map(
+                      (unit) => DropdownMenuItem(
+                        value: unit,
+                        child: Text(
+                          translateText(
+                            unit[0] + unit.substring(1).toLowerCase(),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    durationUnit = value ?? 'MONTH';
+                  });
+                },
+                decoration: _decor(
+                  label: '${translateText('Unit')} *',
+                  hint: translateText('Select unit'),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

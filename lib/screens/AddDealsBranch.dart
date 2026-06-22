@@ -50,7 +50,9 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
   final List<String> pricingModes = const ['Fixed', 'Discount'];
   final List<String> discountTypes = const ['Flat', 'Percent'];
   final List<String> durationUnits = const ['DAY', 'MONTH', 'YEAR'];
+  final List<String> packageGenderOptions = const ['MALE', 'FEMALE', 'OTHERS'];
   String durationUnit = 'MONTH';
+  String? packageGender;
 
   // Selected services from modal
   List<Map<String, dynamic>> _selectedServices = [];
@@ -238,9 +240,15 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     }
 
     if (isPackage) {
+      if (!packageGenderOptions.contains(packageGender)) {
+        errors.add(translateText('Please select a gender.'));
+      }
+
       final durationValue = int.tryParse(durationValueController.text.trim());
       if (durationValue == null || durationValue <= 0) {
         errors.add(translateText('Enter a valid duration.'));
+      } else if (durationUnit == 'MONTH' && durationValue > 12) {
+        errors.add(translateText('Package duration cannot exceed 12 months.'));
       }
     }
 
@@ -291,7 +299,7 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
     final offerData = {
       'name': dealTitleController.text,
       'type': widget.source,
-      'status': 'ACTIVE',
+      'status': widget.source.toUpperCase() == 'PACKAGE' ? 'DRAFT' : 'ACTIVE',
       'validFrom':
           validFromController.text.isNotEmpty ? validFromController.text : null,
       'validTo':
@@ -310,6 +318,8 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
         'durationValue': int.tryParse(durationValueController.text.trim()),
       if (widget.source.toUpperCase() == 'PACKAGE')
         'durationUnit': durationUnit,
+      if (widget.source.toUpperCase() == 'PACKAGE')
+        'gender': packageGender?.toLowerCase(),
     };
 
     if (pricingMode == 'Fixed') {
@@ -457,6 +467,34 @@ class _AddDealsBranchScreenState extends State<AddDealsBranchScreen> {
                 ),
               ),
               if (isPackage) ...[
+                SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: packageGender,
+                  items: packageGenderOptions
+                      .map(
+                        (gender) => DropdownMenuItem(
+                          value: gender,
+                          child: Text(
+                            translateText(
+                              gender == 'OTHERS'
+                                  ? 'Others'
+                                  : gender[0] +
+                                      gender.substring(1).toLowerCase(),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() => packageGender = value);
+                  },
+                  decoration: _decor(
+                    label: '${translateText('Gender')} *',
+                    hint: translateText('Select gender'),
+                    prefix: Icons.wc_outlined,
+                  ),
+                  icon: Icon(Icons.keyboard_arrow_down_rounded),
+                ),
                 SizedBox(height: 16),
                 Row(
                   children: [

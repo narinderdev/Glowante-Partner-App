@@ -997,6 +997,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
 
   @override
   Widget build(BuildContext context) {
+    final navigationDisabled = isSubmitting || _isLoadingOperatingSchedule;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F4F1),
       appBar: buildProfileSubpageAppBar(
@@ -1173,7 +1175,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(context),
+                  onPressed:
+                      navigationDisabled ? null : () => Navigator.pop(context),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                     backgroundColor: Colors.white,
@@ -1195,7 +1198,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: isSubmitting ? null : _goToCompleteStep,
+                  onPressed: navigationDisabled ? null : _goToCompleteStep,
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(double.infinity, 50),
                     backgroundColor: AppColors.starColor,

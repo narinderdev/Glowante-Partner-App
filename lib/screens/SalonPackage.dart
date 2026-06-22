@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../utils/api_service.dart';
 import '../utils/price_formatter.dart';
 import 'Adddeals.dart';
@@ -725,8 +726,14 @@ class _OfferCard extends StatelessWidget {
       final String validFrom = offer['validFrom']?.toString() ?? '';
       final String validTo = offer['validTo']?.toString() ?? '';
       final String terms = offer['terms']?.toString() ?? '';
+      final String gender = offer['gender']?.toString().trim() ?? '';
+      final String durationUnit =
+          offer['durationUnit']?.toString().trim().toUpperCase() ?? '';
 
       // Defensive numeric parsing
+      final num? durationValue = (offer['durationValue'] is num)
+          ? offer['durationValue'] as num
+          : num.tryParse(offer['durationValue']?.toString() ?? '');
       final num? discountPct = (offer['discountPct'] is num)
           ? offer['discountPct'] as num
           : num.tryParse(offer['discountPct']?.toString() ?? '');
@@ -743,10 +750,32 @@ class _OfferCard extends StatelessWidget {
       final num actualPrice = (itemSummary['totalPrice'] is num)
           ? itemSummary['totalPrice'] as num
           : 0;
+      final num? itemCount = (itemSummary['itemCount'] is num)
+          ? itemSummary['itemCount'] as num
+          : num.tryParse(itemSummary['itemCount']?.toString() ?? '');
+      final num? serviceDuration = (itemSummary['totalDuration'] is num)
+          ? itemSummary['totalDuration'] as num
+          : (offer['duration'] is num)
+              ? offer['duration'] as num
+              : num.tryParse(
+                  itemSummary['totalDuration']?.toString() ??
+                      offer['duration']?.toString() ??
+                      '',
+                );
 
       final List items = (offer['items'] is List) ? offer['items'] as List : [];
 
       final bool isDiscount = pricingMode.toUpperCase() == 'DISCOUNT';
+      final String? durationText = _durationText(
+        type: type,
+        durationValue: durationValue,
+        durationUnit: durationUnit,
+        serviceDuration: serviceDuration,
+      );
+      final String? serviceCountText = _serviceCountText(itemCount);
+      final String? genderText = _genderText(gender);
+      final String durationLine =
+          _serviceDurationLine(serviceDuration) ?? translateText('N/A');
       final String? discountChipText = () {
         if (!isDiscount) return null;
         if (discountType == 'PERCENT' && (discountPct ?? 0) > 0) {
@@ -761,6 +790,7 @@ class _OfferCard extends StatelessWidget {
       // --------- build UI ---------
       return Container(
         margin: const EdgeInsets.only(bottom: 12),
+        clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(9),
@@ -773,320 +803,325 @@ class _OfferCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --------- header: title + chips ---------
-              Row(
+        child: Stack(
+          children: [
+            if (genderText != null) _genderRibbon(genderText),
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Text(
-                      name.isNotEmpty ? name : 'Unnamed Offer',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: _offerInk,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _statusChip(status),
-                ],
-              ),
-
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  _pillChip(type),
-                  _softChip(pricingMode),
-                  if (discountChipText != null) _offChip(discountChipText),
-                ],
-              ),
-
-              const SizedBox(height: 10),
-
-              // --------- pricing block ---------
-              // --------- pricing block ---------
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (actualPrice > 0 && finalPrice < actualPrice) ...[
-                    Text(
-                      rs(actualPrice),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: _offerMuted,
-                        decoration: TextDecoration.lineThrough,
-                        decorationThickness: 1, // ✅ thin line
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                  ],
+                  // --------- header: title + chips ---------
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        rs(finalPrice),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: isDiscount ? _offerGold : _offerInk,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (actualPrice > 0 && finalPrice < actualPrice)
-                        Text(
-                          'You save ${rs(actualPrice - finalPrice)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.green,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 12),
-
-              // --------- services as chips ---------
-              if (items.isNotEmpty) ...[
-                Text(
-                  translateText('Includes'),
-                  style: const TextStyle(
-                    color: _offerInk,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: items.map((e) {
-                    final m = Map<String, dynamic>.from(e as Map);
-                    final n = (m['name'] ?? 'Service').toString();
-                    final q = (m['qty'] ?? 1) as num;
-                    return Chip(
-                      label: Text('$n × ${q.toStringAsFixed(0)}'),
-                      labelStyle: const TextStyle(
-                        color: _offerInk,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      backgroundColor: _offerFieldFill,
-                      side: const BorderSide(color: _offerBorder),
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity:
-                          const VisualDensity(horizontal: -4, vertical: -4),
-                    );
-                  }).toList(),
-                ),
-              ],
-
-              // --------- validity & terms ---------
-              if (validFrom.isNotEmpty || validTo.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    const Icon(Icons.event, size: 16, color: _offerGold),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _formatValidity(validFrom, validTo),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: _offerMuted,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (terms.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6),
-                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.article_outlined,
-                          size: 16, color: _offerGold),
-                      const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Terms: $terms',
+                          name.isNotEmpty ? name : 'Unnamed Offer',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 12,
-                            color: _offerMuted,
-                            fontWeight: FontWeight.w600,
+                            color: _offerInk,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
                           ),
                         ),
                       ),
+                      if (genderText != null) const SizedBox(width: 70),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  if (items.isNotEmpty) _servicePreviewChips(items),
+                  const SizedBox(height: 14),
 
-              const SizedBox(height: 10),
+                  _detailRow(
+                    label: 'Actual Price',
+                    value: actualPrice > 0 ? rs(actualPrice) : rs(finalPrice),
+                    valueColor: _offerMuted,
+                    strikeValue: actualPrice > 0 && finalPrice < actualPrice,
+                  ),
+                  const SizedBox(height: 9),
+                  _detailRow(
+                    label: 'Discounted Price',
+                    value: rs(finalPrice),
+                    valueColor: _offerGold,
+                    suffix: translateText('(Inc. taxes)'),
+                    boldValue: true,
+                  ),
+                  const SizedBox(height: 9),
+                  _detailRow(
+                    label: 'Duration',
+                    value: durationLine,
+                    valueColor: _offerInk,
+                  ),
 
-              // --------- actions ---------
-              // Row(
-              //   mainAxisAlignment: MainAxisAlignment.end,
-              //   children: [
-              //     ElevatedButton(
-              //       onPressed: (isDeleting || isStatusUpdating)
-              //           ? null
-              //           : onToggleStatus,
-              //       style: _blackButtonStyle,
-              //       child: isStatusUpdating
-              //           ? const SizedBox(
-              //               width: 16,
-              //               height: 16,
-              //               child: CircularProgressIndicator(
-              //                 strokeWidth: 2,
-              //                 color: Colors.white,
-              //               ),
-              //             )
-              //           : Text(
-              //               translateText(
-              //                 isActive ? 'Deactivate' : 'Make Live',
-              //               ),
-              //               style: const TextStyle(
-              //                 fontSize: 12,
-              //                 fontWeight: FontWeight.w600,
-              //               ),
-              //             ),
-              //     ),
-              //     const SizedBox(width: 10),
-              //     ElevatedButton(
-              //       onPressed: (isDeleting || isStatusUpdating) ? null : onEdit,
-              //       style: _blackButtonStyle,
-              //       child: Text(
-              //         translateText('Edit'),
-              //         style: const TextStyle(
-              //             fontSize: 12, fontWeight: FontWeight.w600),
-              //       ),
-              //     ),
-              //     const SizedBox(width: 10),
-              //     ElevatedButton.icon(
-              //       onPressed:
-              //           (isDeleting || isStatusUpdating) ? null : onDelete,
-              //       icon: isDeleting
-              //           ? const SizedBox(
-              //               width: 16,
-              //               height: 16,
-              //               child: CircularProgressIndicator(
-              //                 strokeWidth: 2,
-              //                 color: Colors.white,
-              //               ),
-              //             )
-              //           : const Icon(Icons.delete, size: 16),
-              //       label: Text(
-              //         isDeleting ? 'Deleting...' : 'Delete',
-              //         style: const TextStyle(
-              //           fontSize: 12,
-              //           fontWeight: FontWeight.w600,
-              //         ),
-              //       ),
-              //       style: _blackButtonStyle,
-              //     ),
-              //   ],
-              // ),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 120,
-                      height: 38,
-                      child: ElevatedButton(
-                        onPressed: (isDeleting || isStatusUpdating)
-                            ? null
-                            : onToggleStatus,
-                        style: _blackButtonStyle,
-                        child: isStatusUpdating
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                translateText(
-                                  isActive ? 'Deactivate' : 'Make Live',
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 78,
-                      height: 38,
-                      child: ElevatedButton(
-                        onPressed:
-                            (isDeleting || isStatusUpdating) ? null : onEdit,
-                        style: _blackButtonStyle,
-                        child: Text(
-                          translateText('Edit'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 105,
-                      height: 38,
-                      child: ElevatedButton.icon(
-                        onPressed:
-                            (isDeleting || isStatusUpdating) ? null : onDelete,
-                        icon: isDeleting
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.delete, size: 15),
-                        label: Text(
-                          isDeleting ? 'Deleting...' : translateText('Delete'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: _blackButtonStyle,
-                      ),
+                  if (discountChipText != null || serviceCountText != null) ...[
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (durationText != null) _durationChip(durationText),
+                        if (serviceCountText != null)
+                          _metaChip(
+                              Icons.inventory_2_outlined, serviceCountText),
+                        if (discountChipText != null)
+                          _offChip(discountChipText),
+                      ],
                     ),
                   ],
-                ),
+
+                  const SizedBox(height: 12),
+
+                  // --------- services as chips ---------
+                  if (items.isNotEmpty) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            translateText('Includes'),
+                            style: const TextStyle(
+                              color: _offerInk,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        _statusChip(status),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: items.map((e) {
+                        final m = Map<String, dynamic>.from(e as Map);
+                        final n = (m['name'] ?? 'Service').toString();
+                        final q = (m['qty'] ?? 1) as num;
+                        return Chip(
+                          label: Text('$n × ${q.toStringAsFixed(0)}'),
+                          labelStyle: const TextStyle(
+                            color: _offerInk,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          backgroundColor: _offerFieldFill,
+                          side: const BorderSide(color: _offerBorder),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                          visualDensity:
+                              const VisualDensity(horizontal: -4, vertical: -4),
+                        );
+                      }).toList(),
+                    ),
+                  ] else ...[
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _statusChip(status),
+                    ),
+                  ],
+
+                  // --------- validity & terms ---------
+                  if (validFrom.isNotEmpty || validTo.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.event, size: 16, color: _offerGold),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _formatValidity(validFrom, validTo),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: _offerMuted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (terms.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.article_outlined,
+                              size: 16, color: _offerGold),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'Terms: $terms',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _offerMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 10),
+
+                  // --------- actions ---------
+                  // Row(
+                  //   mainAxisAlignment: MainAxisAlignment.end,
+                  //   children: [
+                  //     ElevatedButton(
+                  //       onPressed: (isDeleting || isStatusUpdating)
+                  //           ? null
+                  //           : onToggleStatus,
+                  //       style: _blackButtonStyle,
+                  //       child: isStatusUpdating
+                  //           ? const SizedBox(
+                  //               width: 16,
+                  //               height: 16,
+                  //               child: CircularProgressIndicator(
+                  //                 strokeWidth: 2,
+                  //                 color: Colors.white,
+                  //               ),
+                  //             )
+                  //           : Text(
+                  //               translateText(
+                  //                 isActive ? 'Deactivate' : 'Make Live',
+                  //               ),
+                  //               style: const TextStyle(
+                  //                 fontSize: 12,
+                  //                 fontWeight: FontWeight.w600,
+                  //               ),
+                  //             ),
+                  //     ),
+                  //     const SizedBox(width: 10),
+                  //     ElevatedButton(
+                  //       onPressed: (isDeleting || isStatusUpdating) ? null : onEdit,
+                  //       style: _blackButtonStyle,
+                  //       child: Text(
+                  //         translateText('Edit'),
+                  //         style: const TextStyle(
+                  //             fontSize: 12, fontWeight: FontWeight.w600),
+                  //       ),
+                  //     ),
+                  //     const SizedBox(width: 10),
+                  //     ElevatedButton.icon(
+                  //       onPressed:
+                  //           (isDeleting || isStatusUpdating) ? null : onDelete,
+                  //       icon: isDeleting
+                  //           ? const SizedBox(
+                  //               width: 16,
+                  //               height: 16,
+                  //               child: CircularProgressIndicator(
+                  //                 strokeWidth: 2,
+                  //                 color: Colors.white,
+                  //               ),
+                  //             )
+                  //           : const Icon(Icons.delete, size: 16),
+                  //       label: Text(
+                  //         isDeleting ? 'Deleting...' : 'Delete',
+                  //         style: const TextStyle(
+                  //           fontSize: 12,
+                  //           fontWeight: FontWeight.w600,
+                  //         ),
+                  //       ),
+                  //       style: _blackButtonStyle,
+                  //     ),
+                  //   ],
+                  // ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 120,
+                          height: 38,
+                          child: ElevatedButton(
+                            onPressed: (isDeleting || isStatusUpdating)
+                                ? null
+                                : onToggleStatus,
+                            style: _blackButtonStyle,
+                            child: isStatusUpdating
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    translateText(
+                                      isActive ? 'Deactivate' : 'Make Live',
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 78,
+                          height: 38,
+                          child: ElevatedButton(
+                            onPressed: (isDeleting || isStatusUpdating)
+                                ? null
+                                : onEdit,
+                            style: _blackButtonStyle,
+                            child: Text(
+                              translateText('Edit'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 105,
+                          height: 38,
+                          child: ElevatedButton.icon(
+                            onPressed: (isDeleting || isStatusUpdating)
+                                ? null
+                                : onDelete,
+                            icon: isDeleting
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.delete, size: 15),
+                            label: Text(
+                              isDeleting
+                                  ? 'Deleting...'
+                                  : translateText('Delete'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: _blackButtonStyle,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     } catch (e, st) {
@@ -1149,25 +1184,190 @@ class _OfferCard extends StatelessWidget {
     );
   }
 
-  Widget _pillChip(String text) {
+  // Widget _genderRibbon(String text) {
+  //   final normalized = text.trim().toLowerCase();
+  //   final isFemale = normalized == translateText('Female').toLowerCase() ||
+  //       normalized == 'female';
+  //   final background =
+  //       isFemale ? const Color(0xFFFFEEF5) : const Color(0xFFEFF6FF);
+  //   final border = isFemale ? const Color(0xFFF5B8CF) : const Color(0xFFBFD7FF);
+  //   final foreground =
+  //       isFemale ? const Color(0xFFB4235A) : const Color(0xFF1D4E89);
+
+  //   return Positioned(
+  //     top: 12,
+  //     right: -34,
+  //     child: Transform.rotate(
+  //       angle: math.pi / 4,
+  //       child: Container(
+  //         width: 112,
+  //         padding: const EdgeInsets.symmetric(vertical: 5),
+  //         decoration: BoxDecoration(
+  //           color: background,
+  //           border: Border.symmetric(
+  //             horizontal: BorderSide(color: border),
+  //           ),
+  //         ),
+  //         child: Text(
+  //           text,
+  //           maxLines: 1,
+  //           overflow: TextOverflow.ellipsis,
+  //           textAlign: TextAlign.center,
+  //           style: TextStyle(
+  //             color: foreground,
+  //             fontSize: 10,
+  //             fontWeight: FontWeight.w900,
+  //           ),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+Widget _genderRibbon(String text) {
+  return Positioned(
+    top: 12,
+    right: -34,
+    child: Transform.rotate(
+      angle: math.pi / 4,
+      child: Container(
+        width: 112,
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        decoration: const BoxDecoration(
+          color: _offerGold, // same as Delete button
+          border: Border.symmetric(
+            horizontal: BorderSide(color: _offerGold),
+          ),
+        ),
+        child: Text(
+          text,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.white, // white text
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+
+
+  Widget _servicePreviewChips(List items) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: items.take(2).map((e) {
+        final m = Map<String, dynamic>.from(e as Map);
+        final name = (m['name'] ?? 'Service').toString();
+        final qty = (m['qty'] ?? 1) as num;
+        final label = qty > 1 ? '$name x ${qty.toStringAsFixed(0)}' : name;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: _offerFieldFill,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _offerMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _detailRow({
+    required String label,
+    required String value,
+    required Color valueColor,
+    String? suffix,
+    bool strikeValue = false,
+    bool boldValue = false,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '${translateText(label)}:',
+            style: const TextStyle(
+              color: _offerMuted,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        Flexible(
+          child: Text.rich(
+            TextSpan(
+              text: value,
+              style: TextStyle(
+                color: valueColor,
+                fontSize: 13,
+                fontWeight: boldValue ? FontWeight.w900 : FontWeight.w800,
+                decoration: strikeValue
+                    ? TextDecoration.lineThrough
+                    : TextDecoration.none,
+              ),
+              children: [
+                if (suffix != null)
+                  TextSpan(
+                    text: ' $suffix',
+                    style: const TextStyle(
+                      color: _offerGold,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+              ],
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _durationChip(String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: _offerSoftGold,
-        borderRadius: BorderRadius.circular(24),
+        color: const Color(0xFFFFF7E6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE8D2A8)),
       ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: _offerGold,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.schedule_rounded, size: 13, color: _offerGold),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              color: _offerGold,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _softChip(String text) {
+  Widget _metaChip(IconData icon, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -1175,15 +1375,99 @@ class _OfferCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: _offerBorder),
       ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: _offerMuted,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: _offerMuted),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              color: _offerMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  String? _durationText({
+    required String type,
+    required num? durationValue,
+    required String durationUnit,
+    required num? serviceDuration,
+  }) {
+    if (type.toUpperCase() != 'PACKAGE') return null;
+
+    if (durationValue != null &&
+        durationValue > 0 &&
+        durationUnit.trim().isNotEmpty) {
+      final value = durationValue % 1 == 0
+          ? durationValue.toInt().toString()
+          : durationValue.toString();
+      final unit = _durationUnitLabel(durationUnit, durationValue);
+      return '${translateText('Duration')}: $value $unit';
+    }
+
+    if (serviceDuration != null && serviceDuration > 0) {
+      final minutes = serviceDuration % 1 == 0
+          ? serviceDuration.toInt().toString()
+          : serviceDuration.toString();
+      return '${translateText('Service time')}: $minutes ${translateText('min')}';
+    }
+
+    return null;
+  }
+
+  String? _serviceCountText(num? itemCount) {
+    if (itemCount == null || itemCount <= 0) return null;
+    final count = itemCount % 1 == 0
+        ? itemCount.toInt().toString()
+        : itemCount.toString();
+    final label = itemCount == 1 ? 'Service' : 'Services';
+    return '$count ${translateText(label)}';
+  }
+
+  String? _serviceDurationLine(num? serviceDuration) {
+    if (serviceDuration == null || serviceDuration <= 0) return null;
+    final minutes = serviceDuration % 1 == 0
+        ? serviceDuration.toInt().toString()
+        : serviceDuration.toString();
+    return '$minutes ${translateText(serviceDuration == 1 ? 'min' : 'mins')}';
+  }
+
+  String? _genderText(String gender) {
+    final normalized = gender.trim().toLowerCase();
+    if (normalized.isEmpty || normalized == 'null') return null;
+
+    switch (normalized) {
+      case 'male':
+        return translateText('Male');
+      case 'female':
+        return translateText('Female');
+      case 'others':
+      case 'other':
+        return translateText('Others');
+      default:
+        return translateText(
+            normalized[0].toUpperCase() + normalized.substring(1));
+    }
+  }
+
+  String _durationUnitLabel(String unit, num value) {
+    final singular = value == 1;
+    switch (unit.toUpperCase()) {
+      case 'DAY':
+        return translateText(singular ? 'Day' : 'Days');
+      case 'MONTH':
+        return translateText(singular ? 'Month' : 'Months');
+      case 'YEAR':
+        return translateText(singular ? 'Year' : 'Years');
+      default:
+        return translateText(unit);
+    }
   }
 }
 
