@@ -260,8 +260,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     }
 
     if (value is Map) {
-      final isClosed =
-          value['closed'] == true ||
+      final isClosed = value['closed'] == true ||
           value['isClosed'] == true ||
           value['status']?.toString().toLowerCase() == 'closed';
 
@@ -447,6 +446,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   }
 
   void _addSlot(String day) {
+    if (_sameAsBranchTimings) return;
+
     if (_isClosedDay(day)) {
       _showClosedDayMessage(day);
       return;
@@ -473,12 +474,16 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   }
 
   void _deleteSlot(String day, int index) {
+    if (_sameAsBranchTimings) return;
+
     setState(() {
       weeklySchedule[day]?.removeAt(index);
     });
   }
 
   void _updateTime(String day, int index, String timeType, String newTime) {
+    if (_sameAsBranchTimings) return;
+
     setState(() {
       weeklySchedule[day]?[index][timeType] = newTime;
 
@@ -512,6 +517,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   }
 
   void _markOff(String day) {
+    if (_sameAsBranchTimings) return;
+
     setState(() {
       weeklySchedule[day]?.clear();
       _markedOffDays.add(_dayKey(day));
@@ -519,6 +526,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   }
 
   void _markWorking(String day) {
+    if (_sameAsBranchTimings) return;
+
     setState(() {
       _markedOffDays.remove(_dayKey(day));
     });
@@ -527,6 +536,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   }
 
   void _copyMondayToAll(bool value) {
+    if (_sameAsBranchTimings) return;
+
     setState(() => _copyMondayToAllChecked = value);
 
     if (!value) return;
@@ -571,6 +582,9 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   void _applySameAsBranchTimings(bool value) {
     setState(() {
       _sameAsBranchTimings = value;
+      if (value) {
+        _copyMondayToAllChecked = false;
+      }
 
       if (!value) return;
 
@@ -790,9 +804,8 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
           ),
         ),
         style: OutlinedButton.styleFrom(
-          backgroundColor: filled
-              ? const Color(0xFFFFF4DC)
-              : const Color(0xFFF9FAFB),
+          backgroundColor:
+              filled ? const Color(0xFFFFF4DC) : const Color(0xFFF9FAFB),
           side: BorderSide(
             color: filled ? const Color(0xFFFFE1A8) : Colors.transparent,
           ),
@@ -1101,36 +1114,49 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
                       ),
                     ],
                     const SizedBox(height: 18),
-                    for (final day in _weekDays) ...[
-                      _dayScheduleCard(day),
-                      if (day == 'Monday') ...[
-                        Row(
+                    IgnorePointer(
+                      ignoring: _sameAsBranchTimings,
+                      child: AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        opacity: _sameAsBranchTimings ? 0.45 : 1,
+                        child: Column(
                           children: [
-                            Checkbox(
-                              value: _copyMondayToAllChecked,
-                              onChanged: (value) {
-                                _copyMondayToAll(value ?? false);
-                              },
-                              visualDensity: VisualDensity.compact,
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                            ),
-                            Expanded(
-                              child: Text(
-                                translateText(
-                                  'Copy Monday schedule to all days',
+                            for (final day in _weekDays) ...[
+                              _dayScheduleCard(day),
+                              if (day == 'Monday') ...[
+                                Row(
+                                  children: [
+                                    Checkbox(
+                                      value: _copyMondayToAllChecked,
+                                      onChanged: _sameAsBranchTimings
+                                          ? null
+                                          : (value) {
+                                              _copyMondayToAll(value ?? false);
+                                            },
+                                      visualDensity: VisualDensity.compact,
+                                      materialTapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        translateText(
+                                          'Copy Monday schedule to all days',
+                                        ),
+                                        style: const TextStyle(
+                                          color: Color(0xFF111827),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                style: const TextStyle(
-                                  color: Color(0xFF111827),
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
+                                const SizedBox(height: 6),
+                              ],
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 6),
-                      ],
-                    ],
+                      ),
+                    ),
                   ],
                 ),
               ),

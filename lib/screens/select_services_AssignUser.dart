@@ -7,6 +7,13 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
 
+const Color _assignServicesBackground = Color(0xFFFBFAF8);
+const Color _assignServicesBorder = Color(0xFFE8DED6);
+const Color _assignServicesText = Color(0xFF2B241D);
+const Color _assignServicesMuted = Color(0xFF8C7A66);
+const Color _assignServicesSurface = Colors.white;
+const Color _assignServicesSoftGold = Color(0xFFFFF3D5);
+
 class SelectServicesAssignUser extends StatefulWidget {
   final int salonId;
   final int userId;
@@ -17,7 +24,7 @@ class SelectServicesAssignUser extends StatefulWidget {
   final Map<int, bool>? initialSelected;
 
   const SelectServicesAssignUser({
-    Key? key,
+    super.key,
     required this.salonId,
     required this.userId,
     required this.branchId,
@@ -25,7 +32,7 @@ class SelectServicesAssignUser extends StatefulWidget {
     required this.member, // ✅ add
     required this.salons,
     this.initialSelected,
-  }) : super(key: key);
+  });
 
   @override
   State<SelectServicesAssignUser> createState() =>
@@ -123,12 +130,54 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
     final int duration = (s['durationMin'] ?? 0) as int;
     final bool checked = selected[id] ?? false;
 
-    return CheckboxListTile(
-      value: checked,
-      onChanged: (val) => setState(() => selected[id] = val ?? false),
-      title: Text(name, style: const TextStyle(fontSize: 14)),
-      subtitle: Text("${formatMinorAmount(price)} • $duration mins"),
-      controlAffinity: ListTileControlAffinity.leading,
+    return InkWell(
+      onTap: () => setState(() => selected[id] = !checked),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        decoration: BoxDecoration(
+          color: checked ? const Color(0xFFFFFAF1) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: checked ? AppColors.starColor : _assignServicesBorder,
+          ),
+        ),
+        child: Row(
+          children: [
+            _ServiceSelectionMark(selected: checked),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name.isEmpty ? translateText('Service') : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: _assignServicesText,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "${formatMinorAmount(price)} • $duration ${translateText('mins')}",
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: _assignServicesMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -143,35 +192,98 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
     ];
     final int selCount = allIds.where((id) => selected[id] == true).length;
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      child: ExpansionTile(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: _assignServicesCardDecoration(
+        highlighted: selCount > 0,
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+          iconColor: AppColors.starColor,
+          collapsedIconColor: _assignServicesMuted,
+          title: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: _assignServicesSoftGold,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.spa_outlined,
+                  size: 16,
+                  color: AppColors.starColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  cat['displayName']?.toString() ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: _assignServicesText,
+                  ),
+                ),
+              ),
+              _CountPill(selected: selCount, total: allIds.length),
+            ],
+          ),
           children: [
-            Text(cat['displayName']?.toString() ?? '',
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            Text("$selCount/${allIds.length}",
-                style: const TextStyle(color: Colors.black54, fontSize: 12)),
+            ...services.map<Widget>(
+              (s) => _buildServiceItem((s as Map).cast<String, dynamic>()),
+            ),
+            ...subs.map<Widget>((subMap) {
+              final List subServices = subMap['services'] as List? ?? [];
+              return Container(
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBFAF8),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _assignServicesBorder),
+                ),
+                child: Theme(
+                  data: Theme.of(context)
+                      .copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 2,
+                    ),
+                    childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    iconColor: AppColors.starColor,
+                    collapsedIconColor: _assignServicesMuted,
+                    title: Text(
+                      subMap['displayName']?.toString() ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _assignServicesText,
+                      ),
+                    ),
+                    children: subServices
+                        .map<Widget>(
+                          (s) => _buildServiceItem(
+                            (s as Map).cast<String, dynamic>(),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              );
+            }),
           ],
         ),
-        children: [
-          ...services
-              .map<Widget>(
-                  (s) => _buildServiceItem((s as Map).cast<String, dynamic>()))
-              .toList(),
-          ...subs.map<Widget>((subMap) {
-            final List subServices = subMap['services'] as List? ?? [];
-            return ExpansionTile(
-              title: Text(subMap['displayName']?.toString() ?? '',
-                  style: const TextStyle(fontWeight: FontWeight.w500)),
-              children: subServices
-                  .map<Widget>((s) =>
-                      _buildServiceItem((s as Map).cast<String, dynamic>()))
-                  .toList(),
-            );
-          }).toList(),
-        ],
       ),
     );
   }
@@ -179,52 +291,80 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _assignServicesBackground,
       appBar: buildProfileSubpageAppBar(
         title: translateText("Assign User"),
       ),
       body: isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.starColor),
+            )
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                  child: MultiStepFlowHeader(
-                    currentStep: 2,
-                    useIcons: true,
-                    steps: const [
-                      FlowStepItem(
-                        stepNumber: 1,
-                        label: 'Select Branches',
-                        icon: Icons.place_outlined,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      MultiStepFlowHeader(
+                        currentStep: 2,
+                        useIcons: true,
+                        steps: const [
+                          FlowStepItem(
+                            stepNumber: 1,
+                            label: 'Select Branches',
+                            icon: Icons.place_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 2,
+                            label: 'Choose Services',
+                            icon: Icons.handyman_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 3,
+                            label: 'Schedule',
+                            icon: Icons.calendar_today_outlined,
+                          ),
+                          FlowStepItem(
+                            stepNumber: 4,
+                            label: 'Complete',
+                            icon: Icons.check_circle_outline,
+                          ),
+                        ],
                       ),
-                      FlowStepItem(
-                        stepNumber: 2,
-                        label: 'Choose Services',
-                        icon: Icons.handyman_outlined,
+                      const SizedBox(height: 20),
+                      Text(
+                        translateText('Choose Services'),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.starColor,
+                        ),
                       ),
-                      FlowStepItem(
-                        stepNumber: 3,
-                        label: 'Schedule',
-                        icon: Icons.calendar_today_outlined,
-                      ),
-                      FlowStepItem(
-                        stepNumber: 4,
-                        label: 'Complete',
-                        icon: Icons.check_circle_outline,
+                      const SizedBox(height: 4),
+                      Text(
+                        translateText(
+                          'Select services this team member can perform at the branch.',
+                        ),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          color: _assignServicesMuted,
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-                // Select All
                 if (_allServiceIds().isNotEmpty)
-                  Card(
-                    margin: const EdgeInsets.all(8),
-                    child: CheckboxListTile(
-                      value: allSelected,
-                      onChanged: toggleAll,
-                      title: Text(translateText("Select All Services")),
-                      controlAffinity: ListTileControlAffinity.trailing,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: _SelectionSummaryCard(
+                      selectedCount: selectedServiceIds.length,
+                      totalCount: _allServiceIds().length,
+                      allSelected: allSelected,
+                      onSelectAll: () => toggleAll(!allSelected),
                     ),
                   ),
                 Column(
@@ -272,23 +412,9 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                 // Categories
                 Expanded(
                   child: _visibleCategories().isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: Text(
-                              translateText(
-                                'No services are available for this branch to assign.',
-                              ),
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        )
+                      ? const _EmptyServicesState()
                       : ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                           itemCount: _visibleCategories().length,
                           itemBuilder: (ctx, i) =>
                               _buildCategory(_visibleCategories()[i]),
@@ -298,7 +424,7 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
             ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(12.0),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
           child: Row(
             children: [
               Expanded(
@@ -307,17 +433,24 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     side: const BorderSide(color: AppColors.starColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                   child: Text(
                     translateText("Back"),
-                    style: const TextStyle(color: AppColors.starColor),
+                    style: const TextStyle(
+                      color: AppColors.starColor,
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
                     final ids = selectedServiceIds;
 
                     // ✅ Add salonId & branchId
@@ -329,11 +462,11 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                       "branchServiceIds": ids,
                     };
 
-                    print("➡️ Final Payload: $payload");
+                    debugPrint("Assign user services payload: $payload");
+                    final navigator = Navigator.of(context);
 
                     // 👉 Navigate to Step 3
-                    Navigator.push<bool>(
-                      context,
+                    final assigned = await navigator.push<bool>(
                       MaterialPageRoute(
                         builder: (_) => AssignUserSlot(
                           salonId: widget.salonId,
@@ -345,20 +478,28 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
                           joinedAt: widget.joinedAt, // 👈 don’t forget this
                         ),
                       ),
-                    ).then((assigned) {
-                      if (assigned == true && mounted) {
-                        Navigator.pop(context, true);
-                      }
-                    });
+                    );
+                    if (!mounted) return;
+                    if (assigned == true) {
+                      navigator.pop(true);
+                    }
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: Text(translateText("Next")),
+                  child: Text(
+                    translateText("Next"),
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -367,4 +508,218 @@ class _SelectServicesAssignUserState extends State<SelectServicesAssignUser> {
       ),
     );
   }
+}
+
+class _SelectionSummaryCard extends StatelessWidget {
+  const _SelectionSummaryCard({
+    required this.selectedCount,
+    required this.totalCount,
+    required this.allSelected,
+    required this.onSelectAll,
+  });
+
+  final int selectedCount;
+  final int totalCount;
+  final bool allSelected;
+  final VoidCallback onSelectAll;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: _assignServicesCardDecoration(highlighted: selectedCount > 0),
+      child: Row(
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: _assignServicesSoftGold,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.handyman_outlined,
+              size: 18,
+              color: AppColors.starColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  translateText('Services selected'),
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: _assignServicesText,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '$selectedCount/$totalCount',
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _assignServicesMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: onSelectAll,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.starColor,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              textStyle: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            child: Text(
+              translateText(allSelected ? 'Clear all' : 'Select all'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceSelectionMark extends StatelessWidget {
+  const _ServiceSelectionMark({required this.selected});
+
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: selected ? AppColors.starColor : Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: selected ? AppColors.starColor : _assignServicesBorder,
+          width: 1.3,
+        ),
+      ),
+      child: selected
+          ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+          : null,
+    );
+  }
+}
+
+class _CountPill extends StatelessWidget {
+  const _CountPill({required this.selected, required this.total});
+
+  final int selected;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = selected > 0;
+    final color = active ? AppColors.starColor : _assignServicesMuted;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        '$selected/$total',
+        style: TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyServicesState extends StatelessWidget {
+  const _EmptyServicesState();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: _assignServicesCardDecoration(),
+          child: Column(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _assignServicesSoftGold,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.handyman_outlined,
+                  color: AppColors.starColor,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                translateText('No services available'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900,
+                  color: _assignServicesText,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                translateText(
+                  'No services are available for this branch to assign.',
+                ),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _assignServicesMuted,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+BoxDecoration _assignServicesCardDecoration({bool highlighted = false}) {
+  return BoxDecoration(
+    color: _assignServicesSurface,
+    borderRadius: BorderRadius.circular(8),
+    border: Border.all(
+      color: highlighted ? AppColors.starColor : _assignServicesBorder,
+      width: highlighted ? 1.2 : 1,
+    ),
+    boxShadow: const [
+      BoxShadow(
+        color: Color(0x08000000),
+        blurRadius: 10,
+        offset: Offset(0, 4),
+      ),
+    ],
+  );
 }
