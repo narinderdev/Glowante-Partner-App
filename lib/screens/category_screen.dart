@@ -253,6 +253,8 @@ class CategoryScreenState extends State<CategoryScreen> {
   final Map<int, bool> _expandedCategories = {};
   final Map<int, bool> _expandedSubcategories = {};
   final Map<int, GlobalKey> _filterChipKeys = {};
+  final Map<int, GlobalKey> _categoryItemKeys = {};
+  final Map<int, GlobalKey> _subcategoryItemKeys = {};
   Map<String, dynamic>? _selectedSalon;
   final ScrollController _catalogScrollController = ScrollController();
   final GlobalKey _branchSelectorKey = GlobalKey();
@@ -533,6 +535,51 @@ class CategoryScreenState extends State<CategoryScreen> {
     });
   }
 
+  void _focusAddedServiceTarget(Object? result) {
+    if (result is! Map || result['updated'] != true) return;
+
+    final categoryId = _asInt(result['categoryId']);
+    final subCategoryId = _asInt(result['subCategoryId']);
+    if (categoryId == null) return;
+
+    _pendingScrollOffset = null;
+    _catalogSearchController.clear();
+    setState(() {
+      _catalogQuery = '';
+      _expandedCategories
+        ..clear()
+        ..[categoryId] = true;
+      _expandedSubcategories.clear();
+      if (subCategoryId != null) {
+        _expandedSubcategories[subCategoryId] = true;
+      }
+      _selectedFilterCategoryId = categoryId;
+    });
+
+    _ensureFilterChipVisible(categoryId);
+    _ensureCatalogTargetVisible(
+      subCategoryId == null
+          ? _categoryItemKeys[categoryId]
+          : _subcategoryItemKeys[subCategoryId] ??
+              _categoryItemKeys[categoryId],
+    );
+  }
+
+  void _ensureCatalogTargetVisible(GlobalKey? key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final targetContext = key?.currentContext;
+        if (targetContext == null) return;
+        Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutCubic,
+          alignment: 0.18,
+        );
+      });
+    });
+  }
+
   // ---------- ADD / EDIT SUBCATEGORY ----------
   Future<void> _openSubcategorySheet({
     Map<String, dynamic>? subCategory,
@@ -623,7 +670,7 @@ class CategoryScreenState extends State<CategoryScreen> {
     _rememberScrollPosition();
     final branchId = _selectedSalon?['branchId'] as int? ??
         _selectedSalon!['salonId'] as int;
-    final updated = await Navigator.push<bool>(
+    final result = await Navigator.push<Object?>(
       context,
       MaterialPageRoute(
         builder: (_) => AddServices(
@@ -635,9 +682,15 @@ class CategoryScreenState extends State<CategoryScreen> {
     );
 
     if (!mounted) return;
-    if (updated == true) {
+    final updated =
+        result == true || (result is Map && result['updated'] == true);
+    if (updated) {
       await context.read<CategoryCubit>().loadCategories(branchId);
-      _restoreScrollPosition();
+      if (result is Map) {
+        _focusAddedServiceTarget(result);
+      } else {
+        _restoreScrollPosition();
+      }
     }
   }
 
@@ -683,9 +736,12 @@ class CategoryScreenState extends State<CategoryScreen> {
       ),
     );
 
-    if (result == true) {
+    final updated =
+        result == true || (result is Map && result['updated'] == true);
+    if (updated) {
       // Refresh categories/services after adding a service
       await _refreshData();
+      _focusAddedServiceTarget(result);
     }
   }
 
@@ -1276,8 +1332,10 @@ class CategoryScreenState extends State<CategoryScreen> {
                   onEditService: _showUpdateServiceSheet,
                   onDeleteService: _confirmDeleteService,
                   categoryExpanded: _expandedCategories,
+                  categoryKeys: _categoryItemKeys,
                   selectedFilterCategoryId: _selectedFilterCategoryId,
                   expanded: _expandedSubcategories,
+                  subcategoryKeys: _subcategoryItemKeys,
                   toggleCategoryExpanded: (id) => setState(() {
                     _expandedCategories[id] =
                         !(_expandedCategories[id] ?? false);
@@ -1978,8 +2036,10 @@ class _CategoryList extends StatelessWidget {
     required this.onEditService,
     required this.onDeleteService,
     required this.categoryExpanded,
+    required this.categoryKeys,
     required this.selectedFilterCategoryId,
     required this.expanded,
+    required this.subcategoryKeys,
     required this.toggleCategoryExpanded,
     required this.toggleExpanded,
   });
@@ -2002,8 +2062,10 @@ class _CategoryList extends StatelessWidget {
   final Future<void> Function(int serviceId) onDeleteService;
 
   final Map<int, bool> categoryExpanded;
+  final Map<int, GlobalKey> categoryKeys;
   final int? selectedFilterCategoryId;
   final Map<int, bool> expanded;
+  final Map<int, GlobalKey> subcategoryKeys;
   final void Function(int id) toggleCategoryExpanded;
   final void Function(int id) toggleExpanded;
 
@@ -2064,7 +2126,11 @@ class _CategoryList extends StatelessWidget {
         final bool isSelectedFilter = selectedFilterCategoryId == categoryId;
         final serviceCount = _serviceCountForCategory(category);
 
+        final categoryKey =
+            categoryKeys.putIfAbsent(categoryId, () => GlobalKey());
+
         return Container(
+          key: categoryKey,
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: Colors.white,
@@ -2225,6 +2291,10 @@ class _CategoryList extends StatelessWidget {
                     children: subCategories.map((sub) {
                       final int subId = sub['id'] as int;
                       return _SubcategoryTile(
+                        key: subcategoryKeys.putIfAbsent(
+                          subId,
+                          () => GlobalKey(),
+                        ),
                         categoryId: categoryId,
                         subCategory: sub,
                         isExpanded: expanded[subId] ?? false,
@@ -2332,6 +2402,7 @@ class _CategoryList extends StatelessWidget {
 
 class _SubcategoryTile extends StatelessWidget {
   const _SubcategoryTile({
+    super.key,
     required this.categoryId,
     required this.subCategory,
     required this.isExpanded,
@@ -2368,7 +2439,7 @@ class _SubcategoryTile extends StatelessWidget {
       child: Theme(
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          key: ValueKey(subCategory['id']),
+          key: ValueKey('sub-${subCategory['id']}-$isExpanded'),
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.fromLTRB(0, 8, 0, 6),
           initiallyExpanded: isExpanded,

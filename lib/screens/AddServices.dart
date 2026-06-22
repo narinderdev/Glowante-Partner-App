@@ -334,6 +334,14 @@ class _AddServicesState extends State<AddServices> {
 
       if (!mounted) return;
 
+      final savedSubCategoryId = selectedCategoryType == 'subCategory'
+          ? selectedCategory!['id']
+          : null;
+      final savedCategoryId = selectedCategoryType == 'subCategory'
+          ? (widget.selectedCategory?['id'] ??
+              _findParentCategoryIdForSubCategory(savedSubCategoryId))
+          : selectedCategory?['id'];
+
       try {
         await context.read<CategoryCubit>().loadCategories(widget.branchId);
       } catch (_) {}
@@ -351,7 +359,11 @@ class _AddServicesState extends State<AddServices> {
           ),
         ),
       );
-      Navigator.pop(context, true);
+      Navigator.pop(context, {
+        'updated': true,
+        'categoryId': savedCategoryId,
+        'subCategoryId': savedSubCategoryId,
+      });
     } catch (e) {
       if (!mounted) return;
       FocusManager.instance.primaryFocus?.unfocus();
@@ -384,6 +396,23 @@ class _AddServicesState extends State<AddServices> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  int? _findParentCategoryIdForSubCategory(dynamic subCategoryId) {
+    final targetId = _asInt(subCategoryId);
+    if (targetId == null) return null;
+
+    for (final rawCategory in widget.categories ?? const []) {
+      if (rawCategory is! Map) continue;
+      final subCategories = rawCategory['subCategories'];
+      if (subCategories is! List) continue;
+      for (final rawSubCategory in subCategories) {
+        if (rawSubCategory is Map && _asInt(rawSubCategory['id']) == targetId) {
+          return _asInt(rawCategory['id']);
+        }
+      }
+    }
+    return null;
   }
 
   // ------------------- Validators -------------------
