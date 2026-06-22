@@ -15,6 +15,61 @@ const Color _teamBorder = Color(0xFFE8DED6);
 const Color _teamSurface = Color(0xFFFBF8F4);
 const Color _teamGoldLight = Color(0xFFF3E8D1);
 
+int? _teamAsInt(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
+}
+
+bool _teamIsActiveEntity(Map<String, dynamic> map) {
+  bool? readBool(dynamic value) {
+    if (value is bool) return value;
+    final text = value?.toString().trim().toLowerCase() ?? '';
+    if (text.isEmpty || text == 'null') return null;
+    if (text == 'true' || text == '1' || text == 'yes') return true;
+    if (text == 'false' || text == '0' || text == 'no') return false;
+    return null;
+  }
+
+  for (final key in const ['active', 'isActive', 'enabled']) {
+    final parsed = readBool(map[key]);
+    if (parsed == false) return false;
+  }
+
+  for (final key in const [
+    'status',
+    'memberStatus',
+    'professionalStatus',
+    'state',
+  ]) {
+    final status = map[key]?.toString().trim().toLowerCase() ?? '';
+    if (status.isEmpty || status == 'null') continue;
+    if (status.contains('deactiv') ||
+        status.contains('inactive') ||
+        status.contains('disabled') ||
+        status.contains('deleted') ||
+        status.contains('terminated') ||
+        status.contains('suspended')) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+class _TeamRatingSummary {
+  const _TeamRatingSummary({
+    required this.average,
+    required this.count,
+  });
+
+  static const empty = _TeamRatingSummary(average: 0, count: 0);
+
+  final num average;
+  final int count;
+}
+
 String _teamBranchLabel(Map<String, dynamic>? branch) {
   if (branch == null) return translateText('Select Branch');
   final branchName = branch['branchName']?.toString().trim() ?? '';
@@ -38,6 +93,7 @@ class _TeamScreenState extends State<TeamScreen> {
   Future<List<dynamic>>? teamMembersFuture;
   List<dynamic> _teamMembersCache = [];
   List<Map<String, dynamic>> _salons = const [];
+  Map<int, _TeamRatingSummary> _professionalRatings = const {};
   bool _hasTeamMembers = false;
   bool _autoPicked = false;
   final Set<int> _statusUpdatingIds = {};
@@ -87,10 +143,7 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   int? _asInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value.toString());
+    return _teamAsInt(value);
   }
 
   String _branchAddressSummary(dynamic rawAddress) {
@@ -139,15 +192,15 @@ class _TeamScreenState extends State<TeamScreen> {
       final members = response['success'] == true && response['data'] is List
           ? List<dynamic>.from(response['data'] as List)
           : <dynamic>[];
+      final ratings = await _loadProfessionalRatings(branchId);
 
       _teamMembersCache = members;
       if (mounted && selectedBranchId == branchId) {
         final hasMembers = members.isNotEmpty;
-        if (_hasTeamMembers != hasMembers) {
-          setState(() {
-            _hasTeamMembers = hasMembers;
-          });
-        }
+        setState(() {
+          _professionalRatings = ratings;
+          _hasTeamMembers = hasMembers;
+        });
       }
 
       return members;
@@ -169,6 +222,57 @@ class _TeamScreenState extends State<TeamScreen> {
     setState(() {
       teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
     });
+  }
+
+  Future<Map<int, _TeamRatingSummary>> _loadProfessionalRatings(
+    int branchId,
+  ) async {
+    try {
+      final data = await ApiService.fetchBranchRatings(branchId);
+      final appointments = data['data']?['appointments'];
+      if (data['success'] != true || appointments is! List) {
+        return const {};
+      }
+
+      final buckets = <int, List<num>>{};
+      for (final appointment in appointments) {
+        if (appointment is! Map) continue;
+        final reviews = appointment['professionalReviews'];
+        if (reviews is! List) continue;
+
+        for (final review in reviews) {
+          if (review is! Map) continue;
+          final rating = review['rating'];
+          if (rating is! num) continue;
+
+          final professional = review['professional'];
+          final professionalMap = professional is Map
+              ? Map<String, dynamic>.from(professional)
+              : const <String, dynamic>{};
+          final professionalId = _asInt(review['professionalId']) ??
+              _asInt(review['professionalUserId']) ??
+              _asInt(professionalMap['id']) ??
+              _asInt(professionalMap['userId']);
+          if (professionalId == null) continue;
+
+          buckets.putIfAbsent(professionalId, () => <num>[]).add(rating);
+        }
+      }
+
+      return buckets.map((professionalId, ratings) {
+        final total = ratings.fold<num>(0, (sum, rating) => sum + rating);
+        return MapEntry(
+          professionalId,
+          _TeamRatingSummary(
+            average: ratings.isEmpty ? 0 : total / ratings.length,
+            count: ratings.length,
+          ),
+        );
+      });
+    } catch (e) {
+      debugPrint('Failed to load professional ratings: $e');
+      return const {};
+    }
   }
 
   // Future<void> _toggleMemberActive(int userId, bool makeActive) async {
@@ -222,6 +326,8 @@ class _TeamScreenState extends State<TeamScreen> {
 
           if (_asInt(map['id']) == userId) {
             map['active'] = makeActive;
+            map['isActive'] = makeActive;
+            map['status'] = makeActive ? 'ACTIVE' : 'DEACTIVATED';
           }
 
           return map;
@@ -789,6 +895,7 @@ class _TeamScreenState extends State<TeamScreen> {
                           salons: _salons,
                           statusUpdatingIds: _statusUpdatingIds,
                           deletingMemberIds: _deletingMemberIds,
+                          professionalRatings: _professionalRatings,
                           onEditMember: _openEditMember,
                           onDeleteMember: _deleteMember,
                           onToggleMemberActive: _toggleMemberActive,
@@ -838,6 +945,7 @@ class _TeamMembersGrid extends StatelessWidget {
     required this.salons,
     required this.statusUpdatingIds,
     required this.deletingMemberIds,
+    required this.professionalRatings,
     required this.onEditMember,
     required this.onDeleteMember,
     required this.onToggleMemberActive,
@@ -853,6 +961,7 @@ class _TeamMembersGrid extends StatelessWidget {
   final List<Map<String, dynamic>> salons;
   final Set<int> statusUpdatingIds;
   final Set<int> deletingMemberIds;
+  final Map<int, _TeamRatingSummary> professionalRatings;
   final Future<void> Function(Map<String, dynamic> member) onEditMember;
   final Future<void> Function(int userId) onDeleteMember;
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
@@ -890,20 +999,18 @@ class _TeamMembersGrid extends StatelessWidget {
             itemCount: members.length,
             itemBuilder: (context, index) {
               final member = members[index];
-              final rawId = member['id'];
-              final userId = rawId is int
-                  ? rawId
-                  : rawId is num
-                      ? rawId.toInt()
-                      : int.tryParse('${rawId ?? ''}') ?? 0;
-              final isActive = member['active'] != false;
+              final userId = _teamAsInt(member['id']) ?? 0;
+              final isActive = _teamIsActiveEntity(member);
               final isStatusUpdating = statusUpdatingIds.contains(userId);
               final isDeleting = deletingMemberIds.contains(userId);
+              final ratingSummary =
+                  professionalRatings[userId] ?? _TeamRatingSummary.empty;
 
               return _TeamMemberCard(
                 member: member,
                 name: memberNameBuilder(member),
                 role: memberRoleBuilder(member),
+                ratingSummary: ratingSummary,
                 isActive: isActive,
                 isDeleting: isDeleting,
                 isStatusUpdating: isStatusUpdating,
@@ -1008,6 +1115,7 @@ class _TeamMemberCard extends StatelessWidget {
     required this.member,
     required this.name,
     required this.role,
+    required this.ratingSummary,
     required this.isActive,
     required this.isDeleting,
     required this.isStatusUpdating,
@@ -1023,6 +1131,7 @@ class _TeamMemberCard extends StatelessWidget {
   final Map<String, dynamic> member;
   final String name;
   final String role;
+  final _TeamRatingSummary ratingSummary;
   final bool isActive;
   final bool isDeleting;
   final bool isStatusUpdating;
@@ -1120,7 +1229,7 @@ class _TeamMemberCard extends StatelessWidget {
               Expanded(
                 child: _TeamInfoChip(
                   icon: Icons.star_rounded,
-                  label: translateText('4.5'),
+                  label: ratingSummary.average.toStringAsFixed(1),
                   value: translateText('Rating'),
                 ),
               ),

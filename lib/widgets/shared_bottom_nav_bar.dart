@@ -10,6 +10,8 @@ class SharedBottomNavDestination {
     this.activeIconPath,
     this.icon,
     this.activeIcon,
+    this.enabled = true,
+    this.onDisabledTap,
   });
 
   final String label;
@@ -17,6 +19,8 @@ class SharedBottomNavDestination {
   final String? activeIconPath;
   final IconData? icon;
   final IconData? activeIcon;
+  final bool enabled;
+  final VoidCallback? onDisabledTap;
 }
 
 class SharedBottomNavBar extends StatelessWidget {
@@ -83,12 +87,14 @@ class _SharedBottomNavButton extends StatelessWidget {
   Widget build(BuildContext context) {
     const inactiveColor = Color(0xFF776E67);
     const activeColor = Color(0xFF8B6500);
+    const disabledColor = Color(0xFFBDB5AE);
+    final enabled = destination.enabled;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
+        onTap: enabled ? onTap : destination.onDisabledTap,
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
         hoverColor: Colors.transparent,
@@ -122,7 +128,11 @@ class _SharedBottomNavButton extends StatelessWidget {
                           ? (destination.activeIcon ?? destination.icon)
                           : (destination.icon ?? destination.activeIcon),
                       size: 21,
-                      color: isActive ? activeColor : inactiveColor,
+                      color: !enabled
+                          ? disabledColor
+                          : isActive
+                              ? activeColor
+                              : inactiveColor,
                     ),
                   const SizedBox(height: 2),
                   Text(
@@ -135,7 +145,11 @@ class _SharedBottomNavButton extends StatelessWidget {
                       fontSize: 9.5,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.1,
-                      color: isActive ? activeColor : inactiveColor,
+                      color: !enabled
+                          ? disabledColor
+                          : isActive
+                              ? activeColor
+                              : inactiveColor,
                     ),
                   ),
                 ],

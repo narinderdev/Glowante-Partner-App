@@ -120,11 +120,11 @@ class _AddServicesState extends State<AddServices> {
     } else if (widget.selectedCategory != null) {
       final subCategories =
           (widget.selectedCategory!['subCategories'] as List?) ?? const [];
-      if (subCategories.isEmpty) {
-        selectedCategory = widget.selectedCategory;
-        selectedCategoryType = 'category';
+      if (subCategories.length == 1 && subCategories.first is Map) {
+        selectedCategory = Map<String, dynamic>.from(subCategories.first);
+        selectedCategoryType = 'subCategory';
         final id = selectedCategory!['id'];
-        selectedCategoryKey = 'cat:$id';
+        selectedCategoryKey = 'sub:$id';
       }
     }
   }
@@ -254,9 +254,7 @@ class _AddServicesState extends State<AddServices> {
       int? branchCategoryId;
       int? branchSubCategoryId;
 
-      if (selectedCategoryType == 'category') {
-        branchCategoryId = selectedCategory!['id'];
-      } else if (selectedCategoryType == 'subCategory') {
+      if (selectedCategoryType == 'subCategory') {
         branchSubCategoryId = selectedCategory!['id'];
       }
 
@@ -475,14 +473,18 @@ class _AddServicesState extends State<AddServices> {
 
   String? _validateCategory(Map<String, dynamic>? _) {
     if (_isEditMode) return null;
-    if (selectedCategory == null) return translateText("Category is required");
+    if (selectedCategory == null || selectedCategoryType != 'subCategory') {
+      return translateText("Subcategory is required");
+    }
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final categoryItems =
-        buildCategoryAndSubcategoryKeyItems(widget.categories ?? []);
+    final categoryItems = buildSubcategoryKeyItems(
+      widget.categories ?? [],
+      selectedParentCategory: widget.selectedCategory,
+    );
     final durationMenuOptions = _durationMenuOptions;
 
     return Scaffold(
@@ -573,13 +575,13 @@ class _AddServicesState extends State<AddServices> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _FieldLabel(translateText("Category *")),
+                          _FieldLabel(translateText("Subcategory *")),
                           const SizedBox(height: 7),
                           DropdownButtonFormField<String>(
                             isExpanded: true,
                             initialValue: _validateSelectedCategoryKey(
                                 selectedCategoryKey, categoryItems),
-                            hint: Text(translateText("Select Category")),
+                            hint: Text(translateText("Select Subcategory")),
                             items: categoryItems,
                             onChanged: _isEditMode
                                 ? null
@@ -588,17 +590,10 @@ class _AddServicesState extends State<AddServices> {
                                     setState(() {
                                       selectedCategoryKey = key;
                                       selectedService = null;
-                                      if (key.startsWith('cat:')) {
-                                        final id = int.parse(key.substring(4));
-                                        selectedCategoryType = 'category';
-                                        selectedCategory = findCategoryById(
-                                            widget.categories ?? [], id);
-                                      } else {
-                                        final id = int.parse(key.substring(4));
-                                        selectedCategoryType = 'subCategory';
-                                        selectedCategory = findSubcategoryById(
-                                            widget.categories ?? [], id);
-                                      }
+                                      final id = int.parse(key.substring(4));
+                                      selectedCategoryType = 'subCategory';
+                                      selectedCategory = findSubcategoryById(
+                                          widget.categories ?? [], id);
                                     });
                                   },
                             decoration: _inputDecoration(),
@@ -1115,30 +1110,55 @@ class _FieldCounter extends StatelessWidget {
 }
 
 // ---------- Dropdown Helpers ----------
-List<DropdownMenuItem<String>> buildCategoryAndSubcategoryKeyItems(
-    List<dynamic> categories) {
+String _serviceSortLabel(Map<String, dynamic> item) {
+  for (final key in const [
+    'displayName',
+    'name',
+    'serviceName',
+    'title',
+    'label',
+    'code',
+  ]) {
+    final value = item[key]?.toString().trim() ?? '';
+    if (value.isNotEmpty) return value.toLowerCase();
+  }
+  return '';
+}
+
+int _compareServiceItems(
+  Map<String, dynamic> first,
+  Map<String, dynamic> second,
+) {
+  final labelCompare =
+      _serviceSortLabel(first).compareTo(_serviceSortLabel(second));
+  if (labelCompare != 0) return labelCompare;
+  final firstId = first['id'] is num ? (first['id'] as num).toInt() : 0;
+  final secondId = second['id'] is num ? (second['id'] as num).toInt() : 0;
+  return firstId.compareTo(secondId);
+}
+
+List<DropdownMenuItem<String>> buildSubcategoryKeyItems(
+  List<dynamic> categories, {
+  Map<String, dynamic>? selectedParentCategory,
+}) {
   final items = <DropdownMenuItem<String>>[];
+  final selectedParentCategoryId = selectedParentCategory?['id'];
   for (final cat in categories) {
-    final catId = cat['id'] as int;
-    final subCategories = (cat['subCategories'] as List?) ?? const [];
-    final hasSubCategories = subCategories.isNotEmpty;
-    items.add(DropdownMenuItem<String>(
-      value: 'cat:$catId',
-      enabled: !hasSubCategories,
-      child: Text(
-        cat['displayName'] ?? '',
-        style: TextStyle(
-          color: hasSubCategories ? Colors.grey.shade500 : null,
-        ),
-      ),
-    ));
+    if (cat is! Map) continue;
+    final catId = cat['id'];
+    if (selectedParentCategoryId != null && catId != selectedParentCategoryId) {
+      continue;
+    }
+    final subCategories = ((cat['subCategories'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((sub) => Map<String, dynamic>.from(sub))
+        .toList()
+      ..sort(_compareServiceItems);
     for (final sub in subCategories) {
       final subId = sub['id'] as int;
       items.add(DropdownMenuItem<String>(
         value: 'sub:$subId',
-        child: Padding(
-            padding: const EdgeInsets.only(left: 20),
-            child: Text(sub['displayName'] ?? '')),
+        child: Text(sub['displayName'] ?? ''),
       ));
     }
   }

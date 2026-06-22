@@ -18,7 +18,6 @@ import '../utils/api_service.dart';
 
 const Color _catalogGold = Color(0xFF8B6500);
 const Color _catalogGoldLight = Color(0xFFD0A244);
-const Color _catalogSelectedText = Color(0xFFC88400);
 const Color _catalogInk = Color(0xFF2D2926);
 const Color _catalogMuted = Color(0xFF756A61);
 const Color _catalogBorder = Color(0xFFE8DED6);
@@ -253,6 +252,7 @@ class CategoryScreen extends StatefulWidget {
 class CategoryScreenState extends State<CategoryScreen> {
   final Map<int, bool> _expandedCategories = {};
   final Map<int, bool> _expandedSubcategories = {};
+  final Map<int, GlobalKey> _filterChipKeys = {};
   Map<String, dynamic>? _selectedSalon;
   final ScrollController _catalogScrollController = ScrollController();
   final GlobalKey _branchSelectorKey = GlobalKey();
@@ -515,6 +515,20 @@ class CategoryScreenState extends State<CategoryScreen> {
     setState(() {
       _selectedFilterCategoryId = categoryId;
       _expandedCategories[categoryId] = true;
+    });
+    _ensureFilterChipVisible(categoryId);
+  }
+
+  void _ensureFilterChipVisible(int categoryId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chipContext = _filterChipKeys[categoryId]?.currentContext;
+      if (chipContext == null) return;
+      Scrollable.ensureVisible(
+        chipContext,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+        alignment: 0.5,
+      );
     });
   }
 
@@ -1193,7 +1207,8 @@ class CategoryScreenState extends State<CategoryScreen> {
   ) {
     final visibleCategories = _visibleCategories(catState.categories);
     final isInitialLoading = catState.isLoading && catState.categories.isEmpty;
-    final canChangeSalonBranch = _catalogBranchSelections(salons).length > 1;
+    final branchSelections = _catalogBranchSelections(salons);
+    final canChangeSalonBranch = branchSelections.length > 1;
 
     return RefreshIndicator(
       color: _catalogGold,
@@ -1205,16 +1220,16 @@ class CategoryScreenState extends State<CategoryScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 18, 18, 104),
         children: [
-          _CatalogSectionLabel(text: translateText('SELECT  SALON/BRANCH')),
-          _CatalogBranchSelector(
-            key: _branchSelectorKey,
-            selectedSalon: _selectedSalon,
-            showDropdown: canChangeSalonBranch,
-            onTap: canChangeSalonBranch
-                ? () => _showSalonBranchPicker(salons)
-                : null,
-          ),
-          const SizedBox(height: 16),
+          if (canChangeSalonBranch) ...[
+            _CatalogSectionLabel(text: translateText('SELECT  SALON/BRANCH')),
+            _CatalogBranchSelector(
+              key: _branchSelectorKey,
+              selectedSalon: _selectedSalon,
+              showDropdown: true,
+              onTap: () => _showSalonBranchPicker(salons),
+            ),
+            const SizedBox(height: 16),
+          ],
           _CatalogSectionLabel(text: translateText('QUICK  SEARCH')),
           _buildQuickSearchField(),
           if (catState.categories.isNotEmpty) ...[
@@ -1260,6 +1275,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                   onEditService: _showUpdateServiceSheet,
                   onDeleteService: _confirmDeleteService,
                   categoryExpanded: _expandedCategories,
+                  selectedFilterCategoryId: _selectedFilterCategoryId,
                   expanded: _expandedSubcategories,
                   toggleCategoryExpanded: (id) => setState(() {
                     _expandedCategories[id] =
@@ -1439,11 +1455,20 @@ class CategoryScreenState extends State<CategoryScreen> {
                   right: index == categoryItems.length ? 0 : 2,
                 ),
                 child: Material(
+                  key: !isAll && categoryId != null
+                      ? _filterChipKeys.putIfAbsent(
+                          categoryId,
+                          () => GlobalKey(),
+                        )
+                      : null,
                   color: Colors.transparent,
                   child: InkWell(
                     borderRadius: BorderRadius.circular(6),
                     onTap: () {
                       setState(() => _selectedFilterCategoryId = categoryId);
+                      if (categoryId != null) {
+                        _ensureFilterChipVisible(categoryId);
+                      }
                     },
                     splashColor: Colors.transparent,
                     highlightColor: Colors.transparent,
@@ -1453,14 +1478,17 @@ class CategoryScreenState extends State<CategoryScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: selected ? Colors.white : Colors.transparent,
+                        color: selected ? _catalogGold : Colors.transparent,
                         borderRadius: BorderRadius.circular(6),
+                        border: selected
+                            ? Border.all(color: _catalogGold, width: 1)
+                            : null,
                         boxShadow: selected
                             ? const [
                                 BoxShadow(
-                                  color: Color(0x0F000000),
-                                  blurRadius: 5,
-                                  offset: Offset(0, 2),
+                                  color: Color(0x248B6500),
+                                  blurRadius: 8,
+                                  offset: Offset(0, 3),
                                 ),
                               ]
                             : const [],
@@ -1476,8 +1504,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                           fontWeight: FontWeight.w800,
                           letterSpacing: 0.2,
                         ).copyWith(
-                          color:
-                              selected ? _catalogSelectedText : _catalogMuted,
+                          color: selected ? Colors.white : _catalogMuted,
                         ),
                       ),
                     ),
@@ -1950,6 +1977,7 @@ class _CategoryList extends StatelessWidget {
     required this.onEditService,
     required this.onDeleteService,
     required this.categoryExpanded,
+    required this.selectedFilterCategoryId,
     required this.expanded,
     required this.toggleCategoryExpanded,
     required this.toggleExpanded,
@@ -1973,6 +2001,7 @@ class _CategoryList extends StatelessWidget {
   final Future<void> Function(int serviceId) onDeleteService;
 
   final Map<int, bool> categoryExpanded;
+  final int? selectedFilterCategoryId;
   final Map<int, bool> expanded;
   final void Function(int id) toggleCategoryExpanded;
   final void Function(int id) toggleExpanded;
@@ -2031,6 +2060,7 @@ class _CategoryList extends StatelessWidget {
         );
         final int categoryId = _serviceInt(category['id']) ?? index;
         final bool isCategoryExpanded = categoryExpanded[categoryId] ?? false;
+        final bool isSelectedFilter = selectedFilterCategoryId == categoryId;
         final serviceCount = _serviceCountForCategory(category);
 
         return Container(
@@ -2038,7 +2068,10 @@ class _CategoryList extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _catalogBorder),
+            border: Border.all(
+              color: isSelectedFilter ? _catalogGold : _catalogBorder,
+              width: isSelectedFilter ? 1.4 : 1,
+            ),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x08000000),
@@ -2053,7 +2086,9 @@ class _CategoryList extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFBFAF8),
+                  color: isSelectedFilter
+                      ? const Color(0xFFFFF8E8)
+                      : const Color(0xFFFBFAF8),
                   borderRadius: BorderRadius.vertical(
                     top: const Radius.circular(14),
                     bottom: Radius.circular(isCategoryExpanded ? 0 : 14),
@@ -2244,42 +2279,43 @@ class _CategoryList extends StatelessWidget {
                           ),
                         ),
                       ),
-                      SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () =>
-                              onAddServices(category, allCategories),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _catalogGold,
-                            foregroundColor: Colors.white,
-                            elevation: 4,
-                            shadowColor: const Color(0x338B6500),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                      if (subCategories.isNotEmpty) const SizedBox(width: 12),
+                      if (subCategories.isNotEmpty)
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () =>
+                                onAddServices(category, allCategories),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _catalogGold,
+                              foregroundColor: Colors.white,
+                              elevation: 4,
+                              shadowColor: const Color(0x338B6500),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.add_rounded, size: 18),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  translateText('Add Service'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.add_rounded, size: 18),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    translateText('Add Service'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),

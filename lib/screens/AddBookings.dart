@@ -686,7 +686,39 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   bool _isActiveEntity(Map<String, dynamic> map) {
-    return map['active'] != false;
+    bool? readBool(dynamic value) {
+      if (value is bool) return value;
+      final text = value?.toString().trim().toLowerCase() ?? '';
+      if (text.isEmpty || text == 'null') return null;
+      if (text == 'true' || text == '1' || text == 'yes') return true;
+      if (text == 'false' || text == '0' || text == 'no') return false;
+      return null;
+    }
+
+    for (final key in const ['active', 'isActive', 'enabled']) {
+      final parsed = readBool(map[key]);
+      if (parsed == false) return false;
+    }
+
+    for (final key in const [
+      'status',
+      'memberStatus',
+      'professionalStatus',
+      'state',
+    ]) {
+      final status = map[key]?.toString().trim().toLowerCase() ?? '';
+      if (status.isEmpty || status == 'null') continue;
+      if (status.contains('deactiv') ||
+          status.contains('inactive') ||
+          status.contains('disabled') ||
+          status.contains('deleted') ||
+          status.contains('terminated') ||
+          status.contains('suspended')) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   Map<String, dynamic>? _serviceById(int serviceId) {

@@ -90,8 +90,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     }
 
     if (widget.initialCompleteAddress?.isNotEmpty == true) {
-      _baseCompleteAddress =
-          _addressWithoutManualParts(widget.initialCompleteAddress!);
+      _baseCompleteAddress = _addressWithoutManualParts(
+        _cleanAddressText(widget.initialCompleteAddress!),
+      );
       _syncCompleteAddressFromParts();
     }
 
@@ -246,7 +247,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   }
 
   String _cleanAddressText(String value) {
-    return value
+    final cleaned = value
         .replaceAll('\u00A0', ' ')
         .replaceAll(RegExp(r'[\u200B-\u200D\uFEFF]'), '')
         .replaceAll(_addressDisallowedRegex, '')
@@ -254,6 +255,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         .replaceAll(RegExp(r'\s*,\s*'), ', ')
         .replaceAll(RegExp(r',\s*,'), ',')
         .trim();
+    return _dedupeAddressParts(cleaned);
   }
 
 //   Future<void> _getAddressFromCoordinates(double lat, double lng) async {
@@ -300,57 +302,57 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 //       debugPrint('Error fetching address: $e');
 //     }
 //   }
-Future<void> _getAddressFromCoordinates(double lat, double lng) async {
-  try {
-    final placemarks = await placemarkFromCoordinates(lat, lng);
-    if (placemarks.isEmpty) return;
+  Future<void> _getAddressFromCoordinates(double lat, double lng) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isEmpty) return;
 
-    final place = placemarks.first;
+      final place = placemarks.first;
 
-    final parts = <String?>[
-      place.name,
-      place.subLocality,
-      place.locality,
-      place.administrativeArea,
-      place.country,
-      place.postalCode,
-    ];
+      final parts = <String?>[
+        place.name,
+        place.subLocality,
+        place.locality,
+        place.administrativeArea,
+        place.country,
+        place.postalCode,
+      ];
 
-    final formattedAddress = _cleanAddressText(
-      parts
-          .whereType<String>()
-          .where((value) => value.trim().isNotEmpty)
-          .map((value) => value.trim())
-          .join(', '),
-    );
-
-    _removeOverlay();
-
-    setState(() {
-      _baseCompleteAddress = _addressWithoutManualParts(formattedAddress);
-
-      completeAddressController.value = TextEditingValue(
-        text: _composeAddressFromParts(),
-        selection: TextSelection.collapsed(
-          offset: _composeAddressFromParts().length,
-        ),
+      final formattedAddress = _cleanAddressText(
+        parts
+            .whereType<String>()
+            .where((value) => value.trim().isNotEmpty)
+            .map((value) => value.trim())
+            .join(', '),
       );
 
-      // Keep search location empty when using current location
-      searchLocationController.clear();
+      _removeOverlay();
 
-      predictions = [];
-      latitude = lat;
-      longitude = lng;
-    });
+      setState(() {
+        _baseCompleteAddress = _addressWithoutManualParts(formattedAddress);
 
-    debugPrint('CURRENT LOCATION ADDRESS=$formattedAddress');
-    debugPrint('CURRENT LOCATION COMPLETE=${completeAddressController.text}');
-    debugPrint('CURRENT LOCATION LAT=$latitude LNG=$longitude');
-  } catch (e) {
-    debugPrint('Error fetching address: $e');
+        completeAddressController.value = TextEditingValue(
+          text: _composeAddressFromParts(),
+          selection: TextSelection.collapsed(
+            offset: _composeAddressFromParts().length,
+          ),
+        );
+
+        // Keep search location empty when using current location
+        searchLocationController.clear();
+
+        predictions = [];
+        latitude = lat;
+        longitude = lng;
+      });
+
+      debugPrint('CURRENT LOCATION ADDRESS=$formattedAddress');
+      debugPrint('CURRENT LOCATION COMPLETE=${completeAddressController.text}');
+      debugPrint('CURRENT LOCATION LAT=$latitude LNG=$longitude');
+    } catch (e) {
+      debugPrint('Error fetching address: $e');
+    }
   }
-}
 
   void _clearManualAddressInputs({bool clearCompleteAddress = false}) {
     _isSyncingCompleteAddress = true;
@@ -472,7 +474,7 @@ Future<void> _getAddressFromCoordinates(double lat, double lng) async {
                           ),
                         );
 
-                       predictions = [];
+                        predictions = [];
                       });
 
                       _removeOverlay();
@@ -481,14 +483,14 @@ Future<void> _getAddressFromCoordinates(double lat, double lng) async {
 
                       _isSelectingPlace = false;
 
-                   if (!mounted) return;
+                      if (!mounted) return;
 
-_searchFocus.unfocus();
+                      _searchFocus.unfocus();
 
-WidgetsBinding.instance.addPostFrameCallback((_) {
-  if (!mounted) return;
-  _scrollToCompleteAddress();
-});
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (!mounted) return;
+                        _scrollToCompleteAddress();
+                      });
                     },
                   );
                 },
@@ -507,66 +509,121 @@ WidgetsBinding.instance.addPostFrameCallback((_) {
     overlayEntry = null;
   }
 
-Future<void> _onPredictionSelected(
-  String placeId,
-  String fallbackSuggestionText,
-) async {
-  _isSelectingPlace = true;
+  Future<void> _onPredictionSelected(
+    String placeId,
+    String fallbackSuggestionText,
+  ) async {
+    _isSelectingPlace = true;
 
-  debugPrint('---------------- FETCH PLACE DETAILS START ----------------');
-  debugPrint('FETCH placeId = $placeId');
-  debugPrint('FETCH fallbackSuggestionText = $fallbackSuggestionText');
+    debugPrint('---------------- FETCH PLACE DETAILS START ----------------');
+    debugPrint('FETCH placeId = $placeId');
+    debugPrint('FETCH fallbackSuggestionText = $fallbackSuggestionText');
 
-  try {
-    final details = await _places.fetchPlace(
-      placeId,
-      fields: [
-        PlaceField.Name,
-        PlaceField.Address,
-        PlaceField.AddressComponents,
-        PlaceField.Location,
-      ],
-    );
+    try {
+      final details = await _places.fetchPlace(
+        placeId,
+        fields: [
+          PlaceField.Name,
+          PlaceField.Address,
+          PlaceField.AddressComponents,
+          PlaceField.Location,
+        ],
+      );
 
-    final place = details.place;
+      final place = details.place;
 
-    debugPrint('FETCH raw place = $place');
-    debugPrint('FETCH name = ${place?.name}');
-    debugPrint('FETCH address = ${place?.address}');
-    debugPrint('FETCH latLng = ${place?.latLng}');
-    debugPrint('FETCH lat = ${place?.latLng?.lat}');
-    debugPrint('FETCH lng = ${place?.latLng?.lng}');
-    debugPrint('FETCH addressComponents = ${place?.addressComponents}');
+      debugPrint('FETCH raw place = $place');
+      debugPrint('FETCH name = ${place?.name}');
+      debugPrint('FETCH address = ${place?.address}');
+      debugPrint('FETCH latLng = ${place?.latLng}');
+      debugPrint('FETCH lat = ${place?.latLng?.lat}');
+      debugPrint('FETCH lng = ${place?.latLng?.lng}');
+      debugPrint('FETCH addressComponents = ${place?.addressComponents}');
 
-    final placeAddress = (place?.address ?? '').trim();
-    final placeName = (place?.name ?? '').trim();
+      final placeAddress = (place?.address ?? '').trim();
+      final placeName = (place?.name ?? '').trim();
 
-    final address = _cleanAddressText(
-      placeAddress.isNotEmpty
-          ? placeAddress
-          : placeName.isNotEmpty
-              ? placeName
-              : fallbackSuggestionText,
-    );
+      final address = _cleanAddressText(
+        placeAddress.isNotEmpty
+            ? placeAddress
+            : placeName.isNotEmpty
+                ? placeName
+                : fallbackSuggestionText,
+      );
 
-    double? lat = place?.latLng?.lat;
-    double? lng = place?.latLng?.lng;
+      double? lat = place?.latLng?.lat;
+      double? lng = place?.latLng?.lng;
 
-    debugPrint('PARSED address = $address');
-    debugPrint('PARSED lat = $lat');
-    debugPrint('PARSED lng = $lng');
+      debugPrint('PARSED address = $address');
+      debugPrint('PARSED lat = $lat');
+      debugPrint('PARSED lng = $lng');
 
-    if ((lat == null || lng == null) && address.isNotEmpty) {
-      debugPrint('GEOCODE fallback started for address = $address');
+      if ((lat == null || lng == null) && address.isNotEmpty) {
+        debugPrint('GEOCODE fallback started for address = $address');
+
+        try {
+          final locations = await locationFromAddress(address);
+
+          debugPrint('GEOCODE result count = ${locations.length}');
+
+          for (var i = 0; i < locations.length; i++) {
+            debugPrint(
+              'GEOCODE[$i] lat=${locations[i].latitude}, lng=${locations[i].longitude}',
+            );
+          }
+
+          if (locations.isNotEmpty) {
+            lat = locations.first.latitude;
+            lng = locations.first.longitude;
+          }
+        } catch (e) {
+          debugPrint('GEOCODE fallback failed = $e');
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        searchLocationController.value = TextEditingValue(
+          text: address,
+          selection: TextSelection.collapsed(offset: address.length),
+        );
+
+        _baseCompleteAddress = address;
+
+        completeAddressController.value = TextEditingValue(
+          text: address,
+          selection: TextSelection.collapsed(offset: address.length),
+        );
+
+        latitude = lat;
+        longitude = lng;
+        predictions = [];
+      });
+
+      debugPrint('STATE latitude = $latitude');
+      debugPrint('STATE longitude = $longitude');
+      debugPrint('---------------- FETCH PLACE DETAILS END ----------------');
+    } catch (e, stack) {
+      debugPrint('---------------- FETCH PLACE DETAILS ERROR ----------------');
+      debugPrint('ERROR = $e');
+      debugPrint('STACK = $stack');
+
+      final cleanFallback = _cleanAddressText(fallbackSuggestionText);
+
+      double? lat;
+      double? lng;
+
+      debugPrint('ERROR FALLBACK geocode address = $cleanFallback');
 
       try {
-        final locations = await locationFromAddress(address);
+        final locations = await locationFromAddress(cleanFallback);
 
-        debugPrint('GEOCODE result count = ${locations.length}');
+        debugPrint('ERROR FALLBACK geocode count = ${locations.length}');
 
         for (var i = 0; i < locations.length; i++) {
           debugPrint(
-            'GEOCODE[$i] lat=${locations[i].latitude}, lng=${locations[i].longitude}',
+            'ERROR FALLBACK geocode[$i] lat=${locations[i].latitude}, lng=${locations[i].longitude}',
           );
         }
 
@@ -574,92 +631,39 @@ Future<void> _onPredictionSelected(
           lat = locations.first.latitude;
           lng = locations.first.longitude;
         }
-      } catch (e) {
-        debugPrint('GEOCODE fallback failed = $e');
+      } catch (geoError) {
+        debugPrint('ERROR FALLBACK geocode failed = $geoError');
       }
-    }
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    setState(() {
-      searchLocationController.value = TextEditingValue(
-        text: address,
-        selection: TextSelection.collapsed(offset: address.length),
-      );
-
-      _baseCompleteAddress = address;
-
-      completeAddressController.value = TextEditingValue(
-        text: address,
-        selection: TextSelection.collapsed(offset: address.length),
-      );
-
-      latitude = lat;
-      longitude = lng;
-     predictions = [];
-    });
-
-    debugPrint('STATE latitude = $latitude');
-    debugPrint('STATE longitude = $longitude');
-    debugPrint('---------------- FETCH PLACE DETAILS END ----------------');
-  } catch (e, stack) {
-    debugPrint('---------------- FETCH PLACE DETAILS ERROR ----------------');
-    debugPrint('ERROR = $e');
-    debugPrint('STACK = $stack');
-
-    final cleanFallback = _cleanAddressText(fallbackSuggestionText);
-
-    double? lat;
-    double? lng;
-
-    debugPrint('ERROR FALLBACK geocode address = $cleanFallback');
-
-    try {
-      final locations = await locationFromAddress(cleanFallback);
-
-      debugPrint('ERROR FALLBACK geocode count = ${locations.length}');
-
-      for (var i = 0; i < locations.length; i++) {
-        debugPrint(
-          'ERROR FALLBACK geocode[$i] lat=${locations[i].latitude}, lng=${locations[i].longitude}',
+      setState(() {
+        searchLocationController.value = TextEditingValue(
+          text: cleanFallback,
+          selection: TextSelection.collapsed(offset: cleanFallback.length),
         );
-      }
 
-      if (locations.isNotEmpty) {
-        lat = locations.first.latitude;
-        lng = locations.first.longitude;
-      }
-    } catch (geoError) {
-      debugPrint('ERROR FALLBACK geocode failed = $geoError');
+        _baseCompleteAddress = cleanFallback;
+
+        completeAddressController.value = TextEditingValue(
+          text: cleanFallback,
+          selection: TextSelection.collapsed(offset: cleanFallback.length),
+        );
+
+        latitude = lat;
+        longitude = lng;
+        predictions = [];
+      });
+
+      debugPrint('ERROR STATE latitude = $latitude');
+      debugPrint('ERROR STATE longitude = $longitude');
+      debugPrint(
+          '---------------- FETCH PLACE DETAILS ERROR END ----------------');
+    } finally {
+      _isSelectingPlace = false;
     }
-
-    if (!mounted) return;
-
-    setState(() {
-      searchLocationController.value = TextEditingValue(
-        text: cleanFallback,
-        selection: TextSelection.collapsed(offset: cleanFallback.length),
-      );
-
-      _baseCompleteAddress = cleanFallback;
-
-      completeAddressController.value = TextEditingValue(
-        text: cleanFallback,
-        selection: TextSelection.collapsed(offset: cleanFallback.length),
-      );
-
-      latitude = lat;
-      longitude = lng;
-     predictions = [];
-    });
-
-    debugPrint('ERROR STATE latitude = $latitude');
-    debugPrint('ERROR STATE longitude = $longitude');
-    debugPrint('---------------- FETCH PLACE DETAILS ERROR END ----------------');
-  } finally {
-    _isSelectingPlace = false;
   }
-}
+
   String _composedAddress() {
     final composedAddress = _composeAddressFromParts();
 
@@ -678,23 +682,40 @@ Future<void> _onPredictionSelected(
   }
 
   List<String> _splitAddressParts(String value) {
+    final seen = <String>{};
     return value
         .split(',')
         .map((part) => part.trim())
         .where((part) => part.isNotEmpty)
-        .toList();
+        .where((part) {
+      final key = _addressPartKey(part);
+      if (key.isEmpty) return false;
+      return seen.add(key);
+    }).toList();
+  }
+
+  String _addressPartKey(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _dedupeAddressParts(String address) {
+    return _splitAddressParts(address).join(', ');
   }
 
   String _addressWithoutManualParts(String address) {
     final manualPartsLower = _manualAddressParts()
-        .map((part) => part.toLowerCase())
+        .map(_addressPartKey)
         .where((part) => part.isNotEmpty)
         .toSet();
 
     if (manualPartsLower.isEmpty) return address.trim();
 
     return _splitAddressParts(address)
-        .where((part) => !manualPartsLower.contains(part.toLowerCase()))
+        .where((part) => !manualPartsLower.contains(_addressPartKey(part)))
         .join(', ');
   }
 
@@ -705,11 +726,12 @@ Future<void> _onPredictionSelected(
       _addressWithoutManualParts(_baseCompleteAddress),
     );
 
-    return [...manualParts, ...baseParts].join(', ');
+    return _dedupeAddressParts([...manualParts, ...baseParts].join(', '));
   }
 
   void _setBaseCompleteAddress(String address) {
-    _baseCompleteAddress = _addressWithoutManualParts(address);
+    _baseCompleteAddress =
+        _addressWithoutManualParts(_cleanAddressText(address));
     _syncCompleteAddressFromParts();
   }
 
@@ -719,7 +741,9 @@ Future<void> _onPredictionSelected(
     final currentAddress = completeAddressController.text.trim();
 
     if (_baseCompleteAddress.isEmpty && currentAddress.isNotEmpty) {
-      _baseCompleteAddress = _addressWithoutManualParts(currentAddress);
+      _baseCompleteAddress = _addressWithoutManualParts(
+        _cleanAddressText(currentAddress),
+      );
     }
 
     final composedAddress = _composeAddressFromParts();
@@ -743,7 +767,7 @@ Future<void> _onPredictionSelected(
     longitude = null;
 
     _baseCompleteAddress = _addressWithoutManualParts(
-      completeAddressController.text,
+      _cleanAddressText(completeAddressController.text),
     );
   }
 
@@ -853,7 +877,7 @@ Future<void> _onPredictionSelected(
                                   searchLocationController.clear();
                                   completeAddressController.clear();
                                   _baseCompleteAddress = '';
-                                 predictions = [];
+                                  predictions = [];
                                   latitude = null;
                                   longitude = null;
                                 });
@@ -1032,7 +1056,7 @@ Future<void> _onPredictionSelected(
             width: double.infinity,
             height: 52,
             child: ElevatedButton(
-            onPressed: () async => _submitLocation(),
+              onPressed: () async => _submitLocation(),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _gold,
                 foregroundColor: Colors.white,
@@ -1150,87 +1174,89 @@ Future<void> _onPredictionSelected(
   //   }
   // }
   Future<void> _submitLocation() async {
-  if (!(_formKey.currentState?.validate() ?? false)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('Please fill all required fields correctly'),
-        ),
-      ),
-    );
-    return;
-  }
-
-  final composedAddress = _composedAddress();
-
-  if (composedAddress.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('Please enter or select the complete address.'),
-        ),
-      ),
-    );
-    return;
-  }
-
-  var finalLatitude = latitude;
-  var finalLongitude = longitude;
-
-  if (finalLatitude == null ||
-      finalLongitude == null ||
-      finalLatitude == 0.0 ||
-      finalLongitude == 0.0) {
-    try {
-      debugPrint('SUBMIT GEOCODING ADDRESS: $composedAddress');
-
-      final locations = await locationFromAddress(composedAddress);
-
-      debugPrint('SUBMIT GEOCODING RESULT COUNT: ${locations.length}');
-
-      if (locations.isNotEmpty) {
-        finalLatitude = locations.first.latitude;
-        finalLongitude = locations.first.longitude;
-
-        setState(() {
-          latitude = finalLatitude;
-          longitude = finalLongitude;
-        });
-      }
-    } catch (e) {
-      debugPrint('Submit geocoding failed: $e');
-    }
-  }
-
-  debugPrint(
-    'RETURN LOCATION lat=$finalLatitude lng=$finalLongitude address=$composedAddress',
-  );
-
-  if (finalLatitude == null ||
-      finalLongitude == null ||
-      finalLatitude == 0.0 ||
-      finalLongitude == 0.0) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText(
-            'Could not get coordinates. Please use current location or select a more specific suggestion.',
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('Please fill all required fields correctly'),
           ),
         ),
-      ),
-    );
-    return;
-  }
+      );
+      return;
+    }
 
-  Navigator.pop(context, {
-    'completeAddress': composedAddress,
-    'baseCompleteAddress': _baseCompleteAddress.trim(),
-    'scoFlatHouse': scoFlatHouseController.text.trim(),
-    'streetSectorArea': streetSectorAreaController.text.trim(),
-    'latitude': finalLatitude,
-    'longitude': finalLongitude,
-  });
-}
+    final composedAddress = _composedAddress();
+
+    if (composedAddress.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('Please enter or select the complete address.'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    var finalLatitude = latitude;
+    var finalLongitude = longitude;
+
+    if (finalLatitude == null ||
+        finalLongitude == null ||
+        finalLatitude == 0.0 ||
+        finalLongitude == 0.0) {
+      try {
+        debugPrint('SUBMIT GEOCODING ADDRESS: $composedAddress');
+
+        final locations = await locationFromAddress(composedAddress);
+
+        debugPrint('SUBMIT GEOCODING RESULT COUNT: ${locations.length}');
+
+        if (locations.isNotEmpty) {
+          finalLatitude = locations.first.latitude;
+          finalLongitude = locations.first.longitude;
+
+          setState(() {
+            latitude = finalLatitude;
+            longitude = finalLongitude;
+          });
+        }
+      } catch (e) {
+        debugPrint('Submit geocoding failed: $e');
+      }
+    }
+
+    debugPrint(
+      'RETURN LOCATION lat=$finalLatitude lng=$finalLongitude address=$composedAddress',
+    );
+
+    if (finalLatitude == null ||
+        finalLongitude == null ||
+        finalLatitude == 0.0 ||
+        finalLongitude == 0.0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText(
+              'Could not get coordinates. Please use current location or select a more specific suggestion.',
+            ),
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pop(context, {
+      'completeAddress': composedAddress,
+      'baseCompleteAddress': _addressWithoutManualParts(
+        _cleanAddressText(_baseCompleteAddress),
+      ),
+      'scoFlatHouse': scoFlatHouseController.text.trim(),
+      'streetSectorArea': streetSectorAreaController.text.trim(),
+      'latitude': finalLatitude,
+      'longitude': finalLongitude,
+    });
+  }
 }
 
 final RegExp _addressAllowedRegex =
@@ -1289,8 +1315,9 @@ Widget _buildTextField({
                   LengthLimitingTextInputFormatter(maxLength),
               ],
               textCapitalization: textCapitalization,
-              textAlignVertical:
-                  isMultiLine ? TextAlignVertical.top : TextAlignVertical.center,
+              textAlignVertical: isMultiLine
+                  ? TextAlignVertical.top
+                  : TextAlignVertical.center,
               style: const TextStyle(
                 color: Color(0xFF1F1B18),
                 fontSize: 13,
@@ -1375,8 +1402,9 @@ Widget _buildTextField({
                 height: isMultiLine ? 24 : 52,
                 child: IgnorePointer(
                   child: Align(
-                    alignment:
-                        isMultiLine ? Alignment.topRight : Alignment.centerRight,
+                    alignment: isMultiLine
+                        ? Alignment.topRight
+                        : Alignment.centerRight,
                     child: suffix,
                   ),
                 ),

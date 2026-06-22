@@ -144,7 +144,7 @@ class UserRoleSession {
       final bucket =
           permissionsByBranch.putIfAbsent('$branchId', () => <String>{});
       for (final permission in rawPermissions) {
-        final code = permission?.toString().trim();
+        final code = _permissionCode(permission);
         if (code != null && code.isNotEmpty) bucket.add(code);
       }
     }
@@ -174,8 +174,16 @@ class UserRoleSession {
         final branch = Map<String, dynamic>.from(branchEntry);
         final role = branch['role'];
         final roleMap = role is Map ? Map<String, dynamic>.from(role) : null;
-        addPermissions(branch['id'] ?? branch['branchId'],
-            roleMap?['permissions'] ?? branch['permissions']);
+        final nestedBranch = branch['branch'];
+        final nestedBranchMap =
+            nestedBranch is Map ? Map<String, dynamic>.from(nestedBranch) : {};
+        addPermissions(
+          branch['branchId'] ??
+              nestedBranchMap['id'] ??
+              nestedBranchMap['branchId'] ??
+              branch['id'],
+          roleMap?['permissions'] ?? branch['permissions'],
+        );
       }
     }
 
@@ -334,6 +342,19 @@ class UserRoleSession {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  static String? _permissionCode(dynamic permission) {
+    if (permission == null) return null;
+    if (permission is String) return permission.trim();
+    if (permission is Map) {
+      final map = Map<String, dynamic>.from(permission);
+      for (final key in const ['key', 'code', 'name']) {
+        final value = map[key]?.toString().trim();
+        if (value != null && value.isNotEmpty) return value;
+      }
+    }
+    return permission.toString().trim();
   }
 
   static Set<String> _permissionsFromList(dynamic raw) {

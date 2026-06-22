@@ -266,9 +266,9 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                                 gridDelegate:
                                     const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  childAspectRatio: 0.86,
-                                  crossAxisSpacing: 20,
-                                  mainAxisSpacing: 22,
+                                  childAspectRatio: 1.28,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
                                 ),
                                 itemCount: _services.length,
                                 itemBuilder: (context, index) {
@@ -562,7 +562,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.fromLTRB(12, 18, 12, 14),
+      padding: const EdgeInsets.fromLTRB(9, 10, 9, 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(9),
@@ -578,8 +578,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 82,
-                height: 82,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
@@ -615,8 +615,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                   left: 0,
                   bottom: -8,
                   child: Container(
-                    width: 28,
-                    height: 28,
+                    width: 24,
+                    height: 24,
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFFEF8),
                       border: Border.all(
@@ -627,21 +627,21 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                     child: const Icon(
                       Icons.check_circle_outline_rounded,
                       color: Color(0xFF8B6500),
-                      size: 20,
+                      size: 17,
                     ),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 12),
           Text(
             name,
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 14,
-              height: 1.3,
+              fontSize: 12,
+              height: 1.2,
               fontWeight: FontWeight.w800,
               color: Color(0xFF24211E),
             ),
