@@ -782,11 +782,19 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         await salonCubit.submit(widget.formData!);
       }
     } catch (e) {
-      debugPrint('❌ Failed to add branch: $e');
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(translateText('Failed: $e'))),
-      );
-    } finally {
+  final message = e
+      .toString()
+      .replaceAll('Failed to add branch:', '')
+      .replaceAll('Exception:', '')
+      .replaceAll('Failed:', '')
+      .trim();
+
+  debugPrint('❌ Failed to add branch: $message');
+
+  scaffoldMessenger.showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+} finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }

@@ -1992,39 +1992,65 @@ class ApiService {
   }
 
   // ---------------------- ADD BRANCH ----------------------
-  Future<Map<String, dynamic>> addSalonBranch(
-    int salonId,
-    Map<String, dynamic> branchData,
-  ) async {
-    final token = await getAuthToken();
-    final url = Uri.parse(baseUrl + "salons/$salonId/branches/add");
+  // Future<Map<String, dynamic>> addSalonBranch(
+  //   int salonId,
+  //   Map<String, dynamic> branchData,
+  // ) async {
+  //   final token = await getAuthToken();
+  //   final url = Uri.parse(baseUrl + "salons/$salonId/branches/add");
 
-    // Log the request payload before sending
-    print("Sending payload to add branch: ");
-    print("Token: $token");
-    print("URL: $url");
-    print("Payload: $branchData");
+  //   // Log the request payload before sending
+  //   print("Sending payload to add branch: ");
+  //   print("Token: $token");
+  //   print("URL: $url");
+  //   print("Payload: $branchData");
 
-    final response = await _sharedClient.post(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode(branchData),
-    );
+  //   final response = await _sharedClient.post(
+  //     url,
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //       "Authorization": "Bearer $token",
+  //     },
+  //     body: jsonEncode(branchData),
+  //   );
 
-    if (response.statusCode == 200 || response.statusCode == 201) {
-      // Log successful response
-      print("Response: ${response.body}");
-      return jsonDecode(response.body);
-    } else {
-      // Log failed response
-      print("Failed to add branch: ${response.body}");
-      throw Exception("Failed to add branch: ${response.body}");
-    }
+  //   if (response.statusCode == 200 || response.statusCode == 201) {
+  //     // Log successful response
+  //     print("Response: ${response.body}");
+  //     return jsonDecode(response.body);
+  //   } else {
+  //     // Log failed response
+  //     print("Failed to add branch: ${response.body}");
+  //     throw Exception("Failed to add branch: ${response.body}");
+  //   }
+  // }
+Future<Map<String, dynamic>> addSalonBranch(
+  int salonId,
+  Map<String, dynamic> branchData,
+) async {
+  final token = await getAuthToken();
+  final url = Uri.parse(baseUrl + "salons/$salonId/branches/add");
+
+  final response = await _sharedClient.post(
+    url,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer $token",
+    },
+    body: jsonEncode(branchData),
+  );
+
+  final decodedBody = jsonDecode(response.body);
+
+  if (response.statusCode == 200 || response.statusCode == 201) {
+    return decodedBody;
+  } else {
+    final message = decodedBody["message"] ??
+        "Failed to add branch";
+
+    throw Exception(message);
   }
-
+}
   Future<Map<String, dynamic>> updateSalon(
     int salonId,
     Map<String, dynamic> salonData,

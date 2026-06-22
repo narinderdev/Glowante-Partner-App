@@ -792,12 +792,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           _resetFieldError(_BranchField.phone);
         }
 
-        if (state.status == BranchFormStatus.failure &&
-            state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.errorMessage!)),
-          );
-        }
+    if (state.status == BranchFormStatus.failure &&
+    state.errorMessage != null) {
+  final message = state.errorMessage!
+      .replaceAll('Failed to add branch:', '')
+      .replaceAll('Exception:', '')
+      .trim();
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+}
 
         if (state.status == BranchFormStatus.success) {
           ScaffoldMessenger.of(context).showSnackBar(

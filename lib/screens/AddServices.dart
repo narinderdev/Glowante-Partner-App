@@ -485,15 +485,48 @@ class _AddServicesState extends State<AddServices> {
     return null;
   }
 
-  String? _validateCommissionMax(String? value) {
+//   String? _validateCommissionMax(String? value) {
+//   if (!_commissionEnabled || _commissionType != 'percentage') return null;
+
+//   final price = _enteredPrice; // rupees from UI
+//   final percentage =
+//       double.tryParse(commissionValueController.text.trim()) ?? 0;
+
+//   final v = (value ?? '').trim();
+//   if (v.isEmpty) return null;
+
+//   final parsed = int.tryParse(v);
+//   if (parsed == null || parsed <= 0) {
+//     return translateText("Enter a valid max commission amount");
+//   }
+
+//   if (price != null && price > 0 && percentage > 0) {
+//     final priceMinor = rupeesToMinorAmount(price);
+//     final maxMinor = rupeesToMinorAmount(parsed);
+//     final allowedMaxMinor = (priceMinor * percentage / 100).floor();
+
+//     if (maxMinor > allowedMaxMinor) {
+//       final allowedMaxRupee = minorAmountToRupees(allowedMaxMinor);
+//       return translateText(
+//         "Max commission cannot exceed ${allowedMaxRupee?.toStringAsFixed(0) ?? allowedMaxMinor}",
+//       );
+//     }
+//   }
+
+//   return null;
+// }
+String? _validateCommissionMax(String? value) {
   if (!_commissionEnabled || _commissionType != 'percentage') return null;
 
-  final price = _enteredPrice; // rupees from UI
+  final price = _enteredPrice;
   final percentage =
       double.tryParse(commissionValueController.text.trim()) ?? 0;
 
   final v = (value ?? '').trim();
-  if (v.isEmpty) return null;
+
+  if (v.isEmpty) {
+    return translateText("Max commission amount is required");
+  }
 
   final parsed = int.tryParse(v);
   if (parsed == null || parsed <= 0) {
@@ -927,7 +960,7 @@ class _AddServicesState extends State<AddServices> {
                             if (_commissionType == 'percentage') ...[
                               const SizedBox(height: 14),
                               _FieldLabel(
-                                translateText("Commission Max (optional)"),
+                             translateText("Commission Max *")
                               ),
                               const SizedBox(height: 7),
                               TextFormField(
