@@ -482,6 +482,7 @@ class CategoryScreenState extends State<CategoryScreen> {
         child: _EditCategorySheet(
           category: category,
           branchId: branchId,
+          existingCategories: context.read<CategoryCubit>().state.categories,
         ),
       ),
     );
@@ -3020,9 +3021,14 @@ class _ConfirmDialog extends StatelessWidget {
 /* =======================  SHEET WIDGETS  ======================= */
 /* Category: inline error + loader + API here */
 class _EditCategorySheet extends StatefulWidget {
-  const _EditCategorySheet({this.category, required this.branchId});
+  const _EditCategorySheet({
+    this.category,
+    required this.branchId,
+    required this.existingCategories,
+  });
   final Map<String, dynamic>? category;
   final int branchId;
+  final List<dynamic> existingCategories;
 
   @override
   State<_EditCategorySheet> createState() => _EditCategorySheetState();
@@ -3036,6 +3042,32 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
   String? errorText;
 
   bool get isEdit => widget.category != null;
+
+  String _categoryNameKey(String value) {
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '').trim();
+  }
+
+  bool _hasDuplicateCategoryName(String value) {
+    final candidateKey = _categoryNameKey(value);
+    if (candidateKey.isEmpty) return false;
+
+    final currentCategoryId = widget.category?['id'];
+    for (final rawCategory in widget.existingCategories) {
+      if (rawCategory is! Map) continue;
+      final category = Map<String, dynamic>.from(rawCategory);
+      if (currentCategoryId != null && category['id'] == currentCategoryId) {
+        continue;
+      }
+
+      final label =
+          (category['displayName'] ?? category['name'] ?? '').toString().trim();
+      if (_categoryNameKey(label) == candidateKey) {
+        return true;
+      }
+    }
+
+    return false;
+  }
 
   @override
   void initState() {
@@ -3065,6 +3097,9 @@ class _EditCategorySheetState extends State<_EditCategorySheet> {
     final first = RegExp(r'[A-Za-z]').firstMatch(t)?.group(0);
     if (first != null && first != first.toUpperCase()) {
       return 'Name must start with a capital letter';
+    }
+    if (_hasDuplicateCategoryName(t)) {
+      return translateText('Category already exists');
     }
     return null;
   }

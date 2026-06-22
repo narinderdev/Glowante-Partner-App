@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
-import 'AssignUser.dart';
-import '../screens/AssignUser.dart';
-import 'package:flutter/services.dart';
-import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
-import '../utils/colors.dart';
-import 'package:flutter/services.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 
 class TeamMemberDetails extends StatelessWidget {
   final Map<String, dynamic> member;
   final List<Map<String, dynamic>>? salons; // 👈 new
+  final double professionalRating;
+  final int professionalReviewCount;
   const TeamMemberDetails({
     Key? key,
     required this.member,
     this.salons,
+    this.professionalRating = 0,
+    this.professionalReviewCount = 0,
   }) : super(key: key);
 
   String _initials(String first, String last) {
@@ -27,7 +25,6 @@ class TeamMemberDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final String firstName = (member['firstName'] ?? '').toString();
     final String lastName = (member['lastName'] ?? '').toString();
-    final userId = member['id'];
     final String name = (firstName + ' ' + lastName).trim();
     final String role = (member['roles'] != null && member['roles'].isNotEmpty)
         ? member['roles'][0]['label']?.toString() ?? 'Staff'
@@ -36,10 +33,9 @@ class TeamMemberDetails extends StatelessWidget {
         (member['specialities'] != null && member['specialities'].isNotEmpty)
             ? member['specialities'][0]['name']?.toString() ?? 'Hair'
             : 'Hair';
-    final String rating = '4.5';
+    final String rating = professionalRating.toStringAsFixed(1);
     final String experience = member['experience']?.toString() ?? '3 years';
     final List branches = (member['userBranches'] ?? []) as List;
-    final List userSalons = (member['userSalons'] ?? []) as List;
     final List userBranches = (member['userBranches'] ?? []) as List;
     final String joinedAt = userBranches.isNotEmpty
         ? (userBranches[0]['joiningDate'] ?? 'N/A').toString()
@@ -116,15 +112,23 @@ class TeamMemberDetails extends StatelessWidget {
                               ...List.generate(
                                 5,
                                 (i) => Icon(
-                                  Icons.star,
+                                  i < professionalRating.round()
+                                      ? Icons.star
+                                      : Icons.star_border,
                                   size: 18,
                                   color: Color(0xFFFFB300),
                                 ),
                               ),
                               SizedBox(width: 6),
-                              Text(rating,
-                                  style: const TextStyle(
-                                      fontSize: 14, color: Colors.black87)),
+                              Text(
+                                professionalReviewCount > 0
+                                    ? '$rating ($professionalReviewCount)'
+                                    : rating,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
+                              ),
                             ],
                           ),
                         ],

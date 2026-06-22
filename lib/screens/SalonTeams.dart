@@ -900,12 +900,19 @@ class _TeamScreenState extends State<TeamScreen> {
                           onDeleteMember: _deleteMember,
                           onToggleMemberActive: _toggleMemberActive,
                           onViewMember: (member) {
+                            final userId = _asInt(member['id']) ?? 0;
+                            final ratingSummary =
+                                _professionalRatings[userId] ??
+                                    _TeamRatingSummary.empty;
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => TeamMemberDetails(
                                   member: member,
                                   salons: null,
+                                  professionalRating:
+                                      ratingSummary.average.toDouble(),
+                                  professionalReviewCount: ratingSummary.count,
                                 ),
                               ),
                             );
