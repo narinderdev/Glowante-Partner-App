@@ -1640,31 +1640,71 @@ class ApiService {
     }
   }
 
-  // ---------------------- DELETE CATEGORY ----------------------
+  // // ---------------------- DELETE CATEGORY ----------------------
+  // Future<Map<String, dynamic>> deleteCategoryApi({
+  //   required int branchId,
+  //   required int CategoryId,
+  // }) async {
+  //   final token = await getAuthToken();
+  //   final url =
+  //       Uri.parse(baseUrl + "branches/$branchId/services/category/$CategoryId");
+
+  //   print("➡️ Calling Delete Category API");
+  //   print("➡️ URL: $url");
+
+  //   final response = await _sharedClient.delete(
+  //     url,
+  //     headers: {'Authorization': 'Bearer $token'},
+  //   );
+
+  //   print("⬅️ Status Code: ${response.statusCode}");
+  //   print("⬅️ Response Body: ${response.body}");
+
+  //   if (response.statusCode == 200 || response.statusCode == 204) {
+  //     return {"success": true, "message": "Category deleted successfully"};
+  //   } else {
+  //     throw Exception("Failed to delete category: ${response.body}");
+  //   }
+  // }
   Future<Map<String, dynamic>> deleteCategoryApi({
     required int branchId,
     required int CategoryId,
   }) async {
     final token = await getAuthToken();
-    final url =
-        Uri.parse(baseUrl + "branches/$branchId/services/category/$CategoryId");
+    final url = Uri.parse(
+      "${baseUrl}branches/$branchId/services/category/$CategoryId",
+    );
 
     print("➡️ Calling Delete Category API");
     print("➡️ URL: $url");
 
     final response = await _sharedClient.delete(
       url,
-      headers: {'Authorization': 'Bearer $token'},
+      headers: {
+        "Authorization": "Bearer $token",
+        "Accept": "application/json",
+      },
     );
 
     print("⬅️ Status Code: ${response.statusCode}");
     print("⬅️ Response Body: ${response.body}");
 
+    final body = response.body.isNotEmpty
+        ? jsonDecode(response.body) as Map<String, dynamic>
+        : <String, dynamic>{};
+
     if (response.statusCode == 200 || response.statusCode == 204) {
-      return {"success": true, "message": "Category deleted successfully"};
-    } else {
-      throw Exception("Failed to delete category: ${response.body}");
+      return {
+        "success": true,
+        "message": body["message"] ?? "Category deleted successfully",
+      };
     }
+
+    return {
+      "success": false,
+      "message": body["message"] ?? "Failed to delete category",
+      "statusCode": response.statusCode,
+    };
   }
 
   // ---------------------- DELETE SUBCATEGORY ----------------------
@@ -1901,10 +1941,14 @@ class ApiService {
   }) async {
     final token = await getAuthToken();
     final url = Uri.parse(baseUrl + addServiceAPI(branchId));
+    final payload = request.toJson();
 
     print("➡️ Calling Add Service API");
     print("➡️ URL: $url");
-    print("➡️ Payload: ${jsonEncode(request.toJson())}");
+    print("➡️ branchId: $branchId");
+    print("➡️ Payload: ${const JsonEncoder.withIndent('  ').convert(payload)}");
+    print("➡️ branchCategoryId: ${payload['branchCategoryId']}");
+    print("➡️ branchSubCategoryId: ${payload['branchSubCategoryId']}");
 
     final response = await _sharedClient.post(
       url,
@@ -1912,17 +1956,17 @@ class ApiService {
         "Content-Type": "application/json",
         "Authorization": "Bearer $token",
       },
-      body: jsonEncode(request.toJson()),
+      body: jsonEncode(payload),
     );
 
-    print("⬅️ Status Code: ${response.statusCode}");
-    print("⬅️ Response Body: ${response.body}");
+    print("⬅️ Service Status Code: ${response.statusCode}");
+    print("⬅️ Service Response Body: ${response.body}");
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception("Failed to add service: ${response.body}");
+      return jsonDecode(response.body) as Map<String, dynamic>;
     }
+
+    throw Exception(response.body);
   }
 
   // ---------------------- GET SERVICES ----------------------
@@ -2024,33 +2068,33 @@ class ApiService {
   //     throw Exception("Failed to add branch: ${response.body}");
   //   }
   // }
-Future<Map<String, dynamic>> addSalonBranch(
-  int salonId,
-  Map<String, dynamic> branchData,
-) async {
-  final token = await getAuthToken();
-  final url = Uri.parse(baseUrl + "salons/$salonId/branches/add");
+  Future<Map<String, dynamic>> addSalonBranch(
+    int salonId,
+    Map<String, dynamic> branchData,
+  ) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + "salons/$salonId/branches/add");
 
-  final response = await _sharedClient.post(
-    url,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer $token",
-    },
-    body: jsonEncode(branchData),
-  );
+    final response = await _sharedClient.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(branchData),
+    );
 
-  final decodedBody = jsonDecode(response.body);
+    final decodedBody = jsonDecode(response.body);
 
-  if (response.statusCode == 200 || response.statusCode == 201) {
-    return decodedBody;
-  } else {
-    final message = decodedBody["message"] ??
-        "Failed to add branch";
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return decodedBody;
+    } else {
+      final message = decodedBody["message"] ?? "Failed to add branch";
 
-    throw Exception(message);
+      throw Exception(message);
+    }
   }
-}
+
   Future<Map<String, dynamic>> updateSalon(
     int salonId,
     Map<String, dynamic> salonData,
@@ -2302,23 +2346,62 @@ Future<Map<String, dynamic>> addSalonBranch(
       rethrow;
     }
   }
+// Future<Map<String, dynamic>> addSubCategoryApi({
+//   required int branchId,
+//   required int branchCategoryId,
+//   required String displayName,
+// }) async {
+//   final url = Uri.parse(
+//     '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/categories/$branchCategoryId/subcategories',
+//   );
 
+//   final token = await getAuthToken();
+
+//   final requestBody = jsonEncode({
+//     'branchCategoryId': branchCategoryId,
+//     'displayName': displayName,
+//     'sortOrder': 200,
+//     'isActive': true,
+//   });
+
+//   final response = await _sharedClient.post(
+//     url,
+//     headers: {
+//       'Content-Type': 'application/json',
+//       'Authorization': 'Bearer $token',
+//     },
+//     body: requestBody,
+//   );
+
+//   if (response.statusCode == 200 || response.statusCode == 201) {
+//     return jsonDecode(response.body);
+//   }
+
+//   throw Exception(response.body);
+// }
   Future<Map<String, dynamic>> addSubCategoryApi({
     required int branchId,
-    required int categoryId,
+    required int branchCategoryId,
     required String displayName,
   }) async {
     final url = Uri.parse(
-      '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/categories/$categoryId/subcategories',
+      '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/categories/$branchCategoryId/subcategories',
     );
-    print('Sending request to URL: $url');
 
     final token = await getAuthToken();
-    final requestBody = jsonEncode({
+
+    final payload = {
+      // 'branchCategoryId': branchCategoryId,
       'displayName': displayName,
-      'sortOrder': 200, // ✅ integer
-    });
-    print('Request body: $requestBody');
+      'sortOrder': 200,
+      'isActive': true,
+    };
+
+    print("➡️ Calling Add SubCategory API");
+    print("➡️ URL: $url");
+    print("➡️ Payload: ${jsonEncode(payload)}");
+    print("➡️ branchId: $branchId");
+    print("➡️ branchCategoryId: $branchCategoryId");
 
     final response = await _sharedClient.post(
       url,
@@ -2326,69 +2409,19 @@ Future<Map<String, dynamic>> addSalonBranch(
         'Content-Type': 'application/json',
         'Authorization': 'Bearer $token',
       },
-      body: requestBody,
+      body: jsonEncode(payload),
     );
 
-    print('Response status: ${response.statusCode}');
-    print('Response body: ${response.body}');
+    print("⬅️ SubCategory Status: ${response.statusCode}");
+    print("⬅️ SubCategory Response: ${response.body}");
 
     if (response.statusCode == 200 || response.statusCode == 201) {
       return jsonDecode(response.body);
-    } else {
-      throw Exception(response.body);
     }
+
+    throw Exception(response.body);
   }
 
-  // ---------------------- UPDATE SUBCATEGORY ----------------------
-
-  // Future<Map<String, dynamic>> updateSubCategoryApi({
-  //   required int salonId,
-  //   required int subCategoryId,
-  //   required String name,
-  // }) async {
-  //   final url = Uri.parse(
-  //     baseUrl + 'salons/$salonId/subcategories/$subCategoryId',
-  //   );
-  //   // Log the URL being hit
-  //   print("Request URL: $url");
-
-  //   try {
-  //     // Request body containing the new name
-  //     final requestBody = json.encode({
-  //       'name': name, // Update the name of the subcategory
-  //     });
-
-  //     // Log the request body
-  //     print("Request Body: $requestBody");
-
-  //     // Send the PATCH request
-  //     final response = await _sharedClient.patch(
-  //       url,
-  //       headers: {'Content-Type': 'application/json'},
-  //       body: requestBody,
-  //     );
-
-  //     // Log the status code
-  //     print("Response Status Code: ${response.statusCode}");
-
-  //     // Log the response body
-  //     print("Response Body: ${response.body}");
-
-  //     if (response.statusCode == 200 || response.statusCode == 201) {
-  //       // Return the response body if successful
-  //       return json.decode(response.body);
-  //     } else {
-  //       // Log the error response
-  //       print("Failed to update subcategory. Error: ${response.body}");
-  //       throw Exception('Failed to update subcategory');
-  //     }
-  //   }
-  //   catch (e) {
-  //     // Log any errors
-  //     print("Error updating subcategory: $e");
-  //     throw Exception('Error updating subcategory: $e');
-  //   }
-  // }
   Future<Map<String, dynamic>> updateSubCategoryApi({
     required int branchId,
     required int subCategoryId,
@@ -4219,79 +4252,88 @@ Future<Map<String, dynamic>> addSalonBranch(
       return {'success': false, 'message': e.toString()};
     }
   }
-Future<Map<String, dynamic>> updateService({
-  required int branchId,
-  required int branchServiceId,
-  required Map<String, dynamic> body,
-}) async {
-  final token = await getAuthToken();
 
-  if (token.isEmpty) {
-    throw Exception('Authentication required');
-  }
+  Future<Map<String, dynamic>> updateService({
+    required int branchId,
+    required int branchServiceId,
+    required Map<String, dynamic> body,
+  }) async {
+    final token = await getAuthToken();
 
-  final url = Uri.parse(
-    '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/services/$branchServiceId',
-  );
-
-  final payload = {
-    'displayName': body['displayName'] ?? body['name'],
-    'description': body['description'] ?? '',
-    'durationMin': body['durationMin'] ?? body['defaultDurationMin'],
-    'priceType': body['priceType'] ?? 'fixed',
-    'priceMinor': body['priceMinor'] ?? body['defaultPriceMinor'],
-    'isActive': body['isActive'] ?? true,
-    if (body.containsKey('commissionEnabled'))
-      'commissionEnabled': body['commissionEnabled'],
-    if (body.containsKey('commissionType'))
-      'commissionType': body['commissionType'],
-    if (body.containsKey('commissionPercentage'))
-      'commissionPercentage': body['commissionPercentage'],
-    if (body.containsKey('commissionFixedAmountMinor'))
-      'commissionFixedAmountMinor': body['commissionFixedAmountMinor'],
-    if (body.containsKey('commissionMaxAmountMinor'))
-      'commissionMaxAmountMinor': body['commissionMaxAmountMinor'],
-  }..removeWhere((key, value) => value == null);
-
-  const encoder = JsonEncoder.withIndent('  ');
-  print('🟢 [UPDATE SERVICE] PATCH -> $url');
-  print('🔸 Request Body:\n${encoder.convert(payload)}');
-
-  final response = await _sharedClient.patch(
-    url,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    },
-    body: jsonEncode(payload),
-  );
-
-  print('🔹 Response Status: ${response.statusCode}');
-  print('🔹 Response Body: ${response.body}');
-
-  if (response.statusCode >= 200 && response.statusCode < 300) {
-    final responseBody = response.body.isEmpty ? '{}' : response.body;
-    return jsonDecode(responseBody) as Map<String, dynamic>;
-  }
-
-  String message = 'Failed to update service';
-
-  try {
-    final decoded = jsonDecode(response.body);
-
-    if (decoded is Map<String, dynamic>) {
-      final msg = decoded['message'];
-
-      if (msg is List) {
-        message = msg.join('\n');
-      } else if (msg != null) {
-        message = msg.toString();
-      }
+    if (token.isEmpty) {
+      throw Exception('Authentication required');
     }
-  } catch (_) {}
 
-  throw Exception(message);
-}
+    final url = Uri.parse(
+      '${baseUrl.replaceFirst(RegExp(r'/$'), '')}/branches/$branchId/services/$branchServiceId',
+    );
+
+    final payload = {
+      'displayName': body['displayName'] ?? body['name'],
+      'description': body['description'] ?? '',
+      'durationMin': body['durationMin'] ?? body['defaultDurationMin'],
+      'priceType': body['priceType'] ?? 'fixed',
+      'priceMinor': body['priceMinor'] ?? body['defaultPriceMinor'],
+      'isActive': body['isActive'] ?? true,
+      if (body.containsKey('passiveWaitEnabled'))
+        'passiveWaitEnabled': body['passiveWaitEnabled'],
+      if (body.containsKey('initialBusyMinutes'))
+        'initialBusyMinutes': body['initialBusyMinutes'],
+      if (body.containsKey('passiveWaitMinutes'))
+        'passiveWaitMinutes': body['passiveWaitMinutes'],
+      if (body.containsKey('finalBusyMinutes'))
+        'finalBusyMinutes': body['finalBusyMinutes'],
+      if (body.containsKey('commissionEnabled'))
+        'commissionEnabled': body['commissionEnabled'],
+      if (body.containsKey('commissionType'))
+        'commissionType': body['commissionType'],
+      if (body.containsKey('commissionPercentage'))
+        'commissionPercentage': body['commissionPercentage'],
+      if (body.containsKey('commissionFixedAmountMinor'))
+        'commissionFixedAmountMinor': body['commissionFixedAmountMinor'],
+      if (body.containsKey('commissionMaxAmountMinor'))
+        'commissionMaxAmountMinor': body['commissionMaxAmountMinor'],
+    }..removeWhere((key, value) => value == null);
+
+    const encoder = JsonEncoder.withIndent('  ');
+    print('🟢 [UPDATE SERVICE] PATCH -> $url');
+    print('🔸 Request Body:\n${encoder.convert(payload)}');
+
+    final response = await _sharedClient.patch(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode(payload),
+    );
+
+    print('🔹 Response Status: ${response.statusCode}');
+    print('🔹 Response Body: ${response.body}');
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final responseBody = response.body.isEmpty ? '{}' : response.body;
+      return jsonDecode(responseBody) as Map<String, dynamic>;
+    }
+
+    String message = 'Failed to update service';
+
+    try {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map<String, dynamic>) {
+        final msg = decoded['message'];
+
+        if (msg is List) {
+          message = msg.join('\n');
+        } else if (msg != null) {
+          message = msg.toString();
+        }
+      }
+    } catch (_) {}
+
+    throw Exception(message);
+  }
 
 // ---------------------- START APPOINTMENT ----------------------
   static Future<Map<String, dynamic>> startAppointment({

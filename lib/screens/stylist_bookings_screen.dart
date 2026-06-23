@@ -359,6 +359,66 @@ List<Map<String, dynamic>> _bookingServices(Map<String, dynamic> booking) {
       .toList();
 }
 
+String _plainTextValue(dynamic value) {
+  if (value == null) return '';
+  if (value is String) return value.trim();
+  if (value is num || value is bool) return value.toString().trim();
+  return '';
+}
+
+String _serviceNameFromServiceObject(dynamic raw) {
+  final direct = _plainTextValue(raw);
+  if (direct.isNotEmpty) return direct;
+
+  if (raw is! Map) return '';
+  final map = Map<String, dynamic>.from(raw);
+  for (final key in const [
+    'displayName',
+    'name',
+    'serviceName',
+    'title',
+  ]) {
+    final value = _plainTextValue(map[key]);
+    if (value.isNotEmpty) return value;
+  }
+
+  for (final key in const [
+    'masterService',
+    'service',
+    'branchService',
+  ]) {
+    final value = _serviceNameFromServiceObject(map[key]);
+    if (value.isNotEmpty) return value;
+  }
+
+  return '';
+}
+
+String _serviceNameFromBookingItem(Map<String, dynamic> item) {
+  for (final key in const [
+    'serviceName',
+    'displayName',
+    'name',
+    'title',
+  ]) {
+    final value = _plainTextValue(item[key]);
+    if (value.isNotEmpty) return value;
+  }
+
+  for (final key in const [
+    'branchService',
+    'service',
+    'masterService',
+    'cartItem',
+    'item',
+  ]) {
+    final value = _serviceNameFromServiceObject(item[key]);
+    if (value.isNotEmpty) return value;
+  }
+
+  return '';
+}
+
 DateTime? _bookingDate(Map<String, dynamic> booking) {
   return _parseLocal(
         booking['date'] ??
@@ -676,6 +736,20 @@ void _logBookingDetailsSnapshot(
       .toList();
   final items = _bookingItems(booking);
   final rawServices = _bookingServices(booking);
+  final itemServiceDebug = items
+      .map(
+        (item) => {
+          'keys': item.keys.toList(),
+          'resolvedName': _serviceNameFromBookingItem(item),
+          'branchServiceKeys': item['branchService'] is Map
+              ? Map<String, dynamic>.from(item['branchService']).keys.toList()
+              : const <String>[],
+          'serviceKeys': item['service'] is Map
+              ? Map<String, dynamic>.from(item['service']).keys.toList()
+              : const <String>[],
+        },
+      )
+      .toList();
 
   debugPrint('[BookingDetailsLog] source=$source');
   debugPrint('[BookingDetailsLog] id=${booking['id']}');
@@ -696,6 +770,7 @@ void _logBookingDetailsSnapshot(
   debugPrint('[BookingDetailsLog] derivedServices=$services');
   debugPrint('[BookingDetailsLog] itemCount=${items.length}');
   debugPrint('[BookingDetailsLog] rawServiceCount=${rawServices.length}');
+  debugPrint('[BookingDetailsLog] itemServiceDebug=$itemServiceDebug');
   debugPrint('[BookingDetailsLog] rawKeys=${booking.keys.toList()}');
 }
 
@@ -719,12 +794,7 @@ void _logBookingsFetchSnapshot(
 String _serviceLabel(BuildContext context, Map<String, dynamic> booking) {
   final items = _bookingItems(booking);
   if (items.isNotEmpty) {
-    final firstName = items.first['serviceName']?.toString().trim() ??
-        items.first['branchService']?['displayName']?.toString().trim() ??
-        items.first['service']?.toString().trim() ??
-        items.first['displayName']?.toString().trim() ??
-        items.first['name']?.toString().trim() ??
-        '';
+    final firstName = _serviceNameFromBookingItem(items.first);
     final baseLabel =
         firstName.isNotEmpty ? firstName : context.t('Appointment');
     if (items.length == 1) return baseLabel;
@@ -774,15 +844,7 @@ String _serviceCardSummary(BuildContext context, Map<String, dynamic> booking) {
   final items = _bookingItems(booking);
   if (items.isNotEmpty) {
     final names = items
-        .map(
-          (item) =>
-              item['serviceName']?.toString().trim() ??
-              item['branchService']?['displayName']?.toString().trim() ??
-              item['service']?.toString().trim() ??
-              item['displayName']?.toString().trim() ??
-              item['name']?.toString().trim() ??
-              '',
-        )
+        .map(_serviceNameFromBookingItem)
         .where((name) => name.isNotEmpty)
         .toList();
 
@@ -877,12 +939,8 @@ List<StylistAppointmentServiceSegment> _detailServiceSegments(
     DateTime? fallbackStart = _bookingStart(booking);
 
     return items.map((item) {
-      final name = item['serviceName']?.toString().trim() ??
-          item['branchService']?['displayName']?.toString().trim() ??
-          item['service']?.toString().trim() ??
-          item['displayName']?.toString().trim() ??
-          item['name']?.toString().trim() ??
-          appointmentLabel;
+      final resolvedName = _serviceNameFromBookingItem(item);
+      final name = resolvedName.isEmpty ? appointmentLabel : resolvedName;
 
       final durationMin = _asInt(
         item['durationMin'] ?? item['branchService']?['durationMin'],
@@ -1558,9 +1616,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 22),
-
                     Text(
                       context.t('How was the service?'),
                       style: _bookingTextStyle(
@@ -1569,9 +1625,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                         color: _bookingsPrimaryText,
                       ),
                     ),
-
                     const SizedBox(height: 12),
-
                     Center(
                       child: Wrap(
                         spacing: 4,
@@ -1613,9 +1667,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                         }),
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
                     Text(
                       context.t('Comment'),
                       style: _bookingTextStyle(
@@ -1624,9 +1676,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                         color: _bookingsSecondaryText,
                       ),
                     ),
-
                     const SizedBox(height: 8),
-
                     TextField(
                       maxLength: 120,
                       minLines: 3,
@@ -1658,9 +1708,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
                         ),
                       ),
                     ),
-
                     const SizedBox(height: 14),
-
                     SizedBox(
                       width: double.infinity,
                       height: 52,
@@ -1699,6 +1747,7 @@ Future<Map<String, dynamic>?> _showFinishJobFeedbackDialog(
     },
   );
 }
+
 class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   final GlobalKey _branchSelectorKey = GlobalKey();
   final ApiService _apiService = ApiService();

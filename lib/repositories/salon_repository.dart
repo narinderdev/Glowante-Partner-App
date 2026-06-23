@@ -378,17 +378,28 @@ class SalonRepository {
     );
   }
 
-  Future<Map<String, dynamic>> addSubCategory({
-    required int branchId,
-    required int categoryId,
-    required String displayName,
-  }) {
-    return _apiService.addSubCategoryApi(
-      branchId: branchId,
-      categoryId: categoryId,
-      displayName: displayName,
-    );
-  }
+  // Future<Map<String, dynamic>> addSubCategory({
+  //   required int branchId,
+  //   required int categoryId,
+  //   required String displayName,
+  // }) {
+  //   return _apiService.addSubCategoryApi(
+  //     branchId: branchId,
+  //     categoryId: categoryId,
+  //     displayName: displayName,
+  //   );
+  // }
+Future<Map<String, dynamic>> addSubCategory({
+  required int branchId,
+  required int categoryId,
+  required String displayName,
+}) {
+  return _apiService.addSubCategoryApi(
+    branchId: branchId,
+    branchCategoryId: categoryId,
+    displayName: displayName,
+  );
+}
 
   Future<Map<String, dynamic>> updateSubCategory({
     required int branchId,

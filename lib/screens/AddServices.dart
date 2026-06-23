@@ -17,6 +17,12 @@ const Color _serviceBorder = Color(0xFFE3DCD7);
 const Color _serviceFieldFill = Colors.white;
 const Color _serviceSurface = Color(0xFFFBFAF8);
 const List<int> _durationOptions = <int>[15, 30, 45, 60, 90, 120, 180];
+const int _defaultDurationMinutes = 60;
+const bool _defaultPassiveWaitEnabled = true;
+const int _defaultInitialBusyMinutes = 10;
+const int _defaultPassiveWaitMinutes = 40;
+const int _defaultFinalBusyMinutes = 10;
+const int _minimumPassiveWaitMinutes = 1;
 
 class AddServices extends StatefulWidget {
   final int branchId;
@@ -78,6 +84,10 @@ class _AddServicesState extends State<AddServices> {
   Map<String, dynamic>? selectedService;
   bool _commissionEnabled = false;
   String _commissionType = 'percentage';
+  bool _passiveWaitEnabled = _defaultPassiveWaitEnabled;
+  int _initialBusyMinutes = _defaultInitialBusyMinutes;
+  int _passiveWaitMinutes = _defaultPassiveWaitMinutes;
+  int _finalBusyMinutes = _defaultFinalBusyMinutes;
 
   int? get _enteredPrice => int.tryParse(priceController.text.trim());
   bool get _hasValidPrice => (_enteredPrice ?? 0) > 0;
@@ -102,6 +112,66 @@ class _AddServicesState extends State<AddServices> {
     return null;
   }
 
+  int _clampInt(int value, int min, int max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+  }
+
+  int _minimumPassiveWaitForDuration(int duration) {
+    if (duration <= 0) return 0;
+    return _clampInt(_minimumPassiveWaitMinutes, 0, duration);
+  }
+
+  void _setDefaultPassiveWaitForDuration(int duration) {
+    if (duration <= 0) return;
+    final busyStart =
+        duration >= 20 ? 10 : _clampInt(duration ~/ 3, 0, duration);
+    final remainingAfterStart = duration - busyStart;
+    final busyEnd = duration >= 20
+        ? _clampInt(10, 0, remainingAfterStart)
+        : _clampInt(remainingAfterStart ~/ 2, 0, remainingAfterStart);
+    _initialBusyMinutes = busyStart;
+    _finalBusyMinutes = busyEnd;
+    _passiveWaitMinutes = duration - busyStart - busyEnd;
+  }
+
+  void _normalizePassiveWaitForDuration(int duration) {
+    if (duration <= 0) return;
+    final minPassive =
+        _passiveWaitEnabled ? _minimumPassiveWaitForDuration(duration) : 0;
+    final initial = _clampInt(_initialBusyMinutes, 0, duration - minPassive);
+    final passive = _clampInt(
+      _passiveWaitMinutes,
+      minPassive,
+      duration - initial,
+    );
+    _initialBusyMinutes = initial;
+    _passiveWaitMinutes = passive;
+    _finalBusyMinutes = duration - initial - passive;
+  }
+
+  void _updatePassiveWaitFromRange(int duration, RangeValues values) {
+    final minPassive = _minimumPassiveWaitForDuration(duration);
+    final oldStart = _initialBusyMinutes;
+    final oldEnd = _initialBusyMinutes + _passiveWaitMinutes;
+    var start = _clampInt(values.start.round(), 0, duration - minPassive);
+    var end = _clampInt(values.end.round(), start + minPassive, duration);
+
+    if (end - start < minPassive) {
+      final startMoved = (start - oldStart).abs() > (end - oldEnd).abs();
+      if (startMoved) {
+        start = _clampInt(end - minPassive, 0, duration - minPassive);
+      } else {
+        end = _clampInt(start + minPassive, minPassive, duration);
+      }
+    }
+
+    _initialBusyMinutes = start;
+    _passiveWaitMinutes = end - start;
+    _finalBusyMinutes = duration - end;
+  }
+
   double? _asDouble(dynamic value) {
     if (value is double) return value;
     if (value is num) return value.toDouble();
@@ -118,6 +188,9 @@ class _AddServicesState extends State<AddServices> {
       _populateServiceForEdit(widget.serviceToEdit!);
       _selectCategoryForService(widget.serviceToEdit!);
     } else if (widget.selectedCategory != null) {
+      durationController.text = _defaultDurationMinutes.toString();
+      _setDefaultPassiveWaitForDuration(_defaultDurationMinutes);
+
       final subCategories =
           (widget.selectedCategory!['subCategories'] as List?) ?? const [];
       if (subCategories.length == 1 && subCategories.first is Map) {
@@ -126,6 +199,9 @@ class _AddServicesState extends State<AddServices> {
         final id = selectedCategory!['id'];
         selectedCategoryKey = 'sub:$id';
       }
+    } else {
+      durationController.text = _defaultDurationMinutes.toString();
+      _setDefaultPassiveWaitForDuration(_defaultDurationMinutes);
     }
   }
 
@@ -136,6 +212,22 @@ class _AddServicesState extends State<AddServices> {
     durationController.text =
         (_asInt(service['durationMin'] ?? service['defaultDurationMin']) ?? '')
             .toString();
+    final duration =
+        _asInt(service['durationMin'] ?? service['defaultDurationMin']);
+    if (duration != null && duration > 0) {
+      _passiveWaitEnabled = service['passiveWaitEnabled'] != false;
+      final initialBusy = _asInt(service['initialBusyMinutes']);
+      final passiveWait = _asInt(service['passiveWaitMinutes']);
+      final finalBusy = _asInt(service['finalBusyMinutes']);
+      if (initialBusy != null && passiveWait != null && finalBusy != null) {
+        _initialBusyMinutes = initialBusy;
+        _passiveWaitMinutes = passiveWait;
+        _finalBusyMinutes = finalBusy;
+        _normalizePassiveWaitForDuration(duration);
+      } else {
+        _setDefaultPassiveWaitForDuration(duration);
+      }
+    }
     final priceMinor =
         _asInt(service['priceMinor'] ?? service['defaultPriceMinor']);
     priceController.text = priceMinor == null
@@ -251,18 +343,30 @@ class _AddServicesState extends State<AddServices> {
 
     setState(() => _isLoading = true);
     try {
-      int? branchCategoryId;
-      int? branchSubCategoryId;
+      final branchSubCategoryId = _asInt(selectedCategory?['id']);
+      final branchCategoryId = _asInt(selectedCategory?['branchCategoryId']) ??
+          _asInt(selectedCategory?['categoryId']) ??
+          _asInt(widget.selectedCategory?['id']) ??
+          _findParentCategoryIdForSubCategory(branchSubCategoryId);
 
-      if (selectedCategoryType == 'subCategory') {
-        branchSubCategoryId = selectedCategory!['id'];
+      if (branchSubCategoryId == null || branchCategoryId == null) {
+        throw Exception(jsonEncode({
+          "message":
+              "Missing category/subcategory id. branchCategoryId=$branchCategoryId, branchSubCategoryId=$branchSubCategoryId"
+        }));
       }
 
       final displayName = nameController.text.trim();
       final desc = descController.text.trim();
-      final price = int.parse(priceController.text.trim());
-      final priceMinor = rupeesToMinorAmount(price);
+      final priceText = priceController.text.trim();
+      final int? price = priceText.isEmpty ? null : int.tryParse(priceText);
+      final int? priceMinor = price == null ? null : rupeesToMinorAmount(price);
       final duration = int.parse(durationController.text.trim());
+      _normalizePassiveWaitForDuration(duration);
+      final initialBusyMinutes =
+          _passiveWaitEnabled ? _initialBusyMinutes : duration;
+      final passiveWaitMinutes = _passiveWaitEnabled ? _passiveWaitMinutes : 0;
+      final finalBusyMinutes = _passiveWaitEnabled ? _finalBusyMinutes : 0;
       final commissionValue = commissionValueController.text.trim();
       final commissionMax = commissionMaxController.text.trim();
 
@@ -279,6 +383,10 @@ class _AddServicesState extends State<AddServices> {
           'priceMinor': priceMinor,
           'priceType': 'fixed',
           'isActive': widget.serviceToEdit!['isActive'] ?? true,
+          'passiveWaitEnabled': _passiveWaitEnabled,
+          'initialBusyMinutes': initialBusyMinutes,
+          'passiveWaitMinutes': passiveWaitMinutes,
+          'finalBusyMinutes': finalBusyMinutes,
           'commissionEnabled': _commissionEnabled,
           'commissionType': _commissionEnabled ? _commissionType : null,
           'commissionFixedAmountMinor':
@@ -311,6 +419,10 @@ class _AddServicesState extends State<AddServices> {
           priceMinor: priceMinor,
           priceType: "fixed",
           isActive: true,
+          passiveWaitEnabled: _passiveWaitEnabled,
+          initialBusyMinutes: initialBusyMinutes,
+          passiveWaitMinutes: passiveWaitMinutes,
+          finalBusyMinutes: finalBusyMinutes,
           commissionEnabled: _commissionEnabled,
           commissionType: _commissionEnabled ? _commissionType : null,
           commissionFixedAmountMinor:
@@ -515,39 +627,39 @@ class _AddServicesState extends State<AddServices> {
 
 //   return null;
 // }
-String? _validateCommissionMax(String? value) {
-  if (!_commissionEnabled || _commissionType != 'percentage') return null;
+  String? _validateCommissionMax(String? value) {
+    if (!_commissionEnabled || _commissionType != 'percentage') return null;
 
-  final price = _enteredPrice;
-  final percentage =
-      double.tryParse(commissionValueController.text.trim()) ?? 0;
+    final price = _enteredPrice;
+    final percentage =
+        double.tryParse(commissionValueController.text.trim()) ?? 0;
 
-  final v = (value ?? '').trim();
+    final v = (value ?? '').trim();
 
-  if (v.isEmpty) {
-    return translateText("Max commission amount is required");
-  }
-
-  final parsed = int.tryParse(v);
-  if (parsed == null || parsed <= 0) {
-    return translateText("Enter a valid max commission amount");
-  }
-
-  if (price != null && price > 0 && percentage > 0) {
-    final priceMinor = rupeesToMinorAmount(price);
-    final maxMinor = rupeesToMinorAmount(parsed);
-    final allowedMaxMinor = (priceMinor * percentage / 100).floor();
-
-    if (maxMinor > allowedMaxMinor) {
-      final allowedMaxRupee = minorAmountToRupees(allowedMaxMinor);
-      return translateText(
-        "Max commission cannot exceed ${allowedMaxRupee?.toStringAsFixed(0) ?? allowedMaxMinor}",
-      );
+    if (v.isEmpty) {
+      return translateText("Max commission amount is required");
     }
-  }
 
-  return null;
-}
+    final parsed = int.tryParse(v);
+    if (parsed == null || parsed <= 0) {
+      return translateText("Enter a valid max commission amount");
+    }
+
+    if (price != null && price > 0 && percentage > 0) {
+      final priceMinor = rupeesToMinorAmount(price);
+      final maxMinor = rupeesToMinorAmount(parsed);
+      final allowedMaxMinor = (priceMinor * percentage / 100).floor();
+
+      if (maxMinor > allowedMaxMinor) {
+        final allowedMaxRupee = minorAmountToRupees(allowedMaxMinor);
+        return translateText(
+          "Max commission cannot exceed ${allowedMaxRupee?.toStringAsFixed(0) ?? allowedMaxMinor}",
+        );
+      }
+    }
+
+    return null;
+  }
 
   String? _validateCategory(Map<String, dynamic>? _) {
     if (_isEditMode) return null;
@@ -555,6 +667,146 @@ String? _validateCommissionMax(String? value) {
       return translateText("Subcategory is required");
     }
     return null;
+  }
+
+  Widget _buildPassiveWaitSection(int duration) {
+    final safeDuration = duration <= 0 ? 60 : duration;
+    final minPassive =
+        _passiveWaitEnabled ? _minimumPassiveWaitForDuration(safeDuration) : 0;
+    final start = _clampInt(_initialBusyMinutes, 0, safeDuration - minPassive);
+    final end = _clampInt(
+      _initialBusyMinutes + _passiveWaitMinutes,
+      start + minPassive,
+      safeDuration,
+    );
+    final passive = end - start;
+    final finalBusy = safeDuration - end;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFAF1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _serviceGoldLight.withValues(alpha: 0.55)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      translateText('Passive wait'),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _serviceInk,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      translateText(
+                        'Split duration into busy start, passive wait, and busy end.',
+                      ),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: _serviceMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Checkbox(
+                value: _passiveWaitEnabled,
+                activeColor: _serviceGold,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged: (value) {
+                  setState(() {
+                    _passiveWaitEnabled = value ?? false;
+                  });
+                },
+              ),
+              Text(
+                translateText('Enabled'),
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: _serviceInk,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                rangeTrackShape: const _PassiveWaitRangeTrackShape(),
+                activeTrackColor: _serviceGold,
+                inactiveTrackColor: _serviceBorder,
+              ),
+              child: RangeSlider(
+                values: RangeValues(start.toDouble(), end.toDouble()),
+                min: 0,
+                max: safeDuration.toDouble(),
+                divisions: safeDuration,
+                activeColor: _serviceGold,
+                inactiveColor: _serviceBorder,
+                labels: RangeLabels('${start}m', '${end}m'),
+                onChanged: _passiveWaitEnabled
+                    ? (values) {
+                        setState(() {
+                          _updatePassiveWaitFromRange(safeDuration, values);
+                        });
+                      }
+                    : null,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${translateText('Busy start')}: $start min',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: _serviceMuted,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '${translateText('Passive wait')}: $passive min',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: _serviceMuted,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  '${translateText('Busy end')}: $finalBusy min',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: _serviceMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -574,491 +826,655 @@ String? _validateCommissionMax(String? value) {
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: Form(
-          key: _formKey,
-          autovalidateMode: _autoValidate
-              ? AutovalidateMode.onUserInteraction
-              : AutovalidateMode.disabled,
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: EdgeInsets.fromLTRB(
-              14,
-              16,
-              14,
-              24 + MediaQuery.of(context).viewInsets.bottom,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _AddServiceSectionCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
+        child: Stack(
+          children: [
+            Form(
+              key: _formKey,
+              autovalidateMode: _autoValidate
+                  ? AutovalidateMode.onUserInteraction
+                  : AutovalidateMode.disabled,
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.fromLTRB(
+                  14,
+                  16,
+                  14,
+                  24 + MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _AddServiceSectionCard(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _FieldLabel(translateText("Service Name *")),
-                          const SizedBox(height: 7),
-                          TextFormField(
-                            controller: nameController,
-                            autofocus: false,
-                            cursorColor: _serviceGold,
-                            textInputAction: TextInputAction.next,
-                            keyboardType: TextInputType.text,
-                            textCapitalization: TextCapitalization.sentences,
-                            maxLength: 50,
-                            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                            inputFormatters: [
-                              const FirstLetterUpperFormatter(),
-                              LengthLimitingTextInputFormatter(50),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _FieldLabel(translateText("Service Name *")),
+                              const SizedBox(height: 7),
+                              TextFormField(
+                                controller: nameController,
+                                autofocus: false,
+                                cursorColor: _serviceGold,
+                                textInputAction: TextInputAction.next,
+                                keyboardType: TextInputType.text,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                maxLength: 50,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                inputFormatters: [
+                                  const FirstLetterUpperFormatter(),
+                                  LengthLimitingTextInputFormatter(50),
+                                ],
+                                onChanged: (_) => setState(() {}),
+                                decoration: _inputDecoration(
+                                  hint: translateText("Add a service name"),
+                                ),
+                                validator: _validateLabel,
+                              ),
+                              const SizedBox(height: 4),
+                              _FieldCounter(
+                                currentLength: nameController.text.length,
+                                maxLength: 50,
+                              ),
+                              const SizedBox(height: 16),
+                              _FieldLabel(
+                                  translateText("Description (Optional)")),
+                              const SizedBox(height: 7),
+                              TextFormField(
+                                controller: descController,
+                                maxLines: 2,
+                                maxLength: 50,
+                                maxLengthEnforcement:
+                                    MaxLengthEnforcement.enforced,
+                                keyboardType: TextInputType.text,
+                                textInputAction: TextInputAction.next,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                                inputFormatters: [
+                                  LengthLimitingTextInputFormatter(50)
+                                ],
+                                onChanged: (_) => setState(() {}),
+                                decoration: _inputDecoration(
+                                  hint:
+                                      translateText("Add a short description"),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              _FieldCounter(
+                                currentLength: descController.text.length,
+                                maxLength: 50,
+                              ),
                             ],
-                            onChanged: (_) => setState(() {}),
-                            decoration: _inputDecoration(
-                              hint: translateText("Add a service name"),
-                            ),
-                            validator: _validateLabel,
-                          ),
-                          const SizedBox(height: 4),
-                          _FieldCounter(
-                            currentLength: nameController.text.length,
-                            maxLength: 50,
                           ),
                           const SizedBox(height: 16),
-                          _FieldLabel(translateText("Description (Optional)")),
-                          const SizedBox(height: 7),
-                          TextFormField(
-                            controller: descController,
-                            maxLines: 2,
-                            maxLength: 50,
-                            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-                            keyboardType: TextInputType.text,
-                            textInputAction: TextInputAction.next,
-                            textCapitalization: TextCapitalization.sentences,
-                            inputFormatters: [
-                              LengthLimitingTextInputFormatter(50)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _FieldLabel(translateText("Subcategory *")),
+                              const SizedBox(height: 7),
+                              DropdownButtonFormField<String>(
+                                isExpanded: true,
+                                initialValue: _validateSelectedCategoryKey(
+                                    selectedCategoryKey, categoryItems),
+                                hint: Text(translateText("Select Subcategory")),
+                                items: categoryItems,
+                                onChanged: _isEditMode
+                                    ? null
+                                    : (key) {
+                                        if (key == null) return;
+                                        setState(() {
+                                          selectedCategoryKey = key;
+                                          selectedService = null;
+                                          final id =
+                                              int.parse(key.substring(4));
+                                          selectedCategoryType = 'subCategory';
+                                          selectedCategory =
+                                              findSubcategoryById(
+                                                  widget.categories ?? [], id);
+                                        });
+                                      },
+                                decoration: _inputDecoration(),
+                                validator: (_) =>
+                                    _validateCategory(selectedCategory),
+                              ),
                             ],
-                            onChanged: (_) => setState(() {}),
-                            decoration: _inputDecoration(
-                              hint: translateText("Add a short description"),
-                            ),
                           ),
-                          const SizedBox(height: 4),
-                          _FieldCounter(
-                            currentLength: descController.text.length,
-                            maxLength: 50,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _FieldLabel(translateText("Subcategory *")),
-                          const SizedBox(height: 7),
-                          DropdownButtonFormField<String>(
-                            isExpanded: true,
-                            initialValue: _validateSelectedCategoryKey(
-                                selectedCategoryKey, categoryItems),
-                            hint: Text(translateText("Select Subcategory")),
-                            items: categoryItems,
-                            onChanged: _isEditMode
-                                ? null
-                                : (key) {
-                                    if (key == null) return;
-                                    setState(() {
-                                      selectedCategoryKey = key;
-                                      selectedService = null;
-                                      final id = int.parse(key.substring(4));
-                                      selectedCategoryType = 'subCategory';
-                                      selectedCategory = findSubcategoryById(
-                                          widget.categories ?? [], id);
-                                    });
-                                  },
-                            decoration: _inputDecoration(),
-                            validator: (_) =>
-                                _validateCategory(selectedCategory),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _FieldLabel(translateText("Price *")),
-                                const SizedBox(height: 7),
-                                TextFormField(
-                                  controller: priceController,
-                                  maxLength: 6,
-                                  maxLengthEnforcement:
-                                      MaxLengthEnforcement.enforced,
-                                  keyboardType: TextInputType.number,
-                                  textInputAction: TextInputAction.next,
-                                  onChanged: (_) => setState(() {
-                                    if (!_hasValidPrice && _commissionEnabled) {
-                                      _commissionEnabled = false;
-                                      commissionValueController.clear();
-                                      commissionMaxController.clear();
-                                    }
-                                  }),
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(6),
-                                  ],
-                                  decoration: _inputDecoration(
-                                    hint: translateText("Price"),
-                                    suffixIcon: Icons.currency_rupee,
-                                  ),
-                                  validator: _validatePrice,
-                                ),
-                                const SizedBox(height: 4),
-                                _FieldCounter(
-                                  currentLength: priceController.text.length,
-                                  maxLength: 6,
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _FieldLabel(translateText("Duration *")),
-                                const SizedBox(height: 7),
-                                DropdownButtonFormField<int>(
-                                  initialValue: durationMenuOptions
-                                          .contains(_selectedDuration)
-                                      ? _selectedDuration
-                                      : null,
-                                  isExpanded: true,
-                                  dropdownColor: const Color(0xFF6B665F),
-                                  borderRadius: BorderRadius.circular(8),
-                                  icon: const Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: _serviceGold,
-                                  ),
-                                  selectedItemBuilder: (context) {
-                                    return durationMenuOptions
-                                        .map(
-                                          (minutes) => Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              _durationLabel(minutes),
-                                              style: const TextStyle(
-                                                color: _serviceInk,
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                        .toList();
-                                  },
-                                  items: durationMenuOptions.map((minutes) {
-                                    final selected =
-                                        minutes == _selectedDuration;
-                                    return DropdownMenuItem<int>(
-                                      value: minutes,
-                                      child: Row(
-                                        children: [
-                                          SizedBox(
-                                            width: 18,
-                                            child: selected
-                                                ? const Icon(
-                                                    Icons.check_rounded,
-                                                    color: Colors.white,
-                                                    size: 16,
-                                                  )
-                                                : null,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            _durationLabel(minutes),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (value) {
-                                    if (value == null) return;
-                                    setState(() {
-                                      durationController.text =
-                                          value.toString();
-                                    });
-                                  },
-                                  decoration: _inputDecoration(
-                                    hint: translateText("Duration"),
-                                    suffixIcon: Icons.timer_outlined,
-                                  ),
-                                  validator: (value) => _validateDuration(
-                                    value?.toString(),
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  translateText('Select service duration'),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: _serviceMuted,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-                      const Divider(height: 1, color: _serviceBorder),
-                      const SizedBox(height: 18),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                          const SizedBox(height: 16),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      translateText("Commission"),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
-                                        color: _serviceInk,
+                                    _FieldLabel(translateText("Price *")),
+                                    const SizedBox(height: 7),
+                                    TextFormField(
+                                      controller: priceController,
+                                      maxLength: 6,
+                                      maxLengthEnforcement:
+                                          MaxLengthEnforcement.enforced,
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.next,
+                                      onChanged: (_) => setState(() {
+                                        if (!_hasValidPrice &&
+                                            _commissionEnabled) {
+                                          _commissionEnabled = false;
+                                          commissionValueController.clear();
+                                          commissionMaxController.clear();
+                                        }
+                                      }),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(6),
+                                      ],
+                                      decoration: _inputDecoration(
+                                        hint: translateText("Price"),
+                                        suffixIcon: Icons.currency_rupee,
+                                      ),
+                                      validator: _validatePrice,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    _FieldCounter(
+                                      currentLength:
+                                          priceController.text.length,
+                                      maxLength: 6,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _FieldLabel(translateText("Duration *")),
+                                    const SizedBox(height: 7),
+                                    DropdownButtonFormField<int>(
+                                      initialValue: durationMenuOptions
+                                              .contains(_selectedDuration)
+                                          ? _selectedDuration
+                                          : null,
+                                      isExpanded: true,
+                                      dropdownColor: const Color(0xFF6B665F),
+                                      borderRadius: BorderRadius.circular(8),
+                                      icon: const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        color: _serviceGold,
+                                      ),
+                                      selectedItemBuilder: (context) {
+                                        return durationMenuOptions
+                                            .map(
+                                              (minutes) => Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: Text(
+                                                  _durationLabel(minutes),
+                                                  style: const TextStyle(
+                                                    color: _serviceInk,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                            .toList();
+                                      },
+                                      items: durationMenuOptions.map((minutes) {
+                                        final selected =
+                                            minutes == _selectedDuration;
+                                        return DropdownMenuItem<int>(
+                                          value: minutes,
+                                          child: Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 18,
+                                                child: selected
+                                                    ? const Icon(
+                                                        Icons.check_rounded,
+                                                        color: Colors.white,
+                                                        size: 16,
+                                                      )
+                                                    : null,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                _durationLabel(minutes),
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        if (value == null) return;
+                                        setState(() {
+                                          durationController.text =
+                                              value.toString();
+                                          _setDefaultPassiveWaitForDuration(
+                                              value);
+                                        });
+                                      },
+                                      decoration: _inputDecoration(
+                                        hint: translateText("Duration"),
+                                        suffixIcon: Icons.timer_outlined,
+                                      ),
+                                      validator: (value) => _validateDuration(
+                                        value?.toString(),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      translateText(
-                                        "First enter the service price, then configure a fixed amount or percentage.",
-                                      ),
+                                      translateText('Select service duration'),
                                       style: const TextStyle(
                                         fontSize: 12,
-                                        height: 1.35,
                                         color: _serviceMuted,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              Switch(
-                                value: _commissionEnabled,
-                                activeThumbColor: _serviceGold,
-                                onChanged: (value) {
-                                  if (value && !_hasValidPrice) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          translateText(
-                                              "Enter a valid price before enabling commission"),
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  setState(() {
-                                    _commissionEnabled = value;
-                                    if (!value) {
-                                      commissionValueController.clear();
-                                      commissionMaxController.clear();
-                                    }
-                                  });
-                                },
-                              ),
                             ],
                           ),
-                          if (_commissionEnabled) ...[
-                            const SizedBox(height: 16),
-                            _FieldLabel(translateText("Commission Type *")),
-                            const SizedBox(height: 7),
-                            DropdownButtonFormField<String>(
-                              initialValue: _commissionType,
-                              decoration: _inputDecoration(),
-                              items: const [
-                                DropdownMenuItem(
-                                  value: 'fixed',
-                                  child: Text('Fixed'),
-                                ),
-                                DropdownMenuItem(
-                                  value: 'percentage',
-                                  child: Text('Percentage'),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                if (value == null) return;
-                                setState(() {
-                                  _commissionType = value;
-                                  commissionValueController.clear();
-                                  commissionMaxController.clear();
-                                });
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            _FieldLabel(
-                              translateText(
-                                _commissionType == 'percentage'
-                                    ? "Commission Percentage *"
-                                    : "Commission Amount *",
+                          const SizedBox(height: 16),
+                          _buildPassiveWaitSection(_selectedDuration ?? 60),
+                          const SizedBox(height: 22),
+                          const Divider(height: 1, color: _serviceBorder),
+                          const SizedBox(height: 18),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          translateText("Commission"),
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: _serviceInk,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          translateText(
+                                            "First enter the service price, then configure a fixed amount or percentage.",
+                                          ),
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            height: 1.35,
+                                            color: _serviceMuted,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: _commissionEnabled,
+                                    activeThumbColor: _serviceGold,
+                                    onChanged: (value) {
+                                      if (value && !_hasValidPrice) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                              translateText(
+                                                  "Enter a valid price before enabling commission"),
+                                            ),
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      setState(() {
+                                        _commissionEnabled = value;
+                                        if (!value) {
+                                          commissionValueController.clear();
+                                          commissionMaxController.clear();
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 7),
-                            TextFormField(
-                              controller: commissionValueController,
-                              maxLength: 6,
-                              maxLengthEnforcement:
-                                  MaxLengthEnforcement.enforced,
-                              keyboardType: _commissionType == 'percentage'
-                                  ? const TextInputType.numberWithOptions(
-                                      decimal: true)
-                                  : TextInputType.number,
-                              onChanged: (_) {
-  setState(() {});
-  _formKey.currentState?.validate();
-},
-                              textInputAction: _commissionType == 'percentage'
-                                  ? TextInputAction.next
-                                  : TextInputAction.done,
-                              inputFormatters: _commissionType == 'percentage'
-                                  ? [
-                                      FilteringTextInputFormatter.allow(
-                                        RegExp(r'[0-9.]'),
-                                      ),
-                                      LengthLimitingTextInputFormatter(6),
-                                    ]
-                                  : [
+                              if (_commissionEnabled) ...[
+                                const SizedBox(height: 16),
+                                _FieldLabel(translateText("Commission Type *")),
+                                const SizedBox(height: 7),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _commissionType,
+                                  decoration: _inputDecoration(),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'fixed',
+                                      child: Text('Fixed'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'percentage',
+                                      child: Text('Percentage'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _commissionType = value;
+                                      commissionValueController.clear();
+                                      commissionMaxController.clear();
+                                    });
+                                  },
+                                ),
+                                const SizedBox(height: 14),
+                                _FieldLabel(
+                                  translateText(
+                                    _commissionType == 'percentage'
+                                        ? "Commission Percentage *"
+                                        : "Commission Amount *",
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                TextFormField(
+                                  controller: commissionValueController,
+                                  maxLength: 6,
+                                  maxLengthEnforcement:
+                                      MaxLengthEnforcement.enforced,
+                                  keyboardType: _commissionType == 'percentage'
+                                      ? const TextInputType.numberWithOptions(
+                                          decimal: true)
+                                      : TextInputType.number,
+                                  onChanged: (_) {
+                                    setState(() {});
+                                    _formKey.currentState?.validate();
+                                  },
+                                  textInputAction:
+                                      _commissionType == 'percentage'
+                                          ? TextInputAction.next
+                                          : TextInputAction.done,
+                                  inputFormatters: _commissionType ==
+                                          'percentage'
+                                      ? [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'[0-9.]'),
+                                          ),
+                                          LengthLimitingTextInputFormatter(6),
+                                        ]
+                                      : [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                          LengthLimitingTextInputFormatter(6),
+                                        ],
+                                  decoration: _inputDecoration(
+                                    hint: translateText(
+                                      _commissionType == 'percentage'
+                                          ? "Commission percentage"
+                                          : "Commission amount",
+                                    ),
+                                    icon: _commissionType == 'percentage'
+                                        ? Icons.percent_rounded
+                                        : Icons.currency_rupee,
+                                  ),
+                                  validator: _validateCommissionValue,
+                                ),
+                                const SizedBox(height: 4),
+                                _FieldCounter(
+                                  currentLength:
+                                      commissionValueController.text.length,
+                                  maxLength: 6,
+                                ),
+                                if (_commissionType == 'percentage') ...[
+                                  const SizedBox(height: 14),
+                                  _FieldLabel(
+                                      translateText("Commission Max *")),
+                                  const SizedBox(height: 7),
+                                  TextFormField(
+                                    controller: commissionMaxController,
+                                    maxLength: 6,
+                                    maxLengthEnforcement:
+                                        MaxLengthEnforcement.enforced,
+                                    keyboardType: TextInputType.number,
+                                    textInputAction: TextInputAction.done,
+                                    onChanged: (_) => setState(() {}),
+                                    inputFormatters: [
                                       FilteringTextInputFormatter.digitsOnly,
                                       LengthLimitingTextInputFormatter(6),
                                     ],
-                              decoration: _inputDecoration(
-                                hint: translateText(
-                                  _commissionType == 'percentage'
-                                      ? "Commission percentage"
-                                      : "Commission amount",
-                                ),
-                                icon: _commissionType == 'percentage'
-                                    ? Icons.percent_rounded
-                                    : Icons.currency_rupee,
-                              ),
-                              validator: _validateCommissionValue,
-                            ),
-                            const SizedBox(height: 4),
-                            _FieldCounter(
-                              currentLength:
-                                  commissionValueController.text.length,
-                              maxLength: 6,
-                            ),
-                            if (_commissionType == 'percentage') ...[
-                              const SizedBox(height: 14),
-                              _FieldLabel(
-                             translateText("Commission Max *")
-                              ),
-                              const SizedBox(height: 7),
-                              TextFormField(
-                                controller: commissionMaxController,
-                                maxLength: 6,
-                                maxLengthEnforcement:
-                                    MaxLengthEnforcement.enforced,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.done,
-                                onChanged: (_) => setState(() {}),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(6),
+                                    decoration: _inputDecoration(
+                                      hint: translateText("Maximum amount"),
+                                      icon: Icons.currency_rupee,
+                                    ),
+                                    validator: _validateCommissionMax,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  _FieldCounter(
+                                    currentLength:
+                                        commissionMaxController.text.length,
+                                    maxLength: 6,
+                                  ),
                                 ],
-                                decoration: _inputDecoration(
-                                  hint: translateText("Maximum amount"),
-                                  icon: Icons.currency_rupee,
-                                ),
-                                validator: _validateCommissionMax,
-                              ),
-                              const SizedBox(height: 4),
-                              _FieldCounter(
-                                currentLength:
-                                    commissionMaxController.text.length,
-                                maxLength: 6,
-                              ),
+                              ],
                             ],
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _serviceGold,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor:
-                                _serviceGold.withValues(alpha: 0.55),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _serviceGold,
+                                foregroundColor: Colors.white,
+                                disabledBackgroundColor:
+                                    _serviceGold.withValues(alpha: 0.55),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              onPressed: _isLoading
+                                  ? null
+                                  : () async {
+                                      FocusManager.instance.primaryFocus
+                                          ?.unfocus();
+                                      if (!_autoValidate) {
+                                        setState(() => _autoValidate = true);
+                                      }
+                                      final valid =
+                                          _formKey.currentState!.validate();
+                                      if (!valid) return;
+                                      await _saveService();
+                                    },
+                              child: _isLoading
+                                  ? const SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          translateText(_isEditMode
+                                              ? 'Update Service'
+                                              : 'Add Service'),
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        const Icon(
+                                          Icons.add_task_outlined,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ],
+                                    ),
                             ),
                           ),
-                          onPressed: _isLoading
-                              ? null
-                              : () async {
-                                  FocusManager.instance.primaryFocus?.unfocus();
-                                  if (!_autoValidate) {
-                                    setState(() => _autoValidate = true);
-                                  }
-                                  final valid =
-                                      _formKey.currentState!.validate();
-                                  if (!valid) return;
-                                  await _saveService();
-                                },
-                          child: _isLoading
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      translateText(_isEditMode
-                                          ? 'Update Service'
-                                          : 'Add Service'),
-                                      style: const TextStyle(
-                                        fontSize: 15,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    const Icon(
-                                      Icons.add_task_outlined,
-                                      color: Colors.white,
-                                      size: 20,
-                                    ),
-                                  ],
-                                ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
+            if (_isLoading)
+              const Positioned.fill(child: _ServiceLoadingOverlay()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceLoadingOverlay extends StatelessWidget {
+  const _ServiceLoadingOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    return AbsorbPointer(
+      child: Container(
+        color: Colors.black.withValues(alpha: 0.16),
+        alignment: Alignment.center,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 22,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                  color: _serviceGold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                translateText('Please wait...'),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF4B3A2A),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _PassiveWaitRangeTrackShape extends RangeSliderTrackShape {
+  const _PassiveWaitRangeTrackShape();
+
+  static const double _trackHeight = 4;
+
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    const horizontalInset = 24.0;
+    final trackLeft = offset.dx + horizontalInset;
+    final trackTop = offset.dy + (parentBox.size.height - _trackHeight) / 2;
+    final trackWidth = parentBox.size.width - (horizontalInset * 2);
+    return Rect.fromLTWH(trackLeft, trackTop, trackWidth, _trackHeight);
+  }
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required TextDirection textDirection,
+    required Offset startThumbCenter,
+    required Offset endThumbCenter,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    final trackRect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+    final radius = Radius.circular(trackRect.height / 2);
+    final busyPaint = Paint()
+      ..color = sliderTheme.activeTrackColor ?? _serviceGold;
+    final passivePaint = Paint()
+      ..color = sliderTheme.inactiveTrackColor ?? _serviceBorder;
+
+    final startX = startThumbCenter.dx.clamp(trackRect.left, trackRect.right);
+    final endX = endThumbCenter.dx.clamp(trackRect.left, trackRect.right);
+    final leftThumbX = startX <= endX ? startX : endX;
+    final rightThumbX = startX <= endX ? endX : startX;
+
+    context.canvas.drawRRect(
+      RRect.fromRectAndRadius(trackRect, radius),
+      passivePaint,
+    );
+
+    if (leftThumbX > trackRect.left) {
+      context.canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(
+            trackRect.left,
+            trackRect.top,
+            leftThumbX,
+            trackRect.bottom,
+          ),
+          radius,
+        ),
+        busyPaint,
+      );
+    }
+
+    if (rightThumbX < trackRect.right) {
+      context.canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTRB(
+            rightThumbX,
+            trackRect.top,
+            trackRect.right,
+            trackRect.bottom,
+          ),
+          radius,
+        ),
+        busyPaint,
+      );
+    }
   }
 }
 
@@ -1253,10 +1669,25 @@ Map<String, dynamic>? findCategoryById(List<dynamic> categories, int id) {
   return null;
 }
 
+// Map<String, dynamic>? findSubcategoryById(List<dynamic> categories, int id) {
+//   for (final cat in categories) {
+//     for (final sub in (cat['subCategories'] ?? []) as List) {
+//       if (sub['id'] == id) return Map<String, dynamic>.from(sub);
+//     }
+//   }
+//   return null;
+// }
 Map<String, dynamic>? findSubcategoryById(List<dynamic> categories, int id) {
   for (final cat in categories) {
+    if (cat is! Map) continue;
+
     for (final sub in (cat['subCategories'] ?? []) as List) {
-      if (sub['id'] == id) return Map<String, dynamic>.from(sub);
+      if (sub is Map && sub['id'] == id) {
+        return {
+          ...Map<String, dynamic>.from(sub),
+          'branchCategoryId': cat['id'],
+        };
+      }
     }
   }
   return null;

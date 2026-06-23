@@ -5,9 +5,13 @@ class AddSalonServiceRequest {
   final String displayName; // Required
   final String description; // Required (can be empty string)
   final int durationMin; // Required
-  final int priceMinor; // Required
-  final String priceType; // Required
+  final int? priceMinor;
+  final String? priceType;
   final bool isActive; // Required
+  final bool? passiveWaitEnabled;
+  final int? initialBusyMinutes;
+  final int? passiveWaitMinutes;
+  final int? finalBusyMinutes;
   final bool? commissionEnabled;
   final String? commissionType;
   final int? commissionFixedAmountMinor;
@@ -23,6 +27,10 @@ class AddSalonServiceRequest {
     required this.priceMinor,
     required this.priceType,
     required this.isActive,
+    this.passiveWaitEnabled,
+    this.initialBusyMinutes,
+    this.passiveWaitMinutes,
+    this.finalBusyMinutes,
     this.commissionEnabled,
     this.commissionType,
     this.commissionFixedAmountMinor,
@@ -40,6 +48,18 @@ class AddSalonServiceRequest {
       "isActive": isActive,
     };
 
+    if (passiveWaitEnabled != null) {
+      data["passiveWaitEnabled"] = passiveWaitEnabled;
+    }
+    if (initialBusyMinutes != null) {
+      data["initialBusyMinutes"] = initialBusyMinutes;
+    }
+    if (passiveWaitMinutes != null) {
+      data["passiveWaitMinutes"] = passiveWaitMinutes;
+    }
+    if (finalBusyMinutes != null) {
+      data["finalBusyMinutes"] = finalBusyMinutes;
+    }
     if (commissionEnabled != null) {
       data["commissionEnabled"] = commissionEnabled;
     }
@@ -57,16 +77,19 @@ class AddSalonServiceRequest {
     }
 
     // Allow exactly one of category or subcategory
-    if (branchCategoryId != null && branchSubCategoryId != null) {
-      throw Exception(
-          "Only one of branchCategoryId or branchSubCategoryId should be provided.");
-    }
-
     if (branchCategoryId != null) {
       data["branchCategoryId"] = branchCategoryId;
-    } else if (branchSubCategoryId != null) {
+    }
+
+    if (branchSubCategoryId != null) {
       data["branchSubCategoryId"] = branchSubCategoryId;
     }
+
+    // if (branchCategoryId != null) {
+    //   data["branchCategoryId"] = branchCategoryId;
+    // } else if (branchSubCategoryId != null) {
+    //   data["branchSubCategoryId"] = branchSubCategoryId;
+    // }
 
     return data;
   }
