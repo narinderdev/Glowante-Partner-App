@@ -194,6 +194,13 @@ String _serviceCommissionTagLabel(Map<String, dynamic> service) {
   return '${translateText('Comm')} $valueLabel';
 }
 
+String _servicePassiveWaitLabel(Map<String, dynamic> service) {
+  if (service['passiveWaitEnabled'] != true) return '';
+  final waitMinutes = _serviceInt(service['passiveWaitMinutes']);
+  if (waitMinutes == null || waitMinutes <= 0) return '';
+  return '${translateText('Wait')}: $waitMinutes min';
+}
+
 int _serviceCountForCategory(Map<String, dynamic> category) {
   final seenIds = <int>{};
   int count = 0;
@@ -745,7 +752,7 @@ class CategoryScreenState extends State<CategoryScreen> {
 //       _expandedCategories.remove(deletedCategoryId);
 //       _categoryItemKeys.remove(deletedCategoryId);
 //     });
-//   } 
+//   }
 //   finally {
 //     _restoreScrollPosition();
 //   }
@@ -885,110 +892,114 @@ class CategoryScreenState extends State<CategoryScreen> {
 //     _restoreScrollPosition();
 //   }
 // }
-Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
-  if (_selectedSalon == null) return;
+  Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
+    if (_selectedSalon == null) return;
 
-  final confirmed = await showDialog<bool>(
-    context: context,
-    builder: (dialogContext) => _ConfirmDialog(
-      title: translateText('Delete Category'),
-      message: translateText('Are you sure you want to delete this category?'),
-      confirmColor: Colors.black,
-    ),
-  );
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => _ConfirmDialog(
+        title: translateText('Delete Category'),
+        message:
+            translateText('Are you sure you want to delete this category?'),
+        confirmColor: Colors.black,
+      ),
+    );
 
-  if (!mounted || confirmed != true) return;
+    if (!mounted || confirmed != true) return;
 
-  _rememberScrollPosition();
+    _rememberScrollPosition();
 
-  final branchId = _selectedSalon!['branchId'] as int;
-  final deletedCategoryId = category['id'] as int;
-  final subCategories = category['subCategories'];
+    final branchId = _selectedSalon!['branchId'] as int;
+    final deletedCategoryId = category['id'] as int;
+    final subCategories = category['subCategories'];
 
-  debugPrint('🗑️ DELETE CATEGORY START');
-  debugPrint('🗑️ categoryId: $deletedCategoryId');
-  debugPrint('🗑️ categoryName: ${category['displayName'] ?? category['name']}');
-  debugPrint(
-    '🗑️ full category: ${const JsonEncoder.withIndent('  ').convert(category)}',
-  );
+    debugPrint('🗑️ DELETE CATEGORY START');
+    debugPrint('🗑️ categoryId: $deletedCategoryId');
+    debugPrint(
+        '🗑️ categoryName: ${category['displayName'] ?? category['name']}');
+    debugPrint(
+      '🗑️ full category: ${const JsonEncoder.withIndent('  ').convert(category)}',
+    );
 
-  if (subCategories is List && subCategories.isNotEmpty) {
-    debugPrint('❌ Category delete blocked. Existing subcategories:');
+    if (subCategories is List && subCategories.isNotEmpty) {
+      debugPrint('❌ Category delete blocked. Existing subcategories:');
 
-    setState(() {
-      _selectedFilterCategoryId = deletedCategoryId;
-      _expandedCategories[deletedCategoryId] = true;
+      setState(() {
+        _selectedFilterCategoryId = deletedCategoryId;
+        _expandedCategories[deletedCategoryId] = true;
 
-      for (final sub in subCategories) {
-        if (sub is Map && sub['id'] != null) {
-          final subId = sub['id'] as int;
-          _expandedSubcategories[subId] = true;
+        for (final sub in subCategories) {
+          if (sub is Map && sub['id'] != null) {
+            final subId = sub['id'] as int;
+            _expandedSubcategories[subId] = true;
 
-          debugPrint(
-            '   id=$subId, name=${sub['displayName'] ?? sub['name']}, services=${(sub['services'] is List) ? (sub['services'] as List).length : 0}',
-          );
+            debugPrint(
+              '   id=$subId, name=${sub['displayName'] ?? sub['name']}, services=${(sub['services'] is List) ? (sub['services'] as List).length : 0}',
+            );
+          }
         }
-      }
-    });
+      });
 
-   _toast('Cannot delete category: active subcategories exist under this category');
-    _ensureCatalogTargetVisible(_categoryItemKeys[deletedCategoryId]);
-    _restoreScrollPosition();
-    return;
-  }
-
-  final categoryServices = category['services'];
-  if (categoryServices is List && categoryServices.isNotEmpty) {
-    debugPrint('❌ Category delete blocked. Existing direct services:');
-
-    for (final service in categoryServices) {
-      if (service is Map) {
-        debugPrint(
-          '   id=${service['id']}, name=${service['displayName'] ?? service['name']}',
-        );
-      }
-    }
-
-    setState(() {
-      _selectedFilterCategoryId = deletedCategoryId;
-      _expandedCategories[deletedCategoryId] = true;
-    });
-
-    _toast('Please delete services first.');
-    _ensureCatalogTargetVisible(_categoryItemKeys[deletedCategoryId]);
-    _restoreScrollPosition();
-    return;
-  }
-
-  try {
-    await context.read<CategoryCubit>().deleteCategory(
-          branchId,
-          deletedCategoryId,
-        );
-
-    final deleteState = context.read<CategoryCubit>().state;
-
-    if (deleteState.status == CategoryStatus.actionFailure) {
-      debugPrint('❌ DELETE CATEGORY FAILED: ${deleteState.message}');
+      _toast(
+          'Cannot delete category: active subcategories exist under this category');
+      _ensureCatalogTargetVisible(_categoryItemKeys[deletedCategoryId]);
+      _restoreScrollPosition();
       return;
     }
 
-    debugPrint('✅ DELETE CATEGORY DONE');
+    final categoryServices = category['services'];
+    if (categoryServices is List && categoryServices.isNotEmpty) {
+      debugPrint('❌ Category delete blocked. Existing direct services:');
 
-    if (!mounted) return;
-
-    setState(() {
-      if (_selectedFilterCategoryId == deletedCategoryId) {
-        _selectedFilterCategoryId = null;
+      for (final service in categoryServices) {
+        if (service is Map) {
+          debugPrint(
+            '   id=${service['id']}, name=${service['displayName'] ?? service['name']}',
+          );
+        }
       }
 
-      _expandedCategories.remove(deletedCategoryId);
-      _categoryItemKeys.remove(deletedCategoryId);
-    });
-  } finally {
-    _restoreScrollPosition();
+      setState(() {
+        _selectedFilterCategoryId = deletedCategoryId;
+        _expandedCategories[deletedCategoryId] = true;
+      });
+
+      _toast('Please delete services first.');
+      _ensureCatalogTargetVisible(_categoryItemKeys[deletedCategoryId]);
+      _restoreScrollPosition();
+      return;
+    }
+
+    try {
+      await context.read<CategoryCubit>().deleteCategory(
+            branchId,
+            deletedCategoryId,
+          );
+
+      final deleteState = context.read<CategoryCubit>().state;
+
+      if (deleteState.status == CategoryStatus.actionFailure) {
+        debugPrint('❌ DELETE CATEGORY FAILED: ${deleteState.message}');
+        return;
+      }
+
+      debugPrint('✅ DELETE CATEGORY DONE');
+
+      if (!mounted) return;
+
+      setState(() {
+        if (_selectedFilterCategoryId == deletedCategoryId) {
+          _selectedFilterCategoryId = null;
+        }
+
+        _expandedCategories.remove(deletedCategoryId);
+        _categoryItemKeys.remove(deletedCategoryId);
+      });
+    } finally {
+      _restoreScrollPosition();
+    }
   }
-}
+
   // ---------- CONFIRM DELETE SUBCATEGORY ----------
   Future<void> _confirmDeleteSubCategory(
     Map<String, dynamic> subCategory,
@@ -1018,25 +1029,27 @@ Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
       _restoreScrollPosition();
     }
   }
-String? validateCommissionMax({
-  required int priceMinor,
-  required bool commissionEnabled,
-  required String commissionType,
-  required double commissionPercentage,
-  required int? commissionMaxAmountMinor,
-}) {
-  if (!commissionEnabled) return null;
-  if (commissionType.toLowerCase() != 'percentage') return null;
-  if (commissionMaxAmountMinor == null) return null;
 
-  final allowedMax = (priceMinor * commissionPercentage / 100).floor();
+  String? validateCommissionMax({
+    required int priceMinor,
+    required bool commissionEnabled,
+    required String commissionType,
+    required double commissionPercentage,
+    required int? commissionMaxAmountMinor,
+  }) {
+    if (!commissionEnabled) return null;
+    if (commissionType.toLowerCase() != 'percentage') return null;
+    if (commissionMaxAmountMinor == null) return null;
 
-  if (commissionMaxAmountMinor > allowedMax) {
-    return 'Max commission cannot exceed ${formatMinorAmount(allowedMax)} for the selected price and percentage.';
+    final allowedMax = (priceMinor * commissionPercentage / 100).floor();
+
+    if (commissionMaxAmountMinor > allowedMax) {
+      return 'Max commission cannot exceed ${formatMinorAmount(allowedMax)} for the selected price and percentage.';
+    }
+
+    return null;
   }
 
-  return null;
-}
   // ---------- EDIT SERVICE ----------
   Future<void> _showUpdateServiceSheet(Map<String, dynamic> service) async {
     if (_selectedSalon == null) return;
@@ -1149,9 +1162,9 @@ String? validateCommissionMax({
           .toSet();
       final Set<String> selectedCodes = <String>{...initiallySelectedCodes};
       debugPrint('🟡 existingBranchCodes: $existingBranchCodes');
-debugPrint('🟡 catalogCodes: $catalogCodes');
-debugPrint('🟡 initiallySelectedCodes: $initiallySelectedCodes');
-debugPrint('🟡 selectedCodes initial: $selectedCodes');
+      debugPrint('🟡 catalogCodes: $catalogCodes');
+      debugPrint('🟡 initiallySelectedCodes: $initiallySelectedCodes');
+      debugPrint('🟡 selectedCodes initial: $selectedCodes');
       bool isImporting = false;
       final imported = await showGeneralDialog<List<String>>(
         context: context,
@@ -1319,8 +1332,8 @@ debugPrint('🟡 selectedCodes initial: $selectedCodes');
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: isImporting
-    ? null
-    : () async {
+                                  ? null
+                                  : () async {
                                       setSheetState(() => isImporting = true);
                                       try {
                                         // final selectedActualCodes =
@@ -1345,25 +1358,38 @@ debugPrint('🟡 selectedCodes initial: $selectedCodes');
                                         //               code)
                                         //           .toList(),
                                         // );
-                                        final selectedActualCodes = selectedCodes
-    .map((code) => catalogCodeMap[code] ?? code)
-    .toList();
+                                        final selectedActualCodes =
+                                            selectedCodes
+                                                .map((code) =>
+                                                    catalogCodeMap[code] ??
+                                                    code)
+                                                .toList();
 
-final unselectedActualCodes = initiallySelectedCodes
-    .where((code) => !selectedCodes.contains(code))
-    .map((code) => catalogCodeMap[code] ?? code)
-    .toList();
+                                        final unselectedActualCodes =
+                                            initiallySelectedCodes
+                                                .where((code) => !selectedCodes
+                                                    .contains(code))
+                                                .map((code) =>
+                                                    catalogCodeMap[code] ??
+                                                    code)
+                                                .toList();
 
-debugPrint('🟢 selectedCodes before import: $selectedCodes');
-debugPrint('🟢 initiallySelectedCodes before import: $initiallySelectedCodes');
-debugPrint('🟢 sending serviceCodes: $selectedActualCodes');
-debugPrint('🔴 sending unselectedCodes: $unselectedActualCodes');
+                                        debugPrint(
+                                            '🟢 selectedCodes before import: $selectedCodes');
+                                        debugPrint(
+                                            '🟢 initiallySelectedCodes before import: $initiallySelectedCodes');
+                                        debugPrint(
+                                            '🟢 sending serviceCodes: $selectedActualCodes');
+                                        debugPrint(
+                                            '🔴 sending unselectedCodes: $unselectedActualCodes');
 
-await ApiService().importPredefinedServices(
-  branchId: branchId,
-  serviceCodes: selectedActualCodes,
-  unselectedCodes: unselectedActualCodes,
-);
+                                        await ApiService()
+                                            .importPredefinedServices(
+                                          branchId: branchId,
+                                          serviceCodes: selectedActualCodes,
+                                          unselectedCodes:
+                                              unselectedActualCodes,
+                                        );
                                         if (!sheetContext.mounted) return;
                                         Navigator.pop(
                                           sheetContext,
@@ -2962,13 +2988,17 @@ class _ServiceCard extends StatelessWidget {
     final int? duration = _serviceInt(service['durationMin']);
     final String description = (service['description'] ?? '').toString().trim();
     final String commissionTagLabel = _serviceCommissionTagLabel(service);
+    final String waitLabel = _servicePassiveWaitLabel(service);
 
     final String priceLabel =
         price != null ? formatMinorAmount(price) : translateText('No price');
     final String durationLabel =
         duration != null ? '$duration min' : translateText('No duration');
-    final String serviceMeta =
-        description.isEmpty ? durationLabel : '$durationLabel • $description';
+    final String serviceMeta = [
+      durationLabel,
+      if (waitLabel.isNotEmpty) waitLabel,
+      if (description.isNotEmpty) description,
+    ].join(' • ');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

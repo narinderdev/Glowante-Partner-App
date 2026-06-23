@@ -103,6 +103,13 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
     return context.t('Enabled');
   }
 
+  String _passiveWaitLabel(Map<String, dynamic> service) {
+    if (service['passiveWaitEnabled'] != true) return '';
+    final waitMinutes = _asInt(service['passiveWaitMinutes']);
+    if (waitMinutes == null || waitMinutes <= 0) return '';
+    return '${context.t('Wait')}: $waitMinutes min';
+  }
+
   ({
     bool foundBranch,
     bool hasAssignedPayload,
@@ -298,11 +305,13 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                 final bool isActive = service['isActive'] != false;
                 final commissionType = _commissionTypeLabel(service);
                 final commissionValue = _commissionValueLabel(service);
+                final waitLabel = _passiveWaitLabel(service);
 
                 final details = <String>[
                   if (category.isNotEmpty) category,
                   if (subcategory.isNotEmpty) subcategory,
                   if (duration != null && duration > 0) '$duration min',
+                  if (waitLabel.isNotEmpty) waitLabel,
                 ].join(' • ');
 
                 return Card(
