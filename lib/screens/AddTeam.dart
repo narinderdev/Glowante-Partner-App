@@ -73,7 +73,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   final _otpCtrl = TextEditingController();
   final _briefCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
-final _experienceCtrl = TextEditingController();
+  final _experienceCtrl = TextEditingController();
   final FocusNode _firstNameFocus = FocusNode();
   final FocusNode _lastNameFocus = FocusNode();
   final FocusNode _emailFocus = FocusNode();
@@ -148,20 +148,22 @@ final _experienceCtrl = TextEditingController();
 
     return null;
   }
-String? _vExperience(String? v) {
-  if (_suppressExperienceError) return null;
 
-  final x = (v ?? '').trim();
+  String? _vExperience(String? v) {
+    if (_suppressExperienceError) return null;
 
-  if (x.isEmpty) return translateText('Experience is required');
+    final x = (v ?? '').trim();
 
-  final exp = int.tryParse(x);
-  if (exp == null) return translateText('Enter valid experience');
+    if (x.isEmpty) return translateText('Experience is required');
 
-  if (exp < 0) return translateText('Experience cannot be negative');
+    final exp = int.tryParse(x);
+    if (exp == null) return translateText('Enter valid experience');
 
-  return null;
-}
+    if (exp < 0) return translateText('Experience cannot be negative');
+
+    return null;
+  }
+
   String? _vFirstName(String? v) {
     if (_suppressFirstNameError) return null;
 
@@ -182,17 +184,18 @@ String? _vExperience(String? v) {
     return null;
   }
 
- String? _vBrief(String? v) {
-  if (_suppressBriefError) return null;
+  String? _vBrief(String? v) {
+    if (_suppressBriefError) return null;
 
-  final x = (v ?? '').trim();
+    final x = (v ?? '').trim();
 
-  if (x.isEmpty) {
-    return translateText('Brief about team member is required');
+    if (x.isEmpty) {
+      return translateText('Brief about team member is required');
+    }
+
+    return null;
   }
 
-  return null;
-}
   String? _vEmail(String? v) {
     if (_suppressEmailError) return null;
 
@@ -313,8 +316,8 @@ String? _vExperience(String? v) {
         'professionalBio',
       ],
     );
-final exp = branchAssignment?['experience'] ?? member['experience'];
-_experienceCtrl.text = exp?.toString() ?? '';
+    final exp = branchAssignment?['experience'] ?? member['experience'];
+    _experienceCtrl.text = exp?.toString() ?? '';
     _existingImageUrl =
         (member['profilePictureUrl'] ?? '').toString().trim().isEmpty
             ? null
@@ -1314,7 +1317,7 @@ _experienceCtrl.text = exp?.toString() ?? '';
     push(_vSpecs());
     push(_vJoiningDate());
     push(_vBrief(_briefCtrl.text));
-push(_vExperience(_experienceCtrl.text));
+    push(_vExperience(_experienceCtrl.text));
     if (errors.isNotEmpty) {
       await _showValidationDialog(errors);
       return false;
@@ -1323,8 +1326,168 @@ push(_vExperience(_experienceCtrl.text));
     return true;
   }
 
+  Future<bool> _validateUniqueTeamContact() async {
+    final phone = _digitsOnly(_phoneCtrl.text);
+    final email = _emailCtrl.text.trim().toLowerCase();
+    if (phone.isEmpty && email.isEmpty) return true;
+
+    final currentUserIds = _currentMemberIds();
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final response = await ApiService.getTeamMembers(widget.branchId);
+      if (!mounted) return false;
+      if (response['success'] != true) {
+        await _showValidationDialog([
+          translateText(
+            'Unable to validate phone or email right now. Please try again.',
+          ),
+        ]);
+        return false;
+      }
+
+      final existingMembers = _teamMembersFromResponse(response);
+      for (final member in existingMembers) {
+        final memberIds = _memberIds(member);
+        if (widget.isEdit && memberIds.any(currentUserIds.contains)) {
+          continue;
+        }
+
+        final memberPhone = _digitsOnly(
+          _firstTextValue(
+            [member],
+            const [
+              'phoneNumber',
+              'phone',
+              'mobile',
+              'mobileNumber',
+              'contactNumber',
+              'fullPhoneNumber',
+            ],
+          ),
+        );
+        final memberEmail = _firstTextValue(
+          [member],
+          const ['email', 'emailAddress'],
+        ).toLowerCase();
+
+        if (phone.isNotEmpty && memberPhone == phone) {
+          await _showValidationDialog([
+            translateText('Phone number already exists.'),
+          ]);
+          return false;
+        }
+
+        if (email.isNotEmpty && memberEmail == email) {
+          await _showValidationDialog([
+            translateText('Email already exists.'),
+          ]);
+          return false;
+        }
+      }
+    } catch (error) {
+      debugPrint('Team contact duplicate check failed: $error');
+      if (mounted) {
+        await _showValidationDialog([
+          translateText(
+            'Unable to validate phone or email right now. Please try again.',
+          ),
+        ]);
+      }
+      return false;
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+
+    return true;
+  }
+
+  List<Map<String, dynamic>> _teamMembersFromResponse(
+    Map<String, dynamic> response,
+  ) {
+    final data = response['data'];
+    final rawMembers = data is List
+        ? data
+        : data is Map && data['teamMembers'] is List
+            ? data['teamMembers'] as List
+            : data is Map && data['members'] is List
+                ? data['members'] as List
+                : const [];
+
+    return rawMembers
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  String _digitsOnly(String value) {
+    return value.replaceAll(RegExp(r'\D'), '');
+  }
+
+  String _initialPhoneNumber() {
+    final member = widget.initialMember;
+    if (member == null) return '';
+    return _firstTextValue(
+      [member],
+      const [
+        'phoneNumber',
+        'phone',
+        'mobile',
+        'mobileNumber',
+        'contactNumber',
+        'fullPhoneNumber',
+      ],
+    );
+  }
+
+  String _initialEmail() {
+    final member = widget.initialMember;
+    if (member == null) return '';
+    return _firstTextValue(
+      [member],
+      const ['email', 'emailAddress'],
+    );
+  }
+
+  Set<int> _currentMemberIds() {
+    final member = widget.initialMember;
+    if (member == null) return const {};
+    return _memberIds(member);
+  }
+
+  Set<int> _memberIds(Map<String, dynamic> member) {
+    final ids = <int>{};
+
+    void add(dynamic value) {
+      final id = _readInt(value);
+      if (id != null) ids.add(id);
+    }
+
+    add(member['id']);
+    add(member['userId']);
+    add(member['teamMemberId']);
+    add(member['employeeId']);
+
+    final user = member['user'];
+    if (user is Map) {
+      add(user['id']);
+      add(user['userId']);
+    }
+
+    return ids;
+  }
+
+  int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '');
+  }
+
   Future<void> _submitEditMember() async {
     if (!await _validateFormAndShowAlert()) return;
+    if (!await _validateUniqueTeamContact()) return;
+    if (!mounted) return;
 
     final userId = (widget.initialMember?['id'] as num?)?.toInt();
     if (userId == null) {
@@ -1398,6 +1561,8 @@ push(_vExperience(_experienceCtrl.text));
     _dismissKeyboard();
 
     if (!await _validateFormAndShowAlert()) return;
+    if (!await _validateUniqueTeamContact()) return;
+    if (!mounted) return;
 
     String capitalizeFirst(String value) =>
         value.isNotEmpty ? value[0].toUpperCase() + value.substring(1) : value;
@@ -1414,6 +1579,8 @@ push(_vExperience(_experienceCtrl.text));
     final payload = <String, dynamic>{
       'isEdit': widget.isEdit,
       if (widget.isEdit && userId != null) 'userId': userId,
+      if (widget.isEdit) 'originalPhoneNumber': _initialPhoneNumber(),
+      if (widget.isEdit) 'originalEmail': _initialEmail(),
       'countryCode': '+91',
       'phoneNumber': _phoneCtrl.text.trim(),
       'firstName': capitalizeFirst(_firstNameCtrl.text.trim()),
@@ -2273,72 +2440,71 @@ push(_vExperience(_experienceCtrl.text));
                               : const SizedBox.shrink(),
                         ),
                       const SizedBox(height: 16),
-                       _reqLabel(translateText('Experience')),
-const SizedBox(height: 8),
-TextFormField(
-  controller: _experienceCtrl,
-  keyboardType: TextInputType.number,
-  maxLength: 2,
-  buildCounter: (
-  context, {
-  required currentLength,
-  required isFocused,
-  required maxLength,
-}) {
-  return Text(
-    '$currentLength/$maxLength',
-    style: const TextStyle(
-      color: Color(0xFF8D867F),
-      fontSize: 12,
-      height: 1.15,
-    ),
-  );
-},
-  inputFormatters: [
-    FilteringTextInputFormatter.digitsOnly,
-    LengthLimitingTextInputFormatter(2),
-  ],
-  decoration: _decor(
-    hint: translateText('Enter experience in years'),
-  ),
-  validator: _vExperience,
- onChanged: (_) {
-  if (!_suppressExperienceError) {
-    setState(() => _suppressExperienceError = true);
-  }
+                      _reqLabel(translateText('Experience')),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: _experienceCtrl,
+                        keyboardType: TextInputType.number,
+                        maxLength: 2,
+                        buildCounter: (
+                          context, {
+                          required currentLength,
+                          required isFocused,
+                          required maxLength,
+                        }) {
+                          return Text(
+                            '$currentLength/$maxLength',
+                            style: const TextStyle(
+                              color: Color(0xFF8D867F),
+                              fontSize: 12,
+                              height: 1.15,
+                            ),
+                          );
+                        },
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(2),
+                        ],
+                        decoration: _decor(
+                          hint: translateText('Enter experience in years'),
+                        ),
+                        validator: _vExperience,
+                        onChanged: (_) {
+                          if (!_suppressExperienceError) {
+                            setState(() => _suppressExperienceError = true);
+                          }
 
-  _formKey.currentState?.validate();
-},
-),
-const SizedBox(height: 16),
+                          _formKey.currentState?.validate();
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       _reqLabel(translateText('Brief About Team Member')),
                       const SizedBox(height: 8),
-                     
                       TextFormField(
-  focusNode: _brieftFocus,
-  controller: _briefCtrl,
-  maxLines: 4,
-  maxLength: AppInputRules.mediumTextMaxLength,
-  maxLengthEnforcement: MaxLengthEnforcement.enforced,
-  keyboardType: TextInputType.text,
-  textCapitalization: TextCapitalization.sentences,
-  inputFormatters: AppInputRules.generalTextFormatters(),
-  decoration: _decor(
-    hint: translateText(
-      "Tell us about the team member's experience and expertise...",
-    ),
-  ).copyWith(
-    contentPadding: const EdgeInsets.all(14),
-  ),
-  validator: _vBrief,
-  onChanged: (_) {
-    if (!_suppressBriefError) {
-      setState(() => _suppressBriefError = true);
-    }
+                        focusNode: _brieftFocus,
+                        controller: _briefCtrl,
+                        maxLines: 4,
+                        maxLength: AppInputRules.mediumTextMaxLength,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
+                        keyboardType: TextInputType.text,
+                        textCapitalization: TextCapitalization.sentences,
+                        inputFormatters: AppInputRules.generalTextFormatters(),
+                        decoration: _decor(
+                          hint: translateText(
+                            "Tell us about the team member's experience and expertise...",
+                          ),
+                        ).copyWith(
+                          contentPadding: const EdgeInsets.all(14),
+                        ),
+                        validator: _vBrief,
+                        onChanged: (_) {
+                          if (!_suppressBriefError) {
+                            setState(() => _suppressBriefError = true);
+                          }
 
-    _formKey.currentState?.validate();
-  },
-),
+                          _formKey.currentState?.validate();
+                        },
+                      ),
                       const SizedBox(height: 34),
                       _promoCard(),
                       const SizedBox(height: 28),

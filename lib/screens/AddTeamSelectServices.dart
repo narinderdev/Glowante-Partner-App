@@ -236,6 +236,9 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
 
     final result = <String, dynamic>{
       'countryCode': countryCode,
+      if (base['originalPhoneNumber'] != null)
+        'originalPhoneNumber': base['originalPhoneNumber'],
+      if (base['originalEmail'] != null) 'originalEmail': base['originalEmail'],
       'phoneNumber': base['phoneNumber'],
       'firstName': base['firstName'],
       'lastName': base['lastName'],
@@ -250,10 +253,10 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       'profilePictureUrl': base['profilePictureUrl'],
       'allowOnlineBooking': base['allowOnlineBooking'] ?? false,
       'experience': int.tryParse(
-    base['experience']?.toString() ?? '',
-  ) ?? 0,
+            base['experience']?.toString() ?? '',
+          ) ??
+          0,
       if (base['address'] != null) 'address': base['address'],
-      
     };
 
     debugPrint('FINAL PAYLOAD TO AVAILABILITY SCREEN: $result');
@@ -524,6 +527,11 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       );
 
       final int branchId = (widget.teamMemberData['branchId'] as int?) ?? 0;
+      debugPrint(
+        '[AddTeamSelectServices] Opening online availability '
+        'isEdit=${widget.teamMemberData['isEdit'] == true} '
+        'branchId=$branchId selectedServices=$_selectedServiceIds',
+      );
       final response = await Navigator.push<bool>(
         context,
         MaterialPageRoute(

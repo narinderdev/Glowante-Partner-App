@@ -16,6 +16,8 @@ const Color _membershipBorder = Color(0xFFE8DED6);
 const Color _membershipText = Color(0xFF2B241D);
 const Color _membershipMuted = Color(0xFF8C7A66);
 const Color _membershipSurface = Colors.white;
+const String _monthlyBlockedMessage =
+    'Monthly plans are available only for salons with one branch. Please choose yearly billing.';
 
 class OwnerMembershipScreen extends StatefulWidget {
   const OwnerMembershipScreen({super.key});
@@ -37,6 +39,8 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
   bool _isPaying = false;
   bool _yearlyBilling = false;
   String? _errorMessage;
+
+  bool get _monthlyPlansBlocked => (_selectedSalon?.branchCount ?? 0) > 1;
 
   @override
   void initState() {
@@ -71,6 +75,8 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         _selectedSalon = salonOptions.selected;
         _plans = _parsePlans(plansResponse);
         _subscription = _parseSubscription(subscriptionResponse);
+        _yearlyBilling =
+            (salonOptions.selected?.branchCount ?? 0) > 1 || _yearlyBilling;
         _isLoading = false;
       });
     } catch (error) {
@@ -111,6 +117,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
               : _cleanText(salon['name']),
           address:
               salonAddress.isNotEmpty ? salonAddress : fallbackBranchAddress,
+          branchCount: branches.length,
         ),
       );
     }
@@ -136,15 +143,39 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     await prefs.setString('stylist_selected_salon_name', salon.name);
   }
 
+  // String _addressSummary(dynamic rawAddress) {
+  //   if (rawAddress is! Map) return '';
+  //   final address = Map<String, dynamic>.from(rawAddress);
+  //   final parts = <String>[];
+  //   for (final key in ['line1', 'line2', 'city', 'state']) {
+  //     final value = _cleanText(address[key]);
+  //     if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
+  //   }
+  //   return parts.take(2).join(', ');
+  // }
   String _addressSummary(dynamic rawAddress) {
     if (rawAddress is! Map) return '';
+
     final address = Map<String, dynamic>.from(rawAddress);
     final parts = <String>[];
-    for (final key in ['line1', 'line2', 'city', 'state']) {
+
+    for (final key in [
+      'line1',
+      'line2',
+      'village',
+      'district',
+      'city',
+      'state',
+      'postalCode',
+      'country',
+    ]) {
       final value = _cleanText(address[key]);
-      if (value.isNotEmpty && !parts.contains(value)) parts.add(value);
+      if (value.isNotEmpty && !parts.contains(value)) {
+        parts.add(value);
+      }
     }
-    return parts.take(2).join(', ');
+
+    return parts.join(', ');
   }
 
   List<_MembershipPlan> _parsePlans(Map<String, dynamic> response) {
@@ -199,6 +230,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         plan: plan,
         initialYearlyBilling: _yearlyBilling,
         subscription: _subscription,
+        allowMonthly: !_monthlyPlansBlocked,
       ),
     );
     if (selection == null || !mounted) return;
@@ -227,6 +259,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       builder: (context) => _RenewMembershipDialog(
         plan: plan,
         subscription: subscription,
+        allowMonthly: !_monthlyPlansBlocked,
       ),
     );
     if (selection == null || !mounted) return;
@@ -258,12 +291,77 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         yearlyBilling: _yearlyBilling,
         currentPlanId: _subscription?.currentPlanId,
         subscription: _subscription,
-        onBillingChanged: (value) => setState(() => _yearlyBilling = value),
+        allowMonthly: !_monthlyPlansBlocked,
+        onBillingChanged: (value) => setState(() {
+          _yearlyBilling = _monthlyPlansBlocked ? true : value;
+        }),
       ),
     );
     if (selectedPlan == null || !mounted) return;
 
     await _choosePlan(selectedPlan);
+  }
+
+  Future<void> _activateUpcomingMembership() async {
+    final salonId = _salonId;
+    final subscription = _subscription;
+    final upcoming = subscription?.upcomingMembership;
+    if (salonId == null || subscription == null || upcoming == null) return;
+
+    final planId = upcoming.planId ?? _planIdForUpcoming(upcoming);
+    if (planId == null) {
+      _showSnack('Unable to find upcoming membership plan.');
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => _ImmediateReplaceDialog(
+        planName: upcoming.planName,
+        billingCycle: _cycleLabel(upcoming.billingCycle),
+        remainingDays:
+            subscription.daysRemaining < 0 ? 0 : subscription.daysRemaining,
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isPaying = true);
+    final response = await _apiService.activateSalonSubscriptionNow(
+      salonId: salonId,
+      planId: planId,
+      billingCycle: upcoming.billingCycle,
+    );
+    if (!mounted) return;
+
+    setState(() => _isPaying = false);
+    if (response['success'] == true) {
+      final forfeitedDays = _readForfeitedDays(response);
+      _showSnack(
+        forfeitedDays != null
+            ? 'Membership updated successfully. $forfeitedDays remaining days were forfeited.'
+            : 'Membership updated successfully.',
+      );
+      await _loadMembership();
+      return;
+    }
+
+    _showSnack(
+        response['message']?.toString() ?? 'Unable to activate membership.');
+  }
+
+  int? _planIdForUpcoming(_UpcomingMembership upcoming) {
+    final targetName = upcoming.planName.trim().toLowerCase();
+    final targetCycle = _isYearlyCycle(upcoming.billingCycle);
+    for (final plan in _plans) {
+      if (plan.name.trim().toLowerCase() != targetName) continue;
+      if (plan.amountFor(targetCycle) == upcoming.amountMinor) {
+        return plan.id;
+      }
+    }
+    for (final plan in _plans) {
+      if (plan.name.trim().toLowerCase() == targetName) return plan.id;
+    }
+    return null;
   }
 
   _MembershipPlan _planForSubscription(_SalonSubscription subscription) {
@@ -292,6 +390,11 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     if (selection.amountMinor <= 0) {
       _showSnack('Selected plan amount is invalid.');
       return;
+    }
+
+    if (selection.replaceCurrentPlan) {
+      final confirmed = await _confirmImmediateReplace(selection);
+      if (!confirmed) return;
     }
 
     setState(() => _isPaying = true);
@@ -336,13 +439,19 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       razorpaySignature: result.signature,
       amountMinor: selection.amountMinor,
       currency: selection.plan.currency,
+      replaceCurrentPlan: selection.replaceCurrentPlan,
     );
 
     if (!mounted) return;
 
     if (response['success'] == true) {
       setState(() => _isPaying = false);
-      _showSnack('Membership updated successfully.');
+      final forfeitedDays = _readForfeitedDays(response);
+      _showSnack(
+        selection.replaceCurrentPlan && forfeitedDays != null
+            ? 'Membership updated successfully. $forfeitedDays remaining days were forfeited.'
+            : 'Membership updated successfully.',
+      );
       await _loadMembership();
       return;
     }
@@ -350,6 +459,21 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     setState(() => _isPaying = false);
     _showSnack(
         response['message']?.toString() ?? 'Unable to update membership.');
+  }
+
+  Future<bool> _confirmImmediateReplace(_PurchaseSelection selection) async {
+    final subscription = _subscription;
+    final remainingDays = subscription?.daysRemaining ?? 0;
+    final positiveDays = remainingDays < 0 ? 0 : remainingDays;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => _ImmediateReplaceDialog(
+        planName: selection.plan.name,
+        billingCycle: _cycleLabel(selection.billingCycle),
+        remainingDays: positiveDays,
+      ),
+    );
+    return confirmed == true;
   }
 
   void _showSnack(String message) {
@@ -364,6 +488,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     setState(() {
       _selectedSalon = salon;
       _salonId = salon.salonId;
+      _yearlyBilling = salon.branchCount > 1 ? true : _yearlyBilling;
       _isLoading = true;
       _errorMessage = null;
     });
@@ -393,7 +518,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
             (salon) => OwnerBranchHeaderSelectorOption<_MembershipSalonOption>(
               value: salon,
               label: salon.name,
-              subtitle: salon.address,
+              subtitle: _salonSelectorSubtitle(salon),
             ),
           )
           .toList(),
@@ -402,6 +527,13 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       isInteractive: _salonOptions.length > 1,
       onSelected: _switchSalon,
     );
+  }
+
+  String _salonSelectorSubtitle(_MembershipSalonOption salon) {
+    final branchLabel =
+        salon.branchCount == 1 ? '1 branch' : '${salon.branchCount} branches';
+    if (salon.address.isEmpty) return branchLabel;
+    return '$branchLabel • ${salon.address}';
   }
 
   @override
@@ -502,7 +634,9 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
               onRenew: _renewCurrentPlan,
               onPlans: _showAvailablePlans,
               onPaymentHistory: _showPaymentHistory,
+              onActivateUpcoming: _activateUpcomingMembership,
             ),
+            onActivateUpcoming: _activateUpcomingMembership,
           ),
           const SizedBox(height: 14),
           _UsageGrid(subscription: _subscription!),
@@ -511,8 +645,11 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         if (_subscription == null) ...[
           _PlansHeader(
             yearlyBilling: _yearlyBilling,
+            allowMonthly: !_monthlyPlansBlocked,
             onBillingChanged: (value) {
-              setState(() => _yearlyBilling = value);
+              setState(() {
+                _yearlyBilling = _monthlyPlansBlocked ? true : value;
+              });
             },
           ),
           const SizedBox(height: 16),
@@ -539,10 +676,12 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
 class _PlansHeader extends StatelessWidget {
   const _PlansHeader({
     required this.yearlyBilling,
+    required this.allowMonthly,
     required this.onBillingChanged,
   });
 
   final bool yearlyBilling;
+  final bool allowMonthly;
   final ValueChanged<bool> onBillingChanged;
 
   @override
@@ -579,7 +718,15 @@ class _PlansHeader extends StatelessWidget {
               activeTrackColor: const Color(0xFFE7D6A8),
               inactiveThumbColor: AppColors.starColor,
               inactiveTrackColor: const Color(0xFFE9E1D7),
-              onChanged: onBillingChanged,
+              onChanged: (value) {
+                if (!value && !allowMonthly) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(context.t(_monthlyBlockedMessage))),
+                  );
+                  return;
+                }
+                onBillingChanged(value);
+              },
             ),
             _BillingLabel(label: 'Yearly', active: yearlyBilling),
             const SizedBox(width: 8),
@@ -601,6 +748,20 @@ class _PlansHeader extends StatelessWidget {
             ),
           ],
         ),
+        if (!allowMonthly) ...[
+          const SizedBox(height: 8),
+          Text(
+            context.t(_monthlyBlockedMessage),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 11,
+              height: 1.35,
+              color: _membershipMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -641,11 +802,13 @@ class _MembershipSalonOption {
     required this.salonId,
     required this.name,
     required this.address,
+    required this.branchCount,
   });
 
   final int salonId;
   final String name;
   final String address;
+  final int branchCount;
 }
 
 class _PlansGrid extends StatelessWidget {
@@ -901,9 +1064,13 @@ class _FeatureLine extends StatelessWidget {
 }
 
 class _CurrentMembershipCard extends StatelessWidget {
-  const _CurrentMembershipCard({required this.subscription});
+  const _CurrentMembershipCard({
+    required this.subscription,
+    required this.onActivateUpcoming,
+  });
 
   final _SalonSubscription subscription;
+  final VoidCallback onActivateUpcoming;
 
   @override
   Widget build(BuildContext context) {
@@ -1039,6 +1206,7 @@ class _CurrentMembershipCard extends StatelessWidget {
             const SizedBox(height: 14),
             _UpcomingMembershipPanel(
               upcomingMembership: subscription.upcomingMembership!,
+              onActivate: onActivateUpcoming,
             ),
           ],
         ],
@@ -1048,9 +1216,13 @@ class _CurrentMembershipCard extends StatelessWidget {
 }
 
 class _UpcomingMembershipPanel extends StatelessWidget {
-  const _UpcomingMembershipPanel({required this.upcomingMembership});
+  const _UpcomingMembershipPanel({
+    required this.upcomingMembership,
+    required this.onActivate,
+  });
 
   final _UpcomingMembership upcomingMembership;
+  final VoidCallback onActivate;
 
   @override
   Widget build(BuildContext context) {
@@ -1104,6 +1276,24 @@ class _UpcomingMembershipPanel extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onActivate,
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              label: Text(context.t('Activate Upgrade')),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2F8A4C),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -1114,10 +1304,12 @@ class _MembershipSummaryRow extends StatelessWidget {
   const _MembershipSummaryRow({
     required this.subscription,
     required this.actions,
+    required this.onActivateUpcoming,
   });
 
   final _SalonSubscription subscription;
   final Widget actions;
+  final VoidCallback onActivateUpcoming;
 
   @override
   Widget build(BuildContext context) {
@@ -1126,7 +1318,10 @@ class _MembershipSummaryRow extends StatelessWidget {
         if (constraints.maxWidth < 680) {
           return Column(
             children: [
-              _CurrentMembershipCard(subscription: subscription),
+              _CurrentMembershipCard(
+                subscription: subscription,
+                onActivateUpcoming: onActivateUpcoming,
+              ),
               const SizedBox(height: 14),
               actions,
             ],
@@ -1138,7 +1333,10 @@ class _MembershipSummaryRow extends StatelessWidget {
           children: [
             Expanded(
               flex: 2,
-              child: _CurrentMembershipCard(subscription: subscription),
+              child: _CurrentMembershipCard(
+                subscription: subscription,
+                onActivateUpcoming: onActivateUpcoming,
+              ),
             ),
             const SizedBox(width: 14),
             SizedBox(width: 260, child: actions),
@@ -1155,12 +1353,14 @@ class _MembershipActions extends StatelessWidget {
     required this.onRenew,
     required this.onPlans,
     required this.onPaymentHistory,
+    required this.onActivateUpcoming,
   });
 
   final _SalonSubscription subscription;
   final VoidCallback onRenew;
   final VoidCallback onPlans;
   final VoidCallback onPaymentHistory;
+  final VoidCallback onActivateUpcoming;
 
   @override
   Widget build(BuildContext context) {
@@ -1182,6 +1382,14 @@ class _MembershipActions extends StatelessWidget {
             disabledMessage: subscription.membershipMessage,
           ),
           const Divider(height: 1, color: _membershipBorder),
+          if (subscription.upcomingMembership != null) ...[
+            _ActionRow(
+              icon: Icons.play_arrow_rounded,
+              label: 'Activate Upgrade',
+              onTap: onActivateUpcoming,
+            ),
+            const Divider(height: 1, color: _membershipBorder),
+          ],
           _ActionRow(
             icon: Icons.workspace_premium_outlined,
             label: 'View Available Plans',
@@ -1415,12 +1623,32 @@ class _UsageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final limit = data.usage.limit <= 0 ? 1 : data.usage.limit;
-    final percent = (data.usage.used / limit).clamp(0, 1).toDouble();
-    final remaining = (data.usage.limit - data.usage.used).clamp(0, 999999);
+    final used = data.usage.used;
+    final limit = data.usage.limit;
+    final overLimit = data.usage.overLimit;
+    final progressBase = limit <= 0 ? 1 : limit;
+    final percent = (used / progressBase).clamp(0, 1).toDouble();
+    final statusColor =
+        overLimit ? const Color(0xFFB42318) : AppColors.starColor;
+    final statusText = overLimit
+        ? '${context.t('Over limit by')} ${used - limit}${data.suffix}'
+        : '${(limit - used).clamp(0, 999999)}${data.suffix} ${context.t('remaining')}';
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
+      decoration: BoxDecoration(
+        color: overLimit ? const Color(0xFFFFF4F2) : _membershipSurface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: overLimit ? const Color(0xFFFDA29B) : _membershipBorder,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D000000),
+            blurRadius: 12,
+            offset: Offset(0, 5),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1436,10 +1664,10 @@ class _UsageCard extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Text(
                   data.prefix,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
-                    color: AppColors.starColor,
+                    color: statusColor,
                   ),
                 ),
               ),
@@ -1447,12 +1675,12 @@ class _UsageCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   context.t(data.title).toUpperCase(),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 10,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.8,
-                    color: AppColors.starColor,
+                    color: statusColor,
                   ),
                 ),
               ),
@@ -1467,14 +1695,15 @@ class _UsageCard extends StatelessWidget {
               ),
               children: [
                 TextSpan(
-                  text: '${data.usage.used}${data.suffix}',
-                  style: const TextStyle(
+                  text: '$used${data.suffix}',
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
+                    color: statusColor,
                   ),
                 ),
                 TextSpan(
-                  text: ' / ${data.usage.limit}${data.suffix}',
+                  text: ' / $limit${data.suffix}',
                   style: const TextStyle(
                     fontSize: 12,
                     color: _membershipMuted,
@@ -1489,18 +1718,47 @@ class _UsageCard extends StatelessWidget {
             value: percent,
             minHeight: 3,
             backgroundColor: const Color(0xFFE9E1D7),
-            color: AppColors.starColor,
+            color: statusColor,
             borderRadius: BorderRadius.circular(99),
           ),
           const SizedBox(height: 10),
-          Text(
-            '$remaining ${context.t('slots remaining')}',
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 11,
-              color: _membershipMuted,
-            ),
+          Row(
+            children: [
+              if (overLimit) ...[
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 14,
+                  color: Color(0xFFB42318),
+                ),
+                const SizedBox(width: 5),
+              ],
+              Expanded(
+                child: Text(
+                  statusText,
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 11,
+                    fontWeight: overLimit ? FontWeight.w800 : FontWeight.w600,
+                    color: overLimit ? statusColor : _membershipMuted,
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (overLimit) ...[
+            const SizedBox(height: 6),
+            Text(
+              context
+                  .t('Backend limit reached. New additions may be rejected.'),
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 10,
+                height: 1.3,
+                color: _membershipMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1732,6 +1990,7 @@ class _AvailablePlansDialog extends StatefulWidget {
     required this.yearlyBilling,
     required this.currentPlanId,
     required this.subscription,
+    required this.allowMonthly,
     required this.onBillingChanged,
   });
 
@@ -1739,6 +1998,7 @@ class _AvailablePlansDialog extends StatefulWidget {
   final bool yearlyBilling;
   final int? currentPlanId;
   final _SalonSubscription? subscription;
+  final bool allowMonthly;
   final ValueChanged<bool> onBillingChanged;
 
   @override
@@ -1746,7 +2006,7 @@ class _AvailablePlansDialog extends StatefulWidget {
 }
 
 class _AvailablePlansDialogState extends State<_AvailablePlansDialog> {
-  late bool _yearlyBilling = widget.yearlyBilling;
+  late bool _yearlyBilling = widget.allowMonthly ? widget.yearlyBilling : true;
 
   @override
   Widget build(BuildContext context) {
@@ -1768,9 +2028,11 @@ class _AvailablePlansDialogState extends State<_AvailablePlansDialog> {
                   Expanded(
                     child: _PlansHeader(
                       yearlyBilling: _yearlyBilling,
+                      allowMonthly: widget.allowMonthly,
                       onBillingChanged: (value) {
-                        setState(() => _yearlyBilling = value);
-                        widget.onBillingChanged(value);
+                        final nextValue = widget.allowMonthly ? value : true;
+                        setState(() => _yearlyBilling = nextValue);
+                        widget.onBillingChanged(nextValue);
                       },
                     ),
                   ),
@@ -1802,18 +2064,26 @@ class _RenewMembershipDialog extends StatefulWidget {
   const _RenewMembershipDialog({
     required this.plan,
     required this.subscription,
+    required this.allowMonthly,
   });
 
   final _MembershipPlan plan;
   final _SalonSubscription subscription;
+  final bool allowMonthly;
 
   @override
   State<_RenewMembershipDialog> createState() => _RenewMembershipDialogState();
 }
 
 class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
-  bool _yearlyBilling = false;
+  late bool _yearlyBilling;
   String _paymentMethod = 'Saved Credit Card (**** 4242)';
+
+  @override
+  void initState() {
+    super.initState();
+    _yearlyBilling = !widget.allowMonthly;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1912,7 +2182,9 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                       child: SegmentedButton<bool>(
                         segments: const [
                           ButtonSegment<bool>(
-                              value: false, label: Text('Monthly')),
+                            value: false,
+                            label: Text('Monthly'),
+                          ),
                           ButtonSegment<bool>(
                               value: true, label: Text('Yearly (Save 15%)')),
                         ],
@@ -1936,10 +2208,34 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                           ),
                         ),
                         onSelectionChanged: (values) {
-                          setState(() => _yearlyBilling = values.first);
+                          final nextValue = values.first;
+                          if (!nextValue && !widget.allowMonthly) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  context.t(_monthlyBlockedMessage),
+                                ),
+                              ),
+                            );
+                            return;
+                          }
+                          setState(() => _yearlyBilling = nextValue);
                         },
                       ),
                     ),
+                    if (!widget.allowMonthly) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        context.t(_monthlyBlockedMessage),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 11,
+                          height: 1.35,
+                          color: _membershipMuted,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -2031,6 +2327,7 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                                       _billingCycleApiValue(_yearlyBilling),
                                   amountMinor: amount,
                                   renew: true,
+                                  replaceCurrentPlan: false,
                                   startDate: DateTime.now(),
                                 ),
                               );
@@ -2065,11 +2362,13 @@ class _PurchaseDialog extends StatefulWidget {
     required this.plan,
     required this.initialYearlyBilling,
     required this.subscription,
+    required this.allowMonthly,
   });
 
   final _MembershipPlan plan;
   final bool initialYearlyBilling;
   final _SalonSubscription? subscription;
+  final bool allowMonthly;
 
   @override
   State<_PurchaseDialog> createState() => _PurchaseDialogState();
@@ -2081,9 +2380,11 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
   @override
   void initState() {
     super.initState();
-    _yearlyBilling =
-        _isMonthlyRepurchaseBlocked ? true : widget.initialYearlyBilling;
+    _yearlyBilling = _isMonthlyBlocked ? true : widget.initialYearlyBilling;
   }
+
+  bool get _isMonthlyBlocked =>
+      !widget.allowMonthly || _isMonthlyRepurchaseBlocked;
 
   bool get _isMonthlyRepurchaseBlocked {
     final subscription = widget.subscription;
@@ -2091,6 +2392,14 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
         subscription.currentPlanId == widget.plan.id &&
         !_isYearlyCycle(subscription.billingCycle) &&
         subscription.remainingDays > 0;
+  }
+
+  bool get _isRenewalSelection {
+    final subscription = widget.subscription;
+    if (subscription == null) return false;
+    if (subscription.currentPlanId != widget.plan.id) return false;
+    return _billingCycleApiValue(_yearlyBilling) ==
+        _billingCycleApiValue(_isYearlyCycle(subscription.billingCycle));
   }
 
   @override
@@ -2200,15 +2509,30 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                 ),
                 onSelectionChanged: (values) {
                   final nextValue = values.first;
-                  if (!nextValue && _isMonthlyRepurchaseBlocked) return;
+                  if (!nextValue && _isMonthlyBlocked) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          context.t(
+                            !widget.allowMonthly
+                                ? _monthlyBlockedMessage
+                                : 'Monthly renewal is available after the current membership ends. You can upgrade to yearly now.',
+                          ),
+                        ),
+                      ),
+                    );
+                    return;
+                  }
                   setState(() => _yearlyBilling = nextValue);
                 },
               ),
-              if (_isMonthlyRepurchaseBlocked) ...[
+              if (!widget.allowMonthly || _isMonthlyRepurchaseBlocked) ...[
                 const SizedBox(height: 8),
                 Text(
                   context.t(
-                    'Monthly renewal is available after the current membership ends. You can upgrade to yearly now.',
+                    !widget.allowMonthly
+                        ? _monthlyBlockedMessage
+                        : 'Monthly renewal is available after the current membership ends. You can upgrade to yearly now.',
                   ),
                   style: const TextStyle(
                     fontFamily: 'Manrope',
@@ -2264,7 +2588,8 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                             plan: widget.plan,
                             billingCycle: _billingCycleApiValue(_yearlyBilling),
                             amountMinor: amount,
-                            renew: widget.subscription != null,
+                            renew: _isRenewalSelection,
+                            replaceCurrentPlan: false,
                             startDate: DateTime.now(),
                           ),
                         );
@@ -2287,6 +2612,64 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ImmediateReplaceDialog extends StatelessWidget {
+  const _ImmediateReplaceDialog({
+    required this.planName,
+    required this.billingCycle,
+    required this.remainingDays,
+  });
+
+  final String planName;
+  final String billingCycle;
+  final int remainingDays;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      title: Text(
+        context.t('Replace current plan now?'),
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 18,
+          fontWeight: FontWeight.w900,
+          color: AppColors.starColor,
+        ),
+      ),
+      content: Text(
+        context.t(
+          'This will activate $planName ($billingCycle) immediately and discard $remainingDays remaining days from your current plan.',
+        ),
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 13,
+          height: 1.4,
+          color: _membershipText,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: Text(context.t('Cancel')),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.starColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: Text(context.t('Replace Now')),
+        ),
+      ],
     );
   }
 }
@@ -2695,6 +3078,7 @@ class _SalonSubscription {
 
 class _UpcomingMembership {
   const _UpcomingMembership({
+    required this.planId,
     required this.planName,
     required this.billingCycle,
     required this.startDate,
@@ -2706,6 +3090,12 @@ class _UpcomingMembership {
 
   factory _UpcomingMembership.fromJson(Map<String, dynamic> json) {
     return _UpcomingMembership(
+      planId: _readInt(
+        json['planId'] ??
+            json['currentPlanId'] ??
+            json['membershipPlanId'] ??
+            json['id'],
+      ),
       planName: _cleanText(json['planName'] ?? json['currentPlan']).isEmpty
           ? 'Plan'
           : _cleanText(json['planName'] ?? json['currentPlan']),
@@ -2724,6 +3114,7 @@ class _UpcomingMembership {
     );
   }
 
+  final int? planId;
   final String planName;
   final String billingCycle;
   final DateTime? startDate;
@@ -2784,18 +3175,26 @@ class _SubscriptionHistory {
 }
 
 class _Usage {
-  const _Usage({required this.used, required this.limit});
+  const _Usage({
+    required this.used,
+    required this.limit,
+    required this.overLimit,
+  });
 
   factory _Usage.fromJson(dynamic json) {
-    if (json is! Map) return const _Usage(used: 0, limit: 0);
+    if (json is! Map) {
+      return const _Usage(used: 0, limit: 0, overLimit: false);
+    }
     return _Usage(
       used: _readInt(json['used']) ?? 0,
       limit: _readInt(json['limit']) ?? 0,
+      overLimit: _readBool(json['overLimit']) ?? false,
     );
   }
 
   final int used;
   final int limit;
+  final bool overLimit;
 }
 
 class _UsageCardData {
@@ -2818,6 +3217,7 @@ class _PurchaseSelection {
     required this.billingCycle,
     required this.amountMinor,
     required this.renew,
+    required this.replaceCurrentPlan,
     required this.startDate,
   });
 
@@ -2825,6 +3225,7 @@ class _PurchaseSelection {
   final String billingCycle;
   final int amountMinor;
   final bool renew;
+  final bool replaceCurrentPlan;
   final DateTime startDate;
 }
 
@@ -2908,6 +3309,16 @@ int? _readInt(dynamic value) {
   return int.tryParse('${value ?? ''}');
 }
 
+int? _readForfeitedDays(Map<String, dynamic> response) {
+  final direct = _readInt(response['forfeitedDays']);
+  if (direct != null) return direct;
+  final data = response['data'];
+  if (data is Map) {
+    return _readInt(data['forfeitedDays']);
+  }
+  return null;
+}
+
 DateTime? _parseDate(dynamic value) {
   final raw = _cleanText(value);
   if (raw.isEmpty) return null;
@@ -2969,6 +3380,7 @@ Map<String, dynamic> _subscriptionJsonWithDeferredUpcoming(
       'membershipMessage':
           'You already have an upcoming yearly membership. Renewal or upgrade will be available after the current monthly membership ends.',
       'upcomingMembership': <String, dynamic>{
+        'planId': upcoming.planId,
         'planName': upcoming.planName,
         'billingCycle':
             upcoming.billingCycle.isEmpty ? 'ANNUAL' : upcoming.billingCycle,
@@ -3036,6 +3448,7 @@ Map<String, dynamic> _subscriptionJsonWithDeferredUpcoming(
     'membershipMessage':
         'You already have an upcoming yearly membership. Renewal or upgrade will be available after the current monthly membership ends.',
     'upcomingMembership': <String, dynamic>{
+      'planId': _readInt(json['currentPlanId']),
       'planName': _cleanText(json['currentPlan']).isEmpty
           ? currentMonthly.planName
           : _cleanText(json['currentPlan']),

@@ -370,8 +370,17 @@ class _TeamOnlineAvailabilityScreenState
   }
 
   Future<void> _submit() async {
+    debugPrint(
+      '[TeamOnlineAvailability] Save tapped mode=${widget.mode.name} '
+      'branchId=${widget.branchId} userId=${widget.userId} '
+      'assignUserId=${widget.assignUserId} allowOnline=$_allowOnlineBooking',
+    );
+
     if (widget.mode == TeamAvailabilityMode.assignUser &&
         _joiningDate == null) {
+      debugPrint(
+        '[TeamOnlineAvailability] Save blocked: joining date missing',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(translateText('Please select a joining date')),
@@ -382,7 +391,6 @@ class _TeamOnlineAvailabilityScreenState
 
     setState(() => _isSubmitting = true);
     try {
-
       // if (widget.mode == TeamAvailabilityMode.editMember) {
       //   final payload = Map<String, dynamic>.from(widget.payload ?? {});
       //   payload['allowOnlineBooking'] = _allowOnlineBooking;
@@ -403,12 +411,20 @@ class _TeamOnlineAvailabilityScreenState
       if (widget.mode == TeamAvailabilityMode.addMember) {
         final payload = Map<String, dynamic>.from(widget.payload ?? {});
         payload['allowOnlineBooking'] = _allowOnlineBooking;
- payload['experience'] = int.tryParse(
-    payload['experience']?.toString() ?? '',
-  ) ?? 0;
+        payload['experience'] = int.tryParse(
+              payload['experience']?.toString() ?? '',
+            ) ??
+            0;
+        debugPrint(
+          '[TeamOnlineAvailability] Calling addTeamMember '
+          'branchId=${widget.branchId} payload=${jsonEncode(payload)}',
+        );
         final response = await ApiService().addTeamMember(
           widget.branchId,
           payload,
+        );
+        debugPrint(
+          '[TeamOnlineAvailability] addTeamMember response=$response',
         );
 
         if (!mounted) return;
@@ -437,11 +453,19 @@ class _TeamOnlineAvailabilityScreenState
       if (widget.mode == TeamAvailabilityMode.editMember) {
         final payload = Map<String, dynamic>.from(widget.payload ?? {});
         payload['allowOnlineBooking'] = _allowOnlineBooking;
+        debugPrint(
+          '[TeamOnlineAvailability] Calling updateTeamMember '
+          'branchId=${widget.branchId} userId=${widget.userId} '
+          'payload=${jsonEncode(payload)}',
+        );
 
         final response = await ApiService().updateTeamMember(
           branchId: widget.branchId,
           userId: widget.userId!,
           payload: payload,
+        );
+        debugPrint(
+          '[TeamOnlineAvailability] updateTeamMember response=$response',
         );
 
         if (!mounted) return;
@@ -483,6 +507,12 @@ class _TeamOnlineAvailabilityScreenState
 
       debugPrint('FINAL ASSIGN BRANCH ID: ${widget.branchId}');
       debugPrint('FINAL NORMALIZED ASSIGN SCHEDULES: $normalizedSchedules');
+      debugPrint(
+        '[TeamOnlineAvailability] Calling assignUserToBranch '
+        'branchId=${widget.branchId} userId=${widget.assignUserId} '
+        'joiningDate=$joiningDate services=${widget.assignBranchServiceIds} '
+        'allowOnline=$_allowOnlineBooking',
+      );
 
       final response = await ApiService().assignUserToBranch(
         widget.branchId,
@@ -491,6 +521,9 @@ class _TeamOnlineAvailabilityScreenState
         normalizedSchedules,
         widget.assignBranchServiceIds!,
         _allowOnlineBooking,
+      );
+      debugPrint(
+        '[TeamOnlineAvailability] assignUserToBranch response=$response',
       );
       if (!mounted) return;
       if (response['success'] == true) {
@@ -512,6 +545,7 @@ class _TeamOnlineAvailabilityScreenState
         response['message']?.toString() ?? 'Failed to assign user',
       );
     } catch (error) {
+      debugPrint('[TeamOnlineAvailability] Save failed: $error');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(_friendlyErrorMessage(error))),

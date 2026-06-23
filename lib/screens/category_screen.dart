@@ -15,7 +15,6 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../utils/api_service.dart';
-import 'dart:convert';
 
 const Color _catalogGold = Color(0xFF8B6500);
 const Color _catalogGoldLight = Color(0xFFD0A244);
@@ -51,6 +50,34 @@ List<Map<String, dynamic>> _uniqueCatalogServices(
   }
 
   return unique;
+}
+
+bool _isCatalogItemActive(Map<String, dynamic> item) {
+  final isActive = item['isActive'] ?? item['active'];
+  if (isActive is bool && !isActive) return false;
+  if (isActive is num && isActive == 0) return false;
+  if (isActive is String) {
+    final normalized = isActive.trim().toLowerCase();
+    if (normalized == 'false' ||
+        normalized == '0' ||
+        normalized == 'inactive' ||
+        normalized == 'deleted') {
+      return false;
+    }
+  }
+
+  final status = item['status'] ?? item['state'];
+  if (status is String) {
+    final normalized = status.trim().toLowerCase();
+    if (normalized == 'inactive' ||
+        normalized == 'deleted' ||
+        normalized == 'archived' ||
+        normalized == 'disabled') {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 double? _serviceDouble(dynamic value) {
@@ -209,7 +236,8 @@ int _serviceCountForCategory(Map<String, dynamic> category) {
     count += _uniqueCatalogServices(
       services
           .whereType<Map>()
-          .map((entry) => Map<String, dynamic>.from(entry)),
+          .map((entry) => Map<String, dynamic>.from(entry))
+          .where(_isCatalogItemActive),
       seenIds: seenIds,
     ).length;
   }
@@ -223,7 +251,8 @@ int _serviceCountForCategory(Map<String, dynamic> category) {
         count += _uniqueCatalogServices(
           subServices
               .whereType<Map>()
-              .map((entry) => Map<String, dynamic>.from(entry)),
+              .map((entry) => Map<String, dynamic>.from(entry))
+              .where(_isCatalogItemActive),
           seenIds: seenIds,
         ).length;
       }
@@ -911,72 +940,16 @@ class CategoryScreenState extends State<CategoryScreen> {
 
     final branchId = _selectedSalon!['branchId'] as int;
     final deletedCategoryId = category['id'] as int;
-    final subCategories = category['subCategories'];
-
-    debugPrint('🗑️ DELETE CATEGORY START');
-    debugPrint('🗑️ categoryId: $deletedCategoryId');
-    debugPrint(
-        '🗑️ categoryName: ${category['displayName'] ?? category['name']}');
-    debugPrint(
-      '🗑️ full category: ${const JsonEncoder.withIndent('  ').convert(category)}',
-    );
-
-    if (subCategories is List && subCategories.isNotEmpty) {
-      debugPrint('❌ Category delete blocked. Existing subcategories:');
-
-      setState(() {
-        _selectedFilterCategoryId = deletedCategoryId;
-        _expandedCategories[deletedCategoryId] = true;
-
-        for (final sub in subCategories) {
-          if (sub is Map && sub['id'] != null) {
-            final subId = sub['id'] as int;
-            _expandedSubcategories[subId] = true;
-
-            debugPrint(
-              '   id=$subId, name=${sub['displayName'] ?? sub['name']}, services=${(sub['services'] is List) ? (sub['services'] as List).length : 0}',
-            );
-          }
-        }
-      });
-
-      _toast(
-          'Cannot delete category: active subcategories exist under this category');
-      _ensureCatalogTargetVisible(_categoryItemKeys[deletedCategoryId]);
-      _restoreScrollPosition();
-      return;
-    }
-
-    final categoryServices = category['services'];
-    if (categoryServices is List && categoryServices.isNotEmpty) {
-      debugPrint('❌ Category delete blocked. Existing direct services:');
-
-      for (final service in categoryServices) {
-        if (service is Map) {
-          debugPrint(
-            '   id=${service['id']}, name=${service['displayName'] ?? service['name']}',
-          );
-        }
-      }
-
-      setState(() {
-        _selectedFilterCategoryId = deletedCategoryId;
-        _expandedCategories[deletedCategoryId] = true;
-      });
-
-      _toast('Please delete services first.');
-      _ensureCatalogTargetVisible(_categoryItemKeys[deletedCategoryId]);
-      _restoreScrollPosition();
-      return;
-    }
+    final categoryCubit = context.read<CategoryCubit>();
+    debugPrint('🗑️ DELETE CATEGORY START categoryId=$deletedCategoryId');
 
     try {
-      await context.read<CategoryCubit>().deleteCategory(
-            branchId,
-            deletedCategoryId,
-          );
+      await categoryCubit.deleteCategory(
+        branchId,
+        deletedCategoryId,
+      );
 
-      final deleteState = context.read<CategoryCubit>().state;
+      final deleteState = categoryCubit.state;
 
       if (deleteState.status == CategoryStatus.actionFailure) {
         debugPrint('❌ DELETE CATEGORY FAILED: ${deleteState.message}');
@@ -1422,7 +1395,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                                         color: Colors.white,
                                       ),
                                     )
-                                  : Text(translateText('Import Services')),
+                                  : Text(translateText('Submit')),
                             ),
                           ),
                         ],
@@ -1436,9 +1409,12 @@ class CategoryScreenState extends State<CategoryScreen> {
         },
       );
 
-      if (imported == null || imported.isEmpty) return;
+      if (imported == null) return;
       if (!mounted) return;
-      _toast(translateText('Predefined services imported successfully'));
+      setState(() {
+        _selectedFilterCategoryId = null;
+      });
+      _toast(translateText('Predefined services updated successfully'));
       await _refreshData();
     } catch (error) {
       if (!mounted) return;
@@ -1455,8 +1431,10 @@ class CategoryScreenState extends State<CategoryScreen> {
     }
 
     if (value is! Map) return;
+    final item = Map<String, dynamic>.from(value);
+    if (!_isCatalogItemActive(item)) return;
 
-    final dynamic code = value['code'];
+    final dynamic code = item['code'];
     if (code != null) {
       final normalized = code.toString().trim().toUpperCase();
       if (normalized.isNotEmpty) {
@@ -1472,13 +1450,13 @@ class CategoryScreenState extends State<CategoryScreen> {
       'categories',
       'data',
     ]) {
-      final nested = value[nestedKey];
+      final nested = item[nestedKey];
       if (nested != null) {
         yield* _extractServiceCodes(nested);
       }
     }
 
-    for (final nested in value.values) {
+    for (final nested in item.values) {
       if (nested is Map || nested is List) {
         yield* _extractServiceCodes(nested);
       }
@@ -2498,9 +2476,12 @@ class _CategoryList extends StatelessWidget {
 
     final theme = Theme.of(context);
     final sortedCategories = _sortedCatalogItems(
-      categories.whereType<Map>().map(
+      categories
+          .whereType<Map>()
+          .map(
             (entry) => Map<String, dynamic>.from(entry),
-          ),
+          )
+          .where(_isCatalogItemActive),
     );
 
     return ListView.separated(
@@ -2511,9 +2492,12 @@ class _CategoryList extends StatelessWidget {
       itemBuilder: (context, index) {
         final category = sortedCategories[index];
         final List<Map<String, dynamic>> rawSubCategories = _sortedCatalogItems(
-          (category['subCategories'] as List? ?? const []).whereType<Map>().map(
+          (category['subCategories'] as List? ?? const [])
+              .whereType<Map>()
+              .map(
                 (e) => Map<String, dynamic>.from(e),
-              ),
+              )
+              .where(_isCatalogItemActive),
         );
         final subServiceIds = <int>{};
         final List<Map<String, dynamic>> subCategories =
@@ -2522,7 +2506,8 @@ class _CategoryList extends StatelessWidget {
             _sortedCatalogItems(
               (subCategory['services'] as List? ?? const [])
                   .whereType<Map>()
-                  .map((e) => Map<String, dynamic>.from(e)),
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .where(_isCatalogItemActive),
             ),
             seenIds: subServiceIds,
           );
@@ -2534,9 +2519,12 @@ class _CategoryList extends StatelessWidget {
         final List<Map<String, dynamic>> categoryServices =
             _uniqueCatalogServices(
           _sortedCatalogItems(
-            (category['services'] as List? ?? const []).whereType<Map>().map(
+            (category['services'] as List? ?? const [])
+                .whereType<Map>()
+                .map(
                   (e) => Map<String, dynamic>.from(e),
-                ),
+                )
+                .where(_isCatalogItemActive),
           ).where((service) {
             final serviceId = _serviceInt(service['id']);
             return serviceId == null || !subServiceIds.contains(serviceId);
@@ -2848,9 +2836,12 @@ class _SubcategoryTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> services = _sortedCatalogItems(
-      (subCategory['services'] as List? ?? const []).whereType<Map>().map(
+      (subCategory['services'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
             (e) => Map<String, dynamic>.from(e),
-          ),
+          )
+          .where(_isCatalogItemActive),
     );
     final theme = Theme.of(context);
 

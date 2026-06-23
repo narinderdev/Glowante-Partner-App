@@ -560,6 +560,7 @@ class ApiService {
     String? razorpaySignature,
     int? amountMinor,
     String currency = 'INR',
+    bool replaceCurrentPlan = false,
   }) async {
     final normalizedBillingCycle =
         billingCycle.toUpperCase() == 'YEARLY' ? 'ANNUAL' : billingCycle;
@@ -576,6 +577,7 @@ class ApiService {
         'razorpaySignature': razorpaySignature,
       if (amountMinor != null) 'amountMinor': amountMinor,
       'currency': currency,
+      if (replaceCurrentPlan) 'replaceCurrentPlan': true,
     };
 
     final response = await _authorizedJsonRequest(
@@ -592,6 +594,37 @@ class ApiService {
       method: 'POST',
       endpoint: salonSubscriptionAPI(salonId),
       debugTag: 'CreateSalonSubscriptionSingular',
+      body: payload,
+    );
+  }
+
+  Future<Map<String, dynamic>> activateSalonSubscriptionNow({
+    required int salonId,
+    required int planId,
+    required String billingCycle,
+  }) async {
+    final normalizedBillingCycle =
+        billingCycle.toUpperCase() == 'YEARLY' ? 'ANNUAL' : billingCycle;
+    final payload = <String, dynamic>{
+      'planId': planId,
+      'billingCycle': normalizedBillingCycle,
+      'replaceCurrentPlan': true,
+    };
+
+    final response = await _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: salonSubscriptionsAPI(salonId),
+      debugTag: 'ActivateSalonSubscriptionNow',
+      body: payload,
+    );
+    if (response['success'] == true) return response;
+    final statusCode = response['statusCode'];
+    if (statusCode != 404 && statusCode != 405) return response;
+
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: salonSubscriptionAPI(salonId),
+      debugTag: 'ActivateSalonSubscriptionNowSingular',
       body: payload,
     );
   }

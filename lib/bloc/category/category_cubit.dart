@@ -37,7 +37,9 @@ class CategoryCubit extends Cubit<CategoryState> {
       }
 
       final data = response['data'] as Map<String, dynamic>?;
-      final categories = (data?['categories'] as List?) ?? [];
+      final categories = _activeCategoryTree(
+        (data?['categories'] as List?) ?? const [],
+      );
 
       emit(state.copyWith(
         status: CategoryStatus.success,
@@ -133,6 +135,72 @@ class CategoryCubit extends Cubit<CategoryState> {
     }
 
     return false;
+  }
+
+  List<Map<String, dynamic>> _activeCategoryTree(List<dynamic> rawCategories) {
+    return rawCategories
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .where(_isCatalogItemActive)
+        .map((category) {
+      final subCategories =
+          ((category['subCategories'] ?? category['subcategories']) as List? ??
+                  const [])
+              .whereType<Map>()
+              .map((entry) => Map<String, dynamic>.from(entry))
+              .where(_isCatalogItemActive)
+              .map((subCategory) {
+        final services = (subCategory['services'] as List? ?? const [])
+            .whereType<Map>()
+            .map((entry) => Map<String, dynamic>.from(entry))
+            .where(_isCatalogItemActive)
+            .toList();
+        return {
+          ...subCategory,
+          'services': services,
+        };
+      }).toList();
+
+      final services = (category['services'] as List? ?? const [])
+          .whereType<Map>()
+          .map((entry) => Map<String, dynamic>.from(entry))
+          .where(_isCatalogItemActive)
+          .toList();
+
+      return {
+        ...category,
+        'subCategories': subCategories,
+        'services': services,
+      };
+    }).toList();
+  }
+
+  bool _isCatalogItemActive(Map<String, dynamic> item) {
+    final isActive = item['isActive'] ?? item['active'];
+    if (isActive is bool && !isActive) return false;
+    if (isActive is num && isActive == 0) return false;
+    if (isActive is String) {
+      final normalized = isActive.trim().toLowerCase();
+      if (normalized == 'false' ||
+          normalized == '0' ||
+          normalized == 'inactive' ||
+          normalized == 'deleted') {
+        return false;
+      }
+    }
+
+    final status = item['status'] ?? item['state'];
+    if (status is String) {
+      final normalized = status.trim().toLowerCase();
+      if (normalized == 'inactive' ||
+          normalized == 'deleted' ||
+          normalized == 'archived' ||
+          normalized == 'disabled') {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   Future<void> updateSubCategory(

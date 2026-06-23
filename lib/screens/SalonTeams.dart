@@ -22,18 +22,26 @@ int? _teamAsInt(dynamic value) {
   return int.tryParse(value.toString());
 }
 
-bool _teamIsActiveEntity(Map<String, dynamic> map) {
-  bool? readBool(dynamic value) {
-    if (value is bool) return value;
-    final text = value?.toString().trim().toLowerCase() ?? '';
-    if (text.isEmpty || text == 'null') return null;
-    if (text == 'true' || text == '1' || text == 'yes') return true;
-    if (text == 'false' || text == '0' || text == 'no') return false;
-    return null;
-  }
+bool? _teamReadBool(dynamic value) {
+  if (value is bool) return value;
+  final text = value?.toString().trim().toLowerCase() ?? '';
+  if (text.isEmpty || text == 'null') return null;
+  if (text == 'true' || text == '1' || text == 'yes') return true;
+  if (text == 'false' || text == '0' || text == 'no') return false;
+  return null;
+}
 
+String _teamFirstText(Map<dynamic, dynamic> map, List<String> keys) {
+  for (final key in keys) {
+    final text = map[key]?.toString().trim() ?? '';
+    if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
+  }
+  return '';
+}
+
+bool _teamIsActiveEntity(Map<String, dynamic> map) {
   for (final key in const ['active', 'isActive', 'enabled']) {
-    final parsed = readBool(map[key]);
+    final parsed = _teamReadBool(map[key]);
     if (parsed == false) return false;
   }
 
@@ -699,6 +707,15 @@ class _TeamScreenState extends State<TeamScreen> {
 
   Future<void> _openAddMember() async {
     if (selectedBranch != null) {
+      final limitMessage = await _staffLimitBlockMessage();
+      if (!mounted) return;
+      if (limitMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(translateText(limitMessage))),
+        );
+        return;
+      }
+
       final refresh = await Navigator.push(
         context,
         MaterialPageRoute(
@@ -726,6 +743,40 @@ class _TeamScreenState extends State<TeamScreen> {
           content: Text(translateText("Please select a branch first.")),
         ),
       );
+    }
+  }
+
+  Future<String?> _staffLimitBlockMessage() async {
+    final salonId = _teamAsInt(selectedBranch?['salonId']);
+    if (salonId == null) return null;
+
+    try {
+      final response = await ApiService().getSalonSubscription(salonId);
+      final data = response['data'];
+      final root = data is Map ? Map<String, dynamic>.from(data) : null;
+      if (response['success'] != true || root == null) return null;
+
+      final staffUsage = root['staffUsage'];
+      if (staffUsage is! Map) return null;
+      final overLimit = _teamReadBool(staffUsage['overLimit']) ?? false;
+      if (!overLimit) return null;
+
+      final usageMessage = _teamFirstText(
+        staffUsage,
+        const ['message', 'limitMessage', 'staffLimitMessage'],
+      );
+      if (usageMessage.isNotEmpty) return usageMessage;
+
+      final subscriptionMessage = _teamFirstText(
+        root,
+        const ['staffLimitMessage', 'limitMessage', 'membershipMessage'],
+      );
+      if (subscriptionMessage.isNotEmpty) return subscriptionMessage;
+
+      return 'Staff limit reached. Please upgrade your membership to add more team members.';
+    } catch (error) {
+      debugPrint('Failed to check staff subscription limit: $error');
+      return null;
     }
   }
 
@@ -1147,7 +1198,6 @@ class _TeamMemberCard extends StatelessWidget {
     required this.onToggleActive,
     required this.onView,
     required this.onAssign,
-    
   });
 
   final Map<String, dynamic> member;
@@ -1166,16 +1216,17 @@ class _TeamMemberCard extends StatelessWidget {
   final VoidCallback onAssign;
 
   bool get _isBusy => isDeleting || isStatusUpdating;
-int get _teamExperienceValue {
-  final branches = member['userBranches'];
+  int get _teamExperienceValue {
+    final branches = member['userBranches'];
 
-  if (branches is List && branches.isNotEmpty && branches.first is Map) {
-    final exp = branches.first['experience'];
-    return int.tryParse(exp?.toString() ?? '') ?? 0;
+    if (branches is List && branches.isNotEmpty && branches.first is Map) {
+      final exp = branches.first['experience'];
+      return int.tryParse(exp?.toString() ?? '') ?? 0;
+    }
+
+    return int.tryParse(member['experience']?.toString() ?? '') ?? 0;
   }
 
-  return int.tryParse(member['experience']?.toString() ?? '') ?? 0;
-}
   String get _initials {
     final parts = name
         .split(RegExp(r'\s+'))
@@ -1190,8 +1241,9 @@ int get _teamExperienceValue {
   @override
   Widget build(BuildContext context) {
     final imageUrl = (member['profilePictureUrl'] ?? '').toString().trim();
-final experienceUnit =
-    _teamExperienceValue <= 1 ? translateText('year') : translateText('years');
+    final experienceUnit = _teamExperienceValue <= 1
+        ? translateText('year')
+        : translateText('years');
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1253,7 +1305,7 @@ final experienceUnit =
               Expanded(
                 child: _TeamInfoChip(
                   icon: Icons.workspace_premium_outlined,
-        label: '$_teamExperienceValue $experienceUnit',
+                  label: '$_teamExperienceValue $experienceUnit',
                   value: translateText('Experience'),
                 ),
               ),
@@ -1550,6 +1602,28 @@ class _TeamIconButton extends StatelessWidget {
   }
 }
 
+// class _RefreshableTeamState extends StatelessWidget {
+//   const _RefreshableTeamState({
+//     required this.child,
+//     this.center = true,
+//   });
+
+//   final Widget child;
+//   final bool center;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return CustomScrollView(
+//       physics: const AlwaysScrollableScrollPhysics(),
+//       slivers: [
+//         SliverFillRemaining(
+//           hasScrollBody: false,
+//           child: center ? Center(child: child) : child,
+//         ),
+//       ],
+//     );
+//   }
+// }
 class _RefreshableTeamState extends StatelessWidget {
   const _RefreshableTeamState({
     required this.child,
@@ -1561,18 +1635,17 @@ class _RefreshableTeamState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomScrollView(
+    return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverFillRemaining(
-          hasScrollBody: false,
+      children: [
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.75,
           child: center ? Center(child: child) : child,
         ),
       ],
     );
   }
 }
-
 class _NoTeamMembersState extends StatelessWidget {
   const _NoTeamMembersState({
     this.onAddTeamMember,
