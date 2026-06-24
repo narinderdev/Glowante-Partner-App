@@ -643,284 +643,6 @@ class CategoryScreenState extends State<CategoryScreen> {
     _dismissCatalogKeyboard();
   }
 
-  // ---------- CONFIRM DELETE CATEGORY ----------
-  // Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
-  //   if (_selectedSalon == null) return;
-
-  //   final confirmed = await showDialog<bool>(
-  //     context: context,
-  //     builder: (dialogContext) => _ConfirmDialog(
-  //       title: translateText('Delete Category'),
-  //       message:
-  //           translateText('Are you sure you want to delete this category?'),
-  //       confirmColor: Colors.black,
-  //     ),
-  //   );
-
-  //   if (!mounted || confirmed != true) return;
-
-  //   _rememberScrollPosition();
-  //   final branchId = _selectedSalon!['branchId'] as int;
-  //   try {
-  //     await context.read<CategoryCubit>().deleteCategory(
-  //           branchId,
-  //           category['id'] as int,
-  //         );
-  //   } finally {
-  //     _restoreScrollPosition();
-  //   }
-//   // }
-// Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
-//   if (_selectedSalon == null) return;
-
-//   final confirmed = await showDialog<bool>(
-//     context: context,
-//     builder: (dialogContext) => _ConfirmDialog(
-//       title: translateText('Delete Category'),
-//       message: translateText('Are you sure you want to delete this category?'),
-//       confirmColor: Colors.black,
-//     ),
-//   );
-
-//   if (!mounted || confirmed != true) return;
-
-//   _rememberScrollPosition();
-//   final branchId = _selectedSalon!['branchId'] as int;
-//   final deletedCategoryId = category['id'] as int;
-
-//   try {
-//     await context.read<CategoryCubit>().deleteCategory(
-//           branchId,
-//           deletedCategoryId,
-//         );
-
-//     if (!mounted) return;
-
-//     setState(() {
-//       if (_selectedFilterCategoryId == deletedCategoryId) {
-//         _selectedFilterCategoryId = null;
-//       }
-
-//       _expandedCategories.remove(deletedCategoryId);
-//       _categoryItemKeys.remove(deletedCategoryId);
-//     });
-//   } finally {
-//     _restoreScrollPosition();
-//   }
-// }
-// Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
-//   if (_selectedSalon == null) return;
-
-//   final confirmed = await showDialog<bool>(
-//     context: context,
-//     builder: (dialogContext) => _ConfirmDialog(
-//       title: translateText('Delete Category'),
-//       message: translateText('Are you sure you want to delete this category?'),
-//       confirmColor: Colors.black,
-//     ),
-//   );
-
-//   if (!mounted || confirmed != true) return;
-
-//   _rememberScrollPosition();
-
-//   final branchId = _selectedSalon!['branchId'] as int;
-//   final deletedCategoryId = category['id'] as int;
-//   final subCategories = category['subCategories'];
-
-//   try {
-//     if (subCategories is List) {
-//       for (final sub in subCategories) {
-//         if (sub is! Map) continue;
-
-//         final services = sub['services'];
-//         if (services is List) {
-//           for (final service in services) {
-//             if (service is Map && service['id'] != null) {
-//               await context.read<CategoryCubit>().deleteService(
-//                     branchId,
-//                     service['id'] as int,
-//                   );
-//             }
-//           }
-//         }
-
-//         if (sub['id'] != null) {
-//           await context.read<CategoryCubit>().deleteSubCategory(
-//                 branchId,
-//                 sub['id'] as int,
-//               );
-//         }
-//       }
-//     }
-
-//     final categoryServices = category['services'];
-//     if (categoryServices is List) {
-//       for (final service in categoryServices) {
-//         if (service is Map && service['id'] != null) {
-//           await context.read<CategoryCubit>().deleteService(
-//                 branchId,
-//                 service['id'] as int,
-//               );
-//         }
-//       }
-//     }
-
-//     await context.read<CategoryCubit>().deleteCategory(
-//           branchId,
-//           deletedCategoryId,
-//         );
-
-//     if (!mounted) return;
-
-//     setState(() {
-//       if (_selectedFilterCategoryId == deletedCategoryId) {
-//         _selectedFilterCategoryId = null;
-//       }
-
-//       _expandedCategories.remove(deletedCategoryId);
-//       _categoryItemKeys.remove(deletedCategoryId);
-//     });
-//   }
-//   finally {
-//     _restoreScrollPosition();
-//   }
-// }
-// Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
-//   if (_selectedSalon == null) return;
-
-//   final confirmed = await showDialog<bool>(
-//     context: context,
-//     builder: (dialogContext) => _ConfirmDialog(
-//       title: translateText('Delete Category'),
-//       message: translateText('Are you sure you want to delete this category?'),
-//       confirmColor: Colors.black,
-//     ),
-//   );
-
-//   if (!mounted || confirmed != true) return;
-
-//   _rememberScrollPosition();
-
-//   final branchId = _selectedSalon!['branchId'] as int;
-//   final deletedCategoryId = category['id'] as int;
-//   final subCategories = category['subCategories'];
-
-//   try {
-//     debugPrint('🗑️ DELETE CATEGORY START');
-//     debugPrint('🗑️ categoryId: $deletedCategoryId');
-//     debugPrint('🗑️ categoryName: ${category['displayName'] ?? category['name']}');
-//     debugPrint(
-//       '🗑️ full category: ${const JsonEncoder.withIndent('  ').convert(category)}',
-//     );
-
-//     if (subCategories is List) {
-//       debugPrint('🔴 subCategories count: ${subCategories.length}');
-
-//       for (final sub in subCategories) {
-//         if (sub is! Map) continue;
-
-//         debugPrint('🔴 Subcategory found');
-//         debugPrint('   id: ${sub['id']}');
-//         debugPrint('   name: ${sub['displayName'] ?? sub['name']}');
-//         debugPrint('   isActive: ${sub['isActive']}');
-//         debugPrint(
-//           '   services count: ${(sub['services'] is List) ? (sub['services'] as List).length : 0}',
-//         );
-
-//         final services = sub['services'];
-//         if (services is List) {
-//           for (final service in services) {
-//             if (service is Map && service['id'] != null) {
-//               debugPrint(
-//                 '   🗑️ deleting service id=${service['id']} name=${service['displayName'] ?? service['name']}',
-//               );
-
-//               await context.read<CategoryCubit>().deleteService(
-//                     branchId,
-//                     service['id'] as int,
-//                   );
-//             }
-//           }
-//         }
-
-//         if (sub['id'] != null) {
-//           debugPrint(
-//             '   🗑️ deleting subcategory id=${sub['id']} name=${sub['displayName'] ?? sub['name']}',
-//           );
-
-//           await context.read<CategoryCubit>().deleteSubCategory(
-//                 branchId,
-//                 sub['id'] as int,
-//               );
-//         }
-//       }
-//     } else {
-//       debugPrint('⚠️ No subCategories list found in this category object');
-//     }
-
-//     final categoryServices = category['services'];
-//     if (categoryServices is List) {
-//       debugPrint('🟠 category direct services count: ${categoryServices.length}');
-
-//       for (final service in categoryServices) {
-//         if (service is Map && service['id'] != null) {
-//           debugPrint(
-//             '🗑️ deleting direct service id=${service['id']} name=${service['displayName'] ?? service['name']}',
-//           );
-
-//           await context.read<CategoryCubit>().deleteService(
-//                 branchId,
-//                 service['id'] as int,
-//               );
-//         }
-//       }
-//     }
-// await context.read<CategoryCubit>().deleteCategory(
-//       branchId,
-//       deletedCategoryId,
-//     );
-
-// final deleteState = context.read<CategoryCubit>().state;
-
-// if (deleteState.status == CategoryStatus.actionFailure) {
-//   debugPrint('❌ DELETE CATEGORY FAILED: ${deleteState.message}');
-//   return;
-// }
-
-// debugPrint('✅ DELETE CATEGORY DONE');
-
-// if (!mounted) return;
-
-// setState(() {
-//   if (_selectedFilterCategoryId == deletedCategoryId) {
-//     _selectedFilterCategoryId = null;
-//   }
-
-//   _expandedCategories.remove(deletedCategoryId);
-//   _categoryItemKeys.remove(deletedCategoryId);
-// });
-//     // await context.read<CategoryCubit>().deleteCategory(
-//     //       branchId,
-//     //       deletedCategoryId,
-//     //     );
-
-//     // debugPrint('✅ DELETE CATEGORY DONE');
-
-//     // if (!mounted) return;
-
-//     // setState(() {
-//     //   if (_selectedFilterCategoryId == deletedCategoryId) {
-//     //     _selectedFilterCategoryId = null;
-//     //   }
-
-//     //   _expandedCategories.remove(deletedCategoryId);
-//     //   _categoryItemKeys.remove(deletedCategoryId);
-//     // });
-//   } finally {
-//     _restoreScrollPosition();
-//   }
-// }
   Future<void> _confirmDeleteCategory(Map<String, dynamic> category) async {
     if (_selectedSalon == null) return;
 
@@ -968,6 +690,7 @@ class CategoryScreenState extends State<CategoryScreen> {
         _expandedCategories.remove(deletedCategoryId);
         _categoryItemKeys.remove(deletedCategoryId);
       });
+       await _refreshData();
     } finally {
       _restoreScrollPosition();
     }
@@ -995,9 +718,11 @@ class CategoryScreenState extends State<CategoryScreen> {
     final branchId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteSubCategory(
-            branchId,
-            subCategory['id'] as int,
-          );
+  branchId,
+  subCategory['id'] as int,
+);
+
+await _refreshData();
     } finally {
       _restoreScrollPosition();
     }
@@ -1072,6 +797,8 @@ class CategoryScreenState extends State<CategoryScreen> {
     final salonId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteService(salonId, serviceId);
+
+await _refreshData();
     } finally {
       _restoreScrollPosition();
     }
@@ -2283,22 +2010,41 @@ Widget _buildCategoryFilterChips(List<dynamic> categories) {
     categoryCubit.loadCategories(branchId);
   }
 
-  Future<void> _refreshData() async {
-    if (_selectedSalon != null) {
-      final int? loadId = _asInt(_selectedSalon?['branchId']) ??
-          _asInt(_selectedSalon?['salonId']);
-      if (loadId != null) {
-        await context
-            .read<CategoryCubit>()
-            .loadCategories(loadId, silent: true);
-      } else {
-        await context.read<SalonListCubit>().loadSalons();
-      }
+  // Future<void> _refreshData() async {
+  //   if (_selectedSalon != null) {
+  //     final int? loadId = _asInt(_selectedSalon?['branchId']) ??
+  //         _asInt(_selectedSalon?['salonId']);
+  //     if (loadId != null) {
+  //       await context
+  //           .read<CategoryCubit>()
+  //           .loadCategories(loadId, silent: true);
+  //     } else {
+  //       await context.read<SalonListCubit>().loadSalons();
+  //     }
+  //   } else {
+  //     await context.read<SalonListCubit>().loadSalons();
+  //   }
+  // }
+Future<void> _refreshData() async {
+  if (_selectedSalon != null) {
+    final int? loadId = _asInt(_selectedSalon?['branchId']) ??
+        _asInt(_selectedSalon?['salonId']);
+
+    if (loadId != null) {
+      final categoryCubit = context.read<CategoryCubit>();
+
+      // Clear local catalog first so deleted items cannot remain from cache/state.
+      categoryCubit.resetCategories();
+
+      // Fetch fresh active catalog from backend.
+      await categoryCubit.loadCategories(loadId, silent: true);
     } else {
       await context.read<SalonListCubit>().loadSalons();
     }
+  } else {
+    await context.read<SalonListCubit>().loadSalons();
   }
-
+}
   // ---------- OVERLAY ----------
   Widget _buildLoaderOverlay() {
     return Positioned.fill(
