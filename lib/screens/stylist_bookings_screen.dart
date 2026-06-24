@@ -3378,9 +3378,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     final isSelectedDateClosed =
         _selectedOption?.isClosedOnDate(_selectedDate) == true;
 
-    final bool noTeamMembersAvailable = widget.isOwnerMode &&
-        selectedBookingView == _BookingViewTab.teamMembers &&
-        _teamMemberNames.isEmpty;
+    final bool noTeamMembersAvailable =
+        widget.isOwnerMode && _teamMemberNames.isEmpty;
 
     final bool isBranchBookingWindowOver = _isSelectedBranchBookingWindowOver();
 
@@ -3601,7 +3600,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _ScheduleClientButton(
-                        onTap: _openAddBooking,
+                        onTap: disableAddBooking ? null : _openAddBooking,
+                        enabled: !disableAddBooking,
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -6207,9 +6207,13 @@ class _ScheduleEmptySlot extends StatelessWidget {
 }
 
 class _ScheduleClientButton extends StatelessWidget {
-  const _ScheduleClientButton({required this.onTap});
+  const _ScheduleClientButton({
+    required this.onTap,
+    required this.enabled,
+  });
 
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -6218,19 +6222,23 @@ class _ScheduleClientButton extends StatelessWidget {
       width: double.infinity,
       child: ElevatedButton.icon(
         onPressed: onTap,
-        icon: const Icon(Icons.group_add_outlined, size: 18),
+        icon: Icon(
+          Icons.group_add_outlined,
+          size: 18,
+          color: enabled ? Colors.white : _bookingsSecondaryText,
+        ),
         label: Text(
           context.t('Schedule a Client'),
           style: _bookingTextStyle(
             size: 13,
             weight: FontWeight.w900,
-            color: Colors.white,
+            color: enabled ? Colors.white : _bookingsSecondaryText,
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: _bookingsGold,
-          foregroundColor: Colors.white,
-          elevation: 6,
+          backgroundColor: enabled ? _bookingsGold : const Color(0xFFD6D3D1),
+          foregroundColor: enabled ? Colors.white : _bookingsSecondaryText,
+          elevation: enabled ? 6 : 1,
           shadowColor: const Color(0x338B6500),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

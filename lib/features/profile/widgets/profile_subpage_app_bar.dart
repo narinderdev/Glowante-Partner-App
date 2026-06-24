@@ -17,6 +17,7 @@ TextStyle _profileSubpageTitleStyle() {
 
 AppBar buildProfileSubpageAppBar({
   required String title,
+  Widget? titleWidget,
   bool centerTitle = false,
   bool automaticallyImplyLeading = true,
   double toolbarHeight = kToolbarHeight,
@@ -39,10 +40,11 @@ AppBar buildProfileSubpageAppBar({
       color: _profileSubpageTitle,
       size: 24,
     ),
-    title: Text(
-      title,
-      style: _profileSubpageTitleStyle(),
-    ),
+    title: titleWidget ??
+        Text(
+          title,
+          style: _profileSubpageTitleStyle(),
+        ),
     actions: actions,
     bottom: const PreferredSize(
       preferredSize: Size.fromHeight(1),

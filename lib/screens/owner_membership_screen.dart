@@ -218,7 +218,10 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       return;
     }
     final subscription = _subscription;
-    if (subscription != null && !subscription.canUpgrade) {
+    final isActiveMonthly = subscription != null &&
+        !_isYearlyCycle(subscription.billingCycle) &&
+        subscription.upcomingMembership == null;
+    if (subscription != null && !subscription.canUpgrade && !isActiveMonthly) {
       _showSnack(subscription.membershipMessage);
       return;
     }
@@ -863,10 +866,11 @@ class _PlansGrid extends StatelessWidget {
     if (current.upcomingMembership != null) return false;
     if (current.currentPlanId == plan.id) {
       if (!_isYearlyCycle(current.billingCycle)) {
-        return yearlyBilling ? current.canUpgrade : false;
+        return true;
       }
       return current.canRenew;
     }
+    if (!_isYearlyCycle(current.billingCycle)) return true;
     return current.canUpgrade;
   }
 }
@@ -2383,16 +2387,7 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
     _yearlyBilling = _isMonthlyBlocked ? true : widget.initialYearlyBilling;
   }
 
-  bool get _isMonthlyBlocked =>
-      !widget.allowMonthly || _isMonthlyRepurchaseBlocked;
-
-  bool get _isMonthlyRepurchaseBlocked {
-    final subscription = widget.subscription;
-    return subscription != null &&
-        subscription.currentPlanId == widget.plan.id &&
-        !_isYearlyCycle(subscription.billingCycle) &&
-        subscription.remainingDays > 0;
-  }
+  bool get _isMonthlyBlocked => !widget.allowMonthly;
 
   bool get _isRenewalSelection {
     final subscription = widget.subscription;
@@ -2513,11 +2508,7 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          context.t(
-                            !widget.allowMonthly
-                                ? _monthlyBlockedMessage
-                                : 'Monthly renewal is available after the current membership ends. You can upgrade to yearly now.',
-                          ),
+                          context.t(_monthlyBlockedMessage),
                         ),
                       ),
                     );
@@ -2526,14 +2517,10 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                   setState(() => _yearlyBilling = nextValue);
                 },
               ),
-              if (!widget.allowMonthly || _isMonthlyRepurchaseBlocked) ...[
+              if (!widget.allowMonthly) ...[
                 const SizedBox(height: 8),
                 Text(
-                  context.t(
-                    !widget.allowMonthly
-                        ? _monthlyBlockedMessage
-                        : 'Monthly renewal is available after the current membership ends. You can upgrade to yearly now.',
-                  ),
+                  context.t(_monthlyBlockedMessage),
                   style: const TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 11,
@@ -2993,8 +2980,8 @@ class _SalonSubscription {
       canRenew = false;
       canUpgrade = false;
     } else if (!_isYearlyCycle(billingCycle) && remainingDays > 0) {
-      canRenew = false;
-      canUpgrade = backendCanUpgrade ?? true;
+      canRenew = true;
+      canUpgrade = true;
     }
     final renewalEligibleAfterDays =
         _readInt(json['renewalEligibleAfterDays']) ??
@@ -3585,7 +3572,7 @@ String _membershipEligibilityMessage({
   }
 
   if (!canRenew && canUpgrade) {
-    return 'Monthly renewal is available after the current membership ends. You can upgrade to yearly now.';
+    return 'Monthly membership can be renewed or upgraded at any time.';
   }
 
   return 'Membership is not eligible for renewal or upgrade yet.';

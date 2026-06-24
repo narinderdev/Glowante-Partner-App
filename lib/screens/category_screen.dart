@@ -1565,15 +1565,28 @@ class CategoryScreenState extends State<CategoryScreen> {
     final salons = salonState.salons
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
+    final branchSelections = _catalogBranchSelections(salons);
+    final showHeaderBranchSelector =
+        _selectedSalon != null && branchSelections.length > 1;
 
     _scheduleSyncFromBookings(salons);
 
     return Scaffold(
       backgroundColor: _catalogSurface,
       appBar: buildProfileSubpageAppBar(
-        title: translateText('Service Catalog'),
-        automaticallyImplyLeading: false,
-        toolbarHeight: kToolbarHeight,
+  title: !showHeaderBranchSelector
+      ? translateText('Service Catalog')
+      : '',
+  automaticallyImplyLeading: false,
+  toolbarHeight: showHeaderBranchSelector ? 84 : kToolbarHeight,
+  titleWidget: showHeaderBranchSelector
+      ? _CatalogBranchSelector(
+          key: _branchSelectorKey,
+          selectedSalon: _selectedSalon,
+          showDropdown: true,
+          onTap: () => _showSalonBranchPicker(salons),
+        )
+      : null,
         actions: [
           IconButton(
             onPressed: () {
@@ -1663,8 +1676,6 @@ class CategoryScreenState extends State<CategoryScreen> {
   ) {
     final visibleCategories = _visibleCategories(catState.categories);
     final isInitialLoading = catState.isLoading && catState.categories.isEmpty;
-    final branchSelections = _catalogBranchSelections(salons);
-    final canChangeSalonBranch = branchSelections.length > 1;
 
     return RefreshIndicator(
       color: _catalogGold,
@@ -1674,20 +1685,11 @@ class CategoryScreenState extends State<CategoryScreen> {
         controller: _catalogScrollController,
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 104),
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 104),
         children: [
-          if (canChangeSalonBranch) ...[
-            _CatalogSectionLabel(text: translateText('SELECT  SALON/BRANCH')),
-            _CatalogBranchSelector(
-              key: _branchSelectorKey,
-              selectedSalon: _selectedSalon,
-              showDropdown: true,
-              onTap: () => _showSalonBranchPicker(salons),
-            ),
-            const SizedBox(height: 16),
-          ],
-          _CatalogSectionLabel(text: translateText('QUICK  SEARCH')),
-          _buildQuickSearchField(),
+  _buildCatalogIntroActions(catState),
+  const SizedBox(height: 14),
+  _buildQuickSearchField(),
           if (catState.categories.isNotEmpty) ...[
             const SizedBox(height: 22),
             _buildCategoryFilterChips(catState.categories),
@@ -1724,7 +1726,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                   allCategories: catState.categories,
                   onAddSubcategory: _openSubcategorySheet,
                   onEditSubcategory: _openSubcategorySheet,
-                  onAddServices: _openAddService,
+                  // onAddServices: _openAddService,
                   onEditCategory: _showAddCategorySheet,
                   onDeleteCategory: _confirmDeleteCategory,
                   onDeleteSubcategory: _confirmDeleteSubCategory,
@@ -1824,7 +1826,103 @@ class CategoryScreenState extends State<CategoryScreen> {
     }
     return false;
   }
-
+  Widget _buildCatalogIntroActions(CategoryState catState) {
+  return Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              translateText('MASTER CATALOG'),
+              style: const TextStyle(
+                color: _catalogMuted,
+                fontSize: 9,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2.2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              translateText('Manage Services'),
+              style: const TextStyle(
+                color: _catalogInk,
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(width: 12),
+      // SizedBox(
+      //   height: 30,
+      //   child: ElevatedButton.icon(
+      //     onPressed: _selectedSalon == null
+      //         ? null
+      //         : () => _openAddService(
+      //               const <String, dynamic>{},
+      //               catState.categories,
+      //             ),
+      //     icon: const Icon(Icons.add_circle_outline_rounded, size: 13),
+      //     label: Text(
+      //       translateText('Add Service'),
+      //       maxLines: 1,
+      //       overflow: TextOverflow.ellipsis,
+      //       style: const TextStyle(
+      //         fontSize: 9,
+      //         fontWeight: FontWeight.w800,
+      //       ),
+      //     ),
+      //     style: ElevatedButton.styleFrom(
+      //       minimumSize: Size.zero,
+      //       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      //       backgroundColor: _catalogGold,
+      //       foregroundColor: Colors.white,
+      //       elevation: 0,
+      //       shape: RoundedRectangleBorder(
+      //         borderRadius: BorderRadius.circular(8),
+      //       ),
+      //       padding: const EdgeInsets.symmetric(horizontal: 12),
+      //     ),
+      //   ),
+      // ),
+      SizedBox(
+  height: 38,
+  child: ElevatedButton.icon(
+    onPressed: _selectedSalon == null
+        ? null
+        : () => _openAddService(
+              const <String, dynamic>{},
+              catState.categories,
+            ),
+    icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+    label: Text(
+      translateText('Add Service'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+      ),
+    ),
+    style: ElevatedButton.styleFrom(
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      backgroundColor: _catalogGold,
+      foregroundColor: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(9),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+    ),
+  ),
+),
+    ],
+  );
+}
   Widget _buildQuickSearchField() {
     return Container(
       height: 60,
@@ -1874,108 +1972,201 @@ class CategoryScreenState extends State<CategoryScreen> {
     );
   }
 
-  Widget _buildCategoryFilterChips(List<dynamic> categories) {
-    final categoryItems = _sortedCatalogItems(
-      categories.whereType<Map>().map(
-            (entry) => Map<String, dynamic>.from(entry),
-          ),
-    );
-    if (categoryItems.isEmpty) return const SizedBox.shrink();
+  // Widget _buildCategoryFilterChips(List<dynamic> categories) {
+  //   final categoryItems = _sortedCatalogItems(
+  //     categories.whereType<Map>().map(
+  //           (entry) => Map<String, dynamic>.from(entry),
+  //         ),
+  //   );
+  //   if (categoryItems.isEmpty) return const SizedBox.shrink();
 
-    return SizedBox(
-      height: 34,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Container(
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEDEBE9),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: List.generate(categoryItems.length + 1, (index) {
-              final bool isAll = index == 0;
-              final category = isAll ? null : categoryItems[index - 1];
-              final int? categoryId = isAll ? null : _asInt(category?['id']);
-              final bool selected = isAll
-                  ? _selectedFilterCategoryId == null
-                  : _selectedFilterCategoryId == categoryId;
-              final label = isAll
-                  ? translateText('All Services')
-                  : (category?['displayName'] ??
-                          category?['name'] ??
-                          'Category')
-                      .toString();
+  //   return SizedBox(
+  //     height: 34,
+  //     child: SingleChildScrollView(
+  //       scrollDirection: Axis.horizontal,
+  //       child: Container(
+  //         padding: const EdgeInsets.all(3),
+  //         decoration: BoxDecoration(
+  //           color: const Color(0xFFEDEBE9),
+  //           borderRadius: BorderRadius.circular(8),
+  //         ),
+  //         child: Row(
+  //           children: List.generate(categoryItems.length + 1, (index) {
+  //             final bool isAll = index == 0;
+  //             final category = isAll ? null : categoryItems[index - 1];
+  //             final int? categoryId = isAll ? null : _asInt(category?['id']);
+  //             final bool selected = isAll
+  //                 ? _selectedFilterCategoryId == null
+  //                 : _selectedFilterCategoryId == categoryId;
+  //             final label = isAll
+  //                 ? translateText('All Services')
+  //                 : (category?['displayName'] ??
+  //                         category?['name'] ??
+  //                         'Category')
+  //                     .toString();
 
-              return Padding(
-                padding: EdgeInsets.only(
-                  left: index == 0 ? 0 : 2,
-                  right: index == categoryItems.length ? 0 : 2,
-                ),
-                child: Material(
-                  key: !isAll && categoryId != null
-                      ? _filterChipKeys.putIfAbsent(
-                          categoryId,
-                          () => GlobalKey(),
-                        )
-                      : null,
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: () {
-                      setState(() => _selectedFilterCategoryId = categoryId);
-                      if (categoryId != null) {
-                        _ensureFilterChipVisible(categoryId);
-                      }
-                    },
-                    splashColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      constraints: const BoxConstraints(minWidth: 92),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: selected ? _catalogGold : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6),
-                        border: selected
-                            ? Border.all(color: _catalogGold, width: 1)
-                            : null,
-                        boxShadow: selected
-                            ? const [
-                                BoxShadow(
-                                  color: Color(0x248B6500),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ]
-                            : const [],
-                      ),
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Manrope',
-                          fontFamilyFallback: ['Inter', 'sans-serif'],
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.2,
-                        ).copyWith(
-                          color: selected ? Colors.white : _catalogMuted,
-                        ),
-                      ),
+  //             return Padding(
+  //               padding: EdgeInsets.only(
+  //                 left: index == 0 ? 0 : 2,
+  //                 right: index == categoryItems.length ? 0 : 2,
+  //               ),
+  //               child: Material(
+  //                 key: !isAll && categoryId != null
+  //                     ? _filterChipKeys.putIfAbsent(
+  //                         categoryId,
+  //                         () => GlobalKey(),
+  //                       )
+  //                     : null,
+  //                 color: Colors.transparent,
+  //                 child: InkWell(
+  //                   borderRadius: BorderRadius.circular(6),
+  //                   onTap: () {
+  //                     setState(() => _selectedFilterCategoryId = categoryId);
+  //                     if (categoryId != null) {
+  //                       _ensureFilterChipVisible(categoryId);
+  //                     }
+  //                   },
+  //                   splashColor: Colors.transparent,
+  //                   highlightColor: Colors.transparent,
+  //                   child: AnimatedContainer(
+  //                     duration: const Duration(milliseconds: 180),
+  //                     constraints: const BoxConstraints(minWidth: 92),
+  //                     padding: const EdgeInsets.symmetric(horizontal: 14),
+  //                     alignment: Alignment.center,
+  //                     decoration: BoxDecoration(
+  //                       color: selected ? _catalogGold : Colors.transparent,
+  //                       borderRadius: BorderRadius.circular(6),
+  //                       border: selected
+  //                           ? Border.all(color: _catalogGold, width: 1)
+  //                           : null,
+  //                       boxShadow: selected
+  //                           ? const [
+  //                               BoxShadow(
+  //                                 color: Color(0x248B6500),
+  //                                 blurRadius: 8,
+  //                                 offset: Offset(0, 3),
+  //                               ),
+  //                             ]
+  //                           : const [],
+  //                     ),
+  //                     child: Text(
+  //                       label,
+  //                       maxLines: 1,
+  //                       overflow: TextOverflow.ellipsis,
+  //                       style: const TextStyle(
+  //                         fontFamily: 'Manrope',
+  //                         fontFamilyFallback: ['Inter', 'sans-serif'],
+  //                         fontSize: 11,
+  //                         fontWeight: FontWeight.w800,
+  //                         letterSpacing: 0.2,
+  //                       ).copyWith(
+  //                         color: selected ? Colors.white : _catalogMuted,
+  //                       ),
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ),
+  //             );
+  //           }),
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+Widget _buildCategoryFilterChips(List<dynamic> categories) {
+  final categoryItems = _sortedCatalogItems(
+    categories.whereType<Map>().map(
+          (entry) => Map<String, dynamic>.from(entry),
+        ),
+  );
+
+  if (categoryItems.isEmpty) return const SizedBox.shrink();
+
+  return SizedBox(
+    height: 38,
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: List.generate(categoryItems.length + 1, (index) {
+          final bool isAll = index == 0;
+          final category = isAll ? null : categoryItems[index - 1];
+          final int? categoryId = isAll ? null : _asInt(category?['id']);
+
+          final bool selected = isAll
+              ? _selectedFilterCategoryId == null
+              : _selectedFilterCategoryId == categoryId;
+
+          final label = isAll
+              ? translateText('All Services')
+              : (category?['displayName'] ??
+                      category?['name'] ??
+                      'Category')
+                  .toString();
+
+          return Padding(
+            padding: EdgeInsets.only(
+              right: index == categoryItems.length ? 0 : 10,
+            ),
+            child: Material(
+              key: !isAll && categoryId != null
+                  ? _filterChipKeys.putIfAbsent(
+                      categoryId,
+                      () => GlobalKey(),
+                    )
+                  : null,
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () {
+                  setState(() => _selectedFilterCategoryId = categoryId);
+                  if (categoryId != null) {
+                    _ensureFilterChipVisible(categoryId);
+                  }
+                },
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  height: 32,
+                  constraints: const BoxConstraints(minWidth: 84),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? _catalogGold
+                        : const Color(0xFFE9E0DE),
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: selected
+                        ? const [
+                            BoxShadow(
+                              color: Color(0x248B6500),
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
+                            ),
+                          ]
+                        : const [],
+                  ),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontFamilyFallback: const ['Inter', 'sans-serif'],
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: selected ? Colors.white : _catalogMuted,
                     ),
                   ),
                 ),
-              );
-            }),
-          ),
-        ),
+              ),
+            ),
+          );
+        }),
       ),
-    );
-  }
-
+    ),
+  );
+}
   Future<void> _showSalonBranchPicker(List<Map<String, dynamic>> salons) async {
     _dismissCatalogKeyboard();
 
@@ -2146,39 +2337,19 @@ class CategoryScreenState extends State<CategoryScreen> {
   }
 }
 
-class _CatalogSectionLabel extends StatelessWidget {
-  const _CatalogSectionLabel({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 2, bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Color(0xFF4B4038),
-          fontSize: 9,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.6,
-        ),
-      ),
-    );
-  }
-}
-
 class _CatalogBranchSelector extends StatelessWidget {
   const _CatalogBranchSelector({
     super.key,
     required this.selectedSalon,
     required this.showDropdown,
     required this.onTap,
+    this.compact = false,
   });
 
   final Map<String, dynamic>? selectedSalon;
   final bool showDropdown;
   final VoidCallback? onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -2190,31 +2361,34 @@ class _CatalogBranchSelector extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(compact ? 8 : 10),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 70),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          constraints: BoxConstraints(minHeight: compact ? 32 : 70),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 8 : 16,
+            vertical: compact ? 5 : 12,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(compact ? 8 : 10),
             border: Border.all(color: const Color(0xFFD9CBBB)),
           ),
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: compact ? 24 : 42,
+                height: compact ? 24 : 42,
                 decoration: const BoxDecoration(
                   color: Color(0xFFF3E8D1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.location_on_outlined,
                   color: _catalogGold,
-                  size: 24,
+                  size: compact ? 16 : 24,
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: compact ? 8 : 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2226,11 +2400,11 @@ class _CatalogBranchSelector extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: _catalogInk,
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    if (addressSummary.isNotEmpty) ...[
+                    if (!compact && addressSummary.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         addressSummary,
@@ -2428,7 +2602,7 @@ class _CategoryList extends StatelessWidget {
     required this.allCategories,
     required this.onAddSubcategory,
     required this.onEditSubcategory,
-    required this.onAddServices,
+    // required this.onAddServices,
     required this.onEditCategory,
     required this.onDeleteCategory,
     required this.onDeleteSubcategory,
@@ -2449,8 +2623,8 @@ class _CategoryList extends StatelessWidget {
   final SubcategoryOp onAddSubcategory;
   final SubcategoryOp onEditSubcategory;
 
-  final void Function(Map<String, dynamic> category, List<dynamic> categories)
-      onAddServices;
+  // final void Function(Map<String, dynamic> category, List<dynamic> categories)
+  //     onAddServices;
 
   final Future<void> Function({Map<String, dynamic>? category}) onEditCategory;
 
@@ -2716,91 +2890,48 @@ class _CategoryList extends StatelessWidget {
                     }).toList(),
                   ),
                 ),
-              if (isCategoryExpanded) ...[
-                const SizedBox(height: 18),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () =>
-                              onAddSubcategory(categoryId: categoryId),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: _catalogGold,
-                            side: const BorderSide(color: _catalogGold),
-                            backgroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.add_circle_outline_rounded,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  translateText('Add Subcategory'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (subCategories.isNotEmpty) const SizedBox(width: 12),
-                      if (subCategories.isNotEmpty)
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () =>
-                                onAddServices(category, allCategories),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _catalogGold,
-                              foregroundColor: Colors.white,
-                              elevation: 4,
-                              shadowColor: const Color(0x338B6500),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.add_rounded, size: 18),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    translateText('Add Service'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 18),
-              ],
+          if (isCategoryExpanded) ...[
+  const SizedBox(height: 18),
+  Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 18),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        SizedBox(
+          height: 38,
+          child: ElevatedButton.icon(
+            onPressed: () => onAddSubcategory(categoryId: categoryId),
+            icon: const Icon(
+              Icons.folder_open_rounded,
+              size: 16,
+            ),
+            label: Text(
+              translateText('Add Subcategory'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: _catalogGold,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(9),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+            ),
+          ),
+        ),
+      ],
+    ),
+  ),
+  const SizedBox(height: 18),
+],
             ],
           ),
         );
@@ -2979,6 +3110,7 @@ class _ServiceCard extends StatelessWidget {
     final int? duration = _serviceInt(service['durationMin']);
     final String description = (service['description'] ?? '').toString().trim();
     final String commissionTagLabel = _serviceCommissionTagLabel(service);
+    final bool showCommissionTag = service['commissionEnabled'] == true;
     final String waitLabel = _servicePassiveWaitLabel(service);
 
     final String priceLabel =
@@ -3089,17 +3221,19 @@ class _ServiceCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    commissionTagLabel,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: _catalogGold,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
+                  if (showCommissionTag) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      commissionTagLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: _catalogGold,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ],

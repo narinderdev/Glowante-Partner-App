@@ -191,14 +191,10 @@ class _AddServicesState extends State<AddServices> {
       durationController.text = _defaultDurationMinutes.toString();
       _setDefaultPassiveWaitForDuration(_defaultDurationMinutes);
 
-      final subCategories =
-          (widget.selectedCategory!['subCategories'] as List?) ?? const [];
-      if (subCategories.length == 1 && subCategories.first is Map) {
-        selectedCategory = Map<String, dynamic>.from(subCategories.first);
-        selectedCategoryType = 'subCategory';
-        final id = selectedCategory!['id'];
-        selectedCategoryKey = 'sub:$id';
-      }
+      selectedCategory = Map<String, dynamic>.from(widget.selectedCategory!);
+      selectedCategoryType = 'category';
+      final id = selectedCategory!['id'];
+      selectedCategoryKey = 'cat:$id';
     } else {
       durationController.text = _defaultDurationMinutes.toString();
       _setDefaultPassiveWaitForDuration(_defaultDurationMinutes);
@@ -343,13 +339,17 @@ class _AddServicesState extends State<AddServices> {
 
     setState(() => _isLoading = true);
     try {
-      final branchSubCategoryId = _asInt(selectedCategory?['id']);
-      final branchCategoryId = _asInt(selectedCategory?['branchCategoryId']) ??
-          _asInt(selectedCategory?['categoryId']) ??
-          _asInt(widget.selectedCategory?['id']) ??
-          _findParentCategoryIdForSubCategory(branchSubCategoryId);
+      final selectedId = _asInt(selectedCategory?['id']);
+      final branchSubCategoryId =
+          selectedCategoryType == 'subCategory' ? selectedId : null;
+      final branchCategoryId = selectedCategoryType == 'subCategory'
+          ? (_asInt(selectedCategory?['branchCategoryId']) ??
+              _asInt(selectedCategory?['categoryId']) ??
+              _asInt(widget.selectedCategory?['id']) ??
+              _findParentCategoryIdForSubCategory(branchSubCategoryId))
+          : selectedId ?? _asInt(widget.selectedCategory?['id']);
 
-      if (branchSubCategoryId == null || branchCategoryId == null) {
+      if (branchCategoryId == null) {
         throw Exception(jsonEncode({
           "message":
               "Missing category/subcategory id. branchCategoryId=$branchCategoryId, branchSubCategoryId=$branchSubCategoryId"
@@ -663,8 +663,10 @@ class _AddServicesState extends State<AddServices> {
 
   String? _validateCategory(Map<String, dynamic>? _) {
     if (_isEditMode) return null;
-    if (selectedCategory == null || selectedCategoryType != 'subCategory') {
-      return translateText("Subcategory is required");
+    if (selectedCategory == null ||
+        (selectedCategoryType != 'category' &&
+            selectedCategoryType != 'subCategory')) {
+      return translateText("Category or subcategory is required");
     }
     return null;
   }
@@ -914,13 +916,17 @@ class _AddServicesState extends State<AddServices> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _FieldLabel(translateText("Subcategory *")),
+                              _FieldLabel(
+                                translateText("Category/Subcategory *"),
+                              ),
                               const SizedBox(height: 7),
                               DropdownButtonFormField<String>(
                                 isExpanded: true,
                                 initialValue: _validateSelectedCategoryKey(
                                     selectedCategoryKey, categoryItems),
-                                hint: Text(translateText("Select Subcategory")),
+                                hint: Text(
+                                  translateText("Select Category/Subcategory"),
+                                ),
                                 items: categoryItems,
                                 onChanged: _isEditMode
                                     ? null
@@ -929,12 +935,28 @@ class _AddServicesState extends State<AddServices> {
                                         setState(() {
                                           selectedCategoryKey = key;
                                           selectedService = null;
-                                          final id =
-                                              int.parse(key.substring(4));
-                                          selectedCategoryType = 'subCategory';
-                                          selectedCategory =
-                                              findSubcategoryById(
-                                                  widget.categories ?? [], id);
+                                          final separator = key.indexOf(':');
+                                          final type = separator == -1
+                                              ? ''
+                                              : key.substring(0, separator);
+                                          final id = int.parse(
+                                            key.substring(separator + 1),
+                                          );
+                                          if (type == 'cat') {
+                                            selectedCategoryType = 'category';
+                                            selectedCategory = findCategoryById(
+                                              widget.categories ?? [],
+                                              id,
+                                            );
+                                          } else {
+                                            selectedCategoryType =
+                                                'subCategory';
+                                            selectedCategory =
+                                                findSubcategoryById(
+                                              widget.categories ?? [],
+                                              id,
+                                            );
+                                          }
                                         });
                                       },
                                 decoration: _inputDecoration(),
@@ -1185,7 +1207,8 @@ class _AddServicesState extends State<AddServices> {
                                 const SizedBox(height: 7),
                                 TextFormField(
                                   controller: commissionValueController,
-                                  maxLength: 6,
+                                  maxLength:
+                                      _commissionType == 'percentage' ? 3 : 6,
                                   maxLengthEnforcement:
                                       MaxLengthEnforcement.enforced,
                                   keyboardType: _commissionType == 'percentage'
@@ -1206,7 +1229,7 @@ class _AddServicesState extends State<AddServices> {
                                           FilteringTextInputFormatter.allow(
                                             RegExp(r'[0-9.]'),
                                           ),
-                                          LengthLimitingTextInputFormatter(6),
+                                          LengthLimitingTextInputFormatter(3),
                                         ]
                                       : [
                                           FilteringTextInputFormatter
@@ -1229,7 +1252,8 @@ class _AddServicesState extends State<AddServices> {
                                 _FieldCounter(
                                   currentLength:
                                       commissionValueController.text.length,
-                                  maxLength: 6,
+                                  maxLength:
+                                      _commissionType == 'percentage' ? 3 : 6,
                                 ),
                                 if (_commissionType == 'percentage') ...[
                                   const SizedBox(height: 14),
@@ -1634,25 +1658,37 @@ int _compareServiceItems(
   return firstId.compareTo(secondId);
 }
 
+int? _serviceFormInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 List<DropdownMenuItem<String>> buildSubcategoryKeyItems(
   List<dynamic> categories, {
   Map<String, dynamic>? selectedParentCategory,
 }) {
   final items = <DropdownMenuItem<String>>[];
-  final selectedParentCategoryId = selectedParentCategory?['id'];
   for (final cat in categories) {
     if (cat is! Map) continue;
-    final catId = cat['id'];
-    if (selectedParentCategoryId != null && catId != selectedParentCategoryId) {
-      continue;
-    }
+    final catId = _serviceFormInt(cat['id']);
+    if (catId == null) continue;
+    items.add(DropdownMenuItem<String>(
+      value: 'cat:$catId',
+      child: Text(
+        '${cat['displayName'] ?? cat['name'] ?? ''} ${translateText('(Category)')}',
+        overflow: TextOverflow.ellipsis,
+      ),
+    ));
     final subCategories = ((cat['subCategories'] as List?) ?? const [])
         .whereType<Map>()
         .map((sub) => Map<String, dynamic>.from(sub))
         .toList()
       ..sort(_compareServiceItems);
     for (final sub in subCategories) {
-      final subId = sub['id'] as int;
+      final subId = _serviceFormInt(sub['id']);
+      if (subId == null) continue;
       items.add(DropdownMenuItem<String>(
         value: 'sub:$subId',
         child: Text(sub['displayName'] ?? ''),
@@ -1664,7 +1700,8 @@ List<DropdownMenuItem<String>> buildSubcategoryKeyItems(
 
 Map<String, dynamic>? findCategoryById(List<dynamic> categories, int id) {
   for (final cat in categories) {
-    if (cat['id'] == id) return Map<String, dynamic>.from(cat);
+    if (cat is! Map) continue;
+    if (_serviceFormInt(cat['id']) == id) return Map<String, dynamic>.from(cat);
   }
   return null;
 }
@@ -1682,7 +1719,7 @@ Map<String, dynamic>? findSubcategoryById(List<dynamic> categories, int id) {
     if (cat is! Map) continue;
 
     for (final sub in (cat['subCategories'] ?? []) as List) {
-      if (sub is Map && sub['id'] == id) {
+      if (sub is Map && _serviceFormInt(sub['id']) == id) {
         return {
           ...Map<String, dynamic>.from(sub),
           'branchCategoryId': cat['id'],
