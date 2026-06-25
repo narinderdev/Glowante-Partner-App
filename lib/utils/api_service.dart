@@ -200,7 +200,7 @@ class ApiService {
       "branches/$branchId/services";
   static String linkBranchClientAPI(int branchId) =>
       "branches/$branchId/clients/link";
-  static const String membershipPlansAPI = "membership-plans";
+  static const String membershipPlansAPI = "admin/membership-plans";
   static String salonSubscriptionAPI(int salonId) =>
       "admin/salons/$salonId/subscription";
   static String salonSubscriptionsAPI(int salonId) =>
@@ -541,6 +541,35 @@ class ApiService {
     );
   }
 
+  Future<Map<String, dynamic>> createMembershipPlan({
+    required String name,
+    required int monthlyPriceMinor,
+    required int annualPriceMinor,
+    required int branchLimit,
+    required int staffLimit,
+    required int storageLimit,
+    required List<String> includedFeatures,
+    required String status,
+    required bool isRecommended,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: membershipPlansAPI,
+      debugTag: 'CreateMembershipPlan',
+      body: <String, dynamic>{
+        'name': name,
+        'monthlyPriceMinor': monthlyPriceMinor,
+        'annualPriceMinor': annualPriceMinor,
+        'branchLimit': branchLimit,
+        'staffLimit': staffLimit,
+        'storageLimit': storageLimit,
+        'includedFeatures': includedFeatures,
+        'status': status,
+        'isRecommended': isRecommended,
+      },
+    );
+  }
+
   Future<Map<String, dynamic>> getSalonSubscription(int salonId) {
     return _authorizedJsonRequest(
       method: 'GET',
@@ -555,7 +584,8 @@ class ApiService {
     required String billingCycle,
     required String paymentReference,
     required bool renew,
-    required DateTime startDate,
+    DateTime? startDate,
+    String? paymentStatus,
     String? razorpayOrderId,
     String? razorpaySignature,
     int? amountMinor,
@@ -568,9 +598,12 @@ class ApiService {
       'planId': planId,
       'billingCycle': normalizedBillingCycle,
       'renew': renew,
-      'startDate': DateFormat('yyyy-MM-dd').format(startDate),
       'paymentReference': paymentReference,
       'razorpayPaymentId': paymentReference,
+      if (startDate != null)
+        'startDate': DateFormat('yyyy-MM-dd').format(startDate),
+      if (paymentStatus != null && paymentStatus.trim().isNotEmpty)
+        'paymentStatus': paymentStatus.trim().toUpperCase(),
       if (razorpayOrderId != null && razorpayOrderId.isNotEmpty)
         'razorpayOrderId': razorpayOrderId,
       if (razorpaySignature != null && razorpaySignature.isNotEmpty)
@@ -2311,9 +2344,9 @@ class ApiService {
   }) async {
     final token = await getAuthToken();
     final url = Uri.parse(baseUrl + importPredefinedServicesAPI(branchId));
-    final payload = {
+    final payload = <String, dynamic>{
       "serviceCodes": serviceCodes,
-      "unselectedCodes": unselectedCodes,
+      if (unselectedCodes.isNotEmpty) "unselectedCodes": unselectedCodes,
     };
     _debugPrintChunked('Import Predefined Services URL', url);
     _debugPrintChunked(

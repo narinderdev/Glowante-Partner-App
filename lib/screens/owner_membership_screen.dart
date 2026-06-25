@@ -218,9 +218,23 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       return;
     }
     final subscription = _subscription;
+    if (subscription != null && subscription.currentPlanId == plan.id) {
+      _showSnack(
+        'This plan is already active. Please choose a different upgrade plan.',
+      );
+      return;
+    }
     final isActiveMonthly = subscription != null &&
         !_isYearlyCycle(subscription.billingCycle) &&
         subscription.upcomingMembership == null;
+    if (subscription != null &&
+        subscription.currentPlanId != plan.id &&
+        !_isUpgradePlan(plan, subscription, _plans)) {
+      _showSnack(
+        'Lower-tier plans cannot be purchased while an active membership exists. Select a higher-tier plan or renew the current plan.',
+      );
+      return;
+    }
     if (subscription != null && !subscription.canUpgrade && !isActiveMonthly) {
       _showSnack(subscription.membershipMessage);
       return;
@@ -233,35 +247,6 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         plan: plan,
         initialYearlyBilling: _yearlyBilling,
         subscription: _subscription,
-        allowMonthly: !_monthlyPlansBlocked,
-      ),
-    );
-    if (selection == null || !mounted) return;
-
-    await _startPayment(salonId: salonId, selection: selection);
-  }
-
-  Future<void> _renewCurrentPlan() async {
-    final subscription = _subscription;
-    final salonId = _salonId;
-    if (subscription == null || salonId == null) return;
-    if (!subscription.canRenew) {
-      _showSnack(subscription.membershipMessage);
-      return;
-    }
-
-    final plan = _planForSubscription(subscription);
-    if (plan.id == null) {
-      _showSnack('Unable to find current membership plan.');
-      return;
-    }
-
-    final selection = await showDialog<_PurchaseSelection>(
-      context: context,
-      barrierDismissible: !_isPaying,
-      builder: (context) => _RenewMembershipDialog(
-        plan: plan,
-        subscription: subscription,
         allowMonthly: !_monthlyPlansBlocked,
       ),
     );
@@ -365,25 +350,6 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       if (plan.name.trim().toLowerCase() == targetName) return plan.id;
     }
     return null;
-  }
-
-  _MembershipPlan _planForSubscription(_SalonSubscription subscription) {
-    for (final plan in _plans) {
-      if (plan.id == subscription.currentPlanId) return plan;
-    }
-    return _MembershipPlan(
-      id: subscription.currentPlanId,
-      name: subscription.currentPlan,
-      description: '',
-      monthlyPriceMinor: subscription.amountMinor,
-      annualPriceMinor: subscription.amountMinor * 12,
-      branchLimit: subscription.branchUsage.limit,
-      staffLimit: subscription.staffUsage.limit,
-      storageLimit: subscription.storageUsage.limit,
-      includedFeatures: const [],
-      currency: subscription.currency,
-      isRecommended: false,
-    );
   }
 
   Future<void> _startPayment({
@@ -627,14 +593,13 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         if (_subscription != null) ...[
           _ExpiryBanner(
             subscription: _subscription!,
-            onRenew: _subscription!.canRenew ? _renewCurrentPlan : null,
+            onRenew: null,
           ),
           const SizedBox(height: 18),
           _MembershipSummaryRow(
             subscription: _subscription!,
             actions: _MembershipActions(
               subscription: _subscription!,
-              onRenew: _renewCurrentPlan,
               onPlans: _showAvailablePlans,
               onPaymentHistory: _showPaymentHistory,
               onActivateUpcoming: _activateUpcomingMembership,
@@ -850,7 +815,9 @@ class _PlansGrid extends StatelessWidget {
                   yearlyBilling: yearlyBilling,
                   isCurrent: currentPlanId == plan.id,
                   canChoose: _canChoosePlan(plan),
-                  disabledMessage: subscription?.membershipMessage,
+                  disabledMessage: currentPlanId == plan.id
+                      ? 'This plan is already active. Please choose a different upgrade plan.'
+                      : subscription?.membershipMessage,
                   onChoose: () => onChoose(plan),
                 ),
               ),
@@ -865,11 +832,12 @@ class _PlansGrid extends StatelessWidget {
     if (current == null) return true;
     if (current.upcomingMembership != null) return false;
     if (current.currentPlanId == plan.id) {
-      if (!_isYearlyCycle(current.billingCycle)) {
-        return true;
-      }
-      return current.canRenew;
+      return false;
     }
+    if (current.eligibleUpgradePlanIds.isNotEmpty) {
+      return current.eligibleUpgradePlanIds.contains(plan.id);
+    }
+    if (_isHigherTierPlan(plan, current, plans)) return true;
     if (!_isYearlyCycle(current.billingCycle)) return true;
     return current.canUpgrade;
   }
@@ -1003,10 +971,10 @@ class _PlanCard extends StatelessWidget {
                 ),
               ),
               child: Text(
-                !canChoose
-                    ? context.t('Not Eligible')
-                    : isCurrent
-                        ? context.t('Renew Plan')
+                isCurrent
+                    ? context.t('Current Plan')
+                    : !canChoose
+                        ? context.t('Not Eligible')
                         : context.t('Choose ${plan.name}'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1022,6 +990,54 @@ class _PlanCard extends StatelessWidget {
       ),
     );
   }
+}
+
+bool _isUpgradePlan(
+  _MembershipPlan plan,
+  _SalonSubscription current,
+  List<_MembershipPlan> plans,
+) {
+  if (current.eligibleUpgradePlanIds.isNotEmpty) {
+    return current.eligibleUpgradePlanIds.contains(plan.id);
+  }
+  return _isHigherTierPlan(plan, current, plans);
+}
+
+bool _isHigherTierPlan(
+  _MembershipPlan plan,
+  _SalonSubscription current,
+  List<_MembershipPlan> plans,
+) {
+  final currentPlan = _resolvedCurrentPlan(current, plans);
+  final planHasHigherMonetaryValue =
+      plan.monthlyPriceMinor > currentPlan.monthlyPriceMinor ||
+          plan.annualPriceMinor > currentPlan.annualPriceMinor;
+  final planHasHigherCapacity = plan.branchLimit > currentPlan.branchLimit ||
+      plan.staffLimit > currentPlan.staffLimit ||
+      plan.storageLimit > currentPlan.storageLimit;
+  return planHasHigherMonetaryValue || planHasHigherCapacity;
+}
+
+_MembershipPlan _resolvedCurrentPlan(
+  _SalonSubscription current,
+  List<_MembershipPlan> plans,
+) {
+  for (final plan in plans) {
+    if (plan.id == current.currentPlanId) return plan;
+  }
+  return _MembershipPlan(
+    id: current.currentPlanId,
+    name: current.currentPlan,
+    description: '',
+    monthlyPriceMinor: current.amountMinor,
+    annualPriceMinor: current.amountMinor * 12,
+    branchLimit: current.branchUsage.limit,
+    staffLimit: current.staffUsage.limit,
+    storageLimit: current.storageUsage.limit,
+    includedFeatures: const [],
+    currency: current.currency,
+    isRecommended: false,
+  );
 }
 
 class _FeatureLine extends StatelessWidget {
@@ -1354,14 +1370,12 @@ class _MembershipSummaryRow extends StatelessWidget {
 class _MembershipActions extends StatelessWidget {
   const _MembershipActions({
     required this.subscription,
-    required this.onRenew,
     required this.onPlans,
     required this.onPaymentHistory,
     required this.onActivateUpcoming,
   });
 
   final _SalonSubscription subscription;
-  final VoidCallback onRenew;
   final VoidCallback onPlans;
   final VoidCallback onPaymentHistory;
   final VoidCallback onActivateUpcoming;
@@ -1375,8 +1389,9 @@ class _MembershipActions extends StatelessWidget {
           _ActionRow(
             icon: Icons.refresh_rounded,
             label: 'Renew Plan',
-            onTap: subscription.canRenew ? onRenew : null,
-            disabledMessage: subscription.membershipMessage,
+            onTap: null,
+            disabledMessage:
+                'This plan is already active. Please choose a different upgrade plan.',
           ),
           const Divider(height: 1, color: _membershipBorder),
           _ActionRow(
@@ -2397,13 +2412,21 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
         _billingCycleApiValue(_isYearlyCycle(subscription.billingCycle));
   }
 
+  bool get _isUpgradeSelection {
+    final subscription = widget.subscription;
+    if (subscription == null) return false;
+    return subscription.currentPlanId != widget.plan.id;
+  }
+
   @override
   Widget build(BuildContext context) {
     final amount = widget.plan.amountFor(_yearlyBilling);
     final startDate = DateTime.now();
-    final baseDate = widget.subscription == null
-        ? startDate
-        : _renewalBaseDate(widget.subscription!.expiryDate);
+    final isRenewalSelection = _isRenewalSelection;
+    final isUpgradeSelection = _isUpgradeSelection;
+    final baseDate = isRenewalSelection && widget.subscription != null
+        ? _renewalBaseDate(widget.subscription!.expiryDate)
+        : startDate;
     final validUntil = DateTime(
       baseDate.year + (_yearlyBilling ? 1 : 0),
       baseDate.month + (_yearlyBilling ? 0 : 1),
@@ -2575,9 +2598,9 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                             plan: widget.plan,
                             billingCycle: _billingCycleApiValue(_yearlyBilling),
                             amountMinor: amount,
-                            renew: _isRenewalSelection,
-                            replaceCurrentPlan: false,
-                            startDate: DateTime.now(),
+                            renew: isRenewalSelection,
+                            replaceCurrentPlan: isUpgradeSelection,
+                            startDate: startDate,
                           ),
                         );
                       },
@@ -2953,6 +2976,7 @@ class _SalonSubscription {
     required this.renewalEligibleAfterDays,
     required this.membershipMessage,
     required this.upcomingMembership,
+    required this.eligibleUpgradePlanIds,
   });
 
   factory _SalonSubscription.fromJson(Map<String, dynamic> json) {
@@ -2986,6 +3010,8 @@ class _SalonSubscription {
     final renewalEligibleAfterDays =
         _readInt(json['renewalEligibleAfterDays']) ??
             _renewalEligibleAfterDaysFallback(billingCycle, remainingDays);
+    final eligibleUpgradePlanIds = _readEligibleUpgradePlanIds(
+        json['eligibleUpgradePlans'] ?? json['eligibleUpgradePlanIds']);
     final message = _cleanText(json['membershipMessage']).isNotEmpty
         ? _cleanText(json['membershipMessage'])
         : _membershipEligibilityMessage(
@@ -3036,6 +3062,7 @@ class _SalonSubscription {
       upcomingMembership: upcomingRaw is Map
           ? _UpcomingMembership.fromJson(Map<String, dynamic>.from(upcomingRaw))
           : null,
+      eligibleUpgradePlanIds: eligibleUpgradePlanIds,
     );
   }
 
@@ -3059,6 +3086,7 @@ class _SalonSubscription {
   final int? renewalEligibleAfterDays;
   final String membershipMessage;
   final _UpcomingMembership? upcomingMembership;
+  final List<int> eligibleUpgradePlanIds;
 
   int get daysRemaining => remainingDays;
 }
@@ -3318,6 +3346,25 @@ bool? _readBool(dynamic value) {
   if (text == 'true' || text == '1' || text == 'yes') return true;
   if (text == 'false' || text == '0' || text == 'no') return false;
   return null;
+}
+
+List<int> _readEligibleUpgradePlanIds(dynamic value) {
+  final ids = <int>[];
+  if (value is List) {
+    for (final item in value) {
+      if (item is Map) {
+        final planId = _readInt(item['id'] ?? item['planId']);
+        if (planId != null) ids.add(planId);
+        continue;
+      }
+      final planId = _readInt(item);
+      if (planId != null) ids.add(planId);
+    }
+  } else if (value is Map) {
+    final nested = value['data'] ?? value['plans'] ?? value['items'];
+    ids.addAll(_readEligibleUpgradePlanIds(nested));
+  }
+  return ids.toSet().toList();
 }
 
 Map<String, dynamic> _subscriptionJsonWithDeferredUpcoming(

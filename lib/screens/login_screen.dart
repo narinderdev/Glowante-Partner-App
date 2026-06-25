@@ -6,6 +6,7 @@ import 'package:bloc_onboarding/bloc/auth/auth_event.dart';
 import 'package:bloc_onboarding/bloc/auth/auth_state.dart';
 import 'package:bloc_onboarding/screens/otp_screen.dart';
 import 'package:bloc_onboarding/services/push_notification_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
@@ -35,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     phoneController.addListener(_handlePhoneChanged);
+    _restoreSavedPhoneNumber();
   }
 
   @override
@@ -52,6 +54,15 @@ class _LoginScreenState extends State<LoginScreen> {
     if (isValid != _isContinueEnabled) {
       setState(() => _isContinueEnabled = isValid);
     }
+  }
+
+  Future<void> _restoreSavedPhoneNumber() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPhone = prefs.getString('phone_number')?.trim() ?? '';
+    if (!mounted || savedPhone.isEmpty || phoneController.text.isNotEmpty) {
+      return;
+    }
+    phoneController.text = savedPhone;
   }
 
   Future<void> _submit() async {
@@ -78,6 +89,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     FocusScope.of(context).unfocus();
     setState(() => _isLoading = true);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('phone_number', phoneNumber);
 
     String? deviceToken;
     try {
@@ -553,7 +567,7 @@ class _LoginFeatureCard extends StatelessWidget {
                 compact: compact,
               ),
             ),
-          _FeatureDivider(compact: compact),
+            _FeatureDivider(compact: compact),
             Expanded(
               child: _FeatureItem(
                 icon: Icons.groups_rounded,
@@ -562,7 +576,7 @@ class _LoginFeatureCard extends StatelessWidget {
                 compact: compact,
               ),
             ),
-        _FeatureDivider(compact: compact),
+            _FeatureDivider(compact: compact),
             Expanded(
               child: _FeatureItem(
                 icon: Icons.bar_chart_rounded,
@@ -577,6 +591,7 @@ class _LoginFeatureCard extends StatelessWidget {
     );
   }
 }
+
 class _FeatureItem extends StatelessWidget {
   const _FeatureItem({
     required this.icon,
@@ -640,6 +655,7 @@ class _FeatureDivider extends StatelessWidget {
     );
   }
 }
+
 class _OrnamentDivider extends StatelessWidget {
   const _OrnamentDivider({required this.width});
 

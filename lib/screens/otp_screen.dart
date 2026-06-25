@@ -23,9 +23,9 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   late final List<TextEditingController> otpControllers;
+  late final List<FocusNode> otpFocusNodes;
   late final OTPInteractor _otpInteractor;
   late final OTPTextEditController _otpTextEditController;
-  final FocusNode _otpInputFocusNode = FocusNode();
   bool _isProgrammaticFill = false;
   String errorMessage = ''; // To store error message
   bool isResendingOtp = false; // Track whether OTP is being resent
@@ -35,6 +35,7 @@ class _OtpScreenState extends State<OtpScreen> {
       false; // Track if the Continue button should be enabled
   bool isLoading = false; // Track loading state for button
   bool _autoSubmitScheduled = false;
+  String _lastOtpText = '';
 
   // API service instance
   final ApiService apiService = ApiService();
@@ -59,6 +60,7 @@ class _OtpScreenState extends State<OtpScreen> {
       6,
       (_) => TextEditingController(),
     );
+    otpFocusNodes = List<FocusNode>.generate(6, (_) => FocusNode());
 
     _otpInteractor = OTPInteractor();
     _otpTextEditController = OTPTextEditController(
@@ -68,13 +70,24 @@ class _OtpScreenState extends State<OtpScreen> {
         _fillFromCode(code);
       },
     )..addListener(() {
-        if (_isProgrammaticFill) return;
-        _handleOtpCodeChanged(_otpTextEditController.text);
+        final currentText = _otpTextEditController.text;
+        if (_isProgrammaticFill) {
+          _lastOtpText = currentText;
+          return;
+        }
+        if (currentText == _lastOtpText) return;
+        _lastOtpText = currentText;
+        _handleOtpCodeChanged(
+          currentText,
+          selectionOffset: _otpTextEditController.selection.baseOffset,
+        );
       });
 
-    _otpInputFocusNode.addListener(() {
-      if (mounted) setState(() {});
-    });
+    for (final focusNode in otpFocusNodes) {
+      focusNode.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
 
     // Start the countdown timer immediately when the screen is initialized
     _startCountdown();
@@ -106,13 +119,14 @@ class _OtpScreenState extends State<OtpScreen> {
       c.clear();
     }
     _otpTextEditController.clear();
+    _lastOtpText = '';
     _isProgrammaticFill = false;
 
     setState(() {
       isContinueButtonEnabled = false;
     });
 
-    FocusScope.of(context).requestFocus(_otpInputFocusNode);
+    FocusScope.of(context).requestFocus(otpFocusNodes.first);
   }
 
   Future<void> _verifyOtp() async {
@@ -250,12 +264,15 @@ class _OtpScreenState extends State<OtpScreen> {
     }
   }
 
-  void _setOtpDigits(String code, {bool updateInputController = false}) {
+  void _setOtpDigits(
+    String code, {
+    bool updateInputController = false,
+    int? selectionOffset,
+  }) {
     final digitsOnly = code.replaceAll(RegExp(r'\D'), '');
     final limited = digitsOnly.length > otpControllers.length
         ? digitsOnly.substring(0, otpControllers.length)
         : digitsOnly;
-
     _isProgrammaticFill = true;
     for (int i = 0; i < otpControllers.length; i++) {
       if (i < limited.length) {
@@ -267,8 +284,11 @@ class _OtpScreenState extends State<OtpScreen> {
     }
     if (updateInputController && _otpTextEditController.text != limited) {
       _otpTextEditController.text = limited;
+      _lastOtpText = limited;
       _otpTextEditController.selection = TextSelection.collapsed(
-        offset: limited.length,
+        offset: (selectionOffset ?? limited.length)
+            .clamp(0, limited.length)
+            .toInt(),
       );
     }
     _isProgrammaticFill = false;
@@ -283,13 +303,81 @@ class _OtpScreenState extends State<OtpScreen> {
     _maybeSubmitOtp();
   }
 
+  void _handleOtpBoxChanged(int index, String value) {
+    if (_isProgrammaticFill) return;
+    final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length > 1) {
+      _setOtpDigits(digitsOnly, updateInputController: true);
+      final nextIndex = digitsOnly.length >= otpControllers.length
+          ? otpControllers.length - 1
+          : digitsOnly.length;
+      FocusScope.of(context).requestFocus(otpFocusNodes[nextIndex]);
+      return;
+    }
+
+    _isProgrammaticFill = true;
+    if (digitsOnly.isEmpty) {
+      otpControllers[index].clear();
+    } else {
+      otpControllers[index].text = digitsOnly;
+      otpControllers[index].selection =
+          const TextSelection.collapsed(offset: 1);
+    }
+    final compactOtp =
+        otpControllers.map((controller) => controller.text).join();
+    _otpTextEditController.text = compactOtp;
+    _lastOtpText = compactOtp;
+    _isProgrammaticFill = false;
+
+    setState(() {
+      isContinueButtonEnabled =
+          otpControllers.every((controller) => controller.text.isNotEmpty);
+      if (digitsOnly.isNotEmpty) errorMessage = '';
+    });
+if (digitsOnly.isEmpty) {
+  FocusScope.of(context).requestFocus(otpFocusNodes[index]);
+  otpControllers[index].selection = const TextSelection.collapsed(offset: 0);
+  return;
+}
+    if (index < otpFocusNodes.length - 1) {
+      FocusScope.of(context).requestFocus(otpFocusNodes[index + 1]);
+    } else {
+      otpFocusNodes[index].unfocus();
+    }
+    _maybeSubmitOtp();
+  }
+
   void _fillFromCode(String code) {
     if (code.replaceAll(RegExp(r'\D'), '').isEmpty) return;
     _setOtpDigits(code, updateInputController: true);
   }
 
-  void _handleOtpCodeChanged(String value) {
-    _setOtpDigits(value, updateInputController: true);
+  void _handleOtpCodeChanged(
+    String value, {
+    int? selectionOffset,
+  }) {
+    _setOtpDigits(
+      value,
+      updateInputController: true,
+      selectionOffset: selectionOffset,
+    );
+  }
+
+  int _focusedOtpIndex() {
+    for (int i = 0; i < otpFocusNodes.length; i++) {
+      if (otpFocusNodes[i].hasFocus) return i;
+    }
+    return 0;
+  }
+
+  void _focusOtpDigit(int index) {
+    if (isLoading) return;
+    final safeIndex = index.clamp(0, otpControllers.length - 1).toInt();
+    FocusScope.of(context).requestFocus(otpFocusNodes[safeIndex]);
+    otpControllers[safeIndex].selection = TextSelection.collapsed(
+      offset: otpControllers[safeIndex].text.length,
+    );
+    setState(() {});
   }
 
   Future<void> _resendOtp() async {
@@ -307,9 +395,10 @@ class _OtpScreenState extends State<OtpScreen> {
           controller.clear();
         }
         _otpTextEditController.clear();
+        _lastOtpText = '';
         _isProgrammaticFill = false;
 
-        FocusScope.of(context).requestFocus(_otpInputFocusNode);
+        FocusScope.of(context).requestFocus(otpFocusNodes.first);
 
         setState(() {
           errorMessage = '';
@@ -378,8 +467,10 @@ class _OtpScreenState extends State<OtpScreen> {
     for (final controller in otpControllers) {
       controller.dispose();
     }
+    for (final focusNode in otpFocusNodes) {
+      focusNode.dispose();
+    }
     _otpTextEditController.dispose();
-    _otpInputFocusNode.dispose();
     _timer?.cancel(); // Cancel the timer when disposing
     super.dispose();
   }
@@ -484,97 +575,160 @@ class _OtpScreenState extends State<OtpScreen> {
                       GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () => FocusScope.of(context)
-                            .requestFocus(_otpInputFocusNode),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: 1,
-                              height: 1,
-                              child: TextField(
-                                controller: _otpTextEditController,
-                                focusNode: _otpInputFocusNode,
-                                keyboardType: TextInputType.number,
-                                textInputAction: TextInputAction.done,
-                                maxLength: 6,
-                                autofillHints: const [
-                                  AutofillHints.oneTimeCode
-                                ],
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                  LengthLimitingTextInputFormatter(6),
-                                ],
-                                style: const TextStyle(
-                                  color: Colors.transparent,
-                                  fontSize: 1,
-                                ),
-                                cursorColor: Colors.transparent,
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  isCollapsed: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                onSubmitted: (_) {
-                                  if (isContinueButtonEnabled && !isLoading) {
-                                    _verifyOtp();
-                                  }
-                                },
-                              ),
-                            ),
-                            IgnorePointer(
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: List.generate(6, (index) {
-                                  final bool filled =
-                                      otpControllers[index].text.isNotEmpty;
-                                  final currentIndex =
-                                      _otpTextEditController.text.length.clamp(
-                                    0,
-                                    5,
-                                  );
-                                  final bool focused =
-                                      _otpInputFocusNode.hasFocus &&
-                                          index == currentIndex &&
-                                          !isLoading;
+                            .requestFocus(otpFocusNodes[_focusedOtpIndex()]),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: List.generate(6, (index) {
+                            final bool filled =
+                                otpControllers[index].text.isNotEmpty;
+                            final bool focused =
+                                otpFocusNodes[index].hasFocus && !isLoading;
 
-                                  return AnimatedContainer(
-                                    duration: const Duration(milliseconds: 150),
-                                    width: otpBoxWidth,
-                                    height: 54,
-                                    decoration: BoxDecoration(
-                                      color: filled ? _otpGold : _otpFieldFill,
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color: focused || filled
-                                            ? _otpGoldLight
-                                            : _otpBorder,
-                                        width: focused ? 1.7 : 1.1,
-                                      ),
-                                      boxShadow: focused
-                                          ? const [
-                                              BoxShadow(
-                                                color: Color(0x268B6500),
-                                                blurRadius: 10,
-                                                offset: Offset(0, 4),
-                                              ),
-                                            ]
-                                          : null,
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      otpControllers[index].text,
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w800,
-                                        color: filled ? Colors.white : _otpInk,
-                                      ),
-                                    ),
-                                  );
-                                }),
+                            return AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              width: otpBoxWidth,
+                              height: 54,
+                              decoration: BoxDecoration(
+                                color: filled ? _otpGold : _otpFieldFill,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: focused || filled
+                                      ? _otpGoldLight
+                                      : _otpBorder,
+                                  width: focused ? 1.7 : 1.1,
+                                ),
+                                boxShadow: focused
+                                    ? const [
+                                        BoxShadow(
+                                          color: Color(0x268B6500),
+                                          blurRadius: 10,
+                                          offset: Offset(0, 4),
+                                        ),
+                                      ]
+                                    : null,
                               ),
-                            ),
-                          ],
+                              alignment: Alignment.center,
+                              // child: TextField(
+                              //   controller: otpControllers[index],
+                              //   focusNode: otpFocusNodes[index],
+                              //   enabled: !isLoading,
+                              //   keyboardType: TextInputType.number,
+                              //   textInputAction: index == 5
+                              //       ? TextInputAction.done
+                              //       : TextInputAction.next,
+                              //   maxLength: 1,
+                              //   autofillHints: index == 0
+                              //       ? const [AutofillHints.oneTimeCode]
+                              //       : null,
+                              //   inputFormatters: [
+                              //     FilteringTextInputFormatter.digitsOnly,
+                              //       LengthLimitingTextInputFormatter(1),
+                              //   ],
+                              //   textAlign: TextAlign.center,
+                              //   style: TextStyle(
+                              //     fontSize: 20,
+                              //     fontWeight: FontWeight.w800,
+                              //     color: filled ? Colors.white : _otpInk,
+                              //   ),
+                              //   cursorColor: filled ? Colors.white : _otpGold,
+                              //   decoration: const InputDecoration(
+                              //     counterText: '',
+                              //     border: InputBorder.none,
+                              //     enabledBorder: InputBorder.none,
+                              //     focusedBorder: InputBorder.none,
+                              //     disabledBorder: InputBorder.none,
+                              //     isCollapsed: true,
+                              //     contentPadding: EdgeInsets.zero,
+                              //   ),
+                              //   onTap: () => _focusOtpDigit(index),
+                              //   onChanged: (value) =>
+                              //       _handleOtpBoxChanged(index, value),
+                              //   onSubmitted: (_) {
+                              //     if (index < 5) {
+                              //       FocusScope.of(context)
+                              //           .requestFocus(otpFocusNodes[index + 1]);
+                              //       return;
+                              //     }
+                              //     if (isContinueButtonEnabled && !isLoading) {
+                              //       _verifyOtp();
+                              //     }
+                              //   },
+                              // ),
+                              child: KeyboardListener(
+  focusNode: FocusNode(skipTraversal: true),
+  onKeyEvent: (event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.backspace &&
+        otpControllers[index].text.isEmpty &&
+        index > 0) {
+      otpControllers[index - 1].clear();
+
+      final compactOtp =
+          otpControllers.map((controller) => controller.text).join();
+
+      _otpTextEditController.text = compactOtp;
+      _lastOtpText = compactOtp;
+
+      setState(() {
+        isContinueButtonEnabled =
+            otpControllers.every((controller) => controller.text.isNotEmpty);
+      });
+
+      FocusScope.of(context).requestFocus(otpFocusNodes[index - 1]);
+      otpControllers[index - 1].selection =
+          const TextSelection.collapsed(offset: 0);
+    }
+  },
+  child: TextField(
+    controller: otpControllers[index],
+    focusNode: otpFocusNodes[index],
+    enabled: !isLoading,
+    keyboardType: TextInputType.number,
+    textInputAction:
+        index == 5 ? TextInputAction.done : TextInputAction.next,
+    maxLength: 1,
+    autofillHints:
+        index == 0 ? const [AutofillHints.oneTimeCode] : null,
+    inputFormatters: [
+      FilteringTextInputFormatter.digitsOnly,
+      LengthLimitingTextInputFormatter(1),
+    ],
+    textAlign: TextAlign.center,
+    textAlignVertical: TextAlignVertical.center,
+    style: TextStyle(
+      fontSize: 20,
+      fontWeight: FontWeight.w800,
+      color: filled ? Colors.white : _otpInk,
+    ),
+    cursorColor: filled ? Colors.white : _otpGold,
+    decoration: const InputDecoration(
+      counterText: '',
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+      filled: true,
+      fillColor: Colors.transparent,
+      isDense: true,
+      isCollapsed: true,
+      contentPadding: EdgeInsets.zero,
+    ),
+    onTap: () => _focusOtpDigit(index),
+    onChanged: (value) => _handleOtpBoxChanged(index, value),
+    onSubmitted: (_) {
+      if (index < 5) {
+        FocusScope.of(context).requestFocus(otpFocusNodes[index + 1]);
+        return;
+      }
+
+      if (isContinueButtonEnabled && !isLoading) {
+        _verifyOtp();
+      }
+    },
+  ),
+),
+                            );
+                          }),
                         ),
                       ),
                       if (errorMessage.isNotEmpty) ...[

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:pin_code_fields/pin_code_fields.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,6 +12,7 @@ import '../services/user_role_session.dart';
 import '../features/stylist_item_entry/stylist_item_entry_feature.dart';
 import '../utils/api_service.dart';
 import '../utils/price_formatter.dart';
+import '../widgets/fixed_slot_otp_field.dart';
 import 'AddBookings.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 
@@ -1266,6 +1266,7 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
     barrierDismissible: false,
     builder: (dialogCtx) {
       String otp = '';
+      bool otpComplete = false;
       String errorMessage = '';
       bool isSubmitting = false;
       bool hasError = false;
@@ -1285,31 +1286,25 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  PinCodeTextField(
-                    appContext: dialogCtx,
-                    length: 6,
-                    autoDismissKeyboard: true,
-                    keyboardType: TextInputType.number,
-                    animationType: AnimationType.fade,
-                    pinTheme: PinTheme(
-                      shape: PinCodeFieldShape.box,
-                      borderRadius: BorderRadius.circular(10),
-                      fieldHeight: 54,
-                      fieldWidth: 44,
-                      activeFillColor: Colors.white,
-                      selectedFillColor: Colors.white,
-                      inactiveFillColor: Colors.white,
-                      activeColor: hasError ? Colors.red : _bookingsAccent,
-                      selectedColor: hasError ? Colors.red : _bookingsAccent,
-                      inactiveColor: hasError ? Colors.red : _bookingsAccent,
-                      errorBorderColor: Colors.red,
-                    ),
-                    enableActiveFill: true,
-                    onChanged: (value) {
-                      otp = value;
-                      setDialogState(() => hasError = false);
-                    },
-                  ),
+                  FixedSlotOtpField(
+  enabled: !isSubmitting,
+  hasError: hasError,
+  activeColor: _bookingsAccent,
+  inactiveColor: _bookingsAccent,
+  errorColor: Colors.red,
+  fillColor: Colors.white,
+  filledColor: _bookingsGold,
+  textColor: _bookingsPrimaryText,
+  filledTextColor: Colors.white,
+  onChanged: (value, complete) {
+    setDialogState(() {
+      otp = value;
+      otpComplete = complete;
+      hasError = false;
+    });
+  },
+  onSubmitted: null,
+),
                   if (errorMessage.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -1332,7 +1327,7 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
                 onPressed: isSubmitting
                     ? null
                     : () async {
-                        if (otp.length != 6) {
+                        if (!otpComplete || otp.length != 6) {
                           setDialogState(() {
                             errorMessage =
                                 translateText('Enter valid 6-digit OTP');

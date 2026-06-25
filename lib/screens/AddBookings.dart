@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
+import '../widgets/fixed_slot_otp_field.dart';
 import 'view_all_client_owner.dart';
 
 const Color _bookingGold = Color(0xFF8B6500);
@@ -1100,7 +1101,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     required String firstName,
     required String lastName,
   }) async {
-    final otpCtrl = TextEditingController();
+    String otp = '';
+    bool otpComplete = false;
     bool isVerifying = false;
     String? otpError;
 
@@ -1110,8 +1112,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           Future<void> verifyOtp() async {
-            final otp = otpCtrl.text.trim();
-            if (otp.length != 6) {
+            if (!otpComplete || otp.length != 6) {
               setDialogState(() {
                 otpError = translateText("Enter 6-digit OTP");
               });
@@ -1235,60 +1236,37 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    TextField(
-                      controller: otpCtrl,
-                      enabled: !isVerifying,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: _bookingInk,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 10,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(6),
-                      ],
-                      onChanged: (_) => setDialogState(() => otpError = null),
-                      onSubmitted: (_) => isVerifying ? null : verifyOtp(),
-                      decoration: InputDecoration(
-                        hintText: '••••••',
-                        hintStyle: const TextStyle(
-                          color: Color(0xFFCDBFAF),
-                          letterSpacing: 7,
-                        ),
-                        filled: true,
-                        fillColor: _bookingFieldFill,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 15),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: const BorderSide(color: _bookingBorder),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: const BorderSide(color: _bookingBorder),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(9),
-                          borderSide: const BorderSide(
-                            color: _bookingGoldLight,
-                            width: 1.3,
-                          ),
-                        ),
-                      ),
-                    ),
+                   FixedSlotOtpField(
+  enabled: !isVerifying,
+  hasError: otpError != null,
+  fieldWidth: 42,
+  fieldHeight: 54,
+  activeColor: _bookingGold,
+  inactiveColor: const Color(0xFFD6C8BA),
+  fillColor: Colors.white,
+  filledColor: _bookingGold,
+  textColor: _bookingInk,
+  filledTextColor: Colors.white,
+  onChanged: (value, complete) {
+    setDialogState(() {
+      otp = value;
+      otpComplete = complete;
+      otpError = null;
+    });
+  },
+  onSubmitted: () {
+    if (!isVerifying) {
+      verifyOtp();
+    }
+  },
+),
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
                         onPressed:
-                            isVerifying || otpCtrl.text.trim().length != 6
-                                ? null
-                                : verifyOtp,
+                            isVerifying || !otpComplete ? null : verifyOtp,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _bookingGold,
                           foregroundColor: Colors.white,

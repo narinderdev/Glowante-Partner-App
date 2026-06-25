@@ -145,7 +145,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
             ),
           );
         } else {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => BlocProvider(
@@ -169,6 +169,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
                       '',
                   latitude: latitude,
                   longitude: longitude,
+                  showCancelButton: true,
                 ),
               ),
             ),

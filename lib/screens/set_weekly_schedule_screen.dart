@@ -60,39 +60,86 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   bool _copyMondayToAll = false;
   bool _isSubmitting = false;
 
-  @override
-  void initState() {
-    super.initState();
-    final initialStart = _normalizeDisplayTime(widget.initialStartTime);
-    final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
-    _scheduleByDay = {
-      for (final day in _days)
-        day: _DayScheduleConfig(
-          startTime: initialStart,
-          endTime: initialEnd,
-          isClosed: false,
-        ),
-    };
-    final initialSchedule = widget.initialSchedule;
-    if (initialSchedule != null && initialSchedule.isNotEmpty) {
-      for (final day in _days) {
-        final slots = initialSchedule[day] ?? const [];
-        if (slots.isEmpty) {
-          _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(isClosed: true);
-          continue;
-        }
-        final firstSlot = slots.first;
-        _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
-          startTime:
-              _normalizeDisplayTime((firstSlot['startTime'] ?? '').toString()),
-          endTime:
-              _normalizeDisplayTime((firstSlot['endTime'] ?? '').toString()),
-          isClosed: false,
-        );
-      }
-    }
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   final initialStart = _normalizeDisplayTime(widget.initialStartTime);
+  //   final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
+  //   _scheduleByDay = {
+  //     for (final day in _days)
+  //       day: _DayScheduleConfig(
+  //         startTime: initialStart,
+  //         endTime: initialEnd,
+  //         isClosed: false,
+  //       ),
+  //   };
+  //   final initialSchedule = widget.initialSchedule;
+  //   if (initialSchedule != null && initialSchedule.isNotEmpty) {
+  //     for (final day in _days) {
+  //       final slots = initialSchedule[day] ?? const [];
+  //       if (slots.isEmpty) {
+  //         _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(isClosed: true);
+  //         continue;
+  //       }
+  //       final firstSlot = slots.first;
+  //       _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
+  //         startTime:
+  //             _normalizeDisplayTime((firstSlot['startTime'] ?? '').toString()),
+  //         endTime:
+  //             _normalizeDisplayTime((firstSlot['endTime'] ?? '').toString()),
+  //         isClosed: false,
+  //       );
+  //     }
+  //   }
+  // }
+@override
+void initState() {
+  super.initState();
+
+  final initialStart = _normalizeDisplayTime(widget.initialStartTime);
+  final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
+
+  _scheduleByDay = {
+    for (final day in _days)
+      day: _DayScheduleConfig(
+        startTime: initialStart,
+        endTime: initialEnd,
+        isClosed: false,
+      ),
+  };
+
+  final initialSchedule = widget.initialSchedule;
+
+  // For Add Salon, initialSchedule is empty, so keep AddSalon start/end time.
+  if (initialSchedule == null || initialSchedule.isEmpty) {
+    return;
   }
 
+  // For Edit Salon, use saved weekly schedule.
+  for (final day in _days) {
+    final slots = initialSchedule[day] ?? const [];
+
+    if (slots.isEmpty) {
+      _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(isClosed: true);
+      continue;
+    }
+
+    final firstSlot = slots.first;
+
+    final slotStart = (firstSlot['startTime'] ?? '').toString();
+    final slotEnd = (firstSlot['endTime'] ?? '').toString();
+
+    _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
+      startTime: slotStart.trim().isNotEmpty
+          ? _normalizeDisplayTime(slotStart)
+          : initialStart,
+      endTime: slotEnd.trim().isNotEmpty
+          ? _normalizeDisplayTime(slotEnd)
+          : initialEnd,
+      isClosed: false,
+    );
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -238,114 +285,246 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     );
   }
 
-  Widget _buildDayCard(String day) {
-    final config = _scheduleByDay[day]!;
-    final followsMondaySchedule = _copyMondayToAll && day != 'monday';
-    final canEditDay = !followsMondaySchedule;
-    final canEditTime = !config.isClosed && canEditDay;
+  // Widget _buildDayCard(String day) {
+  //   final config = _scheduleByDay[day]!;
+  //   final followsMondaySchedule = _copyMondayToAll && day != 'monday';
+  //   final canEditDay = !followsMondaySchedule;
+  //   final canEditTime = !config.isClosed && canEditDay;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 17),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFEDE6DF)),
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(vertical: 17),
+  //     decoration: const BoxDecoration(
+  //       border: Border(
+  //         bottom: BorderSide(color: Color(0xFFEDE6DF)),
+  //       ),
+  //     ),
+  //     child: Row(
+  //       crossAxisAlignment: CrossAxisAlignment.center,
+  //       children: [
+  //         SizedBox(
+  //           width: 94,
+  //           child: Text(
+  //             translateText(_capitalize(day)),
+  //             style: const TextStyle(
+  //               fontSize: 13,
+  //               fontWeight: FontWeight.w800,
+  //               color: Color(0xFF201B17),
+  //             ),
+  //           ),
+  //         ),
+  //         Expanded(
+  //           child: Row(
+  //             children: [
+  //               Expanded(
+  //                 child: _TimeDropdown(
+  //                   value: config.startTime,
+  //                   enabled: canEditTime,
+  //                   onChanged: (value) {
+  //                     if (value == null) return;
+  //                     setState(() {
+  //                       _applyDayConfig(
+  //                         day,
+  //                         config.copyWith(startTime: value),
+  //                       );
+  //                     });
+  //                   },
+  //                 ),
+  //               ),
+  //               const Padding(
+  //                 padding: EdgeInsets.symmetric(horizontal: 5),
+  //                 child: Text(
+  //                   '-',
+  //                   style: TextStyle(color: Color(0xFF9B928A)),
+  //                 ),
+  //               ),
+  //               Expanded(
+  //                 child: _TimeDropdown(
+  //                   value: config.endTime,
+  //                   enabled: canEditTime,
+  //                   onChanged: (value) {
+  //                     if (value == null) return;
+  //                     setState(() {
+  //                       _applyDayConfig(
+  //                         day,
+  //                         config.copyWith(endTime: value),
+  //                       );
+  //                     });
+  //                   },
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         const SizedBox(width: 10),
+  //         if (!followsMondaySchedule && config.isClosed)
+  //           Padding(
+  //             padding: const EdgeInsets.only(right: 4),
+  //             child: Text(
+  //               translateText('CLOSED'),
+  //               style: const TextStyle(
+  //                 fontSize: 9,
+  //                 fontWeight: FontWeight.w800,
+  //                 color: Color(0xFF4B4038),
+  //               ),
+  //             ),
+  //           ),
+  //         Transform.scale(
+  //           scale: 0.78,
+  //           child: Switch(
+  //             value: !config.isClosed,
+  //             activeThumbColor: Colors.white,
+  //             activeTrackColor: const Color(0xFF8B6500),
+  //             inactiveThumbColor: Colors.white,
+  //             inactiveTrackColor: const Color(0xFFE1DFDD),
+  //             onChanged: canEditDay
+  //                 ? (enabled) {
+  //                     setState(() {
+  //                       _applyDayConfig(
+  //                         day,
+  //                         config.copyWith(isClosed: !enabled),
+  //                       );
+  //                     });
+  //                   }
+  //                 : null,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
+Widget _buildDayCard(String day) {
+  final config = _scheduleByDay[day]!;
+  final followsMondaySchedule = _copyMondayToAll && day != 'monday';
+  final canEditDay = !followsMondaySchedule;
+  final canEditTime = !config.isClosed && canEditDay;
+
+  final startOptions = _boundedTimeOptions(
+    minMinutes: _salonStartMinutes,
+    maxMinutes: _salonEndMinutes,
+    includeMin: true,
+    includeMax: false,
+  );
+
+  final endOptions = _boundedTimeOptions(
+    minMinutes: _displayToMinutes(config.startTime),
+    maxMinutes: _salonEndMinutes,
+    includeMin: false,
+    includeMax: true,
+  );
+
+  return Container(
+    padding: const EdgeInsets.symmetric(vertical: 17),
+    decoration: const BoxDecoration(
+      border: Border(
+        bottom: BorderSide(color: Color(0xFFEDE6DF)),
+      ),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 94,
+          child: Text(
+            translateText(_capitalize(day)),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF201B17),
+            ),
+          ),
         ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 94,
-            child: Text(
-              translateText(_capitalize(day)),
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF201B17),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: _TimeDropdown(
-                    value: config.startTime,
-                    enabled: canEditTime,
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _applyDayConfig(
-                          day,
-                          config.copyWith(startTime: value),
-                        );
-                      });
-                    },
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 5),
-                  child: Text(
-                    '-',
-                    style: TextStyle(color: Color(0xFF9B928A)),
-                  ),
-                ),
-                Expanded(
-                  child: _TimeDropdown(
-                    value: config.endTime,
-                    enabled: canEditTime,
-                    onChanged: (value) {
-                      if (value == null) return;
-                      setState(() {
-                        _applyDayConfig(
-                          day,
-                          config.copyWith(endTime: value),
-                        );
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          if (!followsMondaySchedule && config.isClosed)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Text(
-                translateText('CLOSED'),
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF4B4038),
-                ),
-              ),
-            ),
-          Transform.scale(
-            scale: 0.78,
-            child: Switch(
-              value: !config.isClosed,
-              activeThumbColor: Colors.white,
-              activeTrackColor: const Color(0xFF8B6500),
-              inactiveThumbColor: Colors.white,
-              inactiveTrackColor: const Color(0xFFE1DFDD),
-              onChanged: canEditDay
-                  ? (enabled) {
-                      setState(() {
-                        _applyDayConfig(
-                          day,
-                          config.copyWith(isClosed: !enabled),
-                        );
-                      });
-                    }
-                  : null,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: _TimeDropdown(
+                  value: config.startTime,
+                  options: startOptions,
+                  enabled: canEditTime,
+                  onChanged: (value) {
+                    if (value == null) return;
 
+                    var nextConfig = config.copyWith(startTime: value);
+
+                    final selectedStartMinutes = _displayToMinutes(value);
+                    final currentEndMinutes =
+                        _displayToMinutes(nextConfig.endTime);
+
+                    if (currentEndMinutes <= selectedStartMinutes) {
+                      nextConfig = nextConfig.copyWith(
+                        endTime: _nextEndTimeAfter(value),
+                      );
+                    }
+
+                    setState(() {
+                      _applyDayConfig(day, nextConfig);
+                    });
+                  },
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 5),
+                child: Text(
+                  '-',
+                  style: TextStyle(color: Color(0xFF9B928A)),
+                ),
+              ),
+              Expanded(
+                child: _TimeDropdown(
+                  value: config.endTime,
+                  options: endOptions,
+                  enabled: canEditTime,
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _applyDayConfig(
+                        day,
+                        config.copyWith(endTime: value),
+                      );
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        if (!followsMondaySchedule && config.isClosed)
+          Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Text(
+              translateText('CLOSED'),
+              style: const TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF4B4038),
+              ),
+            ),
+          ),
+        Transform.scale(
+          scale: 0.78,
+          child: Switch(
+            value: !config.isClosed,
+            activeThumbColor: Colors.white,
+            activeTrackColor: const Color(0xFF8B6500),
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: const Color(0xFFE1DFDD),
+            onChanged: canEditDay
+                ? (enabled) {
+                    setState(() {
+                      _applyDayConfig(
+                        day,
+                        config.copyWith(isClosed: !enabled),
+                      );
+                    });
+                  }
+                : null,
+          ),
+        ),
+      ],
+    ),
+  );
+}
   Widget _buildCopyMondayControl() {
     return InkWell(
       onTap: () {
@@ -651,7 +830,53 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     }
     return '08:00 AM';
   }
+String _minutesToDisplayTime(int totalMinutes) {
+  final hour24 = (totalMinutes ~/ 60).clamp(0, 23);
+  final minute = totalMinutes % 60;
+  final suffix = hour24 >= 12 ? 'PM' : 'AM';
+  final hour12 = ((hour24 + 11) % 12) + 1;
 
+  return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
+}
+
+int get _salonStartMinutes {
+  return _displayToMinutes(_normalizeDisplayTime(widget.initialStartTime));
+}
+
+int get _salonEndMinutes {
+  return _displayToMinutes(_normalizeDisplayTime(widget.initialEndTime));
+}
+
+List<String> _boundedTimeOptions({
+  required int minMinutes,
+  required int maxMinutes,
+  bool includeMin = true,
+  bool includeMax = true,
+}) {
+  return _timeOptions.where((option) {
+    final minutes = _displayToMinutes(option);
+
+    final afterMin = includeMin ? minutes >= minMinutes : minutes > minMinutes;
+    final beforeMax = includeMax ? minutes <= maxMinutes : minutes < maxMinutes;
+
+    return afterMin && beforeMax;
+  }).toList();
+}
+
+String _nextEndTimeAfter(String startTime) {
+  final startMinutes = _displayToMinutes(startTime);
+
+  final options = _boundedTimeOptions(
+    minMinutes: startMinutes,
+    maxMinutes: _salonEndMinutes,
+    includeMin: false,
+    includeMax: true,
+  );
+
+  if (options.isNotEmpty) return options.first;
+
+  return _minutesToDisplayTime(_salonEndMinutes);
+}
   int _displayToMinutes(String value) {
     final match = RegExp(r'^(\d{2}):(\d{2})\s([AP]M)$').firstMatch(value);
     if (match == null) return 0;
@@ -701,22 +926,23 @@ class _DayScheduleConfig {
 
 class _TimeDropdown extends StatelessWidget {
   const _TimeDropdown({
-    required this.value,
-    required this.enabled,
-    required this.onChanged,
-  });
+  required this.value,
+  required this.options,
+  required this.enabled,
+  required this.onChanged,
+});
 
-  final String value;
-  final bool enabled;
-  final ValueChanged<String?> onChanged;
+final String value;
+final List<String> options;
+final bool enabled;
+final ValueChanged<String?> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final items = <String>[
-      if (!_timeOptions.contains(value)) value,
-      ..._timeOptions,
-    ];
-
+  if (!options.contains(value)) value,
+  ...options,
+];
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 6),

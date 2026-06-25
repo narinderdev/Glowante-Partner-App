@@ -690,7 +690,7 @@ class CategoryScreenState extends State<CategoryScreen> {
         _expandedCategories.remove(deletedCategoryId);
         _categoryItemKeys.remove(deletedCategoryId);
       });
-       await _refreshData();
+      await _refreshData();
     } finally {
       _restoreScrollPosition();
     }
@@ -718,11 +718,11 @@ class CategoryScreenState extends State<CategoryScreen> {
     final branchId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteSubCategory(
-  branchId,
-  subCategory['id'] as int,
-);
+            branchId,
+            subCategory['id'] as int,
+          );
 
-await _refreshData();
+      await _refreshData();
     } finally {
       _restoreScrollPosition();
     }
@@ -798,7 +798,7 @@ await _refreshData();
     try {
       await context.read<CategoryCubit>().deleteService(salonId, serviceId);
 
-await _refreshData();
+      await _refreshData();
     } finally {
       _restoreScrollPosition();
     }
@@ -860,10 +860,21 @@ await _refreshData();
       final initiallySelectedCodes = existingBranchCodes
           .where((code) => catalogCodes.contains(code))
           .toSet();
+      final branchTopLevelCodes =
+          _collectBranchTopCategories(branchServicesResponse['data'])
+              .map((category) =>
+                  (category['code'] ?? '').toString().trim().toUpperCase())
+              .where((code) => code.isNotEmpty)
+              .toSet();
+      final initiallySelectedTopLevelCodes = branchTopLevelCodes
+          .where((code) => initiallySelectedCodes.contains(code))
+          .toSet();
       final Set<String> selectedCodes = <String>{...initiallySelectedCodes};
       debugPrint('🟡 existingBranchCodes: $existingBranchCodes');
       debugPrint('🟡 catalogCodes: $catalogCodes');
       debugPrint('🟡 initiallySelectedCodes: $initiallySelectedCodes');
+      debugPrint(
+          '🟡 initiallySelectedTopLevelCodes: $initiallySelectedTopLevelCodes');
       debugPrint('🟡 selectedCodes initial: $selectedCodes');
       bool isImporting = false;
       final imported = await showGeneralDialog<List<String>>(
@@ -1064,11 +1075,19 @@ await _refreshData();
                                                     catalogCodeMap[code] ??
                                                     code)
                                                 .toList();
-
+                                        final selectedTopLevelSet =
+                                            selectedCodes
+                                                .map((code) =>
+                                                    code.trim().toUpperCase())
+                                                .toSet();
+                                        final removedTopLevelCodes =
+                                            initiallySelectedTopLevelCodes
+                                                .where((code) =>
+                                                    !selectedTopLevelSet
+                                                        .contains(code))
+                                                .toList();
                                         final unselectedActualCodes =
-                                            initiallySelectedCodes
-                                                .where((code) => !selectedCodes
-                                                    .contains(code))
+                                            removedTopLevelCodes
                                                 .map((code) =>
                                                     catalogCodeMap[code] ??
                                                     code)
@@ -1076,8 +1095,6 @@ await _refreshData();
 
                                         debugPrint(
                                             '🟢 selectedCodes before import: $selectedCodes');
-                                        debugPrint(
-                                            '🟢 initiallySelectedCodes before import: $initiallySelectedCodes');
                                         debugPrint(
                                             '🟢 sending serviceCodes: $selectedActualCodes');
                                         debugPrint(
@@ -1090,6 +1107,7 @@ await _refreshData();
                                           unselectedCodes:
                                               unselectedActualCodes,
                                         );
+
                                         if (!sheetContext.mounted) return;
                                         Navigator.pop(
                                           sheetContext,
@@ -1188,6 +1206,15 @@ await _refreshData();
         yield* _extractServiceCodes(nested);
       }
     }
+  }
+
+  List<Map<String, dynamic>> _collectBranchTopCategories(dynamic value) {
+    final data = value is Map ? value['categories'] : value;
+    if (data is! List) return const [];
+    return data
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .toList();
   }
 
   String _catalogItemLabel(Map<String, dynamic> item) {
@@ -1293,17 +1320,51 @@ await _refreshData();
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
     final branchSelections = _catalogBranchSelections(salons);
-    final showHeaderBranchSelector =
-        _selectedSalon != null && branchSelections.length > 1;
+    // final showHeaderBranchSelector =
+    //     _selectedSalon != null && branchSelections.length > 1;
+final showHeaderBranchSelector =
+    _selectedSalon != null && branchSelections.length > 1;
+
+final showServiceCatalogTitle = !showHeaderBranchSelector;
 
     _scheduleSyncFromBookings(salons);
 
     return Scaffold(
       backgroundColor: _catalogSurface,
+      // appBar: buildProfileSubpageAppBar(
+      //   title: '',
+      //   automaticallyImplyLeading: false,
+      //   toolbarHeight: showHeaderBranchSelector ? 84 : kToolbarHeight,
+      //   titleWidget: showHeaderBranchSelector
+      //       ? _CatalogBranchSelector(
+      //           key: _branchSelectorKey,
+      //           selectedSalon: _selectedSalon,
+      //           showDropdown: true,
+      //           onTap: () => _showSalonBranchPicker(salons),
+      //         )
+      //       : null,
+      //   actions: [
+      //     IconButton(
+      //       onPressed: () {
+      //         Navigator.push(
+      //           context,
+      //           MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+      //         );
+      //       },
+      //       icon: const Icon(Icons.notifications_none_rounded),
+      //       color: _catalogGold,
+      //     ),
+      //     IconButton(
+      //       tooltip: translateText('Add predefined services'),
+      //       onPressed:
+      //           _selectedSalon == null ? null : _showPredefinedServicesModal,
+      //       icon: const Icon(Icons.playlist_add_check_rounded),
+      //       color: _catalogGold,
+      //     ),
+      //   ],
+      // ),
       appBar: buildProfileSubpageAppBar(
-  title: !showHeaderBranchSelector
-      ? translateText('Service Catalog')
-      : '',
+  title: showServiceCatalogTitle ? translateText('Service Catalog') : '',
   automaticallyImplyLeading: false,
   toolbarHeight: showHeaderBranchSelector ? 84 : kToolbarHeight,
   titleWidget: showHeaderBranchSelector
@@ -1314,26 +1375,26 @@ await _refreshData();
           onTap: () => _showSalonBranchPicker(salons),
         )
       : null,
-        actions: [
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-              );
-            },
-            icon: const Icon(Icons.notifications_none_rounded),
-            color: _catalogGold,
-          ),
-          IconButton(
-            tooltip: translateText('Add predefined services'),
-            onPressed:
-                _selectedSalon == null ? null : _showPredefinedServicesModal,
-            icon: const Icon(Icons.playlist_add_check_rounded),
-            color: _catalogGold,
-          ),
-        ],
-      ),
+  actions: [
+    IconButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+        );
+      },
+      icon: const Icon(Icons.notifications_none_rounded),
+      color: _catalogGold,
+    ),
+    IconButton(
+      tooltip: translateText('Add predefined services'),
+      onPressed:
+          _selectedSalon == null ? null : _showPredefinedServicesModal,
+      icon: const Icon(Icons.playlist_add_check_rounded),
+      color: _catalogGold,
+    ),
+  ],
+),
       body: MultiBlocListener(
         listeners: [
           BlocListener<CategoryCubit, CategoryState>(
@@ -1414,9 +1475,9 @@ await _refreshData();
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(18, 14, 18, 104),
         children: [
-  _buildCatalogIntroActions(catState),
-  const SizedBox(height: 14),
-  _buildQuickSearchField(),
+          _buildCatalogIntroActions(catState),
+          const SizedBox(height: 14),
+          _buildQuickSearchField(),
           if (catState.categories.isNotEmpty) ...[
             const SizedBox(height: 22),
             _buildCategoryFilterChips(catState.categories),
@@ -1553,103 +1614,105 @@ await _refreshData();
     }
     return false;
   }
+
   Widget _buildCatalogIntroActions(CategoryState catState) {
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              translateText('MASTER CATALOG'),
-              style: const TextStyle(
-                color: _catalogMuted,
-                fontSize: 9,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2.2,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                translateText('MASTER CATALOG'),
+                style: const TextStyle(
+                  color: _catalogMuted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2.2,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              translateText('Manage Services'),
-              style: const TextStyle(
-                color: _catalogInk,
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 4),
+              Text(
+                translateText('Manage Services'),
+                style: const TextStyle(
+                  color: _catalogInk,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      const SizedBox(width: 12),
-      // SizedBox(
-      //   height: 30,
-      //   child: ElevatedButton.icon(
-      //     onPressed: _selectedSalon == null
-      //         ? null
-      //         : () => _openAddService(
-      //               const <String, dynamic>{},
-      //               catState.categories,
-      //             ),
-      //     icon: const Icon(Icons.add_circle_outline_rounded, size: 13),
-      //     label: Text(
-      //       translateText('Add Service'),
-      //       maxLines: 1,
-      //       overflow: TextOverflow.ellipsis,
-      //       style: const TextStyle(
-      //         fontSize: 9,
-      //         fontWeight: FontWeight.w800,
-      //       ),
-      //     ),
-      //     style: ElevatedButton.styleFrom(
-      //       minimumSize: Size.zero,
-      //       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      //       backgroundColor: _catalogGold,
-      //       foregroundColor: Colors.white,
-      //       elevation: 0,
-      //       shape: RoundedRectangleBorder(
-      //         borderRadius: BorderRadius.circular(8),
-      //       ),
-      //       padding: const EdgeInsets.symmetric(horizontal: 12),
-      //     ),
-      //   ),
-      // ),
-      SizedBox(
-  height: 38,
-  child: ElevatedButton.icon(
-    onPressed: _selectedSalon == null
-        ? null
-        : () => _openAddService(
-              const <String, dynamic>{},
-              catState.categories,
+        const SizedBox(width: 12),
+        // SizedBox(
+        //   height: 30,
+        //   child: ElevatedButton.icon(
+        //     onPressed: _selectedSalon == null
+        //         ? null
+        //         : () => _openAddService(
+        //               const <String, dynamic>{},
+        //               catState.categories,
+        //             ),
+        //     icon: const Icon(Icons.add_circle_outline_rounded, size: 13),
+        //     label: Text(
+        //       translateText('Add Service'),
+        //       maxLines: 1,
+        //       overflow: TextOverflow.ellipsis,
+        //       style: const TextStyle(
+        //         fontSize: 9,
+        //         fontWeight: FontWeight.w800,
+        //       ),
+        //     ),
+        //     style: ElevatedButton.styleFrom(
+        //       minimumSize: Size.zero,
+        //       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        //       backgroundColor: _catalogGold,
+        //       foregroundColor: Colors.white,
+        //       elevation: 0,
+        //       shape: RoundedRectangleBorder(
+        //         borderRadius: BorderRadius.circular(8),
+        //       ),
+        //       padding: const EdgeInsets.symmetric(horizontal: 12),
+        //     ),
+        //   ),
+        // ),
+        SizedBox(
+          height: 38,
+          child: ElevatedButton.icon(
+            onPressed: _selectedSalon == null
+                ? null
+                : () => _openAddService(
+                      const <String, dynamic>{},
+                      catState.categories,
+                    ),
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+            label: Text(
+              translateText('Add Service'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-    icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-    label: Text(
-      translateText('Add Service'),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w800,
-      ),
-    ),
-    style: ElevatedButton.styleFrom(
-      minimumSize: Size.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      backgroundColor: _catalogGold,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(9),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-    ),
-  ),
-),
-    ],
-  );
-}
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: _catalogGold,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(9),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildQuickSearchField() {
     return Container(
       height: 60,
@@ -1800,100 +1863,97 @@ await _refreshData();
   //     ),
   //   );
   // }
-Widget _buildCategoryFilterChips(List<dynamic> categories) {
-  final categoryItems = _sortedCatalogItems(
-    categories.whereType<Map>().map(
-          (entry) => Map<String, dynamic>.from(entry),
-        ),
-  );
+  Widget _buildCategoryFilterChips(List<dynamic> categories) {
+    final categoryItems = _sortedCatalogItems(
+      categories.whereType<Map>().map(
+            (entry) => Map<String, dynamic>.from(entry),
+          ),
+    );
 
-  if (categoryItems.isEmpty) return const SizedBox.shrink();
+    if (categoryItems.isEmpty) return const SizedBox.shrink();
 
-  return SizedBox(
-    height: 38,
-    child: SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: List.generate(categoryItems.length + 1, (index) {
-          final bool isAll = index == 0;
-          final category = isAll ? null : categoryItems[index - 1];
-          final int? categoryId = isAll ? null : _asInt(category?['id']);
+    return SizedBox(
+      height: 38,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(categoryItems.length + 1, (index) {
+            final bool isAll = index == 0;
+            final category = isAll ? null : categoryItems[index - 1];
+            final int? categoryId = isAll ? null : _asInt(category?['id']);
 
-          final bool selected = isAll
-              ? _selectedFilterCategoryId == null
-              : _selectedFilterCategoryId == categoryId;
+            final bool selected = isAll
+                ? _selectedFilterCategoryId == null
+                : _selectedFilterCategoryId == categoryId;
 
-          final label = isAll
-              ? translateText('All Services')
-              : (category?['displayName'] ??
-                      category?['name'] ??
-                      'Category')
-                  .toString();
+            final label = isAll
+                ? translateText('All Services')
+                : (category?['displayName'] ?? category?['name'] ?? 'Category')
+                    .toString();
 
-          return Padding(
-            padding: EdgeInsets.only(
-              right: index == categoryItems.length ? 0 : 10,
-            ),
-            child: Material(
-              key: !isAll && categoryId != null
-                  ? _filterChipKeys.putIfAbsent(
-                      categoryId,
-                      () => GlobalKey(),
-                    )
-                  : null,
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
-                onTap: () {
-                  setState(() => _selectedFilterCategoryId = categoryId);
-                  if (categoryId != null) {
-                    _ensureFilterChipVisible(categoryId);
-                  }
-                },
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  height: 32,
-                  constraints: const BoxConstraints(minWidth: 84),
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? _catalogGold
-                        : const Color(0xFFE9E0DE),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: selected
-                        ? const [
-                            BoxShadow(
-                              color: Color(0x248B6500),
-                              blurRadius: 8,
-                              offset: Offset(0, 3),
-                            ),
-                          ]
-                        : const [],
-                  ),
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontFamilyFallback: const ['Inter', 'sans-serif'],
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: selected ? Colors.white : _catalogMuted,
+            return Padding(
+              padding: EdgeInsets.only(
+                right: index == categoryItems.length ? 0 : 10,
+              ),
+              child: Material(
+                key: !isAll && categoryId != null
+                    ? _filterChipKeys.putIfAbsent(
+                        categoryId,
+                        () => GlobalKey(),
+                      )
+                    : null,
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () {
+                    setState(() => _selectedFilterCategoryId = categoryId);
+                    if (categoryId != null) {
+                      _ensureFilterChipVisible(categoryId);
+                    }
+                  },
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    height: 32,
+                    constraints: const BoxConstraints(minWidth: 84),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: selected ? _catalogGold : const Color(0xFFE9E0DE),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: selected
+                          ? const [
+                              BoxShadow(
+                                color: Color(0x248B6500),
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
+                            ]
+                          : const [],
+                    ),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontFamilyFallback: const ['Inter', 'sans-serif'],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: selected ? Colors.white : _catalogMuted,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
+
   Future<void> _showSalonBranchPicker(List<Map<String, dynamic>> salons) async {
     _dismissCatalogKeyboard();
 
@@ -2025,26 +2085,27 @@ Widget _buildCategoryFilterChips(List<dynamic> categories) {
   //     await context.read<SalonListCubit>().loadSalons();
   //   }
   // }
-Future<void> _refreshData() async {
-  if (_selectedSalon != null) {
-    final int? loadId = _asInt(_selectedSalon?['branchId']) ??
-        _asInt(_selectedSalon?['salonId']);
+  Future<void> _refreshData() async {
+    if (_selectedSalon != null) {
+      final int? loadId = _asInt(_selectedSalon?['branchId']) ??
+          _asInt(_selectedSalon?['salonId']);
 
-    if (loadId != null) {
-      final categoryCubit = context.read<CategoryCubit>();
+      if (loadId != null) {
+        final categoryCubit = context.read<CategoryCubit>();
 
-      // Clear local catalog first so deleted items cannot remain from cache/state.
-      categoryCubit.resetCategories();
+        // Clear local catalog first so deleted items cannot remain from cache/state.
+        categoryCubit.resetCategories();
 
-      // Fetch fresh active catalog from backend.
-      await categoryCubit.loadCategories(loadId, silent: true);
+        // Fetch fresh active catalog from backend.
+        await categoryCubit.loadCategories(loadId, silent: true);
+      } else {
+        await context.read<SalonListCubit>().loadSalons();
+      }
     } else {
       await context.read<SalonListCubit>().loadSalons();
     }
-  } else {
-    await context.read<SalonListCubit>().loadSalons();
   }
-}
+
   // ---------- OVERLAY ----------
   Widget _buildLoaderOverlay() {
     return Positioned.fill(
@@ -2636,48 +2697,49 @@ class _CategoryList extends StatelessWidget {
                     }).toList(),
                   ),
                 ),
-          if (isCategoryExpanded) ...[
-  const SizedBox(height: 18),
-  Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 18),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        SizedBox(
-          height: 38,
-          child: ElevatedButton.icon(
-            onPressed: () => onAddSubcategory(categoryId: categoryId),
-            icon: const Icon(
-              Icons.folder_open_rounded,
-              size: 16,
-            ),
-            label: Text(
-              translateText('Add Subcategory'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            style: ElevatedButton.styleFrom(
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              backgroundColor: _catalogGold,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(9),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-            ),
-          ),
-        ),
-      ],
-    ),
-  ),
-  const SizedBox(height: 18),
-],
+              if (isCategoryExpanded) ...[
+                const SizedBox(height: 18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      SizedBox(
+                        height: 38,
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              onAddSubcategory(categoryId: categoryId),
+                          icon: const Icon(
+                            Icons.folder_open_rounded,
+                            size: 16,
+                          ),
+                          label: Text(
+                            translateText('Add Subcategory'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: _catalogGold,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(9),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 18),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+              ],
             ],
           ),
         );
