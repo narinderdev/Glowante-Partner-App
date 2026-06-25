@@ -62,27 +62,69 @@ class _OtpScreenState extends State<OtpScreen> {
     );
     otpFocusNodes = List<FocusNode>.generate(6, (_) => FocusNode());
 
-    _otpInteractor = OTPInteractor();
-    _otpTextEditController = OTPTextEditController(
-      codeLength: 6,
-      otpInteractor: _otpInteractor,
-      onCodeReceive: (code) {
-        _fillFromCode(code);
-      },
-    )..addListener(() {
-        final currentText = _otpTextEditController.text;
-        if (_isProgrammaticFill) {
-          _lastOtpText = currentText;
-          return;
-        }
-        if (currentText == _lastOtpText) return;
-        _lastOtpText = currentText;
-        _handleOtpCodeChanged(
-          currentText,
-          selectionOffset: _otpTextEditController.selection.baseOffset,
-        );
-      });
+    // _otpInteractor = OTPInteractor();
+    // _otpTextEditController = OTPTextEditController(
+    //   codeLength: 6,
+    //   otpInteractor: _otpInteractor,
+    //   onCodeReceive: (code) {
+    //     _fillFromCode(code);
+    //   },
+    // )..addListener(() {
+    //     final currentText = _otpTextEditController.text;
+    //     if (_isProgrammaticFill) {
+    //       _lastOtpText = currentText;
+    //       return;
+    //     }
+    //     if (currentText == _lastOtpText) return;
+    //     _lastOtpText = currentText;
+    //     _handleOtpCodeChanged(
+    //       currentText,
+    //       selectionOffset: _otpTextEditController.selection.baseOffset,
+    //     );
+    //   });
+_otpInteractor = OTPInteractor();
 
+_otpInteractor.getAppSignature().then((signature) {
+  debugPrint('OTP app signature/hash: $signature');
+});
+
+_otpTextEditController = OTPTextEditController(
+  codeLength: 6,
+  otpInteractor: _otpInteractor,
+  onCodeReceive: (code) {
+    _fillFromCode(code);
+  },
+);
+
+_otpTextEditController.startListenRetriever((sms) {
+  final text = sms ?? '';
+
+  // Example SMS:
+  // Your Glowante login OTP is 908751. Valid for 10 min. Do not share.
+  // GLOWANTE PERSONAL CARE PRIVATE LIMITED
+  // LfDtnM4puKz
+
+  final match = RegExp(r'\b\d{6}\b').firstMatch(text);
+  return match?.group(0) ?? '';
+});
+
+_otpTextEditController.addListener(() {
+  final currentText = _otpTextEditController.text;
+
+  if (_isProgrammaticFill) {
+    _lastOtpText = currentText;
+    return;
+  }
+
+  if (currentText == _lastOtpText) return;
+
+  _lastOtpText = currentText;
+
+  _handleOtpCodeChanged(
+    currentText,
+    selectionOffset: _otpTextEditController.selection.baseOffset,
+  );
+});
     for (final focusNode in otpFocusNodes) {
       focusNode.addListener(() {
         if (mounted) setState(() {});
@@ -470,7 +512,8 @@ if (digitsOnly.isEmpty) {
     for (final focusNode in otpFocusNodes) {
       focusNode.dispose();
     }
-    _otpTextEditController.dispose();
+   _otpTextEditController.stopListen();
+_otpTextEditController.dispose();
     _timer?.cancel(); // Cancel the timer when disposing
     super.dispose();
   }

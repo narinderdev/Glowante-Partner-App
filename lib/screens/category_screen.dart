@@ -841,8 +841,6 @@ class CategoryScreenState extends State<CategoryScreen> {
       final branchServicesResponse =
           await ApiService().getBranchService(branchId: branchId);
       final response = await ApiService().getServiceCatalog();
-      final existingBranchCodes =
-          _extractServiceCodes(branchServicesResponse['data']).toSet();
       final items = _sortedCatalogItems(
         (response['data'] as List? ?? const []).whereType<Map>().map(
               (entry) => Map<String, dynamic>.from(entry),
@@ -857,9 +855,6 @@ class CategoryScreenState extends State<CategoryScreen> {
                 (item['code'] ?? '').toString().trim(),
       };
       final catalogCodes = catalogCodeMap.keys.toSet();
-      final initiallySelectedCodes = existingBranchCodes
-          .where((code) => catalogCodes.contains(code))
-          .toSet();
       final branchTopLevelCodes =
           _collectBranchTopCategories(branchServicesResponse['data'])
               .map((category) =>
@@ -867,12 +862,12 @@ class CategoryScreenState extends State<CategoryScreen> {
               .where((code) => code.isNotEmpty)
               .toSet();
       final initiallySelectedTopLevelCodes = branchTopLevelCodes
-          .where((code) => initiallySelectedCodes.contains(code))
+          .where((code) => catalogCodes.contains(code))
           .toSet();
-      final Set<String> selectedCodes = <String>{...initiallySelectedCodes};
-      debugPrint('🟡 existingBranchCodes: $existingBranchCodes');
+      final Set<String> selectedCodes = <String>{
+        ...initiallySelectedTopLevelCodes,
+      };
       debugPrint('🟡 catalogCodes: $catalogCodes');
-      debugPrint('🟡 initiallySelectedCodes: $initiallySelectedCodes');
       debugPrint(
           '🟡 initiallySelectedTopLevelCodes: $initiallySelectedTopLevelCodes');
       debugPrint('🟡 selectedCodes initial: $selectedCodes');
@@ -1047,28 +1042,6 @@ class CategoryScreenState extends State<CategoryScreen> {
                                   : () async {
                                       setSheetState(() => isImporting = true);
                                       try {
-                                        // final selectedActualCodes =
-                                        //     selectedCodes
-                                        //         .map((code) =>
-                                        //             catalogCodeMap[code] ??
-                                        //             code)
-                                        //         .toList();
-                                        // final selectedSet = selectedActualCodes
-                                        //     .map((e) => e.toUpperCase())
-                                        //     .toSet();
-                                        // await ApiService()
-                                        //     .importPredefinedServices(
-                                        //   branchId: branchId,
-                                        //   serviceCodes: selectedActualCodes,
-                                        //   unselectedCodes:
-                                        //       initiallySelectedCodes
-                                        //           .where((code) => !selectedSet
-                                        //               .contains(code))
-                                        //           .map((code) =>
-                                        //               catalogCodeMap[code] ??
-                                        //               code)
-                                        //           .toList(),
-                                        // );
                                         final selectedActualCodes =
                                             selectedCodes
                                                 .map((code) =>
@@ -1167,53 +1140,13 @@ class CategoryScreenState extends State<CategoryScreen> {
     }
   }
 
-  Iterable<String> _extractServiceCodes(dynamic value) sync* {
-    if (value is List) {
-      for (final item in value) {
-        yield* _extractServiceCodes(item);
-      }
-      return;
-    }
-
-    if (value is! Map) return;
-    final item = Map<String, dynamic>.from(value);
-    if (!_isCatalogItemActive(item)) return;
-
-    final dynamic code = item['code'];
-    if (code != null) {
-      final normalized = code.toString().trim().toUpperCase();
-      if (normalized.isNotEmpty) {
-        yield normalized;
-      }
-    }
-
-    for (final nestedKey in const [
-      'services',
-      'items',
-      'subCategories',
-      'subcategories',
-      'categories',
-      'data',
-    ]) {
-      final nested = item[nestedKey];
-      if (nested != null) {
-        yield* _extractServiceCodes(nested);
-      }
-    }
-
-    for (final nested in item.values) {
-      if (nested is Map || nested is List) {
-        yield* _extractServiceCodes(nested);
-      }
-    }
-  }
-
   List<Map<String, dynamic>> _collectBranchTopCategories(dynamic value) {
     final data = value is Map ? value['categories'] : value;
     if (data is! List) return const [];
     return data
         .whereType<Map>()
         .map((entry) => Map<String, dynamic>.from(entry))
+        .where(_isCatalogItemActive)
         .toList();
   }
 
@@ -1322,10 +1255,10 @@ class CategoryScreenState extends State<CategoryScreen> {
     final branchSelections = _catalogBranchSelections(salons);
     // final showHeaderBranchSelector =
     //     _selectedSalon != null && branchSelections.length > 1;
-final showHeaderBranchSelector =
-    _selectedSalon != null && branchSelections.length > 1;
+    final showHeaderBranchSelector =
+        _selectedSalon != null && branchSelections.length > 1;
 
-final showServiceCatalogTitle = !showHeaderBranchSelector;
+    final showServiceCatalogTitle = !showHeaderBranchSelector;
 
     _scheduleSyncFromBookings(salons);
 
@@ -1364,37 +1297,37 @@ final showServiceCatalogTitle = !showHeaderBranchSelector;
       //   ],
       // ),
       appBar: buildProfileSubpageAppBar(
-  title: showServiceCatalogTitle ? translateText('Service Catalog') : '',
-  automaticallyImplyLeading: false,
-  toolbarHeight: showHeaderBranchSelector ? 84 : kToolbarHeight,
-  titleWidget: showHeaderBranchSelector
-      ? _CatalogBranchSelector(
-          key: _branchSelectorKey,
-          selectedSalon: _selectedSalon,
-          showDropdown: true,
-          onTap: () => _showSalonBranchPicker(salons),
-        )
-      : null,
-  actions: [
-    IconButton(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
-        );
-      },
-      icon: const Icon(Icons.notifications_none_rounded),
-      color: _catalogGold,
-    ),
-    IconButton(
-      tooltip: translateText('Add predefined services'),
-      onPressed:
-          _selectedSalon == null ? null : _showPredefinedServicesModal,
-      icon: const Icon(Icons.playlist_add_check_rounded),
-      color: _catalogGold,
-    ),
-  ],
-),
+        title: showServiceCatalogTitle ? translateText('Service Catalog') : '',
+        automaticallyImplyLeading: false,
+        toolbarHeight: showHeaderBranchSelector ? 84 : kToolbarHeight,
+        titleWidget: showHeaderBranchSelector
+            ? _CatalogBranchSelector(
+                key: _branchSelectorKey,
+                selectedSalon: _selectedSalon,
+                showDropdown: true,
+                onTap: () => _showSalonBranchPicker(salons),
+              )
+            : null,
+        actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+              );
+            },
+            icon: const Icon(Icons.notifications_none_rounded),
+            color: _catalogGold,
+          ),
+          IconButton(
+            tooltip: translateText('Add predefined services'),
+            onPressed:
+                _selectedSalon == null ? null : _showPredefinedServicesModal,
+            icon: const Icon(Icons.playlist_add_check_rounded),
+            color: _catalogGold,
+          ),
+        ],
+      ),
       body: MultiBlocListener(
         listeners: [
           BlocListener<CategoryCubit, CategoryState>(
