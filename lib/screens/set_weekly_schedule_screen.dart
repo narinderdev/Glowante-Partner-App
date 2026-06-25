@@ -63,7 +63,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   late final Map<String, _DayScheduleConfig> _scheduleByDay;
   bool _copyMondayToAll = false;
   bool _isSubmitting = false;
-
+bool _isPoppingWithResult = false;
   // @override
   // void initState() {
   //   super.initState();
@@ -343,9 +343,16 @@ void initState() {
     );
   }
 }
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+
+@override
+Widget build(BuildContext context) {
+  return PopScope(
+  canPop: false,
+  onPopInvokedWithResult: (didPop, result) {
+    if (didPop) return;
+    _popWithCurrentSchedule();
+  },
+  child: Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
         title: translateText(widget.title ?? 'Add Salon'),
@@ -392,9 +399,7 @@ void initState() {
                 const SizedBox(height: 18),
                 _buildScheduleModeDivider(),
                 const SizedBox(height: 18),
-                for (final day in _days) ...[
-                  _buildDayCard(day),
-                ],
+                for (final day in _days) _buildDayCard(day),
                 const SizedBox(height: 54),
                 _buildScheduleQuote(),
                 const SizedBox(height: 38),
@@ -402,7 +407,7 @@ void initState() {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: _popWithCurrentSchedule,
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 17),
                           shape: RoundedRectangleBorder(
@@ -485,116 +490,21 @@ void initState() {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
-  // Widget _buildDayCard(String day) {
-  //   final config = _scheduleByDay[day]!;
-  //   final followsMondaySchedule = _copyMondayToAll && day != 'monday';
-  //   final canEditDay = !followsMondaySchedule;
-  //   final canEditTime = !config.isClosed && canEditDay;
+void _popWithCurrentSchedule() {
+  if (_isPoppingWithResult || !mounted) return;
 
-  //   return Container(
-  //     padding: const EdgeInsets.symmetric(vertical: 17),
-  //     decoration: const BoxDecoration(
-  //       border: Border(
-  //         bottom: BorderSide(color: Color(0xFFEDE6DF)),
-  //       ),
-  //     ),
-  //     child: Row(
-  //       crossAxisAlignment: CrossAxisAlignment.center,
-  //       children: [
-  //         SizedBox(
-  //           width: 94,
-  //           child: Text(
-  //             translateText(_capitalize(day)),
-  //             style: const TextStyle(
-  //               fontSize: 13,
-  //               fontWeight: FontWeight.w800,
-  //               color: Color(0xFF201B17),
-  //             ),
-  //           ),
-  //         ),
-  //         Expanded(
-  //           child: Row(
-  //             children: [
-  //               Expanded(
-  //                 child: _TimeDropdown(
-  //                   value: config.startTime,
-  //                   enabled: canEditTime,
-  //                   onChanged: (value) {
-  //                     if (value == null) return;
-  //                     setState(() {
-  //                       _applyDayConfig(
-  //                         day,
-  //                         config.copyWith(startTime: value),
-  //                       );
-  //                     });
-  //                   },
-  //                 ),
-  //               ),
-  //               const Padding(
-  //                 padding: EdgeInsets.symmetric(horizontal: 5),
-  //                 child: Text(
-  //                   '-',
-  //                   style: TextStyle(color: Color(0xFF9B928A)),
-  //                 ),
-  //               ),
-  //               Expanded(
-  //                 child: _TimeDropdown(
-  //                   value: config.endTime,
-  //                   enabled: canEditTime,
-  //                   onChanged: (value) {
-  //                     if (value == null) return;
-  //                     setState(() {
-  //                       _applyDayConfig(
-  //                         day,
-  //                         config.copyWith(endTime: value),
-  //                       );
-  //                     });
-  //                   },
-  //                 ),
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //         const SizedBox(width: 10),
-  //         if (!followsMondaySchedule && config.isClosed)
-  //           Padding(
-  //             padding: const EdgeInsets.only(right: 4),
-  //             child: Text(
-  //               translateText('CLOSED'),
-  //               style: const TextStyle(
-  //                 fontSize: 9,
-  //                 fontWeight: FontWeight.w800,
-  //                 color: Color(0xFF4B4038),
-  //               ),
-  //             ),
-  //           ),
-  //         Transform.scale(
-  //           scale: 0.78,
-  //           child: Switch(
-  //             value: !config.isClosed,
-  //             activeThumbColor: Colors.white,
-  //             activeTrackColor: const Color(0xFF8B6500),
-  //             inactiveThumbColor: Colors.white,
-  //             inactiveTrackColor: const Color(0xFFE1DFDD),
-  //             onChanged: canEditDay
-  //                 ? (enabled) {
-  //                     setState(() {
-  //                       _applyDayConfig(
-  //                         day,
-  //                         config.copyWith(isClosed: !enabled),
-  //                       );
-  //                     });
-  //                   }
-  //                 : null,
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
+  _isPoppingWithResult = true;
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) return;
+    Navigator.of(context).pop(_buildCurrentScheduleResult());
+  });
+}
+
 Widget _buildDayCard(String day) {
   final config = _scheduleByDay[day]!;
   final followsMondaySchedule = _copyMondayToAll && day != 'monday';
@@ -905,6 +815,53 @@ Widget _buildDayCard(String day) {
       }
     }
   }
+
+ScheduleStepResult _buildCurrentScheduleResult() {
+  final schedule = <String, List<Map<String, String>>>{};
+  int overallStartMinutes = 24 * 60;
+  int overallEndMinutes = 0;
+  bool hasOpenDay = false;
+
+  for (final day in _days) {
+    final config = _scheduleByDay[day]!;
+
+    if (config.isClosed) {
+      schedule[day] = const [];
+      continue;
+    }
+
+    hasOpenDay = true;
+
+    final startMinutes = _displayToMinutes(config.startTime);
+    final endMinutes = _displayToMinutes(config.endTime);
+
+    if (startMinutes < overallStartMinutes) {
+      overallStartMinutes = startMinutes;
+    }
+
+    if (endMinutes > overallEndMinutes) {
+      overallEndMinutes = endMinutes;
+    }
+
+    schedule[day] = [
+      {
+        'startTime': _displayToApiTime(config.startTime),
+        'endTime': _displayToApiTime(config.endTime),
+      }
+    ];
+  }
+
+  return ScheduleStepResult(
+    startTime: hasOpenDay
+        ? _minutesToApiTime(overallStartMinutes)
+        : _displayToApiTime(_normalizeDisplayTime(widget.initialStartTime)),
+    endTime: hasOpenDay
+        ? _minutesToApiTime(overallEndMinutes)
+        : _displayToApiTime(_normalizeDisplayTime(widget.initialEndTime)),
+    schedule: schedule,
+  );
+}
+
 
   Future<void> _submit() async {
     final openDays = _scheduleByDay.entries

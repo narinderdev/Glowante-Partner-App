@@ -74,6 +74,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   bool _savedPhoneApplied = false;
   List<Map<String, dynamic>> _sourceBranches = const [];
   List<String> _existingImageUrls = const <String>[];
+  Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
   final Map<_BranchField, bool> _fieldValidationVisibility = {
     for (final field in _BranchField.values) field: false,
   };
@@ -689,7 +690,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         );
       }
 
-      final saved = await Navigator.push<bool>(
+      final saved = await Navigator.push<Object?>(
         context,
         MaterialPageRoute(
           builder: (_) => SetWeeklyScheduleScreen(
@@ -697,14 +698,23 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
             detailsStepLabel: 'Branch Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
-            initialSchedule: _extractInitialSchedule(widget.initialBranch),
+        initialSchedule: _draftWeeklySchedule.isNotEmpty
+    ? _draftWeeklySchedule
+    : _extractInitialSchedule(widget.initialBranch),
             totalSteps: 2,
             submitLabel: 'Save',
             onSubmit: saveBranchEdit,
           ),
         ),
       );
-      if (!mounted || saved != true) return;
+     if (!mounted) return;
+
+if (saved is ScheduleStepResult) {
+  _draftWeeklySchedule = saved.schedule;
+  return;
+}
+
+if (saved != true) return;
 
       if (!mounted) return;
       scaffoldMessenger.showSnackBar(

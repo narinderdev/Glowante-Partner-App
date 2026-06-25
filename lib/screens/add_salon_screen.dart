@@ -101,7 +101,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   bool _submitted = false;
   bool _savedPhoneApplied = false;
   final Set<String> _removedExistingImageUrls = <String>{};
-
+Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
   bool get _isOnboardingFlow =>
       widget.isProceedFrom?.toLowerCase().trim() == 'onboarding';
 
@@ -256,7 +256,21 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       'postalCode': '',
     };
   }
+int _timeToMinutes(String value) {
+  final displayTime = _formatDisplayTime(value);
+  final match = RegExp(r'^(\d{2}):(\d{2})\s([AP]M)$').firstMatch(displayTime);
 
+  if (match == null) return 0;
+
+  int hour = int.parse(match.group(1)!);
+  final minute = int.parse(match.group(2)!);
+  final suffix = match.group(3)!;
+
+  if (suffix == 'AM' && hour == 12) hour = 0;
+  if (suffix == 'PM' && hour != 12) hour += 12;
+
+  return hour * 60 + minute;
+}
   String _formatDisplayTime(
     dynamic value, {
     String fallback = '',
@@ -665,181 +679,182 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       controller.text = formatted;
     }
   }
+Future<void> _chooseLocation(AddSalonState state) async {
+  final addr = state.address;
 
-  Future<void> _chooseLocation(AddSalonState state) async {
-    final addr = state.address;
+  final result = await Navigator.push<Map<String, dynamic>?>(
+    context,
+    MaterialPageRoute(
+      builder: (_) => AddLocationScreen(
+        initialCompleteAddress: addr?.buildingName,
+        initialScoFlatHouse: addr?.city,
+        initialStreetSectorArea: addr?.pincode,
+      ),
+    ),
+  );
 
-    final result = await Navigator.push<Map<String, dynamic>?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddLocationScreen(
-          // If your AddLocationScreen supports these:
-          initialCompleteAddress:
-              addr?.buildingName, // complete address (line1)
-          initialScoFlatHouse:
-              addr?.city, // 🟢 we repurposed 'city' to store SCO/Flat/House
-          initialStreetSectorArea: addr
-              ?.pincode, // 🟢 we repurposed 'pincode' to store Street/Sector/Area
+  if (!mounted || result == null) return;
+
+  final completeAddress =
+      (result['completeAddress'] as String?)?.trim() ?? '';
+  final baseCompleteAddress =
+      (result['baseCompleteAddress'] as String?)?.trim() ?? '';
+  final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
+  final streetSectorArea =
+      (result['streetSectorArea'] as String?)?.trim() ?? '';
+  final latitude = (result['latitude'] as num?)?.toDouble() ?? 0;
+  final longitude = (result['longitude'] as num?)?.toDouble() ?? 0;
+
+  context.read<AddSalonCubit>().updateAddress(
+        AddSalonAddress(
+          buildingName: baseCompleteAddress.isNotEmpty
+              ? baseCompleteAddress
+              : _addressWithoutManualParts(
+                  completeAddress,
+                  [scoFlatHouse, streetSectorArea],
+                ),
+          city: scoFlatHouse,
+          pincode: streetSectorArea,
+          state: '',
+          latitude: latitude,
+          longitude: longitude,
+        ),
+      );
+}
+
+Future<void> _submit(AddSalonState state) async {
+  setState(() => _submitted = true);
+
+  final form = _formKey.currentState;
+  if (form == null || !form.validate()) {
+    return;
+  }
+
+  if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(translateText('Please select start and end time.')),
+      ),
+    );
+    return;
+  }
+
+  final startMinutes = _timeToMinutes(_startTimeController.text);
+  final endMinutes = _timeToMinutes(_endTimeController.text);
+
+  if (startMinutes >= endMinutes) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          translateText('End time must be greater than start time.'),
         ),
       ),
     );
-
-    if (!mounted || result == null) return;
-
-    final completeAddress =
-        (result['completeAddress'] as String?)?.trim() ?? '';
-    final baseCompleteAddress =
-        (result['baseCompleteAddress'] as String?)?.trim() ?? '';
-    final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
-    final streetSectorArea =
-        (result['streetSectorArea'] as String?)?.trim() ?? '';
-    final latitude = (result['latitude'] as num?)?.toDouble() ?? 0;
-    final longitude = (result['longitude'] as num?)?.toDouble() ?? 0;
-
-    context.read<AddSalonCubit>().updateAddress(
-          AddSalonAddress(
-            buildingName: baseCompleteAddress.isNotEmpty
-                ? baseCompleteAddress
-                : _addressWithoutManualParts(
-                    completeAddress,
-                    [scoFlatHouse, streetSectorArea],
-                  ),
-            city: scoFlatHouse, // line2 part A (SCO/Flat/House)
-            pincode: streetSectorArea, // line2 part B (Street/Sector/Area)
-            state: '', // unused in the new flow
-            latitude: latitude,
-            longitude: longitude,
-          ),
-        );
+    return;
   }
 
-  Future<void> _submit(AddSalonState state) async {
-    setState(() => _submitted = true);
+  final address = state.address;
+  if (!widget.isEdit && !_isAddressComplete(address)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(translateText('Please add the salon location.')),
+      ),
+    );
+    return;
+  }
 
-    final form = _formKey.currentState;
-    if (form == null || !form.validate()) {
-      return;
-    }
+  final cubit = context.read<AddSalonCubit>();
+  cubit.setSubmitting(true);
 
-    if (widget.isEdit &&
-        (_startTimeController.text.isEmpty ||
-            _endTimeController.text.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(translateText('Please select start and end time.'))),
-      );
-      return;
-    }
+  try {
+    final images = cubit.state.images;
+    final existingImageUrls = _resolveExistingImageUrls();
+    final existingImageUrl =
+        existingImageUrls.isEmpty ? '' : existingImageUrls.first;
 
-    // 🟢 CHANGED: use new completeness check
-    final address = state.address;
-    if (!widget.isEdit && !_isAddressComplete(address)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(translateText('Please add the salon location.'))),
-      );
-      return;
-    }
+    if (!mounted) return;
 
-    final cubit = context.read<AddSalonCubit>();
-    cubit.setSubmitting(true);
+    if (widget.isEdit && widget.initialSalon != null) {
+      final salonId = (widget.initialSalon!['id'] as num?)?.toInt();
+      if (salonId == null) {
+        throw Exception('Missing salon id');
+      }
 
-    try {
-      final images = cubit.state.images;
-      final existingImageUrls = _resolveExistingImageUrls();
-      final existingImageUrl =
-          existingImageUrls.isEmpty ? '' : existingImageUrls.first;
+      Future<void> saveSalonEdit(ScheduleStepResult scheduleResult) async {
+        var imageUrl = existingImageUrl;
+        var imageUrls = List<String>.from(existingImageUrls);
 
-      if (!mounted) return;
-      if (widget.isEdit && widget.initialSalon != null) {
-        final salonId = (widget.initialSalon!['id'] as num?)?.toInt();
-        if (salonId == null) {
-          throw Exception('Missing salon id');
-        }
-        Future<void> saveSalonEdit(ScheduleStepResult scheduleResult) async {
-          var imageUrl = existingImageUrl;
-          var imageUrls = List<String>.from(existingImageUrls);
-          if (images.isNotEmpty) {
-            final uploadedImageUrls = await _uploadSelectedImageUrls(images);
-            for (final uploadedUrl in uploadedImageUrls) {
-              if (!imageUrls.contains(uploadedUrl)) {
-                imageUrls.add(uploadedUrl);
-              }
+        if (images.isNotEmpty) {
+          final uploadedImageUrls = await _uploadSelectedImageUrls(images);
+
+          for (final uploadedUrl in uploadedImageUrls) {
+            if (!imageUrls.contains(uploadedUrl)) {
+              imageUrls.add(uploadedUrl);
             }
-            imageUrls = imageUrls.take(10).toList();
-            if (imageUrls.isNotEmpty) imageUrl = imageUrls.first;
           }
-          final name = _salonNameController.text.trim();
-          final phone = _normalizePhone(_phoneController.text);
-          final description = _descriptionController.text.trim();
-          final addressPayload = _addressPayload(address);
-          final primaryBranch = _resolvePrimaryBranch(widget.initialSalon!);
-          final branchId = _readIntValue([
-            primaryBranch?['id'],
-            widget.initialSalon!['branchId'],
-            widget.initialSalon!['mainBranchId'],
-          ]);
-          final rawBranchAddress = primaryBranch?['address'];
-          final branchAddressPayload = addressPayload ??
-              (rawBranchAddress is Map
-                  ? Map<String, dynamic>.from(rawBranchAddress)
-                  : null);
-          final branchLatitude = address?.latitude ??
-              _readDoubleValue([
-                primaryBranch?['latitude'],
-                rawBranchAddress is Map ? rawBranchAddress['latitude'] : null,
-                rawBranchAddress is Map ? rawBranchAddress['lat'] : null,
-              ]);
-          final branchLongitude = address?.longitude ??
-              _readDoubleValue([
-                primaryBranch?['longitude'],
-                primaryBranch?['lng'],
-                rawBranchAddress is Map ? rawBranchAddress['longitude'] : null,
-                rawBranchAddress is Map ? rawBranchAddress['lng'] : null,
-              ]);
-          var salonUpdated = false;
-          try {
-            await cubit.repository.updateSalon(
-              salonId: salonId,
-              name: name,
-              phone: phone,
-              startTime: scheduleResult.startTime,
-              endTime: scheduleResult.endTime,
-              description: description,
-              schedule: scheduleResult.schedule,
-              imageUrl: imageUrl,
-              imageUrls: imageUrls,
-              address: addressPayload,
-              latitude: address?.latitude,
-              longitude: address?.longitude,
-            );
-            salonUpdated = true;
-            if (branchId != null && branchAddressPayload != null) {
-              await cubit.repository.updateBranch(
-                branchId: branchId,
-                name: name,
-                phone: phone,
-                startTime: scheduleResult.startTime,
-                endTime: scheduleResult.endTime,
-                description: description,
-                schedule: scheduleResult.schedule,
-                address: branchAddressPayload,
-                latitude: branchLatitude,
-                longitude: branchLongitude,
-              );
-            }
-          } catch (error) {
-            if (salonUpdated) {
-              rethrow;
-            }
-            final isForbidden = error.toString().contains('Forbidden') ||
-                error.toString().contains('Access denied') ||
-                error.toString().contains('403');
-            if (!isForbidden ||
-                branchId == null ||
-                branchAddressPayload == null) {
-              rethrow;
-            }
+
+          imageUrls = imageUrls.take(10).toList();
+
+          if (imageUrls.isNotEmpty) {
+            imageUrl = imageUrls.first;
+          }
+        }
+
+        final name = _salonNameController.text.trim();
+        final phone = _normalizePhone(_phoneController.text);
+        final description = _descriptionController.text.trim();
+        final addressPayload = _addressPayload(address);
+        final primaryBranch = _resolvePrimaryBranch(widget.initialSalon!);
+
+        final branchId = _readIntValue([
+          primaryBranch?['id'],
+          widget.initialSalon!['branchId'],
+          widget.initialSalon!['mainBranchId'],
+        ]);
+
+        final rawBranchAddress = primaryBranch?['address'];
+
+        final branchAddressPayload = addressPayload ??
+            (rawBranchAddress is Map
+                ? Map<String, dynamic>.from(rawBranchAddress)
+                : null);
+
+        final branchLatitude = address?.latitude ??
+            _readDoubleValue([
+              primaryBranch?['latitude'],
+              rawBranchAddress is Map ? rawBranchAddress['latitude'] : null,
+              rawBranchAddress is Map ? rawBranchAddress['lat'] : null,
+            ]);
+
+        final branchLongitude = address?.longitude ??
+            _readDoubleValue([
+              primaryBranch?['longitude'],
+              primaryBranch?['lng'],
+              rawBranchAddress is Map ? rawBranchAddress['longitude'] : null,
+              rawBranchAddress is Map ? rawBranchAddress['lng'] : null,
+            ]);
+
+        var salonUpdated = false;
+
+        try {
+          await cubit.repository.updateSalon(
+            salonId: salonId,
+            name: name,
+            phone: phone,
+            startTime: scheduleResult.startTime,
+            endTime: scheduleResult.endTime,
+            description: description,
+            schedule: scheduleResult.schedule,
+            imageUrl: imageUrl,
+            imageUrls: imageUrls,
+            address: addressPayload,
+            latitude: address?.latitude,
+            longitude: address?.longitude,
+          );
+
+          salonUpdated = true;
+
+          if (branchId != null && branchAddressPayload != null) {
             await cubit.repository.updateBranch(
               branchId: branchId,
               name: name,
@@ -853,110 +868,146 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               longitude: branchLongitude,
             );
           }
-        }
+        } catch (error) {
+          if (salonUpdated) {
+            rethrow;
+          }
 
-        final saved = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            // builder: (_) => SetWeeklyScheduleScreen(
-            //   title: 'Edit Salon',
-            //   detailsStepLabel: 'Salon Details',
-            //   initialStartTime: _startTimeController.text.trim(),
-            //   initialEndTime: _endTimeController.text.trim(),
-            //   initialSchedule: _extractInitialSchedule(widget.initialSalon),
-            //   totalSteps: 2,
-            //   submitLabel: 'Save',
-            //   onSubmit: saveSalonEdit,
-            // ),
-            builder: (_) => SetWeeklyScheduleScreen(
-  title: 'Edit Salon',
-  detailsStepLabel: 'Salon Details',
-  initialStartTime: _startTimeController.text.trim(),
-  initialEndTime: _endTimeController.text.trim(),
-  previousBaseStartTime: _formatDisplayTime(
-    _firstNonEmptyValue([
-      widget.initialSalon?['startTime'],
-      _resolvePrimaryBranch(widget.initialSalon!)?['startTime'],
-    ]),
-  ),
-  previousBaseEndTime: _formatDisplayTime(
-    _firstNonEmptyValue([
-      widget.initialSalon?['endTime'],
-      _resolvePrimaryBranch(widget.initialSalon!)?['endTime'],
-    ]),
-  ),
-  initialSchedule: _extractInitialSchedule(widget.initialSalon),
-  totalSteps: 2,
-  submitLabel: 'Save',
-  onSubmit: saveSalonEdit,
-),
-          ),
-        );
-        if (!mounted || saved != true) return;
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(translateText('Salon updated successfully')),
-          ),
-        );
-        Navigator.pop(context, true);
-        return;
+          final isForbidden = error.toString().contains('Forbidden') ||
+              error.toString().contains('Access denied') ||
+              error.toString().contains('403');
+
+          if (!isForbidden ||
+              branchId == null ||
+              branchAddressPayload == null) {
+            rethrow;
+          }
+
+          await cubit.repository.updateBranch(
+            branchId: branchId,
+            name: name,
+            phone: phone,
+            startTime: scheduleResult.startTime,
+            endTime: scheduleResult.endTime,
+            description: description,
+            schedule: scheduleResult.schedule,
+            address: branchAddressPayload,
+            latitude: branchLatitude,
+            longitude: branchLongitude,
+          );
+        }
       }
 
-      final formData = AddSalonFormData(
-        name: _salonNameController.text.trim(),
-        phone: _normalizePhone(_phoneController.text),
-        startTime: _startTimeController.text.trim(),
-        endTime: _endTimeController.text.trim(),
-        description: _descriptionController.text.trim(),
-        schedule: const <String, List<Map<String, String>>>{},
-        imageUrl: existingImageUrl.isEmpty ? null : existingImageUrl,
-      );
-
-      if (!mounted) return;
-      await Navigator.push<void>(
+      final saved = await Navigator.push<Object?>(
         context,
         MaterialPageRoute(
           builder: (_) => SetWeeklyScheduleScreen(
-            title: 'Add Salon',
+            title: 'Edit Salon',
             detailsStepLabel: 'Salon Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
-            initialSchedule: const <String, List<Map<String, String>>>{},
-            totalSteps: 3,
-            onContinue: (scheduleResult) async {
-              if (!mounted) return;
-              await Navigator.push<void>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => BlocProvider.value(
-                    value: cubit,
-                    child: AddSalonServices(
-                      title: 'Add Salon',
-                      initialCodes: state.selectedServiceCodes,
-                      formData: AddSalonFormData(
-                        name: formData.name,
-                        phone: formData.phone,
-                        startTime: scheduleResult.startTime,
-                        endTime: scheduleResult.endTime,
-                        description: formData.description,
-                        schedule: scheduleResult.schedule,
-                        imageUrl: formData.imageUrl,
-                        imageUrls: formData.imageUrls,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
+            previousBaseStartTime: _formatDisplayTime(
+              _firstNonEmptyValue([
+                widget.initialSalon?['startTime'],
+                _resolvePrimaryBranch(widget.initialSalon!)?['startTime'],
+              ]),
+            ),
+            previousBaseEndTime: _formatDisplayTime(
+              _firstNonEmptyValue([
+                widget.initialSalon?['endTime'],
+                _resolvePrimaryBranch(widget.initialSalon!)?['endTime'],
+              ]),
+            ),
+         initialSchedule: _draftWeeklySchedule.isNotEmpty
+    ? _draftWeeklySchedule
+    : _extractInitialSchedule(widget.initialSalon),
+            totalSteps: 2,
+            submitLabel: 'Save',
+            onSubmit: saveSalonEdit,
           ),
         ),
       );
-    } finally {
-      cubit.setSubmitting(false);
-    }
-  }
 
+     if (!mounted) return;
+
+if (saved is ScheduleStepResult) {
+  _draftWeeklySchedule = saved.schedule;
+  return;
+}
+
+if (saved != true) return;
+
+ScaffoldMessenger.of(context).showSnackBar(
+  SnackBar(
+    content: Text(translateText('Salon updated successfully')),
+  ),
+);
+
+Navigator.pop(context, true);
+return;
+    }
+
+    final formData = AddSalonFormData(
+      name: _salonNameController.text.trim(),
+      phone: _normalizePhone(_phoneController.text),
+      startTime: _startTimeController.text.trim(),
+      endTime: _endTimeController.text.trim(),
+      description: _descriptionController.text.trim(),
+      schedule: _draftWeeklySchedule,
+      imageUrl: existingImageUrl.isEmpty ? null : existingImageUrl,
+    );
+
+    if (!mounted) return;
+
+    final draftResult = await Navigator.push<ScheduleStepResult?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SetWeeklyScheduleScreen(
+          title: 'Add Salon',
+          detailsStepLabel: 'Salon Details',
+          initialStartTime: _startTimeController.text.trim(),
+          initialEndTime: _endTimeController.text.trim(),
+          initialSchedule: _draftWeeklySchedule,
+          totalSteps: 3,
+          onContinue: (scheduleResult) async {
+            _draftWeeklySchedule = scheduleResult.schedule;
+
+            if (!mounted) return;
+
+            await Navigator.push<void>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => BlocProvider.value(
+                  value: cubit,
+                  child: AddSalonServices(
+                    title: 'Add Salon',
+                    initialCodes: state.selectedServiceCodes,
+                    formData: AddSalonFormData(
+                      name: formData.name,
+                      phone: formData.phone,
+                      startTime: scheduleResult.startTime,
+                      endTime: scheduleResult.endTime,
+                      description: formData.description,
+                      schedule: scheduleResult.schedule,
+                      imageUrl: formData.imageUrl,
+                      imageUrls: formData.imageUrls,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+
+    if (draftResult != null) {
+      _draftWeeklySchedule = draftResult.schedule;
+    }
+  } finally {
+    cubit.setSubmitting(false);
+  }
+}
   @override
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
