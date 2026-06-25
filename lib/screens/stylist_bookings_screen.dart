@@ -66,17 +66,19 @@ enum _BookingViewTab {
 
 class _SalonBranchOption {
   const _SalonBranchOption({
-    required this.salonId,
-    required this.branchId,
-    required this.salonName,
-    required this.branchName,
-    this.addressSummary = '',
-    this.isMain = false,
-    this.startMinute,
-    this.endMinute,
-    this.hasWeeklySchedule = false,
-    this.weeklySlots = const <String, List<_BranchDaySlot>>{},
-  });
+  required this.salonId,
+  required this.branchId,
+  required this.salonName,
+  required this.branchName,
+  this.addressSummary = '',
+  this.isMain = false,
+  this.isSalonActive = true,
+  this.isBranchActive = true,
+  this.startMinute,
+  this.endMinute,
+  this.hasWeeklySchedule = false,
+  this.weeklySlots = const <String, List<_BranchDaySlot>>{},
+});
 
   final int salonId;
   final int branchId;
@@ -84,6 +86,10 @@ class _SalonBranchOption {
   final String branchName;
   final String addressSummary;
   final bool isMain;
+  final bool isSalonActive;
+final bool isBranchActive;
+
+bool get canAcceptBookings => isSalonActive && isBranchActive;
   final int? startMinute;
   final int? endMinute;
   final bool hasWeeklySchedule;
@@ -1840,7 +1846,6 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   List<_SalonBranchOption> _buildOptionsFromSalons(
       Iterable<dynamic> rawSalons) {
     final options = <_SalonBranchOption>[];
-
     for (final rawSalon in rawSalons) {
       if (rawSalon is! Map) continue;
       final salon = Map<String, dynamic>.from(rawSalon);
@@ -1865,6 +1870,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             _SalonBranchOption(
               salonId: salonId,
               branchId: branchId,
+              isSalonActive: salon['active'] != false,
+isBranchActive: branch['active'] != false,
               salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
               branchName: branchName.isEmpty
                   ? (salonName.isEmpty ? 'Salon #$salonId' : salonName)
@@ -1898,6 +1905,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                   : (salonName.isEmpty ? 'Salon #$salonId' : salonName),
           addressSummary: _branchAddressSummary(salon['address']),
           isMain: salon['isMain'] == true,
+          isSalonActive: salon['active'] != false,
+isBranchActive: salon['active'] != false,
           startMinute: _clockMinutes(salon['startTime']),
           endMinute: _clockMinutes(salon['endTime']),
           hasWeeklySchedule: _hasProvidedWeeklySchedule(rawSchedule),
@@ -1943,6 +1952,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               : branchName,
           addressSummary: _branchAddressSummary(branch['address']),
           isMain: branch['isMain'] == true,
+        isSalonActive: salon?['active'] != false,
+isBranchActive: branch['active'] != false,
           startMinute: _clockMinutes(branch['startTime']),
           endMinute: _clockMinutes(branch['endTime']),
           hasWeeklySchedule: _hasProvidedWeeklySchedule(rawSchedule),
@@ -3165,7 +3176,18 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       );
       return;
     }
-
+if (!selected.canAcceptBookings) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        !selected.isSalonActive
+            ? translateText('This salon is inactive. Booking is disabled.')
+            : translateText('This branch is inactive. Booking is disabled.'),
+      ),
+    ),
+  );
+  return;
+}
     if (selected.isClosedOnDate(_selectedDate)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -3378,9 +3400,13 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     final bool isBranchBookingWindowOver = _isSelectedBranchBookingWindowOver();
 
-    final bool disableAddBooking = isSelectedDateClosed ||
-        noTeamMembersAvailable ||
-        isBranchBookingWindowOver;
+    final bool isSelectedBranchInactive =
+    _selectedOption != null && !_selectedOption!.canAcceptBookings;
+
+final bool disableAddBooking = isSelectedBranchInactive ||
+    isSelectedDateClosed ||
+    noTeamMembersAvailable ||
+    isBranchBookingWindowOver;
     final selectedStartMinute = selectedDaySlots.isNotEmpty
         ? selectedDaySlots.first.startMinute
         : _selectedOption?.startMinute;
