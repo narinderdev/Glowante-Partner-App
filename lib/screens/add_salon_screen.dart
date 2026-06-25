@@ -858,16 +858,38 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         final saved = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
+            // builder: (_) => SetWeeklyScheduleScreen(
+            //   title: 'Edit Salon',
+            //   detailsStepLabel: 'Salon Details',
+            //   initialStartTime: _startTimeController.text.trim(),
+            //   initialEndTime: _endTimeController.text.trim(),
+            //   initialSchedule: _extractInitialSchedule(widget.initialSalon),
+            //   totalSteps: 2,
+            //   submitLabel: 'Save',
+            //   onSubmit: saveSalonEdit,
+            // ),
             builder: (_) => SetWeeklyScheduleScreen(
-              title: 'Edit Salon',
-              detailsStepLabel: 'Salon Details',
-              initialStartTime: _startTimeController.text.trim(),
-              initialEndTime: _endTimeController.text.trim(),
-              initialSchedule: _extractInitialSchedule(widget.initialSalon),
-              totalSteps: 2,
-              submitLabel: 'Save',
-              onSubmit: saveSalonEdit,
-            ),
+  title: 'Edit Salon',
+  detailsStepLabel: 'Salon Details',
+  initialStartTime: _startTimeController.text.trim(),
+  initialEndTime: _endTimeController.text.trim(),
+  previousBaseStartTime: _formatDisplayTime(
+    _firstNonEmptyValue([
+      widget.initialSalon?['startTime'],
+      _resolvePrimaryBranch(widget.initialSalon!)?['startTime'],
+    ]),
+  ),
+  previousBaseEndTime: _formatDisplayTime(
+    _firstNonEmptyValue([
+      widget.initialSalon?['endTime'],
+      _resolvePrimaryBranch(widget.initialSalon!)?['endTime'],
+    ]),
+  ),
+  initialSchedule: _extractInitialSchedule(widget.initialSalon),
+  totalSteps: 2,
+  submitLabel: 'Save',
+  onSubmit: saveSalonEdit,
+),
           ),
         );
         if (!mounted || saved != true) return;

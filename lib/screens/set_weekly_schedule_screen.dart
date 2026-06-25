@@ -28,11 +28,15 @@ class SetWeeklyScheduleScreen extends StatefulWidget {
     this.submitLabel,
     this.onContinue,
     this.onSubmit,
+    this.previousBaseStartTime,
+this.previousBaseEndTime,
   });
 
   final String detailsStepLabel;
   final String initialStartTime;
   final String initialEndTime;
+  final String? previousBaseStartTime;
+final String? previousBaseEndTime;
   final String? title;
   final Map<String, List<Map<String, String>>>? initialSchedule;
   final int totalSteps;
@@ -92,6 +96,176 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   //     }
   //   }
   // }
+// @override
+// void initState() {
+//   super.initState();
+
+//   final initialStart = _normalizeDisplayTime(widget.initialStartTime);
+//   final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
+
+//   _scheduleByDay = {
+//     for (final day in _days)
+//       day: _DayScheduleConfig(
+//         startTime: initialStart,
+//         endTime: initialEnd,
+//         isClosed: false,
+//       ),
+//   };
+
+//   final initialSchedule = widget.initialSchedule;
+
+//   // For Add Salon, initialSchedule is empty, so keep AddSalon start/end time.
+//   if (initialSchedule == null || initialSchedule.isEmpty) {
+//     return;
+//   }
+
+//   // For Edit Salon, use saved weekly schedule.
+//   for (final day in _days) {
+//     final slots = initialSchedule[day] ?? const [];
+
+//     if (slots.isEmpty) {
+//       _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(isClosed: true);
+//       continue;
+//     }
+
+//     final firstSlot = slots.first;
+
+//     final slotStart = (firstSlot['startTime'] ?? '').toString();
+//     final slotEnd = (firstSlot['endTime'] ?? '').toString();
+
+//     _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
+//       startTime: slotStart.trim().isNotEmpty
+//           ? _normalizeDisplayTime(slotStart)
+//           : initialStart,
+//       endTime: slotEnd.trim().isNotEmpty
+//           ? _normalizeDisplayTime(slotEnd)
+//           : initialEnd,
+//       isClosed: false,
+//     );
+//   }
+// }
+// @override
+// void initState() {
+//   super.initState();
+
+//   final initialStart = _normalizeDisplayTime(widget.initialStartTime);
+//   final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
+
+//   final previousBaseStart = _normalizeDisplayTime(
+//     widget.previousBaseStartTime ?? widget.initialStartTime,
+//   );
+//   final previousBaseEnd = _normalizeDisplayTime(
+//     widget.previousBaseEndTime ?? widget.initialEndTime,
+//   );
+
+//   _scheduleByDay = {
+//     for (final day in _days)
+//       day: _DayScheduleConfig(
+//         startTime: initialStart,
+//         endTime: initialEnd,
+//         isClosed: false,
+//       ),
+//   };
+
+//   final initialSchedule = widget.initialSchedule;
+
+//   if (initialSchedule == null || initialSchedule.isEmpty) {
+//     return;
+//   }
+
+//   for (final day in _days) {
+//     final slots = initialSchedule[day] ?? const [];
+
+//     if (slots.isEmpty) {
+//       _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(isClosed: true);
+//       continue;
+//     }
+
+//     final firstSlot = slots.first;
+
+//     final savedStart = _normalizeDisplayTime(
+//       (firstSlot['startTime'] ?? '').toString(),
+//     );
+//     final savedEnd = _normalizeDisplayTime(
+//       (firstSlot['endTime'] ?? '').toString(),
+//     );
+
+//     final nextStart = savedStart == previousBaseStart
+//         ? initialStart
+//         : savedStart;
+
+//     final nextEnd = savedEnd == previousBaseEnd
+//         ? initialEnd
+//         : savedEnd;
+
+//     _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
+//       startTime: nextStart,
+//       endTime: nextEnd,
+//       isClosed: false,
+//     );
+//   }
+// }
+// @override
+// void initState() {
+//   super.initState();
+
+//   final initialStart = _normalizeDisplayTime(widget.initialStartTime);
+//   final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
+
+//   _scheduleByDay = {
+//     for (final day in _days)
+//       day: _DayScheduleConfig(
+//         startTime: initialStart,
+//         endTime: initialEnd,
+//         isClosed: false,
+//       ),
+//   };
+
+//   final initialSchedule = widget.initialSchedule;
+
+//   if (initialSchedule == null || initialSchedule.isEmpty) {
+//     return;
+//   }
+
+//   final salonStartMinutes = _displayToMinutes(initialStart);
+//   final salonEndMinutes = _displayToMinutes(initialEnd);
+
+//   for (final day in _days) {
+//     final slots = initialSchedule[day] ?? const [];
+
+//     if (slots.isEmpty) {
+//       _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(isClosed: true);
+//       continue;
+//     }
+
+//     final firstSlot = slots.first;
+
+//     final savedEnd = _normalizeDisplayTime(
+//       (firstSlot['endTime'] ?? '').toString(),
+//     );
+
+//     var nextEnd = savedEnd;
+
+//     final savedEndMinutes = _displayToMinutes(savedEnd);
+
+//     // End time should never exceed salon end time.
+//     if (savedEndMinutes > salonEndMinutes) {
+//       nextEnd = initialEnd;
+//     }
+
+//     // End time must be after new salon start time.
+//     if (_displayToMinutes(nextEnd) <= salonStartMinutes) {
+//       nextEnd = initialEnd;
+//     }
+
+//     _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
+//       // Every open day follows the latest salon start time.
+//       startTime: initialStart,
+//       endTime: nextEnd,
+//       isClosed: false,
+//     );
+//   }
+// }
 @override
 void initState() {
   super.initState();
@@ -110,12 +284,13 @@ void initState() {
 
   final initialSchedule = widget.initialSchedule;
 
-  // For Add Salon, initialSchedule is empty, so keep AddSalon start/end time.
   if (initialSchedule == null || initialSchedule.isEmpty) {
     return;
   }
 
-  // For Edit Salon, use saved weekly schedule.
+  final salonStartMinutes = _displayToMinutes(initialStart);
+  final salonEndMinutes = _displayToMinutes(initialEnd);
+
   for (final day in _days) {
     final slots = initialSchedule[day] ?? const [];
 
@@ -126,16 +301,44 @@ void initState() {
 
     final firstSlot = slots.first;
 
-    final slotStart = (firstSlot['startTime'] ?? '').toString();
-    final slotEnd = (firstSlot['endTime'] ?? '').toString();
+    final savedStart = _normalizeDisplayTime(
+      (firstSlot['startTime'] ?? '').toString(),
+    );
+
+    final savedEnd = _normalizeDisplayTime(
+      (firstSlot['endTime'] ?? '').toString(),
+    );
+
+    var nextStart = savedStart;
+    var nextEnd = savedEnd;
+
+    final savedStartMinutes = _displayToMinutes(savedStart);
+    final savedEndMinutes = _displayToMinutes(savedEnd);
+
+    // If saved start is before new salon opening time, move it to salon opening time.
+    // Example: saved 08:00 AM, salon changed to 09:30 AM => 09:30 AM.
+    if (savedStartMinutes < salonStartMinutes) {
+      nextStart = initialStart;
+    }
+
+    // If saved start is equal/after salon closing time, reset to salon opening time.
+    if (_displayToMinutes(nextStart) >= salonEndMinutes) {
+      nextStart = initialStart;
+    }
+
+    // End time should never exceed salon closing time.
+    if (savedEndMinutes > salonEndMinutes) {
+      nextEnd = initialEnd;
+    }
+
+    // End time must always be after start time.
+    if (_displayToMinutes(nextEnd) <= _displayToMinutes(nextStart)) {
+      nextEnd = initialEnd;
+    }
 
     _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
-      startTime: slotStart.trim().isNotEmpty
-          ? _normalizeDisplayTime(slotStart)
-          : initialStart,
-      endTime: slotEnd.trim().isNotEmpty
-          ? _normalizeDisplayTime(slotEnd)
-          : initialEnd,
+      startTime: nextStart,
+      endTime: nextEnd,
       isClosed: false,
     );
   }
