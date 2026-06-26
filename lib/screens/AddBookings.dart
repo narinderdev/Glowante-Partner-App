@@ -2951,7 +2951,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     Map<String, dynamic> response,
   ) async {
     final branchId = widget.branchId;
-    if (branchId == null) return;
+    final userId = _selectedCustomerId;
+    if (branchId == null || userId == null) return;
 
     final keepItemIds = _cartItemIdByService.values.toSet();
     if (keepItemIds.isEmpty) return;
@@ -2966,6 +2967,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         final deleteResponse = await ApiService().deleteCartItem(
           branchId: branchId,
           itemId: itemId,
+          userId: userId,
         );
         if (deleteResponse['success'] == false) {
           debugPrint(
@@ -2981,7 +2983,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   Future<void> _clearBookingCartItemsAfterSuccess() async {
     final branchId = widget.branchId;
-    if (branchId == null || _cartItemIdByService.isEmpty) return;
+    final userId = _selectedCustomerId;
+    if (branchId == null || userId == null || _cartItemIdByService.isEmpty) {
+      return;
+    }
 
     final itemIds = _cartItemIdByService.values.toSet();
     for (final itemId in itemIds) {
@@ -2990,6 +2995,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         final deleteResponse = await ApiService().deleteCartItem(
           branchId: branchId,
           itemId: itemId,
+          userId: userId,
         );
         if (deleteResponse['success'] == false) {
           debugPrint(
@@ -3276,6 +3282,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         builder: (_) => _BookingScheduleScreen(
           customerName: _customerFullName(),
           customerPhone: _mobileCtrl.text.trim(),
+          customerUserId: _selectedCustomerId,
           services: _selectedServices,
           professionals: Map<int, String>.from(_professionalByService),
           serviceMembers: serviceMembers,
@@ -4361,22 +4368,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   Future<void> _removeSelectedService(int id) async {
     final branchId = widget.branchId;
+    final userId = _selectedCustomerId;
     final itemId = _cartItemIdByService[id];
 
-    if (branchId != null && itemId != null) {
+    if (branchId != null && userId != null && itemId != null) {
       try {
-        var response = await ApiService().deleteCartItem(
+        final response = await ApiService().deleteCartItem(
           branchId: branchId,
           itemId: itemId,
+          userId: userId,
         );
-        if (response['success'] == false &&
-            response['statusCode'] == 404 &&
-            itemId != id) {
-          response = await ApiService().deleteCartItem(
-            branchId: branchId,
-            itemId: id,
-          );
-        }
         if (response['success'] == false) {
           throw Exception(response['message'] ?? 'Failed to remove cart item');
         }
@@ -4419,6 +4420,7 @@ class _BookingScheduleScreen extends StatefulWidget {
   const _BookingScheduleScreen({
     required this.customerName,
     required this.customerPhone,
+    required this.customerUserId,
     required this.services,
     required this.professionals,
     required this.serviceMembers,
@@ -4439,6 +4441,7 @@ class _BookingScheduleScreen extends StatefulWidget {
 
   final String customerName;
   final String customerPhone;
+  final int? customerUserId;
   final List<Map<String, dynamic>> services;
   final Map<int, String> professionals;
   final Map<int, List<Map<String, dynamic>>> serviceMembers;
@@ -4993,6 +4996,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
         itemId: itemId,
         qty: _intValue(qty) ?? 1,
         notes: '',
+        userId: widget.customerUserId,
         selectedProId: selectedProId,
       );
 

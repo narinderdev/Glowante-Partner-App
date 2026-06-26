@@ -459,12 +459,14 @@ class ApiService {
     return "branches/$branchId/cart/items/bulk";
   }
 
-  static String updateCartItemAPI(int branchId, int itemId) {
-    return "branches/$branchId/cart/items/$itemId";
+  static String updateCartItemAPI(int branchId, int itemId, {int? userId}) {
+    final base = "branches/$branchId/cart/items/$itemId";
+    return userId == null ? base : "$base?userId=$userId";
   }
 
-  static String deleteCartItemAPI(int branchId, int itemId) {
-    return "branches/$branchId/cart/items/$itemId";
+  static String deleteCartItemAPI(int branchId, int itemId, {int? userId}) {
+    final base = "branches/$branchId/cart/items/$itemId";
+    return userId == null ? base : "$base?userId=$userId";
   }
 
   static String updateSalonOffer(int salonId, int offerId) {
@@ -750,11 +752,12 @@ class ApiService {
     required int itemId,
     required int qty,
     required String notes,
+    int? userId,
     int? selectedProId,
   }) {
     return _authorizedJsonRequest(
       method: 'PATCH',
-      endpoint: updateCartItemAPI(branchId, itemId),
+      endpoint: updateCartItemAPI(branchId, itemId, userId: userId),
       debugTag: 'UpdateCartItem',
       body: <String, dynamic>{
         'qty': qty,
@@ -767,10 +770,11 @@ class ApiService {
   Future<Map<String, dynamic>> deleteCartItem({
     required int branchId,
     required int itemId,
+    int? userId,
   }) {
     return _authorizedJsonRequest(
       method: 'DELETE',
-      endpoint: deleteCartItemAPI(branchId, itemId),
+      endpoint: deleteCartItemAPI(branchId, itemId, userId: userId),
       debugTag: 'DeleteCartItem',
     );
   }
