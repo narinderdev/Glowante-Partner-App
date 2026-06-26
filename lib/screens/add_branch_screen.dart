@@ -193,6 +193,11 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
     return 0;
   }
+int? _readPositiveIntValue(List<dynamic> values) {
+  final parsed = _readIntValue(values);
+  if (parsed == null || parsed <= 0) return null;
+  return parsed;
+}
 
   int? _readIntValue(List<dynamic> values) {
     for (final value in values) {
@@ -414,15 +419,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           fallback: _endTimeController.text,
         );
       }
-      _draftOpeningBufferMinutes =
-          _readIntValue([initialBranch['openingBufferMinutes']]) ??
-              (widget.isEdit ? 0 : 30);
-      _draftLastBookingBufferMinutes =
-          _readIntValue([initialBranch['lastBookingBufferMinutes']]) ??
-              (widget.isEdit ? 0 : 30);
-      _draftLastSlotOverflowGraceMinutes =
-          _readIntValue([initialBranch['lastSlotOverflowGraceMinutes']]) ??
-              (widget.isEdit ? 0 : 10);
+    _draftOpeningBufferMinutes =
+    _readPositiveIntValue([initialBranch['openingBufferMinutes']]) ?? 30;
+
+_draftLastBookingBufferMinutes =
+    _readPositiveIntValue([initialBranch['lastBookingBufferMinutes']]) ?? 30;
+
+_draftLastSlotOverflowGraceMinutes =
+    _readPositiveIntValue([initialBranch['lastSlotOverflowGraceMinutes']]) ?? 10;
+    _openingBufferController.text = _draftOpeningBufferMinutes.toString();
+_lastVisibleBufferController.text = _draftLastBookingBufferMinutes.toString();
+_overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
       _existingImageUrls = [
         ..._extractImageUrls(initialBranch['imageUrls']),
         ..._extractImageUrls(initialBranch['imageUrl']),
@@ -1311,14 +1318,14 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildBufferInputField(
-            controller: _overflowGraceController,
-            label: 'Last Slot Overflow Grace',
-            hint: '10',
-            requiredField: false,
-            bottomSpacing: 0,
-          ),
+          // const SizedBox(height: 12),
+          // _buildBufferInputField(
+          //   controller: _overflowGraceController,
+          //   label: 'Last Slot Overflow Grace',
+          //   hint: '10',
+          //   requiredField: false,
+          //   bottomSpacing: 0,
+          // ),
         ],
       ),
     );

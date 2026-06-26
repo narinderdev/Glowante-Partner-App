@@ -137,7 +137,11 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     return branches.first;
   }
-
+int? _readPositiveIntValue(List<dynamic> values) {
+  final parsed = _readIntValue(values);
+  if (parsed == null || parsed <= 0) return null;
+  return parsed;
+}
   int? _readIntValue(List<dynamic> values) {
     for (final value in values) {
       if (value is int) return value;
@@ -487,131 +491,167 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       ]),
     );
   }
+@override
+void initState() {
+  super.initState();
 
-  @override
-  void initState() {
-    super.initState();
+  _startTimeController.text = "08:00 AM";
+  _endTimeController.text = "08:00 PM";
 
-    _startTimeController.text = "08:00 AM";
-    _endTimeController.text = "08:00 PM";
-
-    final phone = widget.phoneNumber;
-    if (phone != null && phone.isNotEmpty) {
-      _phoneController.text = _normalizePhone(phone);
-    }
-
-    final proceedContext = widget.isProceedFrom?.toLowerCase().trim();
-    final shouldPrefillSalonName = proceedContext != 'onboarding';
-    if (shouldPrefillSalonName) {
-      final names = [widget.firstName, widget.lastName]
-          .whereType<String>()
-          .map((value) => value.trim())
-          .where((value) => value.isNotEmpty)
-          .toList();
-      if (names.isNotEmpty) {
-        _salonNameController.text = names.join(' ');
-      }
-    }
-
-    final initialSalon = widget.initialSalon;
-    if (initialSalon != null) {
-      final primaryBranch = _resolvePrimaryBranch(initialSalon);
-      _salonNameController.text = _firstNonEmptyValue([
-        initialSalon['name'],
-        initialSalon['salonName'],
-        initialSalon['businessName'],
-        initialSalon['displayName'],
-        initialSalon['title'],
-      ]);
-      _descriptionController.text = _firstNonEmptyValue(
-        [
-          initialSalon['description'],
-          initialSalon['salonDescription'],
-          initialSalon['about'],
-          initialSalon['details'],
-          primaryBranch?['description'],
-          primaryBranch?['branchDescription'],
-        ],
-      );
-      _phoneController.text = _normalizePhone(
-        _firstNonEmptyValue([
-          initialSalon['phone'],
-          primaryBranch?['phone'],
-          widget.phoneNumber,
-        ]),
-      );
-      final startTime = _firstNonEmptyValue([
-        initialSalon['startTime'],
-        primaryBranch?['startTime'],
-      ]);
-      final endTime = _firstNonEmptyValue([
-        initialSalon['endTime'],
-        primaryBranch?['endTime'],
-      ]);
-      if (startTime.isNotEmpty) {
-        _startTimeController.text = _formatDisplayTime(
-          startTime,
-          fallback: _startTimeController.text,
-        );
-      }
-      if (endTime.isNotEmpty) {
-        _endTimeController.text = _formatDisplayTime(
-          endTime,
-          fallback: _endTimeController.text,
-        );
-      }
-      _draftOpeningBufferMinutes = _readIntValue([
-            primaryBranch?['openingBufferMinutes'],
-            initialSalon['openingBufferMinutes'],
-          ]) ??
-          (widget.isEdit ? 0 : 30);
-      _draftLastBookingBufferMinutes = _readIntValue([
-            primaryBranch?['lastBookingBufferMinutes'],
-            initialSalon['lastBookingBufferMinutes'],
-          ]) ??
-          (widget.isEdit ? 0 : 30);
-      _draftLastSlotOverflowGraceMinutes = _readIntValue([
-            primaryBranch?['lastSlotOverflowGraceMinutes'],
-            initialSalon['lastSlotOverflowGraceMinutes'],
-          ]) ??
-          (widget.isEdit ? 0 : 10);
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final initialSalon = widget.initialSalon;
-      final initialAddress =
-          initialSalon == null ? null : _extractInitialAddress(initialSalon);
-
-      // 🟢 CHANGED: treat legacy buildingName as a completeAddress holder
-      final completeAddress = widget.buildingName?.trim() ?? '';
-
-      final latitude = widget.latitude;
-      final longitude = widget.longitude;
-      final bool hasCoordinates = latitude != null &&
-          longitude != null &&
-          (latitude != 0.0 || longitude != 0.0);
-
-      if (initialAddress != null) {
-        context.read<AddSalonCubit>().updateAddress(initialAddress);
-      } else if (completeAddress.isNotEmpty && hasCoordinates) {
-        context.read<AddSalonCubit>().updateAddress(
-              AddSalonAddress(
-                // We store completeAddress in buildingName for back-compat
-                buildingName: completeAddress,
-                city: '', // not used now
-                pincode: '', // not used now
-                state: '', // not used now
-                latitude: latitude,
-                longitude: longitude,
-              ),
-            );
-      }
-
-      context.read<AddSalonCubit>().loadSavedPhone(
-            initialPhone: widget.phoneNumber,
-          );
-    });
+  final phone = widget.phoneNumber;
+  if (phone != null && phone.isNotEmpty) {
+    _phoneController.text = _normalizePhone(phone);
   }
+
+  final proceedContext = widget.isProceedFrom?.toLowerCase().trim();
+  final shouldPrefillSalonName = proceedContext != 'onboarding';
+
+  if (shouldPrefillSalonName) {
+    final names = [widget.firstName, widget.lastName]
+        .whereType<String>()
+        .map((value) => value.trim())
+        .where((value) => value.isNotEmpty)
+        .toList();
+
+    if (names.isNotEmpty) {
+      _salonNameController.text = names.join(' ');
+    }
+  }
+
+  final initialSalon = widget.initialSalon;
+
+  if (initialSalon != null) {
+    final primaryBranch = _resolvePrimaryBranch(initialSalon);
+
+    _salonNameController.text = _firstNonEmptyValue([
+      initialSalon['name'],
+      initialSalon['salonName'],
+      initialSalon['businessName'],
+      initialSalon['displayName'],
+      initialSalon['title'],
+    ]);
+
+    _descriptionController.text = _firstNonEmptyValue([
+      initialSalon['description'],
+      initialSalon['salonDescription'],
+      initialSalon['about'],
+      initialSalon['details'],
+      primaryBranch?['description'],
+      primaryBranch?['branchDescription'],
+    ]);
+
+    _phoneController.text = _normalizePhone(
+      _firstNonEmptyValue([
+        initialSalon['phone'],
+        primaryBranch?['phone'],
+        widget.phoneNumber,
+      ]),
+    );
+
+    final startTime = _firstNonEmptyValue([
+      initialSalon['startTime'],
+      primaryBranch?['startTime'],
+    ]);
+
+    final endTime = _firstNonEmptyValue([
+      initialSalon['endTime'],
+      primaryBranch?['endTime'],
+    ]);
+
+    if (startTime.isNotEmpty) {
+      _startTimeController.text = _formatDisplayTime(
+        startTime,
+        fallback: _startTimeController.text,
+      );
+    }
+
+    if (endTime.isNotEmpty) {
+      _endTimeController.text = _formatDisplayTime(
+        endTime,
+        fallback: _endTimeController.text,
+      );
+    }
+
+    // First Visible Slot
+    _draftOpeningBufferMinutes = _readPositiveIntValue([
+          primaryBranch?['openingBufferMinutes'],
+          initialSalon['openingBufferMinutes'],
+        ]) ??
+        30;
+
+    // Last Visible Slot
+    _draftLastBookingBufferMinutes = _readPositiveIntValue([
+          primaryBranch?['lastBookingBufferMinutes'],
+          initialSalon['lastBookingBufferMinutes'],
+        ]) ??
+        30;
+
+    _openingBufferController.text = _draftOpeningBufferMinutes.toString();
+    _lastVisibleBufferController.text =
+        _draftLastBookingBufferMinutes.toString();
+
+    // Last Slot Overflow Grace
+    final existingOverflowGrace = _readPositiveIntValue([
+      primaryBranch?['lastSlotOverflowGraceMinutes'],
+      initialSalon['lastSlotOverflowGraceMinutes'],
+    ]);
+
+    // Use this if you want default 10 when backend does not return value
+  _draftLastSlotOverflowGraceMinutes = existingOverflowGrace ?? 0;
+_overflowGraceController.text =
+    existingOverflowGrace == null ? '' : existingOverflowGrace.toString();
+
+    // Debug logs
+    debugPrint('🟣 [EDIT SALON INIT BUFFER]');
+    debugPrint('primaryBranch id = ${primaryBranch?['id']}');
+    debugPrint(
+        'api openingBufferMinutes = ${primaryBranch?['openingBufferMinutes']}');
+    debugPrint(
+        'api lastBookingBufferMinutes = ${primaryBranch?['lastBookingBufferMinutes']}');
+    debugPrint(
+        'api lastSlotOverflowGraceMinutes = ${primaryBranch?['lastSlotOverflowGraceMinutes']}');
+    debugPrint(
+        'controller openingBuffer = ${_openingBufferController.text}');
+    debugPrint(
+        'controller lastVisibleBuffer = ${_lastVisibleBufferController.text}');
+    debugPrint(
+        'controller overflowGrace = ${_overflowGraceController.text}');
+  }
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    final initialSalon = widget.initialSalon;
+    final initialAddress =
+        initialSalon == null ? null : _extractInitialAddress(initialSalon);
+
+    final completeAddress = widget.buildingName?.trim() ?? '';
+
+    final latitude = widget.latitude;
+    final longitude = widget.longitude;
+
+    final bool hasCoordinates = latitude != null &&
+        longitude != null &&
+        (latitude != 0.0 || longitude != 0.0);
+
+    if (initialAddress != null) {
+      context.read<AddSalonCubit>().updateAddress(initialAddress);
+    } else if (completeAddress.isNotEmpty && hasCoordinates) {
+      context.read<AddSalonCubit>().updateAddress(
+            AddSalonAddress(
+              buildingName: completeAddress,
+              city: '',
+              pincode: '',
+              state: '',
+              latitude: latitude,
+              longitude: longitude,
+            ),
+          );
+    }
+
+    context.read<AddSalonCubit>().loadSavedPhone(
+          initialPhone: widget.phoneNumber,
+        );
+  });
+}
 
   @override
   void dispose() {
@@ -635,20 +675,24 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return parsed;
   }
 
-  void _syncBufferDraftsFromInputs() {
-    _draftOpeningBufferMinutes = _parseBufferMinutes(
-      _openingBufferController.text,
-      fallback: _draftOpeningBufferMinutes,
-    );
-    _draftLastBookingBufferMinutes = _parseBufferMinutes(
-      _lastVisibleBufferController.text,
-      fallback: _draftLastBookingBufferMinutes,
-    );
-    _draftLastSlotOverflowGraceMinutes = _parseBufferMinutes(
-      _overflowGraceController.text,
-      fallback: _draftLastSlotOverflowGraceMinutes,
-    );
-  }
+ void _syncBufferDraftsFromInputs() {
+  _draftOpeningBufferMinutes = _parseBufferMinutes(
+    _openingBufferController.text,
+    fallback: _draftOpeningBufferMinutes,
+  );
+
+  _draftLastBookingBufferMinutes = _parseBufferMinutes(
+    _lastVisibleBufferController.text,
+    fallback: _draftLastBookingBufferMinutes,
+  );
+
+  final overflowText = _overflowGraceController.text.trim();
+  _draftLastSlotOverflowGraceMinutes =
+      overflowText.isEmpty ? 0 : _parseBufferMinutes(
+        overflowText,
+        fallback: _draftLastSlotOverflowGraceMinutes,
+      );
+}
 
   Future<void> _pickImages() async {
     final existing = context.read<AddSalonCubit>().state.images;
@@ -889,7 +933,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           var salonUpdated = false;
 
           try {
+            debugPrint('🟡 [EDIT SALON - SENDING BUFFER VALUES]');
+debugPrint('salonId = $salonId');
+debugPrint('openingBufferMinutes = ${scheduleResult.openingBufferMinutes}');
+debugPrint('lastBookingBufferMinutes = ${scheduleResult.lastBookingBufferMinutes}');
+debugPrint('lastSlotOverflowGraceMinutes = ${scheduleResult.lastSlotOverflowGraceMinutes}');
+debugPrint('overflow controller text = ${_overflowGraceController.text}');
             await cubit.repository.updateSalon(
+              
               salonId: salonId,
               name: name,
               phone: phone,
@@ -911,6 +962,11 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
             salonUpdated = true;
 
             if (branchId != null && branchAddressPayload != null) {
+              debugPrint('🟡 [EDIT MAIN BRANCH - SENDING BUFFER VALUES]');
+  debugPrint('branchId = $branchId');
+  debugPrint('openingBufferMinutes = ${scheduleResult.openingBufferMinutes}');
+  debugPrint('lastBookingBufferMinutes = ${scheduleResult.lastBookingBufferMinutes}');
+  debugPrint('lastSlotOverflowGraceMinutes = ${scheduleResult.lastSlotOverflowGraceMinutes}');
               await cubit.repository.updateBranch(
                 branchId: branchId,
                 name: name,
@@ -1845,14 +1901,14 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          _buildBufferInputField(
-            controller: _overflowGraceController,
-            label: 'Last Slot Overflow Grace',
-            hint: '10',
-            requiredField: false,
-            bottomSpacing: 0,
-          ),
+          // const SizedBox(height: 12),
+          // _buildBufferInputField(
+          //   controller: _overflowGraceController,
+          //   label: 'Last Slot Overflow Grace',
+          //   hint: '10',
+          //   requiredField: false,
+          //   bottomSpacing: 0,
+          // ),
         ],
       ),
     );

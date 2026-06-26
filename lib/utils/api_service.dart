@@ -1465,6 +1465,11 @@ class ApiService {
     double longitude, {
     String? imageUrl, // 👈 optional
     required List<String> selectedCategoryCodes, // ✅ new required field
+     required int openingBufferMinutes,
+  required int lastBookingBufferMinutes,
+
+  // ✅ optional
+  int? lastSlotOverflowGraceMinutes,
   }) async {
     final token = await getAuthToken();
 
@@ -1479,8 +1484,11 @@ class ApiService {
       "startTime": formattedStartTime,
       "endTime": formattedEndTime,
       "description": description,
-      "OPENING_BUFFER_MINUTES": 30,
-      "LAST_BOOKING_BUFFER_MINUTES": 30,
+    "openingBufferMinutes": openingBufferMinutes,
+  "lastBookingBufferMinutes": lastBookingBufferMinutes,
+
+  if (lastSlotOverflowGraceMinutes != null)
+    "lastSlotOverflowGraceMinutes": lastSlotOverflowGraceMinutes,
       "imageUrl": imageUrl, // 👈 matches backend field name
       "address": {
         "line1": buildingName,
