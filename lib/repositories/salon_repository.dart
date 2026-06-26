@@ -65,6 +65,9 @@ class SalonRepository {
     required String endTime,
     required String description,
     required Map<String, List<Map<String, String>>> schedule,
+    required int openingBufferMinutes,
+    required int lastBookingBufferMinutes,
+    required int lastSlotOverflowGraceMinutes,
     required String buildingName,
     required String city,
     required String pincode,
@@ -132,6 +135,9 @@ class SalonRepository {
       'startTime': startTime,
       'endTime': endTime,
       'description': description,
+      'openingBufferMinutes': openingBufferMinutes,
+      'lastBookingBufferMinutes': lastBookingBufferMinutes,
+      'lastSlotOverflowGraceMinutes': lastSlotOverflowGraceMinutes,
       'imageUrl': resolvedImageUrl,
       'imageUrls': resolvedImageUrls,
       'schedule': schedule,
@@ -199,6 +205,9 @@ class SalonRepository {
     required String endTime,
     required String description,
     required Map<String, List<Map<String, String>>> schedule,
+    required int openingBufferMinutes,
+    required int lastBookingBufferMinutes,
+    required int lastSlotOverflowGraceMinutes,
     required Map<String, dynamic> address,
     required double latitude,
     required double longitude,
@@ -235,6 +244,9 @@ class SalonRepository {
       'endTime': endTime,
       'phone': phone,
       'description': description,
+      'openingBufferMinutes': openingBufferMinutes,
+      'lastBookingBufferMinutes': lastBookingBufferMinutes,
+      'lastSlotOverflowGraceMinutes': lastSlotOverflowGraceMinutes,
       'imageUrl': resolvedImageUrl,
       'imageUrls': resolvedImageUrls,
       'schedule': schedule,
@@ -258,6 +270,9 @@ class SalonRepository {
     required String startTime,
     required String endTime,
     required String description,
+    int? openingBufferMinutes,
+    int? lastBookingBufferMinutes,
+    int? lastSlotOverflowGraceMinutes,
     Map<String, List<Map<String, String>>>? schedule,
     List<String>? selectedCategoryCodes,
     String? imageUrl,
@@ -274,6 +289,12 @@ class SalonRepository {
       'startTime': startTime,
       'endTime': endTime,
       'description': description,
+      if (openingBufferMinutes != null)
+        'openingBufferMinutes': openingBufferMinutes,
+      if (lastBookingBufferMinutes != null)
+        'lastBookingBufferMinutes': lastBookingBufferMinutes,
+      if (lastSlotOverflowGraceMinutes != null)
+        'lastSlotOverflowGraceMinutes': lastSlotOverflowGraceMinutes,
       if (schedule != null) 'schedule': _openDaySchedulePayload(schedule),
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
@@ -292,6 +313,9 @@ class SalonRepository {
     required String startTime,
     required String endTime,
     required String description,
+    int? openingBufferMinutes,
+    int? lastBookingBufferMinutes,
+    int? lastSlotOverflowGraceMinutes,
     Map<String, List<Map<String, String>>>? schedule,
     List<String>? selectedCategoryCodes,
     int? sourceBranchId,
@@ -309,6 +333,12 @@ class SalonRepository {
       'startTime': startTime,
       'endTime': endTime,
       'description': description,
+      if (openingBufferMinutes != null)
+        'openingBufferMinutes': openingBufferMinutes,
+      if (lastBookingBufferMinutes != null)
+        'lastBookingBufferMinutes': lastBookingBufferMinutes,
+      if (lastSlotOverflowGraceMinutes != null)
+        'lastSlotOverflowGraceMinutes': lastSlotOverflowGraceMinutes,
       if (schedule != null) 'schedule': _openDaySchedulePayload(schedule),
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
@@ -389,17 +419,17 @@ class SalonRepository {
   //     displayName: displayName,
   //   );
   // }
-Future<Map<String, dynamic>> addSubCategory({
-  required int branchId,
-  required int categoryId,
-  required String displayName,
-}) {
-  return _apiService.addSubCategoryApi(
-    branchId: branchId,
-    branchCategoryId: categoryId,
-    displayName: displayName,
-  );
-}
+  Future<Map<String, dynamic>> addSubCategory({
+    required int branchId,
+    required int categoryId,
+    required String displayName,
+  }) {
+    return _apiService.addSubCategoryApi(
+      branchId: branchId,
+      branchCategoryId: categoryId,
+      displayName: displayName,
+    );
+  }
 
   Future<Map<String, dynamic>> updateSubCategory({
     required int branchId,

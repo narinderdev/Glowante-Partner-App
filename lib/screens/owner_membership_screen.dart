@@ -17,7 +17,7 @@ const Color _membershipText = Color(0xFF2B241D);
 const Color _membershipMuted = Color(0xFF8C7A66);
 const Color _membershipSurface = Colors.white;
 const String _monthlyBlockedMessage =
-    'Monthly plans are available only for salons with one branch. Please choose yearly billing.';
+    'Monthly billing is available for all salons.';
 
 class OwnerMembershipScreen extends StatefulWidget {
   const OwnerMembershipScreen({super.key});
@@ -40,7 +40,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
   bool _yearlyBilling = false;
   String? _errorMessage;
 
-  bool get _monthlyPlansBlocked => (_selectedSalon?.branchCount ?? 0) > 1;
+  bool get _monthlyPlansBlocked => false;
 
   @override
   void initState() {
@@ -75,8 +75,6 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         _selectedSalon = salonOptions.selected;
         _plans = _parsePlans(plansResponse);
         _subscription = _parseSubscription(subscriptionResponse);
-        _yearlyBilling =
-            (salonOptions.selected?.branchCount ?? 0) > 1 || _yearlyBilling;
         _isLoading = false;
       });
     } catch (error) {
@@ -218,12 +216,6 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       return;
     }
     final subscription = _subscription;
-    if (subscription != null && subscription.currentPlanId == plan.id) {
-      _showSnack(
-        'This plan is already active. Please choose a different upgrade plan.',
-      );
-      return;
-    }
     final isActiveMonthly = subscription != null &&
         !_isYearlyCycle(subscription.billingCycle) &&
         subscription.upcomingMembership == null;
@@ -318,6 +310,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       salonId: salonId,
       planId: planId,
       billingCycle: upcoming.billingCycle,
+      upcomingMembershipId: upcoming.id,
     );
     if (!mounted) return;
 
@@ -386,14 +379,15 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
 
     if (result.status == RazorpayCheckoutStatus.cancelled) {
       setState(() => _isPaying = false);
-      _showSnack(result.message ?? 'Payment cancelled.');
+      _showSnack(
+          _checkoutMessage(result.message, fallback: 'Payment cancelled.'));
       return;
     }
 
     if (result.status != RazorpayCheckoutStatus.success ||
         result.paymentId == null) {
       setState(() => _isPaying = false);
-      _showSnack(result.message ?? 'Payment failed.');
+      _showSnack(_checkoutMessage(result.message, fallback: 'Payment failed.'));
       return;
     }
 
@@ -430,6 +424,14 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         response['message']?.toString() ?? 'Unable to update membership.');
   }
 
+  String _checkoutMessage(String? message, {required String fallback}) {
+    final text = message?.trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'undefined') {
+      return fallback;
+    }
+    return text;
+  }
+
   Future<bool> _confirmImmediateReplace(_PurchaseSelection selection) async {
     final subscription = _subscription;
     final remainingDays = subscription?.daysRemaining ?? 0;
@@ -457,7 +459,6 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     setState(() {
       _selectedSalon = salon;
       _salonId = salon.salonId;
-      _yearlyBilling = salon.branchCount > 1 ? true : _yearlyBilling;
       _isLoading = true;
       _errorMessage = null;
     });
@@ -796,6 +797,12 @@ class _PlansGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final current = subscription;
+    final currentBillingCycle = current == null
+        ? null
+        : _billingCycleApiValue(_isYearlyCycle(current.billingCycle));
+    final viewedBillingCycle = _billingCycleApiValue(yearlyBilling);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = constraints.maxWidth >= 780
@@ -813,9 +820,14 @@ class _PlansGrid extends StatelessWidget {
                 child: _PlanCard(
                   plan: plan,
                   yearlyBilling: yearlyBilling,
-                  isCurrent: currentPlanId == plan.id,
-                  canChoose: _canChoosePlan(plan),
-                  disabledMessage: currentPlanId == plan.id
+                  isCurrent: currentPlanId == plan.id &&
+                      currentBillingCycle == viewedBillingCycle,
+                  canChoose: _canChoosePlan(
+                    plan,
+                    viewedBillingCycle: viewedBillingCycle,
+                  ),
+                  disabledMessage: currentPlanId == plan.id &&
+                          currentBillingCycle == viewedBillingCycle
                       ? 'This plan is already active. Please choose a different upgrade plan.'
                       : subscription?.membershipMessage,
                   onChoose: () => onChoose(plan),
@@ -827,12 +839,17 @@ class _PlansGrid extends StatelessWidget {
     );
   }
 
-  bool _canChoosePlan(_MembershipPlan plan) {
+  bool _canChoosePlan(
+    _MembershipPlan plan, {
+    required String viewedBillingCycle,
+  }) {
     final current = subscription;
     if (current == null) return true;
     if (current.upcomingMembership != null) return false;
+    final currentBillingCycle =
+        _billingCycleApiValue(_isYearlyCycle(current.billingCycle));
     if (current.currentPlanId == plan.id) {
-      return false;
+      return currentBillingCycle != viewedBillingCycle;
     }
     if (current.eligibleUpgradePlanIds.isNotEmpty) {
       return current.eligibleUpgradePlanIds.contains(plan.id);
@@ -3093,6 +3110,7 @@ class _SalonSubscription {
 
 class _UpcomingMembership {
   const _UpcomingMembership({
+    required this.id,
     required this.planId,
     required this.planName,
     required this.billingCycle,
@@ -3105,6 +3123,7 @@ class _UpcomingMembership {
 
   factory _UpcomingMembership.fromJson(Map<String, dynamic> json) {
     return _UpcomingMembership(
+      id: _readInt(json['id']),
       planId: _readInt(
         json['planId'] ??
             json['currentPlanId'] ??
@@ -3129,6 +3148,7 @@ class _UpcomingMembership {
     );
   }
 
+  final int? id;
   final int? planId;
   final String planName;
   final String billingCycle;
@@ -3373,6 +3393,10 @@ Map<String, dynamic> _subscriptionJsonWithDeferredUpcoming(
   if (json['upcomingMembership'] is Map) return json;
   final rawHistory = json['history'];
   if (rawHistory is! List) return json;
+  final hasExplicitCurrentMembership =
+      _readInt(json['currentPlanId']) != null ||
+          _cleanText(json['currentPlan']).isNotEmpty ||
+          _cleanText(json['membershipStatus']).isNotEmpty;
 
   final topExpiryDate = _parseDate(json['expiryDate']);
   final topRemainingDays = _readInt(json['remainingDays']) ??
@@ -3426,6 +3450,8 @@ Map<String, dynamic> _subscriptionJsonWithDeferredUpcoming(
       },
     };
   }
+
+  if (hasExplicitCurrentMembership) return json;
 
   final activeMonthlyHistory = history.where((item) {
     if (_isYearlyCycle(item.billingCycle)) return false;

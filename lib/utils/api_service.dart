@@ -451,6 +451,10 @@ class ApiService {
     return "branches/$branchId/cart/purchases?clientId=$clientId";
   }
 
+  static String getBranchCartAPI(int branchId, int userId) {
+    return "branches/$branchId/cart?userId=$userId";
+  }
+
   static String addCartItemsBulkAPI(int branchId) {
     return "branches/$branchId/cart/items/bulk";
   }
@@ -635,6 +639,7 @@ class ApiService {
     required int salonId,
     required int planId,
     required String billingCycle,
+    int? upcomingMembershipId,
   }) async {
     final normalizedBillingCycle =
         billingCycle.toUpperCase() == 'YEARLY' ? 'ANNUAL' : billingCycle;
@@ -642,6 +647,11 @@ class ApiService {
       'planId': planId,
       'billingCycle': normalizedBillingCycle,
       'replaceCurrentPlan': true,
+      if (upcomingMembershipId != null) ...{
+        'upcomingMembershipId': upcomingMembershipId,
+        'subscriptionId': upcomingMembershipId,
+        'membershipId': upcomingMembershipId,
+      },
     };
 
     final response = await _authorizedJsonRequest(
@@ -652,7 +662,12 @@ class ApiService {
     );
     if (response['success'] == true) return response;
     final statusCode = response['statusCode'];
-    if (statusCode != 404 && statusCode != 405) return response;
+    final message = response['message']?.toString().toLowerCase() ?? '';
+    final shouldTrySingular = statusCode == 404 ||
+        statusCode == 405 ||
+        (statusCode == 400 &&
+            message.contains('upcoming membership already exists'));
+    if (!shouldTrySingular) return response;
 
     return _authorizedJsonRequest(
       method: 'POST',
@@ -706,12 +721,27 @@ class ApiService {
   Future<Map<String, dynamic>> addCartItemsBulk({
     required int branchId,
     required List<Map<String, dynamic>> items,
+    int? userId,
   }) {
     return _authorizedJsonRequest(
       method: 'POST',
       endpoint: addCartItemsBulkAPI(branchId),
       debugTag: 'AddCartItemsBulk',
-      body: <String, dynamic>{'items': items},
+      body: <String, dynamic>{
+        'items': items,
+        if (userId != null) 'userId': userId,
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> getBranchCart({
+    required int branchId,
+    required int userId,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'GET',
+      endpoint: getBranchCartAPI(branchId, userId),
+      debugTag: 'GetBranchCart',
     );
   }
 

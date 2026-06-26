@@ -827,6 +827,7 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
   late final TextEditingController _nameController;
   late final Set<int> _selectedPermissionIds;
   bool _isSubmitting = false;
+  String? _nameError;
   String? _submitError;
 
   @override
@@ -877,7 +878,13 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
   Future<void> _submit() async {
     if (_isSubmitting) return;
     final label = _nameController.text.trim();
-    if (label.isEmpty) return;
+    if (label.isEmpty) {
+      setState(() {
+        _nameError = context.t('Role name is required');
+        _submitError = null;
+      });
+      return;
+    }
 
     final result = _RoleEditorResult(
       label: label,
@@ -892,6 +899,7 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
 
     setState(() {
       _isSubmitting = true;
+      _nameError = null;
       _submitError = null;
     });
     final saved = await onSubmitRole(result);
@@ -989,6 +997,10 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
                         child: TextField(
                           controller: _nameController,
                           readOnly: readOnly || _isSubmitting,
+                          onChanged: (_) {
+                            if (_nameError == null) return;
+                            setState(() => _nameError = null);
+                          },
                           decoration: InputDecoration(
                             hintText: context.t('Receptionist'),
                             filled: true,
@@ -1007,6 +1019,7 @@ class _RoleEditorDialogState extends State<_RoleEditorDialog> {
                               borderSide:
                                   const BorderSide(color: AppColors.starColor),
                             ),
+                            errorText: _nameError,
                           ),
                         ),
                       ),

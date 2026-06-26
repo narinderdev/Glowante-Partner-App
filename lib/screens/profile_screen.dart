@@ -11,6 +11,7 @@ import '../services/language_listener.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
+import 'add_bank_detail.dart';
 import 'login_screen.dart';
 import 'web_doc_screen.dart';
 
@@ -298,6 +299,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const _AccountSecurityScreen()),
+          );
+        },
+      ),
+      ProfileMenuItemData(
+        icon: Icons.account_balance_outlined,
+        label: context.t('Bank Details'),
+        subtitle: context.t('Payout account for salon earnings'),
+        onTap: () {
+          _logProfile('open_bank_details');
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const AddBankDetailScreen()),
           );
         },
       ),

@@ -743,6 +743,9 @@ class _AddSalonServicesState extends State<AddSalonServices> {
           endTime: branch.endTime,
           description: branch.description,
           schedule: branch.schedule,
+          openingBufferMinutes: branch.openingBufferMinutes,
+          lastBookingBufferMinutes: branch.lastBookingBufferMinutes,
+          lastSlotOverflowGraceMinutes: branch.lastSlotOverflowGraceMinutes,
           address: address.toJson(),
           latitude: address.latitude,
           longitude: address.longitude,
@@ -782,19 +785,19 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         await salonCubit.submit(widget.formData!);
       }
     } catch (e) {
-  final message = e
-      .toString()
-      .replaceAll('Failed to add branch:', '')
-      .replaceAll('Exception:', '')
-      .replaceAll('Failed:', '')
-      .trim();
+      final message = e
+          .toString()
+          .replaceAll('Failed to add branch:', '')
+          .replaceAll('Exception:', '')
+          .replaceAll('Failed:', '')
+          .trim();
 
-  debugPrint('❌ Failed to add branch: $message');
+      debugPrint('❌ Failed to add branch: $message');
 
-  scaffoldMessenger.showSnackBar(
-    SnackBar(content: Text(message)),
-  );
-} finally {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
   }

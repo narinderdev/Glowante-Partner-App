@@ -9,11 +9,17 @@ class ScheduleStepResult {
     required this.startTime,
     required this.endTime,
     required this.schedule,
+    required this.openingBufferMinutes,
+    required this.lastBookingBufferMinutes,
+    required this.lastSlotOverflowGraceMinutes,
   });
 
   final String startTime;
   final String endTime;
   final Map<String, List<Map<String, String>>> schedule;
+  final int openingBufferMinutes;
+  final int lastBookingBufferMinutes;
+  final int lastSlotOverflowGraceMinutes;
 }
 
 class SetWeeklyScheduleScreen extends StatefulWidget {
@@ -29,20 +35,26 @@ class SetWeeklyScheduleScreen extends StatefulWidget {
     this.onContinue,
     this.onSubmit,
     this.previousBaseStartTime,
-this.previousBaseEndTime,
+    this.previousBaseEndTime,
+    this.initialOpeningBufferMinutes = 30,
+    this.initialLastBookingBufferMinutes = 30,
+    this.initialLastSlotOverflowGraceMinutes = 10,
   });
 
   final String detailsStepLabel;
   final String initialStartTime;
   final String initialEndTime;
   final String? previousBaseStartTime;
-final String? previousBaseEndTime;
+  final String? previousBaseEndTime;
   final String? title;
   final Map<String, List<Map<String, String>>>? initialSchedule;
   final int totalSteps;
   final String? submitLabel;
   final Future<void> Function(ScheduleStepResult result)? onContinue;
   final Future<void> Function(ScheduleStepResult result)? onSubmit;
+  final int initialOpeningBufferMinutes;
+  final int initialLastBookingBufferMinutes;
+  final int initialLastSlotOverflowGraceMinutes;
 
   @override
   State<SetWeeklyScheduleScreen> createState() =>
@@ -61,9 +73,12 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   ];
 
   late final Map<String, _DayScheduleConfig> _scheduleByDay;
+  late final TextEditingController _openingBufferController;
+  late final TextEditingController _lastBookingBufferController;
+  late final TextEditingController _lastSlotOverflowGraceController;
   bool _copyMondayToAll = false;
   bool _isSubmitting = false;
-bool _isPoppingWithResult = false;
+  bool _isPoppingWithResult = false;
   // @override
   // void initState() {
   //   super.initState();
@@ -266,378 +281,397 @@ bool _isPoppingWithResult = false;
 //     );
 //   }
 // }
-@override
-void initState() {
-  super.initState();
+  @override
+  void initState() {
+    super.initState();
+    _openingBufferController = TextEditingController(
+      text: widget.initialOpeningBufferMinutes.toString(),
+    );
+    _lastBookingBufferController = TextEditingController(
+      text: widget.initialLastBookingBufferMinutes.toString(),
+    );
+    _lastSlotOverflowGraceController = TextEditingController(
+      text: widget.initialLastSlotOverflowGraceMinutes.toString(),
+    );
 
-  final initialStart = _normalizeDisplayTime(widget.initialStartTime);
-  final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
+    final initialStart = _normalizeDisplayTime(widget.initialStartTime);
+    final initialEnd = _normalizeDisplayTime(widget.initialEndTime);
 
-  _scheduleByDay = {
-    for (final day in _days)
-      day: _DayScheduleConfig(
-        startTime: initialStart,
-        endTime: initialEnd,
+    _scheduleByDay = {
+      for (final day in _days)
+        day: _DayScheduleConfig(
+          startTime: initialStart,
+          endTime: initialEnd,
+          isClosed: false,
+        ),
+    };
+
+    final initialSchedule = widget.initialSchedule;
+
+    if (initialSchedule == null || initialSchedule.isEmpty) {
+      return;
+    }
+
+    final salonStartMinutes = _displayToMinutes(initialStart);
+    final salonEndMinutes = _displayToMinutes(initialEnd);
+
+    for (final day in _days) {
+      final slots = initialSchedule[day] ?? const [];
+
+      if (slots.isEmpty) {
+        _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(isClosed: true);
+        continue;
+      }
+
+      final firstSlot = slots.first;
+
+      final savedStart = _normalizeDisplayTime(
+        (firstSlot['startTime'] ?? '').toString(),
+      );
+
+      final savedEnd = _normalizeDisplayTime(
+        (firstSlot['endTime'] ?? '').toString(),
+      );
+
+      var nextStart = savedStart;
+      var nextEnd = savedEnd;
+
+      final savedStartMinutes = _displayToMinutes(savedStart);
+      final savedEndMinutes = _displayToMinutes(savedEnd);
+
+      // If saved start is before new salon opening time, move it to salon opening time.
+      // Example: saved 08:00 AM, salon changed to 09:30 AM => 09:30 AM.
+      if (savedStartMinutes < salonStartMinutes) {
+        nextStart = initialStart;
+      }
+
+      // If saved start is equal/after salon closing time, reset to salon opening time.
+      if (_displayToMinutes(nextStart) >= salonEndMinutes) {
+        nextStart = initialStart;
+      }
+
+      // End time should never exceed salon closing time.
+      if (savedEndMinutes > salonEndMinutes) {
+        nextEnd = initialEnd;
+      }
+
+      // End time must always be after start time.
+      if (_displayToMinutes(nextEnd) <= _displayToMinutes(nextStart)) {
+        nextEnd = initialEnd;
+      }
+
+      _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
+        startTime: nextStart,
+        endTime: nextEnd,
         isClosed: false,
-      ),
-  };
-
-  final initialSchedule = widget.initialSchedule;
-
-  if (initialSchedule == null || initialSchedule.isEmpty) {
-    return;
+      );
+    }
   }
 
-  final salonStartMinutes = _displayToMinutes(initialStart);
-  final salonEndMinutes = _displayToMinutes(initialEnd);
-
-  for (final day in _days) {
-    final slots = initialSchedule[day] ?? const [];
-
-    if (slots.isEmpty) {
-      _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(isClosed: true);
-      continue;
-    }
-
-    final firstSlot = slots.first;
-
-    final savedStart = _normalizeDisplayTime(
-      (firstSlot['startTime'] ?? '').toString(),
-    );
-
-    final savedEnd = _normalizeDisplayTime(
-      (firstSlot['endTime'] ?? '').toString(),
-    );
-
-    var nextStart = savedStart;
-    var nextEnd = savedEnd;
-
-    final savedStartMinutes = _displayToMinutes(savedStart);
-    final savedEndMinutes = _displayToMinutes(savedEnd);
-
-    // If saved start is before new salon opening time, move it to salon opening time.
-    // Example: saved 08:00 AM, salon changed to 09:30 AM => 09:30 AM.
-    if (savedStartMinutes < salonStartMinutes) {
-      nextStart = initialStart;
-    }
-
-    // If saved start is equal/after salon closing time, reset to salon opening time.
-    if (_displayToMinutes(nextStart) >= salonEndMinutes) {
-      nextStart = initialStart;
-    }
-
-    // End time should never exceed salon closing time.
-    if (savedEndMinutes > salonEndMinutes) {
-      nextEnd = initialEnd;
-    }
-
-    // End time must always be after start time.
-    if (_displayToMinutes(nextEnd) <= _displayToMinutes(nextStart)) {
-      nextEnd = initialEnd;
-    }
-
-    _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
-      startTime: nextStart,
-      endTime: nextEnd,
-      isClosed: false,
-    );
+  @override
+  void dispose() {
+    _openingBufferController.dispose();
+    _lastBookingBufferController.dispose();
+    _lastSlotOverflowGraceController.dispose();
+    super.dispose();
   }
-}
 
-@override
-Widget build(BuildContext context) {
-  return PopScope(
-  canPop: false,
-  onPopInvokedWithResult: (didPop, result) {
-    if (didPop) return;
-    _popWithCurrentSchedule();
-  },
-  child: Scaffold(
-      backgroundColor: const Color(0xFFFBFAF8),
-      appBar: buildProfileSubpageAppBar(
-        title: translateText(widget.title ?? 'Add Salon'),
-        toolbarHeight: kToolbarHeight,
-      ),
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 24, 16, 34),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SalonFlowStepHeader(
-                  currentStep: 2,
-                  detailsLabel: translateText(widget.detailsStepLabel),
-                  totalSteps: widget.totalSteps,
-                ),
-                const SizedBox(height: 44),
-                Text(
-                  translateText('Set Weekly Working Hours'),
-                  style: const TextStyle(
-                    fontSize: 22,
-                    height: 1.2,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1F1B18),
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _popWithCurrentSchedule();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFFBFAF8),
+        appBar: buildProfileSubpageAppBar(
+          title: translateText(widget.title ?? 'Add Salon'),
+          toolbarHeight: kToolbarHeight,
+        ),
+        body: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 34),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SalonFlowStepHeader(
+                    currentStep: 2,
+                    detailsLabel: translateText(widget.detailsStepLabel),
+                    totalSteps: widget.totalSteps,
                   ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  translateText(
-                    "Configure your salon's operational hours for a seamless booking experience.",
+                  const SizedBox(height: 44),
+                  Text(
+                    translateText('Set Weekly Working Hours'),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      height: 1.2,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF1F1B18),
+                    ),
                   ),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.45,
-                    color: Color(0xFF5F574F),
-                    fontWeight: FontWeight.w500,
+                  const SizedBox(height: 10),
+                  Text(
+                    translateText(
+                      "Configure your salon's operational hours for a seamless booking experience.",
+                    ),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1.45,
+                      color: Color(0xFF5F574F),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 28),
-                _buildCopyMondayControl(),
-                const SizedBox(height: 18),
-                _buildScheduleModeDivider(),
-                const SizedBox(height: 18),
-                for (final day in _days) _buildDayCard(day),
-                const SizedBox(height: 54),
-                _buildScheduleQuote(),
-                const SizedBox(height: 38),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _popWithCurrentSchedule,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 17),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          side: const BorderSide(
-                            color: Color(0xFFD0A244),
-                            width: 1.4,
-                          ),
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFFD0A244),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.chevron_left_rounded, size: 22),
-                            const SizedBox(width: 6),
-                            Text(
-                              translateText('Back'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
+                  const SizedBox(height: 28),
+                  _buildCopyMondayControl(),
+                  const SizedBox(height: 18),
+                  _buildScheduleModeDivider(),
+                  const SizedBox(height: 18),
+                  for (final day in _days) _buildDayCard(day),
+                  const SizedBox(height: 54),
+                  _buildScheduleQuote(),
+                  const SizedBox(height: 38),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _popWithCurrentSchedule,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 17),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _isSubmitting ? null : _submit,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 17),
-                          backgroundColor: const Color(0xFF8B6500),
-                          foregroundColor: Colors.white,
-                          elevation: 10,
-                          shadowColor: const Color(0x338B6500),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            side: const BorderSide(
+                              color: Color(0xFFD0A244),
+                              width: 1.4,
+                            ),
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFFD0A244),
                           ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (_isSubmitting)
-                              const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            else ...[
-                              Flexible(
-                                child: Text(
-                                  translateText(
-                                    widget.submitLabel ??
-                                        (widget.totalSteps == 2
-                                            ? 'Save'
-                                            : 'Save & Continue'),
-                                  ),
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.chevron_left_rounded, size: 22),
+                              const SizedBox(width: 6),
+                              Text(
+                                translateText('Back'),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              const Icon(Icons.arrow_forward_rounded, size: 20),
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _isSubmitting ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 17),
+                            backgroundColor: const Color(0xFF8B6500),
+                            foregroundColor: Colors.white,
+                            elevation: 10,
+                            shadowColor: const Color(0x338B6500),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (_isSubmitting)
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              else ...[
+                                Flexible(
+                                  child: Text(
+                                    translateText(
+                                      widget.submitLabel ??
+                                          (widget.totalSteps == 2
+                                              ? 'Save'
+                                              : 'Save & Continue'),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(Icons.arrow_forward_rounded,
+                                    size: 20),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _popWithCurrentSchedule() {
+    if (_isPoppingWithResult || !mounted) return;
+
+    _isPoppingWithResult = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.of(context).pop(_buildCurrentScheduleResult());
+    });
+  }
+
+  Widget _buildDayCard(String day) {
+    final config = _scheduleByDay[day]!;
+    final followsMondaySchedule = _copyMondayToAll && day != 'monday';
+    final canEditDay = !followsMondaySchedule;
+    final canEditTime = !config.isClosed && canEditDay;
+
+    final startOptions = _boundedTimeOptions(
+      minMinutes: _salonStartMinutes,
+      maxMinutes: _salonEndMinutes,
+      includeMin: true,
+      includeMax: false,
+    );
+
+    final endOptions = _boundedTimeOptions(
+      minMinutes: _displayToMinutes(config.startTime),
+      maxMinutes: _salonEndMinutes,
+      includeMin: false,
+      includeMax: true,
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 17),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFEDE6DF)),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 94,
+            child: Text(
+              translateText(_capitalize(day)),
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF201B17),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Row(
+              children: [
+                Expanded(
+                  child: _TimeDropdown(
+                    value: config.startTime,
+                    options: startOptions,
+                    enabled: canEditTime,
+                    onChanged: (value) {
+                      if (value == null) return;
+
+                      var nextConfig = config.copyWith(startTime: value);
+
+                      final selectedStartMinutes = _displayToMinutes(value);
+                      final currentEndMinutes =
+                          _displayToMinutes(nextConfig.endTime);
+
+                      if (currentEndMinutes <= selectedStartMinutes) {
+                        nextConfig = nextConfig.copyWith(
+                          endTime: _nextEndTimeAfter(value),
+                        );
+                      }
+
+                      setState(() {
+                        _applyDayConfig(day, nextConfig);
+                      });
+                    },
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 5),
+                  child: Text(
+                    '-',
+                    style: TextStyle(color: Color(0xFF9B928A)),
+                  ),
+                ),
+                Expanded(
+                  child: _TimeDropdown(
+                    value: config.endTime,
+                    options: endOptions,
+                    enabled: canEditTime,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() {
+                        _applyDayConfig(
+                          day,
+                          config.copyWith(endTime: value),
+                        );
+                      });
+                    },
+                  ),
                 ),
               ],
             ),
           ),
-        ),
-      ),
-    ),
-  );
-}
-
-void _popWithCurrentSchedule() {
-  if (_isPoppingWithResult || !mounted) return;
-
-  _isPoppingWithResult = true;
-
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    if (!mounted) return;
-    Navigator.of(context).pop(_buildCurrentScheduleResult());
-  });
-}
-
-Widget _buildDayCard(String day) {
-  final config = _scheduleByDay[day]!;
-  final followsMondaySchedule = _copyMondayToAll && day != 'monday';
-  final canEditDay = !followsMondaySchedule;
-  final canEditTime = !config.isClosed && canEditDay;
-
-  final startOptions = _boundedTimeOptions(
-    minMinutes: _salonStartMinutes,
-    maxMinutes: _salonEndMinutes,
-    includeMin: true,
-    includeMax: false,
-  );
-
-  final endOptions = _boundedTimeOptions(
-    minMinutes: _displayToMinutes(config.startTime),
-    maxMinutes: _salonEndMinutes,
-    includeMin: false,
-    includeMax: true,
-  );
-
-  return Container(
-    padding: const EdgeInsets.symmetric(vertical: 17),
-    decoration: const BoxDecoration(
-      border: Border(
-        bottom: BorderSide(color: Color(0xFFEDE6DF)),
-      ),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 94,
-          child: Text(
-            translateText(_capitalize(day)),
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF201B17),
+          const SizedBox(width: 10),
+          if (!followsMondaySchedule && config.isClosed)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Text(
+                translateText('CLOSED'),
+                style: const TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF4B4038),
+                ),
+              ),
             ),
-          ),
-        ),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: _TimeDropdown(
-                  value: config.startTime,
-                  options: startOptions,
-                  enabled: canEditTime,
-                  onChanged: (value) {
-                    if (value == null) return;
-
-                    var nextConfig = config.copyWith(startTime: value);
-
-                    final selectedStartMinutes = _displayToMinutes(value);
-                    final currentEndMinutes =
-                        _displayToMinutes(nextConfig.endTime);
-
-                    if (currentEndMinutes <= selectedStartMinutes) {
-                      nextConfig = nextConfig.copyWith(
-                        endTime: _nextEndTimeAfter(value),
-                      );
+          Transform.scale(
+            scale: 0.78,
+            child: Switch(
+              value: !config.isClosed,
+              activeThumbColor: Colors.white,
+              activeTrackColor: const Color(0xFF8B6500),
+              inactiveThumbColor: Colors.white,
+              inactiveTrackColor: const Color(0xFFE1DFDD),
+              onChanged: canEditDay
+                  ? (enabled) {
+                      setState(() {
+                        _applyDayConfig(
+                          day,
+                          config.copyWith(isClosed: !enabled),
+                        );
+                      });
                     }
-
-                    setState(() {
-                      _applyDayConfig(day, nextConfig);
-                    });
-                  },
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 5),
-                child: Text(
-                  '-',
-                  style: TextStyle(color: Color(0xFF9B928A)),
-                ),
-              ),
-              Expanded(
-                child: _TimeDropdown(
-                  value: config.endTime,
-                  options: endOptions,
-                  enabled: canEditTime,
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
-                      _applyDayConfig(
-                        day,
-                        config.copyWith(endTime: value),
-                      );
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 10),
-        if (!followsMondaySchedule && config.isClosed)
-          Padding(
-            padding: const EdgeInsets.only(right: 4),
-            child: Text(
-              translateText('CLOSED'),
-              style: const TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF4B4038),
-              ),
+                  : null,
             ),
           ),
-        Transform.scale(
-          scale: 0.78,
-          child: Switch(
-            value: !config.isClosed,
-            activeThumbColor: Colors.white,
-            activeTrackColor: const Color(0xFF8B6500),
-            inactiveThumbColor: Colors.white,
-            inactiveTrackColor: const Color(0xFFE1DFDD),
-            onChanged: canEditDay
-                ? (enabled) {
-                    setState(() {
-                      _applyDayConfig(
-                        day,
-                        config.copyWith(isClosed: !enabled),
-                      );
-                    });
-                  }
-                : null,
-          ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
+
   Widget _buildCopyMondayControl() {
     return InkWell(
       onTap: () {
@@ -816,52 +850,63 @@ Widget _buildDayCard(String day) {
     }
   }
 
-ScheduleStepResult _buildCurrentScheduleResult() {
-  final schedule = <String, List<Map<String, String>>>{};
-  int overallStartMinutes = 24 * 60;
-  int overallEndMinutes = 0;
-  bool hasOpenDay = false;
+  ScheduleStepResult _buildCurrentScheduleResult() {
+    final schedule = <String, List<Map<String, String>>>{};
+    int overallStartMinutes = 24 * 60;
+    int overallEndMinutes = 0;
+    bool hasOpenDay = false;
 
-  for (final day in _days) {
-    final config = _scheduleByDay[day]!;
+    for (final day in _days) {
+      final config = _scheduleByDay[day]!;
 
-    if (config.isClosed) {
-      schedule[day] = const [];
-      continue;
-    }
-
-    hasOpenDay = true;
-
-    final startMinutes = _displayToMinutes(config.startTime);
-    final endMinutes = _displayToMinutes(config.endTime);
-
-    if (startMinutes < overallStartMinutes) {
-      overallStartMinutes = startMinutes;
-    }
-
-    if (endMinutes > overallEndMinutes) {
-      overallEndMinutes = endMinutes;
-    }
-
-    schedule[day] = [
-      {
-        'startTime': _displayToApiTime(config.startTime),
-        'endTime': _displayToApiTime(config.endTime),
+      if (config.isClosed) {
+        schedule[day] = const [];
+        continue;
       }
-    ];
+
+      hasOpenDay = true;
+
+      final startMinutes = _displayToMinutes(config.startTime);
+      final endMinutes = _displayToMinutes(config.endTime);
+
+      if (startMinutes < overallStartMinutes) {
+        overallStartMinutes = startMinutes;
+      }
+
+      if (endMinutes > overallEndMinutes) {
+        overallEndMinutes = endMinutes;
+      }
+
+      schedule[day] = [
+        {
+          'startTime': _displayToApiTime(config.startTime),
+          'endTime': _displayToApiTime(config.endTime),
+        }
+      ];
+    }
+
+    return ScheduleStepResult(
+      startTime: hasOpenDay
+          ? _minutesToApiTime(overallStartMinutes)
+          : _displayToApiTime(_normalizeDisplayTime(widget.initialStartTime)),
+      endTime: hasOpenDay
+          ? _minutesToApiTime(overallEndMinutes)
+          : _displayToApiTime(_normalizeDisplayTime(widget.initialEndTime)),
+      schedule: schedule,
+      openingBufferMinutes: _parseBufferMinutes(
+        _openingBufferController.text,
+        fallback: widget.initialOpeningBufferMinutes,
+      ),
+      lastBookingBufferMinutes: _parseBufferMinutes(
+        _lastBookingBufferController.text,
+        fallback: widget.initialLastBookingBufferMinutes,
+      ),
+      lastSlotOverflowGraceMinutes: _parseBufferMinutes(
+        _lastSlotOverflowGraceController.text,
+        fallback: widget.initialLastSlotOverflowGraceMinutes,
+      ),
+    );
   }
-
-  return ScheduleStepResult(
-    startTime: hasOpenDay
-        ? _minutesToApiTime(overallStartMinutes)
-        : _displayToApiTime(_normalizeDisplayTime(widget.initialStartTime)),
-    endTime: hasOpenDay
-        ? _minutesToApiTime(overallEndMinutes)
-        : _displayToApiTime(_normalizeDisplayTime(widget.initialEndTime)),
-    schedule: schedule,
-  );
-}
-
 
   Future<void> _submit() async {
     final openDays = _scheduleByDay.entries
@@ -922,6 +967,18 @@ ScheduleStepResult _buildCurrentScheduleResult() {
           ? _displayToApiTime(_normalizeDisplayTime(widget.initialEndTime))
           : _minutesToApiTime(overallEndMinutes),
       schedule: schedule,
+      openingBufferMinutes: _parseBufferMinutes(
+        _openingBufferController.text,
+        fallback: widget.initialOpeningBufferMinutes,
+      ),
+      lastBookingBufferMinutes: _parseBufferMinutes(
+        _lastBookingBufferController.text,
+        fallback: widget.initialLastBookingBufferMinutes,
+      ),
+      lastSlotOverflowGraceMinutes: _parseBufferMinutes(
+        _lastSlotOverflowGraceController.text,
+        fallback: widget.initialLastSlotOverflowGraceMinutes,
+      ),
     );
 
     final onContinue = widget.onContinue;
@@ -964,6 +1021,12 @@ ScheduleStepResult _buildCurrentScheduleResult() {
   String _capitalize(String value) =>
       value.isEmpty ? value : value[0].toUpperCase() + value.substring(1);
 
+  int _parseBufferMinutes(String value, {required int fallback}) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed < 0) return fallback;
+    return parsed;
+  }
+
   String _normalizeDisplayTime(String input) {
     final text = input.trim();
     if (text.isEmpty) return '08:00 AM';
@@ -990,53 +1053,57 @@ ScheduleStepResult _buildCurrentScheduleResult() {
     }
     return '08:00 AM';
   }
-String _minutesToDisplayTime(int totalMinutes) {
-  final hour24 = (totalMinutes ~/ 60).clamp(0, 23);
-  final minute = totalMinutes % 60;
-  final suffix = hour24 >= 12 ? 'PM' : 'AM';
-  final hour12 = ((hour24 + 11) % 12) + 1;
 
-  return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
-}
+  String _minutesToDisplayTime(int totalMinutes) {
+    final hour24 = (totalMinutes ~/ 60).clamp(0, 23);
+    final minute = totalMinutes % 60;
+    final suffix = hour24 >= 12 ? 'PM' : 'AM';
+    final hour12 = ((hour24 + 11) % 12) + 1;
 
-int get _salonStartMinutes {
-  return _displayToMinutes(_normalizeDisplayTime(widget.initialStartTime));
-}
+    return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
+  }
 
-int get _salonEndMinutes {
-  return _displayToMinutes(_normalizeDisplayTime(widget.initialEndTime));
-}
+  int get _salonStartMinutes {
+    return _displayToMinutes(_normalizeDisplayTime(widget.initialStartTime));
+  }
 
-List<String> _boundedTimeOptions({
-  required int minMinutes,
-  required int maxMinutes,
-  bool includeMin = true,
-  bool includeMax = true,
-}) {
-  return _timeOptions.where((option) {
-    final minutes = _displayToMinutes(option);
+  int get _salonEndMinutes {
+    return _displayToMinutes(_normalizeDisplayTime(widget.initialEndTime));
+  }
 
-    final afterMin = includeMin ? minutes >= minMinutes : minutes > minMinutes;
-    final beforeMax = includeMax ? minutes <= maxMinutes : minutes < maxMinutes;
+  List<String> _boundedTimeOptions({
+    required int minMinutes,
+    required int maxMinutes,
+    bool includeMin = true,
+    bool includeMax = true,
+  }) {
+    return _timeOptions.where((option) {
+      final minutes = _displayToMinutes(option);
 
-    return afterMin && beforeMax;
-  }).toList();
-}
+      final afterMin =
+          includeMin ? minutes >= minMinutes : minutes > minMinutes;
+      final beforeMax =
+          includeMax ? minutes <= maxMinutes : minutes < maxMinutes;
 
-String _nextEndTimeAfter(String startTime) {
-  final startMinutes = _displayToMinutes(startTime);
+      return afterMin && beforeMax;
+    }).toList();
+  }
 
-  final options = _boundedTimeOptions(
-    minMinutes: startMinutes,
-    maxMinutes: _salonEndMinutes,
-    includeMin: false,
-    includeMax: true,
-  );
+  String _nextEndTimeAfter(String startTime) {
+    final startMinutes = _displayToMinutes(startTime);
 
-  if (options.isNotEmpty) return options.first;
+    final options = _boundedTimeOptions(
+      minMinutes: startMinutes,
+      maxMinutes: _salonEndMinutes,
+      includeMin: false,
+      includeMax: true,
+    );
 
-  return _minutesToDisplayTime(_salonEndMinutes);
-}
+    if (options.isNotEmpty) return options.first;
+
+    return _minutesToDisplayTime(_salonEndMinutes);
+  }
+
   int _displayToMinutes(String value) {
     final match = RegExp(r'^(\d{2}):(\d{2})\s([AP]M)$').firstMatch(value);
     if (match == null) return 0;
@@ -1086,23 +1153,23 @@ class _DayScheduleConfig {
 
 class _TimeDropdown extends StatelessWidget {
   const _TimeDropdown({
-  required this.value,
-  required this.options,
-  required this.enabled,
-  required this.onChanged,
-});
+    required this.value,
+    required this.options,
+    required this.enabled,
+    required this.onChanged,
+  });
 
-final String value;
-final List<String> options;
-final bool enabled;
-final ValueChanged<String?> onChanged;
+  final String value;
+  final List<String> options;
+  final bool enabled;
+  final ValueChanged<String?> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final items = <String>[
-  if (!options.contains(value)) value,
-  ...options,
-];
+      if (!options.contains(value)) value,
+      ...options,
+    ];
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 6),

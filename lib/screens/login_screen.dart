@@ -360,7 +360,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: phoneController,
                   focusNode: _phoneFocusNode,
                   cursorColor: const Color(0xFF8B6500),
-                  keyboardType: TextInputType.phone,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  enableInteractiveSelection: true,
                   maxLength: 10,
                   maxLengthEnforcement: MaxLengthEnforcement.enforced,
                   inputFormatters: [

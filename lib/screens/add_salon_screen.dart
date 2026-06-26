@@ -97,11 +97,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final _startTimeController = TextEditingController();
   final _endTimeController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _openingBufferController = TextEditingController();
+  final _lastVisibleBufferController = TextEditingController();
+  final _overflowGraceController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
   bool _savedPhoneApplied = false;
   final Set<String> _removedExistingImageUrls = <String>{};
-Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
+  Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
+  int _draftOpeningBufferMinutes = 30;
+  int _draftLastBookingBufferMinutes = 30;
+  int _draftLastSlotOverflowGraceMinutes = 10;
   bool get _isOnboardingFlow =>
       widget.isProceedFrom?.toLowerCase().trim() == 'onboarding';
 
@@ -256,21 +262,23 @@ Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
       'postalCode': '',
     };
   }
-int _timeToMinutes(String value) {
-  final displayTime = _formatDisplayTime(value);
-  final match = RegExp(r'^(\d{2}):(\d{2})\s([AP]M)$').firstMatch(displayTime);
 
-  if (match == null) return 0;
+  int _timeToMinutes(String value) {
+    final displayTime = _formatDisplayTime(value);
+    final match = RegExp(r'^(\d{2}):(\d{2})\s([AP]M)$').firstMatch(displayTime);
 
-  int hour = int.parse(match.group(1)!);
-  final minute = int.parse(match.group(2)!);
-  final suffix = match.group(3)!;
+    if (match == null) return 0;
 
-  if (suffix == 'AM' && hour == 12) hour = 0;
-  if (suffix == 'PM' && hour != 12) hour += 12;
+    int hour = int.parse(match.group(1)!);
+    final minute = int.parse(match.group(2)!);
+    final suffix = match.group(3)!;
 
-  return hour * 60 + minute;
-}
+    if (suffix == 'AM' && hour == 12) hour = 0;
+    if (suffix == 'PM' && hour != 12) hour += 12;
+
+    return hour * 60 + minute;
+  }
+
   String _formatDisplayTime(
     dynamic value, {
     String fallback = '',
@@ -552,6 +560,21 @@ int _timeToMinutes(String value) {
           fallback: _endTimeController.text,
         );
       }
+      _draftOpeningBufferMinutes = _readIntValue([
+            primaryBranch?['openingBufferMinutes'],
+            initialSalon['openingBufferMinutes'],
+          ]) ??
+          (widget.isEdit ? 0 : 30);
+      _draftLastBookingBufferMinutes = _readIntValue([
+            primaryBranch?['lastBookingBufferMinutes'],
+            initialSalon['lastBookingBufferMinutes'],
+          ]) ??
+          (widget.isEdit ? 0 : 30);
+      _draftLastSlotOverflowGraceMinutes = _readIntValue([
+            primaryBranch?['lastSlotOverflowGraceMinutes'],
+            initialSalon['lastSlotOverflowGraceMinutes'],
+          ]) ??
+          (widget.isEdit ? 0 : 10);
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -597,7 +620,34 @@ int _timeToMinutes(String value) {
     _startTimeController.dispose();
     _endTimeController.dispose();
     _phoneController.dispose();
+    _openingBufferController.dispose();
+    _lastVisibleBufferController.dispose();
+    _overflowGraceController.dispose();
     super.dispose();
+  }
+
+  int _parseBufferMinutes(
+    String value, {
+    required int fallback,
+  }) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed < 0) return fallback;
+    return parsed;
+  }
+
+  void _syncBufferDraftsFromInputs() {
+    _draftOpeningBufferMinutes = _parseBufferMinutes(
+      _openingBufferController.text,
+      fallback: _draftOpeningBufferMinutes,
+    );
+    _draftLastBookingBufferMinutes = _parseBufferMinutes(
+      _lastVisibleBufferController.text,
+      fallback: _draftLastBookingBufferMinutes,
+    );
+    _draftLastSlotOverflowGraceMinutes = _parseBufferMinutes(
+      _overflowGraceController.text,
+      fallback: _draftLastSlotOverflowGraceMinutes,
+    );
   }
 
   Future<void> _pickImages() async {
@@ -679,182 +729,221 @@ int _timeToMinutes(String value) {
       controller.text = formatted;
     }
   }
-Future<void> _chooseLocation(AddSalonState state) async {
-  final addr = state.address;
 
-  final result = await Navigator.push<Map<String, dynamic>?>(
-    context,
-    MaterialPageRoute(
-      builder: (_) => AddLocationScreen(
-        initialCompleteAddress: addr?.buildingName,
-        initialScoFlatHouse: addr?.city,
-        initialStreetSectorArea: addr?.pincode,
+  Future<void> _chooseLocation(AddSalonState state) async {
+    final addr = state.address;
+
+    final result = await Navigator.push<Map<String, dynamic>?>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddLocationScreen(
+          initialCompleteAddress: addr?.buildingName,
+          initialScoFlatHouse: addr?.city,
+          initialStreetSectorArea: addr?.pincode,
+        ),
       ),
-    ),
-  );
+    );
 
-  if (!mounted || result == null) return;
+    if (!mounted || result == null) return;
 
-  final completeAddress =
-      (result['completeAddress'] as String?)?.trim() ?? '';
-  final baseCompleteAddress =
-      (result['baseCompleteAddress'] as String?)?.trim() ?? '';
-  final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
-  final streetSectorArea =
-      (result['streetSectorArea'] as String?)?.trim() ?? '';
-  final latitude = (result['latitude'] as num?)?.toDouble() ?? 0;
-  final longitude = (result['longitude'] as num?)?.toDouble() ?? 0;
+    final completeAddress =
+        (result['completeAddress'] as String?)?.trim() ?? '';
+    final baseCompleteAddress =
+        (result['baseCompleteAddress'] as String?)?.trim() ?? '';
+    final scoFlatHouse = (result['scoFlatHouse'] as String?)?.trim() ?? '';
+    final streetSectorArea =
+        (result['streetSectorArea'] as String?)?.trim() ?? '';
+    final latitude = (result['latitude'] as num?)?.toDouble() ?? 0;
+    final longitude = (result['longitude'] as num?)?.toDouble() ?? 0;
 
-  context.read<AddSalonCubit>().updateAddress(
-        AddSalonAddress(
-          buildingName: baseCompleteAddress.isNotEmpty
-              ? baseCompleteAddress
-              : _addressWithoutManualParts(
-                  completeAddress,
-                  [scoFlatHouse, streetSectorArea],
-                ),
-          city: scoFlatHouse,
-          pincode: streetSectorArea,
-          state: '',
-          latitude: latitude,
-          longitude: longitude,
+    context.read<AddSalonCubit>().updateAddress(
+          AddSalonAddress(
+            buildingName: baseCompleteAddress.isNotEmpty
+                ? baseCompleteAddress
+                : _addressWithoutManualParts(
+                    completeAddress,
+                    [scoFlatHouse, streetSectorArea],
+                  ),
+            city: scoFlatHouse,
+            pincode: streetSectorArea,
+            state: '',
+            latitude: latitude,
+            longitude: longitude,
+          ),
+        );
+  }
+
+  Future<void> _submit(AddSalonState state) async {
+    setState(() => _submitted = true);
+
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+    _syncBufferDraftsFromInputs();
+
+    if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(translateText('Please select start and end time.')),
         ),
       );
-}
+      return;
+    }
 
-Future<void> _submit(AddSalonState state) async {
-  setState(() => _submitted = true);
+    final startMinutes = _timeToMinutes(_startTimeController.text);
+    final endMinutes = _timeToMinutes(_endTimeController.text);
 
-  final form = _formKey.currentState;
-  if (form == null || !form.validate()) {
-    return;
-  }
-
-  if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(translateText('Please select start and end time.')),
-      ),
-    );
-    return;
-  }
-
-  final startMinutes = _timeToMinutes(_startTimeController.text);
-  final endMinutes = _timeToMinutes(_endTimeController.text);
-
-  if (startMinutes >= endMinutes) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('End time must be greater than start time.'),
+    if (startMinutes >= endMinutes) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('End time must be greater than start time.'),
+          ),
         ),
-      ),
-    );
-    return;
-  }
+      );
+      return;
+    }
 
-  final address = state.address;
-  if (!widget.isEdit && !_isAddressComplete(address)) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(translateText('Please add the salon location.')),
-      ),
-    );
-    return;
-  }
+    final address = state.address;
+    if (!widget.isEdit && !_isAddressComplete(address)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(translateText('Please add the salon location.')),
+        ),
+      );
+      return;
+    }
 
-  final cubit = context.read<AddSalonCubit>();
-  cubit.setSubmitting(true);
+    final cubit = context.read<AddSalonCubit>();
+    cubit.setSubmitting(true);
 
-  try {
-    final images = cubit.state.images;
-    final existingImageUrls = _resolveExistingImageUrls();
-    final existingImageUrl =
-        existingImageUrls.isEmpty ? '' : existingImageUrls.first;
+    try {
+      final images = cubit.state.images;
+      final existingImageUrls = _resolveExistingImageUrls();
+      final existingImageUrl =
+          existingImageUrls.isEmpty ? '' : existingImageUrls.first;
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    if (widget.isEdit && widget.initialSalon != null) {
-      final salonId = (widget.initialSalon!['id'] as num?)?.toInt();
-      if (salonId == null) {
-        throw Exception('Missing salon id');
-      }
+      if (widget.isEdit && widget.initialSalon != null) {
+        final salonId = (widget.initialSalon!['id'] as num?)?.toInt();
+        if (salonId == null) {
+          throw Exception('Missing salon id');
+        }
 
-      Future<void> saveSalonEdit(ScheduleStepResult scheduleResult) async {
-        var imageUrl = existingImageUrl;
-        var imageUrls = List<String>.from(existingImageUrls);
+        Future<void> saveSalonEdit(ScheduleStepResult scheduleResult) async {
+          var imageUrl = existingImageUrl;
+          var imageUrls = List<String>.from(existingImageUrls);
 
-        if (images.isNotEmpty) {
-          final uploadedImageUrls = await _uploadSelectedImageUrls(images);
+          if (images.isNotEmpty) {
+            final uploadedImageUrls = await _uploadSelectedImageUrls(images);
 
-          for (final uploadedUrl in uploadedImageUrls) {
-            if (!imageUrls.contains(uploadedUrl)) {
-              imageUrls.add(uploadedUrl);
+            for (final uploadedUrl in uploadedImageUrls) {
+              if (!imageUrls.contains(uploadedUrl)) {
+                imageUrls.add(uploadedUrl);
+              }
+            }
+
+            imageUrls = imageUrls.take(10).toList();
+
+            if (imageUrls.isNotEmpty) {
+              imageUrl = imageUrls.first;
             }
           }
 
-          imageUrls = imageUrls.take(10).toList();
+          final name = _salonNameController.text.trim();
+          final phone = _normalizePhone(_phoneController.text);
+          final description = _descriptionController.text.trim();
+          final addressPayload = _addressPayload(address);
+          final primaryBranch = _resolvePrimaryBranch(widget.initialSalon!);
 
-          if (imageUrls.isNotEmpty) {
-            imageUrl = imageUrls.first;
-          }
-        }
+          final branchId = _readIntValue([
+            primaryBranch?['id'],
+            widget.initialSalon!['branchId'],
+            widget.initialSalon!['mainBranchId'],
+          ]);
 
-        final name = _salonNameController.text.trim();
-        final phone = _normalizePhone(_phoneController.text);
-        final description = _descriptionController.text.trim();
-        final addressPayload = _addressPayload(address);
-        final primaryBranch = _resolvePrimaryBranch(widget.initialSalon!);
+          final rawBranchAddress = primaryBranch?['address'];
 
-        final branchId = _readIntValue([
-          primaryBranch?['id'],
-          widget.initialSalon!['branchId'],
-          widget.initialSalon!['mainBranchId'],
-        ]);
+          final branchAddressPayload = addressPayload ??
+              (rawBranchAddress is Map
+                  ? Map<String, dynamic>.from(rawBranchAddress)
+                  : null);
 
-        final rawBranchAddress = primaryBranch?['address'];
+          final branchLatitude = address?.latitude ??
+              _readDoubleValue([
+                primaryBranch?['latitude'],
+                rawBranchAddress is Map ? rawBranchAddress['latitude'] : null,
+                rawBranchAddress is Map ? rawBranchAddress['lat'] : null,
+              ]);
 
-        final branchAddressPayload = addressPayload ??
-            (rawBranchAddress is Map
-                ? Map<String, dynamic>.from(rawBranchAddress)
-                : null);
+          final branchLongitude = address?.longitude ??
+              _readDoubleValue([
+                primaryBranch?['longitude'],
+                primaryBranch?['lng'],
+                rawBranchAddress is Map ? rawBranchAddress['longitude'] : null,
+                rawBranchAddress is Map ? rawBranchAddress['lng'] : null,
+              ]);
 
-        final branchLatitude = address?.latitude ??
-            _readDoubleValue([
-              primaryBranch?['latitude'],
-              rawBranchAddress is Map ? rawBranchAddress['latitude'] : null,
-              rawBranchAddress is Map ? rawBranchAddress['lat'] : null,
-            ]);
+          var salonUpdated = false;
 
-        final branchLongitude = address?.longitude ??
-            _readDoubleValue([
-              primaryBranch?['longitude'],
-              primaryBranch?['lng'],
-              rawBranchAddress is Map ? rawBranchAddress['longitude'] : null,
-              rawBranchAddress is Map ? rawBranchAddress['lng'] : null,
-            ]);
+          try {
+            await cubit.repository.updateSalon(
+              salonId: salonId,
+              name: name,
+              phone: phone,
+              startTime: scheduleResult.startTime,
+              endTime: scheduleResult.endTime,
+              description: description,
+              openingBufferMinutes: scheduleResult.openingBufferMinutes,
+              lastBookingBufferMinutes: scheduleResult.lastBookingBufferMinutes,
+              lastSlotOverflowGraceMinutes:
+                  scheduleResult.lastSlotOverflowGraceMinutes,
+              schedule: scheduleResult.schedule,
+              imageUrl: imageUrl,
+              imageUrls: imageUrls,
+              address: addressPayload,
+              latitude: address?.latitude,
+              longitude: address?.longitude,
+            );
 
-        var salonUpdated = false;
+            salonUpdated = true;
 
-        try {
-          await cubit.repository.updateSalon(
-            salonId: salonId,
-            name: name,
-            phone: phone,
-            startTime: scheduleResult.startTime,
-            endTime: scheduleResult.endTime,
-            description: description,
-            schedule: scheduleResult.schedule,
-            imageUrl: imageUrl,
-            imageUrls: imageUrls,
-            address: addressPayload,
-            latitude: address?.latitude,
-            longitude: address?.longitude,
-          );
+            if (branchId != null && branchAddressPayload != null) {
+              await cubit.repository.updateBranch(
+                branchId: branchId,
+                name: name,
+                phone: phone,
+                startTime: scheduleResult.startTime,
+                endTime: scheduleResult.endTime,
+                description: description,
+                openingBufferMinutes: scheduleResult.openingBufferMinutes,
+                lastBookingBufferMinutes:
+                    scheduleResult.lastBookingBufferMinutes,
+                lastSlotOverflowGraceMinutes:
+                    scheduleResult.lastSlotOverflowGraceMinutes,
+                schedule: scheduleResult.schedule,
+                address: branchAddressPayload,
+                latitude: branchLatitude,
+                longitude: branchLongitude,
+              );
+            }
+          } catch (error) {
+            if (salonUpdated) {
+              rethrow;
+            }
 
-          salonUpdated = true;
+            final isForbidden = error.toString().contains('Forbidden') ||
+                error.toString().contains('Access denied') ||
+                error.toString().contains('403');
 
-          if (branchId != null && branchAddressPayload != null) {
+            if (!isForbidden ||
+                branchId == null ||
+                branchAddressPayload == null) {
+              rethrow;
+            }
+
             await cubit.repository.updateBranch(
               branchId: branchId,
               name: name,
@@ -862,152 +951,159 @@ Future<void> _submit(AddSalonState state) async {
               startTime: scheduleResult.startTime,
               endTime: scheduleResult.endTime,
               description: description,
+              openingBufferMinutes: scheduleResult.openingBufferMinutes,
+              lastBookingBufferMinutes: scheduleResult.lastBookingBufferMinutes,
+              lastSlotOverflowGraceMinutes:
+                  scheduleResult.lastSlotOverflowGraceMinutes,
               schedule: scheduleResult.schedule,
               address: branchAddressPayload,
               latitude: branchLatitude,
               longitude: branchLongitude,
             );
           }
-        } catch (error) {
-          if (salonUpdated) {
-            rethrow;
-          }
-
-          final isForbidden = error.toString().contains('Forbidden') ||
-              error.toString().contains('Access denied') ||
-              error.toString().contains('403');
-
-          if (!isForbidden ||
-              branchId == null ||
-              branchAddressPayload == null) {
-            rethrow;
-          }
-
-          await cubit.repository.updateBranch(
-            branchId: branchId,
-            name: name,
-            phone: phone,
-            startTime: scheduleResult.startTime,
-            endTime: scheduleResult.endTime,
-            description: description,
-            schedule: scheduleResult.schedule,
-            address: branchAddressPayload,
-            latitude: branchLatitude,
-            longitude: branchLongitude,
-          );
         }
+
+        final saved = await Navigator.push<Object?>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SetWeeklyScheduleScreen(
+              title: 'Edit Salon',
+              detailsStepLabel: 'Salon Details',
+              initialStartTime: _startTimeController.text.trim(),
+              initialEndTime: _endTimeController.text.trim(),
+              previousBaseStartTime: _formatDisplayTime(
+                _firstNonEmptyValue([
+                  widget.initialSalon?['startTime'],
+                  _resolvePrimaryBranch(widget.initialSalon!)?['startTime'],
+                ]),
+              ),
+              previousBaseEndTime: _formatDisplayTime(
+                _firstNonEmptyValue([
+                  widget.initialSalon?['endTime'],
+                  _resolvePrimaryBranch(widget.initialSalon!)?['endTime'],
+                ]),
+              ),
+              initialSchedule: _draftWeeklySchedule.isNotEmpty
+                  ? _draftWeeklySchedule
+                  : _extractInitialSchedule(widget.initialSalon),
+              initialOpeningBufferMinutes: _draftOpeningBufferMinutes,
+              initialLastBookingBufferMinutes: _draftLastBookingBufferMinutes,
+              initialLastSlotOverflowGraceMinutes:
+                  _draftLastSlotOverflowGraceMinutes,
+              totalSteps: 2,
+              submitLabel: 'Save',
+              onSubmit: saveSalonEdit,
+            ),
+          ),
+        );
+
+        if (!mounted) return;
+
+        if (saved is ScheduleStepResult) {
+          _draftWeeklySchedule = saved.schedule;
+          _draftOpeningBufferMinutes = saved.openingBufferMinutes;
+          _draftLastBookingBufferMinutes = saved.lastBookingBufferMinutes;
+          _draftLastSlotOverflowGraceMinutes =
+              saved.lastSlotOverflowGraceMinutes;
+          return;
+        }
+
+        if (saved != true) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(translateText('Salon updated successfully')),
+          ),
+        );
+
+        Navigator.pop(context, true);
+        return;
       }
 
-      final saved = await Navigator.push<Object?>(
+      final formData = AddSalonFormData(
+        name: _salonNameController.text.trim(),
+        phone: _normalizePhone(_phoneController.text),
+        startTime: _startTimeController.text.trim(),
+        endTime: _endTimeController.text.trim(),
+        description: _descriptionController.text.trim(),
+        schedule: _draftWeeklySchedule,
+        openingBufferMinutes: _draftOpeningBufferMinutes,
+        lastBookingBufferMinutes: _draftLastBookingBufferMinutes,
+        lastSlotOverflowGraceMinutes: _draftLastSlotOverflowGraceMinutes,
+        imageUrl: existingImageUrl.isEmpty ? null : existingImageUrl,
+      );
+
+      if (!mounted) return;
+
+      final draftResult = await Navigator.push<ScheduleStepResult?>(
         context,
         MaterialPageRoute(
           builder: (_) => SetWeeklyScheduleScreen(
-            title: 'Edit Salon',
+            title: 'Add Salon',
             detailsStepLabel: 'Salon Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
-            previousBaseStartTime: _formatDisplayTime(
-              _firstNonEmptyValue([
-                widget.initialSalon?['startTime'],
-                _resolvePrimaryBranch(widget.initialSalon!)?['startTime'],
-              ]),
-            ),
-            previousBaseEndTime: _formatDisplayTime(
-              _firstNonEmptyValue([
-                widget.initialSalon?['endTime'],
-                _resolvePrimaryBranch(widget.initialSalon!)?['endTime'],
-              ]),
-            ),
-         initialSchedule: _draftWeeklySchedule.isNotEmpty
-    ? _draftWeeklySchedule
-    : _extractInitialSchedule(widget.initialSalon),
-            totalSteps: 2,
-            submitLabel: 'Save',
-            onSubmit: saveSalonEdit,
+            initialSchedule: _draftWeeklySchedule,
+            initialOpeningBufferMinutes: _draftOpeningBufferMinutes,
+            initialLastBookingBufferMinutes: _draftLastBookingBufferMinutes,
+            initialLastSlotOverflowGraceMinutes:
+                _draftLastSlotOverflowGraceMinutes,
+            totalSteps: 3,
+            onContinue: (scheduleResult) async {
+              _draftWeeklySchedule = scheduleResult.schedule;
+              _draftOpeningBufferMinutes = scheduleResult.openingBufferMinutes;
+              _draftLastBookingBufferMinutes =
+                  scheduleResult.lastBookingBufferMinutes;
+              _draftLastSlotOverflowGraceMinutes =
+                  scheduleResult.lastSlotOverflowGraceMinutes;
+
+              if (!mounted) return;
+
+              await Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BlocProvider.value(
+                    value: cubit,
+                    child: AddSalonServices(
+                      title: 'Add Salon',
+                      initialCodes: state.selectedServiceCodes,
+                      formData: AddSalonFormData(
+                        name: formData.name,
+                        phone: formData.phone,
+                        startTime: scheduleResult.startTime,
+                        endTime: scheduleResult.endTime,
+                        description: formData.description,
+                        schedule: scheduleResult.schedule,
+                        openingBufferMinutes:
+                            scheduleResult.openingBufferMinutes,
+                        lastBookingBufferMinutes:
+                            scheduleResult.lastBookingBufferMinutes,
+                        lastSlotOverflowGraceMinutes:
+                            scheduleResult.lastSlotOverflowGraceMinutes,
+                        imageUrl: formData.imageUrl,
+                        imageUrls: formData.imageUrls,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       );
 
-     if (!mounted) return;
-
-if (saved is ScheduleStepResult) {
-  _draftWeeklySchedule = saved.schedule;
-  return;
-}
-
-if (saved != true) return;
-
-ScaffoldMessenger.of(context).showSnackBar(
-  SnackBar(
-    content: Text(translateText('Salon updated successfully')),
-  ),
-);
-
-Navigator.pop(context, true);
-return;
+      if (draftResult != null) {
+        _draftWeeklySchedule = draftResult.schedule;
+        _draftOpeningBufferMinutes = draftResult.openingBufferMinutes;
+        _draftLastBookingBufferMinutes = draftResult.lastBookingBufferMinutes;
+        _draftLastSlotOverflowGraceMinutes =
+            draftResult.lastSlotOverflowGraceMinutes;
+      }
+    } finally {
+      cubit.setSubmitting(false);
     }
-
-    final formData = AddSalonFormData(
-      name: _salonNameController.text.trim(),
-      phone: _normalizePhone(_phoneController.text),
-      startTime: _startTimeController.text.trim(),
-      endTime: _endTimeController.text.trim(),
-      description: _descriptionController.text.trim(),
-      schedule: _draftWeeklySchedule,
-      imageUrl: existingImageUrl.isEmpty ? null : existingImageUrl,
-    );
-
-    if (!mounted) return;
-
-    final draftResult = await Navigator.push<ScheduleStepResult?>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SetWeeklyScheduleScreen(
-          title: 'Add Salon',
-          detailsStepLabel: 'Salon Details',
-          initialStartTime: _startTimeController.text.trim(),
-          initialEndTime: _endTimeController.text.trim(),
-          initialSchedule: _draftWeeklySchedule,
-          totalSteps: 3,
-          onContinue: (scheduleResult) async {
-            _draftWeeklySchedule = scheduleResult.schedule;
-
-            if (!mounted) return;
-
-            await Navigator.push<void>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => BlocProvider.value(
-                  value: cubit,
-                  child: AddSalonServices(
-                    title: 'Add Salon',
-                    initialCodes: state.selectedServiceCodes,
-                    formData: AddSalonFormData(
-                      name: formData.name,
-                      phone: formData.phone,
-                      startTime: scheduleResult.startTime,
-                      endTime: scheduleResult.endTime,
-                      description: formData.description,
-                      schedule: scheduleResult.schedule,
-                      imageUrl: formData.imageUrl,
-                      imageUrls: formData.imageUrls,
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-
-    if (draftResult != null) {
-      _draftWeeklySchedule = draftResult.schedule;
-    }
-  } finally {
-    cubit.setSubmitting(false);
   }
-}
+
   @override
   Widget build(BuildContext context) {
     context.watch<LanguageListener>();
@@ -1070,11 +1166,12 @@ return;
                 ? [
                     TextButton(
                       onPressed: () {
-  Navigator.of(context).pushAndRemoveUntil(
-    MaterialPageRoute(builder: (_) => const BottomNav(tabIndex: 2)),
-    (route) => false,
-  );
-},
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                              builder: (_) => const BottomNav(tabIndex: 2)),
+                          (route) => false,
+                        );
+                      },
                       child: Text(
                         translateText('Cancel'),
                         style: const TextStyle(
@@ -1191,6 +1288,10 @@ return;
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 22),
+                        _buildSectionCard(
+                          child: _buildBufferSection(),
                         ),
                         const SizedBox(height: 22),
                         _buildSectionCard(
@@ -1690,6 +1791,73 @@ return;
     );
   }
 
+  Widget _buildBufferSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEAE0D7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            translateText('Booking Buffer Time'),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1E1E1E),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            translateText('First and last visible slots are required.'),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF6F665E),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildBufferInputField(
+                  controller: _openingBufferController,
+                  label: 'First Visible Slot *',
+                  hint: '30',
+                  requiredField: true,
+                  bottomSpacing: 0,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildBufferInputField(
+                  controller: _lastVisibleBufferController,
+                  label: 'Last Visible Slot *',
+                  hint: '30',
+                  requiredField: true,
+                  bottomSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildBufferInputField(
+            controller: _overflowGraceController,
+            label: 'Last Slot Overflow Grace',
+            hint: '10',
+            requiredField: false,
+            bottomSpacing: 0,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmpireBenefit(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -1993,6 +2161,90 @@ return;
                 ],
               );
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBufferInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required bool requiredField,
+    double bottomSpacing = 18,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomSpacing),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel(label),
+          TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(2),
+            ],
+            maxLength: 2,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            autovalidateMode: _submitted
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            validator: (value) {
+              final text = value?.trim() ?? '';
+              if (requiredField && text.isEmpty) {
+                return translateText('Required');
+              }
+              if (text.isEmpty) return null;
+              final parsed = int.tryParse(text);
+              if (parsed == null) {
+                return translateText('Invalid');
+              }
+              return null;
+            },
+            decoration: InputDecoration(
+              hintText: translateText(hint),
+              hintStyle: const TextStyle(
+                color: Color(0xFF948C84),
+                fontSize: 13,
+                height: 1.6,
+              ),
+              errorStyle: const TextStyle(
+                color: Color(0xFFB3261E),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(
+                  color: Color(0xFFD1A24A),
+                  width: 1.2,
+                ),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: AppColors.red, width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
           ),
         ],
       ),

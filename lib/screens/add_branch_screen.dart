@@ -69,12 +69,18 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   final _startTimeController = TextEditingController();
   final _endTimeController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _openingBufferController = TextEditingController();
+  final _lastVisibleBufferController = TextEditingController();
+  final _overflowGraceController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
   bool _savedPhoneApplied = false;
   List<Map<String, dynamic>> _sourceBranches = const [];
   List<String> _existingImageUrls = const <String>[];
   Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
+  int _draftOpeningBufferMinutes = 30;
+  int _draftLastBookingBufferMinutes = 30;
+  int _draftLastSlotOverflowGraceMinutes = 10;
   final Map<_BranchField, bool> _fieldValidationVisibility = {
     for (final field in _BranchField.values) field: false,
   };
@@ -186,6 +192,16 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       if (parsed != null) return parsed;
     }
     return 0;
+  }
+
+  int? _readIntValue(List<dynamic> values) {
+    for (final value in values) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      final parsed = int.tryParse((value ?? '').toString().trim());
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   Map<String, List<Map<String, String>>> _extractInitialSchedule(
@@ -398,6 +414,15 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           fallback: _endTimeController.text,
         );
       }
+      _draftOpeningBufferMinutes =
+          _readIntValue([initialBranch['openingBufferMinutes']]) ??
+              (widget.isEdit ? 0 : 30);
+      _draftLastBookingBufferMinutes =
+          _readIntValue([initialBranch['lastBookingBufferMinutes']]) ??
+              (widget.isEdit ? 0 : 30);
+      _draftLastSlotOverflowGraceMinutes =
+          _readIntValue([initialBranch['lastSlotOverflowGraceMinutes']]) ??
+              (widget.isEdit ? 0 : 10);
       _existingImageUrls = [
         ..._extractImageUrls(initialBranch['imageUrls']),
         ..._extractImageUrls(initialBranch['imageUrl']),
@@ -430,7 +455,34 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     _startTimeController.dispose();
     _endTimeController.dispose();
     _descriptionController.dispose();
+    _openingBufferController.dispose();
+    _lastVisibleBufferController.dispose();
+    _overflowGraceController.dispose();
     super.dispose();
+  }
+
+  int _parseBufferMinutes(
+    String value, {
+    required int fallback,
+  }) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null || parsed < 0) return fallback;
+    return parsed;
+  }
+
+  void _syncBufferDraftsFromInputs() {
+    _draftOpeningBufferMinutes = _parseBufferMinutes(
+      _openingBufferController.text,
+      fallback: _draftOpeningBufferMinutes,
+    );
+    _draftLastBookingBufferMinutes = _parseBufferMinutes(
+      _lastVisibleBufferController.text,
+      fallback: _draftLastBookingBufferMinutes,
+    );
+    _draftLastSlotOverflowGraceMinutes = _parseBufferMinutes(
+      _overflowGraceController.text,
+      fallback: _draftLastSlotOverflowGraceMinutes,
+    );
   }
 
   Future<void> _pickImages() async {
@@ -619,6 +671,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
     final isValid = form.validate();
     if (!isValid) return;
+    _syncBufferDraftsFromInputs();
 
     if (widget.isEdit &&
         (_startTimeController.text.isEmpty ||
@@ -681,6 +734,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           startTime: scheduleResult.startTime,
           endTime: scheduleResult.endTime,
           description: _descriptionController.text.trim(),
+          openingBufferMinutes: scheduleResult.openingBufferMinutes,
+          lastBookingBufferMinutes: scheduleResult.lastBookingBufferMinutes,
+          lastSlotOverflowGraceMinutes:
+              scheduleResult.lastSlotOverflowGraceMinutes,
           schedule: scheduleResult.schedule,
           address: state.address!.toJson(),
           latitude: state.address!.latitude,
@@ -698,23 +755,30 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
             detailsStepLabel: 'Branch Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
-        initialSchedule: _draftWeeklySchedule.isNotEmpty
-    ? _draftWeeklySchedule
-    : _extractInitialSchedule(widget.initialBranch),
+            initialSchedule: _draftWeeklySchedule.isNotEmpty
+                ? _draftWeeklySchedule
+                : _extractInitialSchedule(widget.initialBranch),
+            initialOpeningBufferMinutes: _draftOpeningBufferMinutes,
+            initialLastBookingBufferMinutes: _draftLastBookingBufferMinutes,
+            initialLastSlotOverflowGraceMinutes:
+                _draftLastSlotOverflowGraceMinutes,
             totalSteps: 2,
             submitLabel: 'Save',
             onSubmit: saveBranchEdit,
           ),
         ),
       );
-     if (!mounted) return;
+      if (!mounted) return;
 
-if (saved is ScheduleStepResult) {
-  _draftWeeklySchedule = saved.schedule;
-  return;
-}
+      if (saved is ScheduleStepResult) {
+        _draftWeeklySchedule = saved.schedule;
+        _draftOpeningBufferMinutes = saved.openingBufferMinutes;
+        _draftLastBookingBufferMinutes = saved.lastBookingBufferMinutes;
+        _draftLastSlotOverflowGraceMinutes = saved.lastSlotOverflowGraceMinutes;
+        return;
+      }
 
-if (saved != true) return;
+      if (saved != true) return;
 
       if (!mounted) return;
       scaffoldMessenger.showSnackBar(
@@ -731,12 +795,15 @@ if (saved != true) return;
       endTime: _endTimeController.text.trim(),
       description: _descriptionController.text.trim(),
       schedule: const <String, List<Map<String, String>>>{},
+      openingBufferMinutes: _draftOpeningBufferMinutes,
+      lastBookingBufferMinutes: _draftLastBookingBufferMinutes,
+      lastSlotOverflowGraceMinutes: _draftLastSlotOverflowGraceMinutes,
       imageUrl: null,
     );
 
     if (!mounted) return;
 
-    await Navigator.push<void>(
+    final draftResult = await Navigator.push<ScheduleStepResult?>(
       context,
       MaterialPageRoute(
         builder: (_) => SetWeeklyScheduleScreen(
@@ -744,9 +811,19 @@ if (saved != true) return;
           detailsStepLabel: 'Branch Details',
           initialStartTime: _startTimeController.text.trim(),
           initialEndTime: _endTimeController.text.trim(),
-          initialSchedule: const <String, List<Map<String, String>>>{},
+          initialSchedule: _draftWeeklySchedule,
+          initialOpeningBufferMinutes: _draftOpeningBufferMinutes,
+          initialLastBookingBufferMinutes: _draftLastBookingBufferMinutes,
+          initialLastSlotOverflowGraceMinutes:
+              _draftLastSlotOverflowGraceMinutes,
           totalSteps: 3,
           onContinue: (scheduleResult) async {
+            _draftWeeklySchedule = scheduleResult.schedule;
+            _draftOpeningBufferMinutes = scheduleResult.openingBufferMinutes;
+            _draftLastBookingBufferMinutes =
+                scheduleResult.lastBookingBufferMinutes;
+            _draftLastSlotOverflowGraceMinutes =
+                scheduleResult.lastSlotOverflowGraceMinutes;
             if (!mounted) return;
             await Navigator.push(
               context,
@@ -769,6 +846,11 @@ if (saved != true) return;
                       endTime: scheduleResult.endTime,
                       description: branchFormData.description,
                       schedule: scheduleResult.schedule,
+                      openingBufferMinutes: scheduleResult.openingBufferMinutes,
+                      lastBookingBufferMinutes:
+                          scheduleResult.lastBookingBufferMinutes,
+                      lastSlotOverflowGraceMinutes:
+                          scheduleResult.lastSlotOverflowGraceMinutes,
                       imageUrl: branchFormData.imageUrl,
                       imageUrls: branchFormData.imageUrls,
                     ),
@@ -785,6 +867,14 @@ if (saved != true) return;
         ),
       ),
     );
+
+    if (draftResult != null) {
+      _draftWeeklySchedule = draftResult.schedule;
+      _draftOpeningBufferMinutes = draftResult.openingBufferMinutes;
+      _draftLastBookingBufferMinutes = draftResult.lastBookingBufferMinutes;
+      _draftLastSlotOverflowGraceMinutes =
+          draftResult.lastSlotOverflowGraceMinutes;
+    }
   }
 
   @override
@@ -802,17 +892,17 @@ if (saved != true) return;
           _resetFieldError(_BranchField.phone);
         }
 
-    if (state.status == BranchFormStatus.failure &&
-    state.errorMessage != null) {
-  final message = state.errorMessage!
-      .replaceAll('Failed to add branch:', '')
-      .replaceAll('Exception:', '')
-      .trim();
+        if (state.status == BranchFormStatus.failure &&
+            state.errorMessage != null) {
+          final message = state.errorMessage!
+              .replaceAll('Failed to add branch:', '')
+              .replaceAll('Exception:', '')
+              .trim();
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(content: Text(message)),
-  );
-}
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(message)),
+          );
+        }
 
         if (state.status == BranchFormStatus.success) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -970,6 +1060,10 @@ if (saved != true) return;
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 22),
+                        _buildSectionCard(
+                          child: _buildBufferSection(),
                         ),
                         const SizedBox(height: 22),
                         _buildSectionCard(
@@ -1163,6 +1257,73 @@ if (saved != true) return;
     );
   }
 
+  Widget _buildBufferSection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEAE0D7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            translateText('Booking Buffer Time'),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1E1E1E),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            translateText('First and last visible slots are required.'),
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF6F665E),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildBufferInputField(
+                  controller: _openingBufferController,
+                  label: 'First Visible Slot *',
+                  hint: '30',
+                  requiredField: true,
+                  bottomSpacing: 0,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildBufferInputField(
+                  controller: _lastVisibleBufferController,
+                  label: 'Last Visible Slot *',
+                  hint: '30',
+                  requiredField: true,
+                  bottomSpacing: 0,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildBufferInputField(
+            controller: _overflowGraceController,
+            label: 'Last Slot Overflow Grace',
+            hint: '10',
+            requiredField: false,
+            bottomSpacing: 0,
+          ),
+        ],
+      ),
+    );
+  }
+
   // Widget _buildAddressField(BranchAddress? address, AddBranchState state) {
   //   final hasAddress =
   //       address != null && address.buildingName.trim().isNotEmpty;
@@ -1232,93 +1393,90 @@ if (saved != true) return;
   //     ),
   //   );
   // }
-Widget _buildAddressField(BranchAddress? address, AddBranchState state) {
-  final hasAddressText =
-      address != null && address.buildingName.trim().isNotEmpty;
+  Widget _buildAddressField(BranchAddress? address, AddBranchState state) {
+    final hasAddressText =
+        address != null && address.buildingName.trim().isNotEmpty;
 
-  final hasCompleteAddress = _isAddressComplete(address);
+    final hasCompleteAddress = _isAddressComplete(address);
 
-  final displayAddress = hasAddressText
-      ? _composeAddressLine1(address)
-      : translateText('Add Location');
+    final displayAddress = hasAddressText
+        ? _composeAddressLine1(address)
+        : translateText('Add Location');
 
-  final showError = _submitted && !hasCompleteAddress;
+    final showError = _submitted && !hasCompleteAddress;
 
-  return Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildFieldLabel('Branch Address *'),
-        InkWell(
-          onTap: () => _chooseLocation(state),
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 58),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: showError
-                    ? AppColors.red
-                    : const Color(0xFFD3A94C),
-                width: 1,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel('Branch Address *'),
+          InkWell(
+            onTap: () => _chooseLocation(state),
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 58),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: showError ? AppColors.red : const Color(0xFFD3A94C),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.add_location_alt_rounded,
+                    color: showError ? AppColors.red : const Color(0xFF8B6500),
+                    size: 22,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: hasAddressText
+                        ? Text(
+                            displayAddress,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF3B332B),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          )
+                        : Text(
+                            translateText('Add Location'),
+                            style: TextStyle(
+                              color: showError
+                                  ? AppColors.red
+                                  : const Color(0xFF7A4A09),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.add_location_alt_rounded,
-                  color: showError
-                      ? AppColors.red
-                      : const Color(0xFF8B6500),
-                  size: 22,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: hasAddressText
-                      ? Text(
-                          displayAddress,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF3B332B),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        )
-                      : Text(
-                          translateText('Add Location'),
-                          style: TextStyle(
-                            color: showError
-                                ? AppColors.red
-                                : const Color(0xFF7A4A09),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                ),
-              ],
-            ),
           ),
-        ),
-        if (showError) ...[
-          const SizedBox(height: 6),
-          Text(
-            translateText('Branch Address is required'),
-            style: const TextStyle(
-              color: AppColors.red,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+          if (showError) ...[
+            const SizedBox(height: 6),
+            Text(
+              translateText('Branch Address is required'),
+              style: const TextStyle(
+                color: AppColors.red,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
+          ],
         ],
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
+
   Widget _buildImageGrid(List<File> images, List<String> existingImageUrls) {
     final slots = <Widget>[];
     final selectedImages = images.take(10).toList();
@@ -1668,6 +1826,85 @@ Widget _buildAddressField(BranchAddress? address, AddBranchState state) {
           suffixIconData: Icons.access_time_rounded,
           bottomSpacing: bottomSpacing,
         ),
+      ),
+    );
+  }
+
+  Widget _buildBufferInputField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required bool requiredField,
+    double bottomSpacing = 18,
+  }) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomSpacing),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFieldLabel(label),
+          TextFormField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(2),
+            ],
+            maxLength: 2,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            autovalidateMode: _submitted
+                ? AutovalidateMode.always
+                : AutovalidateMode.disabled,
+            validator: (value) {
+              final text = value?.trim() ?? '';
+              if (requiredField && text.isEmpty) {
+                return translateText('Required');
+              }
+              if (text.isEmpty) return null;
+              final parsed = int.tryParse(text);
+              if (parsed == null) {
+                return translateText('Invalid');
+              }
+              return null;
+            },
+            decoration: InputDecoration(
+              hintText: translateText(hint),
+              errorStyle: const TextStyle(
+                color: Color(0xFFB3261E),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+              filled: false,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(
+                  color: Color(0xFFD1A24A),
+                  width: 1.2,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.red),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: AppColors.red),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

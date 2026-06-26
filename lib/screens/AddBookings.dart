@@ -56,6 +56,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         _clientlNameCtrl.text.trim().isNotEmpty;
   }
 
+  int? get _selectedCustomerId => int.tryParse(_clientIdCtrl.text.trim());
+
   List<int> _selectedProfessionalUserIds() {
     final ids = <int>{};
 
@@ -125,6 +127,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       []; // flat items: {id, name, priceMinor, durationMin, path}
   bool _loadingServices = true;
   bool _isSaving = false;
+  bool _loadingCart = false;
 
   // Focused/active service (drives Professional filtering)
   int? _selectedServiceId;
@@ -446,6 +449,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     String? fallbackFirstName,
     String? fallbackLastName,
   }) {
+    int? resolvedUserId;
     var firstName =
         (customer['firstName'] ?? fallbackFirstName ?? '').toString().trim();
     var lastName =
@@ -468,7 +472,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final fullPhone = _customerDisplayPhone(customer);
 
     setState(() {
-      final resolvedUserId = _extractUserId(customer) ??
+      resolvedUserId = _extractUserId(customer) ??
           _intValue(customer['userId']) ??
           _intValue(customer['customerId']) ??
           _intValue(customer['clientId']);
@@ -479,6 +483,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _mobileCtrl.text = fullPhone.isNotEmpty ? fullPhone : phoneDigits;
       _emailCtrl.text = (customer['email'] ?? '').toString();
     });
+
+    if (resolvedUserId != null) {
+      _loadCartForSelectedCustomer();
+    }
   }
 
   void _clearCustomerSelection() {
@@ -488,6 +496,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _clientlNameCtrl.clear();
       _mobileCtrl.clear();
       _emailCtrl.clear();
+      _selectedServices.clear();
+      _professionalByService.clear();
+      _cartItemIdByService.clear();
+      _selectedServiceId = null;
+      _serviceError = null;
+      _syncEndTimeWithDuration();
     });
   }
 
@@ -495,10 +509,11 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     var total = 0;
     for (final service in _selectedServices) {
       final duration = service['durationMin'];
+      final qty = _intValue(service['qty']) ?? 1;
       if (duration is int) {
-        total += duration;
+        total += duration * qty;
       } else if (duration is num) {
-        total += duration.toInt();
+        total += duration.toInt() * qty;
       }
     }
     return total;
@@ -1236,30 +1251,30 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                   FixedSlotOtpField(
-  enabled: !isVerifying,
-  hasError: otpError != null,
-  fieldWidth: 42,
-  fieldHeight: 54,
-  activeColor: _bookingGold,
-  inactiveColor: const Color(0xFFD6C8BA),
-  fillColor: Colors.white,
-  filledColor: _bookingGold,
-  textColor: _bookingInk,
-  filledTextColor: Colors.white,
-  onChanged: (value, complete) {
-    setDialogState(() {
-      otp = value;
-      otpComplete = complete;
-      otpError = null;
-    });
-  },
-  onSubmitted: () {
-    if (!isVerifying) {
-      verifyOtp();
-    }
-  },
-),
+                    FixedSlotOtpField(
+                      enabled: !isVerifying,
+                      hasError: otpError != null,
+                      fieldWidth: 42,
+                      fieldHeight: 54,
+                      activeColor: _bookingGold,
+                      inactiveColor: const Color(0xFFD6C8BA),
+                      fillColor: Colors.white,
+                      filledColor: _bookingGold,
+                      textColor: _bookingInk,
+                      filledTextColor: Colors.white,
+                      onChanged: (value, complete) {
+                        setDialogState(() {
+                          otp = value;
+                          otpComplete = complete;
+                          otpError = null;
+                        });
+                      },
+                      onSubmitted: () {
+                        if (!isVerifying) {
+                          verifyOtp();
+                        }
+                      },
+                    ),
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
@@ -2559,6 +2574,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   Future<void> _applyPickedServices(Set<int> pickedIds) async {
+    final existingById = <int, Map<String, dynamic>>{
+      for (final service in _selectedServices)
+        if (service['id'] is int) service['id'] as int: service,
+    };
     setState(() {
       _selectedServices = _branchServices
           .where((service) {
@@ -2569,7 +2588,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 'id': service['id'],
                 'name': service['name'],
                 'price': service['priceMinor'],
-                'qty': 1,
+                'qty': _intValue(existingById[service['id']]?['qty']) ?? 1,
                 'durationMin': service['durationMin'],
                 'masterServiceId': service['masterServiceId'],
                 'masterServiceName': service['masterServiceName'],
@@ -2711,6 +2730,214 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         .toList();
   }
 
+  int _cartQtyFrom(Map<String, dynamic> item) {
+    return _intValue(item['qty']) ?? _intValue(item['quantity']) ?? 1;
+  }
+
+  String _cartServiceNameFrom(
+    Map<String, dynamic> item,
+    Map<String, dynamic>? branchService,
+  ) {
+    final nestedBranchService = item['branchService'];
+    if (nestedBranchService is Map) {
+      final name = (nestedBranchService['displayName'] ??
+              nestedBranchService['name'] ??
+              '')
+          .toString()
+          .trim();
+      if (name.isNotEmpty) return name;
+    }
+
+    final nestedService = item['service'];
+    if (nestedService is Map) {
+      final name = (nestedService['displayName'] ?? nestedService['name'] ?? '')
+          .toString()
+          .trim();
+      if (name.isNotEmpty) return name;
+    }
+
+    final directName =
+        (item['displayName'] ?? item['name'] ?? '').toString().trim();
+    if (directName.isNotEmpty) return directName;
+
+    return (branchService?['name'] ?? translateText('Service')).toString();
+  }
+
+  num _cartServicePriceFrom(
+    Map<String, dynamic> item,
+    Map<String, dynamic>? branchService,
+  ) {
+    final nestedBranchService = item['branchService'];
+    if (nestedBranchService is Map) {
+      final price = nestedBranchService['priceMinor'];
+      if (price is num) return price;
+    }
+
+    final price = item['priceMinor'] ?? item['price'];
+    if (price is num) return price;
+    return branchService?['priceMinor'] as num? ?? 0;
+  }
+
+  int _cartServiceDurationFrom(
+    Map<String, dynamic> item,
+    Map<String, dynamic>? branchService,
+  ) {
+    final nestedBranchService = item['branchService'];
+    if (nestedBranchService is Map) {
+      final duration = nestedBranchService['durationMin'];
+      if (duration is num) return duration.toInt();
+    }
+
+    final duration = item['durationMin'];
+    if (duration is num) return duration.toInt();
+    return _intValue(branchService?['durationMin']) ?? 0;
+  }
+
+  void _hydrateSelectedServicesFromCartResponse(
+    Map<String, dynamic> response,
+  ) {
+    final items = _cartItemMapsFromResponse(response);
+    final selectedServices = <Map<String, dynamic>>[];
+
+    _cartItemIdByService.clear();
+
+    for (final item in items) {
+      final serviceId = _cartBranchServiceIdFrom(item);
+      if (serviceId == null) continue;
+
+      final branchService =
+          _branchServices.cast<Map<String, dynamic>?>().firstWhere(
+                (service) => service?['id'] == serviceId,
+                orElse: () => null,
+              );
+      final itemId = _cartItemIdFrom(item);
+      if (itemId != null) {
+        _cartItemIdByService[serviceId] = itemId;
+      }
+
+      selectedServices.add({
+        'id': serviceId,
+        'name': _cartServiceNameFrom(item, branchService),
+        'price': _cartServicePriceFrom(item, branchService),
+        'qty': _cartQtyFrom(item),
+        'durationMin': _cartServiceDurationFrom(item, branchService),
+        'masterServiceId': branchService?['masterServiceId'],
+        'masterServiceName': branchService?['masterServiceName'],
+        'masterServiceCode': branchService?['masterServiceCode'],
+      });
+    }
+
+    setState(() {
+      _selectedServices = selectedServices;
+      final validIds = _selectedServices
+          .map((service) => service['id'])
+          .whereType<int>()
+          .toSet();
+      _professionalByService.removeWhere((id, _) => !validIds.contains(id));
+      _selectedServiceId = _selectedServices.isEmpty
+          ? null
+          : _selectedServices.first['id'] as int;
+      _serviceError = null;
+      _syncEndTimeWithDuration();
+    });
+  }
+
+  Future<void> _loadCartForSelectedCustomer() async {
+    final branchId = widget.branchId;
+    final userId = _selectedCustomerId;
+    if (branchId == null || userId == null) return;
+
+    setState(() => _loadingCart = true);
+    try {
+      final response = await ApiService().getBranchCart(
+        branchId: branchId,
+        userId: userId,
+      );
+      if (response['success'] == false) {
+        throw Exception(response['message'] ?? 'Failed to load cart');
+      }
+
+      final cartItems = _cartItemMapsFromResponse(response);
+      if (cartItems.isEmpty) {
+        _cartItemIdByService.clear();
+        if (_selectedServices.isNotEmpty) {
+          await _syncSelectedServicesToCart();
+        } else if (mounted) {
+          setState(() {
+            _selectedServices = const [];
+            _selectedServiceId = null;
+            _syncEndTimeWithDuration();
+          });
+        }
+      } else {
+        _hydrateSelectedServicesFromCartResponse(response);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_extractApiErrorMessage(e))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _loadingCart = false);
+      }
+    }
+  }
+
+  void _updateLocalServiceQty(int serviceId, int qty) {
+    setState(() {
+      for (final service in _selectedServices) {
+        if (service['id'] == serviceId) {
+          service['qty'] = qty;
+          break;
+        }
+      }
+      _syncEndTimeWithDuration();
+    });
+  }
+
+  Future<void> _changeCartItemQuantity({
+    required int serviceId,
+    required int nextQty,
+  }) async {
+    final branchId = widget.branchId;
+    final itemId = _cartItemIdByService[serviceId];
+    if (branchId == null || itemId == null) return;
+
+    if (nextQty <= 0) {
+      final response = await ApiService().deleteCartItem(
+        branchId: branchId,
+        itemId: itemId,
+      );
+      if (response['success'] == false) {
+        throw Exception(response['message'] ?? 'Failed to remove cart item');
+      }
+      _cartItemIdByService.remove(serviceId);
+      setState(() {
+        _selectedServices.removeWhere((service) => service['id'] == serviceId);
+        _professionalByService.remove(serviceId);
+        if (_selectedServiceId == serviceId) {
+          _selectedServiceId = _selectedServices.isEmpty
+              ? null
+              : _selectedServices.first['id'] as int;
+        }
+        _syncEndTimeWithDuration();
+      });
+      return;
+    }
+
+    final response = await ApiService().updateCartItem(
+      branchId: branchId,
+      itemId: itemId,
+      qty: nextQty,
+      notes: '',
+    );
+    if (response['success'] == false) {
+      throw Exception(response['message'] ?? 'Failed to update cart item');
+    }
+    _updateLocalServiceQty(serviceId, nextQty);
+  }
+
   Future<void> _removeStaleCartItemsFromResponse(
     Map<String, dynamic> response,
   ) async {
@@ -2771,7 +2998,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   Future<void> _syncSelectedServicesToCart() async {
     final branchId = widget.branchId;
-    if (branchId == null || _selectedServices.isEmpty) return;
+    final userId = _selectedCustomerId;
+    if (branchId == null || userId == null || _selectedServices.isEmpty) return;
 
     final selectedIds = _selectedServices
         .map((service) => _intValue(service['id']))
@@ -2792,7 +3020,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       return <String, dynamic>{
         'type': 'SERVICE',
         'branchServiceId': _intValue(service['id']),
-        'qty': 1,
+        'qty': _intValue(service['qty']) ?? 1,
         'notes': 'Added',
       };
     }).toList();
@@ -2800,6 +3028,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final response = await ApiService().addCartItemsBulk(
       branchId: branchId,
       items: items,
+      userId: userId,
     );
 
     if (response['success'] == false) {
@@ -2948,17 +3177,20 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       "date": DateFormat('yyyy-MM-dd').format(_selectedDate!),
       "startAt": _formatAppointmentUtc(_selectedDate!, _startTime!),
       "endAt": _formatAppointmentUtc(_selectedDate!, _endTime!),
-      "services": _selectedServices.map((s) {
+      "services": _selectedServices.expand((s) {
         final serviceId = s['id'] as int;
         final selectedProId = _resolveSelectedProId(serviceId);
-        final servicePayload = <String, dynamic>{
-          "branchServiceId": serviceId,
-        };
+        final qty = _intValue(s['qty']) ?? 1;
+        return List.generate(qty, (_) {
+          final servicePayload = <String, dynamic>{
+            "branchServiceId": serviceId,
+          };
 
-        if (selectedProId != null) {
-          servicePayload['assignedUserBranchId'] = selectedProId;
-        }
-        return servicePayload;
+          if (selectedProId != null) {
+            servicePayload['assignedUserBranchId'] = selectedProId;
+          }
+          return servicePayload;
+        });
       }).toList(),
     };
     debugPrint('SELECTED PROFESSIONAL BY SERVICE = $_professionalByService');
@@ -3128,8 +3360,290 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  Future<void> _showCartSheet() async {
+    final branchId = widget.branchId;
+    final userId = _selectedCustomerId;
+    if (branchId == null || userId == null) return;
+
+    await _loadCartForSelectedCustomer();
+    if (!mounted) return;
+
+    final cartServices = _selectedServices
+        .map((service) => Map<String, dynamic>.from(service))
+        .toList();
+    int? pendingServiceId;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            num sheetTotal() {
+              return cartServices.fold<num>(0, (sum, service) {
+                final qty = _intValue(service['qty']) ?? 1;
+                final price = _servicePrice(service) ?? 0;
+                return sum + (price * qty);
+              });
+            }
+
+            Future<void> changeQty(int serviceId, int delta) async {
+              final index = cartServices.indexWhere(
+                (service) => service['id'] == serviceId,
+              );
+              if (index == -1) return;
+              final currentQty = _intValue(cartServices[index]['qty']) ?? 1;
+              final nextQty = currentQty + delta;
+
+              setSheetState(() => pendingServiceId = serviceId);
+              try {
+                await _changeCartItemQuantity(
+                  serviceId: serviceId,
+                  nextQty: nextQty,
+                );
+                if (!mounted) return;
+                setSheetState(() {
+                  if (nextQty <= 0) {
+                    cartServices.removeAt(index);
+                  } else {
+                    cartServices[index]['qty'] = nextQty;
+                  }
+                });
+              } catch (e) {
+                if (!sheetContext.mounted) return;
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  SnackBar(content: Text(_extractApiErrorMessage(e))),
+                );
+              } finally {
+                if (sheetContext.mounted) {
+                  setSheetState(() => pendingServiceId = null);
+                }
+              }
+            }
+
+            return SafeArea(
+              child: Container(
+                margin: const EdgeInsets.only(top: 56),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            translateText('Customer Cart'),
+                            style: const TextStyle(
+                              color: _bookingInk,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: () => Navigator.pop(sheetContext),
+                            icon: const Icon(Icons.close_rounded),
+                            color: _bookingMuted,
+                          ),
+                        ],
+                      ),
+                      Text(
+                        translateText(
+                          'Review services and adjust quantity before scheduling.',
+                        ),
+                        style: const TextStyle(
+                          color: _bookingMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (cartServices.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Text(
+                              translateText('No services in cart yet.'),
+                              style: const TextStyle(
+                                color: _bookingMuted,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight:
+                                MediaQuery.of(sheetContext).size.height * 0.5,
+                          ),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: cartServices.length,
+                            separatorBuilder: (_, __) => const Divider(
+                                height: 20, color: _bookingBorder),
+                            itemBuilder: (context, index) {
+                              final service = cartServices[index];
+                              final serviceId = _intValue(service['id']) ?? 0;
+                              final qty = _intValue(service['qty']) ?? 1;
+                              final price = _servicePrice(service) ?? 0;
+                              final isBusy = pendingServiceId == serviceId;
+
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          (service['name'] ?? '').toString(),
+                                          style: const TextStyle(
+                                            color: _bookingInk,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          _formatServicePrice(price * qty),
+                                          style: const TextStyle(
+                                            color: _bookingGold,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: _bookingFieldFill,
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(color: _bookingBorder),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        IconButton(
+                                          onPressed: isBusy
+                                              ? null
+                                              : () => changeQty(serviceId, -1),
+                                          icon: const Icon(
+                                            Icons.remove_rounded,
+                                            size: 18,
+                                          ),
+                                          color: _bookingInk,
+                                        ),
+                                        SizedBox(
+                                          width: 28,
+                                          child: Text(
+                                            '$qty',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              color: _bookingInk,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          onPressed: isBusy
+                                              ? null
+                                              : () => changeQty(serviceId, 1),
+                                          icon: const Icon(
+                                            Icons.add_rounded,
+                                            size: 18,
+                                          ),
+                                          color: _bookingInk,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 18),
+                      Row(
+                        children: [
+                          Text(
+                            translateText('Total'),
+                            style: const TextStyle(
+                              color: _bookingMuted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            _formatServicePrice(sheetTotal()),
+                            style: const TextStyle(
+                              color: _bookingGold,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileCartButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: _loadingCart ? null : _showCartSheet,
+        icon: _loadingCart
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.shopping_bag_outlined, size: 18),
+        label: Text(
+          translateText(
+            _selectedServices.isEmpty
+                ? 'Open Cart'
+                : 'Open Cart (${_selectedServices.length})',
+          ),
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _bookingGold,
+          side: const BorderSide(color: _bookingGold),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final showMobileCartButton =
+        _hasCustomerDetails && MediaQuery.of(context).size.width < 720;
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
@@ -3161,6 +3675,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                     onClear:
                         _hasCustomerDetails ? _clearCustomerSelection : null,
                   ),
+                  if (showMobileCartButton) ...[
+                    const SizedBox(height: 12),
+                    _buildMobileCartButton(),
+                  ],
                   const SizedBox(height: 20),
                   _sectionLabel('Services *'),
                   _selectionCard(
@@ -3171,7 +3689,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                     subtitle: _selectedServices.isEmpty
                         ? translateText('Select services and team members')
                         : translateText(
-                            '${_selectedServices.length} service(s) selected',
+                            '${_selectedServices.fold<int>(0, (sum, service) => sum + (_intValue(service['qty']) ?? 1))} service(s) selected',
                           ),
                     onTap: _loadingServices || _svcTree.isEmpty
                         ? null
@@ -3409,6 +3927,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final name = (service['name'] ?? '').toString();
     final duration = _serviceDurationMinutes(service);
     final price = _servicePrice(service);
+    final qty = _intValue(service['qty']) ?? 1;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3430,8 +3949,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               const SizedBox(height: 5),
               Text(
                 [
-                  if (duration > 0) '$duration min',
-                  if (price != null) _formatServicePrice(price),
+                  if (duration > 0) '${duration * qty} min',
+                  if (qty > 1) 'x$qty',
+                  if (price != null) _formatServicePrice(price * qty),
                 ].join('  •  '),
                 style: const TextStyle(
                   color: _bookingInk,
@@ -3444,7 +3964,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           ),
         ),
         InkWell(
-          onTap: () => _removeSelectedService(id),
+          onTap: () async => _removeSelectedService(id),
           borderRadius: BorderRadius.circular(999),
           child: const Padding(
             padding: EdgeInsets.all(5),
@@ -3855,15 +4375,22 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
   String _selectedServicesSummaryLabel() {
     if (_selectedServices.length == 1) {
-      return (_selectedServices.first['name'] ?? '').toString();
+      final qty = _intValue(_selectedServices.first['qty']) ?? 1;
+      final name = (_selectedServices.first['name'] ?? '').toString();
+      return qty > 1 ? '$name x$qty' : name;
     }
-    return translateText('${_selectedServices.length} services selected');
+    final totalQty = _selectedServices.fold<int>(
+      0,
+      (sum, service) => sum + (_intValue(service['qty']) ?? 1),
+    );
+    return translateText('$totalQty services selected');
   }
 
   num _selectedTotalPrice() {
     return _selectedServices.fold<num>(0, (sum, service) {
       final price = service['price'];
-      return sum + (price is num ? price : 0);
+      final qty = _intValue(service['qty']) ?? 1;
+      return sum + ((price is num ? price : 0) * qty);
     });
   }
 
@@ -3884,7 +4411,29 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return formatMinorAmount(price);
   }
 
-  void _removeSelectedService(int id) {
+  Future<void> _removeSelectedService(int id) async {
+    final branchId = widget.branchId;
+    final itemId = _cartItemIdByService[id];
+
+    if (branchId != null && itemId != null) {
+      try {
+        final response = await ApiService().deleteCartItem(
+          branchId: branchId,
+          itemId: itemId,
+        );
+        if (response['success'] == false) {
+          throw Exception(response['message'] ?? 'Failed to remove cart item');
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_extractApiErrorMessage(e))),
+        );
+        return;
+      }
+      _cartItemIdByService.remove(id);
+    }
+
     setState(() {
       _selectedServices.removeWhere((service) => service['id'] == id);
       _professionalByService.remove(id);
@@ -4014,6 +4563,8 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     if (value is num) return value.toInt();
     return int.tryParse('$value');
   }
+
+  int? _intValue(dynamic value) => _idFrom(value);
 
   bool _validateTeamMembersForEveryService() {
     for (final service in widget.services) {
@@ -4472,6 +5023,11 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     if (selectedProId == null) return false;
 
     try {
+      final qty = widget.services.firstWhere(
+            (service) => service['id'] == serviceId,
+            orElse: () => const <String, dynamic>{'qty': 1},
+          )['qty'] ??
+          1;
       debugPrint(
         '[AddBookingAvailability] assigning cart item=$itemId '
         'serviceId=$serviceId selectedProId=$selectedProId',
@@ -4479,7 +5035,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       final response = await ApiService().updateCartItem(
         branchId: branchId,
         itemId: itemId,
-        qty: 1,
+        qty: _intValue(qty) ?? 1,
         notes: '',
         selectedProId: selectedProId,
       );
@@ -5171,6 +5727,12 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
   num get totalPrice => widget.totalPrice;
   int get durationMinutes => widget.durationMinutes;
 
+  int? _intValue(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse('$value');
+  }
+
   String _formatTime(TimeOfDay time) {
     final now = DateTime.now();
     return DateFormat('h:mm a').format(
@@ -5550,6 +6112,7 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
   Widget _serviceLine(Map<String, dynamic> service) {
     final price = service['price'];
     final duration = service['durationMin'];
+    final qty = _intValue(service['qty']) ?? 1;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -5582,7 +6145,9 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  duration is num ? '${duration.toInt()} min session' : '',
+                  duration is num
+                      ? '${duration.toInt() * qty} min session${qty > 1 ? '  •  x$qty' : ''}'
+                      : '',
                   style: const TextStyle(
                     color: _bookingMuted,
                     fontSize: 10,
@@ -5593,7 +6158,7 @@ class _BookingSummaryScreenState extends State<_BookingSummaryScreen> {
             ),
           ),
           Text(
-            price is num ? formatMinorAmount(price) : '',
+            price is num ? formatMinorAmount(price * qty) : '',
             style: const TextStyle(
               color: _bookingGold,
               fontSize: 12,
