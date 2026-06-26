@@ -1151,6 +1151,83 @@ class _DayScheduleConfig {
   }
 }
 
+// class _TimeDropdown extends StatelessWidget {
+//   const _TimeDropdown({
+//     required this.value,
+//     required this.options,
+//     required this.enabled,
+//     required this.onChanged,
+//   });
+
+//   final String value;
+//   final List<String> options;
+//   final bool enabled;
+//   final ValueChanged<String?> onChanged;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final items = <String>[
+//       if (!options.contains(value)) value,
+//       ...options,
+//     ];
+//     return Container(
+//       height: 32,
+//       padding: const EdgeInsets.symmetric(horizontal: 6),
+//       decoration: BoxDecoration(
+//         color: enabled ? Colors.white : const Color(0xFFF7F5F3),
+//         borderRadius: BorderRadius.circular(4),
+//         border: Border.all(color: const Color(0xFFE8E1DC)),
+//       ),
+//       child: DropdownButtonHideUnderline(
+//         child: DropdownButton<String>(
+//           value: value,
+//           isExpanded: true,
+//           isDense: true,
+//           menuMaxHeight: 220,
+//           style: const TextStyle(
+//             fontSize: 10,
+//             color: Color(0xFF2B2520),
+//             overflow: TextOverflow.ellipsis,
+//           ),
+//           icon: const Icon(
+//             Icons.keyboard_arrow_down_rounded,
+//             size: 13,
+//             color: Color(0xFF8A8178),
+//           ),
+//           items: items
+//               .map(
+//                 (option) => DropdownMenuItem<String>(
+//                   value: option,
+//                   child: Text(
+//                     option,
+//                     maxLines: 1,
+//                     overflow: TextOverflow.ellipsis,
+//                   ),
+//                 ),
+//               )
+//               .toList(),
+//           selectedItemBuilder: (context) => items
+//               .map(
+//                 (option) => Align(
+//                   alignment: Alignment.centerLeft,
+//                   child: Text(
+//                     option,
+//                     maxLines: 1,
+//                     overflow: TextOverflow.ellipsis,
+//                     style: const TextStyle(
+//                       fontSize: 10,
+//                       color: Color(0xFF2B2520),
+//                     ),
+//                   ),
+//                 ),
+//               )
+//               .toList(),
+//           onChanged: enabled ? onChanged : null,
+//         ),
+//       ),
+//     );
+//   }
+// }
 class _TimeDropdown extends StatelessWidget {
   const _TimeDropdown({
     required this.value,
@@ -1166,10 +1243,12 @@ class _TimeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = <String>[
-      if (!options.contains(value)) value,
-      ...options,
-    ];
+    final safeValue = options.contains(value)
+        ? value
+        : options.isNotEmpty
+            ? options.first
+            : null;
+
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -1180,7 +1259,7 @@ class _TimeDropdown extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: value,
+          value: safeValue,
           isExpanded: true,
           isDense: true,
           menuMaxHeight: 220,
@@ -1194,7 +1273,7 @@ class _TimeDropdown extends StatelessWidget {
             size: 13,
             color: Color(0xFF8A8178),
           ),
-          items: items
+          items: options
               .map(
                 (option) => DropdownMenuItem<String>(
                   value: option,
@@ -1206,7 +1285,7 @@ class _TimeDropdown extends StatelessWidget {
                 ),
               )
               .toList(),
-          selectedItemBuilder: (context) => items
+          selectedItemBuilder: (context) => options
               .map(
                 (option) => Align(
                   alignment: Alignment.centerLeft,
@@ -1228,7 +1307,6 @@ class _TimeDropdown extends StatelessWidget {
     );
   }
 }
-
 final List<String> _timeOptions = List<String>.generate(48, (index) {
   final hour24 = index ~/ 2;
   final minute = index.isEven ? 0 : 30;
