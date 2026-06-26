@@ -2753,11 +2753,17 @@ isBranchActive: branch['active'] != false,
     return _bookingItems(booking).any(hasReference);
   }
 
+  // bool _shouldShowBookingForActiveTeam(Map<String, dynamic> booking) {
+  //   if (!widget.isOwnerMode) return true;
+  //   if (_assignedStaffNamesForGrouping(booking).isNotEmpty) return true;
+  //   return !_hasAssignedStaffReference(booking);
+  // }
   bool _shouldShowBookingForActiveTeam(Map<String, dynamic> booking) {
-    if (!widget.isOwnerMode) return true;
-    if (_assignedStaffNamesForGrouping(booking).isNotEmpty) return true;
-    return !_hasAssignedStaffReference(booking);
-  }
+  if (!widget.isOwnerMode) return true;
+
+  // Show booking only if assigned team member is still active/available
+  return _assignedStaffNamesForGrouping(booking).isNotEmpty;
+}
 
   List<String> _assignedStaffNamesForGrouping(
     Map<String, dynamic> booking,
@@ -2816,29 +2822,68 @@ isBranchActive: branch['active'] != false,
     return names;
   }
 
-  Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
-      BuildContext context, List<Map<String, dynamic>> bookings,
-      {bool includeEmptyTeamMembers = false}) {
-    final groups = <String, List<Map<String, dynamic>>>{};
-    for (final booking in bookings) {
-      final labels = _assignedStaffNamesForGrouping(booking);
-      if (labels.isEmpty) {
-        final key = context.t('Unassigned');
-        groups.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(booking);
-        continue;
-      }
-      for (final label in labels) {
-        groups.putIfAbsent(label, () => <Map<String, dynamic>>[]).add(booking);
-      }
+  // Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
+  //     BuildContext context, List<Map<String, dynamic>> bookings,
+  //     {bool includeEmptyTeamMembers = false}) {
+  //   final groups = <String, List<Map<String, dynamic>>>{};
+  //   for (final booking in bookings) {
+  //     final labels = _assignedStaffNamesForGrouping(booking);
+  //   //   if (labels.isEmpty) {
+  //   //     final key = context.t('Unassigned');
+  //   //     groups.putIfAbsent(key, () => <Map<String, dynamic>>[]).add(booking);
+  //   //     continue;
+  //   //   }
+  //   //   for (final label in labels) {
+  //   //     groups.putIfAbsent(label, () => <Map<String, dynamic>>[]).add(booking);
+  //   //   }
+  //   // }
+  //   for (final booking in bookings) {
+  // final labels = _assignedStaffNamesForGrouping(booking);
+
+  // if (labels.isEmpty) {
+  //   continue;
+  // }
+
+  // for (final label in labels) {
+  //   groups.putIfAbsent(label, () => <Map<String, dynamic>>[]).add(booking);
+  // }
+  //   }}
+  //   if (includeEmptyTeamMembers) {
+  //     for (final name in _teamMemberNames) {
+  //       groups.putIfAbsent(name, () => <Map<String, dynamic>>[]);
+  //     }
+  //   }
+  //   return groups;
+  // }
+
+Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
+  BuildContext context,
+  List<Map<String, dynamic>> bookings, {
+  bool includeEmptyTeamMembers = false,
+}) {
+  final groups = <String, List<Map<String, dynamic>>>{};
+
+  for (final booking in bookings) {
+    final labels = _assignedStaffNamesForGrouping(booking);
+
+    // Skip deleted/inactive team member bookings
+    if (labels.isEmpty) {
+      continue;
     }
-    if (includeEmptyTeamMembers) {
-      for (final name in _teamMemberNames) {
-        groups.putIfAbsent(name, () => <Map<String, dynamic>>[]);
-      }
+
+    for (final label in labels) {
+      groups.putIfAbsent(label, () => <Map<String, dynamic>>[]).add(booking);
     }
-    return groups;
   }
 
+  if (includeEmptyTeamMembers) {
+    for (final name in _teamMemberNames) {
+      groups.putIfAbsent(name, () => <Map<String, dynamic>>[]);
+    }
+  }
+
+  return groups;
+}
   Widget _buildBookingCard(Map<String, dynamic> booking) {
     final status = _normalizeStatus(booking['status']);
     return _BookingListCard(
@@ -3176,7 +3221,7 @@ isBranchActive: branch['active'] != false,
       );
       return;
     }
-if (!selected.canAcceptBookings) {
+  if (!selected.canAcceptBookings) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
