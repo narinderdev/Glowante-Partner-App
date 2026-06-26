@@ -137,6 +137,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   /// Per-service professional selection (key = serviceId, value = assigned professional name)
   final Map<int, String> _professionalByService = {};
   final Map<int, int> _cartItemIdByService = {};
+  final Set<int> _deletingServiceIds = <int>{};
 
   @override
   void initState() {
@@ -3881,6 +3882,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final duration = _serviceDurationMinutes(service);
     final price = _servicePrice(service);
     final qty = _intValue(service['qty']) ?? 1;
+    final isDeleting = _deletingServiceIds.contains(id);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3912,22 +3914,44 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              if (isDeleting) ...[
+                const SizedBox(height: 6),
+                const Text(
+                  'Deleting...',
+                  style: TextStyle(
+                    color: _bookingMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         InkWell(
-          onTap: () async {
-            await _removeSelectedService(id);
-            onRemoved?.call();
-          },
+          onTap: isDeleting
+              ? null
+              : () async {
+                  await _removeSelectedService(id);
+                  onRemoved?.call();
+                },
           borderRadius: BorderRadius.circular(999),
-          child: const Padding(
-            padding: EdgeInsets.all(5),
-            child: Icon(
-              Icons.close_rounded,
-              color: _bookingMuted,
-              size: 17,
-            ),
+          child: Padding(
+            padding: const EdgeInsets.all(5),
+            child: isDeleting
+                ? const SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: _bookingGold,
+                    ),
+                  )
+                : const Icon(
+                    Icons.close_rounded,
+                    color: _bookingMuted,
+                    size: 17,
+                  ),
           ),
         ),
       ],
@@ -4371,8 +4395,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final userId = _selectedCustomerId;
     final itemId = _cartItemIdByService[id];
 
-    if (branchId != null && userId != null && itemId != null) {
-      try {
+    if (_deletingServiceIds.contains(id)) return;
+
+    setState(() {
+      _deletingServiceIds.add(id);
+    });
+
+    try {
+      if (branchId != null && userId != null && itemId != null) {
         final response = await ApiService().deleteCartItem(
           branchId: branchId,
           itemId: itemId,
@@ -4381,26 +4411,32 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         if (response['success'] == false) {
           throw Exception(response['message'] ?? 'Failed to remove cart item');
         }
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_extractApiErrorMessage(e))),
-        );
-        return;
+        _cartItemIdByService.remove(id);
       }
-      _cartItemIdByService.remove(id);
-    }
 
-    setState(() {
-      _selectedServices.removeWhere((service) => service['id'] == id);
-      _professionalByService.remove(id);
-      if (_selectedServiceId == id) {
-        _selectedServiceId = _selectedServices.isNotEmpty
-            ? _selectedServices.first['id'] as int
-            : null;
+      if (!mounted) return;
+      setState(() {
+        _selectedServices.removeWhere((service) => service['id'] == id);
+        _professionalByService.remove(id);
+        if (_selectedServiceId == id) {
+          _selectedServiceId = _selectedServices.isNotEmpty
+              ? _selectedServices.first['id'] as int
+              : null;
+        }
+        _syncEndTimeWithDuration();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_extractApiErrorMessage(e))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingServiceIds.remove(id);
+        });
       }
-      _syncEndTimeWithDuration();
-    });
+    }
   }
 }
 
