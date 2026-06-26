@@ -5,15 +5,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
-import 'package:bloc_onboarding/repositories/branch_repository.dart';
 import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import 'add_branch_screen.dart';
 import 'add_salon_screen.dart';
-import 'branch_screen.dart';
+import 'branch_detail_screen.dart';
 import 'SalonDeal.dart';
 import 'SalonPackage.dart';
 import 'SalonTeams.dart';
 import 'notifications.dart';
+import 'salon_detail_screen.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
@@ -528,38 +528,42 @@ class SalonsScreenState extends State<SalonsScreen> {
     }
   }
 
-  Future<void> _openBranchDetail({
+  Future<void> _showSalonDetailsModal({
+    required Map<String, dynamic> salon,
+  }) async {
+    _collapseFab();
+    _dismissKeyboard();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SalonDetailScreen(salon: salon),
+      ),
+    );
+  }
+
+  Future<void> _showBranchDetailsModal({
     required int salonId,
     required int branchId,
+    required Map<String, dynamic> branch,
   }) async {
-    final repository = context.read<BranchRepository>();
+    _collapseFab();
+    _dismissKeyboard();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BranchDetailScreen(
+          branchId: branchId,
+          initialBranch: branch,
+        ),
+      ),
+    );
+  }
 
-    try {
-      final response = await repository.fetchBranchDetail(branchId);
-      if (response['success'] == true && response['data'] != null) {
-        if (!mounted) return;
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BranchScreen(
-              salonId: salonId,
-              branchDetails: response['data'] as Map<String, dynamic>,
-            ),
-          ),
-        );
-      } else {
-        final message = response['message'] ?? 'Unable to open branch details';
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(message.toString())));
-      }
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
-    }
+  // ignore: unused_element
+  String _cleanDialogTitle(dynamic value, {required String fallback}) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null') return fallback;
+    return text;
   }
 
   @override
@@ -670,6 +674,9 @@ class SalonsScreenState extends State<SalonsScreen> {
                                   salonId: salonId,
                                   isExpanded: isExpanded,
                                   onToggle: () => _toggleSalonBranches(salonId),
+                                  onOpenSalon: () => _showSalonDetailsModal(
+                                    salon: salon,
+                                  ),
                                   onAddBranch: widget.readOnly
                                       ? null
                                       : () => _goToAddBranch(salonId),
@@ -700,9 +707,11 @@ class SalonsScreenState extends State<SalonsScreen> {
                                   onDeleteBranch: widget.readOnly
                                       ? null
                                       : (branchId) => _deleteBranch(branchId),
-                                  onOpenBranch: (branchId) => _openBranchDetail(
+                                  onOpenBranch: (branchId, branch) =>
+                                      _showBranchDetailsModal(
                                     salonId: salonId,
                                     branchId: branchId,
+                                    branch: branch,
                                   ),
                                 ),
                               );
@@ -1389,6 +1398,7 @@ class _SalonCard extends StatelessWidget {
     required this.salonId,
     required this.isExpanded,
     required this.onToggle,
+    required this.onOpenSalon,
     this.onAddBranch,
     this.onEditSalon,
     this.onToggleSalonActive,
@@ -1403,6 +1413,7 @@ class _SalonCard extends StatelessWidget {
   final int salonId;
   final bool isExpanded;
   final VoidCallback onToggle;
+  final VoidCallback onOpenSalon;
   final VoidCallback? onAddBranch;
   final VoidCallback? onEditSalon;
   final void Function(bool active)? onToggleSalonActive;
@@ -1410,7 +1421,8 @@ class _SalonCard extends StatelessWidget {
   final void Function(Map<String, dynamic> branch)? onEditBranch;
   final void Function(int branchId, bool active)? onToggleBranchActive;
   final void Function(int branchId)? onDeleteBranch;
-  final Future<void> Function(int branchId) onOpenBranch;
+  final Future<void> Function(int branchId, Map<String, dynamic> branch)
+      onOpenBranch;
 
   int _parseId(dynamic value) {
     if (value is int) return value;
@@ -1897,30 +1909,34 @@ class _SalonCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: EdgeInsets.zero,
-            child: Stack(
-              children: [
-                _AutoSlidingHeroImage(
-                  imageUrls: heroImageUrls,
-                  fallback: _noSalonImageCard(),
-                  imageBuilder: _heroImage,
-                ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: _badge('Main Salon', Icons.workspace_premium_rounded),
-                ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: _SalonRatingBadge(branchId: primaryBranchId),
-                ),
-              ],
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onOpenSalon,
+              child: Stack(
+                children: [
+                  _AutoSlidingHeroImage(
+                    imageUrls: heroImageUrls,
+                    fallback: _noSalonImageCard(),
+                    imageBuilder: _heroImage,
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child:
+                        _badge('Main Salon', Icons.workspace_premium_rounded),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: _SalonRatingBadge(branchId: primaryBranchId),
+                  ),
+                ],
+              ),
             ),
           ),
           InkWell(
-            onTap: onToggle,
+            onTap: onOpenSalon,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
               child: Column(
@@ -2051,7 +2067,10 @@ class _SalonCard extends StatelessWidget {
                                   return _BranchTile(
                                     branch: branch,
                                     accentColor: AppColors.starColor,
-                                    onOpen: null,
+                                    onOpen: () => onOpenBranch(
+                                      branchId,
+                                      branch,
+                                    ),
                                     onEdit: onEditBranch == null
                                         ? null
                                         : () => onEditBranch!(branch),
@@ -2094,6 +2113,1107 @@ class _SalonCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+// Legacy modal retained for now; Salons tab now navigates to dedicated screens.
+// ignore: unused_element
+class _SalonDetailsDialog extends StatelessWidget {
+  const _SalonDetailsDialog({
+    required this.title,
+    required this.subtitle,
+    required this.details,
+    required this.icon,
+    required this.actionLabel,
+    // ignore: unused_element_parameter
+    this.warning,
+  });
+
+  final String title;
+  final String subtitle;
+  final Map<String, dynamic> details;
+  final IconData icon;
+  final String actionLabel;
+  final String? warning;
+
+  String _cleanText(dynamic value) {
+    if (value == null) return '';
+    final text = value.toString().trim();
+    if (text.isEmpty || text.toLowerCase() == 'null') return '';
+    return text;
+  }
+
+  String _firstText(List<dynamic> values) {
+    for (final value in values) {
+      final text = _cleanText(value);
+      if (text.isNotEmpty) return text;
+    }
+    return '';
+  }
+
+  bool _isSalonDialog() => subtitle != 'Branch';
+
+  Map<String, dynamic>? _primaryBranch() {
+    if (!_isSalonDialog()) return null;
+    final branches = _branches();
+    if (branches.isEmpty) return null;
+    final salonName = _cleanText(
+      details['name'] ?? details['salonName'] ?? details['displayName'],
+    ).toLowerCase();
+
+    for (final branch in branches) {
+      final isMain = branch['isMain'];
+      if (isMain == true || _cleanText(isMain).toLowerCase() == 'true') {
+        return branch;
+      }
+      final branchName = _cleanText(
+        branch['name'] ?? branch['branchName'] ?? branch['displayName'],
+      ).toLowerCase();
+      if (salonName.isNotEmpty && branchName == salonName) {
+        return branch;
+      }
+    }
+    return branches.first;
+  }
+
+  dynamic _firstRawValue(List<String> keys) {
+    for (final key in keys) {
+      final value = details[key];
+      if (_cleanText(value).isNotEmpty || value is List || value is Map) {
+        return value;
+      }
+    }
+    final primaryBranch = _primaryBranch();
+    if (primaryBranch != null) {
+      for (final key in keys) {
+        final value = primaryBranch[key];
+        if (_cleanText(value).isNotEmpty || value is List || value is Map) {
+          return value;
+        }
+      }
+    }
+    return null;
+  }
+
+  String _firstFieldText(List<String> keys) {
+    final values = <dynamic>[];
+    for (final key in keys) {
+      values.add(details[key]);
+    }
+    final primaryBranch = _primaryBranch();
+    if (primaryBranch != null) {
+      for (final key in keys) {
+        values.add(primaryBranch[key]);
+      }
+    }
+    return _firstText(values);
+  }
+
+  String _composeAddress(dynamic source) {
+    if (source is! Map) return '';
+    final data = Map<String, dynamic>.from(source);
+    final segments = <String>[];
+    final seenParts = <String>{};
+
+    void push(dynamic value) {
+      final text = _cleanText(value);
+      if (text.isEmpty) return;
+      for (final part in text.split(',')) {
+        final cleanedPart = _cleanText(part);
+        final key = cleanedPart.toLowerCase();
+        if (cleanedPart.isNotEmpty && seenParts.add(key)) {
+          segments.add(cleanedPart);
+        }
+      }
+    }
+
+    push(data['line1'] ?? data['addressLine1'] ?? data['buildingName']);
+    push(data['line2'] ?? data['addressLine2']);
+    push(data['village']);
+    push(data['district']);
+    push(data['city']);
+    push(data['state']);
+    push(data['country']);
+    push(data['postalCode'] ?? data['pincode'] ?? data['zip']);
+    return segments.join(', ');
+  }
+
+  String _addressText() {
+    final nestedAddress = _composeAddress(details['address']);
+    if (nestedAddress.isNotEmpty) return nestedAddress;
+    final primaryBranch = _primaryBranch();
+    if (primaryBranch != null) {
+      final primaryAddress = _composeAddress(primaryBranch['address']);
+      if (primaryAddress.isNotEmpty) return primaryAddress;
+      final primaryInlineAddress = _composeAddress(primaryBranch);
+      if (primaryInlineAddress.isNotEmpty) return primaryInlineAddress;
+    }
+    return _composeAddress(details);
+  }
+
+  Map<String, dynamic> _addressMap() {
+    final address = details['address'];
+    if (address is Map) return Map<String, dynamic>.from(address);
+    final primaryBranch = _primaryBranch();
+    final primaryAddress = primaryBranch?['address'];
+    if (primaryAddress is Map) return Map<String, dynamic>.from(primaryAddress);
+    if (primaryBranch != null) return primaryBranch;
+    return details;
+  }
+
+  String _addressField(List<String> keys) {
+    final address = _addressMap();
+    return _firstText(keys.map((key) => address[key]).toList());
+  }
+
+  List<String> _imageUrls() {
+    final urls = <String>[];
+
+    void add(dynamic source) {
+      dynamic value = source;
+      if (value is Map) {
+        value = value['url'] ??
+            value['imageUrl'] ??
+            value['publicUrl'] ??
+            value['cdnUrl'] ??
+            value['src'];
+      }
+      final text = _cleanText(value);
+      final lower = text.toLowerCase();
+      if ((lower.startsWith('http://') || lower.startsWith('https://')) &&
+          !urls.contains(text)) {
+        urls.add(text);
+      }
+    }
+
+    void addFromMap(Map<String, dynamic> source) {
+      final imageUrls = source['imageUrls'];
+      if (imageUrls is List && imageUrls.isNotEmpty) {
+        for (final image in imageUrls) {
+          add(image);
+        }
+      }
+      add(source['imageUrl']);
+      add(source['image']);
+    }
+
+    addFromMap(details);
+    final primaryBranch = _primaryBranch();
+    if (primaryBranch != null) addFromMap(primaryBranch);
+    return urls;
+  }
+
+  String _imageUrl() {
+    final urls = _imageUrls();
+    return urls.isEmpty ? '' : urls.first;
+  }
+
+  String _statusText() {
+    final active = details['active'];
+    if (active == false) return 'Deactivated';
+    final status = _cleanText(details['status']);
+    if (status.isNotEmpty) return status;
+    return 'Active';
+  }
+
+  bool _isActive() => _statusText().toLowerCase() != 'deactivated';
+
+  List<_DetailRowData> _basicRows() {
+    return [
+      _DetailRowData(
+        icon: Icons.badge_outlined,
+        label: subtitle == 'Branch' ? 'Branch Name' : 'Salon Name',
+        value: _firstFieldText([
+          'name',
+          'salonName',
+          'branchName',
+          'displayName',
+          'title',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.phone_outlined,
+        label: 'Phone',
+        value: _firstFieldText([
+          'phone',
+          'phoneNumber',
+          'contactNumber',
+          'mobile',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.access_time_rounded,
+        label: 'Start Time',
+        value: _firstFieldText([
+          'startTime',
+          'openingTime',
+          'openTime',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.access_time_filled_rounded,
+        label: 'End Time',
+        value: _firstFieldText([
+          'endTime',
+          'closingTime',
+          'closeTime',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.timer_outlined,
+        label: 'Opening Buffer Minutes',
+        value: _firstFieldText([
+          'OPENING_BUFFER_MINUTES',
+          'openingBufferMinutes',
+          'bookingBufferTime',
+          'bufferTime',
+          'slotBufferTime',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.timelapse_rounded,
+        label: 'Last Booking Buffer Minutes',
+        value: _firstFieldText([
+          'LAST_BOOKING_BUFFER_MINUTES',
+          'lastBookingBufferMinutes',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.first_page_rounded,
+        label: 'First Visible Slot',
+        value: _firstFieldText([
+          'firstVisibleSlot',
+          'first_visible_slot',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.last_page_rounded,
+        label: 'Last Visible Slot',
+        value: _firstFieldText([
+          'lastVisibleSlot',
+          'last_visible_slot',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.more_time_rounded,
+        label: 'Last Slot Overflow Grace Minutes',
+        value: _firstFieldText([
+          'LAST_SLOT_OVERFLOW_GRACE_MINUTES',
+          'lastSlotOverflowGraceMinutes',
+          'lastSlotOverflowGrace',
+          'last_slot_overflow_grace',
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.photo_library_outlined,
+        label: 'Uploaded Photos',
+        value: _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
+      ),
+      _DetailRowData(
+        icon: Icons.category_outlined,
+        label: 'Selected Category Codes',
+        value: _stringList(_firstRawValue(['selectedCategoryCodes'])),
+      ),
+      _DetailRowData(
+        icon: Icons.content_copy_rounded,
+        label: 'Copied From Branch ID',
+        value: _firstFieldText(['sourceBranchId']),
+      ),
+    ].where((row) => row.value.isNotEmpty).toList();
+  }
+
+  List<_DetailRowData> _locationRows() {
+    return [
+      _DetailRowData(
+        icon: Icons.home_work_outlined,
+        label: 'Complete Address',
+        value: _firstText([
+          _addressField(['line1', 'addressLine1', 'buildingName']),
+          _addressText(),
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.meeting_room_outlined,
+        label: 'House / Flat',
+        value: _addressField(['city']),
+      ),
+      _DetailRowData(
+        icon: Icons.add_road_outlined,
+        label: 'Street / Area',
+        value: _addressField(['postalCode', 'pincode', 'zip']),
+      ),
+      _DetailRowData(
+        icon: Icons.map_outlined,
+        label: 'State',
+        value: _addressField(['state']),
+      ),
+      _DetailRowData(
+        icon: Icons.public_outlined,
+        label: 'Country',
+        value: _addressField(['country']),
+      ),
+      _DetailRowData(
+        icon: Icons.my_location_outlined,
+        label: 'Latitude',
+        value: _firstText([
+          _addressField(['latitude', 'lat']),
+          details['latitude'],
+          details['lat'],
+        ]),
+      ),
+      _DetailRowData(
+        icon: Icons.my_location_rounded,
+        label: 'Longitude',
+        value: _firstText([
+          _addressField(['longitude', 'lng', 'lon']),
+          details['longitude'],
+          details['lng'],
+          details['lon'],
+        ]),
+      ),
+    ].where((row) => row.value.isNotEmpty).toList();
+  }
+
+  String _stringList(dynamic value) {
+    if (value is List) {
+      final parts = value
+          .map((item) => _cleanText(item))
+          .where((item) => item.isNotEmpty)
+          .toList();
+      return parts.join(', ');
+    }
+    return _cleanText(value);
+  }
+
+  List<String> _scheduleLines() {
+    const dayOrder = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
+    final rawSchedule = _firstRawValue(['schedule', 'schedules']);
+    final lines = <String>[];
+
+    String formatDay(String day) {
+      if (day.isEmpty) return '';
+      return '${day[0].toUpperCase()}${day.substring(1).toLowerCase()}';
+    }
+
+    String slotText(dynamic slot) {
+      if (slot is! Map) return '';
+      final start = _firstText([slot['start'], slot['startTime']]);
+      final end = _firstText([slot['end'], slot['endTime']]);
+      if (start.isEmpty || end.isEmpty) return '';
+      return '$start - $end';
+    }
+
+    if (rawSchedule is Map) {
+      for (final day in dayOrder) {
+        final rawSlots = rawSchedule[day] ?? rawSchedule[formatDay(day)];
+        if (rawSlots is! List) continue;
+        final slots = rawSlots.map(slotText).where((slot) => slot.isNotEmpty);
+        if (slots.isNotEmpty) {
+          lines.add('${formatDay(day)}: ${slots.join(', ')}');
+        }
+      }
+    } else if (rawSchedule is List) {
+      for (final entry in rawSchedule) {
+        if (entry is! Map) continue;
+        final day = _firstText([entry['day'], entry['weekday'], entry['name']]);
+        final rawSlots = entry['slots'];
+        final slots = rawSlots is List
+            ? rawSlots.map(slotText).where((slot) => slot.isNotEmpty).toList()
+            : <String>[slotText(entry)]
+                .where((slot) => slot.isNotEmpty)
+                .toList();
+        if (day.isNotEmpty && slots.isNotEmpty) {
+          lines.add('${formatDay(day)}: ${slots.join(', ')}');
+        }
+      }
+    }
+
+    return lines;
+  }
+
+  List<String> _serviceLines() {
+    final services = <String>[];
+
+    void addLabel(dynamic value) {
+      final text = _cleanText(value);
+      if (text.isNotEmpty && !services.contains(text)) {
+        services.add(text);
+      }
+    }
+
+    void collect(dynamic source) {
+      if (source is List) {
+        for (final item in source) {
+          collect(item);
+        }
+        return;
+      }
+      if (source is! Map) {
+        addLabel(source);
+        return;
+      }
+
+      final map = Map<String, dynamic>.from(source);
+      final nestedServices = map['services'] ??
+          map['serviceList'] ??
+          map['items'] ??
+          map['selectedServices'];
+      final subCategories = map['subCategories'] ??
+          map['subcategories'] ??
+          map['children'] ??
+          map['subCategory'];
+
+      if (nestedServices != null) collect(nestedServices);
+      if (subCategories != null) collect(subCategories);
+
+      if (nestedServices == null && subCategories == null) {
+        addLabel(
+          map['displayName'] ??
+              map['name'] ??
+              map['serviceName'] ??
+              map['title'] ??
+              map['code'],
+        );
+      }
+    }
+
+    void collectFromMap(Map<String, dynamic> source) {
+      for (final key in const [
+        'services',
+        'serviceList',
+        'branchServices',
+        'salonServices',
+        'selectedServices',
+        'serviceCodes',
+        'selectedServiceCodes',
+        'categories',
+        'category',
+      ]) {
+        collect(source[key]);
+      }
+    }
+
+    collectFromMap(details);
+    final primaryBranch = _primaryBranch();
+    if (primaryBranch != null) collectFromMap(primaryBranch);
+    return services;
+  }
+
+  List<Map<String, dynamic>> _branches() {
+    final raw = details['branches'];
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map((item) {
+      return Map<String, dynamic>.from(item);
+    }).toList();
+  }
+
+  String _branchTitle(Map<String, dynamic> branch) {
+    return _firstText([
+      branch['name'],
+      branch['branchName'],
+      branch['displayName'],
+      branch['title'],
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = _imageUrl();
+    final description = _firstText([
+      details['description'],
+      details['tagline'],
+      details['about'],
+    ]);
+    final rows = _basicRows();
+    final locationRows = _locationRows();
+    final scheduleLines = _scheduleLines();
+    final serviceLines = _serviceLines();
+    final imageUrls = _imageUrls();
+    final branches = _branches();
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.78;
+    final maxWidth = MediaQuery.sizeOf(context).width >= 720
+        ? 620.0
+        : MediaQuery.sizeOf(context).width - 34;
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 17, vertical: 24),
+      backgroundColor: Colors.transparent,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth, maxHeight: maxHeight),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Material(
+            color: Colors.white,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 10, 14),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF8B6500),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Icon(icon, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              translateText(subtitle),
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFFFE8B6),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                height: 1.15,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (warning != null && warning!.trim().isNotEmpty)
+                          _DialogWarning(message: warning!),
+                        if (imageUrl.isNotEmpty) ...[
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    const _DialogImageFallback(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ] else ...[
+                          const _DialogImageFallback(),
+                          const SizedBox(height: 14),
+                        ],
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _DialogStatusPill(
+                              label: _statusText(),
+                              active: _isActive(),
+                            ),
+                            if (branches.isNotEmpty)
+                              _DialogStatusPill(
+                                label:
+                                    '${branches.length} ${branches.length == 1 ? 'Branch' : 'Branches'}',
+                                active: true,
+                              ),
+                          ],
+                        ),
+                        if (imageUrls.length > 1) ...[
+                          const SizedBox(height: 12),
+                          _DialogSection(
+                            title: 'Uploaded Photos',
+                            child: SizedBox(
+                              height: 72,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: imageUrls.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(width: 8),
+                                itemBuilder: (context, index) {
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: AspectRatio(
+                                      aspectRatio: 1,
+                                      child: Image.network(
+                                        imageUrls[index],
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            const _DialogImageFallback(),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (description.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          _DialogSection(
+                            title: 'Description',
+                            child: Text(
+                              description,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                height: 1.45,
+                                color: Color(0xFF4B3A2A),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (locationRows.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _DialogSection(
+                            title: 'Location Filled By User',
+                            child: Column(
+                              children: [
+                                for (var i = 0;
+                                    i < locationRows.length;
+                                    i++) ...[
+                                  _DialogInfoRow(
+                                    icon: locationRows[i].icon,
+                                    label:
+                                        '${locationRows[i].label}: ${locationRows[i].value}',
+                                  ),
+                                  if (i != locationRows.length - 1)
+                                    const Divider(
+                                      height: 16,
+                                      color: Color(0xFFF1EBE6),
+                                    ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (rows.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _DialogSection(
+                            title: subtitle == 'Branch'
+                                ? 'Branch Form Values'
+                                : 'Salon Form Values',
+                            child: Column(
+                              children: [
+                                for (var i = 0; i < rows.length; i++) ...[
+                                  _DialogInfoRow(
+                                    icon: rows[i].icon,
+                                    label: '${rows[i].label}: ${rows[i].value}',
+                                  ),
+                                  if (i != rows.length - 1)
+                                    const Divider(
+                                      height: 16,
+                                      color: Color(0xFFF1EBE6),
+                                    ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (scheduleLines.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _DialogSection(
+                            title: 'Weekly Schedule Filled By User',
+                            child: Column(
+                              children: [
+                                for (var i = 0;
+                                    i < scheduleLines.length;
+                                    i++) ...[
+                                  _DialogInfoRow(
+                                    icon: Icons.calendar_month_outlined,
+                                    label: scheduleLines[i],
+                                  ),
+                                  if (i != scheduleLines.length - 1)
+                                    const Divider(
+                                      height: 16,
+                                      color: Color(0xFFF1EBE6),
+                                    ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (serviceLines.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _DialogSection(
+                            title: 'Services / Categories',
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (final service in serviceLines)
+                                  _DialogChip(label: service),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (branches.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _DialogSection(
+                            title: 'Branches',
+                            child: Column(
+                              children: [
+                                for (var i = 0; i < branches.length; i++) ...[
+                                  _DialogBranchSummary(
+                                    title: _branchTitle(branches[i]).isEmpty
+                                        ? 'Unnamed Branch'
+                                        : _branchTitle(branches[i]),
+                                    address: _composeAddress(
+                                      branches[i]['address'],
+                                    ).isNotEmpty
+                                        ? _composeAddress(
+                                            branches[i]['address'],
+                                          )
+                                        : _composeAddress(branches[i]),
+                                    active: branches[i]['active'] != false,
+                                  ),
+                                  if (i != branches.length - 1)
+                                    const Divider(
+                                      height: 16,
+                                      color: Color(0xFFF1EBE6),
+                                    ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 46,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF8B6500),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        translateText(actionLabel),
+                        style: const TextStyle(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailRowData {
+  const _DetailRowData({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+}
+
+class _DialogSection extends StatelessWidget {
+  const _DialogSection({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBFAF8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8DED4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            translateText(title).toUpperCase(),
+            style: const TextStyle(
+              fontSize: 10,
+              letterSpacing: 0.7,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF8B6500),
+            ),
+          ),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _DialogInfoRow extends StatelessWidget {
+  const _DialogInfoRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: const Color(0xFF8B6500)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            translateText(label),
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.35,
+              color: Color(0xFF4B3A2A),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DialogStatusPill extends StatelessWidget {
+  const _DialogStatusPill({required this.label, required this.active});
+
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? const Color(0xFF047857) : const Color(0xFFB42318);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFFE8FFF5) : const Color(0xFFFFEFEF),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: active ? const Color(0xFFB7F0D0) : const Color(0xFFF5C2C7),
+        ),
+      ),
+      child: Text(
+        translateText(label),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          color: color,
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogChip extends StatelessWidget {
+  const _DialogChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFAF1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE8C774)),
+      ),
+      child: Text(
+        translateText(label),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF4B3A2A),
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogImageFallback extends StatelessWidget {
+  const _DialogImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 150,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F3EF),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8DED4)),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.image_not_supported_outlined,
+            color: Color(0xFF8B6500),
+            size: 30,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            translateText('No image available'),
+            style: const TextStyle(
+              color: Color(0xFF756A61),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DialogWarning extends StatelessWidget {
+  const _DialogWarning({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF6D78A)),
+      ),
+      child: Text(
+        translateText(message),
+        style: const TextStyle(
+          color: Color(0xFF6B4E00),
+          fontSize: 12,
+          height: 1.35,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _DialogBranchSummary extends StatelessWidget {
+  const _DialogBranchSummary({
+    required this.title,
+    required this.address,
+    required this.active,
+  });
+
+  final String title;
+  final String address;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4E8D1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: const Icon(
+            Icons.storefront_rounded,
+            color: Color(0xFF8B6500),
+            size: 18,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF201B17),
+                      ),
+                    ),
+                  ),
+                  _DialogStatusPill(
+                    label: active ? 'Active' : 'Deactivated',
+                    active: active,
+                  ),
+                ],
+              ),
+              if (address.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  address,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    height: 1.35,
+                    color: Color(0xFF8A8178),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

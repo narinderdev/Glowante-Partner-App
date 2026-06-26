@@ -1299,12 +1299,13 @@ class CategoryScreenState extends State<CategoryScreen> {
       appBar: buildProfileSubpageAppBar(
         title: showServiceCatalogTitle ? translateText('Service Catalog') : '',
         automaticallyImplyLeading: false,
-        toolbarHeight: showHeaderBranchSelector ? 84 : kToolbarHeight,
+        toolbarHeight: showHeaderBranchSelector ? 58 : kToolbarHeight,
         titleWidget: showHeaderBranchSelector
             ? _CatalogBranchSelector(
                 key: _branchSelectorKey,
                 selectedSalon: _selectedSalon,
                 showDropdown: true,
+                compact: true,
                 onTap: () => _showSalonBranchPicker(salons),
               )
             : null,
@@ -1928,7 +1929,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                 _asInt(item['salonId']) == _asInt(_selectedSalon?['salonId']);
         return PopupMenuItem<Map<String, dynamic>>(
           value: item,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: _CatalogBranchDropdownItem(
             item: item,
             isSelected: isSelected,
@@ -2211,10 +2212,10 @@ class _CatalogBranchDropdownItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final addressSummary = (item['addressSummary'] ?? '').toString().trim();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: isSelected ? _catalogGold.withValues(alpha: 0.12) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(13),
         border: Border.all(
           color: isSelected ? _catalogGold : _catalogBorder,
         ),
@@ -2222,19 +2223,19 @@ class _CatalogBranchDropdownItem extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 30,
+            height: 30,
             decoration: BoxDecoration(
               color: _catalogGold.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               Icons.storefront_outlined,
               color: _catalogGold,
-              size: 18,
+              size: 16,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2245,7 +2246,7 @@ class _CatalogBranchDropdownItem extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: _catalogInk,
-                    fontSize: 13,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 0.2,
                   ),
@@ -2258,7 +2259,7 @@ class _CatalogBranchDropdownItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: _catalogMuted,
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -2269,8 +2270,8 @@ class _CatalogBranchDropdownItem extends StatelessWidget {
           const SizedBox(width: 8),
           AnimatedContainer(
             duration: const Duration(milliseconds: 160),
-            width: 22,
-            height: 22,
+            width: 18,
+            height: 18,
             decoration: BoxDecoration(
               color: isSelected ? _catalogGold : Colors.transparent,
               shape: BoxShape.circle,
@@ -2282,47 +2283,11 @@ class _CatalogBranchDropdownItem extends StatelessWidget {
                 ? const Icon(
                     Icons.check_rounded,
                     color: Colors.white,
-                    size: 14,
+                    size: 12,
                   )
                 : null,
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _InlineProgress extends StatelessWidget {
-  const _InlineProgress({required this.message});
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    const tint = Colors.black;
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: tint.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: tint),
-            ),
-            SizedBox(width: 12),
-            Text(
-              message,
-              style: const TextStyle(color: tint, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -3136,45 +3101,21 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
-class _LoaderCard extends StatelessWidget {
-  const _LoaderCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 2,
-      child: Padding(
-        padding: EdgeInsets.all(20),
-        child: Center(child: CircularProgressIndicator(color: Colors.black)),
-      ),
-    );
-  }
-}
-
 class _BottomSheetScaffold extends StatelessWidget {
   const _BottomSheetScaffold({
     required this.title,
     required this.child,
-    this.initial = 0.55,
-    this.min = 0.35,
-    this.max = 0.9,
   });
 
   final String title;
   final Widget child;
 
-  // New: customizable sizes (with safe defaults)
-  final double initial;
-  final double min;
-  final double max;
-
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
-      initialChildSize: initial,
-      minChildSize: min,
-      maxChildSize: max,
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.9,
       expand: false,
       builder: (ctx, scrollCtrl) {
         return Container(
