@@ -1475,6 +1475,8 @@ class ApiService {
       "startTime": formattedStartTime,
       "endTime": formattedEndTime,
       "description": description,
+      "OPENING_BUFFER_MINUTES": 30,
+      "LAST_BOOKING_BUFFER_MINUTES": 30,
       "imageUrl": imageUrl, // 👈 matches backend field name
       "address": {
         "line1": buildingName,

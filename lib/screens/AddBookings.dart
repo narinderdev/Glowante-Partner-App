@@ -144,14 +144,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     _loadServices();
     _loadTeamMembers();
     _loadBranchTiming();
-
-    // Set default date to today
-    final now = DateTime.now();
-    _selectedDate = DateTime(now.year, now.month, now.day);
-
-    // Set default times
-    _startTime = const TimeOfDay(hour: 8, minute: 0); // 08:00 AM
-    _endTime = const TimeOfDay(hour: 8, minute: 30); // 08:00 PM
+    _resetScheduleDefaults();
   }
 
   @override
@@ -162,6 +155,13 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     _mobileCtrl.dispose();
     _emailCtrl.dispose();
     super.dispose();
+  }
+
+  void _resetScheduleDefaults() {
+    final now = DateTime.now();
+    _selectedDate = DateTime(now.year, now.month, now.day);
+    _startTime = const TimeOfDay(hour: 8, minute: 0);
+    _endTime = const TimeOfDay(hour: 8, minute: 30);
   }
 
   Future<void> _loadServices() async {
@@ -482,6 +482,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _clientlNameCtrl.text = lastName;
       _mobileCtrl.text = fullPhone.isNotEmpty ? fullPhone : phoneDigits;
       _emailCtrl.text = (customer['email'] ?? '').toString();
+      _serviceError = null;
     });
 
     if (resolvedUserId != null) {
@@ -501,7 +502,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _cartItemIdByService.clear();
       _selectedServiceId = null;
       _serviceError = null;
-      _syncEndTimeWithDuration();
+      _resetScheduleDefaults();
     });
   }
 
@@ -2225,12 +2226,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                                 onToggle: (service) {
                                   final id = service['id'];
                                   if (id is! int) return;
+                                  if (pendingIds.contains(id)) {
+                                    _showError(translateText(
+                                      'This item is already present in your cart',
+                                    ));
+                                    return;
+                                  }
                                   setSheetState(() {
-                                    if (pendingIds.contains(id)) {
-                                      pendingIds.remove(id);
-                                    } else {
-                                      pendingIds.add(id);
-                                    }
+                                    pendingIds.add(id);
                                   });
                                 },
                               );
@@ -2847,7 +2850,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final userId = _selectedCustomerId;
     if (branchId == null || userId == null) return;
 
-    setState(() => _loadingCart = true);
+    if (mounted) {
+      setState(() => _loadingCart = true);
+    }
     try {
       final response = await ApiService().getBranchCart(
         branchId: branchId,
@@ -2864,7 +2869,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           await _syncSelectedServicesToCart();
         } else if (mounted) {
           setState(() {
-            _selectedServices = const [];
+            _selectedServices = [];
             _selectedServiceId = null;
             _syncEndTimeWithDuration();
           });
@@ -2884,58 +2889,62 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
   }
 
-  void _updateLocalServiceQty(int serviceId, int qty) {
-    setState(() {
-      for (final service in _selectedServices) {
-        if (service['id'] == serviceId) {
-          service['qty'] = qty;
-          break;
-        }
-      }
-      _syncEndTimeWithDuration();
-    });
-  }
+  Future<void> _showCustomerCartDialog() async {
+    if (!_hasCustomerDetails) return;
 
-  Future<void> _changeCartItemQuantity({
-    required int serviceId,
-    required int nextQty,
-  }) async {
-    final branchId = widget.branchId;
-    final itemId = _cartItemIdByService[serviceId];
-    if (branchId == null || itemId == null) return;
+    await _loadCartForSelectedCustomer();
+    if (!mounted) return;
 
-    if (nextQty <= 0) {
-      final response = await ApiService().deleteCartItem(
-        branchId: branchId,
-        itemId: itemId,
-      );
-      if (response['success'] == false) {
-        throw Exception(response['message'] ?? 'Failed to remove cart item');
-      }
-      _cartItemIdByService.remove(serviceId);
-      setState(() {
-        _selectedServices.removeWhere((service) => service['id'] == serviceId);
-        _professionalByService.remove(serviceId);
-        if (_selectedServiceId == serviceId) {
-          _selectedServiceId = _selectedServices.isEmpty
-              ? null
-              : _selectedServices.first['id'] as int;
-        }
-        _syncEndTimeWithDuration();
-      });
-      return;
-    }
-
-    final response = await ApiService().updateCartItem(
-      branchId: branchId,
-      itemId: itemId,
-      qty: nextQty,
-      notes: '',
+    await showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: translateText('Customer Cart'),
+      barrierColor: const Color(0x66000000),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (dialogContext, _, __) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 24,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: 520,
+                      maxHeight: MediaQuery.of(context).size.height * 0.82,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: SingleChildScrollView(
+                        child: _buildSelectedServicesSection(
+                          onClose: () => Navigator.pop(dialogContext),
+                          onChanged: () => setDialogState(() {}),
+                          showBranchTimingNote: false,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      transitionBuilder: (_, animation, __, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.96, end: 1).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            ),
+            child: child,
+          ),
+        );
+      },
     );
-    if (response['success'] == false) {
-      throw Exception(response['message'] ?? 'Failed to update cart item');
-    }
-    _updateLocalServiceQty(serviceId, nextQty);
   }
 
   Future<void> _removeStaleCartItemsFromResponse(
@@ -3360,290 +3369,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  Future<void> _showCartSheet() async {
-    final branchId = widget.branchId;
-    final userId = _selectedCustomerId;
-    if (branchId == null || userId == null) return;
-
-    await _loadCartForSelectedCustomer();
-    if (!mounted) return;
-
-    final cartServices = _selectedServices
-        .map((service) => Map<String, dynamic>.from(service))
-        .toList();
-    int? pendingServiceId;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            num sheetTotal() {
-              return cartServices.fold<num>(0, (sum, service) {
-                final qty = _intValue(service['qty']) ?? 1;
-                final price = _servicePrice(service) ?? 0;
-                return sum + (price * qty);
-              });
-            }
-
-            Future<void> changeQty(int serviceId, int delta) async {
-              final index = cartServices.indexWhere(
-                (service) => service['id'] == serviceId,
-              );
-              if (index == -1) return;
-              final currentQty = _intValue(cartServices[index]['qty']) ?? 1;
-              final nextQty = currentQty + delta;
-
-              setSheetState(() => pendingServiceId = serviceId);
-              try {
-                await _changeCartItemQuantity(
-                  serviceId: serviceId,
-                  nextQty: nextQty,
-                );
-                if (!mounted) return;
-                setSheetState(() {
-                  if (nextQty <= 0) {
-                    cartServices.removeAt(index);
-                  } else {
-                    cartServices[index]['qty'] = nextQty;
-                  }
-                });
-              } catch (e) {
-                if (!sheetContext.mounted) return;
-                ScaffoldMessenger.of(sheetContext).showSnackBar(
-                  SnackBar(content: Text(_extractApiErrorMessage(e))),
-                );
-              } finally {
-                if (sheetContext.mounted) {
-                  setSheetState(() => pendingServiceId = null);
-                }
-              }
-            }
-
-            return SafeArea(
-              child: Container(
-                margin: const EdgeInsets.only(top: 56),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            translateText('Customer Cart'),
-                            style: const TextStyle(
-                              color: _bookingInk,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            onPressed: () => Navigator.pop(sheetContext),
-                            icon: const Icon(Icons.close_rounded),
-                            color: _bookingMuted,
-                          ),
-                        ],
-                      ),
-                      Text(
-                        translateText(
-                          'Review services and adjust quantity before scheduling.',
-                        ),
-                        style: const TextStyle(
-                          color: _bookingMuted,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (cartServices.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 24),
-                          child: Center(
-                            child: Text(
-                              translateText('No services in cart yet.'),
-                              style: const TextStyle(
-                                color: _bookingMuted,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight:
-                                MediaQuery.of(sheetContext).size.height * 0.5,
-                          ),
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: cartServices.length,
-                            separatorBuilder: (_, __) => const Divider(
-                                height: 20, color: _bookingBorder),
-                            itemBuilder: (context, index) {
-                              final service = cartServices[index];
-                              final serviceId = _intValue(service['id']) ?? 0;
-                              final qty = _intValue(service['qty']) ?? 1;
-                              final price = _servicePrice(service) ?? 0;
-                              final isBusy = pendingServiceId == serviceId;
-
-                              return Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          (service['name'] ?? '').toString(),
-                                          style: const TextStyle(
-                                            color: _bookingInk,
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _formatServicePrice(price * qty),
-                                          style: const TextStyle(
-                                            color: _bookingGold,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: _bookingFieldFill,
-                                      borderRadius: BorderRadius.circular(999),
-                                      border: Border.all(color: _bookingBorder),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        IconButton(
-                                          onPressed: isBusy
-                                              ? null
-                                              : () => changeQty(serviceId, -1),
-                                          icon: const Icon(
-                                            Icons.remove_rounded,
-                                            size: 18,
-                                          ),
-                                          color: _bookingInk,
-                                        ),
-                                        SizedBox(
-                                          width: 28,
-                                          child: Text(
-                                            '$qty',
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                              color: _bookingInk,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                        ),
-                                        IconButton(
-                                          onPressed: isBusy
-                                              ? null
-                                              : () => changeQty(serviceId, 1),
-                                          icon: const Icon(
-                                            Icons.add_rounded,
-                                            size: 18,
-                                          ),
-                                          color: _bookingInk,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                      const SizedBox(height: 18),
-                      Row(
-                        children: [
-                          Text(
-                            translateText('Total'),
-                            style: const TextStyle(
-                              color: _bookingMuted,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            _formatServicePrice(sheetTotal()),
-                            style: const TextStyle(
-                              color: _bookingGold,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildMobileCartButton() {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: OutlinedButton.icon(
-        onPressed: _loadingCart ? null : _showCartSheet,
-        icon: _loadingCart
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.shopping_bag_outlined, size: 18),
-        label: Text(
-          translateText(
-            _selectedServices.isEmpty
-                ? 'Open Cart'
-                : 'Open Cart (${_selectedServices.length})',
-          ),
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: _bookingGold,
-          side: const BorderSide(color: _bookingGold),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final showMobileCartButton =
-        _hasCustomerDetails && MediaQuery.of(context).size.width < 720;
     return Scaffold(
       backgroundColor: const Color(0xFFFBFAF8),
       appBar: buildProfileSubpageAppBar(
@@ -3675,9 +3402,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                     onClear:
                         _hasCustomerDetails ? _clearCustomerSelection : null,
                   ),
-                  if (showMobileCartButton) ...[
-                    const SizedBox(height: 12),
-                    _buildMobileCartButton(),
+                  if (_hasCustomerDetails) ...[
+                    const SizedBox(height: 14),
+                    _buildCustomerCartButton(),
                   ],
                   const SizedBox(height: 20),
                   _sectionLabel('Services *'),
@@ -3686,12 +3413,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                     title: _selectedServices.isEmpty
                         ? translateText('Choose salon services')
                         : _selectedServicesSummaryLabel(),
-                    subtitle: _selectedServices.isEmpty
-                        ? translateText('Select services and team members')
-                        : translateText(
-                            '${_selectedServices.fold<int>(0, (sum, service) => sum + (_intValue(service['qty']) ?? 1))} service(s) selected',
-                          ),
-                    onTap: _loadingServices || _svcTree.isEmpty
+                    subtitle: !_hasCustomerDetails
+                        ? translateText('Select customer first')
+                        : _selectedServices.isEmpty
+                            ? translateText('Select services and team members')
+                            : translateText(
+                                '${_selectedServices.fold<int>(0, (sum, service) => sum + (_intValue(service['qty']) ?? 1))} service(s) selected',
+                              ),
+                    onTap: !_hasCustomerDetails ||
+                            _loadingServices ||
+                            _svcTree.isEmpty
                         ? null
                         : _showServicePicker,
                     trailingIcon: Icons.content_cut_rounded,
@@ -3699,7 +3430,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                   if (_serviceError != null) _errorText(_serviceError!),
                   if (_selectedServices.isNotEmpty) ...[
                     const SizedBox(height: 18),
-                    _buildSelectedServicesSection(),
+                    _buildInlineSelectedServicesSection(),
                   ],
                   const SizedBox(height: 24),
                   SizedBox(
@@ -3802,8 +3533,101 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     VoidCallback? onClear,
     IconData? trailingIcon,
   }) {
+    final enabled = onTap != null;
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+        decoration: BoxDecoration(
+          color: enabled ? Colors.white : const Color(0xFFF7F4F3),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: _bookingBorder),
+          boxShadow: enabled
+              ? const [
+                  BoxShadow(
+                    color: Color(0x06000000),
+                    blurRadius: 14,
+                    offset: Offset(0, 8),
+                  ),
+                ]
+              : const [],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color:
+                    enabled ? const Color(0xFFF5EAD2) : const Color(0xFFEDE7E2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: enabled ? _bookingGold : _bookingMuted,
+                size: 19,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: enabled ? _bookingGold : _bookingMuted,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: enabled
+                          ? _bookingMuted
+                          : _bookingMuted.withValues(alpha: .9),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onClear != null)
+              IconButton(
+                onPressed: onClear,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                color: _bookingMuted,
+                splashRadius: 18,
+              )
+            else
+              Icon(
+                trailingIcon ?? Icons.chevron_right_rounded,
+                color: enabled ? _bookingGold : _bookingMuted,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomerCartButton() {
+    final cartCount = _selectedServices.fold<int>(
+      0,
+      (sum, service) => sum + (_intValue(service['qty']) ?? 1),
+    );
+
+    return InkWell(
+      onTap: _loadingCart ? null : _showCustomerCartDialog,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         width: double.infinity,
@@ -3829,7 +3653,19 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 color: Color(0xFFF5EAD2),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: _bookingGold, size: 19),
+              child: _loadingCart
+                  ? const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: _bookingGold,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.shopping_bag_rounded,
+                      color: _bookingGold,
+                      size: 21,
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -3837,57 +3673,164 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    translateText('Open Cart'),
                     style: const TextStyle(
                       color: _bookingGold,
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    cartCount > 0
+                        ? translateText('$cartCount item(s) in customer cart')
+                        : translateText('Tap to review the customer cart'),
                     style: const TextStyle(
                       color: _bookingMuted,
                       fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            if (onClear != null)
-              IconButton(
-                onPressed: onClear,
-                icon: const Icon(Icons.close_rounded, size: 18),
-                color: _bookingMuted,
-                splashRadius: 18,
-              )
-            else
-              Icon(
-                trailingIcon ?? Icons.chevron_right_rounded,
+            Text(
+              cartCount > 0 ? '$cartCount' : '--',
+              style: const TextStyle(
                 color: _bookingGold,
-                size: 20,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
               ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSelectedServicesSection() {
+  Widget _buildSelectedServicesSection({
+    required VoidCallback onClose,
+    required VoidCallback onChanged,
+    bool showBranchTimingNote = true,
+  }) {
     return _bookingPanel(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  translateText('Customer Cart'),
+                  style: const TextStyle(
+                    color: _bookingInk,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: onClose,
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: _bookingGold,
+                ),
+                splashRadius: 18,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_selectedServices.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 22, 16, 22),
+              decoration: BoxDecoration(
+                color: _bookingFieldFill,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _bookingBorder),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    translateText('No cart items yet'),
+                    style: const TextStyle(
+                      color: _bookingInk,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    translateText(
+                      'Open cart after selecting services.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _bookingMuted,
+                      fontSize: 11,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            for (var index = 0; index < _selectedServices.length; index++) ...[
+              _selectedServiceSummaryRow(
+                _selectedServices[index],
+                onRemoved: onChanged,
+              ),
+              if (index != _selectedServices.length - 1)
+                const Divider(height: 24, color: _bookingBorder),
+            ],
+            const Divider(height: 26, color: _bookingBorder),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    translateText(
+                      '${_selectedServices.length} ${_selectedServices.length == 1 ? 'Service' : 'Services'} selected',
+                    ),
+                    style: const TextStyle(
+                      color: _bookingMuted,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${translateText('Total')}: ${_formatServicePrice(_selectedTotalPrice())}',
+                  style: const TextStyle(
+                    color: _bookingGold,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (showBranchTimingNote) ...[
+            const SizedBox(height: 18),
+            _branchTimingNote(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInlineSelectedServicesSection() {
+    return _bookingPanel(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var index = 0; index < _selectedServices.length; index++) ...[
             _selectedServiceSummaryRow(_selectedServices[index]),
             if (index != _selectedServices.length - 1)
-              const Divider(height: 22, color: _bookingBorder),
+              const Divider(height: 24, color: _bookingBorder),
           ],
           const Divider(height: 26, color: _bookingBorder),
           Row(
@@ -3922,7 +3865,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     );
   }
 
-  Widget _selectedServiceSummaryRow(Map<String, dynamic> service) {
+  Widget _selectedServiceSummaryRow(
+    Map<String, dynamic> service, {
+    VoidCallback? onRemoved,
+  }) {
     final id = service['id'] as int;
     final name = (service['name'] ?? '').toString();
     final duration = _serviceDurationMinutes(service);
@@ -3942,7 +3888,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: _bookingInk,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -3957,14 +3903,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
                   color: _bookingInk,
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  fontFamily: 'monospace',
                 ),
               ),
             ],
           ),
         ),
         InkWell(
-          onTap: () async => _removeSelectedService(id),
+          onTap: () async {
+            await _removeSelectedService(id);
+            onRemoved?.call();
+          },
           borderRadius: BorderRadius.circular(999),
           child: const Padding(
             padding: EdgeInsets.all(5),
@@ -4417,10 +4365,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
 
     if (branchId != null && itemId != null) {
       try {
-        final response = await ApiService().deleteCartItem(
+        var response = await ApiService().deleteCartItem(
           branchId: branchId,
           itemId: itemId,
         );
+        if (response['success'] == false &&
+            response['statusCode'] == 404 &&
+            itemId != id) {
+          response = await ApiService().deleteCartItem(
+            branchId: branchId,
+            itemId: id,
+          );
+        }
         if (response['success'] == false) {
           throw Exception(response['message'] ?? 'Failed to remove cart item');
         }

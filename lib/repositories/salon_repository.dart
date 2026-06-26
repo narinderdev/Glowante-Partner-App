@@ -101,55 +101,28 @@ class SalonRepository {
     final resolvedImageUrl =
         resolvedImageUrls.isEmpty ? null : resolvedImageUrls.first;
 
-    // Helper to join non-empty parts with ", "
-    String joinNonEmpty(List<String> parts) =>
-        parts.where((s) => s.trim().isNotEmpty).map((s) => s.trim()).join(', ');
-    String composeLine1(String baseAddress, List<String> leadingParts) {
-      final cleanLeadingParts = leadingParts
-          .map((part) => part.trim())
-          .where((part) => part.isNotEmpty)
-          .toList();
-      if (baseAddress.trim().isEmpty) return cleanLeadingParts.join(', ');
-      if (cleanLeadingParts.isEmpty) return baseAddress.trim();
-      final leadingPartsLower =
-          cleanLeadingParts.map((part) => part.toLowerCase()).toSet();
-      final baseParts = baseAddress
-          .split(',')
-          .map((part) => part.trim())
-          .where((part) =>
-              part.isNotEmpty &&
-              !leadingPartsLower.contains(part.toLowerCase()))
-          .toList();
-      return [...cleanLeadingParts, ...baseParts].join(', ');
-    }
-
     final completeAddress = buildingName.trim();
-    final scoFlatHouse = city.trim();
-    final streetSector = pincode.trim();
-
-    final line2 = joinNonEmpty([scoFlatHouse, streetSector]);
-    final line1 = composeLine1(completeAddress, [scoFlatHouse, streetSector]);
     final body = <String, dynamic>{
       'name': name,
       'phone': phone,
       'startTime': startTime,
       'endTime': endTime,
       'description': description,
-      'openingBufferMinutes': openingBufferMinutes,
-      'lastBookingBufferMinutes': lastBookingBufferMinutes,
-      'lastSlotOverflowGraceMinutes': lastSlotOverflowGraceMinutes,
+      'OPENING_BUFFER_MINUTES': openingBufferMinutes,
+      'LAST_BOOKING_BUFFER_MINUTES': lastBookingBufferMinutes,
+      'LAST_SLOT_OVERFLOW_GRACE_MINUTES': lastSlotOverflowGraceMinutes,
       'imageUrl': resolvedImageUrl,
       'imageUrls': resolvedImageUrls,
       'schedule': schedule,
       'address': {
-        'line1': line1.isEmpty ? completeAddress : line1,
-        'line2': line2,
+        'line1': completeAddress,
+        'line2': '',
         'village': '',
         'district': '',
-        'city': '', // leave blank unless you parse it
-        'state': '', // leave blank unless you parse it
+        'city': city.trim(),
+        'state': state.trim(),
         'country': 'India',
-        'postalCode': '', // leave blank unless you parse a real PIN
+        'postalCode': pincode.trim(),
         'latitude': latitude,
         'longitude': longitude,
       },
@@ -244,9 +217,9 @@ class SalonRepository {
       'endTime': endTime,
       'phone': phone,
       'description': description,
-      'openingBufferMinutes': openingBufferMinutes,
-      'lastBookingBufferMinutes': lastBookingBufferMinutes,
-      'lastSlotOverflowGraceMinutes': lastSlotOverflowGraceMinutes,
+      'OPENING_BUFFER_MINUTES': openingBufferMinutes,
+      'LAST_BOOKING_BUFFER_MINUTES': lastBookingBufferMinutes,
+      'LAST_SLOT_OVERFLOW_GRACE_MINUTES': lastSlotOverflowGraceMinutes,
       'imageUrl': resolvedImageUrl,
       'imageUrls': resolvedImageUrls,
       'schedule': schedule,
@@ -290,11 +263,11 @@ class SalonRepository {
       'endTime': endTime,
       'description': description,
       if (openingBufferMinutes != null)
-        'openingBufferMinutes': openingBufferMinutes,
+        'OPENING_BUFFER_MINUTES': openingBufferMinutes,
       if (lastBookingBufferMinutes != null)
-        'lastBookingBufferMinutes': lastBookingBufferMinutes,
+        'LAST_BOOKING_BUFFER_MINUTES': lastBookingBufferMinutes,
       if (lastSlotOverflowGraceMinutes != null)
-        'lastSlotOverflowGraceMinutes': lastSlotOverflowGraceMinutes,
+        'LAST_SLOT_OVERFLOW_GRACE_MINUTES': lastSlotOverflowGraceMinutes,
       if (schedule != null) 'schedule': _openDaySchedulePayload(schedule),
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
@@ -334,11 +307,11 @@ class SalonRepository {
       'endTime': endTime,
       'description': description,
       if (openingBufferMinutes != null)
-        'openingBufferMinutes': openingBufferMinutes,
+        'OPENING_BUFFER_MINUTES': openingBufferMinutes,
       if (lastBookingBufferMinutes != null)
-        'lastBookingBufferMinutes': lastBookingBufferMinutes,
+        'LAST_BOOKING_BUFFER_MINUTES': lastBookingBufferMinutes,
       if (lastSlotOverflowGraceMinutes != null)
-        'lastSlotOverflowGraceMinutes': lastSlotOverflowGraceMinutes,
+        'LAST_SLOT_OVERFLOW_GRACE_MINUTES': lastSlotOverflowGraceMinutes,
       if (schedule != null) 'schedule': _openDaySchedulePayload(schedule),
       if (selectedCategoryCodes != null)
         'selectedCategoryCodes': selectedCategoryCodes,
