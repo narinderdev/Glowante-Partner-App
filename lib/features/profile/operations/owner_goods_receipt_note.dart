@@ -83,6 +83,11 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
     setState(() => _lines = next);
   }
 
+  int _remainingToReceive(_GrnLineInput line) {
+    final remaining = line.orderedQty - line.receivedSoFarQty;
+    return remaining < 0 ? 0 : remaining;
+  }
+
   Future<void> _submit() async {
     setState(() {
       _autoValidateMode = AutovalidateMode.onUserInteraction;
@@ -278,16 +283,18 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                               keyboardType: TextInputType.number,
                               decoration: InputDecoration(
                                 labelText: context.t('Received Qty'),
+                                helperText:
+                                    '${_remainingToReceive(line)} ${context.t('left')}',
                               ),
                               validator: (value) {
                                 final qty = _toInt(value);
                                 if (qty == null || qty <= 0) {
                                   return context.t('Received Qty is required');
                                 }
-                                if (line.orderedQty > 0 &&
-                                    qty > line.orderedQty) {
+                                final remaining = _remainingToReceive(line);
+                                if (qty > remaining) {
                                   return context.t(
-                                    'Received Qty cannot be greater than Ordered Qty',
+                                    "Can't be greater than $remaining",
                                   );
                                 }
                                 return null;
@@ -308,12 +315,15 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                               decoration: InputDecoration(
                                 labelText: context.t('Return Qty'),
                               ),
+                              validator: (value) {
+                                final qty = _toInt(value) ?? 0;
+                                if (qty < 0) {
+                                  return context.t('Must be >= 0');
+                                }
+                                return null;
+                              },
                               onChanged: (_) {
                                 _clearSubmitError();
-                                if (_autoValidateMode !=
-                                    AutovalidateMode.disabled) {
-                                  _formKey.currentState?.validate();
-                                }
                               },
                             ),
                             const SizedBox(height: 12),
@@ -334,10 +344,6 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                               },
                               onChanged: (_) {
                                 _clearSubmitError();
-                                if (_autoValidateMode !=
-                                    AutovalidateMode.disabled) {
-                                  _formKey.currentState?.validate();
-                                }
                               },
                             ),
                             Align(
@@ -406,6 +412,7 @@ class _GrnLineInput {
     this.itemId,
     this.itemLabel = '',
     this.orderedQty = 0,
+    this.receivedSoFarQty = 0,
     String receivedQty = '',
     String returnQty = '',
     String returnReason = '',
@@ -423,6 +430,7 @@ class _GrnLineInput {
         fallback: 'Item',
       ),
       orderedQty: _toInt(line['orderedQty'] ?? line['quantity']) ?? 0,
+      receivedSoFarQty: _toInt(line['receivedQty']) ?? 0,
     );
   }
 
@@ -430,6 +438,7 @@ class _GrnLineInput {
   int? itemId;
   String itemLabel;
   int orderedQty;
+  int receivedSoFarQty;
   final TextEditingController receivedQtyController;
   final TextEditingController returnQtyController;
   final TextEditingController returnReasonController;

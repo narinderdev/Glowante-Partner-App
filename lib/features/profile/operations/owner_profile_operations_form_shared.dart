@@ -74,6 +74,7 @@ class _FormCard extends StatelessWidget {
           const SizedBox(height: 18),
           Flexible(
             child: SingleChildScrollView(
+              padding: const EdgeInsets.only(top: 8),
               child: child,
             ),
           ),
