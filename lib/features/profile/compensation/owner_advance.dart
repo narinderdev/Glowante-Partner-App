@@ -507,28 +507,24 @@ class _AddAdvanceDialog extends StatefulWidget {
 }
 
 class _AddAdvanceDialogState extends State<_AddAdvanceDialog> {
-  late ProfileTeamMember _selectedMember;
+  final _formKey = GlobalKey<FormState>();
+  ProfileTeamMember? _selectedMember;
   late TextEditingController _amountController;
   late TextEditingController _referenceController;
   late TextEditingController _remarksController;
-  late DateTime _givenDate;
-  String _paymentMode = AdvancePaymentModes.googlePay;
+  DateTime? _givenDate;
+  String? _paymentMode;
   bool _isSaving = false;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   @override
-void initState() {
-  super.initState();
+  void initState() {
+    super.initState();
 
-  _selectedMember = widget.members.first;
-  _amountController = TextEditingController();
-  _referenceController = TextEditingController();
-  _remarksController = TextEditingController();
-
-  final now = DateTime.now();
-  _givenDate = DateTime(now.year, now.month, now.day);
-
-  debugPrint('[AddAdvanceDialog] default givenDate=$_givenDate');
-}
+    _amountController = TextEditingController();
+    _referenceController = TextEditingController();
+    _remarksController = TextEditingController();
+  }
 
   @override
   void dispose() {
@@ -538,37 +534,52 @@ void initState() {
     super.dispose();
   }
 
+  void _validateIfNeeded() {
+    if (_autoValidateMode != AutovalidateMode.disabled) {
+      _formKey.currentState?.validate();
+    }
+  }
+
   Future<void> _submit() async {
     if (_isSaving) {
       return;
     }
-    final amount = int.tryParse(_amountController.text.trim()) ?? 0;
-    if (amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a valid advance amount')),
-      );
+    setState(() {
+      _autoValidateMode = AutovalidateMode.onUserInteraction;
+    });
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-setState(() => _isSaving = true);
-try {
-  debugPrint('[AddAdvanceDialog] submit givenDate=$_givenDate');
 
-  await widget.onSave(
-    PayrollAdvanceRecord(
-      id: 0,
-      branchId: 0,
-      employeeId: _selectedMember.id,
-      employeeName: _selectedMember.name,
-      amount: rupeesToMinorAmount(amount),
-      remainingAmount: rupeesToMinorAmount(amount),
-      givenDate: _givenDate,
-      paymentMode: _paymentMode,
-      paymentReference: _referenceController.text.trim(),
-      status: 'ACTIVE',
-      remarks: _remarksController.text.trim(),
-      createdAt: DateTime.now(),
-    ),
-  );
+    final amount = int.parse(_amountController.text.trim());
+    final selectedMember = _selectedMember;
+    final paymentMode = _paymentMode;
+    final givenDate = _givenDate;
+    if (selectedMember == null || paymentMode == null || givenDate == null) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      debugPrint('[AddAdvanceDialog] submit givenDate=$givenDate');
+
+      await widget.onSave(
+        PayrollAdvanceRecord(
+          id: 0,
+          branchId: 0,
+          employeeId: selectedMember.id,
+          employeeName: selectedMember.name,
+          amount: rupeesToMinorAmount(amount),
+          remainingAmount: rupeesToMinorAmount(amount),
+          givenDate: givenDate,
+          paymentMode: paymentMode,
+          paymentReference: _referenceController.text.trim(),
+          status: 'ACTIVE',
+          remarks: _remarksController.text.trim(),
+          createdAt: DateTime.now(),
+        ),
+      );
       if (mounted) {
         Navigator.of(context).pop();
       }
@@ -581,92 +592,102 @@ try {
 
   @override
   Widget build(BuildContext context) {
-    final amount = int.tryParse(_amountController.text.trim()) ?? 0;
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       contentPadding: const EdgeInsets.all(18),
       content: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Add Advance',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1C1917),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: _autoValidateMode,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Add Advance',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF1C1917),
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Team member options come from the API. Saving will create an advance record.',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B7280),
+                          SizedBox(height: 4),
+                          Text(
+                            'Team member options come from the API. Saving will create an advance record.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed:
-                        _isSaving ? null : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<ProfileTeamMember>(
-                initialValue: _selectedMember,
-                decoration: const InputDecoration(
-                  labelText: 'Team Member',
-                  border: OutlineInputBorder(),
+                    IconButton(
+                      onPressed:
+                          _isSaving ? null : () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
                 ),
-                items: widget.members
-                    .map(
-                      (member) => DropdownMenuItem<ProfileTeamMember>(
-                        value: member,
-                        child: Text(member.name),
-                      ),
-                    )
-                    .toList(),
-                onChanged: _isSaving
-                    ? null
-                    : (value) {
-                        if (value != null) {
-                          setState(() => _selectedMember = value);
-                        }
-                      },
-              ),
-              const SizedBox(height: 12),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      maxLength: 10,
-                      controller: _amountController,
-                      enabled: !_isSaving,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Advance Amount',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
+                const SizedBox(height: 14),
+                DropdownButtonFormField<ProfileTeamMember>(
+                  initialValue: _selectedMember,
+                  decoration: const InputDecoration(
+                    labelText: 'Team Member *',
+                    border: OutlineInputBorder(),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
+                  validator: (value) => value == null
+                      ? 'Team member is required'
+                      : null,
+                  items: widget.members
+                      .map(
+                        (member) => DropdownMenuItem<ProfileTeamMember>(
+                          value: member,
+                          child: Text(member.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _isSaving
+                      ? null
+                      : (value) {
+                          setState(() => _selectedMember = value);
+                          _validateIfNeeded();
+                        },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  maxLength: 10,
+                  controller: _amountController,
+                  enabled: !_isSaving,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Advance Amount *',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    final amount = int.tryParse((value ?? '').trim());
+                    if (amount == null || amount <= 0) {
+                      return 'Enter a valid advance amount';
+                    }
+                    return null;
+                  },
+                  onChanged: (_) => _validateIfNeeded(),
+                ),
+                const SizedBox(height: 12),
+                FormField<DateTime>(
+                  initialValue: _givenDate,
+                  validator: (value) =>
+                      value == null ? 'Date is required' : null,
+                  builder: (field) {
+                    return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         InkWell(
@@ -675,278 +696,191 @@ try {
                               : () async {
                                   final date = await showDatePicker(
                                     context: context,
-                                    initialDate: _givenDate,
+                                    initialDate:
+                                        _givenDate ?? DateTime.now(),
                                     firstDate: DateTime(2020),
                                     lastDate: DateTime(2100),
                                   );
                                   if (date != null && mounted) {
                                     setState(() => _givenDate = date);
+                                    field.didChange(date);
+                                    _validateIfNeeded();
                                   }
                                 },
                           child: InputDecorator(
-                            decoration: const InputDecoration(
-                              labelText: 'Date',
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: 'Date *',
+                              border: const OutlineInputBorder(),
+                              errorText: field.errorText,
                             ),
                             child: Row(
                               children: [
                                 Expanded(
                                   child: Text(
-                                    DateFormat('dd/MM/yyyy').format(_givenDate),
+                                    _givenDate == null
+                                        ? 'Select date'
+                                        : DateFormat('dd/MM/yyyy')
+                                            .format(_givenDate!),
                                   ),
                                 ),
-                                const Icon(Icons.calendar_today_outlined,
-                                    size: 16),
+                                const Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 16,
+                                ),
                               ],
                             ),
                           ),
                         ),
-
-                        // Keeps Date field aligned with Advance Amount counter space.
-                        const SizedBox(height: 20),
                       ],
-                    ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: _paymentMode,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Payment Mode *',
+                    border: OutlineInputBorder(),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Row(
-              //   children: [
-              //     Expanded(
-              //       child: DropdownButtonFormField<String>(
-              //         initialValue: _paymentMode,
-              //         isExpanded: true,
-              //         decoration: const InputDecoration(
-              //           labelText: 'Payment Mode',
-              //           border: OutlineInputBorder(),
-              //         ),
-              //         items: AdvancePaymentModes.values
-              //             .map(
-              //               (mode) => DropdownMenuItem<String>(
-              //                 value: mode,
-              //                 child: Text(
-              //                   AdvancePaymentModes.label(mode),
-              //                   overflow: TextOverflow.ellipsis,
-              //                 ),
-              //               ),
-              //             )
-              //             .toList(),
-              //         selectedItemBuilder: (context) {
-              //           return AdvancePaymentModes.values
-              //               .map(
-              //                 (mode) => Align(
-              //                   alignment: Alignment.centerLeft,
-              //                   child: Text(
-              //                     AdvancePaymentModes.label(mode),
-              //                     overflow: TextOverflow.ellipsis,
-              //                     maxLines: 1,
-              //                   ),
-              //                 ),
-              //               )
-              //               .toList();
-              //         },
-              //         onChanged: _isSaving
-              //             ? null
-              //             : (value) {
-              //                 if (value != null) {
-              //                   setState(() => _paymentMode = value);
-              //                 }
-              //               },
-              //       ),
-              //     ),
-              //     const SizedBox(width: 12),
-              //     Expanded(
-              //       child: TextField(
-              //         maxLength: 120,
-              //         controller: _referenceController,
-              //         enabled: !_isSaving,
-              //         decoration: const InputDecoration(
-              //           labelText: 'Payment Reference',
-              //           hintText: 'Enter UPI / transaction reference',
-              //           border: OutlineInputBorder(),
-              //         ),
-              //       ),
-              //     ),
-              //   ],
-              // ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        DropdownButtonFormField<String>(
-                          initialValue: _paymentMode,
-                          isExpanded: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Payment Mode',
-                            border: OutlineInputBorder(),
+                  validator: (value) =>
+                      value == null ? 'Payment mode is required' : null,
+                  items: AdvancePaymentModes.values
+                      .map(
+                        (mode) => DropdownMenuItem<String>(
+                          value: mode,
+                          child: Text(
+                            AdvancePaymentModes.label(mode),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          items: AdvancePaymentModes.values
-                              .map(
-                                (mode) => DropdownMenuItem<String>(
-                                  value: mode,
-                                  child: Text(
-                                    AdvancePaymentModes.label(mode),
-                                    overflow: TextOverflow.ellipsis,
+                        ),
+                      )
+                      .toList(),
+                  selectedItemBuilder: (context) {
+                    return AdvancePaymentModes.values
+                        .map(
+                          (mode) => Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              AdvancePaymentModes.label(mode),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                          ),
+                        )
+                        .toList();
+                  },
+                  onChanged: _isSaving
+                      ? null
+                      : (value) {
+                          setState(() => _paymentMode = value);
+                          _validateIfNeeded();
+                        },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  maxLength: 120,
+                  controller: _referenceController,
+                  enabled: !_isSaving,
+                  decoration: const InputDecoration(
+                    labelText: 'Payment Reference *',
+                    hintText: 'Enter UPI / transaction reference',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Payment reference is required';
+                    }
+                    return null;
+                  },
+                  onChanged: (_) => _validateIfNeeded(),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  maxLength: 120,
+                  controller: _remarksController,
+                  enabled: !_isSaving,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    labelText: 'Remarks',
+                    hintText: 'Optional remarks',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFAF7F2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Preview: ${_selectedMember?.name ?? 'Select team member'} • ${formatRupeeAmount(int.tryParse(_amountController.text.trim()) ?? 0, trimZeroDecimals: true)} on ${_givenDate == null ? 'Select date' : DateFormat('dd MMM yyyy').format(_givenDate!)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF78716C),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      height: 44,
+                      child: OutlinedButton(
+                        onPressed: _isSaving
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 150,
+                      height: 44,
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.starColor,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(0, 44),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        child: _isSaving
+                            ? const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  SizedBox(width: 8),
+                                  Text('Saving...'),
+                                ],
                               )
-                              .toList(),
-                          selectedItemBuilder: (context) {
-                            return AdvancePaymentModes.values
-                                .map(
-                                  (mode) => Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Text(
-                                      AdvancePaymentModes.label(mode),
-                                      overflow: TextOverflow.ellipsis,
-                                      maxLines: 1,
-                                    ),
-                                  ),
-                                )
-                                .toList();
-                          },
-                          onChanged: _isSaving
-                              ? null
-                              : (value) {
-                                  if (value != null) {
-                                    setState(() => _paymentMode = value);
-                                  }
-                                },
-                        ),
-
-                        // Keeps Payment Mode aligned with Payment Reference counter space.
-                        const SizedBox(height: 20),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      maxLength: 120,
-                      controller: _referenceController,
-                      enabled: !_isSaving,
-                      decoration: const InputDecoration(
-                        labelText: 'Payment Reference',
-                        hintText: 'Enter UPI / transaction reference',
-                        border: OutlineInputBorder(),
+                            : const Text('Save Advance'),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                maxLength: 120,
-                controller: _remarksController,
-                enabled: !_isSaving,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Remarks',
-                  hintText: 'Optional remarks',
-                  border: OutlineInputBorder(),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFAF7F2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  'Preview: ${_selectedMember.name} • ${formatRupeeAmount(amount > 0 ? amount : 0, trimZeroDecimals: true)} on ${DateFormat('dd MMM yyyy').format(_givenDate)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF78716C),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  SizedBox(
-                    height: 44,
-                    child: OutlinedButton(
-                      onPressed:
-                          _isSaving ? null : () => Navigator.of(context).pop(),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // ElevatedButton(
-                  //   onPressed: _submit,
-                  //   style: ElevatedButton.styleFrom(
-                  //     backgroundColor: AppColors.starColor,
-                  //     foregroundColor: Colors.white,
-                  //   ),
-                  //   child: _isSaving
-                  //       ? const Row(
-                  //           mainAxisSize: MainAxisSize.min,
-                  //           children: [
-                  //             SizedBox(
-                  //               width: 16,
-                  //               height: 16,
-                  //               child: CircularProgressIndicator(
-                  //                 strokeWidth: 2,
-                  //                 valueColor: AlwaysStoppedAnimation<Color>(
-                  //                   Colors.white,
-                  //                 ),
-                  //               ),
-                  //             ),
-                  //             SizedBox(width: 8),
-                  //             Text('Saving...'),
-                  //           ],
-                  //         )
-                  //       : const Text('Save Advance'),
-                  // ),
-                  SizedBox(
-                    width: 150,
-                    height: 44,
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.starColor,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(0, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: _isSaving
-                          ? const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 8),
-                                Text('Saving...'),
-                              ],
-                            )
-                          : const Text('Save Advance'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
