@@ -31,6 +31,8 @@ class AddTeamChooseTimeSlot extends StatefulWidget {
 }
 
 class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
+  static const int _maxSlotsPerDay = 3;
+
   late Map<String, List<Map<String, String>>> weeklySchedule;
   late Map<String, List<Map<String, String>>> mondaySchedule;
 
@@ -644,6 +646,18 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       return;
     }
 
+    final currentCount = weeklySchedule[day]?.length ?? 0;
+    if (currentCount >= _maxSlotsPerDay) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('You can add up to $_maxSlotsPerDay slots per day.'),
+          ),
+        ),
+      );
+      return;
+    }
+
     final nextSlot = _nextAvailableSlotForDay(day);
 
     if (nextSlot == null) {
@@ -1044,7 +1058,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
                   ),
                 for (var index = 0; index < slots.length; index++)
                   _weeklySlotRow(day, index),
-                if (!_useSalonHours)
+                if (!_useSalonHours && slots.length < _maxSlotsPerDay)
                   Align(
                     alignment: Alignment.centerRight,
                     child: _addSlotButton(day),
@@ -1225,8 +1239,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "schedules": scheduleData,
         "useSalonHours": _useSalonHours,
         "experience": int.tryParse(
-  widget.formData['experience']?.toString() ?? '',
-) ?? 0,
+              widget.formData['experience']?.toString() ?? '',
+            ) ??
+            0,
         "otp": widget.formData['otp']?.toString(),
       };
 
@@ -1305,9 +1320,10 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         "userBranchServices": widget.formData['userBranchServices'] ?? const [],
         "address": widget.formData['address'],
         "branchId": widget.formData['branchId'],
-         "experience": int.tryParse(
-    widget.formData['experience']?.toString() ?? '',
-  ) ?? 0,
+        "experience": int.tryParse(
+              widget.formData['experience']?.toString() ?? '',
+            ) ??
+            0,
         "profilePictureUrl": widget.formData['profilePictureUrl'],
         "profileImage": widget.formData['profileImage'],
       };

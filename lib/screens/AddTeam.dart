@@ -253,6 +253,53 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         : null;
   }
 
+  void _clearPhoneValidation() {
+    if (!mounted) return;
+    setState(() {
+      _suppressPhoneError = true;
+      _suppressVerifyError = true;
+    });
+  }
+
+  void _clearFirstNameValidation() {
+    if (!mounted) return;
+    setState(() => _suppressFirstNameError = true);
+  }
+
+  void _clearLastNameValidation() {
+    if (!mounted) return;
+    setState(() => _suppressLastNameError = true);
+  }
+
+  void _clearEmailValidation() {
+    if (!mounted) return;
+    setState(() => _suppressEmailError = true);
+  }
+
+  void _setGender(String value) {
+    if (!mounted) return;
+    setState(() {
+      _gender = value;
+      _suppressGenderError = true;
+    });
+    _refreshValidationIfNeeded();
+  }
+
+  void _clearExperienceValidation() {
+    if (!mounted) return;
+    setState(() => _suppressExperienceError = true);
+  }
+
+  void _clearBriefValidation() {
+    if (!mounted) return;
+    setState(() => _suppressBriefError = true);
+  }
+
+  void _refreshValidationIfNeeded() {
+    if (!mounted || !_showGlobalErrors) return;
+    _formKey.currentState?.validate();
+  }
+
   Future<void> _fetchRolesAndSpecializations() async {
     try {
       final data = await ApiService().getRolesAndSpecializations(
@@ -1066,6 +1113,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
         _joiningDate = res;
         _suppressDateError = true;
       });
+      _refreshValidationIfNeeded();
     }
   }
 
@@ -1151,13 +1199,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         target
                           ..clear()
                           ..addAll(temp);
-
-                        if (identical(target, _selectedRoles)) {
-                          _suppressRolesError = true;
-                        } else if (identical(target, _selectedSpecs)) {
-                          _suppressSpecsError = true;
+                        if (target.isNotEmpty) {
+                          if (identical(target, _selectedRoles)) {
+                            _suppressRolesError = true;
+                          } else if (identical(target, _selectedSpecs)) {
+                            _suppressSpecsError = true;
+                          }
                         }
                       });
+                      _refreshValidationIfNeeded();
 
                       Navigator.pop(ctx);
                     },
@@ -1836,6 +1886,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
   Widget _addressField() {
     final hasAddress = _selectedAddress != null &&
         _addressDisplayText(_selectedAddress!).trim().isNotEmpty;
+    final hasError = _showGlobalErrors && _vAddress() != null;
 
     final displayAddress = hasAddress
         ? _addressDisplayText(_selectedAddress!)
@@ -1857,9 +1908,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: const Color(0xFFD3A94C),
+                color: hasError ? AppColors.red : const Color(0xFFD3A94C),
                 width: 1,
               ),
+              boxShadow: hasError
+                  ? [
+                      BoxShadow(
+                        color: AppColors.red.withValues(alpha: 0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : const [],
             ),
             child: Row(
               children: [
@@ -2168,19 +2228,15 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         ),
                         validator: _vPhone,
                         onChanged: (_) {
-                          if (!_suppressPhoneError || !_suppressVerifyError) {
-                            setState(() {
-                              _suppressPhoneError = true;
-                              _suppressVerifyError = true;
-                            });
-                          }
+                          _clearPhoneValidation();
+                          _refreshValidationIfNeeded();
                         },
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(10),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
                       if (_phoneVerified && !widget.isEdit)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
@@ -2209,7 +2265,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                                 )
                               : const SizedBox.shrink(),
                         ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
                       _reqLabel(translateText('First Name')),
                       const SizedBox(height: 8),
                       TextFormField(
@@ -2223,13 +2279,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         autovalidateMode: _showGlobalErrors
                             ? AutovalidateMode.onUserInteraction
                             : AutovalidateMode.disabled,
-                        decoration:
-                            _decor(hint: translateText('Enter first name')),
+                        decoration: _decor(
+                          hint: translateText('Enter first name'),
+                        ),
                         validator: _vFirstName,
                         onChanged: (_) {
-                          if (!_suppressFirstNameError) {
-                            setState(() => _suppressFirstNameError = true);
-                          }
+                          _clearFirstNameValidation();
+                          _refreshValidationIfNeeded();
                         },
                       ),
                       const SizedBox(height: 16),
@@ -2246,13 +2302,13 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         autovalidateMode: _showGlobalErrors
                             ? AutovalidateMode.onUserInteraction
                             : AutovalidateMode.disabled,
-                        decoration:
-                            _decor(hint: translateText('Enter last name')),
+                        decoration: _decor(
+                          hint: translateText('Enter last name'),
+                        ),
                         validator: _vLastName,
                         onChanged: (_) {
-                          if (!_suppressLastNameError) {
-                            setState(() => _suppressLastNameError = true);
-                          }
+                          _clearLastNameValidation();
+                          _refreshValidationIfNeeded();
                         },
                       ),
                       const SizedBox(height: 16),
@@ -2278,9 +2334,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         ),
                         validator: _vEmail,
                         onChanged: (_) {
-                          if (!_suppressEmailError) {
-                            setState(() => _suppressEmailError = true);
-                          }
+                          _clearEmailValidation();
+                          _refreshValidationIfNeeded();
                         },
                       ),
                       const SizedBox(height: 16),
@@ -2294,10 +2349,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             value: 'Male',
                             groupValue: _gender,
                             activeColor: _teamMemberAccent,
-                            onChanged: (v) => setState(() {
-                              _gender = v ?? '';
-                              _suppressGenderError = true;
-                            }),
+                            onChanged: (v) => _setGender(v ?? ''),
                           ),
                           Text(translateText('Male')),
                           const SizedBox(width: 16),
@@ -2305,10 +2357,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             value: 'Female',
                             groupValue: _gender,
                             activeColor: _teamMemberAccent,
-                            onChanged: (v) => setState(() {
-                              _gender = v ?? '';
-                              _suppressGenderError = true;
-                            }),
+                            onChanged: (v) => _setGender(v ?? ''),
                           ),
                           Text(translateText('Female')),
                           const SizedBox(width: 16),
@@ -2316,10 +2365,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                             value: 'Other',
                             groupValue: _gender,
                             activeColor: _teamMemberAccent,
-                            onChanged: (v) => setState(() {
-                              _gender = v ?? '';
-                              _suppressGenderError = true;
-                            }),
+                            onChanged: (v) => _setGender(v ?? ''),
                           ),
                           Text(translateText('Other')),
                         ],
@@ -2349,6 +2395,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       _PickField(
                         hint: translateText('Select Roles'),
                         values: _selectedRoles,
+                        hasError: _showGlobalErrors && _vRoles() != null,
                         onTap: () => _openMultiSelect(
                           title: translateText('Select Roles'),
                           source: _allRoles,
@@ -2378,6 +2425,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                       _PickField(
                         hint: translateText('Select Specializations'),
                         values: _selectedSpecs,
+                        hasError: _showGlobalErrors && _vSpecs() != null,
                         onTap: () => _openMultiSelect(
                           title: translateText('Select Specializations'),
                           source: _allSpecs,
@@ -2470,11 +2518,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         ),
                         validator: _vExperience,
                         onChanged: (_) {
-                          if (!_suppressExperienceError) {
-                            setState(() => _suppressExperienceError = true);
-                          }
-
-                          _formKey.currentState?.validate();
+                          _clearExperienceValidation();
+                          _refreshValidationIfNeeded();
                         },
                       ),
                       const SizedBox(height: 16),
@@ -2498,11 +2543,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
                         ),
                         validator: _vBrief,
                         onChanged: (_) {
-                          if (!_suppressBriefError) {
-                            setState(() => _suppressBriefError = true);
-                          }
-
-                          _formKey.currentState?.validate();
+                          _clearBriefValidation();
+                          _refreshValidationIfNeeded();
                         },
                       ),
                       const SizedBox(height: 34),
@@ -2533,11 +2575,13 @@ class _PickField extends StatelessWidget {
     required this.hint,
     required this.values,
     required this.onTap,
+    this.hasError = false,
   });
 
   final String hint;
   final List<String> values;
   final VoidCallback onTap;
+  final bool hasError;
 
   @override
   Widget build(BuildContext context) {
@@ -2561,18 +2605,30 @@ class _PickField extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
+              borderSide: BorderSide(
+                color: hasError ? AppColors.red : const Color(0xFFE2D3BF),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFFE2D3BF)),
+              borderSide: BorderSide(
+                color: hasError ? AppColors.red : const Color(0xFFE2D3BF),
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: _teamMemberAccent,
+              borderSide: BorderSide(
+                color: hasError ? AppColors.red : _teamMemberAccent,
                 width: 1.5,
               ),
+            ),
+            errorBorder: const OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+              borderSide: BorderSide(color: AppColors.red),
+            ),
+            focusedErrorBorder: const OutlineInputBorder(
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+              borderSide: BorderSide(color: AppColors.red, width: 1.5),
             ),
           ),
         ),

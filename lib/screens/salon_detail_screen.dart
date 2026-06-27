@@ -92,42 +92,45 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
     if (value is num) return value.toInt();
     return int.tryParse(value.toString());
   }
-String _formatDisplayTime(dynamic value, {String fallback = ''}) {
-  final text = value?.toString().trim() ?? '';
-  if (text.isEmpty || text.toLowerCase() == 'null') return fallback;
 
-  String formatParts(String h, String m, [String? suffix]) {
-    var hour = int.tryParse(h) ?? 0;
-    final minute = int.tryParse(m) ?? 0;
+  String _formatDisplayTime(dynamic value, {String fallback = ''}) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty || text.toLowerCase() == 'null') return fallback;
 
-    if (suffix != null) {
-      final s = suffix.toUpperCase();
-      if (s == 'PM' && hour != 12) hour += 12;
-      if (s == 'AM' && hour == 12) hour = 0;
+    String formatParts(String h, String m, [String? suffix]) {
+      var hour = int.tryParse(h) ?? 0;
+      final minute = int.tryParse(m) ?? 0;
+
+      if (suffix != null) {
+        final s = suffix.toUpperCase();
+        if (s == 'PM' && hour != 12) hour += 12;
+        if (s == 'AM' && hour == 12) hour = 0;
+      }
+
+      final amPm = hour >= 12 ? 'PM' : 'AM';
+      final hour12 = ((hour + 11) % 12) + 1;
+
+      return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $amPm';
     }
 
-    final amPm = hour >= 12 ? 'PM' : 'AM';
-    final hour12 = ((hour + 11) % 12) + 1;
+    final match12 = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(text);
 
-    return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $amPm';
+    if (match12 != null) {
+      return formatParts(
+          match12.group(1)!, match12.group(2)!, match12.group(3)!);
+    }
+
+    final match24 = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    if (match24 != null) {
+      return formatParts(match24.group(1)!, match24.group(2)!);
+    }
+
+    return fallback.isNotEmpty ? fallback : text;
   }
 
-  final match12 = RegExp(
-    r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
-    caseSensitive: false,
-  ).firstMatch(text);
-
-  if (match12 != null) {
-    return formatParts(match12.group(1)!, match12.group(2)!, match12.group(3)!);
-  }
-
-  final match24 = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
-  if (match24 != null) {
-    return formatParts(match24.group(1)!, match24.group(2)!);
-  }
-
-  return fallback.isNotEmpty ? fallback : text;
-}
   String _cleanText(dynamic value) {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty || text.toLowerCase() == 'null') return '';
@@ -368,59 +371,64 @@ String _formatDisplayTime(dynamic value, {String fallback = ''}) {
     return names;
   }
 
+  List<_DetailRowData> _scheduleRows() {
+    final rawSchedule = _primaryBranch?['schedule'] ?? _salon['schedule'];
 
-List<_DetailRowData> _scheduleRows() {
-  final rawSchedule = _primaryBranch?['schedule'] ?? _salon['schedule'];
+    const days = [
+      'monday',
+      'tuesday',
+      'wednesday',
+      'thursday',
+      'friday',
+      'saturday',
+      'sunday',
+    ];
 
-  const days = [
-    'monday',
-    'tuesday',
-    'wednesday',
-    'thursday',
-    'friday',
-    'saturday',
-    'sunday',
-  ];
+    final scheduleByDay = <String, dynamic>{};
 
-  final scheduleByDay = <String, dynamic>{};
-
-  if (rawSchedule is Map) {
- scheduleByDay.addAll(Map<String, dynamic>.from(rawSchedule));
-  } else if (rawSchedule is List) {
-    for (final item in rawSchedule.whereType<Map>()) {
-      final day = item['day']?.toString().toLowerCase().trim();
-      if (day != null && day.isNotEmpty) {
-        scheduleByDay[day] = item['slots'];
+    if (rawSchedule is Map) {
+      scheduleByDay.addAll(Map<String, dynamic>.from(rawSchedule));
+    } else if (rawSchedule is List) {
+      for (final item in rawSchedule.whereType<Map>()) {
+        final day = item['day']?.toString().toLowerCase().trim();
+        if (day != null && day.isNotEmpty) {
+          scheduleByDay[day] = item['slots'];
+        }
       }
     }
+
+    return days.map((day) {
+      final slots = scheduleByDay[day];
+
+      if (slots is List && slots.isNotEmpty) {
+        final timings = slots
+            .whereType<Map>()
+            .map((slot) {
+              final start =
+                  _formatDisplayTime(slot['startTime'] ?? slot['start']);
+              final end = _formatDisplayTime(slot['endTime'] ?? slot['end']);
+
+              if (start.isEmpty || end.isEmpty) return '';
+              return '$start - $end';
+            })
+            .where((value) => value.isNotEmpty)
+            .toList();
+
+        return _DetailRowData(
+          _capitalize(day),
+          timings.isEmpty ? 'Closed' : timings.join(', '),
+        );
+      }
+
+      return _DetailRowData(_capitalize(day), 'Closed');
+    }).toList();
   }
 
-  return days.map((day) {
-    final slots = scheduleByDay[day];
+  String _capitalize(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
+  }
 
-    if (slots is List && slots.isNotEmpty) {
-      final timings = slots.whereType<Map>().map((slot) {
-        final start = _formatDisplayTime(slot['startTime'] ?? slot['start']);
-        final end = _formatDisplayTime(slot['endTime'] ?? slot['end']);
-
-        if (start.isEmpty || end.isEmpty) return '';
-        return '$start - $end';
-      }).where((value) => value.isNotEmpty).toList();
-
-      return _DetailRowData(
-        _capitalize(day),
-        timings.isEmpty ? 'Closed' : timings.join(', '),
-      );
-    }
-
-    return _DetailRowData(_capitalize(day), 'Closed');
-  }).toList();
-}
-
-String _capitalize(String value) {
-  if (value.isEmpty) return value;
-  return value[0].toUpperCase() + value.substring(1);
-}
   List<_DetailRowData> _formRows() {
     final addressMap = _addressMap();
     String addressField(List<String> keys) =>
@@ -451,18 +459,18 @@ String _capitalize(String value) {
       _DetailRowData(
           'Start Time',
           _formatDisplayTime(_fieldText([
-  'startTime',
-  'openingTime',
-  'openTime',
-]))),
-       _DetailRowData(
-  'End Time',
-  _formatDisplayTime(_fieldText([
-    'endTime',
-    'closingTime',
-    'closeTime',
-  ])),
-),
+            'startTime',
+            'openingTime',
+            'openTime',
+          ]))),
+      _DetailRowData(
+        'End Time',
+        _formatDisplayTime(_fieldText([
+          'endTime',
+          'closingTime',
+          'closeTime',
+        ])),
+      ),
       _DetailRowData(
           'Description',
           _fieldText([
@@ -533,55 +541,81 @@ String _capitalize(String value) {
     final title = _fieldText(['name', 'salonName', 'businessName']);
     final imageUrls = _imageUrls();
     final imageUrl = imageUrls.isEmpty ? '' : imageUrls.first;
+    final openDays =
+        _scheduleRows().where((row) => row.value != 'Closed').length;
+    final branchCount = _salon['branches'] is List
+        ? (_salon['branches'] as List).length
+        : (_primaryBranch == null ? 0 : 1);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFBFAF8),
+      backgroundColor: const Color(0xFFF4EEE7),
       appBar: buildProfileSubpageAppBar(title: translateText('Salon Details')),
-      body: RefreshIndicator(
-        onRefresh: _loadBranchBackedDetails,
-        color: AppColors.starColor,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
-          children: [
-            _HeroCard(
-              title: title.isEmpty ? translateText('Salon Details') : title,
-              subtitle: translateText('Main Salon'),
-              imageUrl: imageUrl,
-              active: _salon['active'] != false,
-            ),
-            if (_isLoading) ...[
-              const SizedBox(height: 16),
-              const Center(child: CircularProgressIndicator()),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              _WarningBox(message: _error!),
-            ],
-            const SizedBox(height: 14),
-            _DetailSection(
-              title: 'Salon Form Values',
-              child: Column(
-                children: _formRows()
-                    .map((row) =>
-                        _DetailLine(label: row.label, value: row.value))
-                    .toList(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFF9F4ED), Color(0xFFF3ECE3)],
+          ),
+        ),
+        child: RefreshIndicator(
+          onRefresh: _loadBranchBackedDetails,
+          color: AppColors.starColor,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+            children: [
+              _HeroCard(
+                title: title.isEmpty ? translateText('Salon Details') : title,
+                subtitle: translateText('Main Salon'),
+                imageUrl: imageUrl,
+                active: _salon['active'] != false,
               ),
-            ),
-            const SizedBox(height: 14),
-_DetailSection(
-  title: 'Weekly Schedule',
-  child: Column(
-    children: _scheduleRows()
-        .map((row) => _DetailLine(label: row.label, value: row.value))
-        .toList(),
-  ),
-),
-            const SizedBox(height: 14),
-           _ExpandableChipSection(title: 'Services', values: _services),
-            const SizedBox(height: 14),
-           _ExpandableChipSection(title: 'Team Members', values: _teamMembers),
-          ],
+              const SizedBox(height: 14),
+              _SummaryStrip(
+                items: [
+                  _SummaryStat(
+                      label: 'Branches', value: branchCount.toString()),
+                  _SummaryStat(
+                      label: 'Services', value: _services.length.toString()),
+                  _SummaryStat(label: 'Open Days', value: openDays.toString()),
+                ],
+              ),
+              if (_isLoading) ...[
+                const SizedBox(height: 16),
+                const Center(child: CircularProgressIndicator()),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                _WarningBox(message: _error!),
+              ],
+              const SizedBox(height: 14),
+              _DetailSection(
+                title: 'Salon Form Values',
+                child: Column(
+                  children: _formRows()
+                      .map((row) =>
+                          _DetailLine(label: row.label, value: row.value))
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _DetailSection(
+                title: 'Weekly Schedule',
+                child: Column(
+                  children: _scheduleRows()
+                      .map((row) =>
+                          _DetailLine(label: row.label, value: row.value))
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _ExpandableChipSection(title: 'Services', values: _services),
+              const SizedBox(height: 14),
+              _ExpandableChipSection(
+                  title: 'Team Members', values: _teamMembers),
+            ],
+          ),
         ),
       ),
     );
@@ -613,29 +647,56 @@ class _HeroCard extends StatelessWidget {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFE8DED4)),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFFFFF), Color(0xFFFFFAF4)],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE7D8C8)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x10000000),
-            blurRadius: 16,
-            offset: Offset(0, 8),
+            color: Color(0x14000000),
+            blurRadius: 20,
+            offset: Offset(0, 10),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: imageUrl.isEmpty
-                ? const _ImageFallback()
-                : Image.network(
-                    imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const _ImageFallback(),
+          Stack(
+            children: [
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: imageUrl.isEmpty
+                    ? const _ImageFallback()
+                    : Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const _ImageFallback(),
+                      ),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        const Color(0xFF201B17).withValues(alpha: 0.18),
+                      ],
+                    ),
                   ),
+                ),
+              ),
+              Positioned(
+                right: 14,
+                top: 14,
+                child: _StatusPill(active: active),
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -647,7 +708,8 @@ class _HeroCard extends StatelessWidget {
                   style: const TextStyle(
                     color: AppColors.starColor,
                     fontWeight: FontWeight.w900,
-                    fontSize: 11,
+                    fontSize: 10,
+                    letterSpacing: 1,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -656,11 +718,31 @@ class _HeroCard extends StatelessWidget {
                   style: const TextStyle(
                     color: Color(0xFF201B17),
                     fontWeight: FontWeight.w900,
-                    fontSize: 20,
+                    fontSize: 21,
                   ),
                 ),
-                const SizedBox(height: 10),
-                _StatusPill(active: active),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.storefront_outlined,
+                      size: 14,
+                      color: Color(0xFF8A8178),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        translateText(
+                            'Salon overview, operating hours, and team snapshot'),
+                        style: const TextStyle(
+                          color: Color(0xFF8A8178),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -683,8 +765,15 @@ class _DetailSection extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE8DED4)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE7D8C8)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 16,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -724,9 +813,9 @@ class _DetailLine extends StatelessWidget {
             child: Text(
               translateText(label),
               style: const TextStyle(
-                color: Color(0xFF8A8178),
+                color: Color(0xFF7C6F63),
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ),
@@ -737,7 +826,7 @@ class _DetailLine extends StatelessWidget {
                 color: Color(0xFF201B17),
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                height: 1.35,
+                height: 1.45,
               ),
             ),
           ),
@@ -786,14 +875,14 @@ class _DetailChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFAF1),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE8C774)),
+        color: const Color(0xFFFFF5DB),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE0BE58)),
       ),
       child: Text(
         label,
         style: const TextStyle(
-          color: Color(0xFF4B3A2A),
+          color: Color(0xFF6A4B10),
           fontSize: 12,
           fontWeight: FontWeight.w900,
         ),
@@ -813,8 +902,11 @@ class _StatusPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: active ? const Color(0xFFE8FFF5) : const Color(0xFFFFEFEF),
-        borderRadius: BorderRadius.circular(999),
+        color: active ? const Color(0xFFE6FFF1) : const Color(0xFFFFEFEF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: active ? const Color(0xFF7DD3A7) : const Color(0xFFF1B4B4),
+        ),
       ),
       child: Text(
         translateText(active ? 'Active' : 'Deactivated'),
@@ -838,9 +930,9 @@ class _WarningBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFBEB),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF6D78A)),
+        color: const Color(0xFFFFF8E8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFEACB73)),
       ),
       child: Text(
         message,
@@ -882,6 +974,80 @@ class _ImageFallback extends StatelessWidget {
     );
   }
 }
+
+class _SummaryStrip extends StatelessWidget {
+  const _SummaryStrip({required this.items});
+
+  final List<_SummaryStat> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < items.length; i++) ...[
+          Expanded(child: _SummaryStatCard(stat: items[i])),
+          if (i != items.length - 1) const SizedBox(width: 10),
+        ],
+      ],
+    );
+  }
+}
+
+class _SummaryStat {
+  const _SummaryStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+class _SummaryStatCard extends StatelessWidget {
+  const _SummaryStatCard({required this.stat});
+
+  final _SummaryStat stat;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE7D8C8)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            translateText(stat.label).toUpperCase(),
+            style: const TextStyle(
+              color: Color(0xFF8A8178),
+              fontSize: 9,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            stat.value,
+            style: const TextStyle(
+              color: Color(0xFF201B17),
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ExpandableChipSection extends StatefulWidget {
   const _ExpandableChipSection({
     required this.title,
@@ -902,8 +1068,9 @@ class _ExpandableChipSectionState extends State<_ExpandableChipSection> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleValues =
-        _showAll ? widget.values : widget.values.take(widget.initialLimit).toList();
+    final visibleValues = _showAll
+        ? widget.values
+        : widget.values.take(widget.initialLimit).toList();
 
     return _DetailSection(
       title: widget.title,

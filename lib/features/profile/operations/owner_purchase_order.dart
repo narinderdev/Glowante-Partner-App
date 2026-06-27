@@ -21,6 +21,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
   final TextEditingController _createdByController = TextEditingController();
   final TextEditingController _departmentController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   List<Map<String, dynamic>> _vendors = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _stores = const <Map<String, dynamic>>[];
   List<Map<String, dynamic>> _items = const <Map<String, dynamic>>[];
@@ -120,6 +121,10 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
     final lineRequired =
         translateText('Each line must have an item and ordered qty');
 
+    setState(() {
+      _autoValidateMode = AutovalidateMode.onUserInteraction;
+    });
+
     if (!_formKey.currentState!.validate()) return;
     if (_selectedVendorId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -190,8 +195,12 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
 
   @override
   Widget build(BuildContext context) {
+    final vendorRequired = translateText('Vendor is required');
+    final deliveryAddressRequired =
+        translateText('Delivery Address is required');
     final createdByRequired = translateText('Created By is required');
     final orderedQtyRequired = translateText('Ordered Qty is required');
+    final itemRequired = translateText('Item is required');
 
     return _FormCard(
       title: context.t('Add Purchase Order'),
@@ -200,6 +209,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
+              autovalidateMode: _autoValidateMode,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -221,6 +231,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                         )
                         .toList(),
+                    validator: (value) => value == null ? vendorRequired : null,
                     onChanged: (value) =>
                         setState(() => _selectedVendorId = value),
                   ),
@@ -245,6 +256,8 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           ),
                         )
                         .toList(),
+                    validator: (value) =>
+                        value == null ? deliveryAddressRequired : null,
                     onChanged: (value) =>
                         setState(() => _selectedStoreId = value),
                   ),
@@ -256,6 +269,11 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                         InputDecoration(labelText: context.t('Created By')),
                     validator: (value) =>
                         _stringValue(value).isEmpty ? createdByRequired : null,
+                    onChanged: (_) {
+                      if (_autoValidateMode != AutovalidateMode.disabled) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
                   ),
                   const SizedBox(height: 14),
                   InkWell(
@@ -339,8 +357,14 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                                   ),
                                 )
                                 .toList(),
+                            validator: (value) =>
+                                value == null ? itemRequired : null,
                             onChanged: (value) => setState(() {
                               _syncLinePrice(line, value);
+                              if (_autoValidateMode !=
+                                  AutovalidateMode.disabled) {
+                                _formKey.currentState?.validate();
+                              }
                             }),
                           ),
                           const SizedBox(height: 12),
@@ -357,6 +381,12 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                                 return orderedQtyRequired;
                               }
                               return null;
+                            },
+                            onChanged: (_) {
+                              if (_autoValidateMode !=
+                                  AutovalidateMode.disabled) {
+                                _formKey.currentState?.validate();
+                              }
                             },
                           ),
                           const SizedBox(height: 12),
@@ -380,7 +410,9 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () => _removeLine(index),
+                              onPressed: _lines.length == 1
+                                  ? null
+                                  : () => _removeLine(index),
                               child: Text(context.t('Remove')),
                             ),
                           ),

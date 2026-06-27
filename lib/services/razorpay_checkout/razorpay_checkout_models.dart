@@ -5,6 +5,7 @@ class RazorpayCheckoutRequest {
     required this.currency,
     required this.name,
     required this.description,
+    this.orderId,
     this.contact,
     this.email,
   });
@@ -14,6 +15,7 @@ class RazorpayCheckoutRequest {
   final String currency;
   final String name;
   final String description;
+  final String? orderId;
   final String? contact;
   final String? email;
 }

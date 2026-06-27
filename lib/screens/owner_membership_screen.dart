@@ -42,6 +42,68 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
 
   bool get _monthlyPlansBlocked => false;
 
+  void _logMembership(String event, {Object? details}) {
+    debugPrint(
+      '[OwnerMembership] $event${details == null ? '' : ' | $details'}',
+    );
+  }
+
+  String _responseSummary(Map<String, dynamic> response) {
+    final data = response['data'];
+    final dataSummary = data is Map
+        ? <String>[
+            if (data['id'] != null) 'id=${data['id']}',
+            if (data['paymentTransactionId'] != null)
+              'paymentTransactionId=${data['paymentTransactionId']}',
+            if (data['razorpayOrderId'] != null)
+              'razorpayOrderId=${data['razorpayOrderId']}',
+            if (data['currentPlanId'] != null)
+              'currentPlanId=${data['currentPlanId']}',
+            if (data['currentPlan'] != null)
+              'currentPlan=${data['currentPlan']}',
+            if (data['membershipStatus'] != null)
+              'membershipStatus=${data['membershipStatus']}',
+          ].join(', ')
+        : data?.toString() ?? 'null';
+
+    return <String>[
+      'success=${response['success']}',
+      if (response['statusCode'] != null)
+        'statusCode=${response['statusCode']}',
+      if (_cleanText(response['message']).isNotEmpty)
+        'message=${_cleanText(response['message'])}',
+      'data={$dataSummary}',
+    ].join(' | ');
+  }
+
+  Map<String, dynamic> _responseDataMap(Map<String, dynamic> response) {
+    final data = response['data'];
+    if (data is Map) {
+      final root = Map<String, dynamic>.from(data);
+      for (final key in const [
+        'paymentOrder',
+        'payment_order',
+        'order',
+        'subscription',
+        'membership',
+      ]) {
+        final nested = root[key];
+        if (nested is Map) {
+          return Map<String, dynamic>.from(nested);
+        }
+      }
+      return root;
+    }
+    return response;
+  }
+
+  String _purchaseSelectionSummary(_PurchaseSelection selection) {
+    return 'planId=${selection.plan.id}, plan=${selection.plan.name}, '
+        'billingCycle=${selection.billingCycle}, amountMinor=${selection.amountMinor}, '
+        'renew=${selection.renew}, replaceCurrentPlan=${selection.replaceCurrentPlan}, '
+        'startDate=${_apiDateString(selection.startDate)}';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -55,18 +117,34 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
   }
 
   Future<void> _loadMembership() async {
+    _logMembership('load_start');
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      _logMembership('load_salon_options_start');
       final salonOptions = await _loadSalonOptions();
       final salonId = salonOptions.selected?.salonId;
+      _logMembership(
+        'load_plans_start',
+        details: 'selectedSalonId=${salonId ?? 'none'}',
+      );
       final plansResponse = await _apiService.getMembershipPlans();
+      _logMembership(
+        'load_plans_success',
+        details: _responseSummary(plansResponse),
+      );
       final subscriptionResponse = salonId == null
           ? <String, dynamic>{'success': false}
           : await _apiService.getSalonSubscription(salonId);
+      _logMembership(
+        'load_subscription_response',
+        details: salonId == null
+            ? 'skipped_no_salon'
+            : _responseSummary(subscriptionResponse),
+      );
 
       if (!mounted) return;
       setState(() {
@@ -77,7 +155,15 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         _subscription = _parseSubscription(subscriptionResponse);
         _isLoading = false;
       });
+      _logMembership(
+        'load_success',
+        details: 'salonId=${_salonId ?? 'none'}, '
+            'salonOptions=${_salonOptions.length}, '
+            'plans=${_plans.length}, '
+            'subscription=${_subscription == null ? 'none' : 'loaded'}',
+      );
     } catch (error) {
+      _logMembership('load_failure', details: error);
       if (!mounted) return;
       setState(() {
         _errorMessage = error.toString();
@@ -89,8 +175,12 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
   Future<_MembershipSalonSelection> _loadSalonOptions() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = _readInt(prefs.get('selected_salon_id'));
+    _logMembership('load_salon_options_prefs',
+        details: 'storedSalonId=${stored ?? 'none'}');
 
     final response = await _apiService.getSalonListApi();
+    _logMembership('load_salon_options_response',
+        details: _responseSummary(response));
     final salons =
         response['data'] is List ? response['data'] as List : const [];
     final options = <_MembershipSalonOption>[];
@@ -118,6 +208,11 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
           branchCount: branches.length,
         ),
       );
+      _logMembership(
+        'load_salon_option_item',
+        details: 'salonId=$salonId, name=${_cleanText(salon['name'])}, '
+            'branches=${branches.length}, address=${options.last.address}',
+      );
     }
 
     final selected = options.cast<_MembershipSalonOption?>().firstWhere(
@@ -129,6 +224,13 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       await _saveSelectedSalon(selected);
     }
 
+    _logMembership(
+      'load_salon_options_selected',
+      details: selected == null
+          ? 'none'
+          : 'salonId=${selected.salonId}, name=${selected.name}',
+    );
+
     return _MembershipSalonSelection(
       options: options,
       selected: selected,
@@ -136,6 +238,10 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
   }
 
   Future<void> _saveSelectedSalon(_MembershipSalonOption salon) async {
+    _logMembership(
+      'save_selected_salon',
+      details: 'salonId=${salon.salonId}, name=${salon.name}',
+    );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt('selected_salon_id', salon.salonId);
     await prefs.setString('stylist_selected_salon_name', salon.name);
@@ -210,8 +316,14 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
   }
 
   Future<void> _choosePlan(_MembershipPlan plan) async {
+    _logMembership(
+      'choose_plan_start',
+      details: 'planId=${plan.id}, name=${plan.name}, '
+          'yearlyBilling=$_yearlyBilling, salonId=${_salonId ?? 'none'}',
+    );
     final salonId = _salonId;
     if (salonId == null) {
+      _logMembership('choose_plan_blocked', details: 'missing_salon');
       _showSnack('Please create or select a salon first.');
       return;
     }
@@ -222,12 +334,22 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     if (subscription != null &&
         subscription.currentPlanId != plan.id &&
         !_isUpgradePlan(plan, subscription, _plans)) {
+      _logMembership(
+        'choose_plan_blocked',
+        details:
+            'reason=lower_tier_plan, subscriptionPlanId=${subscription.currentPlanId}',
+      );
       _showSnack(
         'Lower-tier plans cannot be purchased while an active membership exists. Select a higher-tier plan or renew the current plan.',
       );
       return;
     }
     if (subscription != null && !subscription.canUpgrade && !isActiveMonthly) {
+      _logMembership(
+        'choose_plan_blocked',
+        details:
+            'reason=subscriptions_blocked, message=${subscription.membershipMessage}',
+      );
       _showSnack(subscription.membershipMessage);
       return;
     }
@@ -244,12 +366,21 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     );
     if (selection == null || !mounted) return;
 
+    _logMembership(
+      'choose_plan_selected',
+      details: _purchaseSelectionSummary(selection),
+    );
+
     await _startPayment(salonId: salonId, selection: selection);
   }
 
   Future<void> _showPaymentHistory() async {
     final subscription = _subscription;
     if (subscription == null) return;
+    _logMembership(
+      'payment_history_open',
+      details: 'items=${subscription.history.length}',
+    );
 
     await showDialog<void>(
       context: context,
@@ -260,9 +391,15 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
 
   Future<void> _showAvailablePlans() async {
     if (_plans.isEmpty) {
+      _logMembership('show_plans_blocked', details: 'no_plans_loaded');
       _showSnack('Plans are not available right now.');
       return;
     }
+
+    _logMembership(
+      'show_plans_open',
+      details: 'plans=${_plans.length}, yearlyBilling=$_yearlyBilling',
+    );
 
     final selectedPlan = await showDialog<_MembershipPlan>(
       context: context,
@@ -288,8 +425,15 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     final upcoming = subscription?.upcomingMembership;
     if (salonId == null || subscription == null || upcoming == null) return;
 
+    _logMembership(
+      'activate_upcoming_start',
+      details: 'salonId=$salonId, upcomingPlan=${upcoming.planName}, '
+          'upcomingPlanId=${upcoming.planId ?? 'none'}, subscriptionDays=${subscription.daysRemaining}',
+    );
+
     final planId = upcoming.planId ?? _planIdForUpcoming(upcoming);
     if (planId == null) {
+      _logMembership('activate_upcoming_blocked', details: 'plan_not_found');
       _showSnack('Unable to find upcoming membership plan.');
       return;
     }
@@ -306,28 +450,40 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _isPaying = true);
-    final response = await _apiService.activateSalonSubscriptionNow(
-      salonId: salonId,
-      planId: planId,
-      billingCycle: upcoming.billingCycle,
-      upcomingMembershipId: upcoming.id,
-    );
-    if (!mounted) return;
-
-    setState(() => _isPaying = false);
-    if (response['success'] == true) {
-      final forfeitedDays = _readForfeitedDays(response);
-      _showSnack(
-        forfeitedDays != null
-            ? 'Membership updated successfully. $forfeitedDays remaining days were forfeited.'
-            : 'Membership updated successfully.',
+    try {
+      final response = await _apiService.activateSalonSubscriptionNow(
+        salonId: salonId,
+        planId: planId,
+        billingCycle: upcoming.billingCycle,
+        upcomingMembershipId: upcoming.id,
       );
-      await _loadMembership();
-      return;
-    }
+      _logMembership(
+        'activate_upcoming_response',
+        details: _responseSummary(response),
+      );
+      if (!mounted) return;
 
-    _showSnack(
-        response['message']?.toString() ?? 'Unable to activate membership.');
+      if (response['success'] == true) {
+        final forfeitedDays = _readForfeitedDays(response);
+        _showSnack(
+          forfeitedDays != null
+              ? 'Membership updated successfully. $forfeitedDays remaining days were forfeited.'
+              : 'Membership updated successfully.',
+        );
+        await _loadMembership();
+        return;
+      }
+
+      _showSnack(
+          response['message']?.toString() ?? 'Unable to activate membership.');
+    } catch (error) {
+      _logMembership('activate_upcoming_failure', details: error);
+      if (mounted) {
+        _showSnack('Unable to activate membership.');
+      }
+    } finally {
+      if (mounted) setState(() => _isPaying = false);
+    }
   }
 
   int? _planIdForUpcoming(_UpcomingMembership upcoming) {
@@ -350,78 +506,197 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     required _PurchaseSelection selection,
   }) async {
     if (selection.amountMinor <= 0) {
+      _logMembership(
+        'start_payment_blocked',
+        details:
+            'reason=invalid_amount, ${_purchaseSelectionSummary(selection)}',
+      );
       _showSnack('Selected plan amount is invalid.');
       return;
     }
 
     if (selection.replaceCurrentPlan) {
+      _logMembership(
+        'start_payment_replace_confirmation',
+        details: _purchaseSelectionSummary(selection),
+      );
       final confirmed = await _confirmImmediateReplace(selection);
       if (!confirmed) return;
     }
 
+    _logMembership(
+      'start_payment_begin',
+      details: 'salonId=$salonId, ${_purchaseSelectionSummary(selection)}',
+    );
     setState(() => _isPaying = true);
-
-    final prefs = await SharedPreferences.getInstance();
-    final checkout = _checkout ??= GlowanteRazorpayCheckout();
-    final result = await checkout.open(
-      RazorpayCheckoutRequest(
-        key: _razorpayKeyId,
-        amountMinor: selection.amountMinor,
-        currency: selection.plan.currency,
-        name: 'Glowante',
-        description: '${selection.plan.name} membership',
-        contact: prefs.getString('phone_number'),
-        email: prefs.getString('email'),
-      ),
-    );
-
-    if (!mounted) return;
-
-    if (result.status == RazorpayCheckoutStatus.cancelled) {
-      setState(() => _isPaying = false);
-      _showSnack(
-          _checkoutMessage(result.message, fallback: 'Payment cancelled.'));
-      return;
-    }
-
-    if (result.status != RazorpayCheckoutStatus.success ||
-        result.paymentId == null) {
-      setState(() => _isPaying = false);
-      _showSnack(_checkoutMessage(result.message, fallback: 'Payment failed.'));
-      return;
-    }
-
-    final response = await _apiService.createSalonSubscription(
-      salonId: salonId,
-      planId: selection.plan.id!,
-      billingCycle: selection.billingCycle,
-      paymentReference: result.paymentId!,
-      renew: selection.renew,
-      startDate: selection.startDate,
-      razorpayOrderId: result.orderId,
-      razorpaySignature: result.signature,
-      amountMinor: selection.amountMinor,
-      currency: selection.plan.currency,
-      replaceCurrentPlan: selection.replaceCurrentPlan,
-    );
-
-    if (!mounted) return;
-
-    if (response['success'] == true) {
-      setState(() => _isPaying = false);
-      final forfeitedDays = _readForfeitedDays(response);
-      _showSnack(
-        selection.replaceCurrentPlan && forfeitedDays != null
-            ? 'Membership updated successfully. $forfeitedDays remaining days were forfeited.'
-            : 'Membership updated successfully.',
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _logMembership('payment_order_request',
+          details: _purchaseSelectionSummary(selection));
+      final orderResponse =
+          await _apiService.createSalonSubscriptionPaymentOrder(
+        salonId: salonId,
+        planId: selection.plan.id!,
+        billingCycle: selection.billingCycle,
+        startDate: selection.startDate,
+        replaceCurrentPlan: selection.replaceCurrentPlan,
       );
-      await _loadMembership();
-      return;
-    }
+      _logMembership(
+        'payment_order_response',
+        details: _responseSummary(orderResponse),
+      );
 
-    setState(() => _isPaying = false);
-    _showSnack(
-        response['message']?.toString() ?? 'Unable to update membership.');
+      if (!mounted) return;
+
+      if (orderResponse['success'] != true) {
+        _showSnack(
+          orderResponse['message']?.toString() ??
+              'Unable to create membership payment order.',
+        );
+        return;
+      }
+
+      final orderData = _responseDataMap(orderResponse);
+      final paymentTransactionId = orderData['paymentTransactionId'] ??
+          orderData['payment_transaction_id'] ??
+          orderData['paymentTransaction'] ??
+          orderData['payment_transaction'] ??
+          orderData['transactionId'] ??
+          orderData['transaction_id'] ??
+          orderData['id'];
+      final orderId = _cleanText(orderData['razorpayOrderId'] ??
+          orderData['razorpay_order_id'] ??
+          orderData['orderId'] ??
+          orderData['order_id']);
+      final amountMinor = _readInt(orderData['amountMinor'] ??
+              orderData['amount_minor'] ??
+              orderData['amount']) ??
+          selection.amountMinor;
+      final currency = _cleanText(orderData['currency']).isEmpty
+          ? selection.plan.currency
+          : _cleanText(orderData['currency']);
+
+      if (paymentTransactionId == null) {
+        _logMembership(
+          'payment_order_blocked',
+          details:
+              'reason=missing_payment_transaction_id, response=${_responseSummary(orderResponse)}',
+        );
+        _showSnack('Unable to start membership payment.');
+        return;
+      }
+      if (orderId.isEmpty) {
+        _logMembership(
+          'payment_order_blocked',
+          details:
+              'reason=missing_razorpay_order_id, response=${_responseSummary(orderResponse)}',
+        );
+        _showSnack('Unable to start membership payment.');
+        return;
+      }
+
+      final checkout = _checkout ??= GlowanteRazorpayCheckout();
+      _logMembership(
+        'razorpay_checkout_open',
+        details: 'paymentTransactionId=$paymentTransactionId, '
+            'orderId=$orderId, '
+            'amountMinor=$amountMinor, currency=$currency, '
+            'contact=${prefs.getString('phone_number') ?? 'none'}, '
+            'email=${prefs.getString('email') ?? 'none'}',
+      );
+      final result = await checkout.open(
+        RazorpayCheckoutRequest(
+          key: _razorpayKeyId,
+          amountMinor: amountMinor,
+          currency: currency,
+          name: 'Glowante',
+          description: '${selection.plan.name} membership',
+          orderId: orderId,
+          contact: prefs.getString('phone_number'),
+          email: prefs.getString('email'),
+        ),
+      );
+      _logMembership(
+        'razorpay_checkout_result',
+        details:
+            'status=${result.status.name}, paymentId=${result.paymentId ?? 'none'}, '
+            'orderId=${result.orderId ?? 'none'}, signature=${result.signature == null ? 'none' : 'present'}, '
+            'message=${result.message ?? 'none'}',
+      );
+
+      if (!mounted) return;
+
+      if (result.status == RazorpayCheckoutStatus.cancelled) {
+        _showSnack(
+            _checkoutMessage(result.message, fallback: 'Payment cancelled.'));
+        return;
+      }
+
+      if (result.status != RazorpayCheckoutStatus.success ||
+          result.paymentId == null) {
+        _showSnack(
+            _checkoutMessage(result.message, fallback: 'Payment failed.'));
+        return;
+      }
+
+      final razorpayOrderId = _cleanText(result.orderId).isNotEmpty
+          ? _cleanText(result.orderId)
+          : orderId;
+      final razorpaySignature = _cleanText(result.signature);
+      if (razorpayOrderId.isEmpty || razorpaySignature.isEmpty) {
+        _logMembership(
+          'payment_verify_blocked',
+          details: 'missing_order_or_signature, '
+              'razorpayOrderId=${razorpayOrderId.isEmpty ? 'none' : razorpayOrderId}, '
+              'signature=${razorpaySignature.isEmpty ? 'none' : 'present'}',
+        );
+        _showSnack('Payment completed, but verification data is incomplete.');
+        return;
+      }
+
+      _logMembership(
+        'payment_verify_request',
+        details: 'paymentTransactionId=$paymentTransactionId, '
+            'razorpayPaymentId=${result.paymentId}, '
+            'razorpayOrderId=$razorpayOrderId',
+      );
+      final verifyResponse = await _apiService.verifySalonSubscriptionPayment(
+        salonId: salonId,
+        paymentTransactionId: paymentTransactionId,
+        razorpayPaymentId: result.paymentId!,
+        razorpayOrderId: razorpayOrderId,
+        razorpaySignature: razorpaySignature,
+      );
+      _logMembership(
+        'payment_verify_response',
+        details: _responseSummary(verifyResponse),
+      );
+
+      if (!mounted) return;
+
+      if (verifyResponse['success'] == true) {
+        final forfeitedDays = _readForfeitedDays(verifyResponse);
+        _showSnack(
+          forfeitedDays != null
+              ? 'Membership updated successfully. $forfeitedDays remaining days were forfeited.'
+              : 'Membership updated successfully.',
+        );
+        await _loadMembership();
+        return;
+      }
+
+      _showSnack(
+        verifyResponse['message']?.toString() ??
+            'Unable to verify membership payment.',
+      );
+    } catch (error) {
+      _logMembership('start_payment_failure', details: error);
+      if (mounted) {
+        _showSnack('Unable to update membership.');
+      }
+    } finally {
+      if (mounted) setState(() => _isPaying = false);
+    }
   }
 
   String _checkoutMessage(String? message, {required String fallback}) {
@@ -436,6 +711,10 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     final subscription = _subscription;
     final remainingDays = subscription?.daysRemaining ?? 0;
     final positiveDays = remainingDays < 0 ? 0 : remainingDays;
+    _logMembership(
+      'confirm_replace_open',
+      details: _purchaseSelectionSummary(selection),
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => _ImmediateReplaceDialog(
@@ -444,16 +723,25 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         remainingDays: positiveDays,
       ),
     );
+    _logMembership(
+      'confirm_replace_result',
+      details: 'confirmed=${confirmed == true}',
+    );
     return confirmed == true;
   }
 
   void _showSnack(String message) {
+    _logMembership('toast', details: message);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(translateText(message))),
     );
   }
 
   Future<void> _switchSalon(_MembershipSalonOption salon) async {
+    _logMembership(
+      'switch_salon_start',
+      details: 'salonId=${salon.salonId}, name=${salon.name}',
+    );
     await _saveSelectedSalon(salon);
     if (!mounted) return;
     setState(() {
@@ -465,12 +753,17 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
     try {
       final subscriptionResponse =
           await _apiService.getSalonSubscription(salon.salonId);
+      _logMembership(
+        'switch_salon_subscription_response',
+        details: _responseSummary(subscriptionResponse),
+      );
       if (!mounted) return;
       setState(() {
         _subscription = _parseSubscription(subscriptionResponse);
         _isLoading = false;
       });
     } catch (error) {
+      _logMembership('switch_salon_failure', details: error);
       if (!mounted) return;
       setState(() {
         _errorMessage = error.toString();

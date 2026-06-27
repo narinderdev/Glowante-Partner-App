@@ -864,12 +864,21 @@ class CategoryScreenState extends State<CategoryScreen> {
       final initiallySelectedTopLevelCodes = branchTopLevelCodes
           .where((code) => catalogCodes.contains(code))
           .toSet();
+      final currentlyImportedCatalogCategories = _collectBranchTopCategories(
+        branchServicesResponse['data'],
+      ).where((category) {
+        final code = (category['code'] ?? '').toString().trim().toUpperCase();
+        return code.isNotEmpty && catalogCodes.contains(code);
+      }).toList();
       final Set<String> selectedCodes = <String>{
         ...initiallySelectedTopLevelCodes,
       };
       debugPrint('🟡 catalogCodes: $catalogCodes');
       debugPrint(
           '🟡 initiallySelectedTopLevelCodes: $initiallySelectedTopLevelCodes');
+      debugPrint(
+        '🟡 currentlyImportedCatalogCategories: ${currentlyImportedCatalogCategories.map((category) => '${category['code']}#${category['id']}').toList()}',
+      );
       debugPrint('🟡 selectedCodes initial: $selectedCodes');
       bool isImporting = false;
       final imported = await showGeneralDialog<List<String>>(
@@ -1042,25 +1051,9 @@ class CategoryScreenState extends State<CategoryScreen> {
                                   : () async {
                                       setSheetState(() => isImporting = true);
                                       try {
+                                        final apiService = ApiService();
                                         final selectedActualCodes =
                                             selectedCodes
-                                                .map((code) =>
-                                                    catalogCodeMap[code] ??
-                                                    code)
-                                                .toList();
-                                        final selectedTopLevelSet =
-                                            selectedCodes
-                                                .map((code) =>
-                                                    code.trim().toUpperCase())
-                                                .toSet();
-                                        final removedTopLevelCodes =
-                                            initiallySelectedTopLevelCodes
-                                                .where((code) =>
-                                                    !selectedTopLevelSet
-                                                        .contains(code))
-                                                .toList();
-                                        final unselectedActualCodes =
-                                            removedTopLevelCodes
                                                 .map((code) =>
                                                     catalogCodeMap[code] ??
                                                     code)
@@ -1071,15 +1064,48 @@ class CategoryScreenState extends State<CategoryScreen> {
                                         debugPrint(
                                             '🟢 sending serviceCodes: $selectedActualCodes');
                                         debugPrint(
-                                            '🔴 sending unselectedCodes: $unselectedActualCodes');
-
-                                        await ApiService()
-                                            .importPredefinedServices(
-                                          branchId: branchId,
-                                          serviceCodes: selectedActualCodes,
-                                          unselectedCodes:
-                                              unselectedActualCodes,
+                                          '🟠 resetting imported catalog categories: ${currentlyImportedCatalogCategories.map((category) => '${category['code']}#${category['id']}').toList()}',
                                         );
+
+                                        for (final category
+                                            in currentlyImportedCatalogCategories) {
+                                          final categoryId =
+                                              _serviceInt(category['id']);
+                                          if (categoryId == null) continue;
+                                          debugPrint(
+                                            '🗑️ removing imported category before reimport: code=${category['code']} id=$categoryId',
+                                          );
+                                          final deleteResponse =
+                                              await apiService
+                                                  .deleteCategoryApi(
+                                            branchId: branchId,
+                                            CategoryId: categoryId,
+                                          );
+                                          if (deleteResponse['success'] !=
+                                              true) {
+                                            throw Exception(
+                                              deleteResponse['message']
+                                                      ?.toString() ??
+                                                  'Failed to remove imported category.',
+                                            );
+                                          }
+                                        }
+
+                                        if (selectedActualCodes.isNotEmpty) {
+                                          final importResponse =
+                                              await apiService
+                                                  .importPredefinedServices(
+                                            branchId: branchId,
+                                            serviceCodes: selectedActualCodes,
+                                          );
+                                          debugPrint(
+                                            '✅ importPredefinedServices response: $importResponse',
+                                          );
+                                        } else {
+                                          debugPrint(
+                                            '✅ no predefined services selected after reset; import skipped',
+                                          );
+                                        }
 
                                         if (!sheetContext.mounted) return;
                                         Navigator.pop(
@@ -1132,7 +1158,7 @@ class CategoryScreenState extends State<CategoryScreen> {
       setState(() {
         _selectedFilterCategoryId = null;
       });
-      _toast(translateText('Predefined services updated successfully'));
+      _toast(translateText('Predefined services imported successfully'));
       await _refreshData();
     } catch (error) {
       if (!mounted) return;

@@ -66,19 +66,19 @@ enum _BookingViewTab {
 
 class _SalonBranchOption {
   const _SalonBranchOption({
-  required this.salonId,
-  required this.branchId,
-  required this.salonName,
-  required this.branchName,
-  this.addressSummary = '',
-  this.isMain = false,
-  this.isSalonActive = true,
-  this.isBranchActive = true,
-  this.startMinute,
-  this.endMinute,
-  this.hasWeeklySchedule = false,
-  this.weeklySlots = const <String, List<_BranchDaySlot>>{},
-});
+    required this.salonId,
+    required this.branchId,
+    required this.salonName,
+    required this.branchName,
+    this.addressSummary = '',
+    this.isMain = false,
+    this.isSalonActive = true,
+    this.isBranchActive = true,
+    this.startMinute,
+    this.endMinute,
+    this.hasWeeklySchedule = false,
+    this.weeklySlots = const <String, List<_BranchDaySlot>>{},
+  });
 
   final int salonId;
   final int branchId;
@@ -87,9 +87,9 @@ class _SalonBranchOption {
   final String addressSummary;
   final bool isMain;
   final bool isSalonActive;
-final bool isBranchActive;
+  final bool isBranchActive;
 
-bool get canAcceptBookings => isSalonActive && isBranchActive;
+  bool get canAcceptBookings => isSalonActive && isBranchActive;
   final int? startMinute;
   final int? endMinute;
   final bool hasWeeklySchedule;
@@ -1293,24 +1293,24 @@ Future<Map<String, dynamic>?> _showStartJobOtpDialog(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   FixedSlotOtpField(
-  enabled: !isSubmitting,
-  hasError: hasError,
-  activeColor: _bookingsAccent,
-  inactiveColor: _bookingsAccent,
-  errorColor: Colors.red,
-  fillColor: Colors.white,
-  filledColor: _bookingsGold,
-  textColor: _bookingsPrimaryText,
-  filledTextColor: Colors.white,
-  onChanged: (value, complete) {
-    setDialogState(() {
-      otp = value;
-      otpComplete = complete;
-      hasError = false;
-    });
-  },
-  onSubmitted: null,
-),
+                    enabled: !isSubmitting,
+                    hasError: hasError,
+                    activeColor: _bookingsAccent,
+                    inactiveColor: _bookingsAccent,
+                    errorColor: Colors.red,
+                    fillColor: Colors.white,
+                    filledColor: _bookingsGold,
+                    textColor: _bookingsPrimaryText,
+                    filledTextColor: Colors.white,
+                    onChanged: (value, complete) {
+                      setDialogState(() {
+                        otp = value;
+                        otpComplete = complete;
+                        hasError = false;
+                      });
+                    },
+                    onSubmitted: null,
+                  ),
                   if (errorMessage.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -1871,7 +1871,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
               salonId: salonId,
               branchId: branchId,
               isSalonActive: salon['active'] != false,
-isBranchActive: branch['active'] != false,
+              isBranchActive: branch['active'] != false,
               salonName: salonName.isEmpty ? 'Salon #$salonId' : salonName,
               branchName: branchName.isEmpty
                   ? (salonName.isEmpty ? 'Salon #$salonId' : salonName)
@@ -1906,7 +1906,7 @@ isBranchActive: branch['active'] != false,
           addressSummary: _branchAddressSummary(salon['address']),
           isMain: salon['isMain'] == true,
           isSalonActive: salon['active'] != false,
-isBranchActive: salon['active'] != false,
+          isBranchActive: salon['active'] != false,
           startMinute: _clockMinutes(salon['startTime']),
           endMinute: _clockMinutes(salon['endTime']),
           hasWeeklySchedule: _hasProvidedWeeklySchedule(rawSchedule),
@@ -1952,8 +1952,8 @@ isBranchActive: salon['active'] != false,
               : branchName,
           addressSummary: _branchAddressSummary(branch['address']),
           isMain: branch['isMain'] == true,
-        isSalonActive: salon?['active'] != false,
-isBranchActive: branch['active'] != false,
+          isSalonActive: salon?['active'] != false,
+          isBranchActive: branch['active'] != false,
           startMinute: _clockMinutes(branch['startTime']),
           endMinute: _clockMinutes(branch['endTime']),
           hasWeeklySchedule: _hasProvidedWeeklySchedule(rawSchedule),
@@ -2251,10 +2251,6 @@ isBranchActive: branch['active'] != false,
     return const _TeamMemberDirectory();
   }
 
-  bool _isActiveEntity(Map<String, dynamic> map) {
-    return map['active'] != false;
-  }
-
   Future<_TeamMemberDirectory> _fetchTeamMemberDirectory(
     int branchId, {
     required DateTime date,
@@ -2274,7 +2270,6 @@ isBranchActive: branch['active'] != false,
       for (final item in data) {
         if (item is! Map) continue;
         final member = Map<String, dynamic>.from(item);
-        if (!_isActiveEntity(member)) continue;
         final name = _personName(member).trim();
         if (name.isEmpty) continue;
 
@@ -2291,7 +2286,6 @@ isBranchActive: branch['active'] != false,
           for (final assignment in assignments) {
             if (assignment is! Map) continue;
             final branchEntry = Map<String, dynamic>.from(assignment);
-            if (!_isActiveEntity(branchEntry)) continue;
             final branch = branchEntry['branch'];
             final rawBranchId =
                 branch is Map ? branch['id'] : branchEntry['branchId'];
@@ -2705,8 +2699,9 @@ isBranchActive: branch['active'] != false,
   List<Map<String, dynamic>> _bookingsForCurrentView(
     List<Map<String, dynamic>> sortedBookings,
   ) {
-    final teamFilteredBookings =
-        sortedBookings.where(_shouldShowBookingForActiveTeam).toList();
+    final teamFilteredBookings = widget.isOwnerMode
+        ? sortedBookings
+        : sortedBookings.where(_shouldShowBookingForActiveTeam).toList();
 
     if (_isRecentBookingView) {
       return teamFilteredBookings
@@ -2727,43 +2722,9 @@ isBranchActive: branch['active'] != false,
     return teamFilteredBookings;
   }
 
-  bool _isActiveTeamMemberName(String value) {
-    final normalized = value.trim().toLowerCase();
-    if (normalized.isEmpty) return false;
-    return _teamMemberNames
-        .any((name) => name.trim().toLowerCase() == normalized);
-  }
-
-  bool _hasAssignedStaffReference(Map<String, dynamic> booking) {
-    if (_assignedStaffNames(booking).isNotEmpty) return true;
-
-    bool hasId(dynamic value) => _asInt(value) != null;
-
-    bool hasReference(Map<String, dynamic> source) {
-      return hasId(source['assignedUserId']) ||
-          hasId(source['teamMemberId']) ||
-          hasId(source['assignedUserBranchId']) ||
-          hasId(source['userBranchId']) ||
-          hasId(source['professional']?['id']) ||
-          hasId(source['assignedUserBranch']?['id']) ||
-          hasId(source['assignedUserBranch']?['user']?['id']);
-    }
-
-    if (hasReference(booking)) return true;
-    return _bookingItems(booking).any(hasReference);
-  }
-
-  // bool _shouldShowBookingForActiveTeam(Map<String, dynamic> booking) {
-  //   if (!widget.isOwnerMode) return true;
-  //   if (_assignedStaffNamesForGrouping(booking).isNotEmpty) return true;
-  //   return !_hasAssignedStaffReference(booking);
-  // }
   bool _shouldShowBookingForActiveTeam(Map<String, dynamic> booking) {
-  if (!widget.isOwnerMode) return true;
-
-  // Show booking only if assigned team member is still active/available
-  return _assignedStaffNamesForGrouping(booking).isNotEmpty;
-}
+    return true;
+  }
 
   List<String> _assignedStaffNamesForGrouping(
     Map<String, dynamic> booking,
@@ -2774,7 +2735,6 @@ isBranchActive: branch['active'] != false,
     void addName(String value) {
       final normalized = value.trim();
       if (normalized.isEmpty) return;
-      if (widget.isOwnerMode && !_isActiveTeamMemberName(normalized)) return;
       final key = normalized.toLowerCase();
       if (seen.add(key)) {
         names.add(normalized);
@@ -2856,34 +2816,32 @@ isBranchActive: branch['active'] != false,
   //   return groups;
   // }
 
-Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
-  BuildContext context,
-  List<Map<String, dynamic>> bookings, {
-  bool includeEmptyTeamMembers = false,
-}) {
-  final groups = <String, List<Map<String, dynamic>>>{};
+  Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
+    BuildContext context,
+    List<Map<String, dynamic>> bookings, {
+    bool includeEmptyTeamMembers = false,
+  }) {
+    final groups = <String, List<Map<String, dynamic>>>{};
 
-  for (final booking in bookings) {
-    final labels = _assignedStaffNamesForGrouping(booking);
+    for (final booking in bookings) {
+      final labels = _assignedStaffNamesForGrouping(booking);
 
-    // Skip deleted/inactive team member bookings
-    if (labels.isEmpty) {
-      continue;
+      if (labels.isEmpty) continue;
+
+      for (final label in labels) {
+        groups.putIfAbsent(label, () => <Map<String, dynamic>>[]).add(booking);
+      }
     }
 
-    for (final label in labels) {
-      groups.putIfAbsent(label, () => <Map<String, dynamic>>[]).add(booking);
+    if (includeEmptyTeamMembers) {
+      for (final name in _teamMemberNames) {
+        groups.putIfAbsent(name, () => <Map<String, dynamic>>[]);
+      }
     }
+
+    return groups;
   }
 
-  if (includeEmptyTeamMembers) {
-    for (final name in _teamMemberNames) {
-      groups.putIfAbsent(name, () => <Map<String, dynamic>>[]);
-    }
-  }
-
-  return groups;
-}
   Widget _buildBookingCard(Map<String, dynamic> booking) {
     final status = _normalizeStatus(booking['status']);
     return _BookingListCard(
@@ -3221,18 +3179,19 @@ Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
       );
       return;
     }
-  if (!selected.canAcceptBookings) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
-        !selected.isSalonActive
-            ? translateText('This salon is inactive. Booking is disabled.')
-            : translateText('This branch is inactive. Booking is disabled.'),
-      ),
-    ),
-  );
-  return;
-}
+    if (!selected.canAcceptBookings) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            !selected.isSalonActive
+                ? translateText('This salon is inactive. Booking is disabled.')
+                : translateText(
+                    'This branch is inactive. Booking is disabled.'),
+          ),
+        ),
+      );
+      return;
+    }
     if (selected.isClosedOnDate(_selectedDate)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -3446,12 +3405,12 @@ Map<String, List<Map<String, dynamic>>> _groupBookingsByStaff(
     final bool isBranchBookingWindowOver = _isSelectedBranchBookingWindowOver();
 
     final bool isSelectedBranchInactive =
-    _selectedOption != null && !_selectedOption!.canAcceptBookings;
+        _selectedOption != null && !_selectedOption!.canAcceptBookings;
 
-final bool disableAddBooking = isSelectedBranchInactive ||
-    isSelectedDateClosed ||
-    noTeamMembersAvailable ||
-    isBranchBookingWindowOver;
+    final bool disableAddBooking = isSelectedBranchInactive ||
+        isSelectedDateClosed ||
+        noTeamMembersAvailable ||
+        isBranchBookingWindowOver;
     final selectedStartMinute = selectedDaySlots.isNotEmpty
         ? selectedDaySlots.first.startMinute
         : _selectedOption?.startMinute;
@@ -3617,11 +3576,6 @@ final bool disableAddBooking = isSelectedBranchInactive ||
                         reason: _noTeamMembersForDateReason,
                       ),
                     )
-                  else if (!_isLoading && visibleBookings.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _BookingEmptyState(),
-                    )
                   else if (selectedBookingView == _BookingViewTab.teamMembers)
                     _TeamMembersBoard(
                       staffGroups: _groupBookingsByStaff(
@@ -3632,6 +3586,11 @@ final bool disableAddBooking = isSelectedBranchInactive ||
                       onStaffTap: _openTeamMemberSchedule,
                       onBookingTap: _openBookingDetail,
                       onAddBookingTap: _openAddBooking,
+                    )
+                  else if (!_isLoading && visibleBookings.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _BookingEmptyState(),
                     )
                   else if (selectedBookingView == _BookingViewTab.schedule &&
                       widget.isOwnerMode)

@@ -205,6 +205,10 @@ class ApiService {
       "admin/salons/$salonId/subscription";
   static String salonSubscriptionsAPI(int salonId) =>
       "admin/salons/$salonId/subscriptions";
+  static String salonSubscriptionPaymentOrderAPI(int salonId) =>
+      "salons/$salonId/subscriptions/payment-order";
+  static String salonSubscriptionPaymentVerifyAPI(int salonId) =>
+      "salons/$salonId/subscriptions/payment-verify";
   static String getBranchServicesFlatAPI(int branchId) =>
       "branches/$branchId/services/flat";
   static String importPredefinedServicesAPI(int branchId) =>
@@ -634,6 +638,51 @@ class ApiService {
       endpoint: salonSubscriptionAPI(salonId),
       debugTag: 'CreateSalonSubscriptionSingular',
       body: payload,
+    );
+  }
+
+  Future<Map<String, dynamic>> createSalonSubscriptionPaymentOrder({
+    required int salonId,
+    required int planId,
+    required String billingCycle,
+    DateTime? startDate,
+    bool replaceCurrentPlan = false,
+  }) {
+    final normalizedBillingCycle =
+        billingCycle.toUpperCase() == 'YEARLY' ? 'ANNUAL' : billingCycle;
+    final payload = <String, dynamic>{
+      'planId': planId,
+      'billingCycle': normalizedBillingCycle,
+      if (startDate != null)
+        'startDate': DateFormat('yyyy-MM-dd').format(startDate),
+      if (replaceCurrentPlan) 'replaceCurrentPlan': true,
+    };
+
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: salonSubscriptionPaymentOrderAPI(salonId),
+      debugTag: 'CreateSalonSubscriptionPaymentOrder',
+      body: payload,
+    );
+  }
+
+  Future<Map<String, dynamic>> verifySalonSubscriptionPayment({
+    required int salonId,
+    required Object paymentTransactionId,
+    required String razorpayPaymentId,
+    required String razorpayOrderId,
+    required String razorpaySignature,
+  }) {
+    return _authorizedJsonRequest(
+      method: 'POST',
+      endpoint: salonSubscriptionPaymentVerifyAPI(salonId),
+      debugTag: 'VerifySalonSubscriptionPayment',
+      body: <String, dynamic>{
+        'paymentTransactionId': paymentTransactionId,
+        'razorpayPaymentId': razorpayPaymentId,
+        'razorpayOrderId': razorpayOrderId,
+        'razorpaySignature': razorpaySignature,
+      },
     );
   }
 
@@ -1465,11 +1514,11 @@ class ApiService {
     double longitude, {
     String? imageUrl, // 👈 optional
     required List<String> selectedCategoryCodes, // ✅ new required field
-     required int openingBufferMinutes,
-  required int lastBookingBufferMinutes,
+    required int openingBufferMinutes,
+    required int lastBookingBufferMinutes,
 
-  // ✅ optional
-  int? lastSlotOverflowGraceMinutes,
+    // ✅ optional
+    int? lastSlotOverflowGraceMinutes,
   }) async {
     final token = await getAuthToken();
 
@@ -1484,11 +1533,11 @@ class ApiService {
       "startTime": formattedStartTime,
       "endTime": formattedEndTime,
       "description": description,
-    "openingBufferMinutes": openingBufferMinutes,
-  "lastBookingBufferMinutes": lastBookingBufferMinutes,
+      "openingBufferMinutes": openingBufferMinutes,
+      "lastBookingBufferMinutes": lastBookingBufferMinutes,
 
-  if (lastSlotOverflowGraceMinutes != null)
-    "lastSlotOverflowGraceMinutes": lastSlotOverflowGraceMinutes,
+      if (lastSlotOverflowGraceMinutes != null)
+        "lastSlotOverflowGraceMinutes": lastSlotOverflowGraceMinutes,
       "imageUrl": imageUrl, // 👈 matches backend field name
       "address": {
         "line1": buildingName,

@@ -358,31 +358,32 @@ class _TeamScreenState extends State<TeamScreen> {
   //       status != 'no_show' &&
   //       status != 'deleted';
   // }
-bool _appointmentBlocksMemberUpdate(Map<String, dynamic> appointment) {
-  final status = (appointment['status'] ?? '')
-      .toString()
-      .trim()
-      .toLowerCase()
-      .replaceAll('-', '_')
-      .replaceAll(' ', '_');
+  bool _appointmentBlocksMemberUpdate(Map<String, dynamic> appointment) {
+    final status = (appointment['status'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
 
-  // These bookings should NOT block delete/deactivate
-  const nonBlockingStatuses = {
-    'completed',
-    'complete',
-    'cancelled',
-    'canceled',
-    'no_show',
-    'deleted',
-  };
+    // These bookings should NOT block delete/deactivate
+    const nonBlockingStatuses = {
+      'completed',
+      'complete',
+      'cancelled',
+      'canceled',
+      'no_show',
+      'deleted',
+    };
 
-  if (nonBlockingStatuses.contains(status)) {
-    return false;
+    if (nonBlockingStatuses.contains(status)) {
+      return false;
+    }
+
+    // Only active/live bookings should block
+    return true;
   }
 
-  // Only active/live bookings should block
-  return true;
-}
   void _collectBookedMemberIdsFromSource(
     Map<String, dynamic> source,
     Set<int> bookedIds,
@@ -1137,7 +1138,7 @@ bool _appointmentBlocksMemberUpdate(Map<String, dynamic> appointment) {
                                 MaterialPageRoute(
                                   builder: (_) => TeamMemberDetails(
                                     member: member,
-                                    salons: null,
+                                    salons: _salons,
                                     professionalRating:
                                         ratingSummary.average.toDouble(),
                                     professionalReviewCount:

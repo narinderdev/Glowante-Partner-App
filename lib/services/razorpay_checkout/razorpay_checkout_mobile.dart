@@ -35,6 +35,8 @@ class GlowanteRazorpayCheckout {
         'currency': request.currency,
         'name': request.name,
         'description': request.description,
+        if (request.orderId != null && request.orderId!.isNotEmpty)
+          'order_id': request.orderId,
         'prefill': <String, dynamic>{
           if (request.contact != null && request.contact!.isNotEmpty)
             'contact': request.contact,

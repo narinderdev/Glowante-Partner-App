@@ -24,8 +24,9 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
   final TextEditingController _receivedByController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   List<Map<String, dynamic>> _purchaseOrders = const <Map<String, dynamic>>[];
-  List<_GrnLineInput> _lines = const <_GrnLineInput>[];
+  List<_GrnLineInput> _lines = <_GrnLineInput>[_GrnLineInput()];
   int? _selectedPoId;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   bool _isLoadingOptions = true;
   bool _isLoadingLines = false;
   bool _isSaving = false;
@@ -82,6 +83,10 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
   }
 
   Future<void> _submit() async {
+    setState(() {
+      _autoValidateMode = AutovalidateMode.onUserInteraction;
+    });
+
     if (!_formKey.currentState!.validate()) return;
     if (_selectedPoId == null) {
       ScaffoldMessenger.of(context)
@@ -149,6 +154,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
+              autovalidateMode: _autoValidateMode,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -171,6 +177,8 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                           ),
                         )
                         .toList(),
+                    validator: (value) =>
+                        value == null ? context.t('PO is required') : null,
                     onChanged: _isPoLocked
                         ? null
                         : (value) {
@@ -189,6 +197,11 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                     validator: (value) => _stringValue(value).isEmpty
                         ? context.t('Received By is required')
                         : null,
+                    onChanged: (_) {
+                      if (_autoValidateMode != AutovalidateMode.disabled) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -257,6 +270,19 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                               decoration: InputDecoration(
                                 labelText: context.t('Received Qty'),
                               ),
+                              validator: (value) {
+                                final qty = _toInt(value);
+                                if (qty == null || qty <= 0) {
+                                  return context.t('Received Qty is required');
+                                }
+                                return null;
+                              },
+                              onChanged: (_) {
+                                if (_autoValidateMode !=
+                                    AutovalidateMode.disabled) {
+                                  _formKey.currentState?.validate();
+                                }
+                              },
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
@@ -278,7 +304,9 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                             Align(
                               alignment: Alignment.centerRight,
                               child: TextButton(
-                                onPressed: () => _removeLine(index),
+                                onPressed: _lines.length == 1
+                                    ? null
+                                    : () => _removeLine(index),
                                 child: Text(context.t('Remove')),
                               ),
                             ),

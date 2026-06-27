@@ -526,12 +526,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     final currentBranchId = widget.branchId;
 
     for (final member in _teamMembers) {
-      if (!_isActiveEntity(member)) continue;
       final branches = member['userBranches'] as List? ?? const [];
       for (final entry in branches) {
         if (entry is! Map) continue;
         final branchEntry = Map<String, dynamic>.from(entry);
-        if (!_isActiveEntity(branchEntry)) continue;
         final branch = branchEntry['branch'];
         final branchMap =
             branch is Map ? Map<String, dynamic>.from(branch) : {};
@@ -701,42 +699,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   List<dynamic> _listValue(dynamic value) {
     if (value is List) return value;
     return const [];
-  }
-
-  bool _isActiveEntity(Map<String, dynamic> map) {
-    bool? readBool(dynamic value) {
-      if (value is bool) return value;
-      final text = value?.toString().trim().toLowerCase() ?? '';
-      if (text.isEmpty || text == 'null') return null;
-      if (text == 'true' || text == '1' || text == 'yes') return true;
-      if (text == 'false' || text == '0' || text == 'no') return false;
-      return null;
-    }
-
-    for (final key in const ['active', 'isActive', 'enabled']) {
-      final parsed = readBool(map[key]);
-      if (parsed == false) return false;
-    }
-
-    for (final key in const [
-      'status',
-      'memberStatus',
-      'professionalStatus',
-      'state',
-    ]) {
-      final status = map[key]?.toString().trim().toLowerCase() ?? '';
-      if (status.isEmpty || status == 'null') continue;
-      if (status.contains('deactiv') ||
-          status.contains('inactive') ||
-          status.contains('disabled') ||
-          status.contains('deleted') ||
-          status.contains('terminated') ||
-          status.contains('suspended')) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
   Map<String, dynamic>? _serviceById(int serviceId) {

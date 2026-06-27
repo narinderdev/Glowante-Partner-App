@@ -1215,10 +1215,7 @@ class _AddServicesState extends State<AddServices> {
                                       ? const TextInputType.numberWithOptions(
                                           decimal: true)
                                       : TextInputType.number,
-                                  onChanged: (_) {
-                                    setState(() {});
-                                    _formKey.currentState?.validate();
-                                  },
+                                  onChanged: (_) => setState(() {}),
                                   textInputAction:
                                       _commissionType == 'percentage'
                                           ? TextInputAction.next
