@@ -69,18 +69,6 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
     super.dispose();
   }
 
-  Future<void> _pickRequiredDate() async {
-    final selected = await showDatePicker(
-      context: context,
-      initialDate: _requiredDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (selected != null) {
-      setState(() => _requiredDate = selected);
-    }
-  }
-
   void _addLine() {
     setState(() {
       _lines = <_PurchaseOrderLineInput>[..._lines, _PurchaseOrderLineInput()];
@@ -114,10 +102,6 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
     final vendorRequired = translateText('Vendor is required');
     final deliveryAddressRequired =
         translateText('Delivery Address is required');
-    final requiredDateRequired =
-        translateText('Required delivery date is required');
-    final requiredDatePast =
-        translateText('Required date cannot be in the past');
     final lineRequired =
         translateText('Each line must have an item and ordered qty');
 
@@ -138,19 +122,6 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
       );
       return;
     }
-    if (_requiredDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(requiredDateRequired)),
-      );
-      return;
-    }
-    if (_requiredDate!
-        .isBefore(DateTime.now().subtract(const Duration(days: 1)))) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(requiredDatePast)),
-      );
-      return;
-    }
     for (final line in _lines) {
       if (line.itemId == null || (_toInt(line.qtyController.text) ?? 0) <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -168,7 +139,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
         'deliveryStoreId': _selectedStoreId,
         'createdBy': createdBy,
         'createdByUserId': createdBy,
-        'requiredDeliveryDate': _requiredDate!.toIso8601String(),
+        'requiredDeliveryDate': DateFormat('yyyy-MM-dd').format(_requiredDate!),
         'department': _departmentController.text.trim(),
         'remarks': _remarksController.text.trim(),
         'lines': _lines
@@ -198,6 +169,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
     final vendorRequired = translateText('Vendor is required');
     final deliveryAddressRequired =
         translateText('Delivery Address is required');
+    final requiredDateRequired = translateText('Delivery date is required');
     final createdByRequired = translateText('Created By is required');
     final orderedQtyRequired = translateText('Ordered Qty is required');
     final itemRequired = translateText('Item is required');
@@ -276,19 +248,53 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
                     },
                   ),
                   const SizedBox(height: 14),
-                  InkWell(
-                    onTap: _pickRequiredDate,
-                    child: InputDecorator(
-                      decoration: InputDecoration(
-                        labelText: context.t('Required Delivery Date'),
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(
-                        _requiredDate == null
-                            ? context.t('Select date')
-                            : DateFormat('dd MMM yyyy').format(_requiredDate!),
-                      ),
-                    ),
+                  FormField<DateTime?>(
+                    initialValue: _requiredDate,
+                    autovalidateMode: _autoValidateMode,
+                    validator: (value) {
+                      if (value == null) {
+                        return requiredDateRequired;
+                      }
+                      if (value.isBefore(
+                          DateTime.now().subtract(const Duration(days: 1)))) {
+                        return translateText(
+                          'Required date cannot be in the past',
+                        );
+                      }
+                      return null;
+                    },
+                    builder: (field) {
+                      return InkWell(
+                        onTap: () async {
+                          final selected = await showDatePicker(
+                            context: context,
+                            initialDate: _requiredDate ?? DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate:
+                                DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (selected == null) return;
+                          setState(() => _requiredDate = selected);
+                          field.didChange(selected);
+                          if (_autoValidateMode != AutovalidateMode.disabled) {
+                            _formKey.currentState?.validate();
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: context.t('Required Delivery Date'),
+                            border: const OutlineInputBorder(),
+                            errorText: field.errorText,
+                          ),
+                          child: Text(
+                            _requiredDate == null
+                                ? context.t('Select date')
+                                : DateFormat('dd MMM yyyy')
+                                    .format(_requiredDate!),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 14),
                   TextFormField(

@@ -27,6 +27,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
   List<_GrnLineInput> _lines = <_GrnLineInput>[_GrnLineInput()];
   int? _selectedPoId;
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  String? _submitError;
   bool _isLoadingOptions = true;
   bool _isLoadingLines = false;
   bool _isSaving = false;
@@ -85,6 +86,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
   Future<void> _submit() async {
     setState(() {
       _autoValidateMode = AutovalidateMode.onUserInteraction;
+      _submitError = null;
     });
 
     if (!_formKey.currentState!.validate()) return;
@@ -128,8 +130,12 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
       });
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+      setState(() {
+        _submitError = extractErrorMessage(
+          error,
+          fallback: context.t('Unable to save GRN. Please try again.'),
+        );
+      });
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -182,6 +188,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                     onChanged: _isPoLocked
                         ? null
                         : (value) {
+                            _clearSubmitError();
                             setState(() => _selectedPoId = value);
                             if (value != null) {
                               _loadPoLines(value);
@@ -198,6 +205,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                         ? context.t('Received By is required')
                         : null,
                     onChanged: (_) {
+                      _clearSubmitError();
                       if (_autoValidateMode != AutovalidateMode.disabled) {
                         _formKey.currentState?.validate();
                       }
@@ -209,6 +217,7 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                     controller: _notesController,
                     maxLines: 1,
                     decoration: InputDecoration(labelText: context.t('Notes')),
+                    onChanged: (_) => _clearSubmitError(),
                   ),
                   const SizedBox(height: 24),
                   Row(
@@ -275,9 +284,16 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                                 if (qty == null || qty <= 0) {
                                   return context.t('Received Qty is required');
                                 }
+                                if (line.orderedQty > 0 &&
+                                    qty > line.orderedQty) {
+                                  return context.t(
+                                    'Received Qty cannot be greater than Ordered Qty',
+                                  );
+                                }
                                 return null;
                               },
                               onChanged: (_) {
+                                _clearSubmitError();
                                 if (_autoValidateMode !=
                                     AutovalidateMode.disabled) {
                                   _formKey.currentState?.validate();
@@ -292,6 +308,13 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                               decoration: InputDecoration(
                                 labelText: context.t('Return Qty'),
                               ),
+                              onChanged: (_) {
+                                _clearSubmitError();
+                                if (_autoValidateMode !=
+                                    AutovalidateMode.disabled) {
+                                  _formKey.currentState?.validate();
+                                }
+                              },
                             ),
                             const SizedBox(height: 12),
                             TextFormField(
@@ -300,6 +323,22 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                               decoration: InputDecoration(
                                 labelText: context.t('Return Reason'),
                               ),
+                              validator: (value) {
+                                final returnQty =
+                                    _toInt(line.returnQtyController.text) ?? 0;
+                                if (returnQty > 0 &&
+                                    _stringValue(value).isEmpty) {
+                                  return context.t('Return Reason is required');
+                                }
+                                return null;
+                              },
+                              onChanged: (_) {
+                                _clearSubmitError();
+                                if (_autoValidateMode !=
+                                    AutovalidateMode.disabled) {
+                                  _formKey.currentState?.validate();
+                                }
+                              },
                             ),
                             Align(
                               alignment: Alignment.centerRight,
@@ -314,6 +353,26 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
                         ),
                       );
                     }),
+                  if (_submitError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE57373)),
+                      ),
+                      child: Text(
+                        _submitError!,
+                        style: const TextStyle(
+                          color: Color(0xFFC62828),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerRight,
                     child: ElevatedButton(
@@ -333,6 +392,11 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
               ),
             ),
     );
+  }
+
+  void _clearSubmitError() {
+    if (_submitError == null) return;
+    setState(() => _submitError = null);
   }
 }
 

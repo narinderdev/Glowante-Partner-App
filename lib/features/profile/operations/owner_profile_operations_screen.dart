@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../services/stylist_branch_selection.dart';
 import '../../../utils/api_service.dart';
 import '../../../utils/colors.dart';
+import '../../../utils/error_parser.dart';
 import '../../../utils/localization_helper.dart';
 import '../../../utils/price_formatter.dart';
 import '../../salon/widgets/owner_branch_header_selector.dart';
@@ -1320,22 +1321,23 @@ class _OwnerProfileOperationsScreenState
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    OutlinedButton(
-                      onPressed: () async {
-                        Navigator.of(dialogContext).pop();
-                        _logOperations(
-                          'purchase_order_status_dialog_from_details',
-                          details:
-                              'branchId=$branchId, poId=$poId, status=$status',
-                        );
-                        await _showPurchaseOrderStatusDialog(
-                          poId: poId,
-                          currentStatus: status,
-                          lines: lines,
-                        );
-                      },
-                      child: const Text('Update Status'),
-                    ),
+                    if (status != 'CONVERTED_TO_GRN')
+                      OutlinedButton(
+                        onPressed: () async {
+                          Navigator.of(dialogContext).pop();
+                          _logOperations(
+                            'purchase_order_status_dialog_from_details',
+                            details:
+                                'branchId=$branchId, poId=$poId, status=$status',
+                          );
+                          await _showPurchaseOrderStatusDialog(
+                            poId: poId,
+                            currentStatus: status,
+                            lines: lines,
+                          );
+                        },
+                        child: const Text('Update Status'),
+                      ),
                     if (status == 'ISSUED')
                       ElevatedButton(
                         onPressed: () {

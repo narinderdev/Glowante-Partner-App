@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/services.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import 'razorpay_checkout_models.dart';
 
 class GlowanteRazorpayCheckout {
   GlowanteRazorpayCheckout();
 
-  static const MethodChannel _channel = MethodChannel('razorpay_flutter');
+  Razorpay? _razorpay;
   Completer<RazorpayCheckoutResult>? _activePayment;
 
   bool get isSupported => Platform.isAndroid || Platform.isIOS;
@@ -28,8 +28,14 @@ class GlowanteRazorpayCheckout {
     final completer = Completer<RazorpayCheckoutResult>();
     _activePayment = completer;
 
+    final razorpay = _razorpay ??= Razorpay();
+    razorpay.clear();
+    razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+    razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+
     try {
-      final response = await _channel.invokeMethod<dynamic>('open', {
+      razorpay.open(<String, dynamic>{
         'key': request.key,
         'amount': request.amountMinor,
         'currency': request.currency,
@@ -44,66 +50,84 @@ class GlowanteRazorpayCheckout {
             'email': request.email,
         },
       });
-      _completeActivePayment(_resultFromPlatformResponse(response));
-    } on MissingPluginException {
-      _completeActivePayment(
-        RazorpayCheckoutResult.failure(
-          'Razorpay checkout is unavailable. Fully stop and reinstall the app after adding the payment plugin.',
-        ),
-      );
     } catch (error) {
-      _completeActivePayment(
-        RazorpayCheckoutResult.failure(error.toString()),
-      );
+      _completeActivePayment(RazorpayCheckoutResult.failure(error.toString()));
     }
 
     return completer.future;
   }
 
-  RazorpayCheckoutResult _resultFromPlatformResponse(dynamic response) {
-    if (response is! Map) {
-      return RazorpayCheckoutResult.failure('Invalid Razorpay response.');
+  void _handlePaymentSuccess(dynamic response) {
+    if (response is! PaymentSuccessResponse) {
+      _completeActivePayment(
+        RazorpayCheckoutResult.failure('Invalid Razorpay success response.'),
+      );
+      return;
     }
 
-    final data = response['data'];
-    if (response['type'] == 0 && data is Map) {
-      final paymentId = data['razorpay_payment_id']?.toString() ?? '';
-      if (paymentId.isEmpty) {
-        return RazorpayCheckoutResult.failure(
-          'Payment completed without payment id.',
-        );
-      }
-      return RazorpayCheckoutResult.success(
+    final paymentId = response.paymentId?.trim() ?? '';
+    if (paymentId.isEmpty) {
+      _completeActivePayment(
+        RazorpayCheckoutResult.failure('Payment completed without payment id.'),
+      );
+      return;
+    }
+
+    _completeActivePayment(
+      RazorpayCheckoutResult.success(
         paymentId: paymentId,
-        orderId: data['razorpay_order_id']?.toString(),
-        signature: data['razorpay_signature']?.toString(),
+        orderId: response.orderId,
+        signature: response.signature,
+      ),
+    );
+  }
+
+  void _handlePaymentError(dynamic response) {
+    if (response is! PaymentFailureResponse) {
+      _completeActivePayment(
+        RazorpayCheckoutResult.failure('Invalid Razorpay error response.'),
       );
+      return;
     }
 
-    if (response['type'] == 1 && data is Map) {
-      final message = data['message']?.toString() ?? 'Payment failed.';
-      if (data['code'] == 2) {
-        return RazorpayCheckoutResult.cancelled(message);
-      }
-      return RazorpayCheckoutResult.failure(message);
+    final message = response.message?.trim() ?? 'Payment failed.';
+    if (response.code == Razorpay.PAYMENT_CANCELLED) {
+      _completeActivePayment(RazorpayCheckoutResult.cancelled(message));
+      return;
     }
 
-    if (response['type'] == 2 && data is Map) {
-      return RazorpayCheckoutResult.failure(
-        'External wallet selected: ${data['external_wallet'] ?? 'unknown'}',
+    _completeActivePayment(RazorpayCheckoutResult.failure(message));
+  }
+
+  void _handleExternalWallet(dynamic response) {
+    if (response is! ExternalWalletResponse) {
+      _completeActivePayment(
+        RazorpayCheckoutResult.failure(
+          'Invalid Razorpay external wallet response.',
+        ),
       );
+      return;
     }
 
-    return RazorpayCheckoutResult.failure('Payment failed.');
+    _completeActivePayment(
+      RazorpayCheckoutResult.failure(
+        'External wallet selected: ${response.walletName ?? 'unknown'}',
+      ),
+    );
   }
 
   void _completeActivePayment(RazorpayCheckoutResult result) {
     final completer = _activePayment;
     _activePayment = null;
+    _razorpay?.clear();
     if (completer != null && !completer.isCompleted) {
       completer.complete(result);
     }
   }
 
-  void dispose() {}
+  void dispose() {
+    _razorpay?.clear();
+    _razorpay = null;
+    _activePayment = null;
+  }
 }
