@@ -711,21 +711,7 @@ class ApiService {
       debugTag: 'ActivateSalonSubscriptionNow',
       body: payload,
     );
-    if (response['success'] == true) return response;
-    final statusCode = response['statusCode'];
-    final message = response['message']?.toString().toLowerCase() ?? '';
-    final shouldTrySingular = statusCode == 404 ||
-        statusCode == 405 ||
-        (statusCode == 400 &&
-            message.contains('upcoming membership already exists'));
-    if (!shouldTrySingular) return response;
-
-    return _authorizedJsonRequest(
-      method: 'POST',
-      endpoint: salonSubscriptionAPI(salonId),
-      debugTag: 'ActivateSalonSubscriptionNowSingular',
-      body: payload,
-    );
+    return response;
   }
 
   Future<Map<String, dynamic>> getBranchRoles(int branchId) {

@@ -327,32 +327,6 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       _showSnack('Please create or select a salon first.');
       return;
     }
-    final subscription = _subscription;
-    final isActiveMonthly = subscription != null &&
-        !_isYearlyCycle(subscription.billingCycle) &&
-        subscription.upcomingMembership == null;
-    if (subscription != null &&
-        subscription.currentPlanId != plan.id &&
-        !_isUpgradePlan(plan, subscription, _plans)) {
-      _logMembership(
-        'choose_plan_blocked',
-        details:
-            'reason=lower_tier_plan, subscriptionPlanId=${subscription.currentPlanId}',
-      );
-      _showSnack(
-        'Lower-tier plans cannot be purchased while an active membership exists. Select a higher-tier plan or renew the current plan.',
-      );
-      return;
-    }
-    if (subscription != null && !subscription.canUpgrade && !isActiveMonthly) {
-      _logMembership(
-        'choose_plan_blocked',
-        details:
-            'reason=subscriptions_blocked, message=${subscription.membershipMessage}',
-      );
-      _showSnack(subscription.membershipMessage);
-      return;
-    }
 
     final selection = await showDialog<_PurchaseSelection>(
       context: context,
@@ -575,6 +549,13 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
       final currency = _cleanText(orderData['currency']).isEmpty
           ? selection.plan.currency
           : _cleanText(orderData['currency']);
+      final razorpayKeyId = _cleanText(
+        orderData['razorpayKeyId'] ?? orderData['razorpay_key_id'],
+      ).isNotEmpty
+          ? _cleanText(
+              orderData['razorpayKeyId'] ?? orderData['razorpay_key_id'],
+            )
+          : _razorpayKeyId;
 
       if (paymentTransactionId == null) {
         _logMembership(
@@ -601,12 +582,13 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         details: 'paymentTransactionId=$paymentTransactionId, '
             'orderId=$orderId, '
             'amountMinor=$amountMinor, currency=$currency, '
+            'keyId=$razorpayKeyId, '
             'contact=${prefs.getString('phone_number') ?? 'none'}, '
             'email=${prefs.getString('email') ?? 'none'}',
       );
       final result = await checkout.open(
         RazorpayCheckoutRequest(
-          key: _razorpayKeyId,
+          key: razorpayKeyId,
           amountMinor: amountMinor,
           currency: currency,
           name: 'Glowante',
@@ -887,13 +869,14 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
         if (_subscription != null) ...[
           _ExpiryBanner(
             subscription: _subscription!,
-            onRenew: null,
+            onRenew: _showAvailablePlans,
           ),
           const SizedBox(height: 18),
           _MembershipSummaryRow(
             subscription: _subscription!,
             actions: _MembershipActions(
               subscription: _subscription!,
+              onRenew: _showAvailablePlans,
               onPlans: _showAvailablePlans,
               onPaymentHistory: _showPaymentHistory,
               onActivateUpcoming: _activateUpcomingMembership,
@@ -1115,14 +1098,6 @@ class _PlansGrid extends StatelessWidget {
                   yearlyBilling: yearlyBilling,
                   isCurrent: currentPlanId == plan.id &&
                       currentBillingCycle == viewedBillingCycle,
-                  canChoose: _canChoosePlan(
-                    plan,
-                    viewedBillingCycle: viewedBillingCycle,
-                  ),
-                  disabledMessage: currentPlanId == plan.id &&
-                          currentBillingCycle == viewedBillingCycle
-                      ? 'This plan is already active. Please choose a different upgrade plan.'
-                      : subscription?.membershipMessage,
                   onChoose: () => onChoose(plan),
                 ),
               ),
@@ -1131,26 +1106,6 @@ class _PlansGrid extends StatelessWidget {
       },
     );
   }
-
-  bool _canChoosePlan(
-    _MembershipPlan plan, {
-    required String viewedBillingCycle,
-  }) {
-    final current = subscription;
-    if (current == null) return true;
-    if (current.upcomingMembership != null) return false;
-    final currentBillingCycle =
-        _billingCycleApiValue(_isYearlyCycle(current.billingCycle));
-    if (current.currentPlanId == plan.id) {
-      return currentBillingCycle != viewedBillingCycle;
-    }
-    if (current.eligibleUpgradePlanIds.isNotEmpty) {
-      return current.eligibleUpgradePlanIds.contains(plan.id);
-    }
-    if (_isHigherTierPlan(plan, current, plans)) return true;
-    if (!_isYearlyCycle(current.billingCycle)) return true;
-    return current.canUpgrade;
-  }
 }
 
 class _PlanCard extends StatelessWidget {
@@ -1158,16 +1113,12 @@ class _PlanCard extends StatelessWidget {
     required this.plan,
     required this.yearlyBilling,
     required this.isCurrent,
-    required this.canChoose,
-    required this.disabledMessage,
     required this.onChoose,
   });
 
   final _MembershipPlan plan;
   final bool yearlyBilling;
   final bool isCurrent;
-  final bool canChoose;
-  final String? disabledMessage;
   final VoidCallback onChoose;
 
   @override
@@ -1261,18 +1212,9 @@ class _PlanCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: canChoose
-                  ? onChoose
-                  : () {
-                      final message = disabledMessage?.trim();
-                      if (message == null || message.isEmpty) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(context.t(message))),
-                      );
-                    },
+              onPressed: onChoose,
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    canChoose ? AppColors.starColor : const Color(0xFFD8CEC5),
+                backgroundColor: AppColors.starColor,
                 foregroundColor: Colors.white,
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 13),
@@ -1283,9 +1225,7 @@ class _PlanCard extends StatelessWidget {
               child: Text(
                 isCurrent
                     ? context.t('Current Plan')
-                    : !canChoose
-                        ? context.t('Not Eligible')
-                        : context.t('Choose ${plan.name}'),
+                    : context.t('Choose ${plan.name}'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -1300,54 +1240,6 @@ class _PlanCard extends StatelessWidget {
       ),
     );
   }
-}
-
-bool _isUpgradePlan(
-  _MembershipPlan plan,
-  _SalonSubscription current,
-  List<_MembershipPlan> plans,
-) {
-  if (current.eligibleUpgradePlanIds.isNotEmpty) {
-    return current.eligibleUpgradePlanIds.contains(plan.id);
-  }
-  return _isHigherTierPlan(plan, current, plans);
-}
-
-bool _isHigherTierPlan(
-  _MembershipPlan plan,
-  _SalonSubscription current,
-  List<_MembershipPlan> plans,
-) {
-  final currentPlan = _resolvedCurrentPlan(current, plans);
-  final planHasHigherMonetaryValue =
-      plan.monthlyPriceMinor > currentPlan.monthlyPriceMinor ||
-          plan.annualPriceMinor > currentPlan.annualPriceMinor;
-  final planHasHigherCapacity = plan.branchLimit > currentPlan.branchLimit ||
-      plan.staffLimit > currentPlan.staffLimit ||
-      plan.storageLimit > currentPlan.storageLimit;
-  return planHasHigherMonetaryValue || planHasHigherCapacity;
-}
-
-_MembershipPlan _resolvedCurrentPlan(
-  _SalonSubscription current,
-  List<_MembershipPlan> plans,
-) {
-  for (final plan in plans) {
-    if (plan.id == current.currentPlanId) return plan;
-  }
-  return _MembershipPlan(
-    id: current.currentPlanId,
-    name: current.currentPlan,
-    description: '',
-    monthlyPriceMinor: current.amountMinor,
-    annualPriceMinor: current.amountMinor * 12,
-    branchLimit: current.branchUsage.limit,
-    staffLimit: current.staffUsage.limit,
-    storageLimit: current.storageUsage.limit,
-    includedFeatures: const [],
-    currency: current.currency,
-    isRecommended: false,
-  );
 }
 
 class _FeatureLine extends StatelessWidget {
@@ -1680,12 +1572,14 @@ class _MembershipSummaryRow extends StatelessWidget {
 class _MembershipActions extends StatelessWidget {
   const _MembershipActions({
     required this.subscription,
+    required this.onRenew,
     required this.onPlans,
     required this.onPaymentHistory,
     required this.onActivateUpcoming,
   });
 
   final _SalonSubscription subscription;
+  final VoidCallback onRenew;
   final VoidCallback onPlans;
   final VoidCallback onPaymentHistory;
   final VoidCallback onActivateUpcoming;
@@ -1699,16 +1593,13 @@ class _MembershipActions extends StatelessWidget {
           _ActionRow(
             icon: Icons.refresh_rounded,
             label: 'Renew Plan',
-            onTap: null,
-            disabledMessage:
-                'This plan is already active. Please choose a different upgrade plan.',
+            onTap: onRenew,
           ),
           const Divider(height: 1, color: _membershipBorder),
           _ActionRow(
             icon: Icons.trending_up_rounded,
             label: 'Upgrade Plan',
-            onTap: subscription.canUpgrade ? onPlans : null,
-            disabledMessage: subscription.membershipMessage,
+            onTap: onPlans,
           ),
           const Divider(height: 1, color: _membershipBorder),
           if (subscription.upcomingMembership != null) ...[
@@ -1741,18 +1632,15 @@ class _ActionRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.disabledMessage,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final String? disabledMessage;
 
   @override
   Widget build(BuildContext context) {
     final enabled = onTap != null;
-    final message = _cleanText(disabledMessage);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
@@ -1787,20 +1675,6 @@ class _ActionRow extends StatelessWidget {
                       color: enabled ? _membershipText : _membershipMuted,
                     ),
                   ),
-                  if (!enabled && message.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      context.t(message),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: _membershipMuted,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

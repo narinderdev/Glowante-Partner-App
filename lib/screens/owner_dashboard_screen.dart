@@ -7,7 +7,6 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/profile/compensation/profile_compensation_screen.dart';
 import '../features/profile/operations/owner_profile_operations_screen.dart';
 import '../services/stylist_branch_selection.dart';
-import '../services/user_role_session.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
@@ -64,7 +63,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   DateTime _selectedDate = DateTime.now();
   Map<String, dynamic> _dashboard = const {};
   String _profileImageUrl = '';
-  bool _isLoadingBranches = true;
   bool _isLoadingDashboard = false;
   String? _errorMessage;
 
@@ -76,7 +74,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Future<void> _loadData() async {
     setState(() {
-      _isLoadingBranches = true;
       _isLoadingDashboard = true;
       _errorMessage = null;
     });
@@ -98,7 +95,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         _branchOptions = options;
         _selectedBranchId = selectedBranchId;
         _profileImageUrl = _readProfileImageUrl(prefs);
-        _isLoadingBranches = false;
       });
 
       if (selectedBranchId == null) {
@@ -112,7 +108,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       if (!mounted) return;
       setState(() {
         _errorMessage = error.toString();
-        _isLoadingBranches = false;
         _isLoadingDashboard = false;
       });
     }
@@ -1231,9 +1226,6 @@ class _DashboardDrawer extends StatefulWidget {
 class _DashboardDrawerState extends State<_DashboardDrawer> {
   final Set<String> _expandedGroups = <String>{};
   String? _selectedDrawerItem;
-  bool _permissionsLoaded = false;
-  bool _hasPermissionPayload = false;
-  Set<String> _branchPermissions = const <String>{};
 
   @override
   void initState() {
@@ -1250,17 +1242,8 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
   }
 
   Future<void> _loadDrawerPermissions() async {
-    final hasPermissionPayload =
-        await UserRoleSession.instance.hasPersistedPermissions();
-    final branchPermissions = await UserRoleSession.instance.loadPermissions(
-      branchId: widget.selectedBranchId,
-    );
     if (!mounted) return;
-    setState(() {
-      _permissionsLoaded = true;
-      _hasPermissionPayload = hasPermissionPayload;
-      _branchPermissions = branchPermissions;
-    });
+    setState(() {});
   }
 
   @override
@@ -1268,7 +1251,7 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
     List<_DashboardDrawerChildItem> allowedChildren(
       List<_DashboardDrawerChildItem> children,
     ) {
-      return children.where((child) => _canAccess(child.permissions)).toList();
+      return children;
     }
 
     Widget? drawerTile({
@@ -1276,7 +1259,6 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
       required _DashboardDrawerItem item,
       required VoidCallback onTap,
     }) {
-      if (!_canAccess(item.permissions)) return null;
       return _DashboardDrawerTile(
         item: item,
         selected: _selectedDrawerItem == id,
@@ -1695,12 +1677,6 @@ class _DashboardDrawerState extends State<_DashboardDrawer> {
       _expandedGroups.clear();
     });
     widget.onOpen(screen);
-  }
-
-  bool _canAccess(List<String> permissionCodes) {
-    if (permissionCodes.isEmpty) return true;
-    if (!_permissionsLoaded || !_hasPermissionPayload) return true;
-    return permissionCodes.any(_branchPermissions.contains);
   }
 
   bool _isGroupSelected(String id) =>

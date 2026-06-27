@@ -92,6 +92,31 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     );
   }
 
+  int _slotSortValue(Map<String, String> slot, String key) {
+    return _parseTimeToMinutes(slot[key] ?? '') ?? 0;
+  }
+
+  int _slotComparator(Map<String, String> a, Map<String, String> b) {
+    final startCompare =
+        _slotSortValue(a, 'start').compareTo(_slotSortValue(b, 'start'));
+    if (startCompare != 0) return startCompare;
+    return _slotSortValue(a, 'end').compareTo(_slotSortValue(b, 'end'));
+  }
+
+  void _sortWeeklyScheduleInPlace() {
+    for (final day in _weekDays) {
+      weeklySchedule[day]?.sort(_slotComparator);
+    }
+  }
+
+  List<Map<String, String>> _sortedDaySlots(String day) {
+    final slots = List<Map<String, String>>.from(
+      weeklySchedule[day] ?? const <Map<String, String>>[],
+    );
+    slots.sort(_slotComparator);
+    return slots;
+  }
+
   void _clearWeeklySchedule() {
     for (final day in _weekDays) {
       weeklySchedule[day]?.clear();
@@ -103,6 +128,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     if (snapshot != null) {
       weeklySchedule = _cloneWeeklySchedule(snapshot);
+      _sortWeeklyScheduleInPlace();
       _manualWeeklyScheduleSnapshot = null;
       return;
     }
@@ -546,10 +572,15 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
     final rawSchedules = widget.formData['schedules'];
 
     if (rawSchedules is! List || rawSchedules.isEmpty) {
+      debugPrint('[TeamSchedule] No member schedules found in payload.');
       return false;
     }
 
     var foundAny = false;
+
+    debugPrint(
+      '[TeamSchedule] Prefilling member schedules count=${rawSchedules.length}',
+    );
 
     for (final raw in rawSchedules.whereType<Map>()) {
       final day = (raw['day'] ?? '').toString().trim().toLowerCase();
@@ -580,6 +611,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       });
 
       foundAny = true;
+    }
+
+    if (foundAny) {
+      _sortWeeklyScheduleInPlace();
+      debugPrint('[TeamSchedule] Member schedule prefill applied.');
     }
 
     return foundAny;
@@ -670,6 +706,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
         'start': _formatMinutes(nextSlot.startMinutes),
         'end': _formatMinutes(nextSlot.endMinutes),
       });
+      _sortWeeklyScheduleInPlace();
     });
   }
 
@@ -784,6 +821,8 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
         slot['start'] = previousStart;
       }
+
+      _sortWeeklyScheduleInPlace();
     });
   }
 
@@ -826,6 +865,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
               );
           }
         });
+        _sortWeeklyScheduleInPlace();
       });
     }
   }
@@ -990,7 +1030,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   //   );
   // }
   Widget _weeklyHoursCard(String day) {
-    final slots = weeklySchedule[day] ?? const <Map<String, String>>[];
+    final slots = _sortedDaySlots(day);
     final isClosed = _isClosedDay(day);
 
     return Opacity(

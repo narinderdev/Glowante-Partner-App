@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../services/stylist_branch_selection.dart';
-import '../services/user_role_session.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import 'SalonDeal.dart';
@@ -25,9 +24,6 @@ class OwnerMoreScreen extends StatefulWidget {
 }
 
 class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
-  bool _permissionsLoaded = false;
-  bool _hasPermissionPayload = false;
-  Set<String> _branchPermissions = const <String>{};
   int? _selectedBranchId;
 
   @override
@@ -38,25 +34,11 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
 
   Future<void> _loadPermissions() async {
     final selection = await StylistBranchSelectionStore.load();
-    final hasPermissionPayload =
-        await UserRoleSession.instance.hasPersistedPermissions();
-    final branchPermissions = await UserRoleSession.instance.loadPermissions(
-      branchId: selection.branchId,
-    );
-
     if (!mounted) return;
 
     setState(() {
       _selectedBranchId = selection.branchId;
-      _permissionsLoaded = true;
-      _hasPermissionPayload = hasPermissionPayload;
-      _branchPermissions = branchPermissions;
     });
-  }
-
-  bool _canAccess(List<String> permissions) {
-    if (!_permissionsLoaded || !_hasPermissionPayload) return true;
-    return permissions.any(_branchPermissions.contains);
   }
 
   void _open(Widget screen) {
@@ -94,7 +76,7 @@ class _OwnerMoreScreenState extends State<OwnerMoreScreen> {
         permissions: const ['gallery.view'],
         onTap: () => _open(GalleryScreen(initialBranchId: _selectedBranchId)),
       ),
-    ].where((item) => _canAccess(item.permissions)).toList();
+    ];
 
     return Scaffold(
       backgroundColor: _moreBg,
