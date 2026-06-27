@@ -1065,6 +1065,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
             body: ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                const _PayrollSetupStepHeader(currentStep: 2),
+                const SizedBox(height: 18),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(

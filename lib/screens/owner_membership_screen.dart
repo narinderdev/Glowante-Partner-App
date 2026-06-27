@@ -1212,10 +1212,14 @@ class _PlanCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: onChoose,
+              onPressed: isCurrent ? null : onChoose,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
+                backgroundColor: isCurrent
+                    ? const Color(0xFFE7DED6)
+                    : AppColors.starColor,
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFE7DED6),
+                disabledForegroundColor: const Color(0xFF8C7A66),
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 13),
                 shape: RoundedRectangleBorder(
@@ -1228,10 +1232,11 @@ class _PlanCard extends StatelessWidget {
                     : context.t('Choose ${plan.name}'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
+                  color: isCurrent ? const Color(0xFF8C7A66) : Colors.white,
                 ),
               ),
             ),
@@ -1343,7 +1348,7 @@ class _CurrentMembershipCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${subscription.currentPlan} · ${_cycleLabel(subscription.billingCycle)} Billing',
+                      '${subscription.currentPlan} · ${_formatMoney(subscription.amountMinor, subscription.currency)} · ${_cycleLabel(subscription.billingCycle)} Billing',
                       style: const TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 12,
@@ -1371,7 +1376,11 @@ class _CurrentMembershipCard extends StatelessWidget {
             spacing: 22,
             runSpacing: 14,
             children: [
-              _Fact(label: 'Current Plan', value: subscription.currentPlan),
+              _Fact(
+                label: 'Current Plan',
+                value:
+                    '${subscription.currentPlan} · ${_formatMoney(subscription.amountMinor, subscription.currency)}',
+              ),
               _Fact(
                   label: 'Billing Cycle',
                   value: _cycleLabel(subscription.billingCycle)),
@@ -1483,7 +1492,11 @@ class _UpcomingMembershipPanel extends StatelessWidget {
             spacing: 18,
             runSpacing: 10,
             children: [
-              _Fact(label: 'Plan', value: upcomingMembership.planName),
+              _Fact(
+                label: 'Plan',
+                value:
+                    '${upcomingMembership.planName} · ${_formatMoney(upcomingMembership.amountMinor, upcomingMembership.currency)}',
+              ),
               _Fact(
                 label: 'Billing',
                 value: _cycleLabel(upcomingMembership.billingCycle),
@@ -2187,6 +2200,79 @@ class _PaymentHistoryItem extends StatelessWidget {
   }
 }
 
+class _MembershipStepHeader extends StatelessWidget {
+  const _MembershipStepHeader({
+    required this.currentStep,
+    required this.firstLabel,
+    required this.secondLabel,
+  });
+
+  final int currentStep;
+  final String firstLabel;
+  final String secondLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = AppColors.starColor;
+    final inactiveColor = const Color(0xFFE8DED6);
+    final completed = currentStep > 1;
+
+    Widget step(int index, String label, {required bool active}) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: active ? activeColor : Colors.white,
+              border: Border.all(
+                color: active ? activeColor : inactiveColor,
+                width: 1.2,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '$index',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: active ? Colors.white : _membershipMuted,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              color: active ? activeColor : _membershipMuted,
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: step(1, firstLabel, active: true)),
+        Container(
+          width: 42,
+          height: 2,
+          color: completed ? activeColor : inactiveColor,
+        ),
+        Expanded(child: step(2, secondLabel, active: currentStep >= 2)),
+      ],
+    );
+  }
+}
+
 class _AvailablePlansDialog extends StatefulWidget {
   const _AvailablePlansDialog({
     required this.plans,
@@ -2341,6 +2427,14 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                       color: AppColors.starColor,
                     ),
                   ],
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(22, 0, 22, 10),
+                child: _MembershipStepHeader(
+                  currentStep: 2,
+                  firstLabel: 'Plan',
+                  secondLabel: 'Renew',
                 ),
               ),
               const Divider(height: 1, color: _membershipBorder),
@@ -2658,6 +2752,15 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                     icon: const Icon(Icons.close_rounded, size: 20),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: _MembershipStepHeader(
+                  currentStep: 2,
+                  firstLabel: 'Plan',
+                  secondLabel: 'Checkout',
+                ),
               ),
               const SizedBox(height: 10),
               Container(
@@ -3164,7 +3267,6 @@ class _SalonSubscription {
   });
 
   factory _SalonSubscription.fromJson(Map<String, dynamic> json) {
-    json = _subscriptionJsonWithDeferredUpcoming(json);
     final expiryDate = _parseDate(json['expiryDate']);
     final computedRemainingDays = _remainingDaysFromExpiry(expiryDate);
     final remainingDays = _readInt(json['remainingDays']) ??
@@ -3174,37 +3276,13 @@ class _SalonSubscription {
       json,
       remainingDays: remainingDays,
     );
-    final ruleEligible =
-        _canRenewOrUpgradeFallback(billingCycle, remainingDays);
-    final backendRenew =
-        _readBool(json['renew']) ?? _readBool(json['canRenew']);
-    final backendCanUpgrade = _readBool(json['canUpgrade']);
-    var canRenew = ruleEligible && (backendRenew ?? true);
-    var canUpgrade =
-        ruleEligible && (backendCanUpgrade ?? backendRenew ?? true);
+    final canRenew =
+        _readBool(json['renew']) ?? _readBool(json['canRenew']) ?? false;
+    final canUpgrade = _readBool(json['canUpgrade']) ?? false;
     final upcomingRaw = json['upcomingMembership'];
-    final hasUpcomingMembership = upcomingRaw is Map;
-    if (hasUpcomingMembership) {
-      canRenew = false;
-      canUpgrade = false;
-    } else if (!_isYearlyCycle(billingCycle) && remainingDays > 0) {
-      canRenew = true;
-      canUpgrade = true;
-    }
-    final renewalEligibleAfterDays =
-        _readInt(json['renewalEligibleAfterDays']) ??
-            _renewalEligibleAfterDaysFallback(billingCycle, remainingDays);
+    final renewalEligibleAfterDays = _readInt(json['renewalEligibleAfterDays']);
     final eligibleUpgradePlanIds = _readEligibleUpgradePlanIds(
         json['eligibleUpgradePlans'] ?? json['eligibleUpgradePlanIds']);
-    final message = _cleanText(json['membershipMessage']).isNotEmpty
-        ? _cleanText(json['membershipMessage'])
-        : _membershipEligibilityMessage(
-            billingCycle: billingCycle,
-            remainingDays: remainingDays,
-            canRenew: canRenew,
-            canUpgrade: canUpgrade,
-            renewalEligibleAfterDays: renewalEligibleAfterDays,
-          );
 
     return _SalonSubscription(
       salonName: _cleanText(json['salonName']).isEmpty
@@ -3242,7 +3320,7 @@ class _SalonSubscription {
       canRenew: canRenew,
       canUpgrade: canUpgrade,
       renewalEligibleAfterDays: renewalEligibleAfterDays,
-      membershipMessage: message,
+      membershipMessage: _cleanText(json['membershipMessage']),
       upcomingMembership: upcomingRaw is Map
           ? _UpcomingMembership.fromJson(Map<String, dynamic>.from(upcomingRaw))
           : null,
@@ -3554,143 +3632,6 @@ List<int> _readEligibleUpgradePlanIds(dynamic value) {
   return ids.toSet().toList();
 }
 
-Map<String, dynamic> _subscriptionJsonWithDeferredUpcoming(
-  Map<String, dynamic> json,
-) {
-  if (json['upcomingMembership'] is Map) return json;
-  final rawHistory = json['history'];
-  if (rawHistory is! List) return json;
-  final hasExplicitCurrentMembership =
-      _readInt(json['currentPlanId']) != null ||
-          _cleanText(json['currentPlan']).isNotEmpty ||
-          _cleanText(json['membershipStatus']).isNotEmpty;
-
-  final topExpiryDate = _parseDate(json['expiryDate']);
-  final topRemainingDays = _readInt(json['remainingDays']) ??
-      _readInt(json['daysLeft']) ??
-      _remainingDaysFromExpiry(topExpiryDate);
-  final topBillingCycle = _subscriptionBillingCycleFromJson(
-    json,
-    remainingDays: topRemainingDays,
-  );
-  final history = rawHistory
-      .whereType<Map>()
-      .map((item) =>
-          _SubscriptionHistory.fromJson(Map<String, dynamic>.from(item)))
-      .toList();
-
-  if (!_isYearlyCycle(topBillingCycle)) {
-    final upcomingYearlyHistory = history.where((item) {
-      if (!_isYearlyCycle(item.billingCycle)) return false;
-      final startDate = item.startDate;
-      final expiryDate = item.expiryDate;
-      if (startDate == null || expiryDate == null) return false;
-      return !_dateOnly(startDate).isBefore(_todayDateOnly());
-    }).toList()
-      ..sort((a, b) {
-        final startCompare =
-            (a.startDate ?? DateTime(0)).compareTo(b.startDate ?? DateTime(0));
-        if (startCompare != 0) return startCompare;
-        return (b.expiryDate ?? DateTime(0))
-            .compareTo(a.expiryDate ?? DateTime(0));
-      });
-
-    if (upcomingYearlyHistory.isEmpty) return json;
-    final upcoming = upcomingYearlyHistory.first;
-    return <String, dynamic>{
-      ...json,
-      'renew': false,
-      'canRenew': false,
-      'canUpgrade': false,
-      'membershipMessage':
-          'You already have an upcoming yearly membership. Renewal or upgrade will be available after the current monthly membership ends.',
-      'upcomingMembership': <String, dynamic>{
-        'planId': upcoming.planId,
-        'planName': upcoming.planName,
-        'billingCycle':
-            upcoming.billingCycle.isEmpty ? 'ANNUAL' : upcoming.billingCycle,
-        'startDate': _apiDateString(upcoming.startDate),
-        'expiryDate': _apiDateString(upcoming.expiryDate),
-        'amountMinor': upcoming.amountMinor,
-        'currency': upcoming.currency,
-        'membershipStatus': 'UPCOMING',
-      },
-    };
-  }
-
-  if (hasExplicitCurrentMembership) return json;
-
-  final activeMonthlyHistory = history.where((item) {
-    if (_isYearlyCycle(item.billingCycle)) return false;
-    final startDate = item.startDate;
-    final expiryDate = item.expiryDate;
-    if (startDate == null || expiryDate == null) return false;
-    final today = _todayDateOnly();
-    final startOnly = _dateOnly(startDate);
-    final expiryOnly = _dateOnly(expiryDate);
-    return !startOnly.isAfter(today) && expiryOnly.isAfter(today);
-  }).toList()
-    ..sort((a, b) {
-      final expiryCompare =
-          (b.expiryDate ?? DateTime(0)).compareTo(a.expiryDate ?? DateTime(0));
-      if (expiryCompare != 0) return expiryCompare;
-      return (b.startDate ?? DateTime(0)).compareTo(a.startDate ?? DateTime(0));
-    });
-
-  if (activeMonthlyHistory.isEmpty) return json;
-
-  final currentMonthly = activeMonthlyHistory.first;
-  final currentExpiry = currentMonthly.expiryDate;
-  if (currentExpiry == null) return json;
-
-  final topStartDate = _parseDate(json['startDate']);
-  final topDurationDays = topStartDate == null || topExpiryDate == null
-      ? 365
-      : topExpiryDate.difference(topStartDate).inDays;
-  final upcomingStart = _dateOnly(currentExpiry);
-  final upcomingExpiry = upcomingStart.add(
-    Duration(days: topDurationDays > 0 ? topDurationDays : 365),
-  );
-  final currentRemainingDays = _remainingDaysFromExpiry(currentExpiry);
-
-  return <String, dynamic>{
-    ...json,
-    'currentPlanId': currentMonthly.planId ?? json['currentPlanId'],
-    'currentPlan': currentMonthly.planName,
-    'paymentStatus': currentMonthly.paymentStatus,
-    'membershipStatus': 'ACTIVE',
-    'startDate': _apiDateString(currentMonthly.startDate),
-    'expiryDate': _apiDateString(currentMonthly.expiryDate),
-    'billingCycle': currentMonthly.billingCycle.isEmpty
-        ? 'MONTHLY'
-        : currentMonthly.billingCycle,
-    'amountMinor': currentMonthly.amountMinor,
-    'currency': currentMonthly.currency,
-    'remainingDays': currentRemainingDays,
-    'daysLeft': currentRemainingDays,
-    'renew': false,
-    'canRenew': false,
-    'canUpgrade': false,
-    'renewalEligibleAfterDays': currentRemainingDays,
-    'membershipMessage':
-        'You already have an upcoming yearly membership. Renewal or upgrade will be available after the current monthly membership ends.',
-    'upcomingMembership': <String, dynamic>{
-      'planId': _readInt(json['currentPlanId']),
-      'planName': _cleanText(json['currentPlan']).isEmpty
-          ? currentMonthly.planName
-          : _cleanText(json['currentPlan']),
-      'billingCycle': topBillingCycle,
-      'startDate': _apiDateString(upcomingStart),
-      'expiryDate': _apiDateString(upcomingExpiry),
-      'amountMinor': _readInt(json['amountMinor']) ?? 0,
-      'currency': _cleanText(json['currency']).isEmpty
-          ? 'INR'
-          : _cleanText(json['currency']),
-      'membershipStatus': 'UPCOMING',
-    },
-  };
-}
-
 DateTime _todayDateOnly() {
   final now = DateTime.now();
   return DateTime(now.year, now.month, now.day);
@@ -3776,44 +3717,4 @@ String? _normalizeBillingCycle(dynamic value) {
     return 'MONTHLY';
   }
   return null;
-}
-
-bool _canRenewOrUpgradeFallback(String billingCycle, int remainingDays) {
-  if (!_isYearlyCycle(billingCycle)) return true;
-  return remainingDays <= 330;
-}
-
-int? _renewalEligibleAfterDaysFallback(String billingCycle, int remainingDays) {
-  if (!_isYearlyCycle(billingCycle) || remainingDays <= 330) return null;
-  return remainingDays - 330;
-}
-
-String _membershipEligibilityMessage({
-  required String billingCycle,
-  required int remainingDays,
-  required bool canRenew,
-  required bool canUpgrade,
-  int? renewalEligibleAfterDays,
-}) {
-  if (canRenew && canUpgrade) {
-    if (_isYearlyCycle(billingCycle)) {
-      return 'Yearly membership is eligible for renewal or upgrade.';
-    }
-    return 'Monthly membership can be renewed or upgraded at any time.';
-  }
-
-  if (_isYearlyCycle(billingCycle)) {
-    final waitDays = renewalEligibleAfterDays ??
-        _renewalEligibleAfterDaysFallback(billingCycle, remainingDays);
-    if (waitDays != null && waitDays > 0) {
-      return 'Yearly membership can be renewed or upgraded when 330 days or fewer remain. Try again in $waitDays days.';
-    }
-    return 'Yearly membership is not eligible for renewal or upgrade yet.';
-  }
-
-  if (!canRenew && canUpgrade) {
-    return 'Monthly membership can be renewed or upgraded at any time.';
-  }
-
-  return 'Membership is not eligible for renewal or upgrade yet.';
 }

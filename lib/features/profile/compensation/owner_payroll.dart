@@ -202,6 +202,95 @@ class _GeneratePayrollDialogState extends State<_GeneratePayrollDialog> {
   }
 }
 
+class _PayrollSetupStepHeader extends StatelessWidget {
+  const _PayrollSetupStepHeader({
+    required this.currentStep,
+  });
+
+  final int currentStep;
+
+  @override
+  Widget build(BuildContext context) {
+    const activeColor = Color(0xFFB45309);
+    const inactiveColor = Color(0xFFD7CEC5);
+    final isStepOneActive = currentStep >= 1;
+    final isStepTwoActive = currentStep >= 2;
+
+    Widget stepCircle({
+      required String label,
+      required bool isActive,
+      required bool isSelected,
+    }) {
+      return Container(
+        width: 30,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isActive ? activeColor : Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isActive ? activeColor : inactiveColor,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : const Color(0xFF6B7280),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
+    }
+
+    Widget stepLabel({
+      required String label,
+      required bool isActive,
+    }) {
+      return Text(
+        label,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+          color: isActive ? const Color(0xFF1C1917) : const Color(0xFF6B7280),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        stepCircle(
+          label: '1',
+          isActive: isStepOneActive,
+          isSelected: true,
+        ),
+        const SizedBox(width: 10),
+        stepLabel(
+          label: 'Payroll Setup',
+          isActive: isStepOneActive,
+        ),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Divider(
+              color: isStepTwoActive ? activeColor : inactiveColor,
+            ),
+          ),
+        ),
+        stepCircle(
+          label: '2',
+          isActive: isStepTwoActive,
+          isSelected: isStepTwoActive,
+        ),
+        const SizedBox(width: 10),
+        stepLabel(
+          label: 'Review',
+          isActive: isStepTwoActive,
+        ),
+      ],
+    );
+  }
+}
+
 class _PayrollSetupView extends StatefulWidget {
   const _PayrollSetupView({
     required this.teamMembers,
@@ -317,66 +406,7 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFB45309),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Text(
-                      '1',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Payroll Setup',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Divider(color: Color(0xFFD7CEC5)),
-                    ),
-                  ),
-                  Container(
-                    width: 30,
-                    height: 30,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFD7CEC5)),
-                    ),
-                    child: const Text(
-                      '2',
-                      style: TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Review',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-              ),
+              const _PayrollSetupStepHeader(currentStep: 1),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(16),
