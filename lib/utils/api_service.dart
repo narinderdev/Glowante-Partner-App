@@ -2425,7 +2425,7 @@ class ApiService {
     final url = Uri.parse(baseUrl + importPredefinedServicesAPI(branchId));
     final payload = <String, dynamic>{
       "serviceCodes": serviceCodes,
-      if (unselectedCodes.isNotEmpty) "unselectedCodes": unselectedCodes,
+      "unselectedCodes": unselectedCodes,
     };
     _debugPrintChunked('Import Predefined Services URL', url);
     _debugPrintChunked(

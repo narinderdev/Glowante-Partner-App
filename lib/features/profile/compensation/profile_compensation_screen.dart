@@ -1065,32 +1065,38 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
             body: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MetricCard(
-                        label: 'Total Salary',
-                        value: _formatCurrency(totalSalary),
-                        subtitle: 'configured salary',
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 190,
+                        child: _MetricCard(
+                          label: 'Total Salary',
+                          value: _formatCurrency(totalSalary),
+                          subtitle: 'configured salary',
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _MetricCard(
-                        label: 'Total Team Member',
-                        value: '${_activeTeamMembers.length}',
-                        subtitle: 'active members',
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 190,
+                        child: _MetricCard(
+                          label: 'Total Team Member',
+                          value: '${_activeTeamMembers.length}',
+                          subtitle: 'active members',
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _MetricCard(
-                        label: 'Payroll Setup',
-                        value: '${included.length}',
-                        subtitle: '${excluded.length} pending',
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 190,
+                        child: _MetricCard(
+                          label: 'Payroll Setup',
+                          value: '${included.length}',
+                          subtitle: '${excluded.length} pending',
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 _buildPayrollSetupReviewCard(
@@ -1101,13 +1107,15 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                   showReason: false,
                 ),
                 const SizedBox(height: 16),
-                _buildPayrollSetupReviewCard(
-                  title: 'Team Members Not Included (${excluded.length})',
-                  subtitle:
-                      'These team members do not have salary or commission set.',
-                  members: excluded,
-                  showReason: true,
-                ),
+              _buildPayrollSetupReviewCard(
+  title: 'Team Members Not Included (${excluded.length})',
+  subtitle: 'These team members do not have salary or commission set.',
+  members: excluded,
+  showReason: true,
+  onSetupTap: () {
+    Navigator.of(reviewContext).pop();
+  },
+),
                 const SizedBox(height: 20),
                 Align(
                   alignment: Alignment.centerRight,
@@ -2800,123 +2808,236 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       ),
     );
   }
+Widget _buildPayrollSetupReviewCard({
+  required String title,
+  required String subtitle,
+  required List<ProfileTeamMember> members,
+  required bool showReason,
+  VoidCallback? onSetupTap,
+}) {
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE8EEF5)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF111827),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+        const SizedBox(height: 18),
 
-  Widget _buildPayrollSetupReviewCard({
-    required String title,
-    required String subtitle,
-    required List<ProfileTeamMember> members,
-    required bool showReason,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1C1917),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF6B7280),
-              ),
-            ),
-            const SizedBox(height: 16),
-            if (members.isEmpty)
-              Text(
-                showReason
-                    ? 'No excluded team members found.'
-                    : 'No configured team members found.',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF6B7280),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          color: const Color(0xFFF8FAFC),
+          child: Row(
+            children: const [
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'Team Member',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                 ),
-              )
-            else
-              ...members.map((member) {
-                final setup = _setupByUserId[member.id];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              member.name,
-                              style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              member.role.isEmpty ? 'Team Member' : member.role,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (showReason)
-                        const Expanded(
-                          child: Text(
-                            'Salary or commission is not configured.',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        )
-                      else ...[
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'Reason',
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+              ),
+              SizedBox(
+                width: 80,
+                child: Text(
+                  'Action',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        if (members.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 14),
+            child: Text(
+              'No team members found.',
+              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+            ),
+          )
+        else
+          ...members.map((member) {
+            final setup = _setupByUserId[member.id];
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Row(
+                      children: [
+                      CircleAvatar(
+  radius: 16,
+  backgroundColor: const Color(0xFFFFF3D5),
+  child: Text(
+    member.name.isNotEmpty ? member.name[0].toUpperCase() : 'T',
+    style: const TextStyle(
+      color: AppColors.starColor,
+      fontSize: 12,
+      fontWeight: FontWeight.w800,
+    ),
+  ),
+),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: Text(
-                            PayrollTypes.label(
-                              setup?.payrollType ?? PayrollTypes.salaryOnly,
-                            ),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              _formatCurrency(setup?.salaryMinor ?? 0),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                member.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF111827),
+                                ),
                               ),
-                            ),
+                              const SizedBox(height: 2),
+                              Text(
+                                member.role.isEmpty ? 'Team Member' : member.role,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                );
-              }),
-          ],
-        ),
+
+                  if (showReason) ...[
+                    const Expanded(
+                      flex: 2,
+                      child: Text(
+                        'ⓘ Not setup yet',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFFEA580C),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 80,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton(
+                          onPressed: onSetupTap,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFFEA580C),
+                            side: const BorderSide(color: Color(0xFFEA580C)),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            minimumSize: const Size(58, 30),
+                          ),
+                          child: const Text(
+                            'Set up',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+  Expanded(
+    flex: 2,
+    child: Text(
+      PayrollTypes.label(
+        setup?.payrollType ?? PayrollTypes.salaryOnly,
       ),
-    );
-  }
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF111827),
+      ),
+    ),
+  ),
+  SizedBox(
+    width: 90,
+    child: Text(
+      _formatCurrency(setup?.salaryMinor ?? 0),
+      textAlign: TextAlign.right,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF111827),
+      ),
+    ),
+  ),
+],
+                ],
+              ),
+            );
+                  }),
+
+        if (!showReason && members.isNotEmpty) ...[
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Total Salary',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF111827),
+                    ),
+                  ),
+                ),
+                Text(
+                  _formatCurrency(
+                    members.fold<int>(0, (sum, member) {
+                      final setup = _setupByUserId[member.id];
+                      return sum + (setup?.salaryMinor ?? 0);
+                    }),
+                  ),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF22C55E),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -2929,7 +3050,6 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       CompensationModule.holidays => context.t('Holidays Calendar'),
       CompensationModule.leaveCalendar => context.t('Leaves & Holidays'),
     };
-
     return Scaffold(
       backgroundColor: const Color(0xFFFBF9F8),
       appBar: buildProfileSubpageAppBar(title: title),

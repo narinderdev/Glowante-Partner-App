@@ -1058,54 +1058,46 @@ class CategoryScreenState extends State<CategoryScreen> {
                                                     catalogCodeMap[code] ??
                                                     code)
                                                 .toList();
+                                        final removedActualCodes =
+                                            <String>{};
+                                        for (final category
+                                            in currentlyImportedCatalogCategories) {
+                                          final code = (category['code'] ?? '')
+                                              .toString()
+                                              .trim()
+                                              .toUpperCase();
+                                          if (code.isEmpty ||
+                                              selectedCodes.contains(code)) {
+                                            continue;
+                                          }
+                                          for (final removedCode in
+                                              _collectCatalogCodes(category)) {
+                                            removedActualCodes.add(
+                                              catalogCodeMap[removedCode] ??
+                                                  removedCode,
+                                            );
+                                          }
+                                        }
+                                        final removedCodesList =
+                                            removedActualCodes.toList();
 
                                         debugPrint(
                                             '🟢 selectedCodes before import: $selectedCodes');
                                         debugPrint(
                                             '🟢 sending serviceCodes: $selectedActualCodes');
                                         debugPrint(
-                                          '🟠 resetting imported catalog categories: ${currentlyImportedCatalogCategories.map((category) => '${category['code']}#${category['id']}').toList()}',
+                                          '🟠 removing imported catalog codes: $removedCodesList',
                                         );
 
-                                        for (final category
-                                            in currentlyImportedCatalogCategories) {
-                                          final categoryId =
-                                              _serviceInt(category['id']);
-                                          if (categoryId == null) continue;
-                                          debugPrint(
-                                            '🗑️ removing imported category before reimport: code=${category['code']} id=$categoryId',
-                                          );
-                                          final deleteResponse =
-                                              await apiService
-                                                  .deleteCategoryApi(
-                                            branchId: branchId,
-                                            CategoryId: categoryId,
-                                          );
-                                          if (deleteResponse['success'] !=
-                                              true) {
-                                            throw Exception(
-                                              deleteResponse['message']
-                                                      ?.toString() ??
-                                                  'Failed to remove imported category.',
-                                            );
-                                          }
-                                        }
-
-                                        if (selectedActualCodes.isNotEmpty) {
-                                          final importResponse =
-                                              await apiService
-                                                  .importPredefinedServices(
-                                            branchId: branchId,
-                                            serviceCodes: selectedActualCodes,
-                                          );
-                                          debugPrint(
-                                            '✅ importPredefinedServices response: $importResponse',
-                                          );
-                                        } else {
-                                          debugPrint(
-                                            '✅ no predefined services selected after reset; import skipped',
-                                          );
-                                        }
+                                        final importResponse = await apiService
+                                            .importPredefinedServices(
+                                          branchId: branchId,
+                                          serviceCodes: selectedActualCodes,
+                                          unselectedCodes: removedCodesList,
+                                        );
+                                        debugPrint(
+                                          '✅ importPredefinedServices response: $importResponse',
+                                        );
 
                                         if (!sheetContext.mounted) return;
                                         Navigator.pop(
@@ -1174,6 +1166,38 @@ class CategoryScreenState extends State<CategoryScreen> {
         .map((entry) => Map<String, dynamic>.from(entry))
         .where(_isCatalogItemActive)
         .toList();
+  }
+
+  List<String> _collectCatalogCodes(Map<String, dynamic> item) {
+    final codes = <String>[];
+
+    final code = (item['code'] ?? '').toString().trim().toUpperCase();
+    if (code.isNotEmpty) {
+      codes.add(code);
+    }
+
+    final subCategories = item['subCategories'];
+    if (subCategories is List) {
+      for (final subCategory in subCategories) {
+        if (subCategory is! Map) continue;
+        codes.addAll(_collectCatalogCodes(
+          Map<String, dynamic>.from(subCategory),
+        ));
+      }
+    }
+
+    final services = item['services'];
+    if (services is List) {
+      for (final service in services) {
+        if (service is! Map) continue;
+        final serviceCode = (service['code'] ?? '').toString().trim().toUpperCase();
+        if (serviceCode.isNotEmpty) {
+          codes.add(serviceCode);
+        }
+      }
+    }
+
+    return codes;
   }
 
   String _catalogItemLabel(Map<String, dynamic> item) {
