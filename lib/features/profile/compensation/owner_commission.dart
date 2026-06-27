@@ -948,14 +948,16 @@ class _AddOverrideDialog extends StatefulWidget {
 }
 
 class _AddOverrideDialogState extends State<_AddOverrideDialog> {
+  final _formKey = GlobalKey<FormState>();
   final Set<int> _selectedStaffIds = <int>{};
   final TextEditingController _valueController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
 
-  String _ruleType = CommissionRuleTypes.percentage;
+  String? _ruleType;
   DateTime _effectiveFrom = DateTime.now();
   bool _isSaving = false;
   bool get _isEdit => widget.initialOverride != null;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
 
   @override
   void initState() {
@@ -979,33 +981,26 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
     super.dispose();
   }
 
+  void _validateIfNeeded() {
+    if (_autoValidateMode != AutovalidateMode.disabled) {
+      _formKey.currentState?.validate();
+    }
+  }
+
   Future<void> _submit() async {
     if (_isSaving) {
       return;
     }
-    final parsed = double.tryParse(_valueController.text.trim());
-    final selectStaff = translateText('Select at least one staff member');
-    final invalidOverride = translateText('Enter a valid override value');
-    final commissionRange =
-        translateText('Commission must be between 0 and 100');
-    if (_selectedStaffIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(selectStaff)),
-      );
+    setState(() {
+      _autoValidateMode = AutovalidateMode.onUserInteraction;
+    });
+
+    if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
-    if (parsed == null || parsed < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(invalidOverride)),
-      );
-      return;
-    }
-    if (_ruleType == CommissionRuleTypes.percentage && parsed > 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(commissionRange)),
-      );
-      return;
-    }
+
+    final parsed = double.parse(_valueController.text.trim());
+    final ruleType = _ruleType ?? CommissionRuleTypes.percentage;
 
     final overrides = widget.staff
         .where((member) => _selectedStaffIds.contains(member.id))
@@ -1015,8 +1010,8 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
             serviceId: widget.serviceId,
             staffId: member.id,
             staffName: member.name,
-            ruleType: _ruleType,
-            value: _ruleType == CommissionRuleTypes.fixed
+            ruleType: ruleType,
+            value: ruleType == CommissionRuleTypes.fixed
                 ? rupeesToMinorAmount(parsed).toDouble()
                 : parsed,
             effectiveFrom: _effectiveFrom,
@@ -1045,124 +1040,181 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_isEdit) ...[
-                Text(
-                  context.t('Editing staff'),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F5F2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE8DED6)),
-                  ),
-                  child: Text(
-                    widget.initialOverride?.staffName ?? '',
+          child: Form(
+            key: _formKey,
+            autovalidateMode: _autoValidateMode,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_isEdit) ...[
+                  Text(
+                    context.t('Editing staff'),
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-              ] else ...[
-                Text(
-                  context.t('Select staff'),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F5F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE8DED6)),
+                    ),
+                    child: Text(
+                      widget.initialOverride?.staffName ?? '',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.staff.map((member) {
-                    final isSelected = _selectedStaffIds.contains(member.id);
-                    return FilterChip(
-                      label: Text(member.name),
-                      selected: isSelected,
-                      onSelected: _isSaving
-                          ? null
-                          : (value) {
-                              setState(() {
-                                if (value) {
-                                  _selectedStaffIds.add(member.id);
-                                } else {
-                                  _selectedStaffIds.remove(member.id);
-                                }
-                              });
-                            },
-                    );
-                  }).toList(),
-                ),
-              ],
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: _ruleType,
-                decoration: InputDecoration(labelText: context.t('Rule type')),
-                items: [
-                  DropdownMenuItem(
-                    value: CommissionRuleTypes.percentage,
-                    child: Text(context.t('Percentage')),
-                  ),
-                  DropdownMenuItem(
-                    value: CommissionRuleTypes.fixed,
-                    child: Text(context.t('Fixed')),
+                ] else ...[
+                  FormField<Set<int>>(
+                    initialValue: _selectedStaffIds.toSet(),
+                    validator: (_) => _selectedStaffIds.isEmpty
+                        ? translateText('Select at least one staff member')
+                        : null,
+                    builder: (field) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.t('Select staff'),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: widget.staff.map((member) {
+                              final isSelected =
+                                  _selectedStaffIds.contains(member.id);
+                              return FilterChip(
+                                label: Text(member.name),
+                                selected: isSelected,
+                                onSelected: _isSaving
+                                    ? null
+                                    : (value) {
+                                        setState(() {
+                                          if (value) {
+                                            _selectedStaffIds.add(member.id);
+                                          } else {
+                                            _selectedStaffIds.remove(member.id);
+                                          }
+                                        });
+                                        field.didChange(_selectedStaffIds.toSet());
+                                        _validateIfNeeded();
+                                      },
+                              );
+                            }).toList(),
+                          ),
+                          if (field.errorText != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              field.errorText!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.red,
+                              ),
+                            ),
+                          ],
+                        ],
+                      );
+                    },
                   ),
                 ],
-                onChanged: _isSaving
-                    ? null
-                    : (value) {
-                        if (value != null) {
+                const SizedBox(height: 14),
+                DropdownButtonFormField<String>(
+                  initialValue: _ruleType,
+                  decoration: InputDecoration(
+                    labelText: context.t('Rule type'),
+                  ),
+                  validator: (value) => value == null
+                      ? translateText('Rule type is required')
+                      : null,
+                  items: [
+                    DropdownMenuItem(
+                      value: CommissionRuleTypes.percentage,
+                      child: Text(context.t('Percentage')),
+                    ),
+                    DropdownMenuItem(
+                      value: CommissionRuleTypes.fixed,
+                      child: Text(context.t('Fixed')),
+                    ),
+                  ],
+                  onChanged: _isSaving
+                      ? null
+                      : (value) {
                           setState(() => _ruleType = value);
-                        }
-                      },
-              ),
-              const SizedBox(height: 12),
-              _LabeledTextField(
-                label: context.t('Value'),
-                controller: _valueController,
-                enabled: !_isSaving,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-              ),
-              const SizedBox(height: 12),
-              _DateFieldButton(
-                label: context.t('Effective from'),
-                value: _effectiveFrom,
-                onTap: _isSaving
-                    ? () {}
-                    : () async {
-                        final picked = await showDatePicker(
-                          context: context,
-                          initialDate: _effectiveFrom,
-                          firstDate: DateTime(2022),
-                          lastDate: DateTime(2100),
-                        );
-                        if (picked != null) {
-                          setState(() => _effectiveFrom = picked);
-                        }
-                      },
-              ),
-              const SizedBox(height: 12),
-              _LabeledTextField(
-                label: context.t('Notes'),
-                controller: _notesController,
-                enabled: !_isSaving,
-                maxLines: 1,
-              ),
-            ],
+                          _validateIfNeeded();
+                        },
+                ),
+                const SizedBox(height: 12),
+                _LabeledTextField(
+                  label: context.t('Value'),
+                  controller: _valueController,
+                  enabled: !_isSaving,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  validator: (value) {
+                    final text = (value ?? '').trim();
+                    if (text.isEmpty) {
+                      return translateText('Enter a valid override value');
+                    }
+                    final parsed = double.tryParse(text);
+                    if (parsed == null || parsed <= 0) {
+                      return translateText('Enter a valid override value');
+                    }
+                    if (_ruleType == CommissionRuleTypes.percentage &&
+                        parsed > 100) {
+                      return translateText(
+                        'Commission must be between 0 and 100',
+                      );
+                    }
+                    return null;
+                  },
+                  onChanged: _isSaving
+                      ? null
+                      : (_) {
+                          _validateIfNeeded();
+                        },
+                ),
+                const SizedBox(height: 12),
+                _DateFieldButton(
+                  label: context.t('Effective from'),
+                  value: _effectiveFrom,
+                  onTap: _isSaving
+                      ? () {}
+                      : () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _effectiveFrom,
+                            firstDate: DateTime(2022),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setState(() => _effectiveFrom = picked);
+                          }
+                        },
+                ),
+                const SizedBox(height: 12),
+                _LabeledTextField(
+                  label: context.t('Notes'),
+                  controller: _notesController,
+                  enabled: !_isSaving,
+                  maxLines: 1,
+                ),
+              ],
+            ),
           ),
         ),
       ),

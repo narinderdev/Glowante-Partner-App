@@ -3628,6 +3628,7 @@ class _LabeledTextField extends StatelessWidget {
     required this.label,
     required this.controller,
     this.validator,
+    this.onChanged,
     this.keyboardType,
     this.maxLines = 1,
     this.enabled = true,
@@ -3636,6 +3637,7 @@ class _LabeledTextField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
   final String? Function(String?)? validator;
+  final ValueChanged<String>? onChanged;
   final TextInputType? keyboardType;
   final int maxLines;
   final bool enabled;
@@ -3646,6 +3648,7 @@ class _LabeledTextField extends StatelessWidget {
       maxLength: 120,
       controller: controller,
       validator: validator,
+      onChanged: onChanged,
       keyboardType: keyboardType,
       maxLines: maxLines,
       enabled: enabled,
