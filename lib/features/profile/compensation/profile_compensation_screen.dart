@@ -2804,8 +2804,28 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
     await showDialog<void>(
       context: context,
       builder: (context) => _AddOverrideDialog(
+        title: context.t('Add Override'),
+        submitLabel: context.t('Save Override'),
         serviceId: service.id,
         staff: _activeTeamMembers,
+        onSubmit: (overrides) => _saveOverrides(service.id, overrides),
+      ),
+    );
+  }
+
+  Future<void> _openEditOverrideDialog(StaffCommissionOverride override) async {
+    final service = _selectedService;
+    if (service == null) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) => _AddOverrideDialog(
+        title: context.t('Edit Override'),
+        submitLabel: context.t('Update Override'),
+        serviceId: service.id,
+        staff: _activeTeamMembers,
+        initialOverride: override,
         onSubmit: (overrides) => _saveOverrides(service.id, overrides),
       ),
     );

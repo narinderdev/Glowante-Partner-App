@@ -251,7 +251,7 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
                                       Text(
                                         override.ruleType ==
                                                 CommissionRuleTypes.percentage
-                                            ? '${override.value.toStringAsFixed(1)}%'
+                                            ? '${_formatOverrideNumber(override.value)}%'
                                             : _formatCurrency(
                                                 override.value.round()),
                                         style: const TextStyle(
@@ -268,6 +268,17 @@ extension _OwnerCommissionUi on _ProfileCompensationScreenState {
                                         ),
                                       ),
                                     ],
+                                  ),
+                                ),
+                                IconButton(
+                                  onPressed: _isActionInProgress
+                                      ? null
+                                      : () {
+                                          _openEditOverrideDialog(override);
+                                        },
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: AppColors.starColor,
                                   ),
                                 ),
                                 IconButton(
@@ -364,7 +375,7 @@ class _ServiceSelectorCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final valueLabel = rule.ruleType == CommissionRuleTypes.percentage
-        ? '${rule.value.toStringAsFixed(1)}%'
+        ? '${_formatOverrideNumber(rule.value)}%'
         : _formatCurrency(rule.value.round());
 
     return Material(
@@ -493,7 +504,7 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
           ? ''
           : rule.ruleType == CommissionRuleTypes.fixed
               ? (minorAmountToRupees(rule.value) ?? 0).toStringAsFixed(0)
-              : rule.value.toStringAsFixed(1),
+              : _formatOverrideNumber(rule.value),
     );
     _notesController = TextEditingController(text: rule.notes);
     _effectiveFrom = rule.effectiveFrom;
@@ -524,7 +535,7 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
           : widget.initialRule.ruleType == CommissionRuleTypes.fixed
               ? (minorAmountToRupees(widget.initialRule.value) ?? 0)
                   .toStringAsFixed(0)
-              : widget.initialRule.value.toStringAsFixed(1);
+              : _formatOverrideNumber(widget.initialRule.value);
       _notesController.text = widget.initialRule.notes;
       _ruleType = widget.initialRule.ruleType;
       _effectiveFrom = widget.initialRule.effectiveFrom;
@@ -727,6 +738,11 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
   }
 }
 
+String _formatOverrideNumber(num value) {
+  final text = value.toStringAsFixed(2);
+  return text.replaceFirst(RegExp(r'\.?0+$'), '');
+}
+
 class _CommissionFieldLabel extends StatelessWidget {
   const _CommissionFieldLabel(this.label);
 
@@ -912,14 +928,20 @@ class _CommissionDateField extends StatelessWidget {
 
 class _AddOverrideDialog extends StatefulWidget {
   const _AddOverrideDialog({
+    required this.title,
+    required this.submitLabel,
     required this.serviceId,
     required this.staff,
     required this.onSubmit,
+    this.initialOverride,
   });
 
+  final String title;
+  final String submitLabel;
   final int serviceId;
   final List<ProfileTeamMember> staff;
   final Future<void> Function(List<StaffCommissionOverride> overrides) onSubmit;
+  final StaffCommissionOverride? initialOverride;
 
   @override
   State<_AddOverrideDialog> createState() => _AddOverrideDialogState();
@@ -933,6 +955,22 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
   String _ruleType = CommissionRuleTypes.percentage;
   DateTime _effectiveFrom = DateTime.now();
   bool _isSaving = false;
+  bool get _isEdit => widget.initialOverride != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialOverride;
+    if (initial != null) {
+      _selectedStaffIds.add(initial.staffId);
+      _ruleType = initial.ruleType;
+      _effectiveFrom = initial.effectiveFrom;
+      _valueController.text = initial.ruleType == CommissionRuleTypes.fixed
+          ? (minorAmountToRupees(initial.value) ?? 0).toStringAsFixed(0)
+          : _formatOverrideNumber(initial.value);
+      _notesController.text = initial.notes;
+    }
+  }
 
   @override
   void dispose() {
@@ -1003,7 +1041,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(context.t('Add Override')),
+      title: Text(widget.title),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -1011,36 +1049,64 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                context.t('Select staff'),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
+              if (_isEdit) ...[
+                Text(
+                  context.t('Editing staff'),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: widget.staff.map((member) {
-                  final isSelected = _selectedStaffIds.contains(member.id);
-                  return FilterChip(
-                    label: Text(member.name),
-                    selected: isSelected,
-                    onSelected: _isSaving
-                        ? null
-                        : (value) {
-                            setState(() {
-                              if (value) {
-                                _selectedStaffIds.add(member.id);
-                              } else {
-                                _selectedStaffIds.remove(member.id);
-                              }
-                            });
-                          },
-                  );
-                }).toList(),
-              ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F5F2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE8DED6)),
+                  ),
+                  child: Text(
+                    widget.initialOverride?.staffName ?? '',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Text(
+                  context.t('Select staff'),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.staff.map((member) {
+                    final isSelected = _selectedStaffIds.contains(member.id);
+                    return FilterChip(
+                      label: Text(member.name),
+                      selected: isSelected,
+                      onSelected: _isSaving
+                          ? null
+                          : (value) {
+                              setState(() {
+                                if (value) {
+                                  _selectedStaffIds.add(member.id);
+                                } else {
+                                  _selectedStaffIds.remove(member.id);
+                                }
+                              });
+                            },
+                    );
+                  }).toList(),
+                ),
+              ],
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: _ruleType,
@@ -1129,7 +1195,7 @@ class _AddOverrideDialogState extends State<_AddOverrideDialog> {
                     Text(context.t('Saving...')),
                   ],
                 )
-              : Text(context.t('Save Override')),
+              : Text(widget.submitLabel),
         ),
       ],
     );
