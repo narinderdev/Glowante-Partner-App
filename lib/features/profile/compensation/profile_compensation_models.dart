@@ -130,6 +130,7 @@ class ProfileTeamMember {
     required this.role,
     required this.phoneNumber,
     required this.isActive,
+    this.joiningDate,
   });
 
   final int id;
@@ -137,6 +138,7 @@ class ProfileTeamMember {
   final String role;
   final String phoneNumber;
   final bool isActive;
+  final DateTime? joiningDate;
 }
 
 @immutable

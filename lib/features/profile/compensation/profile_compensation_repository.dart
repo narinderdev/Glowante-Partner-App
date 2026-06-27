@@ -77,7 +77,12 @@ class ProfileCompensationRepository {
     final raw = (response['data'] as List?) ?? const <dynamic>[];
     return raw
         .whereType<Map>()
-        .map((item) => _teamMemberFromMap(Map<String, dynamic>.from(item)))
+        .map(
+          (item) => _teamMemberFromMap(
+            Map<String, dynamic>.from(item),
+            branchId: branchId,
+          ),
+        )
         .where((item) => item.id != 0)
         .toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
@@ -205,15 +210,15 @@ class ProfileCompensationRepository {
     //       : 'Initial salary from mobile payroll setup',
     // };
     final payload = <String, dynamic>{
-  'salaryType': _salaryTypeForApi(setup.payrollType),
-  'baseSalary': setup.salaryMinor,
-  'commissionPercentage': setup.commissionPercent,
-  'effectiveFrom': DateFormat('yyyy-MM-dd').format(setup.effectiveDate),
-  'effectiveTo': null,
-  'notes': setup.salaryConfigId != null && setup.salaryConfigId! > 0
-      ? 'Updated from mobile payroll setup'
-      : 'Initial salary from mobile payroll setup',
-};
+      'salaryType': _salaryTypeForApi(setup.payrollType),
+      'baseSalary': setup.salaryMinor,
+      'commissionPercentage': setup.commissionPercent,
+      'effectiveFrom': DateFormat('yyyy-MM-dd').format(setup.effectiveDate),
+      'effectiveTo': null,
+      'notes': setup.salaryConfigId != null && setup.salaryConfigId! > 0
+          ? 'Updated from mobile payroll setup'
+          : 'Initial salary from mobile payroll setup',
+    };
     final response = setup.salaryConfigId != null && setup.salaryConfigId! > 0
         ? await _apiService.updateEmployeeSalaryConfig(
             employeeId: setup.userId,
@@ -700,20 +705,23 @@ class ProfileCompensationRepository {
     );
     _requireSuccess(response);
   }
-String _salaryTypeForApi(String payrollType) {
-  final normalized = PayrollTypes.normalize(payrollType);
 
-  switch (normalized) {
-    case PayrollTypes.salaryOnly:
-      return 'SALARY_ONLY';
+  String _salaryTypeForApi(String payrollType) {
+    final normalized = PayrollTypes.normalize(payrollType);
 
-    case PayrollTypes.salaryCommission:
-      return 'SALARY_PLUS_COMMISSION';
+    switch (normalized) {
+      case PayrollTypes.salaryOnly:
+        return 'SALARY_ONLY';
 
-    default:
-      throw Exception('Unsupported salary type for payroll setup: $payrollType');
+      case PayrollTypes.salaryCommission:
+        return 'SALARY_PLUS_COMMISSION';
+
+      default:
+        throw Exception(
+            'Unsupported salary type for payroll setup: $payrollType');
+    }
   }
-}
+
   Future<void> deleteHoliday({
     required int salonId,
     required int holidayId,
@@ -864,62 +872,62 @@ String _salaryTypeForApi(String payrollType) {
     // }
     // return generatedRun;
     final responseData = response['data'];
-final responseMap = responseData is Map<String, dynamic>
-    ? responseData
-    : responseData is Map
-        ? Map<String, dynamic>.from(responseData)
-        : const <String, dynamic>{};
+    final responseMap = responseData is Map<String, dynamic>
+        ? responseData
+        : responseData is Map
+            ? Map<String, dynamic>.from(responseData)
+            : const <String, dynamic>{};
 
-final payrollMap = responseMap['payroll'] is Map
-    ? Map<String, dynamic>.from(responseMap['payroll'] as Map)
-    : responseMap;
+    final payrollMap = responseMap['payroll'] is Map
+        ? Map<String, dynamic>.from(responseMap['payroll'] as Map)
+        : responseMap;
 
-final generatedPayrollId = _asInt(
-  payrollMap['payrollId'] ?? payrollMap['id'],
-)?.toString();
+    final generatedPayrollId = _asInt(
+      payrollMap['payrollId'] ?? payrollMap['id'],
+    )?.toString();
 
-final refreshedRuns = await loadPayrollRuns(
-  branchId,
-  teamMembers: activeMembers,
-  setups: setups,
-);
-
-final generatedRun = refreshedRuns.cast<PayrollRunRecord?>().firstWhere(
-      (item) =>
-          item?.periodKey == periodKey ||
-          (generatedPayrollId != null && item?.id == generatedPayrollId),
-      orElse: () => null,
+    final refreshedRuns = await loadPayrollRuns(
+      branchId,
+      teamMembers: activeMembers,
+      setups: setups,
     );
 
-if (generatedRun != null) {
-  return generatedRun;
-}
+    final generatedRun = refreshedRuns.cast<PayrollRunRecord?>().firstWhere(
+          (item) =>
+              item?.periodKey == periodKey ||
+              (generatedPayrollId != null && item?.id == generatedPayrollId),
+          orElse: () => null,
+        );
 
-final fallbackRun = PayrollRunRecord(
-  id: generatedPayrollId ?? periodKey,
-  periodKey: periodKey,
-  periodLabel: periodLabel,
-  generatedAt: DateTime.tryParse(_cleanText(payrollMap['generatedAt'])) ??
-      DateTime.now(),
-  approvedAt: null,
-  payment: null,
-  employees: _buildDashboardRunEmployees(
-    activeMembers: activeMembers,
-    setupByUser: setupByUser,
-    effectiveDate: period,
-    paidAt: null,
-  ),
-  backendStatus: _cleanText(payrollMap['status'], fallback: 'DRAFT'),
-);
+    if (generatedRun != null) {
+      return generatedRun;
+    }
 
-final updatedRuns = <PayrollRunRecord>[
-  ...refreshedRuns.where((item) => item.periodKey != periodKey),
-  fallbackRun,
-]..sort((a, b) => b.generatedAt.compareTo(a.generatedAt));
+    final fallbackRun = PayrollRunRecord(
+      id: generatedPayrollId ?? periodKey,
+      periodKey: periodKey,
+      periodLabel: periodLabel,
+      generatedAt: DateTime.tryParse(_cleanText(payrollMap['generatedAt'])) ??
+          DateTime.now(),
+      approvedAt: null,
+      payment: null,
+      employees: _buildDashboardRunEmployees(
+        activeMembers: activeMembers,
+        setupByUser: setupByUser,
+        effectiveDate: period,
+        paidAt: null,
+      ),
+      backendStatus: _cleanText(payrollMap['status'], fallback: 'DRAFT'),
+    );
 
-await _persistPayrollRuns(branchId, updatedRuns);
+    final updatedRuns = <PayrollRunRecord>[
+      ...refreshedRuns.where((item) => item.periodKey != periodKey),
+      fallbackRun,
+    ]..sort((a, b) => b.generatedAt.compareTo(a.generatedAt));
 
-return fallbackRun;
+    await _persistPayrollRuns(branchId, updatedRuns);
+
+    return fallbackRun;
   }
 
   Future<bool> cancelPayroll({
@@ -1030,14 +1038,14 @@ return fallbackRun;
     //   },
     // );
     final payload = <String, dynamic>{
-  'payrollEmployeeId': payrollEmployeeId,
-  'amount': adjustment.amountMinor,
-  'remarks': adjustment.remarks,
-};
+      'payrollEmployeeId': payrollEmployeeId,
+      'amount': adjustment.amountMinor,
+      'remarks': adjustment.remarks,
+    };
 
-final response = adjustment.type.toUpperCase() == 'DEDUCTION'
-    ? await _apiService.createPayrollDeduction(payload: payload)
-    : await _apiService.createPayrollAdditionalCharge(payload: payload);
+    final response = adjustment.type.toUpperCase() == 'DEDUCTION'
+        ? await _apiService.createPayrollDeduction(payload: payload)
+        : await _apiService.createPayrollAdditionalCharge(payload: payload);
     _requireSuccess(response);
     return refreshEmployeeAdjustments(
       branchId: branchId,
@@ -1097,67 +1105,69 @@ final response = adjustment.type.toUpperCase() == 'DEDUCTION'
           : userId,
     );
   }
-Future<List<PayrollAdjustmentRecord>> loadEmployeeAdjustments({
-  required int userId,
-  required int payrollEmployeeId,
-}) async {
-  final additionsResponse = await _apiService.getPayrollAdditionalCharges();
-  final deductionsResponse = await _apiService.getPayrollDeductions();
 
-  _requireSuccess(additionsResponse);
-  _requireSuccess(deductionsResponse);
+  Future<List<PayrollAdjustmentRecord>> loadEmployeeAdjustments({
+    required int userId,
+    required int payrollEmployeeId,
+  }) async {
+    final additionsResponse = await _apiService.getPayrollAdditionalCharges();
+    final deductionsResponse = await _apiService.getPayrollDeductions();
 
-  List<Map<String, dynamic>> extractItems(dynamic data) {
-    final rawItems = data is List
-        ? data
-        : data is Map<String, dynamic>
-            ? (data['items'] as List?) ??
-                (data['data'] as List?) ??
-                (data['rows'] as List?) ??
-                (data['results'] as List?) ??
-                (data['adjustments'] as List?) ??
-                (data.isEmpty ? const <dynamic>[] : <dynamic>[data])
-            : const <dynamic>[];
+    _requireSuccess(additionsResponse);
+    _requireSuccess(deductionsResponse);
 
-    return rawItems
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
+    List<Map<String, dynamic>> extractItems(dynamic data) {
+      final rawItems = data is List
+          ? data
+          : data is Map<String, dynamic>
+              ? (data['items'] as List?) ??
+                  (data['data'] as List?) ??
+                  (data['rows'] as List?) ??
+                  (data['results'] as List?) ??
+                  (data['adjustments'] as List?) ??
+                  (data.isEmpty ? const <dynamic>[] : <dynamic>[data])
+              : const <dynamic>[];
+
+      return rawItems
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+
+    PayrollAdjustmentRecord adjustmentFromMap(
+      Map<String, dynamic> item,
+      String type,
+    ) {
+      return PayrollAdjustmentRecord(
+        id: _cleanText(item['id']),
+        payrollEmployeeId:
+            _asInt(item['payrollEmployeeId']) ?? payrollEmployeeId,
+        type: type,
+        amountMinor: _asInt(item['amount']) ?? 0,
+        remarks: _cleanText(item['remarks']),
+        createdAt:
+            DateTime.tryParse(_cleanText(item['createdAt'])) ?? DateTime.now(),
+      );
+    }
+
+    final additions = extractItems(additionsResponse['data'])
+        .where((item) => _asInt(item['payrollEmployeeId']) == payrollEmployeeId)
+        .map((item) => adjustmentFromMap(item, AdjustmentTypes.addition))
         .toList();
+
+    final deductions = extractItems(deductionsResponse['data'])
+        .where((item) => _asInt(item['payrollEmployeeId']) == payrollEmployeeId)
+        .map((item) => adjustmentFromMap(item, AdjustmentTypes.deduction))
+        .toList();
+
+    final adjustments = <PayrollAdjustmentRecord>[
+      ...additions,
+      ...deductions,
+    ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    return adjustments;
   }
 
-  PayrollAdjustmentRecord adjustmentFromMap(
-    Map<String, dynamic> item,
-    String type,
-  ) {
-    return PayrollAdjustmentRecord(
-      id: _cleanText(item['id']),
-      payrollEmployeeId:
-          _asInt(item['payrollEmployeeId']) ?? payrollEmployeeId,
-      type: type,
-      amountMinor: _asInt(item['amount']) ?? 0,
-      remarks: _cleanText(item['remarks']),
-      createdAt: DateTime.tryParse(_cleanText(item['createdAt'])) ??
-          DateTime.now(),
-    );
-  }
-
-  final additions = extractItems(additionsResponse['data'])
-      .where((item) => _asInt(item['payrollEmployeeId']) == payrollEmployeeId)
-      .map((item) => adjustmentFromMap(item, AdjustmentTypes.addition))
-      .toList();
-
-  final deductions = extractItems(deductionsResponse['data'])
-      .where((item) => _asInt(item['payrollEmployeeId']) == payrollEmployeeId)
-      .map((item) => adjustmentFromMap(item, AdjustmentTypes.deduction))
-      .toList();
-
-  final adjustments = <PayrollAdjustmentRecord>[
-    ...additions,
-    ...deductions,
-  ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-  return adjustments;
-}
   Future<PayrollRunRecord> refreshEmployeeAdjustments({
     required int branchId,
     required String runId,
@@ -1275,8 +1285,7 @@ Future<List<PayrollAdjustmentRecord>> loadEmployeeAdjustments({
           'commissionMaxAmountMinor': null,
         },
       );
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   Future<void> saveStaffOverrides({
@@ -1584,7 +1593,10 @@ Future<List<PayrollAdjustmentRecord>> loadEmployeeAdjustments({
   String _commissionOverridesKey(int branchId) =>
       '$_commissionOverridesPrefix$branchId';
 
-  ProfileTeamMember _teamMemberFromMap(Map<String, dynamic> map) {
+  ProfileTeamMember _teamMemberFromMap(
+    Map<String, dynamic> map, {
+    required int branchId,
+  }) {
     final user = map['user'] is Map
         ? Map<String, dynamic>.from(map['user'] as Map)
         : const <String, dynamic>{};
@@ -1615,7 +1627,43 @@ Future<List<PayrollAdjustmentRecord>> loadEmployeeAdjustments({
             user['fullPhoneNumber'],
       ),
       isActive: _asBool(map['active'], fallback: true),
+      joiningDate: _joiningDateFromMap(map, branchId: branchId) ??
+          _joiningDateFromMap(user, branchId: branchId),
     );
+  }
+
+  DateTime? _joiningDateFromMap(
+    Map<String, dynamic> map, {
+    required int branchId,
+  }) {
+    final direct = DateTime.tryParse(_cleanText(map['joiningDate']));
+    if (direct != null) {
+      return direct;
+    }
+
+    final rawBranches = map['userBranches'];
+    if (rawBranches is! List) {
+      return null;
+    }
+
+    DateTime? fallback;
+    for (final entry in rawBranches) {
+      if (entry is! Map) continue;
+      final branchEntry = Map<String, dynamic>.from(entry);
+      final branch = branchEntry['branch'] is Map
+          ? Map<String, dynamic>.from(branchEntry['branch'] as Map)
+          : const <String, dynamic>{};
+      final entryBranchId =
+          _asInt(branchEntry['branchId']) ?? _asInt(branch['id']);
+      final parsed = DateTime.tryParse(_cleanText(branchEntry['joiningDate']));
+      if (parsed == null) continue;
+      fallback ??= parsed;
+      if (entryBranchId == branchId) {
+        return parsed;
+      }
+    }
+
+    return fallback;
   }
 
   bool _looksLikeService(Map<String, dynamic> map) {

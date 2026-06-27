@@ -633,6 +633,10 @@ class _PayrollSetupMemberCard extends StatefulWidget {
 }
 
 class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
+  final _formKey = GlobalKey<FormState>();
+
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  late final DateTime? _joiningDate;
   late String _payrollType;
   late TextEditingController _salaryController;
   late TextEditingController _commissionController;
@@ -641,6 +645,7 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
   @override
   void initState() {
     super.initState();
+    _joiningDate = _dateOnly(widget.member.joiningDate);
     _payrollType = widget.initialSetup?.payrollType ?? PayrollTypes.salaryOnly;
     _salaryController = TextEditingController(
       text: widget.initialSetup == null || widget.initialSetup!.salaryMinor == 0
@@ -653,7 +658,9 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
           ? ''
           : widget.initialSetup!.commissionPercent.toStringAsFixed(1),
     );
-    _effectiveDate = widget.initialSetup?.effectiveDate ?? DateTime.now();
+    _effectiveDate = _clampEffectiveDate(
+      widget.initialSetup?.effectiveDate ?? DateTime.now(),
+    );
   }
 
   @override
@@ -675,7 +682,7 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
       _commissionController.text = widget.initialSetup!.commissionPercent == 0
           ? ''
           : widget.initialSetup!.commissionPercent.toStringAsFixed(1);
-      _effectiveDate = widget.initialSetup!.effectiveDate;
+      _effectiveDate = _clampEffectiveDate(widget.initialSetup!.effectiveDate);
     }
   }
 
@@ -687,24 +694,36 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
       _payrollType == PayrollTypes.commissionOnly ||
       _payrollType == PayrollTypes.salaryCommission;
 
+  DateTime? _dateOnly(DateTime? value) {
+    if (value == null) return null;
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  DateTime _minimumEffectiveDate() {
+    final today = DateTime.now();
+    final joiningDate = _joiningDate;
+    if (joiningDate == null) {
+      return DateTime(today.year, today.month, today.day);
+    }
+    final normalizedToday = DateTime(today.year, today.month, today.day);
+    return joiningDate.isAfter(normalizedToday) ? joiningDate : normalizedToday;
+  }
+
+  DateTime _clampEffectiveDate(DateTime value) {
+    final minimum = _minimumEffectiveDate();
+    final selected = DateTime(value.year, value.month, value.day);
+    return selected.isBefore(minimum) ? minimum : selected;
+  }
+
   Future<void> _submit() async {
+    setState(() {
+      _autoValidateMode = AutovalidateMode.onUserInteraction;
+    });
+
+    if (!_formKey.currentState!.validate()) return;
+
     final salary = int.tryParse(_salaryController.text.trim()) ?? 0;
     final commission = double.tryParse(_commissionController.text.trim()) ?? 0;
-    final salaryRequired = translateText(
-      'Salary is required for salary-based payroll types.',
-    );
-    final commissionRange = translateText(
-      'Commission must be between 0 and 100.',
-    );
-
-    if (_requiresSalary && salary <= 0) {
-      _showRowToast(salaryRequired);
-      return;
-    }
-    if (_requiresCommission && (commission < 0 || commission > 100)) {
-      _showRowToast(commissionRange);
-      return;
-    }
 
     final setup = PayrollSetupRecord(
       userId: widget.member.id,
@@ -712,167 +731,271 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
       payrollType: _payrollType,
       salaryMinor: _requiresSalary ? salary : 0,
       commissionPercent: _requiresCommission ? commission : 0,
-      effectiveDate: _effectiveDate,
+      effectiveDate: _clampEffectiveDate(_effectiveDate),
     );
     await widget.onSave(setup);
   }
 
-  void _showRowToast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.member.name,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1917),
+    return Form(
+      key: _formKey,
+      autovalidateMode: _autoValidateMode,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.member.name,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1C1917),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.member.role.isEmpty
-                          ? context.t('Team member')
-                          : widget.member.role,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF6B7280),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.member.role.isEmpty
+                            ? context.t('Team member')
+                            : widget.member.role,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF6B7280),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              if (widget.initialSetup != null)
-                _StatusPill(
-                  label: context.t('Configured'),
-                  color: Color(0xFF157347),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<String>(
-            initialValue: _payrollType,
-            decoration: InputDecoration(
-              labelText: context.t('Payroll type'),
-              filled: true,
-              fillColor: const Color(0xFFF8F5F2),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
-              ),
-            ),
-            items: PayrollTypes.values
-                .map(
-                  (value) => DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(PayrollTypes.label(value)),
+                    ],
                   ),
-                )
-                .toList(),
-            onChanged: widget.isSaving
-                ? null
-                : (value) {
-                    if (value != null) {
-                      setState(() => _payrollType = value);
-                    }
-                  },
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _LabeledTextField(
-                  label: context.t('Salary'),
-                  controller: _salaryController,
-                  enabled: _requiresSalary && !widget.isSaving,
-                  keyboardType: TextInputType.number,
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _LabeledTextField(
-                  label: context.t('Commission %'),
-                  controller: _commissionController,
-                  enabled: _requiresCommission && !widget.isSaving,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _DateFieldButton(
-            label: context.t('Effective date'),
-            value: _effectiveDate,
-            onTap: widget.isSaving
-                ? () {}
-                : () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _effectiveDate,
-                      firstDate: DateTime(2022),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) {
-                      setState(() => _effectiveDate = picked);
-                    }
-                  },
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: widget.isSaving
-                  ? null
-                  : () {
-                      _submit();
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
+                if (widget.initialSetup != null)
+                  _StatusPill(
+                    label: context.t('Configured'),
+                    color: const Color(0xFF157347),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _payrollType,
+              decoration: InputDecoration(
+                labelText: context.t('Payroll type'),
+                filled: true,
+                fillColor: const Color(0xFFF8F5F2),
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
                 ),
+              ),
+              items: PayrollTypes.values
+                  .map(
+                    (value) => DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(PayrollTypes.label(value)),
+                    ),
+                  )
+                  .toList(),
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? translateText('Payroll type is required')
+                  : null,
+              onChanged: widget.isSaving
+                  ? null
+                  : (value) {
+                      if (value != null) {
+                        setState(() => _payrollType = value);
+                        if (_autoValidateMode != AutovalidateMode.disabled) {
+                          _formKey.currentState?.validate();
+                        }
+                      }
+                    },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _LabeledTextField(
+                    label: context.t('Salary'),
+                    controller: _salaryController,
+                    enabled: _requiresSalary && !widget.isSaving,
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (!_requiresSalary) return null;
+                      final salary = int.tryParse((value ?? '').trim()) ?? 0;
+                      if (salary <= 0) {
+                        return translateText('Salary is required');
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _LabeledTextField(
+                    label: context.t('Commission %'),
+                    controller: _commissionController,
+                    enabled: _requiresCommission && !widget.isSaving,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    validator: (value) {
+                      if (!_requiresCommission) return null;
+                      final commission =
+                          double.tryParse((value ?? '').trim()) ?? 0;
+                      if (commission <= 0 || commission > 100) {
+                        return translateText(
+                          'Commission must be between 0 and 100.',
+                        );
+                      }
+                      return null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F5F2),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE9DFD1)),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (widget.isSaving)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
+                  const Icon(
+                    Icons.badge_outlined,
+                    size: 18,
+                    color: Color(0xFFB45309),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.t('Joining date'),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF6B7280),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          () {
+                            final joiningDate = _joiningDate;
+                            return joiningDate == null
+                                ? context.t('Not available')
+                                : DateFormat('dd MMM yyyy').format(joiningDate);
+                          }(),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1C1917),
+                          ),
+                        ),
+                      ],
                     ),
-                  if (widget.isSaving) const SizedBox(width: 10),
-                  Text(
-                    widget.isSaving
-                        ? context.t('Saving...')
-                        : context.t('Save'),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            FormField<DateTime>(
+              initialValue: _effectiveDate,
+              autovalidateMode: _autoValidateMode,
+              validator: (value) {
+                final selected = value ?? _effectiveDate;
+                final minimum = _minimumEffectiveDate();
+                if (selected.isBefore(minimum)) {
+                  return translateText(
+                    'Effective date cannot be before joining date.',
+                  );
+                }
+                return null;
+              },
+              builder: (field) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _DateFieldButton(
+                      label: context.t('Effective date'),
+                      value: _effectiveDate,
+                      onTap: widget.isSaving
+                          ? () {}
+                          : () async {
+                              final minimum = _minimumEffectiveDate();
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: _effectiveDate.isBefore(minimum)
+                                    ? minimum
+                                    : _effectiveDate,
+                                firstDate: minimum,
+                                lastDate: DateTime(2100),
+                              );
+                              if (picked != null) {
+                                final clamped = _clampEffectiveDate(picked);
+                                setState(() => _effectiveDate = clamped);
+                                field.didChange(clamped);
+                              }
+                            },
+                    ),
+                    if (field.errorText != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        field.errorText!,
+                        style: const TextStyle(
+                          color: Color(0xFFD32F2F),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: widget.isSaving ? null : _submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.starColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (widget.isSaving)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                    if (widget.isSaving) const SizedBox(width: 10),
+                    Text(
+                      widget.isSaving
+                          ? context.t('Saving...')
+                          : context.t('Save'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
