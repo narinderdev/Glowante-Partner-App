@@ -968,6 +968,8 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
 
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
+      case 'draft':
+        return const Color(0xFFB45309);
       case 'paid':
         return const Color(0xFF157347);
       case 'cancelled':
@@ -3283,52 +3285,52 @@ class _MetricCard extends StatelessWidget {
 class _PayrollRunTile extends StatelessWidget {
   const _PayrollRunTile({
     required this.run,
-    required this.amountLabel,
     required this.statusColor,
     required this.onOpen,
   });
 
   final PayrollRunRecord run;
-  final String amountLabel;
   final Color statusColor;
   final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onOpen,
-        child: Padding(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 620;
+        final content = Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      run.periodLabel,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1C1917),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${run.employeeCount} employees • $amountLabel',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF6B7280),
-                      ),
-                    ),
-                  ],
-                ),
+                flex: 2,
+                child: _RunTitleBlock(run: run),
               ),
               const SizedBox(width: 12),
+              _RunMetricCard(
+                label: 'Employees',
+                value: '${run.employeeCount}',
+                width: 118,
+              ),
+              const SizedBox(width: 10),
+              _RunMetricCard(
+                label: 'Net',
+                value: _formatCurrency(run.totalAmountMinor),
+                width: 124,
+              ),
+              const SizedBox(width: 10),
+              _RunMetricCard(
+                label: 'Paid',
+                value: _formatCurrency(run.paidAmountMinor),
+                width: 124,
+              ),
+              const SizedBox(width: 10),
+              _RunMetricCard(
+                label: 'Pending',
+                value: _formatCurrency(run.outstandingAmountMinor),
+                width: 124,
+              ),
+              const SizedBox(width: 10),
               _StatusPill(label: run.statusLabel, color: statusColor),
               const SizedBox(width: 10),
               Material(
@@ -3353,6 +3355,115 @@ class _PayrollRunTile extends StatelessWidget {
               ),
             ],
           ),
+        );
+        return Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onOpen,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: isCompact
+                  ? SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: SizedBox(width: 760, child: content),
+                    )
+                  : content,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RunTitleBlock extends StatelessWidget {
+  const _RunTitleBlock({required this.run});
+
+  final PayrollRunRecord run;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          run.periodLabel,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF1C1917),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Payroll run summary',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 13,
+            color: Color(0xFF6B7280),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RunMetricCard extends StatelessWidget {
+  const _RunMetricCard({
+    required this.label,
+    required this.value,
+    this.width = 126,
+  });
+
+  final String label;
+  final String value;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAF9),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE8DED6)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF6F665E),
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF1C1917),
+              ),
+            ),
+          ],
         ),
       ),
     );

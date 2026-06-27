@@ -97,7 +97,6 @@ extension _OwnerPayrollUi on _ProfileCompensationScreenState {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _PayrollRunTile(
                       run: run,
-                      amountLabel: _formatCurrency(run.totalAmountMinor),
                       statusColor: _statusColor(run.statusLabel),
                       onOpen: () {
                         _openPayrollReview(run);
@@ -310,15 +309,30 @@ class _PayrollSetupView extends StatefulWidget {
 
 class _PayrollSetupViewState extends State<_PayrollSetupView> {
   final Set<int> _savingIds = <int>{};
+  late Map<int, PayrollSetupRecord> _visibleSetups;
+
+  @override
+  void initState() {
+    super.initState();
+    _visibleSetups = Map<int, PayrollSetupRecord>.from(widget.existingSetups);
+  }
+
+  @override
+  void didUpdateWidget(covariant _PayrollSetupView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _visibleSetups
+      ..clear()
+      ..addAll(widget.existingSetups);
+  }
 
   int get _configuredCount => widget.teamMembers
-      .where((member) => widget.existingSetups.containsKey(member.id))
+      .where((member) => _visibleSetups.containsKey(member.id))
       .length;
 
   int get _pendingCount => widget.teamMembers.length - _configuredCount;
 
   Future<void> _openEditDialog(ProfileTeamMember member) async {
-    final initial = widget.existingSetups[member.id];
+    final initial = _visibleSetups[member.id];
     debugPrint(
       '[OwnerCompensation:payroll] open_payroll_setup_member_dialog | '
       'userId=${member.id}, configured=${initial != null}',
@@ -328,10 +342,12 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
       builder: (dialogContext) {
         return AlertDialog(
           insetPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
           contentPadding: const EdgeInsets.all(16),
           content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(dialogContext).width - 24,
+            ),
             child: SingleChildScrollView(
               child: _PayrollSetupMemberCard(
                 member: member,
@@ -345,6 +361,11 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                   setState(() => _savingIds.add(member.id));
                   try {
                     await widget.onSave(setup);
+                    if (mounted) {
+                      setState(() {
+                        _visibleSetups[member.id] = setup;
+                      });
+                    }
                     debugPrint(
                       '[OwnerCompensation:payroll] payroll_setup_member_save_success | '
                       'userId=${member.id}',
@@ -485,7 +506,7 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                       ...widget.teamMembers.asMap().entries.map((entry) {
                         final index = entry.key;
                         final member = entry.value;
-                        final setup = widget.existingSetups[member.id];
+                        final setup = _visibleSetups[member.id];
                         final payType = setup == null
                             ? 'Not configured'
                             : PayrollTypes.label(setup.payrollType);

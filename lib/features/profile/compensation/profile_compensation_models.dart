@@ -732,6 +732,9 @@ class PayrollRunRecord {
 
   String get statusLabel {
     final normalizedStatus = normalizedBackendStatus;
+    if (normalizedStatus == 'draft') {
+      return 'Draft';
+    }
     if (normalizedStatus == 'cancelled') {
       return 'Cancelled';
     }
