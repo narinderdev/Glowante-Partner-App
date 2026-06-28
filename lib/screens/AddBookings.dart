@@ -4706,8 +4706,9 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
   Future<void> _loadAppointmentsForDate() async {
     final branchId = widget.branchId;
+    final userId = widget.customerUserId;
 
-    if (branchId == null) return;
+    if (branchId == null || userId == null) return;
     if (!_hasTeamMemberSelectionsForAvailability()) {
       setState(() {
         _availabilitySlots = [];
@@ -4723,6 +4724,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     try {
       final response = await ApiService().loadAppointmentAvailability(
         branchId: branchId,
+        userId: userId,
         date: DateFormat('yyyy-MM-dd').format(_selectedDate),
       );
 

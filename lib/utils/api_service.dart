@@ -487,8 +487,18 @@ class ApiService {
     return "branches/$branchId/appointments/branch";
   }
 
-  static String appointmentAvailabilityAPI(int branchId) {
-    return "branches/$branchId/appointments/availability";
+  static String appointmentAvailabilityAPI(
+    int branchId, {
+    int? userId,
+  }) {
+    return Uri(
+      path: "branches/$branchId/appointments/availability",
+      queryParameters: userId == null
+          ? null
+          : <String, String>{
+              'userId': userId.toString(),
+            },
+    ).toString();
   }
 
   static String assignUserToBranchAPI(int branchId) {
@@ -816,11 +826,12 @@ class ApiService {
 
   Future<Map<String, dynamic>> loadAppointmentAvailability({
     required int branchId,
+    required int userId,
     required String date,
   }) {
     return _authorizedJsonRequest(
       method: 'POST',
-      endpoint: appointmentAvailabilityAPI(branchId),
+      endpoint: appointmentAvailabilityAPI(branchId, userId: userId),
       debugTag: 'AppointmentAvailability',
       body: <String, dynamic>{'date': date},
     );
