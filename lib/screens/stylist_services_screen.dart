@@ -59,6 +59,15 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
     return null;
   }
 
+  String _commissionMaxValueLabel(dynamic value) {
+    final amount = minorAmountToRupees(value);
+    if (amount == null) return '';
+    if (amount == amount.roundToDouble()) {
+      return amount.toStringAsFixed(0);
+    }
+    return amount.toStringAsFixed(2);
+  }
+
   String _readText(Map<String, dynamic> map, List<String> keys) {
     for (final key in keys) {
       final value = map[key]?.toString().trim();
@@ -96,7 +105,7 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
           ? context.t('Percentage')
           : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
       return maxAmount != null
-          ? '$percentLabel • max ${formatMinorAmount(maxAmount)}'
+          ? '$percentLabel • max ${_commissionMaxValueLabel(maxAmount)}'
           : percentLabel;
     }
 

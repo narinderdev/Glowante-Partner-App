@@ -270,6 +270,15 @@ class _ServicesTabState extends State<ServicesTab> {
     return null;
   }
 
+  String _commissionMaxValueLabel(dynamic value) {
+    final amount = minorAmountToRupees(value);
+    if (amount == null) return '';
+    if (amount == amount.roundToDouble()) {
+      return amount.toStringAsFixed(0);
+    }
+    return amount.toStringAsFixed(2);
+  }
+
   String _commissionTypeLabel(Map service) {
     if (service['commissionEnabled'] != true) {
       return translateText('Commission off');
@@ -301,7 +310,7 @@ class _ServicesTabState extends State<ServicesTab> {
           ? translateText('Percentage')
           : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
       return maxAmount != null
-          ? '$percentLabel • max ${formatMinorAmount(maxAmount)}'
+          ? '$percentLabel • max ${_commissionMaxValueLabel(maxAmount)}'
           : percentLabel;
     }
 

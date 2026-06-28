@@ -88,6 +88,15 @@ double? _serviceDouble(dynamic value) {
   return null;
 }
 
+String _commissionMaxValueLabel(dynamic value) {
+  final amount = minorAmountToRupees(value);
+  if (amount == null) return '';
+  if (amount == amount.roundToDouble()) {
+    return amount.toStringAsFixed(0);
+  }
+  return amount.toStringAsFixed(2);
+}
+
 String _catalogBranchAddressSummary(dynamic rawAddress) {
   if (rawAddress is! Map) return '';
   final address = Map<String, dynamic>.from(rawAddress);
@@ -203,7 +212,7 @@ String _serviceCommissionValueLabel(Map<String, dynamic> service) {
         ? translateText('Percentage')
         : '${percent.toStringAsFixed(percent.truncateToDouble() == percent ? 0 : 2)}%';
     return maxAmount != null
-        ? '$percentLabel • max ${formatMinorAmount(maxAmount)}'
+        ? '$percentLabel • max ${_commissionMaxValueLabel(maxAmount)}'
         : percentLabel;
   }
 
