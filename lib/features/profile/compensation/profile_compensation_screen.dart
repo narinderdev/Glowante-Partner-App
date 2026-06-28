@@ -1446,6 +1446,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                         Expanded(
                           child: TextField(
                             maxLength: 60,
+                            textAlignVertical: TextAlignVertical.center,
                             onChanged: (value) {
                               setSheetState(() => searchQuery = value.trim());
                             },
@@ -1454,8 +1455,12 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                               prefixIcon: const Icon(Icons.search_rounded),
                               filled: true,
                               fillColor: Colors.white,
+                              counterText: '',
                               contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 14),
+                                  const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 16,
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 borderSide:
@@ -1474,11 +1479,15 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                           width: 170,
                           child: DropdownButtonFormField<String>(
                             initialValue: selectedStatus,
+                            isDense: true,
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 16,
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(14),
                                 borderSide:
