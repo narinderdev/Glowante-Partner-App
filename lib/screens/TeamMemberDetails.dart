@@ -449,7 +449,7 @@ class TeamMemberDetails extends StatelessWidget {
     final String lastName = (member['lastName'] ?? '').toString();
     final String name = '$firstName $lastName'.trim();
     final roles = _labelList(member['roles'], const ['label', 'name', 'code']);
-    final String role = roles.isNotEmpty ? roles.first : 'Staff';
+    final String role = roles.isNotEmpty ? roles.join(', ') : 'Staff';
     final specializations = _labelList(
       member['specialities'] ?? member['specializations'],
       const ['name', 'label', 'code'],
@@ -762,7 +762,7 @@ class _MemberSummaryCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   role,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontFamily: 'Manrope',
