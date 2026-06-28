@@ -62,10 +62,8 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
   String _commissionMaxValueLabel(dynamic value) {
     final amount = minorAmountToRupees(value);
     if (amount == null) return '';
-    if (amount == amount.roundToDouble()) {
-      return amount.toStringAsFixed(0);
-    }
-    return amount.toStringAsFixed(2);
+    final fixed = amount.toStringAsFixed(2);
+    return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
   }
 
   String _readText(Map<String, dynamic> map, List<String> keys) {
@@ -95,7 +93,9 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
     final type = _readText(service, const ['commissionType']).toLowerCase();
     if (type == 'fixed') {
       final amount = _asInt(service['commissionFixedAmountMinor']);
-      return amount != null ? formatMinorAmount(amount) : context.t('Fixed');
+      return amount != null
+          ? formatMinorAmount(amount, trimZeroDecimals: true)
+          : context.t('Fixed');
     }
 
     if (type == 'percentage') {
@@ -367,8 +367,11 @@ class _StylistServicesScreenState extends State<StylistServicesScreen> {
                         if (price != null)
                           Text(
                             priceType.isNotEmpty
-                                ? '${formatMinorAmount(price)} ($priceType)'
-                                : formatMinorAmount(price),
+                                ? '${formatMinorAmount(price, trimZeroDecimals: true)} ($priceType)'
+                                : formatMinorAmount(
+                                    price,
+                                    trimZeroDecimals: true,
+                                  ),
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                         const SizedBox(height: 6),

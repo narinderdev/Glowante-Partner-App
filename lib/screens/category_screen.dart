@@ -91,10 +91,8 @@ double? _serviceDouble(dynamic value) {
 String _commissionMaxValueLabel(dynamic value) {
   final amount = minorAmountToRupees(value);
   if (amount == null) return '';
-  if (amount == amount.roundToDouble()) {
-    return amount.toStringAsFixed(0);
-  }
-  return amount.toStringAsFixed(2);
+  final fixed = amount.toStringAsFixed(2);
+  return fixed.replaceFirst(RegExp(r'\.?0+$'), '');
 }
 
 String _catalogBranchAddressSummary(dynamic rawAddress) {
@@ -202,7 +200,9 @@ String _serviceCommissionValueLabel(Map<String, dynamic> service) {
   final type = (service['commissionType'] ?? '').toString().toLowerCase();
   if (type == 'fixed') {
     final amount = _serviceInt(service['commissionFixedAmountMinor']);
-    return amount != null ? formatMinorAmount(amount) : translateText('Fixed');
+    return amount != null
+        ? formatMinorAmount(amount, trimZeroDecimals: true)
+        : translateText('Fixed');
   }
 
   if (type == 'percentage') {
@@ -2881,8 +2881,9 @@ class _ServiceCard extends StatelessWidget {
     final bool showCommissionTag = service['commissionEnabled'] == true;
     final String waitLabel = _servicePassiveWaitLabel(service);
 
-    final String priceLabel =
-        price != null ? formatMinorAmount(price) : translateText('No price');
+    final String priceLabel = price != null
+        ? formatMinorAmount(price, trimZeroDecimals: true)
+        : translateText('No price');
     final String durationLabel =
         duration != null ? '$duration min' : translateText('No duration');
     final String serviceMeta = [
