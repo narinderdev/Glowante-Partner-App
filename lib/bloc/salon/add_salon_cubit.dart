@@ -15,6 +15,7 @@ class AddSalonFormData {
     required this.endTime,
     required this.description,
     required this.schedule,
+    required this.becomeStylist,
     this.imageUrl,
     this.imageUrls = const <String>[],
   });
@@ -25,6 +26,7 @@ class AddSalonFormData {
   final String endTime;
   final String description;
   final Map<String, List<Map<String, String>>> schedule;
+  final bool becomeStylist;
   final String? imageUrl;
   final List<String> imageUrls;
 }
@@ -137,6 +139,7 @@ class AddSalonCubit extends Cubit<AddSalonState> {
         images: state.images,
         serviceCodes: state.selectedServiceCodes,
         selectedCategoryCodes: state.selectedServiceCodes,
+        becomeStylist: formData.becomeStylist,
       );
 
       emit(state.copyWith(

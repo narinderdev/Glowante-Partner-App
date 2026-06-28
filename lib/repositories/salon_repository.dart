@@ -73,6 +73,7 @@ class SalonRepository {
     required double longitude,
     required List<String> serviceCodes,
     List<String> selectedCategoryCodes = const [],
+    required bool becomeStylist,
     List<File> images = const [],
     String? imageUrl,
     List<String> imageUrls = const [],
@@ -121,6 +122,7 @@ class SalonRepository {
         'longitude': longitude,
       },
       'selectedCategoryCodes': selectedCategoryCodes,
+      'becomeStylist': becomeStylist,
     };
 
     final encoder = const JsonEncoder.withIndent('  ');

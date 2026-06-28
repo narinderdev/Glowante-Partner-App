@@ -1500,6 +1500,7 @@ class ApiService {
     double longitude, {
     String? imageUrl, // 👈 optional
     required List<String> selectedCategoryCodes, // ✅ new required field
+    required bool becomeStylist,
     required int openingBufferMinutes,
     required int lastBookingBufferMinutes,
 
@@ -1538,6 +1539,7 @@ class ApiService {
         "longitude": longitude,
       },
       "selectedCategoryCodes": selectedCategoryCodes, // ✅ added field
+      "becomeStylist": becomeStylist,
     };
 
     // Remove null values to keep payload clean

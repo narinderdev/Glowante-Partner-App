@@ -103,6 +103,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   final ImagePicker _picker = ImagePicker();
   bool _submitted = false;
   bool _savedPhoneApplied = false;
+  bool _becomeStylist = false;
   final Set<String> _removedExistingImageUrls = <String>{};
   Map<String, List<Map<String, String>>> _draftWeeklySchedule = {};
   int _draftOpeningBufferMinutes = 30;
@@ -137,11 +138,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     return branches.first;
   }
-int? _readPositiveIntValue(List<dynamic> values) {
-  final parsed = _readIntValue(values);
-  if (parsed == null || parsed <= 0) return null;
-  return parsed;
-}
+
+  int? _readPositiveIntValue(List<dynamic> values) {
+    final parsed = _readIntValue(values);
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
+  }
+
   int? _readIntValue(List<dynamic> values) {
     for (final value in values) {
       if (value is int) return value;
@@ -491,167 +494,166 @@ int? _readPositiveIntValue(List<dynamic> values) {
       ]),
     );
   }
-@override
-void initState() {
-  super.initState();
 
-  _startTimeController.text = "08:00 AM";
-  _endTimeController.text = "08:00 PM";
+  @override
+  void initState() {
+    super.initState();
 
-  final phone = widget.phoneNumber;
-  if (phone != null && phone.isNotEmpty) {
-    _phoneController.text = _normalizePhone(phone);
-  }
+    _startTimeController.text = "08:00 AM";
+    _endTimeController.text = "08:00 PM";
 
-  final proceedContext = widget.isProceedFrom?.toLowerCase().trim();
-  final shouldPrefillSalonName = proceedContext != 'onboarding';
-
-  if (shouldPrefillSalonName) {
-    final names = [widget.firstName, widget.lastName]
-        .whereType<String>()
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
-
-    if (names.isNotEmpty) {
-      _salonNameController.text = names.join(' ');
-    }
-  }
-
-  final initialSalon = widget.initialSalon;
-
-  if (initialSalon != null) {
-    final primaryBranch = _resolvePrimaryBranch(initialSalon);
-
-    _salonNameController.text = _firstNonEmptyValue([
-      initialSalon['name'],
-      initialSalon['salonName'],
-      initialSalon['businessName'],
-      initialSalon['displayName'],
-      initialSalon['title'],
-    ]);
-
-    _descriptionController.text = _firstNonEmptyValue([
-      initialSalon['description'],
-      initialSalon['salonDescription'],
-      initialSalon['about'],
-      initialSalon['details'],
-      primaryBranch?['description'],
-      primaryBranch?['branchDescription'],
-    ]);
-
-    _phoneController.text = _normalizePhone(
-      _firstNonEmptyValue([
-        initialSalon['phone'],
-        primaryBranch?['phone'],
-        widget.phoneNumber,
-      ]),
-    );
-
-    final startTime = _firstNonEmptyValue([
-      initialSalon['startTime'],
-      primaryBranch?['startTime'],
-    ]);
-
-    final endTime = _firstNonEmptyValue([
-      initialSalon['endTime'],
-      primaryBranch?['endTime'],
-    ]);
-
-    if (startTime.isNotEmpty) {
-      _startTimeController.text = _formatDisplayTime(
-        startTime,
-        fallback: _startTimeController.text,
-      );
+    final phone = widget.phoneNumber;
+    if (phone != null && phone.isNotEmpty) {
+      _phoneController.text = _normalizePhone(phone);
     }
 
-    if (endTime.isNotEmpty) {
-      _endTimeController.text = _formatDisplayTime(
-        endTime,
-        fallback: _endTimeController.text,
-      );
+    final proceedContext = widget.isProceedFrom?.toLowerCase().trim();
+    final shouldPrefillSalonName = proceedContext != 'onboarding';
+
+    if (shouldPrefillSalonName) {
+      final names = [widget.firstName, widget.lastName]
+          .whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .toList();
+
+      if (names.isNotEmpty) {
+        _salonNameController.text = names.join(' ');
+      }
     }
 
-    // First Visible Slot
-    _draftOpeningBufferMinutes = _readPositiveIntValue([
-          primaryBranch?['openingBufferMinutes'],
-          initialSalon['openingBufferMinutes'],
-        ]) ??
-        30;
-
-    // Last Visible Slot
-    _draftLastBookingBufferMinutes = _readPositiveIntValue([
-          primaryBranch?['lastBookingBufferMinutes'],
-          initialSalon['lastBookingBufferMinutes'],
-        ]) ??
-        30;
-
-    _openingBufferController.text = _draftOpeningBufferMinutes.toString();
-    _lastVisibleBufferController.text =
-        _draftLastBookingBufferMinutes.toString();
-
-    // Last Slot Overflow Grace
-    final existingOverflowGrace = _readPositiveIntValue([
-      primaryBranch?['lastSlotOverflowGraceMinutes'],
-      initialSalon['lastSlotOverflowGraceMinutes'],
-    ]);
-
-    // Use this if you want default 10 when backend does not return value
-  _draftLastSlotOverflowGraceMinutes = existingOverflowGrace ?? 0;
-_overflowGraceController.text =
-    existingOverflowGrace == null ? '' : existingOverflowGrace.toString();
-
-    // Debug logs
-    debugPrint('🟣 [EDIT SALON INIT BUFFER]');
-    debugPrint('primaryBranch id = ${primaryBranch?['id']}');
-    debugPrint(
-        'api openingBufferMinutes = ${primaryBranch?['openingBufferMinutes']}');
-    debugPrint(
-        'api lastBookingBufferMinutes = ${primaryBranch?['lastBookingBufferMinutes']}');
-    debugPrint(
-        'api lastSlotOverflowGraceMinutes = ${primaryBranch?['lastSlotOverflowGraceMinutes']}');
-    debugPrint(
-        'controller openingBuffer = ${_openingBufferController.text}');
-    debugPrint(
-        'controller lastVisibleBuffer = ${_lastVisibleBufferController.text}');
-    debugPrint(
-        'controller overflowGrace = ${_overflowGraceController.text}');
-  }
-
-  WidgetsBinding.instance.addPostFrameCallback((_) {
     final initialSalon = widget.initialSalon;
-    final initialAddress =
-        initialSalon == null ? null : _extractInitialAddress(initialSalon);
 
-    final completeAddress = widget.buildingName?.trim() ?? '';
+    if (initialSalon != null) {
+      final primaryBranch = _resolvePrimaryBranch(initialSalon);
 
-    final latitude = widget.latitude;
-    final longitude = widget.longitude;
+      _salonNameController.text = _firstNonEmptyValue([
+        initialSalon['name'],
+        initialSalon['salonName'],
+        initialSalon['businessName'],
+        initialSalon['displayName'],
+        initialSalon['title'],
+      ]);
 
-    final bool hasCoordinates = latitude != null &&
-        longitude != null &&
-        (latitude != 0.0 || longitude != 0.0);
+      _descriptionController.text = _firstNonEmptyValue([
+        initialSalon['description'],
+        initialSalon['salonDescription'],
+        initialSalon['about'],
+        initialSalon['details'],
+        primaryBranch?['description'],
+        primaryBranch?['branchDescription'],
+      ]);
 
-    if (initialAddress != null) {
-      context.read<AddSalonCubit>().updateAddress(initialAddress);
-    } else if (completeAddress.isNotEmpty && hasCoordinates) {
-      context.read<AddSalonCubit>().updateAddress(
-            AddSalonAddress(
-              buildingName: completeAddress,
-              city: '',
-              pincode: '',
-              state: '',
-              latitude: latitude,
-              longitude: longitude,
-            ),
-          );
+      _phoneController.text = _normalizePhone(
+        _firstNonEmptyValue([
+          initialSalon['phone'],
+          primaryBranch?['phone'],
+          widget.phoneNumber,
+        ]),
+      );
+
+      final startTime = _firstNonEmptyValue([
+        initialSalon['startTime'],
+        primaryBranch?['startTime'],
+      ]);
+
+      final endTime = _firstNonEmptyValue([
+        initialSalon['endTime'],
+        primaryBranch?['endTime'],
+      ]);
+
+      if (startTime.isNotEmpty) {
+        _startTimeController.text = _formatDisplayTime(
+          startTime,
+          fallback: _startTimeController.text,
+        );
+      }
+
+      if (endTime.isNotEmpty) {
+        _endTimeController.text = _formatDisplayTime(
+          endTime,
+          fallback: _endTimeController.text,
+        );
+      }
+
+      // First Visible Slot
+      _draftOpeningBufferMinutes = _readPositiveIntValue([
+            primaryBranch?['openingBufferMinutes'],
+            initialSalon['openingBufferMinutes'],
+          ]) ??
+          30;
+
+      // Last Visible Slot
+      _draftLastBookingBufferMinutes = _readPositiveIntValue([
+            primaryBranch?['lastBookingBufferMinutes'],
+            initialSalon['lastBookingBufferMinutes'],
+          ]) ??
+          30;
+
+      _openingBufferController.text = _draftOpeningBufferMinutes.toString();
+      _lastVisibleBufferController.text =
+          _draftLastBookingBufferMinutes.toString();
+
+      // Last Slot Overflow Grace
+      final existingOverflowGrace = _readPositiveIntValue([
+        primaryBranch?['lastSlotOverflowGraceMinutes'],
+        initialSalon['lastSlotOverflowGraceMinutes'],
+      ]);
+
+      // Use this if you want default 10 when backend does not return value
+      _draftLastSlotOverflowGraceMinutes = existingOverflowGrace ?? 0;
+      _overflowGraceController.text =
+          existingOverflowGrace == null ? '' : existingOverflowGrace.toString();
+
+      // Debug logs
+      debugPrint('🟣 [EDIT SALON INIT BUFFER]');
+      debugPrint('primaryBranch id = ${primaryBranch?['id']}');
+      debugPrint(
+          'api openingBufferMinutes = ${primaryBranch?['openingBufferMinutes']}');
+      debugPrint(
+          'api lastBookingBufferMinutes = ${primaryBranch?['lastBookingBufferMinutes']}');
+      debugPrint(
+          'api lastSlotOverflowGraceMinutes = ${primaryBranch?['lastSlotOverflowGraceMinutes']}');
+      debugPrint('controller openingBuffer = ${_openingBufferController.text}');
+      debugPrint(
+          'controller lastVisibleBuffer = ${_lastVisibleBufferController.text}');
+      debugPrint('controller overflowGrace = ${_overflowGraceController.text}');
     }
 
-    context.read<AddSalonCubit>().loadSavedPhone(
-          initialPhone: widget.phoneNumber,
-        );
-  });
-}
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final initialSalon = widget.initialSalon;
+      final initialAddress =
+          initialSalon == null ? null : _extractInitialAddress(initialSalon);
+
+      final completeAddress = widget.buildingName?.trim() ?? '';
+
+      final latitude = widget.latitude;
+      final longitude = widget.longitude;
+
+      final bool hasCoordinates = latitude != null &&
+          longitude != null &&
+          (latitude != 0.0 || longitude != 0.0);
+
+      if (initialAddress != null) {
+        context.read<AddSalonCubit>().updateAddress(initialAddress);
+      } else if (completeAddress.isNotEmpty && hasCoordinates) {
+        context.read<AddSalonCubit>().updateAddress(
+              AddSalonAddress(
+                buildingName: completeAddress,
+                city: '',
+                pincode: '',
+                state: '',
+                latitude: latitude,
+                longitude: longitude,
+              ),
+            );
+      }
+
+      context.read<AddSalonCubit>().loadSavedPhone(
+            initialPhone: widget.phoneNumber,
+          );
+    });
+  }
 
   @override
   void dispose() {
@@ -675,24 +677,25 @@ _overflowGraceController.text =
     return parsed;
   }
 
- void _syncBufferDraftsFromInputs() {
-  _draftOpeningBufferMinutes = _parseBufferMinutes(
-    _openingBufferController.text,
-    fallback: _draftOpeningBufferMinutes,
-  );
+  void _syncBufferDraftsFromInputs() {
+    _draftOpeningBufferMinutes = _parseBufferMinutes(
+      _openingBufferController.text,
+      fallback: _draftOpeningBufferMinutes,
+    );
 
-  _draftLastBookingBufferMinutes = _parseBufferMinutes(
-    _lastVisibleBufferController.text,
-    fallback: _draftLastBookingBufferMinutes,
-  );
+    _draftLastBookingBufferMinutes = _parseBufferMinutes(
+      _lastVisibleBufferController.text,
+      fallback: _draftLastBookingBufferMinutes,
+    );
 
-  final overflowText = _overflowGraceController.text.trim();
-  _draftLastSlotOverflowGraceMinutes =
-      overflowText.isEmpty ? 0 : _parseBufferMinutes(
-        overflowText,
-        fallback: _draftLastSlotOverflowGraceMinutes,
-      );
-}
+    final overflowText = _overflowGraceController.text.trim();
+    _draftLastSlotOverflowGraceMinutes = overflowText.isEmpty
+        ? 0
+        : _parseBufferMinutes(
+            overflowText,
+            fallback: _draftLastSlotOverflowGraceMinutes,
+          );
+  }
 
   Future<void> _pickImages() async {
     final existing = context.read<AddSalonCubit>().state.images;
@@ -1078,6 +1081,7 @@ _overflowGraceController.text =
         endTime: _endTimeController.text.trim(),
         description: _descriptionController.text.trim(),
         schedule: _draftWeeklySchedule,
+        becomeStylist: _becomeStylist,
         imageUrl: existingImageUrl.isEmpty ? null : existingImageUrl,
       );
 
@@ -1122,6 +1126,7 @@ _overflowGraceController.text =
                         endTime: scheduleResult.endTime,
                         description: formData.description,
                         schedule: scheduleResult.schedule,
+                        becomeStylist: formData.becomeStylist,
                         imageUrl: formData.imageUrl,
                         imageUrls: formData.imageUrls,
                       ),
@@ -1328,6 +1333,41 @@ _overflowGraceController.text =
                                   _FirstLetterUpperFormatter()
                                 ],
                               ),
+                              if (!widget.isEdit) ...[
+                                const SizedBox(height: 6),
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF9EF),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: const Color(0xFFD9B15C),
+                                    ),
+                                  ),
+                                  child: SwitchListTile.adaptive(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(
+                                      translateText('Are you also a stylist?'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: Color(0xFF2F2417),
+                                      ),
+                                    ),
+                                    value: _becomeStylist,
+                                    activeColor: const Color(0xFF8B6500),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _becomeStylist = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
