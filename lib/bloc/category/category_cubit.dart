@@ -88,13 +88,46 @@ class CategoryCubit extends Cubit<CategoryState> {
     );
   }
 
-  Future<void> deleteCategory(int branchId, int categoryId) async {
-    await _performMutation(
-      branchId,
-      () => _repository.deleteCategory(
-          branchId: branchId, categoryId: categoryId),
-      fallbackMessage: 'Category deleted successfully',
-    );
+  Future<bool> deleteCategory(int branchId, int categoryId) async {
+    emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
+
+    try {
+      final result = await _repository.deleteCategory(
+        branchId: branchId,
+        categoryId: categoryId,
+      );
+      final success =
+          result['success'] == true || !result.containsKey('success');
+      if (!success) {
+        final reason = _messageFromPayload(result) ?? 'Request failed';
+        emit(
+          state.copyWith(
+            status: CategoryStatus.actionFailure,
+            message: reason,
+          ),
+        );
+        return false;
+      }
+
+      final successMessage =
+          _messageFromPayload(result) ?? 'Category deleted successfully';
+      emit(
+        state.copyWith(
+          status: CategoryStatus.actionSuccess,
+          message: successMessage,
+        ),
+      );
+      await loadCategories(branchId, silent: true);
+      return true;
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: CategoryStatus.actionFailure,
+          message: _extractErrorMessage(error),
+        ),
+      );
+      return false;
+    }
   }
 
   Future<void> addSubCategory(int branchId, int categoryId, String name) async {

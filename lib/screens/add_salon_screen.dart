@@ -774,6 +774,26 @@ _overflowGraceController.text =
     }
   }
 
+  Widget _buildTimePickerField({
+    required TextEditingController controller,
+    required String label,
+    required VoidCallback onTap,
+    double bottomSpacing = 18,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AbsorbPointer(
+        child: _buildTextField(
+          controller: controller,
+          label: label,
+          hint: 'Select time',
+          suffixIconData: Icons.access_time_rounded,
+          bottomSpacing: bottomSpacing,
+        ),
+      ),
+    );
+  }
+
   Future<void> _chooseLocation(AddSalonState state) async {
     final addr = state.address;
 
@@ -933,24 +953,13 @@ _overflowGraceController.text =
           var salonUpdated = false;
 
           try {
-            debugPrint('🟡 [EDIT SALON - SENDING BUFFER VALUES]');
-debugPrint('salonId = $salonId');
-debugPrint('openingBufferMinutes = ${scheduleResult.openingBufferMinutes}');
-debugPrint('lastBookingBufferMinutes = ${scheduleResult.lastBookingBufferMinutes}');
-debugPrint('lastSlotOverflowGraceMinutes = ${scheduleResult.lastSlotOverflowGraceMinutes}');
-debugPrint('overflow controller text = ${_overflowGraceController.text}');
             await cubit.repository.updateSalon(
-              
               salonId: salonId,
               name: name,
               phone: phone,
               startTime: scheduleResult.startTime,
               endTime: scheduleResult.endTime,
               description: description,
-              openingBufferMinutes: scheduleResult.openingBufferMinutes,
-              lastBookingBufferMinutes: scheduleResult.lastBookingBufferMinutes,
-              lastSlotOverflowGraceMinutes:
-                  scheduleResult.lastSlotOverflowGraceMinutes,
               schedule: scheduleResult.schedule,
               imageUrl: imageUrl,
               imageUrls: imageUrls,
@@ -962,11 +971,6 @@ debugPrint('overflow controller text = ${_overflowGraceController.text}');
             salonUpdated = true;
 
             if (branchId != null && branchAddressPayload != null) {
-              debugPrint('🟡 [EDIT MAIN BRANCH - SENDING BUFFER VALUES]');
-  debugPrint('branchId = $branchId');
-  debugPrint('openingBufferMinutes = ${scheduleResult.openingBufferMinutes}');
-  debugPrint('lastBookingBufferMinutes = ${scheduleResult.lastBookingBufferMinutes}');
-  debugPrint('lastSlotOverflowGraceMinutes = ${scheduleResult.lastSlotOverflowGraceMinutes}');
               await cubit.repository.updateBranch(
                 branchId: branchId,
                 name: name,
@@ -974,11 +978,6 @@ debugPrint('overflow controller text = ${_overflowGraceController.text}');
                 startTime: scheduleResult.startTime,
                 endTime: scheduleResult.endTime,
                 description: description,
-                openingBufferMinutes: scheduleResult.openingBufferMinutes,
-                lastBookingBufferMinutes:
-                    scheduleResult.lastBookingBufferMinutes,
-                lastSlotOverflowGraceMinutes:
-                    scheduleResult.lastSlotOverflowGraceMinutes,
                 schedule: scheduleResult.schedule,
                 address: branchAddressPayload,
                 latitude: branchLatitude,
@@ -1007,10 +1006,6 @@ debugPrint('overflow controller text = ${_overflowGraceController.text}');
               startTime: scheduleResult.startTime,
               endTime: scheduleResult.endTime,
               description: description,
-              openingBufferMinutes: scheduleResult.openingBufferMinutes,
-              lastBookingBufferMinutes: scheduleResult.lastBookingBufferMinutes,
-              lastSlotOverflowGraceMinutes:
-                  scheduleResult.lastSlotOverflowGraceMinutes,
               schedule: scheduleResult.schedule,
               address: branchAddressPayload,
               latitude: branchLatitude,
@@ -1083,9 +1078,6 @@ debugPrint('overflow controller text = ${_overflowGraceController.text}');
         endTime: _endTimeController.text.trim(),
         description: _descriptionController.text.trim(),
         schedule: _draftWeeklySchedule,
-        openingBufferMinutes: _draftOpeningBufferMinutes,
-        lastBookingBufferMinutes: _draftLastBookingBufferMinutes,
-        lastSlotOverflowGraceMinutes: _draftLastSlotOverflowGraceMinutes,
         imageUrl: existingImageUrl.isEmpty ? null : existingImageUrl,
       );
 
@@ -1130,12 +1122,6 @@ debugPrint('overflow controller text = ${_overflowGraceController.text}');
                         endTime: scheduleResult.endTime,
                         description: formData.description,
                         schedule: scheduleResult.schedule,
-                        openingBufferMinutes:
-                            scheduleResult.openingBufferMinutes,
-                        lastBookingBufferMinutes:
-                            scheduleResult.lastBookingBufferMinutes,
-                        lastSlotOverflowGraceMinutes:
-                            scheduleResult.lastSlotOverflowGraceMinutes,
                         imageUrl: formData.imageUrl,
                         imageUrls: formData.imageUrls,
                       ),
@@ -1344,10 +1330,6 @@ debugPrint('overflow controller text = ${_overflowGraceController.text}');
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 22),
-                        _buildSectionCard(
-                          child: _buildBufferSection(),
                         ),
                         const SizedBox(height: 22),
                         _buildSectionCard(
@@ -1847,73 +1829,6 @@ debugPrint('overflow controller text = ${_overflowGraceController.text}');
     );
   }
 
-  Widget _buildBufferSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFEAE0D7)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            translateText('Booking Buffer Time'),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E1E1E),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            translateText('First and last visible slots are required.'),
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF6F665E),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildBufferInputField(
-                  controller: _openingBufferController,
-                  label: 'First Visible Slot *',
-                  hint: '30',
-                  requiredField: true,
-                  bottomSpacing: 0,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildBufferInputField(
-                  controller: _lastVisibleBufferController,
-                  label: 'Last Visible Slot *',
-                  hint: '30',
-                  requiredField: true,
-                  bottomSpacing: 0,
-                ),
-              ),
-            ],
-          ),
-          // const SizedBox(height: 12),
-          // _buildBufferInputField(
-          //   controller: _overflowGraceController,
-          //   label: 'Last Slot Overflow Grace',
-          //   hint: '10',
-          //   requiredField: false,
-          //   bottomSpacing: 0,
-          // ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildEmpireBenefit(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -2219,110 +2134,6 @@ debugPrint('overflow controller text = ${_overflowGraceController.text}');
             },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildBufferInputField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required bool requiredField,
-    double bottomSpacing = 18,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomSpacing),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildFieldLabel(label),
-          TextFormField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(2),
-            ],
-            maxLength: 2,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            autovalidateMode: _submitted
-                ? AutovalidateMode.always
-                : AutovalidateMode.disabled,
-            validator: (value) {
-              final text = value?.trim() ?? '';
-              if (requiredField && text.isEmpty) {
-                return translateText('Required');
-              }
-              if (text.isEmpty) return null;
-              final parsed = int.tryParse(text);
-              if (parsed == null) {
-                return translateText('Invalid');
-              }
-              return null;
-            },
-            decoration: InputDecoration(
-              hintText: translateText(hint),
-              hintStyle: const TextStyle(
-                color: Color(0xFF948C84),
-                fontSize: 13,
-                height: 1.6,
-              ),
-              errorStyle: const TextStyle(
-                color: Color(0xFFB3261E),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-              filled: false,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: const BorderSide(
-                  color: Color(0xFFD1A24A),
-                  width: 1.2,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.red, width: 1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderSide: const BorderSide(color: AppColors.red, width: 1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimePickerField({
-    required TextEditingController controller,
-    required String label,
-    required VoidCallback onTap,
-    double bottomSpacing = 18,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AbsorbPointer(
-        child: _buildTextField(
-          controller: controller,
-          label: label,
-          hint: 'Select time',
-          suffixIconData: Icons.access_time_rounded,
-          bottomSpacing: bottomSpacing,
-        ),
       ),
     );
   }

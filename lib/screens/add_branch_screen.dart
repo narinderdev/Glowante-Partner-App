@@ -741,10 +741,6 @@ _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
           startTime: scheduleResult.startTime,
           endTime: scheduleResult.endTime,
           description: _descriptionController.text.trim(),
-          openingBufferMinutes: scheduleResult.openingBufferMinutes,
-          lastBookingBufferMinutes: scheduleResult.lastBookingBufferMinutes,
-          lastSlotOverflowGraceMinutes:
-              scheduleResult.lastSlotOverflowGraceMinutes,
           schedule: scheduleResult.schedule,
           address: state.address!.toJson(),
           latitude: state.address!.latitude,
@@ -802,9 +798,6 @@ _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
       endTime: _endTimeController.text.trim(),
       description: _descriptionController.text.trim(),
       schedule: const <String, List<Map<String, String>>>{},
-      openingBufferMinutes: _draftOpeningBufferMinutes,
-      lastBookingBufferMinutes: _draftLastBookingBufferMinutes,
-      lastSlotOverflowGraceMinutes: _draftLastSlotOverflowGraceMinutes,
       imageUrl: null,
     );
 
@@ -853,11 +846,6 @@ _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
                       endTime: scheduleResult.endTime,
                       description: branchFormData.description,
                       schedule: scheduleResult.schedule,
-                      openingBufferMinutes: scheduleResult.openingBufferMinutes,
-                      lastBookingBufferMinutes:
-                          scheduleResult.lastBookingBufferMinutes,
-                      lastSlotOverflowGraceMinutes:
-                          scheduleResult.lastSlotOverflowGraceMinutes,
                       imageUrl: branchFormData.imageUrl,
                       imageUrls: branchFormData.imageUrls,
                     ),
@@ -1070,10 +1058,6 @@ _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
                         ),
                         const SizedBox(height: 22),
                         _buildSectionCard(
-                          child: _buildBufferSection(),
-                        ),
-                        const SizedBox(height: 22),
-                        _buildSectionCard(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1260,73 +1244,6 @@ _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
                 ]
               : null,
         ),
-      ),
-    );
-  }
-
-  Widget _buildBufferSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFEAE0D7)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            translateText('Booking Buffer Time'),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF1E1E1E),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            translateText('First and last visible slots are required.'),
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF6F665E),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildBufferInputField(
-                  controller: _openingBufferController,
-                  label: 'First Visible Slot *',
-                  hint: '30',
-                  requiredField: true,
-                  bottomSpacing: 0,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildBufferInputField(
-                  controller: _lastVisibleBufferController,
-                  label: 'Last Visible Slot *',
-                  hint: '30',
-                  requiredField: true,
-                  bottomSpacing: 0,
-                ),
-              ),
-            ],
-          ),
-          // const SizedBox(height: 12),
-          // _buildBufferInputField(
-          //   controller: _overflowGraceController,
-          //   label: 'Last Slot Overflow Grace',
-          //   hint: '10',
-          //   requiredField: false,
-          //   bottomSpacing: 0,
-          // ),
-        ],
       ),
     );
   }
@@ -1833,85 +1750,6 @@ _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
           suffixIconData: Icons.access_time_rounded,
           bottomSpacing: bottomSpacing,
         ),
-      ),
-    );
-  }
-
-  Widget _buildBufferInputField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required bool requiredField,
-    double bottomSpacing = 18,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomSpacing),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildFieldLabel(label),
-          TextFormField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            inputFormatters: [
-              FilteringTextInputFormatter.digitsOnly,
-              LengthLimitingTextInputFormatter(2),
-            ],
-            maxLength: 2,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            autovalidateMode: _submitted
-                ? AutovalidateMode.always
-                : AutovalidateMode.disabled,
-            validator: (value) {
-              final text = value?.trim() ?? '';
-              if (requiredField && text.isEmpty) {
-                return translateText('Required');
-              }
-              if (text.isEmpty) return null;
-              final parsed = int.tryParse(text);
-              if (parsed == null) {
-                return translateText('Invalid');
-              }
-              return null;
-            },
-            decoration: InputDecoration(
-              hintText: translateText(hint),
-              errorStyle: const TextStyle(
-                color: Color(0xFFB3261E),
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-              filled: false,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE3DCD7)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(
-                  color: Color(0xFFD1A24A),
-                  width: 1.2,
-                ),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.red),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.red),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

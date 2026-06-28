@@ -506,25 +506,6 @@ class _SalonDetailScreenState extends State<SalonDetailScreen> {
             _salon['longitude'],
           ])),
       _DetailRowData(
-          'Opening Buffer Minutes',
-          _fieldText([
-            'OPENING_BUFFER_MINUTES',
-            'openingBufferMinutes',
-            'bookingBufferTime',
-          ])),
-      _DetailRowData(
-          'Last Booking Buffer Minutes',
-          _fieldText([
-            'LAST_BOOKING_BUFFER_MINUTES',
-            'lastBookingBufferMinutes',
-          ])),
-      _DetailRowData(
-          'Last Slot Overflow Grace Minutes',
-          _fieldText([
-            'LAST_SLOT_OVERFLOW_GRACE_MINUTES',
-            'lastSlotOverflowGraceMinutes',
-          ])),
-      _DetailRowData(
         'Uploaded Photos',
         _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
       ),

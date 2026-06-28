@@ -664,16 +664,18 @@ class CategoryScreenState extends State<CategoryScreen> {
     final deletedCategoryId = category['id'] as int;
     final categoryCubit = context.read<CategoryCubit>();
     debugPrint('🗑️ DELETE CATEGORY START categoryId=$deletedCategoryId');
+    if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    }
 
     try {
-      await categoryCubit.deleteCategory(
+      final deleted = await categoryCubit.deleteCategory(
         branchId,
         deletedCategoryId,
       );
 
-      final deleteState = categoryCubit.state;
-
-      if (deleteState.status == CategoryStatus.actionFailure) {
+      if (!deleted) {
+        final deleteState = categoryCubit.state;
         debugPrint('❌ DELETE CATEGORY FAILED: ${deleteState.message}');
         return;
       }
@@ -1058,8 +1060,7 @@ class CategoryScreenState extends State<CategoryScreen> {
                                                     catalogCodeMap[code] ??
                                                     code)
                                                 .toList();
-                                        final removedActualCodes =
-                                            <String>{};
+                                        final removedActualCodes = <String>{};
                                         for (final category
                                             in currentlyImportedCatalogCategories) {
                                           final code = (category['code'] ?? '')
@@ -1070,8 +1071,9 @@ class CategoryScreenState extends State<CategoryScreen> {
                                               selectedCodes.contains(code)) {
                                             continue;
                                           }
-                                          for (final removedCode in
-                                              _collectCatalogCodes(category)) {
+                                          for (final removedCode
+                                              in _collectCatalogCodes(
+                                                  category)) {
                                             removedActualCodes.add(
                                               catalogCodeMap[removedCode] ??
                                                   removedCode,
@@ -1190,7 +1192,8 @@ class CategoryScreenState extends State<CategoryScreen> {
     if (services is List) {
       for (final service in services) {
         if (service is! Map) continue;
-        final serviceCode = (service['code'] ?? '').toString().trim().toUpperCase();
+        final serviceCode =
+            (service['code'] ?? '').toString().trim().toUpperCase();
         if (serviceCode.isNotEmpty) {
           codes.add(serviceCode);
         }

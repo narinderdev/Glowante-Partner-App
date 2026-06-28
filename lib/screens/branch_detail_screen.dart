@@ -419,25 +419,6 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
             _branch['lng'],
           ])),
       _DetailRowData(
-          'Opening Buffer Minutes',
-          _firstText([
-            _branch['OPENING_BUFFER_MINUTES'],
-            _branch['openingBufferMinutes'],
-            _branch['bookingBufferTime'],
-          ])),
-      _DetailRowData(
-          'Last Booking Buffer Minutes',
-          _firstText([
-            _branch['LAST_BOOKING_BUFFER_MINUTES'],
-            _branch['lastBookingBufferMinutes'],
-          ])),
-      _DetailRowData(
-          'Last Slot Overflow Grace Minutes',
-          _firstText([
-            _branch['LAST_SLOT_OVERFLOW_GRACE_MINUTES'],
-            _branch['lastSlotOverflowGraceMinutes'],
-          ])),
-      _DetailRowData(
         'Uploaded Photos',
         _imageUrls().isEmpty ? '' : _imageUrls().length.toString(),
       ),

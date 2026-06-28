@@ -2361,25 +2361,6 @@ class _SalonDetailsDialog extends StatelessWidget {
         ]),
       ),
       _DetailRowData(
-        icon: Icons.timer_outlined,
-        label: 'Opening Buffer Minutes',
-        value: _firstFieldText([
-          'OPENING_BUFFER_MINUTES',
-          'openingBufferMinutes',
-          'bookingBufferTime',
-          'bufferTime',
-          'slotBufferTime',
-        ]),
-      ),
-      _DetailRowData(
-        icon: Icons.timelapse_rounded,
-        label: 'Last Booking Buffer Minutes',
-        value: _firstFieldText([
-          'LAST_BOOKING_BUFFER_MINUTES',
-          'lastBookingBufferMinutes',
-        ]),
-      ),
-      _DetailRowData(
         icon: Icons.first_page_rounded,
         label: 'First Visible Slot',
         value: _firstFieldText([
@@ -2393,16 +2374,6 @@ class _SalonDetailsDialog extends StatelessWidget {
         value: _firstFieldText([
           'lastVisibleSlot',
           'last_visible_slot',
-        ]),
-      ),
-      _DetailRowData(
-        icon: Icons.more_time_rounded,
-        label: 'Last Slot Overflow Grace Minutes',
-        value: _firstFieldText([
-          'LAST_SLOT_OVERFLOW_GRACE_MINUTES',
-          'lastSlotOverflowGraceMinutes',
-          'lastSlotOverflowGrace',
-          'last_slot_overflow_grace',
         ]),
       ),
       _DetailRowData(

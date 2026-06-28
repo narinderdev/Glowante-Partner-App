@@ -15,9 +15,6 @@ class AddSalonFormData {
     required this.endTime,
     required this.description,
     required this.schedule,
-    required this.openingBufferMinutes,
-    required this.lastBookingBufferMinutes,
-    required this.lastSlotOverflowGraceMinutes,
     this.imageUrl,
     this.imageUrls = const <String>[],
   });
@@ -28,9 +25,6 @@ class AddSalonFormData {
   final String endTime;
   final String description;
   final Map<String, List<Map<String, String>>> schedule;
-  final int openingBufferMinutes;
-  final int lastBookingBufferMinutes;
-  final int lastSlotOverflowGraceMinutes;
   final String? imageUrl;
   final List<String> imageUrls;
 }
@@ -132,9 +126,6 @@ class AddSalonCubit extends Cubit<AddSalonState> {
         endTime: formData.endTime,
         description: formData.description,
         schedule: formData.schedule,
-        openingBufferMinutes: formData.openingBufferMinutes,
-        lastBookingBufferMinutes: formData.lastBookingBufferMinutes,
-        lastSlotOverflowGraceMinutes: formData.lastSlotOverflowGraceMinutes,
         imageUrl: formData.imageUrl,
         imageUrls: formData.imageUrls,
         buildingName: address.buildingName,
