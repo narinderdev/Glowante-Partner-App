@@ -947,10 +947,18 @@ class _TeamScreenState extends State<TeamScreen> {
 
   String _memberRoleLabel(Map<String, dynamic> member) {
     final roles = member['roles'];
-    if (roles is List && roles.isNotEmpty && roles.first is Map) {
-      final label =
-          (roles.first['label'] ?? roles.first['name'] ?? '').toString().trim();
-      if (label.isNotEmpty) return label;
+    if (roles is List && roles.isNotEmpty) {
+      final labels = <String>[];
+      for (final role in roles) {
+        if (role is! Map) continue;
+        final label = (role['label'] ?? role['name'] ?? role['code'] ?? '')
+            .toString()
+            .trim();
+        if (label.isNotEmpty && !labels.contains(label)) {
+          labels.add(label);
+        }
+      }
+      if (labels.isNotEmpty) return labels.join(', ');
     }
     return translateText('Staff');
   }
