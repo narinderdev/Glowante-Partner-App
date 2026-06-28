@@ -2,8 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
+import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
+
+const Color _galleryBackground = Color(0xFFFBFAF8);
+const Color _gallerySurface = Colors.white;
+const Color _galleryBorder = Color(0xFFE7D8C8);
+const Color _gallerySoftBorder = Color(0xFFFFE0C2);
+const Color _galleryText = Color(0xFF1F1B18);
+const Color _galleryMuted = Color(0xFF6F665E);
+const Color _gallerySoftFill = Color(0xFFF7F1E8);
+const Color _gallerySoftChip = Color(0xFFFDF4E6);
+const Color _galleryShadow = Color(0x12000000);
 
 class GalleryScreen extends StatefulWidget {
   const GalleryScreen({
@@ -199,7 +210,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           height: 220,
                           child: Center(
                             child: CircularProgressIndicator(
-                              color: Color(0xFFFF6B00),
+                              color: AppColors.starColor,
                             ),
                           ),
                         );
@@ -210,13 +221,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
                           height: 220,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: _gallerySurface,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Icon(
                             Icons.broken_image_outlined,
                             size: 42,
-                            color: Color(0xFFFF6B00),
+                            color: AppColors.starColor,
                           ),
                         );
                       },
@@ -341,19 +352,20 @@ class _GalleryScreenState extends State<GalleryScreen> {
         _address.isNotEmpty ? _address : selectedBranch?.address ?? '';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFBFAF8),
+      backgroundColor: _galleryBackground,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _gallerySurface,
         elevation: 0.5,
-        surfaceTintColor: Colors.white,
+        surfaceTintColor: _gallerySurface,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.black87),
+          icon:
+              const Icon(Icons.arrow_back_rounded, color: AppColors.starColor),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           context.t('Gallery'),
           style: const TextStyle(
-            color: Colors.black87,
+            color: _galleryText,
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
@@ -361,7 +373,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       ),
       body: SafeArea(
         child: RefreshIndicator(
-          color: const Color(0xFFFF6B00),
+          color: AppColors.starColor,
           onRefresh: () async {
             final branchId = _selectedBranchId;
             if (branchId != null) {
@@ -396,14 +408,14 @@ class _GalleryScreenState extends State<GalleryScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 26),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: _gallerySurface,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(
-                    color: const Color(0xFFFFDDBD),
+                    color: _galleryBorder,
                   ),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color(0x08000000),
+                      color: _galleryShadow,
                       blurRadius: 18,
                       offset: Offset(0, 8),
                     ),
@@ -417,7 +429,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                       style: TextStyle(
                         fontSize: 10,
                         letterSpacing: 4,
-                        color: Color(0xFFFF6B00),
+                        color: AppColors.starColor,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -435,7 +447,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                 fontSize: 24,
                                 height: 1.1,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF111827),
+                                color: _galleryText,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -476,14 +488,19 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                       height: 13,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 1.7,
+                                        color: AppColors.starColor,
                                       ),
                                     )
-                                  : const Icon(Icons.refresh_rounded, size: 16),
+                                  : const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 16,
+                                      color: AppColors.starColor,
+                                    ),
                               label: Text(context.t('Refresh')),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFFF6B00),
+                                foregroundColor: AppColors.starColor,
                                 side: const BorderSide(
-                                  color: Color(0xFFFFC58D),
+                                  color: _galleryBorder,
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 14,
@@ -505,13 +522,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
                                 vertical: 11,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFF3E9),
+                                color: _gallerySoftFill,
                                 borderRadius: BorderRadius.circular(999),
                               ),
                               child: Text(
                                 '${_imageUrls.length} photos',
                                 style: const TextStyle(
-                                  color: Color(0xFFFF6B00),
+                                  color: AppColors.starColor,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -544,7 +561,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                     const SizedBox(height: 22),
                     const Divider(
                       height: 1,
-                      color: Color(0xFFFFE0C2),
+                      color: _gallerySoftBorder,
                     ),
                     const SizedBox(height: 18),
                     if (_isLoadingGallery)
@@ -552,7 +569,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                         padding: EdgeInsets.symmetric(vertical: 80),
                         child: Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFFFF6B00),
+                            color: AppColors.starColor,
                           ),
                         ),
                       )
@@ -611,12 +628,12 @@ class _BranchSelectorCard extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 82),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _gallerySurface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD9CBBB)),
+          border: Border.all(color: _galleryBorder),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x08000000),
+              color: _galleryShadow,
               blurRadius: 14,
               offset: Offset(0, 8),
             ),
@@ -626,7 +643,7 @@ class _BranchSelectorCard extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: CircularProgressIndicator(
             strokeWidth: 2,
-            color: Color(0xFF8B6500),
+            color: AppColors.starColor,
           ),
         ),
       );
@@ -638,12 +655,12 @@ class _BranchSelectorCard extends StatelessWidget {
         constraints: const BoxConstraints(minHeight: 82),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _gallerySurface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD9CBBB)),
+          border: Border.all(color: _galleryBorder),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x08000000),
+              color: _galleryShadow,
               blurRadius: 14,
               offset: Offset(0, 8),
             ),
@@ -654,7 +671,7 @@ class _BranchSelectorCard extends StatelessWidget {
           context.t('No branches available'),
           style: const TextStyle(
             fontSize: 13,
-            color: Color(0xFF78716C),
+            color: _galleryMuted,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -702,7 +719,7 @@ class _InfoChip extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 760),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7EF),
+        color: _gallerySoftChip,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -711,7 +728,7 @@ class _InfoChip extends StatelessWidget {
           Icon(
             icon,
             size: 14,
-            color: const Color(0xFFFF6B00),
+            color: AppColors.starColor,
           ),
           const SizedBox(width: 5),
           Flexible(
@@ -721,7 +738,7 @@ class _InfoChip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 12,
-                color: Color(0xFF6B7280),
+                color: _galleryMuted,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -748,10 +765,10 @@ class _EmptyGalleryBox extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 240),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 38),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _gallerySurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFFFD5AD),
+          color: _galleryBorder,
           style: BorderStyle.solid,
         ),
       ),
@@ -762,13 +779,13 @@ class _EmptyGalleryBox extends StatelessWidget {
             width: 62,
             height: 62,
             decoration: const BoxDecoration(
-              color: Color(0xFFFFE7CC),
+              color: Color(0xFFF4E8D1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.image_outlined,
               size: 32,
-              color: Color(0xFFFF6B00),
+              color: AppColors.starColor,
             ),
           ),
           const SizedBox(height: 18),
@@ -777,7 +794,7 @@ class _EmptyGalleryBox extends StatelessWidget {
             style: TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF111827),
+              color: _galleryText,
             ),
           ),
           const SizedBox(height: 8),
@@ -787,7 +804,7 @@ class _EmptyGalleryBox extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               height: 1.4,
-              color: Color(0xFF6B7280),
+              color: _galleryMuted,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -806,10 +823,10 @@ class _EmptyGalleryBox extends StatelessWidget {
                 : const Icon(Icons.refresh_rounded, size: 16),
             label: Text(isLoading ? 'Checking...' : 'Check again'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6B00),
+              backgroundColor: AppColors.starColor,
               foregroundColor: Colors.white,
               elevation: 10,
-              shadowColor: const Color(0x55FF6B00),
+              shadowColor: AppColors.starColor.withValues(alpha: 0.35),
               padding: const EdgeInsets.symmetric(
                 horizontal: 22,
                 vertical: 13,
@@ -876,11 +893,11 @@ class _GalleryGrid extends StatelessWidget {
                         imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFFFF3E9),
+                          color: _gallerySoftFill,
                           alignment: Alignment.center,
                           child: const Icon(
                             Icons.broken_image_outlined,
-                            color: Color(0xFFFF6B00),
+                            color: AppColors.starColor,
                           ),
                         ),
                       ),
