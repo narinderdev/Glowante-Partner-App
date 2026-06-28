@@ -1374,67 +1374,69 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                 },
                                 filled: true,
                               ),
-                              _ActionChipButton(
-                                label: 'Cancel Payroll',
-                                isLoading: reviewBusyAction == 'cancel_payroll',
-                                onTap: () async {
-                                  if (isReviewBusy) {
-                                    return;
-                                  }
-                                  final confirmed = await showDialog<bool>(
-                                    context: context,
-                                    builder: (dialogContext) {
-                                      return AlertDialog(
-                                        title: const Text('Cancel payroll'),
-                                        content: const Text(
-                                          'This will cancel the payroll run for this period.',
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(
-                                              dialogContext,
-                                              false,
-                                            ),
-                                            child: const Text('No'),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () => Navigator.pop(
-                                              dialogContext,
-                                              true,
-                                            ),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  const Color(0xFFB02A37),
-                                              foregroundColor: Colors.white,
-                                            ),
-                                            child: const Text('Yes, cancel'),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                  if (confirmed != true) {
-                                    return;
-                                  }
-                                  setSheetState(() {
-                                    isReviewBusy = true;
-                                    reviewBusyAction = 'cancel_payroll';
-                                  });
-                                  try {
-                                    await _cancelPayroll(currentRun);
-                                    if (screenContext.mounted) {
-                                      Navigator.of(screenContext).pop();
+                              if (reviewStatus != 'cancelled')
+                                _ActionChipButton(
+                                  label: 'Cancel Payroll',
+                                  isLoading:
+                                      reviewBusyAction == 'cancel_payroll',
+                                  onTap: () async {
+                                    if (isReviewBusy) {
+                                      return;
                                     }
-                                  } finally {
-                                    if (context.mounted) {
-                                      setSheetState(() {
-                                        isReviewBusy = false;
-                                        reviewBusyAction = null;
-                                      });
+                                    final confirmed = await showDialog<bool>(
+                                      context: context,
+                                      builder: (dialogContext) {
+                                        return AlertDialog(
+                                          title: const Text('Cancel payroll'),
+                                          content: const Text(
+                                            'This will cancel the payroll run for this period.',
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                false,
+                                              ),
+                                              child: const Text('No'),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () => Navigator.pop(
+                                                dialogContext,
+                                                true,
+                                              ),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    const Color(0xFFB02A37),
+                                                foregroundColor: Colors.white,
+                                              ),
+                                              child: const Text('Yes, cancel'),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                    if (confirmed != true) {
+                                      return;
                                     }
-                                  }
-                                },
-                              ),
+                                    setSheetState(() {
+                                      isReviewBusy = true;
+                                      reviewBusyAction = 'cancel_payroll';
+                                    });
+                                    try {
+                                      await _cancelPayroll(currentRun);
+                                      if (screenContext.mounted) {
+                                        Navigator.of(screenContext).pop();
+                                      }
+                                    } finally {
+                                      if (context.mounted) {
+                                        setSheetState(() {
+                                          isReviewBusy = false;
+                                          reviewBusyAction = null;
+                                        });
+                                      }
+                                    }
+                                  },
+                                ),
                             ],
                           ),
                         ],
