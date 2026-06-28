@@ -104,7 +104,6 @@ class _TeamScreenState extends State<TeamScreen> {
   List<dynamic> _teamMembersCache = [];
   List<Map<String, dynamic>> _salons = const [];
   Map<int, _TeamRatingSummary> _professionalRatings = const {};
-  Set<int> _membersWithBookings = const <int>{};
   bool _hasTeamMembers = false;
   bool _autoPicked = false;
   final Set<int> _statusUpdatingIds = {};
@@ -204,14 +203,12 @@ class _TeamScreenState extends State<TeamScreen> {
           ? List<dynamic>.from(response['data'] as List)
           : <dynamic>[];
       final ratings = await _loadProfessionalRatings(branchId);
-      final bookedMemberIds = await _loadBookedMemberIds(branchId);
 
       _teamMembersCache = members;
       if (mounted && selectedBranchId == branchId) {
         final hasMembers = members.isNotEmpty;
         setState(() {
           _professionalRatings = ratings;
-          _membersWithBookings = bookedMemberIds;
           _hasTeamMembers = hasMembers;
         });
       }
@@ -402,46 +399,6 @@ class _TeamScreenState extends State<TeamScreen> {
     addId(source['professional']?['id']);
     addId(source['professional']?['userId']);
     addId(source['assignedUserBranch']?['user']?['id']);
-  }
-
-  Future<Set<int>> _loadBookedMemberIds(int branchId) async {
-    try {
-      final response = await ApiService().fetchAppointments(
-        branchId,
-        _todayApiDate(),
-      );
-      final appointments = _teamAppointmentMaps(response);
-      final bookedIds = <int>{};
-
-      for (final appointment in appointments) {
-        if (!_appointmentBlocksMemberUpdate(appointment)) continue;
-        _collectBookedMemberIdsFromSource(appointment, bookedIds);
-        for (final item in _teamAppointmentItems(appointment)) {
-          _collectBookedMemberIdsFromSource(item, bookedIds);
-        }
-      }
-
-      return bookedIds;
-    } catch (e) {
-      debugPrint('Failed to load team booking locks: $e');
-      return const <int>{};
-    }
-  }
-
-  void _showBookedMemberBlockedMessage({
-    required bool deleting,
-  }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText(
-            deleting
-                ? 'This team member has bookings, so delete is not allowed.'
-                : 'This team member has bookings, so deactivate is not allowed.',
-          ),
-        ),
-      ),
-    );
   }
 
   // Future<void> _toggleMemberActive(int userId, bool makeActive) async {
@@ -1123,19 +1080,10 @@ class _TeamScreenState extends State<TeamScreen> {
                             salons: _salons,
                             statusUpdatingIds: _statusUpdatingIds,
                             deletingMemberIds: _deletingMemberIds,
-                            membersWithBookings: _membersWithBookings,
                             professionalRatings: _professionalRatings,
                             onEditMember: _openEditMember,
                             onDeleteMember: _deleteMember,
                             onToggleMemberActive: _toggleMemberActive,
-                            onBlockedDeleteMember: () =>
-                                _showBookedMemberBlockedMessage(
-                              deleting: true,
-                            ),
-                            onBlockedDeactivateMember: () =>
-                                _showBookedMemberBlockedMessage(
-                              deleting: false,
-                            ),
                             onViewMember: (member) {
                               final userId = _asInt(member['id']) ?? 0;
                               final ratingSummary =
@@ -1191,13 +1139,10 @@ class _TeamMembersGrid extends StatelessWidget {
     required this.salons,
     required this.statusUpdatingIds,
     required this.deletingMemberIds,
-    required this.membersWithBookings,
     required this.professionalRatings,
     required this.onEditMember,
     required this.onDeleteMember,
     required this.onToggleMemberActive,
-    required this.onBlockedDeleteMember,
-    required this.onBlockedDeactivateMember,
     required this.onViewMember,
     required this.onAssignMember,
     required this.assignButtonBuilder,
@@ -1210,13 +1155,10 @@ class _TeamMembersGrid extends StatelessWidget {
   final List<Map<String, dynamic>> salons;
   final Set<int> statusUpdatingIds;
   final Set<int> deletingMemberIds;
-  final Set<int> membersWithBookings;
   final Map<int, _TeamRatingSummary> professionalRatings;
   final Future<void> Function(Map<String, dynamic> member) onEditMember;
   final Future<void> Function(int userId) onDeleteMember;
   final Future<void> Function(int userId, bool makeActive) onToggleMemberActive;
-  final VoidCallback onBlockedDeleteMember;
-  final VoidCallback onBlockedDeactivateMember;
   final void Function(Map<String, dynamic> member) onViewMember;
   final Future<void> Function(Map<String, dynamic> member) onAssignMember;
   final Widget Function(Map<String, dynamic> member) assignButtonBuilder;
@@ -1255,7 +1197,6 @@ class _TeamMembersGrid extends StatelessWidget {
               final isActive = _teamIsActiveEntity(member);
               final isStatusUpdating = statusUpdatingIds.contains(userId);
               final isDeleting = deletingMemberIds.contains(userId);
-              final hasBookings = membersWithBookings.contains(userId);
               final ratingSummary =
                   professionalRatings[userId] ?? _TeamRatingSummary.empty;
 
@@ -1267,17 +1208,13 @@ class _TeamMembersGrid extends StatelessWidget {
                 isActive: isActive,
                 isDeleting: isDeleting,
                 isStatusUpdating: isStatusUpdating,
-                isDeleteBlocked: hasBookings,
-                isDeactivateBlocked: hasBookings && isActive,
+                isDeleteBlocked: false,
+                isDeactivateBlocked: false,
                 canAssign: selectedBranch != null && salons.isNotEmpty,
                 assignButtonChild: assignButtonBuilder(member),
                 onEdit: () => onEditMember(member),
-                onDelete: hasBookings
-                    ? onBlockedDeleteMember
-                    : () => onDeleteMember(userId),
-                onToggleActive: hasBookings && isActive
-                    ? onBlockedDeactivateMember
-                    : () => onToggleMemberActive(userId, !isActive),
+                onDelete: () => onDeleteMember(userId),
+                onToggleActive: () => onToggleMemberActive(userId, !isActive),
                 onView: () => onViewMember(member),
                 onAssign: () => onAssignMember(member),
               );
@@ -1521,13 +1458,9 @@ class _TeamMemberCard extends StatelessWidget {
               const SizedBox(width: 8),
               _TeamIconButton(
                 icon: Icons.delete_outline_rounded,
-                tooltip: translateText(
-                  isDeleteBlocked
-                      ? 'Cannot delete while bookings exist'
-                      : 'Delete',
-                ),
-                color: isDeleteBlocked ? _teamMuted : Colors.red,
-                isBlocked: isDeleteBlocked,
+                tooltip: translateText('Delete'),
+                color: Colors.red,
+                isBlocked: false,
                 isLoading: isDeleting,
                 onPressed: _isBusy ? null : onDelete,
               ),
@@ -1537,21 +1470,15 @@ class _TeamMemberCard extends StatelessWidget {
                   onPressed: _isBusy ? null : onToggleActive,
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(
-                      color: (isDeactivateBlocked
-                              ? _teamMuted
-                              : AppColors.starColor)
-                          .withValues(alpha: isDeactivateBlocked ? 0.35 : 1),
+                      color: AppColors.starColor,
                     ),
-                    foregroundColor:
-                        isDeactivateBlocked ? _teamMuted : AppColors.starColor,
+                    foregroundColor: AppColors.starColor,
                     minimumSize: const Size.fromHeight(42),
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    backgroundColor: isDeactivateBlocked
-                        ? const Color(0xFFF5F2EE)
-                        : Colors.white,
+                    backgroundColor: Colors.white,
                     textStyle: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,
