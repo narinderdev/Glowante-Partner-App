@@ -11,6 +11,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import './services/network_listener.dart';
 import './services/language_listener.dart';
+import './services/theme_listener.dart';
 import './screens/splash_screen.dart';
 
 import 'package:bloc_onboarding/bloc/auth/auth_bloc.dart';
@@ -143,14 +144,18 @@ class _MyAppState extends State<MyApp> {
                 CategoryCubit(context.read<SalonRepository>())),
         ChangeNotifierProvider(create: (_) => BranchViewModel()),
         ChangeNotifierProvider(create: (_) => LanguageListener()),
+        ChangeNotifierProvider(create: (_) => ThemeListener()),
       ],
       builder: (context, child) {
         final langListener = Provider.of<LanguageListener>(context);
+        final themeListener = Provider.of<ThemeListener>(context);
 
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           navigatorKey: appNavigatorKey,
           theme: GlowanteTheme.light(),
+          darkTheme: GlowanteTheme.dark(),
+          themeMode: themeListener.themeMode,
           locale: langListener.currentLocale,
           supportedLocales: const [
             Locale('en'),

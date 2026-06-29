@@ -225,9 +225,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       address.city.trim(),
       address.pincode.trim(),
     ].where((part) => part.isNotEmpty).toList();
-    final leadingPartsLower = leadingParts
-        .map((part) => part.toLowerCase())
-        .toSet();
+    final leadingPartsLower =
+        leadingParts.map((part) => part.toLowerCase()).toSet();
     final baseParts = address.buildingName
         .split(',')
         .map((part) => part.trim())
@@ -254,6 +253,41 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               part.isNotEmpty && !manualPartsLower.contains(part.toLowerCase()),
         )
         .join(', ');
+  }
+
+  List<String> _splitAddressParts(String value) {
+    final seen = <String>{};
+    return value
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .where((part) => seen.add(part.toLowerCase()))
+        .toList();
+  }
+
+  String _deriveStreetSectorArea(
+    String completeAddress, {
+    String? line2,
+    String scoFlatHouse = '',
+  }) {
+    final line2Parts = _splitAddressParts(line2 ?? '');
+    if (line2Parts.length > 1) {
+      return line2Parts.skip(1).join(', ');
+    }
+
+    final remaining = _splitAddressParts(
+      _addressWithoutManualParts(
+        completeAddress,
+        [scoFlatHouse],
+      ),
+    );
+    if (remaining.length >= 3) {
+      return remaining.skip(1).take(2).join(', ');
+    }
+    if (remaining.length >= 2) {
+      return remaining.skip(1).join(', ');
+    }
+    return '';
   }
 
   Map<String, dynamic>? _addressPayload(AddSalonAddress? address) {
@@ -449,9 +483,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   }
 
   String _normalizePhone(dynamic value) {
-    final digits = value == null
-        ? ''
-        : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
+    final digits =
+        value == null ? '' : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length <= 10) return digits;
     if (digits.length == 12 && digits.startsWith('91')) {
       return digits.substring(2);
@@ -461,8 +494,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   AddSalonAddress? _extractInitialAddress(Map<String, dynamic> salon) {
     final primaryBranch = _resolvePrimaryBranch(salon);
-    final address =
-        _asStringKeyedMap(salon['address']) ??
+    final address = _asStringKeyedMap(salon['address']) ??
         _asStringKeyedMap(primaryBranch?['address']) ??
         primaryBranch;
 
@@ -485,15 +517,23 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       }
     }
 
+    final line2Parts = _splitAddressParts((address['line2'] ?? '').toString());
     final scoFlatHouse = _firstNonEmptyValue([
+      line2Parts.isNotEmpty ? line2Parts.first : '',
       address['line2'],
       address['village'],
     ]);
     final streetSectorArea = _firstNonEmptyValue([
+      line2Parts.length > 1 ? line2Parts.skip(1).join(', ') : '',
       address['district'],
       address['city'],
       address['state'],
       address['postalCode'],
+      _deriveStreetSectorArea(
+        completeAddress.join(', '),
+        line2: address['line2']?.toString(),
+        scoFlatHouse: scoFlatHouse,
+      ),
     ]);
 
     if (completeAddress.isEmpty &&
@@ -614,24 +654,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       }
 
       // First Visible Slot
-      _draftOpeningBufferMinutes =
-          _readPositiveIntValue([
+      _draftOpeningBufferMinutes = _readPositiveIntValue([
             primaryBranch?['openingBufferMinutes'],
             initialSalon['openingBufferMinutes'],
           ]) ??
           30;
 
       // Last Visible Slot
-      _draftLastBookingBufferMinutes =
-          _readPositiveIntValue([
+      _draftLastBookingBufferMinutes = _readPositiveIntValue([
             primaryBranch?['lastBookingBufferMinutes'],
             initialSalon['lastBookingBufferMinutes'],
           ]) ??
           30;
 
       _openingBufferController.text = _draftOpeningBufferMinutes.toString();
-      _lastVisibleBufferController.text = _draftLastBookingBufferMinutes
-          .toString();
+      _lastVisibleBufferController.text =
+          _draftLastBookingBufferMinutes.toString();
 
       // Last Slot Overflow Grace
       final existingOverflowGrace = _readPositiveIntValue([
@@ -641,9 +679,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
       // Use this if you want default 10 when backend does not return value
       _draftLastSlotOverflowGraceMinutes = existingOverflowGrace ?? 0;
-      _overflowGraceController.text = existingOverflowGrace == null
-          ? ''
-          : existingOverflowGrace.toString();
+      _overflowGraceController.text =
+          existingOverflowGrace == null ? '' : existingOverflowGrace.toString();
 
       // Debug logs
       debugPrint('🟣 [EDIT SALON INIT BUFFER]');
@@ -666,17 +703,15 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final initialSalon = widget.initialSalon;
-      final initialAddress = initialSalon == null
-          ? null
-          : _extractInitialAddress(initialSalon);
+      final initialAddress =
+          initialSalon == null ? null : _extractInitialAddress(initialSalon);
 
       final completeAddress = widget.buildingName?.trim() ?? '';
 
       final latitude = widget.latitude;
       final longitude = widget.longitude;
 
-      final bool hasCoordinates =
-          latitude != null &&
+      final bool hasCoordinates = latitude != null &&
           longitude != null &&
           (latitude != 0.0 || longitude != 0.0);
 
@@ -684,20 +719,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         context.read<AddSalonCubit>().updateAddress(initialAddress);
       } else if (completeAddress.isNotEmpty && hasCoordinates) {
         context.read<AddSalonCubit>().updateAddress(
-          AddSalonAddress(
-            buildingName: completeAddress,
-            city: '',
-            pincode: '',
-            state: '',
-            latitude: latitude,
-            longitude: longitude,
-          ),
-        );
+              AddSalonAddress(
+                buildingName: completeAddress,
+                city: '',
+                pincode: '',
+                state: '',
+                latitude: latitude,
+                longitude: longitude,
+              ),
+            );
       }
 
       context.read<AddSalonCubit>().loadSavedPhone(
-        initialPhone: widget.phoneNumber,
-      );
+            initialPhone: widget.phoneNumber,
+          );
     });
   }
 
@@ -902,9 +937,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   bool _isAddressComplete(AddSalonAddress? address) {
     if (address == null) return false;
 
-    final hasCompleteAddress = address.buildingName
-        .trim()
-        .isNotEmpty; // completeAddress stored here
+    final hasCompleteAddress =
+        address.buildingName.trim().isNotEmpty; // completeAddress stored here
     final hasValidCoordinates =
         address.latitude != 0.0 || address.longitude != 0.0;
 
@@ -925,8 +959,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     required bool isStart,
   }) async {
     final currentTime = _parseTimeOfDay(controller.text);
-    final initialTime =
-        currentTime ??
+    final initialTime = currentTime ??
         (isStart
             ? const TimeOfDay(hour: 8, minute: 0)
             : const TimeOfDay(hour: 20, minute: 0));
@@ -1004,20 +1037,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final longitude = (result['longitude'] as num?)?.toDouble() ?? 0;
 
     context.read<AddSalonCubit>().updateAddress(
-      AddSalonAddress(
-        buildingName: baseCompleteAddress.isNotEmpty
-            ? baseCompleteAddress
-            : _addressWithoutManualParts(completeAddress, [
-                scoFlatHouse,
-                streetSectorArea,
-              ]),
-        city: scoFlatHouse,
-        pincode: streetSectorArea,
-        state: '',
-        latitude: latitude,
-        longitude: longitude,
-      ),
-    );
+          AddSalonAddress(
+            buildingName: baseCompleteAddress.isNotEmpty
+                ? baseCompleteAddress
+                : _addressWithoutManualParts(completeAddress, [
+                    scoFlatHouse,
+                    streetSectorArea,
+                  ]),
+            city: scoFlatHouse,
+            pincode: streetSectorArea,
+            state: '',
+            latitude: latitude,
+            longitude: longitude,
+          ),
+        );
   }
 
   Future<void> _submit(AddSalonState state) async {
@@ -1068,9 +1101,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     try {
       final images = cubit.state.images;
       final existingImageUrls = _resolveExistingImageUrls();
-      final existingImageUrl = existingImageUrls.isEmpty
-          ? ''
-          : existingImageUrls.first;
+      final existingImageUrl =
+          existingImageUrls.isEmpty ? '' : existingImageUrls.first;
 
       if (!mounted) return;
 
@@ -1114,22 +1146,19 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
           final rawBranchAddress = primaryBranch?['address'];
 
-          final branchAddressPayload =
-              addressPayload ??
+          final branchAddressPayload = addressPayload ??
               (rawBranchAddress is Map
                   ? Map<String, dynamic>.from(rawBranchAddress)
                   : null);
 
-          final branchLatitude =
-              address?.latitude ??
+          final branchLatitude = address?.latitude ??
               _readDoubleValue([
                 primaryBranch?['latitude'],
                 rawBranchAddress is Map ? rawBranchAddress['latitude'] : null,
                 rawBranchAddress is Map ? rawBranchAddress['lat'] : null,
               ]);
 
-          final branchLongitude =
-              address?.longitude ??
+          final branchLongitude = address?.longitude ??
               _readDoubleValue([
                 primaryBranch?['longitude'],
                 primaryBranch?['lng'],
@@ -1176,8 +1205,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               rethrow;
             }
 
-            final isForbidden =
-                error.toString().contains('Forbidden') ||
+            final isForbidden = error.toString().contains('Forbidden') ||
                 error.toString().contains('Access denied') ||
                 error.toString().contains('403');
 
@@ -1368,8 +1396,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
           final savedSelection =
               await StylistBranchSelectionStore.saveFromSalonCreateResponse(
-                state.createdSalonResponse,
-              );
+            state.createdSalonResponse,
+          );
           if (!context.mounted) return;
           if (savedSelection) {
             await _refreshSalonListForCreatedSelection(context);
@@ -1927,9 +1955,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           color: const Color(0xFFFAF8F7),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isAddSlot
-                ? const Color(0xFFD3A94C)
-                : const Color(0xFFE8E1DC),
+            color:
+                isAddSlot ? const Color(0xFFD3A94C) : const Color(0xFFE8E1DC),
             style: isAddSlot ? BorderStyle.solid : BorderStyle.solid,
           ),
         ),
@@ -2139,9 +2166,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   Widget _buildFieldLabel(String label) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final translatedLabel = translateText(normalizedLabel);
-    final localizedLabel = translatedLabel != normalizedLabel
-        ? translatedLabel
-        : normalizedLabel;
+    final localizedLabel =
+        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
     final hasAsterisk = label.contains('*');
 
     return Padding(
@@ -2191,12 +2217,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final translatedLabel = translateText(normalizedLabel);
     final translatedHint = translateText(normalizedHint);
 
-    final localizedLabel = translatedLabel != normalizedLabel
-        ? translatedLabel
-        : normalizedLabel;
-    final localizedHint = translatedHint != normalizedHint
-        ? translatedHint
-        : normalizedHint;
+    final localizedLabel =
+        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+    final localizedHint =
+        translatedHint != normalizedHint ? translatedHint : normalizedHint;
 
     final String cleanLabel = localizedLabel.trim();
     final hasInsideCounter = maxLength != null;
@@ -2289,22 +2313,23 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               ),
                             )
                           : prefixIconData == null
-                          ? null
-                          : Container(
-                              width: 48,
-                              alignment: Alignment.center,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Color(0xFFE4DDD8)),
+                              ? null
+                              : Container(
+                                  width: 48,
+                                  alignment: Alignment.center,
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: const BoxDecoration(
+                                    border: Border(
+                                      right:
+                                          BorderSide(color: Color(0xFFE4DDD8)),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    prefixIconData,
+                                    color: const Color(0xFF8B6500),
+                                    size: 19,
+                                  ),
                                 ),
-                              ),
-                              child: Icon(
-                                prefixIconData,
-                                color: const Color(0xFF8B6500),
-                                size: 19,
-                              ),
-                            ),
                       suffixIcon: suffixIconData == null
                           ? null
                           : Icon(
@@ -2313,17 +2338,16 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               size: 19,
                             ),
                       filled: true,
-                      fillColor: enabled
-                          ? Colors.white
-                          : const Color(0xFFF1EEEE),
+                      fillColor:
+                          enabled ? Colors.white : const Color(0xFFF1EEEE),
                       contentPadding: EdgeInsets.fromLTRB(
                         16,
                         14,
                         hasInsideCounter
                             ? 82
                             : suffixIconData == null
-                            ? 16
-                            : 4,
+                                ? 16
+                                : 4,
                         shouldReserveCounterSpace ? 30 : 14,
                       ),
                       border: OutlineInputBorder(

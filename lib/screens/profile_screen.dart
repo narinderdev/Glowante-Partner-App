@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
+import '../services/theme_listener.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
@@ -63,6 +64,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     langListener.changeLanguage(langCode);
   }
 
+  void _changeTheme(ThemeMode themeMode) {
+    _logProfile('theme_changed', details: themeMode.name);
+    final themeListener = Provider.of<ThemeListener>(context, listen: false);
+    themeListener.changeThemeMode(themeMode);
+  }
+
   void _showLogoutModal(BuildContext context) {
     FocusScope.of(context).unfocus();
     final messenger = ScaffoldMessenger.of(context);
@@ -71,11 +78,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final cancelLabel = translateText('Cancel');
     final confirmLogoutLabel = translateText('Yes, log out');
     final failureText = translateText('Logout request failed on the server.');
-    showModalBottomSheet(
+    showDialog<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      barrierDismissible: false,
       builder: (BuildContext context) {
         bool isLoggingOut = false;
 
@@ -108,71 +113,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
             }
 
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    logoutTitle,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red,
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                logoutTitle,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.starColor,
+                ),
+              ),
+              content: Text(
+                logoutMessage,
+                style: const TextStyle(fontSize: 15),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoggingOut ? null : () => Navigator.pop(ctx),
+                  child: Text(cancelLabel),
+                ),
+                ElevatedButton(
+                  onPressed: isLoggingOut ? null : handleLogout,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    logoutMessage,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, color: Colors.black87),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed:
-                              isLoggingOut ? null : () => Navigator.pop(ctx),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                  child: isLoggingOut
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
-                          child: Text(cancelLabel),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: isLoggingOut ? null : handleLogout,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: isLoggingOut
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : Text(confirmLogoutLabel),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                        )
+                      : Text(confirmLogoutLabel),
+                ),
+              ],
             );
           },
         );
@@ -289,6 +270,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final langListener = Provider.of<LanguageListener>(context);
+    final themeListener = Provider.of<ThemeListener>(context);
     final menuItems = <ProfileMenuItemData>[
       ProfileMenuItemData(
         icon: Icons.shield_outlined,
@@ -355,6 +337,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       phoneNumber: phoneNumber ?? '',
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
+      currentThemeMode: themeListener.themeMode,
+      onThemeChanged: _changeTheme,
       onRefresh: _loadUserData,
       roleLabel: context.t('Salon Owner'),
       topSections: const <Widget>[],

@@ -87,6 +87,13 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
     if (widget.initialStreetSectorArea?.isNotEmpty == true) {
       streetSectorAreaController.text = widget.initialStreetSectorArea!;
+    } else if (widget.initialCompleteAddress?.isNotEmpty == true) {
+      final derivedStreet = _deriveStreetSectorArea(
+        _cleanAddressText(widget.initialCompleteAddress!),
+      );
+      if (derivedStreet.isNotEmpty) {
+        streetSectorAreaController.text = derivedStreet;
+      }
     }
 
     if (widget.initialCompleteAddress?.isNotEmpty == true) {
@@ -704,6 +711,19 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
   String _dedupeAddressParts(String address) {
     return _splitAddressParts(address).join(', ');
+  }
+
+  String _deriveStreetSectorArea(String address) {
+    final remaining = _splitAddressParts(
+      _addressWithoutManualParts(_cleanAddressText(address)),
+    );
+    if (remaining.length >= 3) {
+      return remaining.skip(1).take(2).join(', ');
+    }
+    if (remaining.length >= 2) {
+      return remaining.skip(1).join(', ');
+    }
+    return '';
   }
 
   String _addressWithoutManualParts(String address) {

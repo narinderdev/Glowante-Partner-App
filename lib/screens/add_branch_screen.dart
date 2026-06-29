@@ -283,9 +283,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   }
 
   String _normalizePhone(dynamic value) {
-    final digits = value == null
-        ? ''
-        : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
+    final digits =
+        value == null ? '' : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length <= 10) return digits;
     if (digits.length == 12 && digits.startsWith('91')) {
       return digits.substring(2);
@@ -309,14 +308,48 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         .join(', ');
   }
 
+  List<String> _splitAddressParts(String value) {
+    final seen = <String>{};
+    return value
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .where((part) => seen.add(part.toLowerCase()))
+        .toList();
+  }
+
+  String _deriveStreetSectorArea(
+    String completeAddress, {
+    String? line2,
+    String scoFlatHouse = '',
+  }) {
+    final line2Parts = _splitAddressParts(line2 ?? '');
+    if (line2Parts.length > 1) {
+      return line2Parts.skip(1).join(', ');
+    }
+
+    final remaining = _splitAddressParts(
+      _addressWithoutManualParts(
+        completeAddress,
+        [scoFlatHouse],
+      ),
+    );
+    if (remaining.length >= 3) {
+      return remaining.skip(1).take(2).join(', ');
+    }
+    if (remaining.length >= 2) {
+      return remaining.skip(1).join(', ');
+    }
+    return '';
+  }
+
   String _composeAddressLine1(BranchAddress address) {
     final leadingParts = [
       address.city.trim(),
       address.pincode.trim(),
     ].where((part) => part.isNotEmpty).toList();
-    final leadingPartsLower = leadingParts
-        .map((part) => part.toLowerCase())
-        .toSet();
+    final leadingPartsLower =
+        leadingParts.map((part) => part.toLowerCase()).toSet();
     final baseParts = address.buildingName
         .split(',')
         .map((part) => part.trim())
@@ -349,15 +382,23 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       }
     }
 
+    final line2Parts = _splitAddressParts((address['line2'] ?? '').toString());
     final scoFlatHouse = _firstNonEmptyValue([
+      line2Parts.isNotEmpty ? line2Parts.first : '',
       address['line2'],
       address['village'],
     ]);
     final streetSectorArea = _firstNonEmptyValue([
+      line2Parts.length > 1 ? line2Parts.skip(1).join(', ') : '',
       address['district'],
       address['city'],
       address['state'],
       address['postalCode'],
+      _deriveStreetSectorArea(
+        completeAddress.join(', '),
+        line2: address['line2']?.toString(),
+        scoFlatHouse: scoFlatHouse,
+      ),
     ]);
 
     if (completeAddress.isEmpty &&
@@ -436,36 +477,33 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
       _draftLastBookingBufferMinutes =
           _readPositiveIntValue([initialBranch['lastBookingBufferMinutes']]) ??
-          30;
+              30;
 
-      _draftLastSlotOverflowGraceMinutes =
-          _readPositiveIntValue([
+      _draftLastSlotOverflowGraceMinutes = _readPositiveIntValue([
             initialBranch['lastSlotOverflowGraceMinutes'],
           ]) ??
           10;
       _openingBufferController.text = _draftOpeningBufferMinutes.toString();
-      _lastVisibleBufferController.text = _draftLastBookingBufferMinutes
-          .toString();
-      _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes
-          .toString();
-      _existingImageUrls =
-          [
-                ..._extractImageUrls(initialBranch['imageUrls']),
-                ..._extractImageUrls(initialBranch['imageUrl']),
-              ]
-              .fold<List<String>>(
-                <String>[],
-                (urls, url) => urls.contains(url) ? urls : (urls..add(url)),
-              )
-              .take(10)
-              .toList();
+      _lastVisibleBufferController.text =
+          _draftLastBookingBufferMinutes.toString();
+      _overflowGraceController.text =
+          _draftLastSlotOverflowGraceMinutes.toString();
+      _existingImageUrls = [
+        ..._extractImageUrls(initialBranch['imageUrls']),
+        ..._extractImageUrls(initialBranch['imageUrl']),
+      ]
+          .fold<List<String>>(
+            <String>[],
+            (urls, url) => urls.contains(url) ? urls : (urls..add(url)),
+          )
+          .take(10)
+          .toList();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AddBranchCubit>().loadSavedPhone();
       final initialBranch = widget.initialBranch;
-      final initialAddress = initialBranch == null
-          ? null
-          : _extractInitialAddress(initialBranch);
+      final initialAddress =
+          initialBranch == null ? null : _extractInitialAddress(initialBranch);
       if (initialAddress != null) {
         context.read<AddBranchCubit>().updateAddress(initialAddress);
       }
@@ -783,9 +821,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   // ✅ Minimal back-compat helper: require complete address (stored in buildingName) + coordinates
   bool _isAddressComplete(BranchAddress? address) {
     if (address == null) return false;
-    final hasCompleteAddress = address.buildingName
-        .trim()
-        .isNotEmpty; // holds complete address
+    final hasCompleteAddress =
+        address.buildingName.trim().isNotEmpty; // holds complete address
     final hasValidCoordinates =
         address.latitude != 0.0 || address.longitude != 0.0;
     if (widget.isEdit) {
@@ -884,9 +921,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final branchCubit = context.read<AddBranchCubit>();
     final images = state.images;
     final existingImageUrls = List<String>.from(_existingImageUrls);
-    final existingImageUrl = existingImageUrls.isEmpty
-        ? ''
-        : existingImageUrls.first;
+    final existingImageUrl =
+        existingImageUrls.isEmpty ? '' : existingImageUrls.first;
 
     if (!mounted) return;
 
@@ -1093,10 +1129,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
           final savedSelection =
               await StylistBranchSelectionStore.saveFromBranchCreateResponse(
-                salonId: widget.salonId,
-                response: state.createdBranchResponse,
-                fallbackBranchName: _branchNameController.text.trim(),
-              );
+            salonId: widget.salonId,
+            response: state.createdBranchResponse,
+            fallbackBranchName: _branchNameController.text.trim(),
+          );
           if (!context.mounted) return;
           if (savedSelection) {
             await _refreshSalonListForCreatedSelection(context);
@@ -1397,9 +1433,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   Widget _buildFieldLabel(String label) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final translatedLabel = translateText(normalizedLabel);
-    final localizedLabel = translatedLabel != normalizedLabel
-        ? translatedLabel
-        : normalizedLabel;
+    final localizedLabel =
+        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
     final hasAsterisk = label.contains('*');
 
     return Padding(
@@ -1626,9 +1661,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           color: const Color(0xFFFAF8F7),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isAddSlot
-                ? const Color(0xFFD3A94C)
-                : const Color(0xFFE8E1DC),
+            color:
+                isAddSlot ? const Color(0xFFD3A94C) : const Color(0xFFE8E1DC),
           ),
         ),
         child: ClipRRect(
@@ -1735,18 +1769,15 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final normalizedHint = hint.trim();
     final translatedLabel = translateText(normalizedLabel);
     final translatedHint = translateText(normalizedHint);
-    final localizedLabel = translatedLabel != normalizedLabel
-        ? translatedLabel
-        : normalizedLabel;
-    final localizedHint = translatedHint != normalizedHint
-        ? translatedHint
-        : normalizedHint;
+    final localizedLabel =
+        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+    final localizedHint =
+        translatedHint != normalizedHint ? translatedHint : normalizedHint;
     final isRequired = label.contains('*');
 
     final sanitizedField = label.replaceAll('*', '').replaceAll(':', '').trim();
-    final fieldForMessage = sanitizedField.isEmpty
-        ? localizedLabel
-        : translateText(sanitizedField);
+    final fieldForMessage =
+        sanitizedField.isEmpty ? localizedLabel : translateText(sanitizedField);
     final hasInsideCounter = maxLength != null;
     final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
 
@@ -1825,22 +1856,23 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               ),
                             )
                           : prefixIconData == null
-                          ? null
-                          : Container(
-                              width: 48,
-                              alignment: Alignment.center,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Color(0xFFE4DDD8)),
+                              ? null
+                              : Container(
+                                  width: 48,
+                                  alignment: Alignment.center,
+                                  margin: const EdgeInsets.only(right: 8),
+                                  decoration: const BoxDecoration(
+                                    border: Border(
+                                      right:
+                                          BorderSide(color: Color(0xFFE4DDD8)),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    prefixIconData,
+                                    color: const Color(0xFF8B6500),
+                                    size: 19,
+                                  ),
                                 ),
-                              ),
-                              child: Icon(
-                                prefixIconData,
-                                color: const Color(0xFF8B6500),
-                                size: 19,
-                              ),
-                            ),
                       suffixIcon: suffixIconData == null
                           ? null
                           : Icon(
@@ -1849,17 +1881,16 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               size: 19,
                             ),
                       filled: true,
-                      fillColor: enabled
-                          ? Colors.white
-                          : const Color(0xFFF1EEEE),
+                      fillColor:
+                          enabled ? Colors.white : const Color(0xFFF1EEEE),
                       contentPadding: EdgeInsets.fromLTRB(
                         16,
                         14,
                         hasInsideCounter
                             ? 82
                             : suffixIconData == null
-                            ? 16
-                            : 4,
+                                ? 16
+                                : 4,
                         shouldReserveCounterSpace ? 30 : 14,
                       ),
                       border: OutlineInputBorder(
