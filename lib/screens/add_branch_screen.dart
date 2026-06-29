@@ -137,10 +137,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     return urls.take(10).toList();
   }
 
-  String _formatDisplayTime(
-    dynamic value, {
-    String fallback = '',
-  }) {
+  String _formatDisplayTime(dynamic value, {String fallback = ''}) {
     final text = (value ?? '').toString().trim();
     if (text.isEmpty || text.toLowerCase() == 'null') return fallback;
 
@@ -157,9 +154,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $displaySuffix';
     }
 
-    final twelveHourMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
-            caseSensitive: false)
-        .firstMatch(text);
+    final twelveHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(text);
     if (twelveHourMatch != null) {
       return formatParts(
         twelveHourMatch.group(1)!,
@@ -168,8 +166,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       );
     }
 
-    final twentyFourHourMatch =
-        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    final twentyFourHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?$',
+    ).firstMatch(text);
     if (twentyFourHourMatch != null) {
       return formatParts(
         twentyFourHourMatch.group(1)!,
@@ -238,16 +237,20 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         if (slots is! List) continue;
         result[day] = slots
             .whereType<Map>()
-            .map((slot) => <String, String>{
-                  'startTime': _formatDisplayTime(
-                    _firstNonEmptyValue([slot['startTime'], slot['start']]),
-                  ),
-                  'endTime': _formatDisplayTime(
-                    _firstNonEmptyValue([slot['endTime'], slot['end']]),
-                  ),
-                })
-            .where((slot) =>
-                slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
+            .map(
+              (slot) => <String, String>{
+                'startTime': _formatDisplayTime(
+                  _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                ),
+                'endTime': _formatDisplayTime(
+                  _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                ),
+              },
+            )
+            .where(
+              (slot) =>
+                  slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty,
+            )
             .toList();
       }
     } else if (rawSchedule is List) {
@@ -258,16 +261,20 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
         if (slots is! List) continue;
         result[day] = slots
             .whereType<Map>()
-            .map((slot) => <String, String>{
-                  'startTime': _formatDisplayTime(
-                    _firstNonEmptyValue([slot['startTime'], slot['start']]),
-                  ),
-                  'endTime': _formatDisplayTime(
-                    _firstNonEmptyValue([slot['endTime'], slot['end']]),
-                  ),
-                })
-            .where((slot) =>
-                slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
+            .map(
+              (slot) => <String, String>{
+                'startTime': _formatDisplayTime(
+                  _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                ),
+                'endTime': _formatDisplayTime(
+                  _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                ),
+              },
+            )
+            .where(
+              (slot) =>
+                  slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty,
+            )
             .toList();
       }
     }
@@ -276,8 +283,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   }
 
   String _normalizePhone(dynamic value) {
-    final digits =
-        value == null ? '' : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
+    final digits = value == null
+        ? ''
+        : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length <= 10) return digits;
     if (digits.length == 12 && digits.startsWith('91')) {
       return digits.substring(2);
@@ -285,10 +293,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     return digits.substring(digits.length - 10);
   }
 
-  String _addressWithoutManualParts(
-    String address,
-    List<String> manualParts,
-  ) {
+  String _addressWithoutManualParts(String address, List<String> manualParts) {
     final manualPartsLower = manualParts
         .map((part) => part.trim().toLowerCase())
         .where((part) => part.isNotEmpty)
@@ -297,8 +302,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     return address
         .split(',')
         .map((part) => part.trim())
-        .where((part) =>
-            part.isNotEmpty && !manualPartsLower.contains(part.toLowerCase()))
+        .where(
+          (part) =>
+              part.isNotEmpty && !manualPartsLower.contains(part.toLowerCase()),
+        )
         .join(', ');
   }
 
@@ -307,13 +314,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       address.city.trim(),
       address.pincode.trim(),
     ].where((part) => part.isNotEmpty).toList();
-    final leadingPartsLower =
-        leadingParts.map((part) => part.toLowerCase()).toSet();
+    final leadingPartsLower = leadingParts
+        .map((part) => part.toLowerCase())
+        .toSet();
     final baseParts = address.buildingName
         .split(',')
         .map((part) => part.trim())
-        .where((part) =>
-            part.isNotEmpty && !leadingPartsLower.contains(part.toLowerCase()))
+        .where(
+          (part) =>
+              part.isNotEmpty &&
+              !leadingPartsLower.contains(part.toLowerCase()),
+        )
         .toList();
     return [...leadingParts, ...baseParts].join(', ');
   }
@@ -356,10 +367,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
 
     return BranchAddress(
-      buildingName: _addressWithoutManualParts(
-        completeAddress.join(', '),
-        [scoFlatHouse, streetSectorArea],
-      ),
+      buildingName: _addressWithoutManualParts(completeAddress.join(', '), [
+        scoFlatHouse,
+        streetSectorArea,
+      ]),
       city: scoFlatHouse,
       pincode: streetSectorArea,
       state: _firstNonEmptyValue([address['state']]),
@@ -425,32 +436,36 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
       _draftLastBookingBufferMinutes =
           _readPositiveIntValue([initialBranch['lastBookingBufferMinutes']]) ??
-              30;
+          30;
 
-      _draftLastSlotOverflowGraceMinutes = _readPositiveIntValue(
-              [initialBranch['lastSlotOverflowGraceMinutes']]) ??
+      _draftLastSlotOverflowGraceMinutes =
+          _readPositiveIntValue([
+            initialBranch['lastSlotOverflowGraceMinutes'],
+          ]) ??
           10;
       _openingBufferController.text = _draftOpeningBufferMinutes.toString();
-      _lastVisibleBufferController.text =
-          _draftLastBookingBufferMinutes.toString();
-      _overflowGraceController.text =
-          _draftLastSlotOverflowGraceMinutes.toString();
-      _existingImageUrls = [
-        ..._extractImageUrls(initialBranch['imageUrls']),
-        ..._extractImageUrls(initialBranch['imageUrl']),
-      ]
-          .fold<List<String>>(
-            <String>[],
-            (urls, url) => urls.contains(url) ? urls : (urls..add(url)),
-          )
-          .take(10)
-          .toList();
+      _lastVisibleBufferController.text = _draftLastBookingBufferMinutes
+          .toString();
+      _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes
+          .toString();
+      _existingImageUrls =
+          [
+                ..._extractImageUrls(initialBranch['imageUrls']),
+                ..._extractImageUrls(initialBranch['imageUrl']),
+              ]
+              .fold<List<String>>(
+                <String>[],
+                (urls, url) => urls.contains(url) ? urls : (urls..add(url)),
+              )
+              .take(10)
+              .toList();
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AddBranchCubit>().loadSavedPhone();
       final initialBranch = widget.initialBranch;
-      final initialAddress =
-          initialBranch == null ? null : _extractInitialAddress(initialBranch);
+      final initialAddress = initialBranch == null
+          ? null
+          : _extractInitialAddress(initialBranch);
       if (initialAddress != null) {
         context.read<AddBranchCubit>().updateAddress(initialAddress);
       }
@@ -473,10 +488,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     super.dispose();
   }
 
-  int _parseBufferMinutes(
-    String value, {
-    required int fallback,
-  }) {
+  int _parseBufferMinutes(String value, {required int fallback}) {
     final parsed = int.tryParse(value.trim());
     if (parsed == null || parsed < 0) return fallback;
     return parsed;
@@ -512,16 +524,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   Future<ImageSource?> _chooseImageSource() async {
     if (!mounted) return null;
 
-    return showModalBottomSheet<ImageSource>(
+    return showDialog<ImageSource>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -537,9 +550,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  translateText(
-                    'Choose from gallery or take a new photo.',
-                  ),
+                  translateText('Choose from gallery or take a new photo.'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 13,
@@ -549,7 +560,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                 const SizedBox(height: 18),
                 ElevatedButton.icon(
                   onPressed: () =>
-                      Navigator.pop(sheetContext, ImageSource.camera),
+                      Navigator.pop(dialogContext, ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: Text(translateText('Take from camera')),
                   style: ElevatedButton.styleFrom(
@@ -564,7 +575,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: () =>
-                      Navigator.pop(sheetContext, ImageSource.gallery),
+                      Navigator.pop(dialogContext, ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
                   label: Text(translateText('Choose from gallery')),
                   style: OutlinedButton.styleFrom(
@@ -595,10 +606,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final file = await _picker.pickImage(source: source);
     if (!mounted) return;
     if (file == null) return;
-    final images = [
-      ...existing,
-      File(file.path),
-    ].take(10).toList();
+    final images = [...existing, File(file.path)].take(10).toList();
     context.read<AddBranchCubit>().setImages(images);
   }
 
@@ -700,9 +708,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final text = value.trim();
     if (text.isEmpty) return null;
 
-    final twelveHourMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
-            caseSensitive: false)
-        .firstMatch(text);
+    final twelveHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(text);
     if (twelveHourMatch != null) {
       var hour = int.tryParse(twelveHourMatch.group(1)!) ?? 0;
       final minute = int.tryParse(twelveHourMatch.group(2)!) ?? 0;
@@ -712,8 +721,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       return TimeOfDay(hour: hour, minute: minute);
     }
 
-    final twentyFourHourMatch =
-        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    final twentyFourHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?$',
+    ).firstMatch(text);
     if (twentyFourHourMatch != null) {
       final hour = int.tryParse(twentyFourHourMatch.group(1)!) ?? 0;
       final minute = int.tryParse(twentyFourHourMatch.group(2)!) ?? 0;
@@ -728,14 +738,14 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
     final total = _timeToMinutesOfDay(time) + minutes;
     final safeTotal = total >= 24 * 60 ? 23 * 60 + 30 : total;
-    return TimeOfDay(
-      hour: safeTotal ~/ 60,
-      minute: safeTotal % 60,
-    );
+    return TimeOfDay(hour: safeTotal ~/ 60, minute: safeTotal % 60);
   }
 
-  Future<void> _selectTime(_BranchField field, TextEditingController controller,
-      {TextEditingController? pairedController}) async {
+  Future<void> _selectTime(
+    _BranchField field,
+    TextEditingController controller, {
+    TextEditingController? pairedController,
+  }) async {
     final defaultTime = field == _BranchField.startTime
         ? const TimeOfDay(hour: 8, minute: 0)
         : const TimeOfDay(hour: 20, minute: 0);
@@ -773,8 +783,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   // ✅ Minimal back-compat helper: require complete address (stored in buildingName) + coordinates
   bool _isAddressComplete(BranchAddress? address) {
     if (address == null) return false;
-    final hasCompleteAddress =
-        address.buildingName.trim().isNotEmpty; // holds complete address
+    final hasCompleteAddress = address.buildingName
+        .trim()
+        .isNotEmpty; // holds complete address
     final hasValidCoordinates =
         address.latitude != 0.0 || address.longitude != 0.0;
     if (widget.isEdit) {
@@ -815,10 +826,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       BranchAddress(
         buildingName: baseCompleteAddress.isNotEmpty
             ? baseCompleteAddress
-            : _addressWithoutManualParts(
-                completeAddress,
-                [scoFlatHouse, streetSectorArea],
-              ),
+            : _addressWithoutManualParts(completeAddress, [
+                scoFlatHouse,
+                streetSectorArea,
+              ]),
         city: scoFlatHouse, // optional mapping to keep the value
         pincode: streetSectorArea, // optional mapping to keep the value
         state: '', // not used in new flow
@@ -873,8 +884,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final branchCubit = context.read<AddBranchCubit>();
     final images = state.images;
     final existingImageUrls = List<String>.from(_existingImageUrls);
-    final existingImageUrl =
-        existingImageUrls.isEmpty ? '' : existingImageUrls.first;
+    final existingImageUrl = existingImageUrls.isEmpty
+        ? ''
+        : existingImageUrls.first;
 
     if (!mounted) return;
 
@@ -998,9 +1010,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                     BlocProvider(
                       create: (_) => AddSalonCubit(SalonRepository()),
                     ),
-                    BlocProvider.value(
-                      value: branchCubit,
-                    ),
+                    BlocProvider.value(value: branchCubit),
                   ],
                   child: AddSalonServices(
                     title: 'Add Branch',
@@ -1059,9 +1069,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
               .replaceAll('Exception:', '')
               .trim();
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message)));
         }
 
         if (state.status == BranchFormStatus.success) {
@@ -1083,10 +1093,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
 
           final savedSelection =
               await StylistBranchSelectionStore.saveFromBranchCreateResponse(
-            salonId: widget.salonId,
-            response: state.createdBranchResponse,
-            fallbackBranchName: _branchNameController.text.trim(),
-          );
+                salonId: widget.salonId,
+                response: state.createdBranchResponse,
+                fallbackBranchName: _branchNameController.text.trim(),
+              );
           if (!context.mounted) return;
           if (savedSelection) {
             await _refreshSalonListForCreatedSelection(context);
@@ -1154,7 +1164,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                     TextCapitalization.sentences,
                                 maxLength: 50,
                                 inputFormatters: const [
-                                  _FirstLetterUpperFormatter()
+                                  _FirstLetterUpperFormatter(),
                                 ],
                               ),
                               _buildTextField(
@@ -1218,7 +1228,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                 textCapitalization:
                                     TextCapitalization.sentences,
                                 inputFormatters: const [
-                                  _FirstLetterUpperFormatter()
+                                  _FirstLetterUpperFormatter(),
                                 ],
                               ),
                             ],
@@ -1250,10 +1260,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                 ),
                               ),
                               const SizedBox(height: 18),
-                              _buildImageGrid(
-                                images,
-                                _existingImageUrls,
-                              ),
+                              _buildImageGrid(images, _existingImageUrls),
                             ],
                           ),
                         ),
@@ -1286,9 +1293,11 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        translateText(widget.isEdit
-                                            ? 'Save Changes'
-                                            : 'Next Step'),
+                                        translateText(
+                                          widget.isEdit
+                                              ? 'Save Changes'
+                                              : 'Next Step',
+                                        ),
                                         style: const TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w800,
@@ -1388,8 +1397,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   Widget _buildFieldLabel(String label) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final translatedLabel = translateText(normalizedLabel);
-    final localizedLabel =
-        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+    final localizedLabel = translatedLabel != normalizedLabel
+        ? translatedLabel
+        : normalizedLabel;
     final hasAsterisk = label.contains('*');
 
     return Padding(
@@ -1616,8 +1626,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
           color: const Color(0xFFFAF8F7),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color:
-                isAddSlot ? const Color(0xFFD3A94C) : const Color(0xFFE8E1DC),
+            color: isAddSlot
+                ? const Color(0xFFD3A94C)
+                : const Color(0xFFE8E1DC),
           ),
         ),
         child: ClipRRect(
@@ -1724,15 +1735,18 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final normalizedHint = hint.trim();
     final translatedLabel = translateText(normalizedLabel);
     final translatedHint = translateText(normalizedHint);
-    final localizedLabel =
-        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
-    final localizedHint =
-        translatedHint != normalizedHint ? translatedHint : normalizedHint;
+    final localizedLabel = translatedLabel != normalizedLabel
+        ? translatedLabel
+        : normalizedLabel;
+    final localizedHint = translatedHint != normalizedHint
+        ? translatedHint
+        : normalizedHint;
     final isRequired = label.contains('*');
 
     final sanitizedField = label.replaceAll('*', '').replaceAll(':', '').trim();
-    final fieldForMessage =
-        sanitizedField.isEmpty ? localizedLabel : translateText(sanitizedField);
+    final fieldForMessage = sanitizedField.isEmpty
+        ? localizedLabel
+        : translateText(sanitizedField);
     final hasInsideCounter = maxLength != null;
     final shouldReserveCounterSpace = hasInsideCounter || reserveCounterSpace;
 
@@ -1777,8 +1791,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       }
                       if (isRequired &&
                           (inputValue == null || inputValue.trim().isEmpty)) {
-                        return translateText('{field} is required',
-                            params: {'field': fieldForMessage});
+                        return translateText(
+                          '{field} is required',
+                          params: {'field': fieldForMessage},
+                        );
                       }
                       return null;
                     },
@@ -1809,23 +1825,22 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               ),
                             )
                           : prefixIconData == null
-                              ? null
-                              : Container(
-                                  width: 48,
-                                  alignment: Alignment.center,
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: const BoxDecoration(
-                                    border: Border(
-                                      right:
-                                          BorderSide(color: Color(0xFFE4DDD8)),
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    prefixIconData,
-                                    color: const Color(0xFF8B6500),
-                                    size: 19,
-                                  ),
+                          ? null
+                          : Container(
+                              width: 48,
+                              alignment: Alignment.center,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(color: Color(0xFFE4DDD8)),
                                 ),
+                              ),
+                              child: Icon(
+                                prefixIconData,
+                                color: const Color(0xFF8B6500),
+                                size: 19,
+                              ),
+                            ),
                       suffixIcon: suffixIconData == null
                           ? null
                           : Icon(
@@ -1834,16 +1849,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                               size: 19,
                             ),
                       filled: true,
-                      fillColor:
-                          enabled ? Colors.white : const Color(0xFFF1EEEE),
+                      fillColor: enabled
+                          ? Colors.white
+                          : const Color(0xFFF1EEEE),
                       contentPadding: EdgeInsets.fromLTRB(
                         16,
                         14,
                         hasInsideCounter
                             ? 82
                             : suffixIconData == null
-                                ? 16
-                                : 4,
+                            ? 16
+                            : 4,
                         shouldReserveCounterSpace ? 30 : 14,
                       ),
                       border: OutlineInputBorder(
@@ -1852,7 +1868,9 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderSide: const BorderSide(
-                            color: Color(0xFFD1A24A), width: 1.2),
+                          color: Color(0xFFD1A24A),
+                          width: 1.2,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       enabledBorder: OutlineInputBorder(
@@ -1864,13 +1882,17 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       errorBorder: OutlineInputBorder(
-                        borderSide:
-                            const BorderSide(color: AppColors.red, width: 1),
+                        borderSide: const BorderSide(
+                          color: AppColors.red,
+                          width: 1,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       focusedErrorBorder: OutlineInputBorder(
-                        borderSide:
-                            const BorderSide(color: AppColors.red, width: 1),
+                        borderSide: const BorderSide(
+                          color: AppColors.red,
+                          width: 1,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       errorStyle: const TextStyle(color: AppColors.red),
@@ -1923,7 +1945,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
   }
 
   Future<void> _refreshSalonListForCreatedSelection(
-      BuildContext context) async {
+    BuildContext context,
+  ) async {
     try {
       final selection = await StylistBranchSelectionStore.load();
       if (!context.mounted) return;

@@ -225,21 +225,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       address.city.trim(),
       address.pincode.trim(),
     ].where((part) => part.isNotEmpty).toList();
-    final leadingPartsLower =
-        leadingParts.map((part) => part.toLowerCase()).toSet();
+    final leadingPartsLower = leadingParts
+        .map((part) => part.toLowerCase())
+        .toSet();
     final baseParts = address.buildingName
         .split(',')
         .map((part) => part.trim())
-        .where((part) =>
-            part.isNotEmpty && !leadingPartsLower.contains(part.toLowerCase()))
+        .where(
+          (part) =>
+              part.isNotEmpty &&
+              !leadingPartsLower.contains(part.toLowerCase()),
+        )
         .toList();
     return [...leadingParts, ...baseParts].join(', ');
   }
 
-  String _addressWithoutManualParts(
-    String address,
-    List<String> manualParts,
-  ) {
+  String _addressWithoutManualParts(String address, List<String> manualParts) {
     final manualPartsLower = manualParts
         .map((part) => part.trim().toLowerCase())
         .where((part) => part.isNotEmpty)
@@ -248,8 +249,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return address
         .split(',')
         .map((part) => part.trim())
-        .where((part) =>
-            part.isNotEmpty && !manualPartsLower.contains(part.toLowerCase()))
+        .where(
+          (part) =>
+              part.isNotEmpty && !manualPartsLower.contains(part.toLowerCase()),
+        )
         .join(', ');
   }
 
@@ -290,9 +293,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final text = value.trim();
     if (text.isEmpty) return null;
 
-    final twelveHourMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
-            caseSensitive: false)
-        .firstMatch(text);
+    final twelveHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(text);
     if (twelveHourMatch != null) {
       var hour = int.tryParse(twelveHourMatch.group(1)!) ?? 0;
       final minute = int.tryParse(twelveHourMatch.group(2)!) ?? 0;
@@ -302,8 +306,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       return TimeOfDay(hour: hour, minute: minute);
     }
 
-    final twentyFourHourMatch =
-        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    final twentyFourHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?$',
+    ).firstMatch(text);
     if (twentyFourHourMatch != null) {
       final hour = int.tryParse(twentyFourHourMatch.group(1)!) ?? 0;
       final minute = int.tryParse(twentyFourHourMatch.group(2)!) ?? 0;
@@ -313,10 +318,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return null;
   }
 
-  String _formatDisplayTime(
-    dynamic value, {
-    String fallback = '',
-  }) {
+  String _formatDisplayTime(dynamic value, {String fallback = ''}) {
     final text = (value ?? '').toString().trim();
     if (text.isEmpty || text.toLowerCase() == 'null') return fallback;
 
@@ -333,9 +335,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $displaySuffix';
     }
 
-    final twelveHourMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
-            caseSensitive: false)
-        .firstMatch(text);
+    final twelveHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(text);
     if (twelveHourMatch != null) {
       return formatParts(
         twelveHourMatch.group(1)!,
@@ -344,8 +347,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       );
     }
 
-    final twentyFourHourMatch =
-        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    final twentyFourHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?$',
+    ).firstMatch(text);
     if (twentyFourHourMatch != null) {
       return formatParts(
         twentyFourHourMatch.group(1)!,
@@ -399,16 +403,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         if (slots is! List) continue;
         result[day] = slots
             .whereType<Map>()
-            .map((slot) => <String, String>{
-                  'startTime': _formatDisplayTime(
-                    _firstNonEmptyValue([slot['startTime'], slot['start']]),
-                  ),
-                  'endTime': _formatDisplayTime(
-                    _firstNonEmptyValue([slot['endTime'], slot['end']]),
-                  ),
-                })
-            .where((slot) =>
-                slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
+            .map(
+              (slot) => <String, String>{
+                'startTime': _formatDisplayTime(
+                  _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                ),
+                'endTime': _formatDisplayTime(
+                  _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                ),
+              },
+            )
+            .where(
+              (slot) =>
+                  slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty,
+            )
             .toList();
       }
     } else if (rawSchedule is List) {
@@ -419,16 +427,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         if (slots is! List) continue;
         result[day] = slots
             .whereType<Map>()
-            .map((slot) => <String, String>{
-                  'startTime': _formatDisplayTime(
-                    _firstNonEmptyValue([slot['startTime'], slot['start']]),
-                  ),
-                  'endTime': _formatDisplayTime(
-                    _firstNonEmptyValue([slot['endTime'], slot['end']]),
-                  ),
-                })
-            .where((slot) =>
-                slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty)
+            .map(
+              (slot) => <String, String>{
+                'startTime': _formatDisplayTime(
+                  _firstNonEmptyValue([slot['startTime'], slot['start']]),
+                ),
+                'endTime': _formatDisplayTime(
+                  _firstNonEmptyValue([slot['endTime'], slot['end']]),
+                ),
+              },
+            )
+            .where(
+              (slot) =>
+                  slot['startTime']!.isNotEmpty && slot['endTime']!.isNotEmpty,
+            )
             .toList();
       }
     }
@@ -437,8 +449,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   }
 
   String _normalizePhone(dynamic value) {
-    final digits =
-        value == null ? '' : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
+    final digits = value == null
+        ? ''
+        : value.toString().replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.length <= 10) return digits;
     if (digits.length == 12 && digits.startsWith('91')) {
       return digits.substring(2);
@@ -448,9 +461,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   AddSalonAddress? _extractInitialAddress(Map<String, dynamic> salon) {
     final primaryBranch = _resolvePrimaryBranch(salon);
-    final address = _asStringKeyedMap(
-          salon['address'],
-        ) ??
+    final address =
+        _asStringKeyedMap(salon['address']) ??
         _asStringKeyedMap(primaryBranch?['address']) ??
         primaryBranch;
 
@@ -491,15 +503,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     }
 
     return AddSalonAddress(
-      buildingName: _addressWithoutManualParts(
-        completeAddress.join(', '),
-        [scoFlatHouse, streetSectorArea],
-      ),
+      buildingName: _addressWithoutManualParts(completeAddress.join(', '), [
+        scoFlatHouse,
+        streetSectorArea,
+      ]),
       city: scoFlatHouse,
       pincode: streetSectorArea,
-      state: _firstNonEmptyValue([
-        address['state'],
-      ]),
+      state: _firstNonEmptyValue([address['state']]),
       latitude: _readDoubleValue([
         address['latitude'],
         address['lat'],
@@ -604,22 +614,24 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       }
 
       // First Visible Slot
-      _draftOpeningBufferMinutes = _readPositiveIntValue([
+      _draftOpeningBufferMinutes =
+          _readPositiveIntValue([
             primaryBranch?['openingBufferMinutes'],
             initialSalon['openingBufferMinutes'],
           ]) ??
           30;
 
       // Last Visible Slot
-      _draftLastBookingBufferMinutes = _readPositiveIntValue([
+      _draftLastBookingBufferMinutes =
+          _readPositiveIntValue([
             primaryBranch?['lastBookingBufferMinutes'],
             initialSalon['lastBookingBufferMinutes'],
           ]) ??
           30;
 
       _openingBufferController.text = _draftOpeningBufferMinutes.toString();
-      _lastVisibleBufferController.text =
-          _draftLastBookingBufferMinutes.toString();
+      _lastVisibleBufferController.text = _draftLastBookingBufferMinutes
+          .toString();
 
       // Last Slot Overflow Grace
       final existingOverflowGrace = _readPositiveIntValue([
@@ -629,35 +641,42 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
       // Use this if you want default 10 when backend does not return value
       _draftLastSlotOverflowGraceMinutes = existingOverflowGrace ?? 0;
-      _overflowGraceController.text =
-          existingOverflowGrace == null ? '' : existingOverflowGrace.toString();
+      _overflowGraceController.text = existingOverflowGrace == null
+          ? ''
+          : existingOverflowGrace.toString();
 
       // Debug logs
       debugPrint('🟣 [EDIT SALON INIT BUFFER]');
       debugPrint('primaryBranch id = ${primaryBranch?['id']}');
       debugPrint(
-          'api openingBufferMinutes = ${primaryBranch?['openingBufferMinutes']}');
+        'api openingBufferMinutes = ${primaryBranch?['openingBufferMinutes']}',
+      );
       debugPrint(
-          'api lastBookingBufferMinutes = ${primaryBranch?['lastBookingBufferMinutes']}');
+        'api lastBookingBufferMinutes = ${primaryBranch?['lastBookingBufferMinutes']}',
+      );
       debugPrint(
-          'api lastSlotOverflowGraceMinutes = ${primaryBranch?['lastSlotOverflowGraceMinutes']}');
+        'api lastSlotOverflowGraceMinutes = ${primaryBranch?['lastSlotOverflowGraceMinutes']}',
+      );
       debugPrint('controller openingBuffer = ${_openingBufferController.text}');
       debugPrint(
-          'controller lastVisibleBuffer = ${_lastVisibleBufferController.text}');
+        'controller lastVisibleBuffer = ${_lastVisibleBufferController.text}',
+      );
       debugPrint('controller overflowGrace = ${_overflowGraceController.text}');
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final initialSalon = widget.initialSalon;
-      final initialAddress =
-          initialSalon == null ? null : _extractInitialAddress(initialSalon);
+      final initialAddress = initialSalon == null
+          ? null
+          : _extractInitialAddress(initialSalon);
 
       final completeAddress = widget.buildingName?.trim() ?? '';
 
       final latitude = widget.latitude;
       final longitude = widget.longitude;
 
-      final bool hasCoordinates = latitude != null &&
+      final bool hasCoordinates =
+          latitude != null &&
           longitude != null &&
           (latitude != 0.0 || longitude != 0.0);
 
@@ -665,20 +684,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         context.read<AddSalonCubit>().updateAddress(initialAddress);
       } else if (completeAddress.isNotEmpty && hasCoordinates) {
         context.read<AddSalonCubit>().updateAddress(
-              AddSalonAddress(
-                buildingName: completeAddress,
-                city: '',
-                pincode: '',
-                state: '',
-                latitude: latitude,
-                longitude: longitude,
-              ),
-            );
+          AddSalonAddress(
+            buildingName: completeAddress,
+            city: '',
+            pincode: '',
+            state: '',
+            latitude: latitude,
+            longitude: longitude,
+          ),
+        );
       }
 
       context.read<AddSalonCubit>().loadSavedPhone(
-            initialPhone: widget.phoneNumber,
-          );
+        initialPhone: widget.phoneNumber,
+      );
     });
   }
 
@@ -695,10 +714,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     super.dispose();
   }
 
-  int _parseBufferMinutes(
-    String value, {
-    required int fallback,
-  }) {
+  int _parseBufferMinutes(String value, {required int fallback}) {
     final parsed = int.tryParse(value.trim());
     if (parsed == null || parsed < 0) return fallback;
     return parsed;
@@ -739,16 +755,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   Future<ImageSource?> _chooseImageSource() async {
     if (!mounted) return null;
 
-    return showModalBottomSheet<ImageSource>(
+    return showDialog<ImageSource>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return SafeArea(
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 28),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -764,9 +781,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  translateText(
-                    'Choose from gallery or take a new photo.',
-                  ),
+                  translateText('Choose from gallery or take a new photo.'),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 13,
@@ -776,7 +791,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                 const SizedBox(height: 18),
                 ElevatedButton.icon(
                   onPressed: () =>
-                      Navigator.pop(sheetContext, ImageSource.camera),
+                      Navigator.pop(dialogContext, ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: Text(translateText('Take from camera')),
                   style: ElevatedButton.styleFrom(
@@ -791,7 +806,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: () =>
-                      Navigator.pop(sheetContext, ImageSource.gallery),
+                      Navigator.pop(dialogContext, ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
                   label: Text(translateText('Choose from gallery')),
                   style: OutlinedButton.styleFrom(
@@ -822,10 +837,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final file = await _picker.pickImage(source: source);
     if (!mounted) return;
     if (file == null) return;
-    final images = [
-      ...existing,
-      File(file.path),
-    ].take(10).toList();
+    final images = [...existing, File(file.path)].take(10).toList();
     context.read<AddSalonCubit>().setImages(images);
   }
 
@@ -890,8 +902,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   bool _isAddressComplete(AddSalonAddress? address) {
     if (address == null) return false;
 
-    final hasCompleteAddress =
-        address.buildingName.trim().isNotEmpty; // completeAddress stored here
+    final hasCompleteAddress = address.buildingName
+        .trim()
+        .isNotEmpty; // completeAddress stored here
     final hasValidCoordinates =
         address.latitude != 0.0 || address.longitude != 0.0;
 
@@ -903,10 +916,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
     final total = _timeToMinutesOfDay(time) + minutes;
     final safeTotal = total >= 24 * 60 ? 23 * 60 + 30 : total;
-    return TimeOfDay(
-      hour: safeTotal ~/ 60,
-      minute: safeTotal % 60,
-    );
+    return TimeOfDay(hour: safeTotal ~/ 60, minute: safeTotal % 60);
   }
 
   Future<void> _selectTime(
@@ -915,7 +925,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     required bool isStart,
   }) async {
     final currentTime = _parseTimeOfDay(controller.text);
-    final initialTime = currentTime ??
+    final initialTime =
+        currentTime ??
         (isStart
             ? const TimeOfDay(hour: 8, minute: 0)
             : const TimeOfDay(hour: 20, minute: 0));
@@ -993,20 +1004,20 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final longitude = (result['longitude'] as num?)?.toDouble() ?? 0;
 
     context.read<AddSalonCubit>().updateAddress(
-          AddSalonAddress(
-            buildingName: baseCompleteAddress.isNotEmpty
-                ? baseCompleteAddress
-                : _addressWithoutManualParts(
-                    completeAddress,
-                    [scoFlatHouse, streetSectorArea],
-                  ),
-            city: scoFlatHouse,
-            pincode: streetSectorArea,
-            state: '',
-            latitude: latitude,
-            longitude: longitude,
-          ),
-        );
+      AddSalonAddress(
+        buildingName: baseCompleteAddress.isNotEmpty
+            ? baseCompleteAddress
+            : _addressWithoutManualParts(completeAddress, [
+                scoFlatHouse,
+                streetSectorArea,
+              ]),
+        city: scoFlatHouse,
+        pincode: streetSectorArea,
+        state: '',
+        latitude: latitude,
+        longitude: longitude,
+      ),
+    );
   }
 
   Future<void> _submit(AddSalonState state) async {
@@ -1057,8 +1068,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     try {
       final images = cubit.state.images;
       final existingImageUrls = _resolveExistingImageUrls();
-      final existingImageUrl =
-          existingImageUrls.isEmpty ? '' : existingImageUrls.first;
+      final existingImageUrl = existingImageUrls.isEmpty
+          ? ''
+          : existingImageUrls.first;
 
       if (!mounted) return;
 
@@ -1102,19 +1114,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
           final rawBranchAddress = primaryBranch?['address'];
 
-          final branchAddressPayload = addressPayload ??
+          final branchAddressPayload =
+              addressPayload ??
               (rawBranchAddress is Map
                   ? Map<String, dynamic>.from(rawBranchAddress)
                   : null);
 
-          final branchLatitude = address?.latitude ??
+          final branchLatitude =
+              address?.latitude ??
               _readDoubleValue([
                 primaryBranch?['latitude'],
                 rawBranchAddress is Map ? rawBranchAddress['latitude'] : null,
                 rawBranchAddress is Map ? rawBranchAddress['lat'] : null,
               ]);
 
-          final branchLongitude = address?.longitude ??
+          final branchLongitude =
+              address?.longitude ??
               _readDoubleValue([
                 primaryBranch?['longitude'],
                 primaryBranch?['lng'],
@@ -1161,7 +1176,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
               rethrow;
             }
 
-            final isForbidden = error.toString().contains('Forbidden') ||
+            final isForbidden =
+                error.toString().contains('Forbidden') ||
                 error.toString().contains('Access denied') ||
                 error.toString().contains('403');
 
@@ -1234,9 +1250,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         if (saved != true) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(translateText('Salon updated successfully')),
-          ),
+          SnackBar(content: Text(translateText('Salon updated successfully'))),
         );
 
         Navigator.pop(context, true);
@@ -1338,9 +1352,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         if (state.status == AddSalonStatus.failure &&
             state.errorMessage != null &&
             isCurrent) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.errorMessage!)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
         }
 
         if (state.status == AddSalonStatus.success && isCurrent) {
@@ -1354,8 +1368,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
           final savedSelection =
               await StylistBranchSelectionStore.saveFromSalonCreateResponse(
-            state.createdSalonResponse,
-          );
+                state.createdSalonResponse,
+              );
           if (!context.mounted) return;
           if (savedSelection) {
             await _refreshSalonListForCreatedSelection(context);
@@ -1384,7 +1398,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                       onPressed: () {
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute(
-                              builder: (_) => const BottomNav(tabIndex: 2)),
+                            builder: (_) => const BottomNav(tabIndex: 2),
+                          ),
                           (route) => false,
                         );
                       },
@@ -1446,7 +1461,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 enabled: true,
                                 maxLength: 50,
                                 inputFormatters: const [
-                                  _FirstLetterUpperFormatter()
+                                  _FirstLetterUpperFormatter(),
                                 ],
                               ),
                               _buildTextField(
@@ -1506,7 +1521,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                 maxLines: 1,
                                 maxLength: 250,
                                 inputFormatters: const [
-                                  _FirstLetterUpperFormatter()
+                                  _FirstLetterUpperFormatter(),
                                 ],
                               ),
                               if (!widget.isEdit) ...[
@@ -1611,17 +1626,21 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
-                                        translateText(widget.isEdit
-                                            ? 'Save Changes'
-                                            : 'Next Step'),
+                                        translateText(
+                                          widget.isEdit
+                                              ? 'Save Changes'
+                                              : 'Next Step',
+                                        ),
                                         style: const TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w800,
                                         ),
                                       ),
                                       const SizedBox(width: 10),
-                                      const Icon(Icons.arrow_forward_rounded,
-                                          size: 20),
+                                      const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        size: 20,
+                                      ),
                                     ],
                                   ),
                           ),
@@ -1908,8 +1927,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           color: const Color(0xFFFAF8F7),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color:
-                isAddSlot ? const Color(0xFFD3A94C) : const Color(0xFFE8E1DC),
+            color: isAddSlot
+                ? const Color(0xFFD3A94C)
+                : const Color(0xFFE8E1DC),
             style: isAddSlot ? BorderStyle.solid : BorderStyle.solid,
           ),
         ),
@@ -2079,8 +2099,11 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.lightbulb_outline,
-              color: Color(0xFF7A4A09), size: 22),
+          const Icon(
+            Icons.lightbulb_outline,
+            color: Color(0xFF7A4A09),
+            size: 22,
+          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -2116,8 +2139,9 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   Widget _buildFieldLabel(String label) {
     final normalizedLabel = label.replaceAll('*', '').trim();
     final translatedLabel = translateText(normalizedLabel);
-    final localizedLabel =
-        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
+    final localizedLabel = translatedLabel != normalizedLabel
+        ? translatedLabel
+        : normalizedLabel;
     final hasAsterisk = label.contains('*');
 
     return Padding(
@@ -2167,10 +2191,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final translatedLabel = translateText(normalizedLabel);
     final translatedHint = translateText(normalizedHint);
 
-    final localizedLabel =
-        translatedLabel != normalizedLabel ? translatedLabel : normalizedLabel;
-    final localizedHint =
-        translatedHint != normalizedHint ? translatedHint : normalizedHint;
+    final localizedLabel = translatedLabel != normalizedLabel
+        ? translatedLabel
+        : normalizedLabel;
+    final localizedHint = translatedHint != normalizedHint
+        ? translatedHint
+        : normalizedHint;
 
     final String cleanLabel = localizedLabel.trim();
     final hasInsideCounter = maxLength != null;
@@ -2211,15 +2237,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                       final text = value?.trim() ?? '';
 
                       if (text.isEmpty) {
-                        return translateText('{field} is required')
-                            .replaceAll('{field}', cleanLabel);
+                        return translateText(
+                          '{field} is required',
+                        ).replaceAll('{field}', cleanLabel);
                       }
 
                       if (label.toLowerCase().contains('phone') ||
                           label.toLowerCase().contains('mobile')) {
                         if (text.length != 10) {
                           return translateText(
-                              'Phone number must be 10 digits');
+                            'Phone number must be 10 digits',
+                          );
                         }
                         if (RegExp(r'^(\d)\1{9}$').hasMatch(text)) {
                           return translateText('Invalid phone number');
@@ -2261,23 +2289,22 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               ),
                             )
                           : prefixIconData == null
-                              ? null
-                              : Container(
-                                  width: 48,
-                                  alignment: Alignment.center,
-                                  margin: const EdgeInsets.only(right: 8),
-                                  decoration: const BoxDecoration(
-                                    border: Border(
-                                      right:
-                                          BorderSide(color: Color(0xFFE4DDD8)),
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    prefixIconData,
-                                    color: const Color(0xFF8B6500),
-                                    size: 19,
-                                  ),
+                          ? null
+                          : Container(
+                              width: 48,
+                              alignment: Alignment.center,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(color: Color(0xFFE4DDD8)),
                                 ),
+                              ),
+                              child: Icon(
+                                prefixIconData,
+                                color: const Color(0xFF8B6500),
+                                size: 19,
+                              ),
+                            ),
                       suffixIcon: suffixIconData == null
                           ? null
                           : Icon(
@@ -2286,16 +2313,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                               size: 19,
                             ),
                       filled: true,
-                      fillColor:
-                          enabled ? Colors.white : const Color(0xFFF1EEEE),
+                      fillColor: enabled
+                          ? Colors.white
+                          : const Color(0xFFF1EEEE),
                       contentPadding: EdgeInsets.fromLTRB(
                         16,
                         14,
                         hasInsideCounter
                             ? 82
                             : suffixIconData == null
-                                ? 16
-                                : 4,
+                            ? 16
+                            : 4,
                         shouldReserveCounterSpace ? 30 : 14,
                       ),
                       border: OutlineInputBorder(
@@ -2318,13 +2346,17 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       errorBorder: OutlineInputBorder(
-                        borderSide:
-                            const BorderSide(color: AppColors.red, width: 1),
+                        borderSide: const BorderSide(
+                          color: AppColors.red,
+                          width: 1,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       focusedErrorBorder: OutlineInputBorder(
-                        borderSide:
-                            const BorderSide(color: AppColors.red, width: 1),
+                        borderSide: const BorderSide(
+                          color: AppColors.red,
+                          width: 1,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       errorStyle: const TextStyle(color: AppColors.red),
@@ -2355,7 +2387,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
   }
 
   Future<void> _refreshSalonListForCreatedSelection(
-      BuildContext context) async {
+    BuildContext context,
+  ) async {
     try {
       final selection = await StylistBranchSelectionStore.load();
       if (!context.mounted) return;
