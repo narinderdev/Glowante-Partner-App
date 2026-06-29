@@ -193,11 +193,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     }
     return 0;
   }
-int? _readPositiveIntValue(List<dynamic> values) {
-  final parsed = _readIntValue(values);
-  if (parsed == null || parsed <= 0) return null;
-  return parsed;
-}
+
+  int? _readPositiveIntValue(List<dynamic> values) {
+    final parsed = _readIntValue(values);
+    if (parsed == null || parsed <= 0) return null;
+    return parsed;
+  }
 
   int? _readIntValue(List<dynamic> values) {
     for (final value in values) {
@@ -419,17 +420,21 @@ int? _readPositiveIntValue(List<dynamic> values) {
           fallback: _endTimeController.text,
         );
       }
-    _draftOpeningBufferMinutes =
-    _readPositiveIntValue([initialBranch['openingBufferMinutes']]) ?? 30;
+      _draftOpeningBufferMinutes =
+          _readPositiveIntValue([initialBranch['openingBufferMinutes']]) ?? 30;
 
-_draftLastBookingBufferMinutes =
-    _readPositiveIntValue([initialBranch['lastBookingBufferMinutes']]) ?? 30;
+      _draftLastBookingBufferMinutes =
+          _readPositiveIntValue([initialBranch['lastBookingBufferMinutes']]) ??
+              30;
 
-_draftLastSlotOverflowGraceMinutes =
-    _readPositiveIntValue([initialBranch['lastSlotOverflowGraceMinutes']]) ?? 10;
-    _openingBufferController.text = _draftOpeningBufferMinutes.toString();
-_lastVisibleBufferController.text = _draftLastBookingBufferMinutes.toString();
-_overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
+      _draftLastSlotOverflowGraceMinutes = _readPositiveIntValue(
+              [initialBranch['lastSlotOverflowGraceMinutes']]) ??
+          10;
+      _openingBufferController.text = _draftOpeningBufferMinutes.toString();
+      _lastVisibleBufferController.text =
+          _draftLastBookingBufferMinutes.toString();
+      _overflowGraceController.text =
+          _draftLastSlotOverflowGraceMinutes.toString();
       _existingImageUrls = [
         ..._extractImageUrls(initialBranch['imageUrls']),
         ..._extractImageUrls(initialBranch['imageUrl']),
@@ -493,6 +498,111 @@ _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
   }
 
   Future<void> _pickImages() async {
+    final source = await _chooseImageSource();
+    if (source == null) return;
+
+    if (source == ImageSource.camera) {
+      await _pickSingleImage(source);
+      return;
+    }
+
+    await _pickGalleryImages();
+  }
+
+  Future<ImageSource?> _chooseImageSource() async {
+    if (!mounted) return null;
+
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  translateText('Add photo'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1F1B18),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  translateText(
+                    'Choose from gallery or take a new photo.',
+                  ),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6F665E),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  onPressed: () =>
+                      Navigator.pop(sheetContext, ImageSource.camera),
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: Text(translateText('Take from camera')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      Navigator.pop(sheetContext, ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: Text(translateText('Choose from gallery')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.starColor,
+                    side: BorderSide(color: AppColors.starColor),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickSingleImage(ImageSource source) async {
+    final existing = context.read<AddBranchCubit>().state.images;
+    final remainingSlots = 10 - existing.length;
+    if (remainingSlots <= 0) {
+      _showImageLimitSnackBar();
+      return;
+    }
+
+    final file = await _picker.pickImage(source: source);
+    if (!mounted) return;
+    if (file == null) return;
+    final images = [
+      ...existing,
+      File(file.path),
+    ].take(10).toList();
+    context.read<AddBranchCubit>().setImages(images);
+  }
+
+  Future<void> _pickGalleryImages() async {
     final existing = context.read<AddBranchCubit>().state.images;
     final remainingSlots = 10 - existing.length;
     if (remainingSlots <= 0) {
@@ -507,6 +617,7 @@ _overflowGraceController.text = _draftLastSlotOverflowGraceMinutes.toString();
     } else {
       files = await _picker.pickMultiImage(limit: remainingSlots);
     }
+
     if (!mounted) return;
     if (files.isEmpty) return;
     if (files.length > remainingSlots) {

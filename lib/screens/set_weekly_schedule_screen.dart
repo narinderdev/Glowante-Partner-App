@@ -549,14 +549,9 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       maxMinutes: _salonEndMinutes,
       includeMin: true,
       includeMax: false,
-    );
+    ).where((option) => _endOptionsForStart(option).isNotEmpty).toList();
 
-    final endOptions = _boundedTimeOptions(
-      minMinutes: _displayToMinutes(config.startTime),
-      maxMinutes: _salonEndMinutes,
-      includeMin: false,
-      includeMax: true,
-    );
+    final endOptions = _endOptionsForStart(config.startTime);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 17),
@@ -913,9 +908,36 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
         .where((entry) => !entry.value.isClosed)
         .toList(growable: false);
 
+    if (openDays.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            translateText('Please enable at least one working day.'),
+          ),
+        ),
+      );
+      return;
+    }
+
     for (final entry in openDays) {
       final startMinutes = _displayToMinutes(entry.value.startTime);
       final endMinutes = _displayToMinutes(entry.value.endTime);
+      final endOptions = _endOptionsForStart(entry.value.startTime);
+
+      if (endOptions.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              translateText(
+                '{day} end time must be after start time.',
+                params: {'day': _capitalize(entry.key)},
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+
       if (startMinutes >= endMinutes) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1087,6 +1109,15 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
 
       return afterMin && beforeMax;
     }).toList();
+  }
+
+  List<String> _endOptionsForStart(String startTime) {
+    return _boundedTimeOptions(
+      minMinutes: _displayToMinutes(startTime),
+      maxMinutes: _salonEndMinutes,
+      includeMin: false,
+      includeMax: true,
+    );
   }
 
   String _nextEndTimeAfter(String startTime) {
@@ -1307,6 +1338,7 @@ class _TimeDropdown extends StatelessWidget {
     );
   }
 }
+
 final List<String> _timeOptions = List<String>.generate(48, (index) {
   final hour24 = index ~/ 2;
   final minute = index.isEven ? 0 : 30;
