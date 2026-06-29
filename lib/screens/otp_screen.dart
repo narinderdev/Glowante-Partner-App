@@ -82,49 +82,49 @@ class _OtpScreenState extends State<OtpScreen> {
     //       selectionOffset: _otpTextEditController.selection.baseOffset,
     //     );
     //   });
-_otpInteractor = OTPInteractor();
+    _otpInteractor = OTPInteractor();
 
-_otpInteractor.getAppSignature().then((signature) {
-  debugPrint('OTP app signature/hash: $signature');
-});
+    _otpInteractor.getAppSignature().then((signature) {
+      debugPrint('OTP app signature/hash: $signature');
+    });
 
-_otpTextEditController = OTPTextEditController(
-  codeLength: 6,
-  otpInteractor: _otpInteractor,
-  onCodeReceive: (code) {
-    _fillFromCode(code);
-  },
-);
+    _otpTextEditController = OTPTextEditController(
+      codeLength: 6,
+      otpInteractor: _otpInteractor,
+      onCodeReceive: (code) {
+        _fillFromCode(code);
+      },
+    );
 
-_otpTextEditController.startListenRetriever((sms) {
-  final text = sms ?? '';
+    _otpTextEditController.startListenRetriever((sms) {
+      final text = sms ?? '';
 
-  // Example SMS:
-  // Your Glowante login OTP is 908751. Valid for 10 min. Do not share.
-  // GLOWANTE PERSONAL CARE PRIVATE LIMITED
-  // LfDtnM4puKz
+      // Example SMS:
+      // Your Glowante login OTP is 908751. Valid for 10 min. Do not share.
+      // GLOWANTE PERSONAL CARE PRIVATE LIMITED
+      // LfDtnM4puKz
 
-  final match = RegExp(r'\b\d{6}\b').firstMatch(text);
-  return match?.group(0) ?? '';
-});
+      final match = RegExp(r'\b\d{6}\b').firstMatch(text);
+      return match?.group(0) ?? '';
+    });
 
-_otpTextEditController.addListener(() {
-  final currentText = _otpTextEditController.text;
+    _otpTextEditController.addListener(() {
+      final currentText = _otpTextEditController.text;
 
-  if (_isProgrammaticFill) {
-    _lastOtpText = currentText;
-    return;
-  }
+      if (_isProgrammaticFill) {
+        _lastOtpText = currentText;
+        return;
+      }
 
-  if (currentText == _lastOtpText) return;
+      if (currentText == _lastOtpText) return;
 
-  _lastOtpText = currentText;
+      _lastOtpText = currentText;
 
-  _handleOtpCodeChanged(
-    currentText,
-    selectionOffset: _otpTextEditController.selection.baseOffset,
-  );
-});
+      _handleOtpCodeChanged(
+        currentText,
+        selectionOffset: _otpTextEditController.selection.baseOffset,
+      );
+    });
     for (final focusNode in otpFocusNodes) {
       focusNode.addListener(() {
         if (mounted) setState(() {});
@@ -161,6 +161,7 @@ _otpTextEditController.addListener(() {
       c.clear();
     }
     _otpTextEditController.clear();
+    _otpTextEditController.selection = const TextSelection.collapsed(offset: 0);
     _lastOtpText = '';
     _isProgrammaticFill = false;
 
@@ -168,7 +169,13 @@ _otpTextEditController.addListener(() {
       isContinueButtonEnabled = false;
     });
 
-    FocusScope.of(context).requestFocus(otpFocusNodes.first);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      FocusScope.of(context).requestFocus(otpFocusNodes.first);
+      otpControllers.first.selection = const TextSelection.collapsed(offset: 0);
+      setState(() {});
+    });
   }
 
   Future<void> _verifyOtp() async {
@@ -376,11 +383,12 @@ _otpTextEditController.addListener(() {
           otpControllers.every((controller) => controller.text.isNotEmpty);
       if (digitsOnly.isNotEmpty) errorMessage = '';
     });
-if (digitsOnly.isEmpty) {
-  FocusScope.of(context).requestFocus(otpFocusNodes[index]);
-  otpControllers[index].selection = const TextSelection.collapsed(offset: 0);
-  return;
-}
+    if (digitsOnly.isEmpty) {
+      FocusScope.of(context).requestFocus(otpFocusNodes[index]);
+      otpControllers[index].selection =
+          const TextSelection.collapsed(offset: 0);
+      return;
+    }
     if (index < otpFocusNodes.length - 1) {
       FocusScope.of(context).requestFocus(otpFocusNodes[index + 1]);
     } else {
@@ -512,8 +520,8 @@ if (digitsOnly.isEmpty) {
     for (final focusNode in otpFocusNodes) {
       focusNode.dispose();
     }
-   _otpTextEditController.stopListen();
-_otpTextEditController.dispose();
+    _otpTextEditController.stopListen();
+    _otpTextEditController.dispose();
     _timer?.cancel(); // Cancel the timer when disposing
     super.dispose();
   }
@@ -698,78 +706,85 @@ _otpTextEditController.dispose();
                               //   },
                               // ),
                               child: KeyboardListener(
-  focusNode: FocusNode(skipTraversal: true),
-  onKeyEvent: (event) {
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.backspace &&
-        otpControllers[index].text.isEmpty &&
-        index > 0) {
-      otpControllers[index - 1].clear();
+                                focusNode: FocusNode(skipTraversal: true),
+                                onKeyEvent: (event) {
+                                  if (event is KeyDownEvent &&
+                                      event.logicalKey ==
+                                          LogicalKeyboardKey.backspace &&
+                                      otpControllers[index].text.isEmpty &&
+                                      index > 0) {
+                                    otpControllers[index - 1].clear();
 
-      final compactOtp =
-          otpControllers.map((controller) => controller.text).join();
+                                    final compactOtp = otpControllers
+                                        .map((controller) => controller.text)
+                                        .join();
 
-      _otpTextEditController.text = compactOtp;
-      _lastOtpText = compactOtp;
+                                    _otpTextEditController.text = compactOtp;
+                                    _lastOtpText = compactOtp;
 
-      setState(() {
-        isContinueButtonEnabled =
-            otpControllers.every((controller) => controller.text.isNotEmpty);
-      });
+                                    setState(() {
+                                      isContinueButtonEnabled =
+                                          otpControllers.every((controller) =>
+                                              controller.text.isNotEmpty);
+                                    });
 
-      FocusScope.of(context).requestFocus(otpFocusNodes[index - 1]);
-      otpControllers[index - 1].selection =
-          const TextSelection.collapsed(offset: 0);
-    }
-  },
-  child: TextField(
-    controller: otpControllers[index],
-    focusNode: otpFocusNodes[index],
-    enabled: !isLoading,
-    keyboardType: TextInputType.number,
-    textInputAction:
-        index == 5 ? TextInputAction.done : TextInputAction.next,
-    maxLength: 1,
-    autofillHints:
-        index == 0 ? const [AutofillHints.oneTimeCode] : null,
-    inputFormatters: [
-      FilteringTextInputFormatter.digitsOnly,
-      LengthLimitingTextInputFormatter(1),
-    ],
-    textAlign: TextAlign.center,
-    textAlignVertical: TextAlignVertical.center,
-    style: TextStyle(
-      fontSize: 20,
-      fontWeight: FontWeight.w800,
-      color: filled ? Colors.white : _otpInk,
-    ),
-    cursorColor: filled ? Colors.white : _otpGold,
-    decoration: const InputDecoration(
-      counterText: '',
-      border: InputBorder.none,
-      enabledBorder: InputBorder.none,
-      focusedBorder: InputBorder.none,
-      disabledBorder: InputBorder.none,
-      filled: true,
-      fillColor: Colors.transparent,
-      isDense: true,
-      isCollapsed: true,
-      contentPadding: EdgeInsets.zero,
-    ),
-    onTap: () => _focusOtpDigit(index),
-    onChanged: (value) => _handleOtpBoxChanged(index, value),
-    onSubmitted: (_) {
-      if (index < 5) {
-        FocusScope.of(context).requestFocus(otpFocusNodes[index + 1]);
-        return;
-      }
+                                    FocusScope.of(context)
+                                        .requestFocus(otpFocusNodes[index - 1]);
+                                    otpControllers[index - 1].selection =
+                                        const TextSelection.collapsed(
+                                            offset: 0);
+                                  }
+                                },
+                                child: TextField(
+                                  controller: otpControllers[index],
+                                  focusNode: otpFocusNodes[index],
+                                  enabled: !isLoading,
+                                  keyboardType: TextInputType.number,
+                                  textInputAction: index == 5
+                                      ? TextInputAction.done
+                                      : TextInputAction.next,
+                                  autofillHints: index == 0
+                                      ? const [AutofillHints.oneTimeCode]
+                                      : null,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  textAlign: TextAlign.center,
+                                  textAlignVertical: TextAlignVertical.center,
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: filled ? Colors.white : _otpInk,
+                                  ),
+                                  cursorColor: filled ? Colors.white : _otpGold,
+                                  decoration: const InputDecoration(
+                                    counterText: '',
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                    filled: true,
+                                    fillColor: Colors.transparent,
+                                    isDense: true,
+                                    isCollapsed: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  onTap: () => _focusOtpDigit(index),
+                                  onChanged: (value) =>
+                                      _handleOtpBoxChanged(index, value),
+                                  onSubmitted: (_) {
+                                    if (index < 5) {
+                                      FocusScope.of(context).requestFocus(
+                                          otpFocusNodes[index + 1]);
+                                      return;
+                                    }
 
-      if (isContinueButtonEnabled && !isLoading) {
-        _verifyOtp();
-      }
-    },
-  ),
-),
+                                    if (isContinueButtonEnabled && !isLoading) {
+                                      _verifyOtp();
+                                    }
+                                  },
+                                ),
+                              ),
                             );
                           }),
                         ),
