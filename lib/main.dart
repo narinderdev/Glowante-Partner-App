@@ -161,9 +161,9 @@ class _MyAppState extends State<MyApp> {
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          builder: (context, child) => Listener(
+          builder: (context, child) => GestureDetector(
             behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
             child: CrashlyticsDebugOverlay(
               child: NetworkListener(
                 child: child ?? const SizedBox.shrink(),
