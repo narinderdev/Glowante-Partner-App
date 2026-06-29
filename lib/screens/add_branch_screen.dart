@@ -696,22 +696,76 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     _formKey.currentState?.validate();
   }
 
-  Future<void> _selectTime(
-    _BranchField field,
-    TextEditingController controller,
-  ) async {
+  TimeOfDay? _parseTimeOfDay(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return null;
+
+    final twelveHourMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+            caseSensitive: false)
+        .firstMatch(text);
+    if (twelveHourMatch != null) {
+      var hour = int.tryParse(twelveHourMatch.group(1)!) ?? 0;
+      final minute = int.tryParse(twelveHourMatch.group(2)!) ?? 0;
+      final suffix = twelveHourMatch.group(3)!.toUpperCase();
+      if (suffix == 'PM' && hour != 12) hour += 12;
+      if (suffix == 'AM' && hour == 12) hour = 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+
+    final twentyFourHourMatch =
+        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    if (twentyFourHourMatch != null) {
+      final hour = int.tryParse(twentyFourHourMatch.group(1)!) ?? 0;
+      final minute = int.tryParse(twentyFourHourMatch.group(2)!) ?? 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+
+    return null;
+  }
+
+  int _timeToMinutesOfDay(TimeOfDay time) => time.hour * 60 + time.minute;
+
+  TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
+    final total = _timeToMinutesOfDay(time) + minutes;
+    final safeTotal = total >= 24 * 60 ? 23 * 60 + 30 : total;
+    return TimeOfDay(
+      hour: safeTotal ~/ 60,
+      minute: safeTotal % 60,
+    );
+  }
+
+  Future<void> _selectTime(_BranchField field, TextEditingController controller,
+      {TextEditingController? pairedController}) async {
     final defaultTime = field == _BranchField.startTime
         ? const TimeOfDay(hour: 8, minute: 0)
         : const TimeOfDay(hour: 20, minute: 0);
+    final currentTime = _parseTimeOfDay(controller.text);
 
     final picked = await showTimePicker(
       context: context,
-      initialTime: defaultTime,
+      initialTime: currentTime ?? defaultTime,
     );
 
     if (picked != null) {
       if (!mounted) return;
       controller.text = picked.format(context);
+
+      if (pairedController != null) {
+        if (field == _BranchField.startTime) {
+          final endTime = _parseTimeOfDay(pairedController.text);
+          if (endTime == null ||
+              _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(picked)) {
+            pairedController.text = _addMinutes(picked, 30).format(context);
+          }
+        } else {
+          final startTime = _parseTimeOfDay(pairedController.text);
+          if (startTime != null &&
+              _timeToMinutesOfDay(picked) <= _timeToMinutesOfDay(startTime)) {
+            controller.text = _addMinutes(startTime, 30).format(context);
+          }
+        }
+      }
+
       _resetFieldError(field);
     }
   }
@@ -1129,6 +1183,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                         onTap: () => _selectTime(
                                           _BranchField.startTime,
                                           _startTimeController,
+                                          pairedController: _endTimeController,
                                         ),
                                         bottomSpacing: 0,
                                       ),
@@ -1142,6 +1197,8 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
                                         onTap: () => _selectTime(
                                           _BranchField.endTime,
                                           _endTimeController,
+                                          pairedController:
+                                              _startTimeController,
                                         ),
                                         bottomSpacing: 0,
                                       ),

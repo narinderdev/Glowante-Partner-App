@@ -309,6 +309,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     final initialSchedule = widget.initialSchedule;
 
     if (initialSchedule == null || initialSchedule.isEmpty) {
+      _copyMondayToAll = widget.totalSteps == 3;
       return;
     }
 
@@ -1274,11 +1275,37 @@ class _TimeDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final safeValue = options.contains(value)
+    final items = <String>[
+      if (value.trim().isNotEmpty && !options.contains(value)) value,
+      ...options,
+    ];
+    final safeValue = value.trim().isNotEmpty
         ? value
-        : options.isNotEmpty
-            ? options.first
+        : items.isNotEmpty
+            ? items.first
             : null;
+
+    if (!enabled) {
+      return Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        alignment: Alignment.centerLeft,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F5F3),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFFE8E1DC)),
+        ),
+        child: Text(
+          safeValue ?? '',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontSize: 10,
+            color: Color(0xFF2B2520),
+          ),
+        ),
+      );
+    }
 
     return Container(
       height: 32,
@@ -1304,7 +1331,7 @@ class _TimeDropdown extends StatelessWidget {
             size: 13,
             color: Color(0xFF8A8178),
           ),
-          items: options
+          items: items
               .map(
                 (option) => DropdownMenuItem<String>(
                   value: option,
@@ -1316,7 +1343,7 @@ class _TimeDropdown extends StatelessWidget {
                 ),
               )
               .toList(),
-          selectedItemBuilder: (context) => options
+          selectedItemBuilder: (context) => items
               .map(
                 (option) => Align(
                   alignment: Alignment.centerLeft,

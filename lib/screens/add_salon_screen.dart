@@ -286,6 +286,33 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return hour * 60 + minute;
   }
 
+  TimeOfDay? _parseTimeOfDay(String value) {
+    final text = value.trim();
+    if (text.isEmpty) return null;
+
+    final twelveHourMatch = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+            caseSensitive: false)
+        .firstMatch(text);
+    if (twelveHourMatch != null) {
+      var hour = int.tryParse(twelveHourMatch.group(1)!) ?? 0;
+      final minute = int.tryParse(twelveHourMatch.group(2)!) ?? 0;
+      final suffix = twelveHourMatch.group(3)!.toUpperCase();
+      if (suffix == 'PM' && hour != 12) hour += 12;
+      if (suffix == 'AM' && hour == 12) hour = 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+
+    final twentyFourHourMatch =
+        RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(text);
+    if (twentyFourHourMatch != null) {
+      final hour = int.tryParse(twentyFourHourMatch.group(1)!) ?? 0;
+      final minute = int.tryParse(twentyFourHourMatch.group(2)!) ?? 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    }
+
+    return null;
+  }
+
   String _formatDisplayTime(
     dynamic value, {
     String fallback = '',
@@ -748,7 +775,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                 ),
                 const SizedBox(height: 18),
                 ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(sheetContext, ImageSource.camera),
+                  onPressed: () =>
+                      Navigator.pop(sheetContext, ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: Text(translateText('Take from camera')),
                   style: ElevatedButton.styleFrom(
@@ -870,15 +898,51 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     return hasCompleteAddress && hasValidCoordinates;
   }
 
-  Future<void> _selectTime(TextEditingController controller) async {
+  int _timeToMinutesOfDay(TimeOfDay time) => time.hour * 60 + time.minute;
+
+  TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
+    final total = _timeToMinutesOfDay(time) + minutes;
+    final safeTotal = total >= 24 * 60 ? 23 * 60 + 30 : total;
+    return TimeOfDay(
+      hour: safeTotal ~/ 60,
+      minute: safeTotal % 60,
+    );
+  }
+
+  Future<void> _selectTime(
+    TextEditingController controller, {
+    TextEditingController? pairedController,
+    required bool isStart,
+  }) async {
+    final currentTime = _parseTimeOfDay(controller.text);
+    final initialTime = currentTime ??
+        (isStart
+            ? const TimeOfDay(hour: 8, minute: 0)
+            : const TimeOfDay(hour: 20, minute: 0));
+
     final picked = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: initialTime,
     );
     if (!mounted) return;
     if (picked != null) {
-      final formatted = picked.format(context);
-      controller.text = formatted;
+      controller.text = picked.format(context);
+
+      if (pairedController != null) {
+        if (isStart) {
+          final endTime = _parseTimeOfDay(pairedController.text);
+          if (endTime == null ||
+              _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(picked)) {
+            pairedController.text = _addMinutes(picked, 30).format(context);
+          }
+        } else {
+          final startTime = _parseTimeOfDay(pairedController.text);
+          if (startTime != null &&
+              _timeToMinutesOfDay(picked) <= _timeToMinutesOfDay(startTime)) {
+            controller.text = _addMinutes(startTime, 30).format(context);
+          }
+        }
+      }
     }
   }
 
@@ -1406,8 +1470,11 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                       child: _buildTimePickerField(
                                         controller: _startTimeController,
                                         label: 'Start Time *',
-                                        onTap: () =>
-                                            _selectTime(_startTimeController),
+                                        onTap: () => _selectTime(
+                                          _startTimeController,
+                                          pairedController: _endTimeController,
+                                          isStart: true,
+                                        ),
                                         bottomSpacing: 0,
                                       ),
                                     ),
@@ -1416,8 +1483,12 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
                                       child: _buildTimePickerField(
                                         controller: _endTimeController,
                                         label: 'End Time *',
-                                        onTap: () =>
-                                            _selectTime(_endTimeController),
+                                        onTap: () => _selectTime(
+                                          _endTimeController,
+                                          pairedController:
+                                              _startTimeController,
+                                          isStart: false,
+                                        ),
                                         bottomSpacing: 0,
                                       ),
                                     ),
