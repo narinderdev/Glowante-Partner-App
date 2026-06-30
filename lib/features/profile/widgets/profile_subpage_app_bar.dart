@@ -40,6 +40,10 @@ AppBar buildProfileSubpageAppBar({
       color: _profileSubpageTitle,
       size: 24,
     ),
+    actionsIconTheme: const IconThemeData(
+      color: _profileSubpageTitle,
+      size: 24,
+    ),
     title: titleWidget ??
         Text(
           title,

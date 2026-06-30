@@ -1100,16 +1100,20 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     bool includeMin = true,
     bool includeMax = true,
   }) {
-    return _timeOptions.where((option) {
-      final minutes = _displayToMinutes(option);
+    final options = <String>[];
 
+    for (var minutes = 0; minutes < 24 * 60; minutes += 10) {
       final afterMin =
           includeMin ? minutes >= minMinutes : minutes > minMinutes;
       final beforeMax =
           includeMax ? minutes <= maxMinutes : minutes < maxMinutes;
 
-      return afterMin && beforeMax;
-    }).toList();
+      if (afterMin && beforeMax) {
+        options.add(_minutesToDisplayTime(minutes));
+      }
+    }
+
+    return options;
   }
 
   List<String> _endOptionsForStart(String startTime) {
@@ -1365,11 +1369,3 @@ class _TimeDropdown extends StatelessWidget {
     );
   }
 }
-
-final List<String> _timeOptions = List<String>.generate(48, (index) {
-  final hour24 = index ~/ 2;
-  final minute = index.isEven ? 0 : 30;
-  final suffix = hour24 >= 12 ? 'PM' : 'AM';
-  final hour12 = ((hour24 + 11) % 12) + 1;
-  return '${hour12.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $suffix';
-});

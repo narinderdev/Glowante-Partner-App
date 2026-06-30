@@ -949,7 +949,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
   TimeOfDay _addMinutes(TimeOfDay time, int minutes) {
     final total = _timeToMinutesOfDay(time) + minutes;
-    final safeTotal = total >= 24 * 60 ? 23 * 60 + 30 : total;
+    final safeTotal = total >= 24 * 60 ? 23 * 60 + 50 : total;
     return TimeOfDay(hour: safeTotal ~/ 60, minute: safeTotal % 60);
   }
 
@@ -977,13 +977,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
           final endTime = _parseTimeOfDay(pairedController.text);
           if (endTime == null ||
               _timeToMinutesOfDay(endTime) <= _timeToMinutesOfDay(picked)) {
-            pairedController.text = _addMinutes(picked, 30).format(context);
+            pairedController.text = _addMinutes(picked, 10).format(context);
           }
         } else {
           final startTime = _parseTimeOfDay(pairedController.text);
           if (startTime != null &&
               _timeToMinutesOfDay(picked) <= _timeToMinutesOfDay(startTime)) {
-            controller.text = _addMinutes(startTime, 30).format(context);
+            controller.text = _addMinutes(startTime, 10).format(context);
           }
         }
       }

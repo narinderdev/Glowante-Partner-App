@@ -257,7 +257,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                           ),
                           const SizedBox(height: 34),
                           AbsorbPointer(
-                            absorbing: copyServicesSelected,
+                            absorbing: copyServicesSelected || _isSubmitting,
                             child: Opacity(
                               opacity: copyServicesSelected ? 0.45 : 1,
                               child: GridView.builder(
@@ -504,14 +504,16 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                       );
                     }),
                   ],
-                  onChanged: (branchId) {
-                    setState(() {
-                      _selectedSourceBranchId = branchId;
-                      if (branchId != null) {
-                        _selectedCodes.clear();
-                      }
-                    });
-                  },
+                  onChanged: _isSubmitting
+                      ? null
+                      : (branchId) {
+                          setState(() {
+                            _selectedSourceBranchId = branchId;
+                            if (branchId != null) {
+                              _selectedCodes.clear();
+                            }
+                          });
+                        },
                 ),
               ],
             ),
@@ -697,6 +699,8 @@ class _AddSalonServicesState extends State<AddSalonServices> {
   }
 
   Future<void> _submitSelection(BuildContext context) async {
+    if (_isSubmitting) return;
+
     final copyServicesSelected =
         widget.branchFormData != null && _selectedSourceBranchId != null;
     if (!copyServicesSelected && _selectedCodes.isEmpty) {

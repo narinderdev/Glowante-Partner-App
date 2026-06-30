@@ -161,6 +161,8 @@ class SharedProfileScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         shadowColor: Colors.transparent,
         systemOverlayStyle: SystemUiOverlayStyle.dark,
+        iconTheme: const IconThemeData(color: Color(0xFFB45309)),
+        actionsIconTheme: const IconThemeData(color: Color(0xFFB45309)),
         title: Text(
           context.t('Profile'),
           style: _profileTextStyle(

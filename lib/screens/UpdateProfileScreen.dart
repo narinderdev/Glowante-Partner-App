@@ -177,8 +177,9 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           );
         }
       } else {
-        List<String> errorMessages =
-            List<String>.from(response['message'] ?? []);
+        List<String> errorMessages = List<String>.from(
+          response['message'] ?? [],
+        ).map(_friendlyProfileMessage).toList();
         _showErrorDialog(errorMessages);
       }
     } catch (e) {
@@ -194,7 +195,15 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
       error,
       fallback: 'Unable to update profile. Please try again.',
     );
+    return _friendlyProfileMessage(message);
+  }
+
+  String _friendlyProfileMessage(String message) {
     final lowerMessage = message.toLowerCase();
+    if (lowerMessage.contains('email must be an email') ||
+        lowerMessage.contains('must be an email')) {
+      return translateText('Enter a valid email');
+    }
     if (lowerMessage.contains('socketexception') ||
         lowerMessage.contains('failed host lookup') ||
         lowerMessage.contains('no address associated with hostname') ||
