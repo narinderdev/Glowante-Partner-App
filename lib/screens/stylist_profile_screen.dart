@@ -7,7 +7,6 @@ import '../features/profile/widgets/shared_profile_screen.dart';
 import '../features/stylist_attendance/stylist_mark_attendance_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
-import '../services/theme_listener.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import 'stylist_about_salon_screen.dart';
@@ -53,11 +52,6 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   void _changeLanguage(String langCode) {
     final langListener = Provider.of<LanguageListener>(context, listen: false);
     langListener.changeLanguage(langCode);
-  }
-
-  void _changeTheme(ThemeMode themeMode) {
-    final themeListener = Provider.of<ThemeListener>(context, listen: false);
-    themeListener.changeThemeMode(themeMode);
   }
 
   void _openDoc(String title, String url) {
@@ -289,15 +283,12 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final langListener = Provider.of<LanguageListener>(context);
-    final themeListener = Provider.of<ThemeListener>(context);
 
     return SharedProfileScreen(
       userName: _userName,
       phoneNumber: _phoneNumber,
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
-      currentThemeMode: themeListener.themeMode,
-      onThemeChanged: _changeTheme,
       onRefresh: _loadData,
       menuItems: [
         ProfileMenuItemData(

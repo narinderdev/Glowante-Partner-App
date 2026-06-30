@@ -8,7 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../features/profile/widgets/shared_profile_screen.dart';
 import '../services/auth_session_manager.dart';
 import '../services/language_listener.dart';
-import '../services/theme_listener.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
@@ -62,12 +61,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _logProfile('language_changed', details: langCode);
     final langListener = Provider.of<LanguageListener>(context, listen: false);
     langListener.changeLanguage(langCode);
-  }
-
-  void _changeTheme(ThemeMode themeMode) {
-    _logProfile('theme_changed', details: themeMode.name);
-    final themeListener = Provider.of<ThemeListener>(context, listen: false);
-    themeListener.changeThemeMode(themeMode);
   }
 
   void _showLogoutModal(BuildContext context) {
@@ -270,7 +263,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final langListener = Provider.of<LanguageListener>(context);
-    final themeListener = Provider.of<ThemeListener>(context);
     final menuItems = <ProfileMenuItemData>[
       ProfileMenuItemData(
         icon: Icons.shield_outlined,
@@ -337,8 +329,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       phoneNumber: phoneNumber ?? '',
       currentLanguageCode: langListener.currentLang,
       onLanguageChanged: _changeLanguage,
-      currentThemeMode: themeListener.themeMode,
-      onThemeChanged: _changeTheme,
       onRefresh: _loadUserData,
       roleLabel: context.t('Salon Owner'),
       topSections: const <Widget>[],

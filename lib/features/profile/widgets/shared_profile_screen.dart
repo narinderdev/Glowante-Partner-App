@@ -58,8 +58,6 @@ class SharedProfileScreen extends StatelessWidget {
     required this.phoneNumber,
     required this.currentLanguageCode,
     required this.onLanguageChanged,
-    required this.currentThemeMode,
-    required this.onThemeChanged,
     required this.menuItems,
     required this.onLogout,
     required this.onDeleteAccount,
@@ -72,8 +70,6 @@ class SharedProfileScreen extends StatelessWidget {
   final String phoneNumber;
   final String currentLanguageCode;
   final ValueChanged<String> onLanguageChanged;
-  final ThemeMode currentThemeMode;
-  final ValueChanged<ThemeMode> onThemeChanged;
   final List<ProfileMenuItemData> menuItems;
   final VoidCallback onLogout;
   final VoidCallback onDeleteAccount;
@@ -102,11 +98,6 @@ class SharedProfileScreen extends StatelessWidget {
               _LanguageCard(
                 currentLanguageCode: currentLanguageCode,
                 onLanguageChanged: onLanguageChanged,
-              ),
-              const SizedBox(height: 12),
-              _ThemeCard(
-                currentThemeMode: currentThemeMode,
-                onThemeChanged: onThemeChanged,
               ),
               for (final section in topSections) ...[
                 const SizedBox(height: 18),
@@ -475,105 +466,6 @@ class _LanguageCard extends StatelessWidget {
 
 class _LanguageSheetOption extends StatelessWidget {
   const _LanguageSheetOption({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      tileColor: selected ? const Color(0xFFF6EFE3) : const Color(0xFFFBF9F8),
-      leading: Icon(
-        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-        color: AppColors.starColor,
-      ),
-      title: Text(
-        label,
-        style: _profileTextStyle(
-          size: 16,
-          weight: FontWeight.w700,
-          color: const Color(0xFF1C1917),
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-}
-
-class _ThemeCard extends StatelessWidget {
-  const _ThemeCard({
-    required this.currentThemeMode,
-    required this.onThemeChanged,
-  });
-
-  final ThemeMode currentThemeMode;
-  final ValueChanged<ThemeMode> onThemeChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return _ProfileSettingsTile(
-      icon: currentThemeMode == ThemeMode.dark
-          ? Icons.dark_mode_rounded
-          : Icons.light_mode_rounded,
-      title: context.t('Theme'),
-      subtitle: currentThemeMode == ThemeMode.dark ? 'Dark' : 'Light',
-      onTap: () => _showThemePicker(context),
-    );
-  }
-
-  void _showThemePicker(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            context.t('Theme'),
-            style: _profileTextStyle(
-              size: 18,
-              weight: FontWeight.w700,
-              color: const Color(0xFF1C1917),
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _ThemeSheetOption(
-                label: context.t('Light'),
-                selected: currentThemeMode == ThemeMode.light,
-                onTap: () {
-                  Navigator.pop(dialogContext);
-                  onThemeChanged(ThemeMode.light);
-                },
-              ),
-              const SizedBox(height: 10),
-              _ThemeSheetOption(
-                label: context.t('Dark'),
-                selected: currentThemeMode == ThemeMode.dark,
-                onTap: () {
-                  Navigator.pop(dialogContext);
-                  onThemeChanged(ThemeMode.dark);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ThemeSheetOption extends StatelessWidget {
-  const _ThemeSheetOption({
     required this.label,
     required this.selected,
     required this.onTap,

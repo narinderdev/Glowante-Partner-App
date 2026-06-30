@@ -1,5 +1,4 @@
 import os
-import re
 import subprocess
 import requests
 from dotenv import load_dotenv
@@ -127,6 +126,7 @@ def transition_jira_issue(issue_key, target_status_names):
         return False
 
     print("Available transitions:")
+
     for transition in transitions:
         transition_name = transition.get("name", "")
         to_status = transition.get("to", {}).get("name", "")
@@ -202,14 +202,15 @@ def main():
         return
 
     git_status = run(
-        "git status --short",
+        "git status --short -- ':!jira-codex-automation'",
         cwd=FLUTTER_REPO_PATH,
         check=False,
     )
 
     if git_status.stdout.strip():
-        print("Your working tree already has changes.")
-        print("Please commit/stash/review existing changes before running automation.")
+        print("Your working tree already has app changes.")
+        print("Please review/commit/stash existing app changes before running automation.")
+        print(git_status.stdout)
         return
 
     transition_jira_issue(
@@ -221,14 +222,33 @@ def main():
 You are working on the Glowante Flutter app.
 
 Jira Issue: {key}
-Current Status: {status}
-Title: {summary}
+Current Jira Status: {status}
+Jira Title: {summary}
 
 Task:
 Implement this Jira task directly on the current bloc branch.
 
 Specific issue:
-{summary}
+Copy-paste is not working in the login phone number field.
+
+Implementation instructions:
+- Search the Flutter project for login screen files.
+- Search for TextFormField/TextField used for phone number input.
+- Check files under lib/screens, lib/features, lib/bloc/auth, lib/bloc/otp.
+- Find where phone number validation and controller logic is implemented.
+- Enable normal paste behavior in the phone input field.
+- If inputFormatters block paste, update them safely.
+- If pasted value contains country code like +91, remove only the selected country code part and keep the local phone number.
+- If pasted value contains spaces, dashes, brackets, or invisible characters, normalize it safely.
+- Example pasted values should work:
+  - +91 98765 43210
+  - 98765 43210
+  - 9876543210
+  - +91-98765-43210
+- Do not break manual typing.
+- Do not break country code dropdown/selection.
+- Do not change unrelated login/OTP logic.
+- Make actual code changes. Do not only explain.
 
 Important rules:
 - Work only on this issue.
@@ -242,27 +262,59 @@ Important rules:
 - Preserve existing app design.
 - Preserve existing validation.
 - Preserve existing country code behavior.
-- Fix login phone input copy-paste behavior.
-- If pasted value contains country code like +91 or spaces, clean it safely according to existing app logic.
-- Do not touch .env, venv, secrets, or generated files.
+- Do not touch .env, venv, secrets, build files, generated files, or automation files.
+- Do not modify anything inside jira-codex-automation.
 - After implementation, run flutter analyze.
 - Fix analyzer issues only if caused by your changes.
+- Existing analyzer warnings/info should not be fixed unless directly related to this issue.
 
-Final answer should include:
+Required output:
 1. Summary of changes
 2. Files changed
 3. Testing done
 4. Any pending dependency
 """
 
-    run(f'codex exec --full-auto "{prompt}"', cwd=FLUTTER_REPO_PATH, check=False)
+    prompt_file = os.path.join(FLUTTER_REPO_PATH, "codex_jira_task_prompt.txt")
 
-    analyze_result = run("flutter analyze", cwd=FLUTTER_REPO_PATH, check=False)
+    with open(prompt_file, "w", encoding="utf-8") as file:
+        file.write(prompt.strip())
 
-    diff = run("git status --short", cwd=FLUTTER_REPO_PATH, check=False)
+    codex_result = run(
+        'codex exec --full-auto "$(cat codex_jira_task_prompt.txt)"',
+        cwd=FLUTTER_REPO_PATH,
+        check=False,
+    )
+
+    run(
+        "rm -f codex_jira_task_prompt.txt",
+        cwd=FLUTTER_REPO_PATH,
+        check=False,
+    )
+
+    if codex_result.returncode != 0:
+        add_jira_comment(
+            key,
+            "Codex automation attempted implementation but Codex command failed. Please check local terminal output."
+        )
+        print("Codex command failed.")
+        return
+
+    run(
+        "flutter analyze",
+        cwd=FLUTTER_REPO_PATH,
+        check=False,
+    )
+
+    diff = run(
+        "git status --short -- ':!jira-codex-automation'",
+        cwd=FLUTTER_REPO_PATH,
+        check=False,
+    )
 
     if not diff.stdout.strip():
         print("No code changes created by Codex.")
+
         add_jira_comment(
             key,
             "Automation checked this task, but Codex did not create any code changes."
@@ -276,10 +328,11 @@ Final answer should include:
 
     print("\nAutomation completed.")
     print("Changes are local only.")
-    print("Review using:")
-    print("git diff")
-    print("git status")
-    print("\nAfter review, you can manually run:")
+    print("\nReview using:")
+    print("cd /Users/apnitormacmini3/Desktop/Glowante_onboarding_latest")
+    print("git status --short -- ':!jira-codex-automation'")
+    print("git diff -- ':!jira-codex-automation'")
+    print("\nAfter review, manually run:")
     print("git add .")
     print(f'git commit -m "{key}: {summary}"')
     print("git push")
