@@ -531,8 +531,7 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           maxLength: maxLength,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           inputFormatters: [
-            if (isNameField)
-              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z .'-]")),
+            if (isNameField) const _ProfileNameInputFormatter(),
             if (fieldType == 'email')
               FilteringTextInputFormatter.deny(RegExp(r'\s')),
           ],
@@ -615,6 +614,39 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           },
         ),
       ],
+    );
+  }
+}
+
+class _ProfileNameInputFormatter extends TextInputFormatter {
+  const _ProfileNameInputFormatter();
+
+  static final RegExp _validCharacters = RegExp(r"[A-Za-z .'-]");
+  static final RegExp _spaceLikeCharacters = RegExp(r'[\s\u00A0]+');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final normalizedText = newValue.text.replaceAll(_spaceLikeCharacters, ' ');
+    final buffer = StringBuffer();
+
+    for (final rune in normalizedText.runes) {
+      final character = String.fromCharCode(rune);
+      if (_validCharacters.hasMatch(character)) {
+        buffer.write(character);
+      }
+    }
+
+    final filteredText = buffer.toString();
+    final selectionOffset =
+        newValue.selection.end.clamp(0, filteredText.length);
+
+    return TextEditingValue(
+      text: filteredText,
+      selection: TextSelection.collapsed(offset: selectionOffset),
+      composing: TextRange.empty,
     );
   }
 }
