@@ -16,8 +16,6 @@ const Color _serviceMuted = Color(0xFF6F665E);
 const Color _serviceBorder = Color(0xFFE3DCD7);
 const Color _serviceFieldFill = Colors.white;
 const Color _serviceSurface = Color(0xFFFBFAF8);
-const List<int> _durationOptions = <int>[15, 30, 45, 60, 90, 120, 180];
-const int _defaultDurationMinutes = 60;
 const bool _defaultPassiveWaitEnabled = true;
 const int _defaultInitialBusyMinutes = 10;
 const int _defaultPassiveWaitMinutes = 40;
@@ -94,16 +92,6 @@ class _AddServicesState extends State<AddServices> {
   bool get _isEditMode => widget.serviceToEdit != null;
 
   int? get _selectedDuration => _asInt(durationController.text.trim());
-
-  List<int> get _durationMenuOptions {
-    final selected = _selectedDuration;
-    final options = <int>{..._durationOptions};
-    if (selected != null && selected > 0) {
-      options.add(selected);
-    }
-    final sorted = options.toList()..sort();
-    return sorted;
-  }
 
   int? _asInt(dynamic value) {
     if (value is int) return value;
@@ -188,16 +176,10 @@ class _AddServicesState extends State<AddServices> {
       _populateServiceForEdit(widget.serviceToEdit!);
       _selectCategoryForService(widget.serviceToEdit!);
     } else if (widget.selectedCategory != null) {
-      durationController.text = _defaultDurationMinutes.toString();
-      _setDefaultPassiveWaitForDuration(_defaultDurationMinutes);
-
       selectedCategory = Map<String, dynamic>.from(widget.selectedCategory!);
       selectedCategoryType = 'category';
       final id = selectedCategory!['id'];
       selectedCategoryKey = 'cat:$id';
-    } else {
-      durationController.text = _defaultDurationMinutes.toString();
-      _setDefaultPassiveWaitForDuration(_defaultDurationMinutes);
     }
   }
 
@@ -552,17 +534,10 @@ class _AddServicesState extends State<AddServices> {
   String? _validateDuration(String? value) {
     final v = (value ?? '').trim();
     if (v.isEmpty) return translateText("Duration is required");
+    if (v.length > 3) return translateText("Duration cannot exceed 3 digits");
     final num? n = int.tryParse(v);
     if (n == null || n <= 0) return translateText("Duration must be positive");
     return null;
-  }
-
-  String _durationLabel(int minutes) {
-    if (minutes < 60) return '${minutes}m';
-    if (minutes % 60 == 0) return '${minutes ~/ 60}h';
-    final hours = minutes ~/ 60;
-    final mins = minutes % 60;
-    return '${hours}h ${mins}m';
   }
 
   int? _minorIntFromRupeeText(String value) {
@@ -817,7 +792,7 @@ class _AddServicesState extends State<AddServices> {
       widget.categories ?? [],
       selectedParentCategory: widget.selectedCategory,
     );
-    final durationMenuOptions = _durationMenuOptions;
+    final selectedDuration = _selectedDuration;
 
     return Scaffold(
       backgroundColor: _serviceSurface,
@@ -1016,90 +991,38 @@ class _AddServicesState extends State<AddServices> {
                                   children: [
                                     _FieldLabel(translateText("Duration *")),
                                     const SizedBox(height: 7),
-                                    DropdownButtonFormField<int>(
-                                      initialValue: durationMenuOptions
-                                              .contains(_selectedDuration)
-                                          ? _selectedDuration
-                                          : null,
-                                      isExpanded: true,
-                                      dropdownColor: const Color(0xFF6B665F),
-                                      borderRadius: BorderRadius.circular(8),
-                                      icon: const Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        color: _serviceGold,
-                                      ),
-                                      selectedItemBuilder: (context) {
-                                        return durationMenuOptions
-                                            .map(
-                                              (minutes) => Align(
-                                                alignment: Alignment.centerLeft,
-                                                child: Text(
-                                                  _durationLabel(minutes),
-                                                  style: const TextStyle(
-                                                    color: _serviceInk,
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ),
-                                            )
-                                            .toList();
-                                      },
-                                      items: durationMenuOptions.map((minutes) {
-                                        final selected =
-                                            minutes == _selectedDuration;
-                                        return DropdownMenuItem<int>(
-                                          value: minutes,
-                                          child: Row(
-                                            children: [
-                                              SizedBox(
-                                                width: 18,
-                                                child: selected
-                                                    ? const Icon(
-                                                        Icons.check_rounded,
-                                                        color: Colors.white,
-                                                        size: 16,
-                                                      )
-                                                    : null,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                _durationLabel(minutes),
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }).toList(),
+                                    TextFormField(
+                                      controller: durationController,
+                                      maxLength: 3,
+                                      maxLengthEnforcement:
+                                          MaxLengthEnforcement.enforced,
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.next,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(3),
+                                      ],
                                       onChanged: (value) {
-                                        if (value == null) return;
+                                        final duration = int.tryParse(value);
                                         setState(() {
-                                          durationController.text =
-                                              value.toString();
-                                          _setDefaultPassiveWaitForDuration(
-                                              value);
+                                          if (duration != null &&
+                                              duration > 0) {
+                                            _setDefaultPassiveWaitForDuration(
+                                                duration);
+                                          }
                                         });
                                       },
                                       decoration: _inputDecoration(
                                         hint: translateText("Duration"),
                                         suffixIcon: Icons.timer_outlined,
                                       ),
-                                      validator: (value) => _validateDuration(
-                                        value?.toString(),
-                                      ),
+                                      validator: _validateDuration,
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      translateText('Select service duration'),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: _serviceMuted,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    _FieldCounter(
+                                      currentLength:
+                                          durationController.text.length,
+                                      maxLength: 3,
                                     ),
                                   ],
                                 ),
@@ -1107,8 +1030,10 @@ class _AddServicesState extends State<AddServices> {
                             ],
                           ),
                           const SizedBox(height: 16),
-                          _buildPassiveWaitSection(_selectedDuration ?? 60),
-                          const SizedBox(height: 22),
+                          if ((selectedDuration ?? 0) > 0) ...[
+                            _buildPassiveWaitSection(selectedDuration!),
+                            const SizedBox(height: 22),
+                          ],
                           const Divider(height: 1, color: _serviceBorder),
                           const SizedBox(height: 18),
                           Column(
