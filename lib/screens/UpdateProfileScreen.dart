@@ -10,6 +10,7 @@ import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart'; // Import AddS
 import 'package:bloc_onboarding/repositories/salon_repository.dart'; // Import SalonRepository
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'login_screen.dart';
 import 'stylist_bottom_nav.dart';
 
 const Color _profileGold = Color(0xFF8B6500);
@@ -227,6 +228,14 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
         .join(' ');
   }
 
+  void _goBackToLogin() {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
   // Function to show the error messages in an alert dialog
   void _showErrorDialog(List<String> errorMessages) {
     showDialog(
@@ -407,6 +416,28 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
                                 letterSpacing: 0.5,
                               ),
                             ),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: isLoading ? null : _goBackToLogin,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _profileGold,
+                        disabledForegroundColor:
+                            _profileGold.withValues(alpha: 0.45),
+                        side: const BorderSide(color: _profileGoldLight),
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                      ),
+                      child: Text(
+                        translateText('Go back to login').toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
                   ],
                 ),

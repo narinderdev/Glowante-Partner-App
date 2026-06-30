@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
         extendBody: true,
         extendBodyBehindAppBar: true,
         backgroundColor: const Color(0xFFFFF9F3),
-        resizeToAvoidBottomInset: false,
+        resizeToAvoidBottomInset: true,
         body: BlocListener<AuthBloc, AuthState>(
           listener: _handleAuthState,
           child: Stack(
@@ -133,8 +133,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final height = constraints.maxHeight;
+                    final keyboardInset =
+                        MediaQuery.viewInsetsOf(context).bottom;
                     final compact = height < 760;
-                    final shouldScroll = height < 620;
                     final topGap = compact ? 2.0 : 8.0;
                     final heroGap = compact ? 12.0 : 16.0;
                     final sectionGap = compact ? 13.0 : 18.0;
@@ -167,19 +168,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     final column = Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: shouldScroll
-                          ? [
-                              ...scrollChildren,
-                              SizedBox(height: compact ? 18 : 24),
-                              _buildFooter(compact: compact),
-                            ]
-                          : [
-                              ...topChildren,
-                              Expanded(
-                                child: Center(child: middleContent),
-                              ),
-                              _buildFooter(compact: compact),
-                            ],
+                      children: [
+                        ...scrollChildren,
+                        SizedBox(height: compact ? 18 : 24),
+                        _buildFooter(compact: compact),
+                      ],
                     );
 
                     final content = Padding(
@@ -192,20 +185,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Center(
                         child: ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 430),
-                          child: shouldScroll
-                              ? column
-                              : SizedBox(
-                                  height: height - (verticalPadding * 2),
-                                  child: column,
-                                ),
+                          child: column,
                         ),
                       ),
                     );
 
-                    if (shouldScroll) {
-                      return SingleChildScrollView(child: content);
-                    }
-                    return content;
+                    return SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.only(bottom: keyboardInset),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: constraints.maxHeight,
+                        ),
+                        child: content,
+                      ),
+                    );
                   },
                 ),
               ),
