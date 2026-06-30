@@ -309,7 +309,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
     final initialSchedule = widget.initialSchedule;
 
     if (initialSchedule == null || initialSchedule.isEmpty) {
-      _copyMondayToAll = widget.totalSteps == 3;
+      _copyMondayToAll = false;
       return;
     }
 
