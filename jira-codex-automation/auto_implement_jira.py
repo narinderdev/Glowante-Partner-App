@@ -1,6 +1,7 @@
 import os
 import subprocess
 import requests
+from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,21 +17,34 @@ BASE_URL = f"https://api.atlassian.com/ex/jira/{JIRA_CLOUD_ID}/rest/api/3"
 
 
 def run(command, cwd=None, check=True):
-    print(f"\n$ {command}")
+    print(f"\n$ {command}", flush=True)
 
-    result = subprocess.run(
+    process = subprocess.Popen(
         command,
         cwd=cwd,
         shell=True,
         text=True,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
     )
 
-    if result.stdout:
-        print(result.stdout)
+    output_lines = []
 
-    if result.stderr:
-        print(result.stderr)
+    if process.stdout:
+        for line in process.stdout:
+            print(line, end="", flush=True)
+            output_lines.append(line)
+
+    process.wait()
+
+    class Result:
+        def __init__(self, returncode, stdout):
+            self.returncode = returncode
+            self.stdout = stdout
+            self.stderr = ""
+
+    result = Result(process.returncode, "".join(output_lines))
 
     if check and result.returncode != 0:
         raise Exception(f"Command failed: {command}")
@@ -172,6 +186,24 @@ def transition_jira_issue(issue_key, target_status_names):
     return True
 
 
+def print_current_app_changes():
+    print("\nCurrent app changes:", flush=True)
+
+    run(
+        "git status --short -- ':!jira-codex-automation'",
+        cwd=FLUTTER_REPO_PATH,
+        check=False,
+    )
+
+    print("\nChanged files summary:", flush=True)
+
+    run(
+        "git diff --stat -- ':!jira-codex-automation'",
+        cwd=FLUTTER_REPO_PATH,
+        check=False,
+    )
+
+
 def main():
     if not FLUTTER_REPO_PATH:
         raise Exception("FLUTTER_REPO_PATH missing in .env")
@@ -208,9 +240,9 @@ def main():
     )
 
     if git_status.stdout.strip():
-        print("Your working tree already has app changes.")
+        print("\nYour working tree already has app changes.")
         print("Please review/commit/stash existing app changes before running automation.")
-        print(git_status.stdout)
+        print_current_app_changes()
         return
 
     transition_jira_issue(
@@ -280,11 +312,24 @@ Required output:
     with open(prompt_file, "w", encoding="utf-8") as file:
         file.write(prompt.strip())
 
+    print("\nStarting Codex implementation. You will now see live Codex output below...\n", flush=True)
+
     codex_result = run(
         'codex exec --full-auto "$(cat codex_jira_task_prompt.txt)"',
         cwd=FLUTTER_REPO_PATH,
         check=False,
     )
+
+    logs_dir = os.path.join(FLUTTER_REPO_PATH, "jira-codex-automation", "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = os.path.join(logs_dir, f"{key}_{timestamp}_codex_output.txt")
+
+    with open(log_file, "w", encoding="utf-8") as file:
+        file.write(codex_result.stdout)
+
+    print(f"\nCodex output saved to: {log_file}")
 
     run(
         "rm -f codex_jira_task_prompt.txt",
@@ -295,10 +340,12 @@ Required output:
     if codex_result.returncode != 0:
         add_jira_comment(
             key,
-            "Codex automation attempted implementation but Codex command failed. Please check local terminal output."
+            "Codex automation attempted implementation but Codex command failed. Please check local terminal output/logs."
         )
         print("Codex command failed.")
         return
+
+    print("\nRunning flutter analyze...", flush=True)
 
     run(
         "flutter analyze",
@@ -321,6 +368,8 @@ Required output:
         )
         return
 
+    print_current_app_changes()
+
     add_jira_comment(
         key,
         "Codex automation implemented changes locally on bloc branch. Please review, test, commit, and push manually."
@@ -331,6 +380,7 @@ Required output:
     print("\nReview using:")
     print("cd /Users/apnitormacmini3/Desktop/Glowante_onboarding_latest")
     print("git status --short -- ':!jira-codex-automation'")
+    print("git diff --stat -- ':!jira-codex-automation'")
     print("git diff -- ':!jira-codex-automation'")
     print("\nAfter review, manually run:")
     print("git add .")
