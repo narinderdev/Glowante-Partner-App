@@ -187,6 +187,9 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         }
       },
       builder: (context, state) {
+        final isApiCalling =
+            _isSubmitting || state.status == AddSalonStatus.loading;
+
         return Scaffold(
           backgroundColor: const Color(0xFFFBFAF8),
           appBar: buildProfileSubpageAppBar(
@@ -257,9 +260,10 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                           ),
                           const SizedBox(height: 34),
                           AbsorbPointer(
-                            absorbing: copyServicesSelected || _isSubmitting,
+                            absorbing: copyServicesSelected || isApiCalling,
                             child: Opacity(
-                              opacity: copyServicesSelected ? 0.45 : 1,
+                              opacity:
+                                  copyServicesSelected || isApiCalling ? 0.45 : 1,
                               child: GridView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
@@ -285,6 +289,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
 
                                   return GestureDetector(
                                     onTap: () {
+                                      if (isApiCalling) return;
                                       setState(() {
                                         if (isSelected) {
                                           _selectedCodes.remove(code);
@@ -310,7 +315,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                             width: double.infinity,
                             height: 54,
                             child: ElevatedButton(
-                              onPressed: _isSubmitting
+                              onPressed: isApiCalling
                                   ? null
                                   : () => _submitSelection(context),
                               style: ElevatedButton.styleFrom(
@@ -324,7 +329,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                               ),
                               child: AnimatedSwitcher(
                                 duration: const Duration(milliseconds: 300),
-                                child: _isSubmitting
+                                child: isApiCalling
                                     ? const SizedBox(
                                         key: ValueKey('loader'),
                                         width: 22,

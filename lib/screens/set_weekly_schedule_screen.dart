@@ -315,6 +315,14 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
 
     final salonStartMinutes = _displayToMinutes(initialStart);
     final salonEndMinutes = _displayToMinutes(initialEnd);
+    final previousStart = _normalizeDisplayTime(
+      widget.previousBaseStartTime ?? widget.initialStartTime,
+    );
+    final previousEnd = _normalizeDisplayTime(
+      widget.previousBaseEndTime ?? widget.initialEndTime,
+    );
+    final baseScheduleChanged =
+        previousStart != initialStart || previousEnd != initialEnd;
 
     for (final day in _days) {
       final slots = initialSchedule[day] ?? const [];
@@ -336,6 +344,15 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
 
       var nextStart = savedStart;
       var nextEnd = savedEnd;
+
+      if (baseScheduleChanged) {
+        _scheduleByDay[day] = _scheduleByDay[day]!.copyWith(
+          startTime: initialStart,
+          endTime: initialEnd,
+          isClosed: false,
+        );
+        continue;
+      }
 
       final savedStartMinutes = _displayToMinutes(savedStart);
       final savedEndMinutes = _displayToMinutes(savedEnd);

@@ -971,6 +971,12 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
             detailsStepLabel: 'Branch Details',
             initialStartTime: _startTimeController.text.trim(),
             initialEndTime: _endTimeController.text.trim(),
+            previousBaseStartTime: _formatDisplayTime(
+              _firstNonEmptyValue([widget.initialBranch?['startTime']]),
+            ),
+            previousBaseEndTime: _formatDisplayTime(
+              _firstNonEmptyValue([widget.initialBranch?['endTime']]),
+            ),
             initialSchedule: _draftWeeklySchedule.isNotEmpty
                 ? _draftWeeklySchedule
                 : _extractInitialSchedule(widget.initialBranch),
