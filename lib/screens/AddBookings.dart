@@ -4656,10 +4656,27 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       var hour = int.tryParse(twelveHour.group(1) ?? '');
       final minute = int.tryParse(twelveHour.group(2) ?? '');
       final meridiem = twelveHour.group(3);
-      if (hour == null || minute == null) return null;
+      if (hour == null ||
+          minute == null ||
+          hour < 1 ||
+          hour > 12 ||
+          minute > 59) {
+        return null;
+      }
       if (meridiem == 'PM' && hour < 12) hour += 12;
       if (meridiem == 'AM' && hour == 12) hour = 0;
       return TimeOfDay(hour: hour, minute: minute);
+    }
+
+    final compactTwelveHour =
+        RegExp(r'^(\d{1,2})\s*(AM|PM)$').firstMatch(normalized);
+    if (compactTwelveHour != null) {
+      var hour = int.tryParse(compactTwelveHour.group(1) ?? '');
+      final meridiem = compactTwelveHour.group(2);
+      if (hour == null || hour < 1 || hour > 12) return null;
+      if (meridiem == 'PM' && hour < 12) hour += 12;
+      if (meridiem == 'AM' && hour == 12) hour = 0;
+      return TimeOfDay(hour: hour, minute: 0);
     }
 
     final twentyFourHour = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(normalized);
