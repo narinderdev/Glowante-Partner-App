@@ -262,8 +262,9 @@ class _AddSalonServicesState extends State<AddSalonServices> {
                           AbsorbPointer(
                             absorbing: copyServicesSelected || isApiCalling,
                             child: Opacity(
-                              opacity:
-                                  copyServicesSelected || isApiCalling ? 0.45 : 1,
+                              opacity: copyServicesSelected || isApiCalling
+                                  ? 0.45
+                                  : 1,
                               child: GridView.builder(
                                 shrinkWrap: true,
                                 physics: const NeverScrollableScrollPhysics(),
