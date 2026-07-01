@@ -205,6 +205,15 @@ int? _asInt(dynamic value) {
   return null;
 }
 
+bool? _readBool(dynamic value) {
+  if (value is bool) return value;
+  final text = value?.toString().trim().toLowerCase() ?? '';
+  if (text.isEmpty || text == 'null') return null;
+  if (text == 'true' || text == '1' || text == 'yes') return true;
+  if (text == 'false' || text == '0' || text == 'no') return false;
+  return null;
+}
+
 String _normalizeStatus(dynamic value) {
   final normalized = (value ?? '').toString().trim().toUpperCase();
   return normalized.replaceAll('-', '_').replaceAll(' ', '_');
@@ -587,16 +596,18 @@ Future<void> _openCustomerPhoneAction(
 }) async {
   final phone = _phoneLaunchValue(_customerPhone(booking));
   if (phone.isEmpty) {
-    Fluttertoast.showToast(msg: context.t('Customer phone number not available'));
+    Fluttertoast.showToast(
+        msg: context.t('Customer phone number not available'));
     return;
   }
 
   final uri = Uri(scheme: message ? 'sms' : 'tel', path: phone);
   final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!opened && context.mounted) {
-    Fluttertoast.showToast(msg: message
-              ? context.t('Unable to open messages app')
-              : context.t('Unable to open phone app'));
+    Fluttertoast.showToast(
+        msg: message
+            ? context.t('Unable to open messages app')
+            : context.t('Unable to open phone app'));
   }
 }
 
@@ -2290,6 +2301,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
             if (memberBranchId != branchId) {
               continue;
             }
+
+            final isActive = _readBool(branchEntry['active']) ?? true;
+            final allowOnlineBooking =
+                _readBool(branchEntry['allowOnlineBooking']) ?? true;
+
+            if (!isActive || !allowOnlineBooking) {
+              continue;
+            }
+
             hasBranchTeamMember = true;
 
             final workingHours = _workingHoursFromTeamMember(
@@ -3070,12 +3090,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       booking['status'] = _normalizeStatus(
         resp['data']?['status'] ?? 'CONFIRMED',
       );
-      Fluttertoast.showToast(msg: resp['message']?.toString() ?? translateText('Booking Confirmed'));
+      Fluttertoast.showToast(
+          msg: resp['message']?.toString() ??
+              translateText('Booking Confirmed'));
       await _reloadBookingsForSelectedOption();
       return;
     }
 
-    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to confirm appointment');
+    Fluttertoast.showToast(
+        msg: resp['message']?.toString() ?? 'Failed to confirm appointment');
   }
 
   int? _selectedDateBranchEndMinute() {
@@ -3296,7 +3319,8 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     final appointmentId = _asInt(booking['id']);
 
     if (!_canStartJob(booking)) {
-      Fluttertoast.showToast(msg: translateText('You can start this job at appointment time'));
+      Fluttertoast.showToast(
+          msg: translateText('You can start this job at appointment time'));
       return;
     }
 
@@ -3359,12 +3383,14 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       booking['status'] = _normalizeStatus(
         resp['data']?['status'] ?? 'COMPLETED',
       );
-      Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Appointment completed');
+      Fluttertoast.showToast(
+          msg: resp['message']?.toString() ?? 'Appointment completed');
       await _reloadBookingsForSelectedOption();
       return;
     }
 
-    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to complete appointment');
+    Fluttertoast.showToast(
+        msg: resp['message']?.toString() ?? 'Failed to complete appointment');
   }
 
   @override
@@ -7240,7 +7266,8 @@ class _StylistBookingDetailScreenState
 
   Future<void> _handleStartJob() async {
     if (!_canStartJob(_booking)) {
-      Fluttertoast.showToast(msg: translateText('You can start this job at appointment time'));
+      Fluttertoast.showToast(
+          msg: translateText('You can start this job at appointment time'));
       return;
     }
 
@@ -7295,11 +7322,14 @@ class _StylistBookingDetailScreenState
         _booking['status'] = newStatus;
         _didChange = true;
       });
-      Fluttertoast.showToast(msg: resp['message']?.toString() ?? translateText('Booking Confirmed'));
+      Fluttertoast.showToast(
+          msg: resp['message']?.toString() ??
+              translateText('Booking Confirmed'));
       return;
     }
 
-    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to confirm appointment');
+    Fluttertoast.showToast(
+        msg: resp['message']?.toString() ?? 'Failed to confirm appointment');
   }
 
   Future<void> _handleCompleteJob() async {
@@ -7332,18 +7362,22 @@ class _StylistBookingDetailScreenState
         _didChange = true;
       });
       _syncElapsedTicker();
-      Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Appointment completed');
+      Fluttertoast.showToast(
+          msg: resp['message']?.toString() ?? 'Appointment completed');
       return;
     }
 
-    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to complete appointment');
+    Fluttertoast.showToast(
+        msg: resp['message']?.toString() ?? 'Failed to complete appointment');
   }
 
   Future<void> _handleNoShow() async {
     if (_loadingNoShow) return;
 
     if (!_canMarkNoShow(_booking)) {
-      Fluttertoast.showToast(msg: translateText('No Show is available 15 minutes after start time'));
+      Fluttertoast.showToast(
+          msg: translateText(
+              'No Show is available 15 minutes after start time'));
       return;
     }
 
@@ -7371,11 +7405,13 @@ class _StylistBookingDetailScreenState
         _didChange = true;
       });
       _syncElapsedTicker();
-      Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Appointment marked no show');
+      Fluttertoast.showToast(
+          msg: resp['message']?.toString() ?? 'Appointment marked no show');
       return;
     }
 
-    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to mark no show');
+    Fluttertoast.showToast(
+        msg: resp['message']?.toString() ?? 'Failed to mark no show');
   }
 
   Future<void> _showAddItemsInfo() async {
@@ -7650,7 +7686,8 @@ class _StylistBookingDetailScreenState
         return;
       }
 
-      Fluttertoast.showToast(msg: translateText('Unable to refresh appointment details'));
+      Fluttertoast.showToast(
+          msg: translateText('Unable to refresh appointment details'));
     } catch (error) {
       if (!mounted) return;
       Fluttertoast.showToast(msg: error.toString());

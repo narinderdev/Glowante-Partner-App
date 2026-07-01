@@ -23,6 +23,15 @@ const Color _bookingFieldFill = Color(0xFFF7F4F3);
 final RegExp _customerNamePattern = RegExp(r'^[A-Za-z ]+$');
 final RegExp _customerPhonePattern = RegExp(r'^[6-9][0-9]{9}$');
 
+bool? _bookingReadBool(dynamic value) {
+  if (value is bool) return value;
+  final text = value?.toString().trim().toLowerCase() ?? '';
+  if (text.isEmpty || text == 'null') return null;
+  if (text == 'true' || text == '1' || text == 'yes') return true;
+  if (text == 'false' || text == '0' || text == 'no') return false;
+  return null;
+}
+
 class AddBookingScreen extends StatefulWidget {
   final int? salonId; // needed for SelectServicesModal
   final int? branchId; // future use when posting appointment
@@ -146,7 +155,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     super.initState();
     _loadServices();
     _resetScheduleDefaults();
-    _loadTeamMembers();
+    _loadTeamMembers(allowOnlineBooking: true);
     _loadBranchTiming();
   }
 
@@ -165,14 +174,6 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     _selectedDate = DateTime(now.year, now.month, now.day);
     _startTime = const TimeOfDay(hour: 8, minute: 0);
     _endTime = const TimeOfDay(hour: 8, minute: 30);
-  }
-
-  List<int> _selectedServiceIds() {
-    return _selectedServices
-        .map((service) => _intValue(service['id']))
-        .whereType<int>()
-        .toSet()
-        .toList();
   }
 
   Future<void> _loadServices() async {
@@ -565,6 +566,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         )) {
           continue;
         }
+        if (!_memberAllowsOnlineBooking(member, branchEntry)) continue;
 
         final hasService =
             _hasAssignedServiceForSelection(member, branchEntry, serviceId);
@@ -724,6 +726,67 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     }
 
     return true;
+  }
+
+  bool _memberAllowsOnlineBooking(
+    Map<String, dynamic> member,
+    Map<String, dynamic> branchEntry,
+  ) {
+    final branch = branchEntry['branch'];
+    final branchMap = branch is Map
+        ? Map<String, dynamic>.from(branch)
+        : const <String, dynamic>{};
+    for (final candidate in [
+      branchEntry['allowOnlineBooking'],
+      branchEntry['allow_online_booking'],
+      branchMap['allowOnlineBooking'],
+      branchMap['allow_online_booking'],
+      member['allowOnlineBooking'],
+      member['allow_online_booking'],
+      member['onlineBooking'],
+      member['online_booking'],
+    ]) {
+      final parsed = _bookingReadBool(candidate);
+      if (parsed != null) return parsed;
+    }
+    return true;
+  }
+
+  List<Map<String, dynamic>> _filterBookableTeamMembers(
+    List<Map<String, dynamic>> teamMembers,
+  ) {
+    final currentBranchId = widget.branchId;
+    final filteredMembers = <Map<String, dynamic>>[];
+
+    for (final member in teamMembers) {
+      final branches = member['userBranches'] as List? ?? const [];
+      final visibleBranches = <Map<String, dynamic>>[];
+
+      for (final entry in branches) {
+        if (entry is! Map) continue;
+        final branchEntry = Map<String, dynamic>.from(entry);
+        final branch = branchEntry['branch'];
+        final branchMap = branch is Map
+            ? Map<String, dynamic>.from(branch)
+            : <String, dynamic>{};
+        final branchId = branchMap['id'] is int
+            ? branchMap['id'] as int
+            : int.tryParse('${branchMap['id'] ?? ''}');
+
+        if (currentBranchId != null && branchId != currentBranchId) continue;
+        if (!_memberAllowsOnlineBooking(member, branchEntry)) continue;
+
+        visibleBranches.add(branchEntry);
+      }
+
+      if (visibleBranches.isEmpty) continue;
+
+      final copy = Map<String, dynamic>.from(member);
+      copy['userBranches'] = visibleBranches;
+      filteredMembers.add(copy);
+    }
+
+    return filteredMembers;
   }
 
   List<dynamic> _listValue(dynamic value) {
@@ -2606,8 +2669,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     });
 
     await _loadTeamMembers(
-      date: _selectedDate,
-      serviceIds: _selectedServiceIds(),
+      allowOnlineBooking: true,
     );
     await _syncSelectedServicesToCart();
   }
@@ -3058,6 +3120,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   Future<List<Map<String, dynamic>>> _loadTeamMembers({
     DateTime? date,
     List<int> serviceIds = const <int>[],
+    bool? allowOnlineBooking,
   }) async {
     final branchId = widget.branchId;
     if (branchId == null) return _teamMembers;
@@ -3067,6 +3130,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
         branchId,
         date: date ?? _selectedDate ?? DateTime.now(),
         serviceIds: serviceIds,
+        allowOnlineBooking: allowOnlineBooking,
       );
 
       final members = response['success'] == true && response['data'] is List
@@ -3076,9 +3140,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
               .toList()
           : <Map<String, dynamic>>[];
 
-      _teamMembers = members;
+      _teamMembers = _filterBookableTeamMembers(members);
       _removeInvalidProfessionalSelections();
-      return members;
+      return _teamMembers;
     } catch (e) {
       debugPrint("Error loading team members: $e");
       return _teamMembers;
@@ -3295,10 +3359,8 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     if (_isSaving || !_validateBeforeSchedule()) return;
 
     final selectedDate = _selectedDate ?? DateTime.now();
-    final selectedServiceIds = _selectedServiceIds();
     final teamMembers = await _loadTeamMembers(
-      date: selectedDate,
-      serviceIds: selectedServiceIds,
+      allowOnlineBooking: true,
     );
     final serviceMembers = _buildServiceMembersMap(
       services: _selectedServices,
@@ -3331,8 +3393,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           selectedProfessionals: _selectedProfessionalLabels(),
           reloadServiceMembers: (date) async {
             final members = await _loadTeamMembers(
-              date: date,
-              serviceIds: selectedServiceIds,
+              allowOnlineBooking: true,
             );
             return _buildServiceMembersMap(
               services: _selectedServices,

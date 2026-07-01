@@ -233,14 +233,13 @@ class _TeamScreenState extends State<TeamScreen> {
         branchId,
         status: _teamStatusFilter,
         allowOnlineBooking: _allowOnlineBookingFilter,
-        serviceIds: _selectedTeamServiceIds.toList(growable: false),
-        date: _teamDateFilter,
         search: _teamSearchController.text.trim(),
       );
 
-      final members = response['success'] == true && response['data'] is List
+      final rawMembers = response['success'] == true && response['data'] is List
           ? List<dynamic>.from(response['data'] as List)
           : <dynamic>[];
+      final members = _applyLocalTeamFilters(rawMembers);
       final ratings = await _loadProfessionalRatings(branchId);
 
       _teamMembersCache = members;
@@ -264,6 +263,149 @@ class _TeamScreenState extends State<TeamScreen> {
 
       return [];
     }
+  }
+
+  List<dynamic> _applyLocalTeamFilters(List<dynamic> members) {
+    return members.where((rawMember) {
+      if (rawMember is! Map) return false;
+      final member = Map<String, dynamic>.from(rawMember);
+      return _memberMatchesDateFilter(member) &&
+          _memberMatchesServiceFilter(member);
+    }).toList();
+  }
+
+  bool _memberMatchesDateFilter(Map<String, dynamic> member) {
+    final selectedDate = _teamDateFilter;
+    if (selectedDate == null) return true;
+
+    final normalizedDate =
+        DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    final branches = member['userBranches'];
+    if (branches is! List || branches.isEmpty) {
+      return true;
+    }
+
+    var sawMatchingBranch = false;
+    for (final rawBranch in branches) {
+      if (rawBranch is! Map) continue;
+      final branchEntry = Map<String, dynamic>.from(rawBranch);
+      final branch = branchEntry['branch'];
+      final branchMap = branch is Map
+          ? Map<String, dynamic>.from(branch)
+          : <String, dynamic>{};
+      final branchId = _asInt(branchMap['id']) ??
+          _asInt(branchEntry['branchId']) ??
+          _asInt(branchEntry['branch_id']);
+
+      if (selectedBranchId != null && branchId != selectedBranchId) continue;
+      sawMatchingBranch = true;
+
+      final joiningDate = _teamParseDateOnly(branchEntry['joiningDate']);
+      if (joiningDate != null && joiningDate.isAfter(normalizedDate)) {
+        continue;
+      }
+
+      final leavingDate = _teamParseDateOnly(branchEntry['leavingDate']);
+      if (leavingDate != null && leavingDate.isBefore(normalizedDate)) {
+        continue;
+      }
+
+      return true;
+    }
+
+    return !sawMatchingBranch;
+  }
+
+  bool _memberMatchesServiceFilter(Map<String, dynamic> member) {
+    if (_selectedTeamServiceIds.isEmpty) return true;
+
+    final selectedIds = _selectedTeamServiceIds;
+    final sources = <dynamic>[
+      member['userBranchServices'],
+      member['services'],
+      member['branchServices'],
+      member['assignedServices'],
+      member['assignedBranchServices'],
+      member['serviceIds'],
+      member['branchServiceIds'],
+      member['assignedServiceIds'],
+      member['assignedBranchServiceIds'],
+    ];
+
+    bool matchesValue(dynamic value) {
+      if (value == null) return false;
+      final id = _asInt(value);
+      if (id != null && selectedIds.contains(id)) return true;
+
+      if (value is List) {
+        return value.any(matchesValue);
+      }
+      if (value is! Map) return false;
+
+      final map = Map<String, dynamic>.from(value);
+      for (final key in const [
+        'branchServiceId',
+        'branch_service_id',
+        'serviceId',
+        'service_id',
+        'masterServiceId',
+        'master_service_id',
+        'id',
+      ]) {
+        final nestedId = _asInt(map[key]);
+        if (nestedId != null && selectedIds.contains(nestedId)) {
+          return true;
+        }
+      }
+
+      for (final key in const ['branchService', 'service', 'masterService']) {
+        final nested = map[key];
+        if (matchesValue(nested)) return true;
+      }
+
+      return false;
+    }
+
+    if (sources.any(matchesValue)) return true;
+
+    final branches = member['userBranches'];
+    if (branches is! List) return false;
+    for (final rawBranch in branches) {
+      if (rawBranch is! Map) continue;
+      final branchEntry = Map<String, dynamic>.from(rawBranch);
+      final branch = branchEntry['branch'];
+      final branchMap = branch is Map
+          ? Map<String, dynamic>.from(branch)
+          : <String, dynamic>{};
+      final branchId = _asInt(branchMap['id']) ??
+          _asInt(branchEntry['branchId']) ??
+          _asInt(branchEntry['branch_id']);
+
+      if (selectedBranchId != null && branchId != selectedBranchId) continue;
+
+      final branchSources = <dynamic>[
+        branchEntry['userBranchServices'],
+        branchEntry['services'],
+        branchEntry['branchServices'],
+        branchEntry['assignedServices'],
+        branchEntry['assignedBranchServices'],
+        branchEntry['serviceIds'],
+        branchEntry['branchServiceIds'],
+        branchEntry['assignedServiceIds'],
+        branchEntry['assignedBranchServiceIds'],
+      ];
+      if (branchSources.any(matchesValue)) return true;
+    }
+
+    return false;
+  }
+
+  DateTime? _teamParseDateOnly(dynamic value) {
+    final raw = value?.toString().trim() ?? '';
+    if (raw.isEmpty) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    return DateTime(parsed.year, parsed.month, parsed.day);
   }
 
   Future<void> _refreshTeamMembers() async {
@@ -481,10 +623,6 @@ class _TeamScreenState extends State<TeamScreen> {
   Widget _buildTeamFiltersBar() {
     return _TeamFiltersBar(
       searchController: _teamSearchController,
-      statusFilter: _teamStatusFilter,
-      allowOnlineBookingFilter: _allowOnlineBookingFilter,
-      dateFilter: _teamDateFilter,
-      selectedServiceIds: _selectedTeamServiceIds,
       hasActiveFilters: _hasActiveTeamFilters,
       onOpenFilters: _showTeamFiltersSheet,
     );
@@ -1344,61 +1482,16 @@ class _TeamMembersGrid extends StatelessWidget {
 class _TeamFiltersBar extends StatelessWidget {
   const _TeamFiltersBar({
     required this.searchController,
-    required this.statusFilter,
-    required this.allowOnlineBookingFilter,
-    required this.dateFilter,
-    required this.selectedServiceIds,
     required this.hasActiveFilters,
     required this.onOpenFilters,
   });
 
   final TextEditingController searchController;
-  final String statusFilter;
-  final bool? allowOnlineBookingFilter;
-  final DateTime? dateFilter;
-  final Set<int> selectedServiceIds;
   final bool hasActiveFilters;
   final VoidCallback onOpenFilters;
 
   @override
   Widget build(BuildContext context) {
-    final activeChips = <Widget>[];
-    if (statusFilter != 'all') {
-      activeChips.add(
-        _TeamFilterSummaryChip(
-          icon: Icons.flag_outlined,
-          label: '${translateText('Status')}: ${_statusLabel(statusFilter)}',
-        ),
-      );
-    }
-    if (allowOnlineBookingFilter != null) {
-      activeChips.add(
-        _TeamFilterSummaryChip(
-          icon: allowOnlineBookingFilter == true
-              ? Icons.toggle_on_outlined
-              : Icons.toggle_off_outlined,
-          label:
-              '${translateText('Online')}: ${translateText(allowOnlineBookingFilter == true ? 'Yes' : 'No')}',
-        ),
-      );
-    }
-    if (dateFilter != null) {
-      activeChips.add(
-        _TeamFilterSummaryChip(
-          icon: Icons.calendar_month_outlined,
-          label: DateFormat('MMM d, yyyy').format(dateFilter!),
-        ),
-      );
-    }
-    if (selectedServiceIds.isNotEmpty) {
-      activeChips.add(
-        _TeamFilterSummaryChip(
-          icon: Icons.content_cut_rounded,
-          label: '${translateText('Services')}: ${selectedServiceIds.length}',
-        ),
-      );
-    }
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -1468,28 +1561,9 @@ class _TeamFiltersBar extends StatelessWidget {
               ),
             ],
           ),
-          if (activeChips.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: activeChips,
-            ),
-          ],
         ],
       ),
     );
-  }
-
-  String _statusLabel(String value) {
-    switch (value) {
-      case 'active':
-        return translateText('Active');
-      case 'inactive':
-        return translateText('Inactive');
-      default:
-        return translateText('All');
-    }
   }
 }
 
@@ -1587,34 +1661,30 @@ class _TeamFilterButton extends StatelessWidget {
   }
 }
 
-class _TeamFilterSummaryChip extends StatelessWidget {
-  const _TeamFilterSummaryChip({
-    required this.icon,
+class _TeamHeaderPill extends StatelessWidget {
+  const _TeamHeaderPill({
     required this.label,
   });
 
-  final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 16, color: _teamGold),
-      label: Text(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+      ),
+      child: Text(
         label,
         style: const TextStyle(
-          color: _teamInk,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
         ),
       ),
-      backgroundColor: _teamSurface,
-      side: const BorderSide(color: _teamBorder),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(999),
-      ),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -1757,6 +1827,12 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
     final hiddenServiceCount =
         widget.serviceOptions.length - visibleServices.length;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final activeFilterCount = <bool>[
+      _statusFilter != 'all',
+      _allowOnlineBookingFilter != null,
+      _dateFilter != null,
+      _selectedServiceIds.isNotEmpty,
+    ].where((value) => value).length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.88,
@@ -1786,32 +1862,118 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          translateText('Filter team members'),
-                          style: const TextStyle(
-                            color: _teamInk,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          _teamGold.withValues(alpha: 0.98),
+                          const Color(0xFFB88A19),
+                          const Color(0xFFDFC77A),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1F8B6500),
+                          blurRadius: 18,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            Icons.tune_rounded,
+                            color: Colors.white,
+                            size: 24,
                           ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: const Icon(Icons.close_rounded),
-                        color: _teamMuted,
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                translateText('Filter team members'),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                translateText(
+                                  'Filters update the list automatically when you apply them.',
+                                ),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.92),
+                                  fontSize: 12,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  _TeamHeaderPill(
+                                    label:
+                                        '${translateText('Applied')}: $activeFilterCount',
+                                  ),
+                                  if (_selectedServiceIds.isNotEmpty)
+                                    _TeamHeaderPill(
+                                      label:
+                                          '${translateText('Services')}: ${_selectedServiceIds.length}',
+                                    ),
+                                  if (_dateFilter != null)
+                                    _TeamHeaderPill(
+                                      label: DateFormat('MMM d').format(
+                                        _dateFilter!,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close_rounded),
+                          color: Colors.white,
+                          style: IconButton.styleFrom(
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.12),
+                            shape: const CircleBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 16),
                   Expanded(
                     child: ListView(
                       controller: scrollController,
                       children: [
                         _bottomSheetSection(
                           title: translateText('Status'),
+                          subtitle: translateText(
+                            'Choose who should appear in the team list.',
+                          ),
                           child: Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -1837,15 +1999,13 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                         const SizedBox(height: 14),
                         _bottomSheetSection(
                           title: translateText('Online booking'),
+                          subtitle: translateText(
+                            'Only members available for booking stay visible.',
+                          ),
                           child: Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: [
-                              _FilterChoiceChip(
-                                label: translateText('All'),
-                                selected: _allowOnlineBookingFilter == null,
-                                onSelected: () => _setOnlineBooking(null),
-                              ),
                               _FilterChoiceChip(
                                 label: translateText('Yes'),
                                 selected: _allowOnlineBookingFilter == true,
@@ -1862,6 +2022,9 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                         const SizedBox(height: 14),
                         _bottomSheetSection(
                           title: translateText('Date'),
+                          subtitle: translateText(
+                            'Joining and leaving dates are checked automatically.',
+                          ),
                           child: Row(
                             children: [
                               Expanded(
@@ -1900,9 +2063,15 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                         const SizedBox(height: 14),
                         _bottomSheetSection(
                           title: translateText('Services'),
+                          subtitle: translateText(
+                            'Tap one or more services to filter team members.',
+                          ),
                           trailing: widget.serviceOptions.isNotEmpty
                               ? TextButton(
                                   onPressed: _toggleShowAllServices,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.starColor,
+                                  ),
                                   child: Text(
                                     _showAllServices
                                         ? translateText('Show less')
@@ -1981,7 +2150,7 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
                         child: ElevatedButton(
                           onPressed: () => Navigator.pop(context),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.starColor,
+                            backgroundColor: _teamGold,
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -2005,6 +2174,7 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
 
   Widget _bottomSheetSection({
     required String title,
+    String? subtitle,
     required Widget child,
     Widget? trailing,
   }) {
@@ -2033,6 +2203,17 @@ class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
               if (trailing != null) trailing,
             ],
           ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color: _teamMuted,
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           child,
         ],
