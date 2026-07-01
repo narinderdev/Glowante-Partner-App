@@ -1,5 +1,6 @@
 // ignore_for_file: file_names
 
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -12,7 +13,6 @@ import '../utils/price_formatter.dart';
 import '../widgets/fixed_slot_otp_field.dart';
 import 'view_all_client_owner.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 const Color _bookingGold = Color(0xFF8B6500);
 const Color _bookingGoldLight = Color(0xFFD0A244);
@@ -145,9 +145,9 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   void initState() {
     super.initState();
     _loadServices();
+    _resetScheduleDefaults();
     _loadTeamMembers();
     _loadBranchTiming();
-    _resetScheduleDefaults();
   }
 
   @override
@@ -165,6 +165,14 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     _selectedDate = DateTime(now.year, now.month, now.day);
     _startTime = const TimeOfDay(hour: 8, minute: 0);
     _endTime = const TimeOfDay(hour: 8, minute: 30);
+  }
+
+  List<int> _selectedServiceIds() {
+    return _selectedServices
+        .map((service) => _intValue(service['id']))
+        .whereType<int>()
+        .toSet()
+        .toList();
   }
 
   Future<void> _loadServices() async {
@@ -524,10 +532,22 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   List<Map<String, dynamic>> _membersForService(int serviceId) {
+    return _membersForServiceFrom(
+      _teamMembers,
+      serviceId,
+      selectedDate: _selectedDate,
+    );
+  }
+
+  List<Map<String, dynamic>> _membersForServiceFrom(
+    List<Map<String, dynamic>> teamMembers,
+    int serviceId, {
+    DateTime? selectedDate,
+  }) {
     final members = <Map<String, dynamic>>[];
     final currentBranchId = widget.branchId;
 
-    for (final member in _teamMembers) {
+    for (final member in teamMembers) {
       final branches = member['userBranches'] as List? ?? const [];
       for (final entry in branches) {
         if (entry is! Map) continue;
@@ -539,7 +559,12 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             ? branchMap['id'] as int
             : int.tryParse('${branchMap['id'] ?? ''}');
         if (currentBranchId != null && branchId != currentBranchId) continue;
-        if (!_memberCanWorkOnSelectedDate(branchEntry)) continue;
+        if (!_memberCanWorkOnSelectedDate(
+          branchEntry,
+          selectedDate: selectedDate,
+        )) {
+          continue;
+        }
 
         final hasService =
             _hasAssignedServiceForSelection(member, branchEntry, serviceId);
@@ -683,15 +708,18 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     return parsed == null ? null : _dateOnly(parsed.toLocal());
   }
 
-  bool _memberCanWorkOnSelectedDate(Map<String, dynamic> branchEntry) {
-    final selectedDate = _dateOnly(_selectedDate ?? DateTime.now());
+  bool _memberCanWorkOnSelectedDate(
+    Map<String, dynamic> branchEntry, {
+    DateTime? selectedDate,
+  }) {
+    final selected = _dateOnly(selectedDate ?? _selectedDate ?? DateTime.now());
     final joiningDate = _parseDateOnly(branchEntry['joiningDate']);
-    if (joiningDate != null && joiningDate.isAfter(selectedDate)) {
+    if (joiningDate != null && joiningDate.isAfter(selected)) {
       return false;
     }
 
     final leavingDate = _parseDateOnly(branchEntry['leavingDate']);
-    if (leavingDate != null && leavingDate.isBefore(selectedDate)) {
+    if (leavingDate != null && leavingDate.isBefore(selected)) {
       return false;
     }
 
@@ -2577,6 +2605,10 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       _syncEndTimeWithDuration();
     });
 
+    await _loadTeamMembers(
+      date: _selectedDate,
+      serviceIds: _selectedServiceIds(),
+    );
     await _syncSelectedServicesToCart();
   }
 
@@ -3023,21 +3055,52 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
     await _removeStaleCartItemsFromResponse(response);
   }
 
-  Future<void> _loadTeamMembers() async {
-    if (widget.branchId == null) return;
+  Future<List<Map<String, dynamic>>> _loadTeamMembers({
+    DateTime? date,
+    List<int> serviceIds = const <int>[],
+  }) async {
+    final branchId = widget.branchId;
+    if (branchId == null) return _teamMembers;
 
     try {
-      final response = await ApiService.getTeamMembers(widget.branchId!);
-      if (response['success'] == true) {
-        final List members = response['data'] ?? [];
-        setState(() {
-          _teamMembers = members.cast<Map<String, dynamic>>();
-          _removeInvalidProfessionalSelections();
-        });
-      }
+      final response = await ApiService.getTeamMembers(
+        branchId,
+        date: date ?? _selectedDate ?? DateTime.now(),
+        serviceIds: serviceIds,
+      );
+
+      final members = response['success'] == true && response['data'] is List
+          ? (response['data'] as List)
+              .whereType<Map>()
+              .map((member) => Map<String, dynamic>.from(member))
+              .toList()
+          : <Map<String, dynamic>>[];
+
+      _teamMembers = members;
+      _removeInvalidProfessionalSelections();
+      return members;
     } catch (e) {
       debugPrint("Error loading team members: $e");
+      return _teamMembers;
     }
+  }
+
+  Map<int, List<Map<String, dynamic>>> _buildServiceMembersMap({
+    required List<Map<String, dynamic>> services,
+    required List<Map<String, dynamic>> teamMembers,
+    DateTime? selectedDate,
+  }) {
+    final out = <int, List<Map<String, dynamic>>>{};
+    for (final service in services) {
+      final serviceId = _intValue(service['id']);
+      if (serviceId == null) continue;
+      out[serviceId] = _membersForServiceFrom(
+        teamMembers,
+        serviceId,
+        selectedDate: selectedDate,
+      );
+    }
+    return out;
   }
 
   int? _resolveSelectedProId(int serviceId) {
@@ -3231,13 +3294,19 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   Future<void> _continueToSchedule() async {
     if (_isSaving || !_validateBeforeSchedule()) return;
 
-    final serviceMembers = <int, List<Map<String, dynamic>>>{};
-    for (final service in _selectedServices) {
-      final serviceId = service['id'];
-      if (serviceId is int) {
-        serviceMembers[serviceId] = _membersForService(serviceId);
-      }
-    }
+    final selectedDate = _selectedDate ?? DateTime.now();
+    final selectedServiceIds = _selectedServiceIds();
+    final teamMembers = await _loadTeamMembers(
+      date: selectedDate,
+      serviceIds: selectedServiceIds,
+    );
+    final serviceMembers = _buildServiceMembersMap(
+      services: _selectedServices,
+      teamMembers: teamMembers,
+      selectedDate: selectedDate,
+    );
+
+    if (!mounted) return;
 
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -3260,6 +3329,17 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
           branchEndTime: _branchEndTime,
           durationMinutes: _totalSelectedDurationMinutes(),
           selectedProfessionals: _selectedProfessionalLabels(),
+          reloadServiceMembers: (date) async {
+            final members = await _loadTeamMembers(
+              date: date,
+              serviceIds: selectedServiceIds,
+            );
+            return _buildServiceMembersMap(
+              services: _selectedServices,
+              teamMembers: members,
+              selectedDate: date,
+            );
+          },
           onProfessionalsChanged: (professionals) {
             setState(() {
               _professionalByService
@@ -4431,6 +4511,7 @@ class _BookingScheduleScreen extends StatefulWidget {
     required this.branchEndTime,
     required this.durationMinutes,
     required this.selectedProfessionals,
+    required this.reloadServiceMembers,
     required this.onProfessionalsChanged,
     required this.onConfirmBooking,
   });
@@ -4452,6 +4533,8 @@ class _BookingScheduleScreen extends StatefulWidget {
   final TimeOfDay? branchEndTime;
   final int durationMinutes;
   final List<String> selectedProfessionals;
+  final Future<Map<int, List<Map<String, dynamic>>>> Function(DateTime date)
+      reloadServiceMembers;
 
   final void Function(Map<int, String> professionals) onProfessionalsChanged;
 
@@ -4470,12 +4553,14 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
   List<TimeOfDay> _availabilitySlots = [];
   bool _availabilityLoaded = false;
   late final Map<int, String> _selectedProfessionals;
+  Map<int, List<Map<String, dynamic>>> _serviceMembers = {};
 
   @override
   void initState() {
     super.initState();
 
     _selectedProfessionals = Map<int, String>.from(widget.professionals);
+    _serviceMembers = _copyServiceMembers(widget.serviceMembers);
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -4488,8 +4573,41 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _refreshAvailabilityFromCart();
+      unawaited(() async {
+        await _reloadServiceMembers();
+        if (!mounted) return;
+        await _refreshAvailabilityFromCart();
+      }());
     });
+  }
+
+  Map<int, List<Map<String, dynamic>>> _copyServiceMembers(
+    Map<int, List<Map<String, dynamic>>> source,
+  ) {
+    return {
+      for (final entry in source.entries)
+        entry.key: entry.value
+            .map((member) => Map<String, dynamic>.from(member))
+            .toList(),
+    };
+  }
+
+  List<Map<String, dynamic>> _membersForServiceList(int serviceId) {
+    return _serviceMembers[serviceId] ??
+        widget.serviceMembers[serviceId] ??
+        const <Map<String, dynamic>>[];
+  }
+
+  Future<void> _reloadServiceMembers() async {
+    try {
+      final members = await widget.reloadServiceMembers(_selectedDate);
+      if (!mounted) return;
+      setState(() {
+        _serviceMembers = _copyServiceMembers(members);
+      });
+    } catch (e) {
+      debugPrint('[AddBookingSchedule] failed to reload team members: $e');
+    }
   }
 
   int _toMinutes(TimeOfDay time) => time.hour * 60 + time.minute;
@@ -4528,18 +4646,19 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
       if (serviceId == null) continue;
 
-      final members =
-          widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
+      final members = _membersForServiceList(serviceId);
 
       if (members.isEmpty) {
-        Fluttertoast.showToast(msg: translateText('No team member available for $serviceName'));
+        Fluttertoast.showToast(
+            msg: translateText('No team member available for $serviceName'));
         return false;
       }
 
       final selected = _selectedProfessionals[serviceId];
 
       if (selected == null || selected.trim().isEmpty) {
-        Fluttertoast.showToast(msg: translateText('Please select team member for $serviceName'));
+        Fluttertoast.showToast(
+            msg: translateText('Please select team member for $serviceName'));
         return false;
       }
     }
@@ -4557,8 +4676,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
         return false;
       }
 
-      final members =
-          widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
+      final members = _membersForServiceList(serviceId);
       if (!members.any((member) => member['label'] == selected)) {
         return false;
       }
@@ -4842,13 +4960,15 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     Navigator.pop(context, result);
   }
 
-  void _selectScheduleDate(DateTime date) {
+  Future<void> _selectScheduleDate(DateTime date) async {
     setState(() {
       _selectedDate = DateTime(date.year, date.month, date.day);
       _selectedTime = null;
     });
 
-    _loadAppointmentsForDate();
+    await _reloadServiceMembers();
+    if (!mounted) return;
+    await _loadAppointmentsForDate();
   }
 
   DateTime _dateOnly(DateTime date) {
@@ -4927,8 +5047,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
 
   Map<String, dynamic>? _memberForLabel(int serviceId, String? label) {
     if (label == null || label.trim().isEmpty) return null;
-    final members =
-        widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
+    final members = _membersForServiceList(serviceId);
     for (final member in members) {
       if (member['label'] == label) return member;
     }
@@ -4962,9 +5081,10 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
         'branchId=$branchId cartItemIds=${widget.cartItemIdsByService}',
       );
       if (mounted) {
-        Fluttertoast.showToast(msg: translateText(
-                'Please reselect services before checking availability',
-              ));
+        Fluttertoast.showToast(
+            msg: translateText(
+          'Please reselect services before checking availability',
+        ));
       }
       return false;
     }
@@ -4993,8 +5113,9 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       );
 
       if (response['success'] == false && mounted) {
-        Fluttertoast.showToast(msg: response['message']?.toString() ??
-                  translateText('Failed to assign team member'));
+        Fluttertoast.showToast(
+            msg: response['message']?.toString() ??
+                translateText('Failed to assign team member'));
         return false;
       }
       return true;
@@ -5011,7 +5132,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     final price = _servicePrice(service);
     final members = serviceId == null
         ? const <Map<String, dynamic>>[]
-        : widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
+        : _membersForServiceList(serviceId);
     final selectedMember =
         serviceId == null ? null : _selectedProfessionals[serviceId];
     final validSelectedMember = members.any(
@@ -5239,7 +5360,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
                           if (DateUtils.isSameDay(day, _selectedDate)) {
                             return;
                           }
-                          _selectScheduleDate(day);
+                          unawaited(_selectScheduleDate(day));
                         },
                         borderRadius: BorderRadius.circular(7),
                         child: Container(

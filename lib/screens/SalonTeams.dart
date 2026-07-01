@@ -307,15 +307,13 @@ class _TeamScreenState extends State<TeamScreen> {
     _reloadTeamMembersForFilters();
   }
 
-  Future<void> _pickTeamDateFilter() async {
-    final today = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _teamDateFilter ?? today,
-      firstDate: DateTime(today.year - 5),
-      lastDate: DateTime(today.year + 5),
-    );
-    if (picked == null || !mounted) return;
+  Future<void> _setTeamDateFilter(DateTime picked) async {
+    if (_teamDateFilter != null &&
+        _teamDateFilter!.year == picked.year &&
+        _teamDateFilter!.month == picked.month &&
+        _teamDateFilter!.day == picked.day) {
+      return;
+    }
     setState(() => _teamDateFilter = picked);
     _reloadTeamMembersForFilters();
   }
@@ -344,6 +342,36 @@ class _TeamScreenState extends State<TeamScreen> {
       _teamSearchController.clear();
     });
     _reloadTeamMembersForFilters();
+  }
+
+  Future<void> _showTeamFiltersSheet() async {
+    if (selectedBranchId == null) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (sheetContext) {
+        return _TeamFiltersSheet(
+          statusFilter: _teamStatusFilter,
+          allowOnlineBookingFilter: _allowOnlineBookingFilter,
+          dateFilter: _teamDateFilter,
+          serviceOptions: _teamServiceOptions,
+          selectedServiceIds: _selectedTeamServiceIds,
+          isLoadingServices: _isLoadingTeamServices,
+          showAllServices: _showAllTeamServices,
+          onStatusChanged: _setStatusFilter,
+          onOnlineBookingChanged: _setOnlineBookingFilter,
+          onPickDate: _setTeamDateFilter,
+          onClearDate: _clearTeamDateFilter,
+          onServiceToggled: _toggleTeamServiceFilter,
+          onClearServices: _clearTeamServiceFilters,
+          onToggleShowAllServices: _toggleShowAllTeamServices,
+          onClearAll: _clearTeamFilters,
+        );
+      },
+    );
   }
 
   void _toggleTeamServiceFilter(int serviceId) {
@@ -456,19 +484,9 @@ class _TeamScreenState extends State<TeamScreen> {
       statusFilter: _teamStatusFilter,
       allowOnlineBookingFilter: _allowOnlineBookingFilter,
       dateFilter: _teamDateFilter,
-      serviceOptions: _teamServiceOptions,
       selectedServiceIds: _selectedTeamServiceIds,
-      isLoadingServices: _isLoadingTeamServices,
-      showAllServices: _showAllTeamServices,
       hasActiveFilters: _hasActiveTeamFilters,
-      onStatusChanged: _setStatusFilter,
-      onOnlineBookingChanged: _setOnlineBookingFilter,
-      onPickDate: _pickTeamDateFilter,
-      onClearDate: _clearTeamDateFilter,
-      onServiceToggled: _toggleTeamServiceFilter,
-      onClearServices: _clearTeamServiceFilters,
-      onToggleShowAllServices: _toggleShowAllTeamServices,
-      onClearAll: _clearTeamFilters,
+      onOpenFilters: _showTeamFiltersSheet,
     );
   }
 
@@ -1329,47 +1347,57 @@ class _TeamFiltersBar extends StatelessWidget {
     required this.statusFilter,
     required this.allowOnlineBookingFilter,
     required this.dateFilter,
-    required this.serviceOptions,
     required this.selectedServiceIds,
-    required this.isLoadingServices,
-    required this.showAllServices,
     required this.hasActiveFilters,
-    required this.onStatusChanged,
-    required this.onOnlineBookingChanged,
-    required this.onPickDate,
-    required this.onClearDate,
-    required this.onServiceToggled,
-    required this.onClearServices,
-    required this.onToggleShowAllServices,
-    required this.onClearAll,
+    required this.onOpenFilters,
   });
 
   final TextEditingController searchController;
   final String statusFilter;
   final bool? allowOnlineBookingFilter;
   final DateTime? dateFilter;
-  final List<_TeamServiceFilterOption> serviceOptions;
   final Set<int> selectedServiceIds;
-  final bool isLoadingServices;
-  final bool showAllServices;
   final bool hasActiveFilters;
-  final ValueChanged<String> onStatusChanged;
-  final ValueChanged<bool?> onOnlineBookingChanged;
-  final VoidCallback onPickDate;
-  final VoidCallback onClearDate;
-  final ValueChanged<int> onServiceToggled;
-  final VoidCallback onClearServices;
-  final VoidCallback onToggleShowAllServices;
-  final VoidCallback onClearAll;
+  final VoidCallback onOpenFilters;
 
   @override
   Widget build(BuildContext context) {
-    final dateLabel = dateFilter == null
-        ? translateText('Date')
-        : DateFormat('yyyy-MM-dd').format(dateFilter!);
-    final visibleServices =
-        showAllServices ? serviceOptions : serviceOptions.take(3).toList();
-    final hiddenServiceCount = serviceOptions.length - visibleServices.length;
+    final activeChips = <Widget>[];
+    if (statusFilter != 'all') {
+      activeChips.add(
+        _TeamFilterSummaryChip(
+          icon: Icons.flag_outlined,
+          label: '${translateText('Status')}: ${_statusLabel(statusFilter)}',
+        ),
+      );
+    }
+    if (allowOnlineBookingFilter != null) {
+      activeChips.add(
+        _TeamFilterSummaryChip(
+          icon: allowOnlineBookingFilter == true
+              ? Icons.toggle_on_outlined
+              : Icons.toggle_off_outlined,
+          label:
+              '${translateText('Online')}: ${translateText(allowOnlineBookingFilter == true ? 'Yes' : 'No')}',
+        ),
+      );
+    }
+    if (dateFilter != null) {
+      activeChips.add(
+        _TeamFilterSummaryChip(
+          icon: Icons.calendar_month_outlined,
+          label: DateFormat('MMM d, yyyy').format(dateFilter!),
+        ),
+      );
+    }
+    if (selectedServiceIds.isNotEmpty) {
+      activeChips.add(
+        _TeamFilterSummaryChip(
+          icon: Icons.content_cut_rounded,
+          label: '${translateText('Services')}: ${selectedServiceIds.length}',
+        ),
+      );
+    }
 
     return Container(
       width: double.infinity,
@@ -1378,172 +1406,90 @@ class _TeamFiltersBar extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _teamBorder),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0E000000),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(
-            controller: searchController,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              hintText: translateText('Search by name, phone, or email'),
-              prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: searchController.text.trim().isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: translateText('Clear search'),
-                      onPressed: searchController.clear,
-                      icon: const Icon(Icons.close_rounded),
-                    ),
-              filled: true,
-              fillColor: _teamSurface,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
+          Row(
+            children: [
+              Expanded(
+                child: ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: searchController,
+                  builder: (context, value, _) {
+                    final hasSearch = value.text.trim().isNotEmpty;
+                    return TextField(
+                      controller: searchController,
+                      textInputAction: TextInputAction.search,
+                      decoration: InputDecoration(
+                        hintText:
+                            translateText('Search by name, phone, or email'),
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        suffixIcon: hasSearch
+                            ? IconButton(
+                                tooltip: translateText('Clear search'),
+                                onPressed: searchController.clear,
+                                icon: const Icon(Icons.close_rounded),
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: _teamSurface,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 13,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: _teamBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: _teamBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: AppColors.starColor),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: _teamBorder),
+              const SizedBox(width: 10),
+              _TeamFilterButton(
+                hasActiveFilters: hasActiveFilters,
+                onPressed: onOpenFilters,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: _teamBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.starColor),
-              ),
-            ),
+            ],
           ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _FilterChoiceChip(
-                  label: translateText('All'),
-                  selected: statusFilter == 'all',
-                  onSelected: () => onStatusChanged('all'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChoiceChip(
-                  label: translateText('Active'),
-                  selected: statusFilter == 'active',
-                  onSelected: () => onStatusChanged('active'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChoiceChip(
-                  label: translateText('Inactive'),
-                  selected: statusFilter == 'inactive',
-                  onSelected: () => onStatusChanged('inactive'),
-                ),
-                const SizedBox(width: 8),
-                _FilterChoiceChip(
-                  label: translateText('Online: All'),
-                  selected: allowOnlineBookingFilter == null,
-                  onSelected: () => onOnlineBookingChanged(null),
-                ),
-                const SizedBox(width: 8),
-                _FilterChoiceChip(
-                  label: translateText('Online: Yes'),
-                  selected: allowOnlineBookingFilter == true,
-                  onSelected: () => onOnlineBookingChanged(true),
-                ),
-                const SizedBox(width: 8),
-                _FilterChoiceChip(
-                  label: translateText('Online: No'),
-                  selected: allowOnlineBookingFilter == false,
-                  onSelected: () => onOnlineBookingChanged(false),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: onPickDate,
-                  icon: const Icon(Icons.calendar_today_outlined, size: 17),
-                  label: Text(dateLabel),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.starColor,
-                    side: BorderSide(color: AppColors.starColor),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                if (dateFilter != null) ...[
-                  const SizedBox(width: 8),
-                  IconButton.outlined(
-                    tooltip: translateText('Clear date'),
-                    onPressed: onClearDate,
-                    icon: const Icon(Icons.event_busy_outlined, size: 18),
-                    color: AppColors.starColor,
-                  ),
-                ],
-                if (hasActiveFilters) ...[
-                  const SizedBox(width: 8),
-                  TextButton.icon(
-                    onPressed: onClearAll,
-                    icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
-                    label: Text(translateText('Clear filters')),
-                    style: TextButton.styleFrom(
-                      foregroundColor: _teamMuted,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          if (isLoadingServices) ...[
+          if (activeChips.isNotEmpty) ...[
             const SizedBox(height: 12),
-            LinearProgressIndicator(
-              color: AppColors.starColor,
-              backgroundColor: _teamGoldLight,
-              minHeight: 3,
-            ),
-          ] else if (serviceOptions.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  ...visibleServices.expand(
-                    (service) => [
-                      _FilterChoiceChip(
-                        label: service.name,
-                        selected: selectedServiceIds.contains(service.id),
-                        onSelected: () => onServiceToggled(service.id),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                  ),
-                  if (serviceOptions.length > 3)
-                    TextButton(
-                      onPressed: onToggleShowAllServices,
-                      child: Text(
-                        showAllServices
-                            ? translateText('Show less')
-                            : '${translateText('Show more')} ($hiddenServiceCount)',
-                      ),
-                    ),
-                  if (selectedServiceIds.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    TextButton.icon(
-                      onPressed: onClearServices,
-                      icon: const Icon(
-                        Icons.cleaning_services_outlined,
-                        size: 18,
-                      ),
-                      label: Text(translateText('Clear services')),
-                      style: TextButton.styleFrom(
-                        foregroundColor: _teamMuted,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: activeChips,
             ),
           ],
         ],
       ),
     );
+  }
+
+  String _statusLabel(String value) {
+    switch (value) {
+      case 'active':
+        return translateText('Active');
+      case 'inactive':
+        return translateText('Inactive');
+      default:
+        return translateText('All');
+    }
   }
 }
 
@@ -1582,6 +1528,514 @@ class _FilterChoiceChip extends StatelessWidget {
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
+      ),
+    );
+  }
+}
+
+class _TeamFilterButton extends StatelessWidget {
+  const _TeamFilterButton({
+    required this.hasActiveFilters,
+    required this.onPressed,
+  });
+
+  final bool hasActiveFilters;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: hasActiveFilters ? _teamGoldLight : _teamSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: hasActiveFilters ? _teamGold : _teamBorder,
+            width: 1,
+          ),
+        ),
+        child: Stack(
+          children: [
+            const Center(
+              child: Icon(
+                Icons.tune_rounded,
+                color: _teamInk,
+                size: 22,
+              ),
+            ),
+            if (hasActiveFilters)
+              Positioned(
+                right: 10,
+                top: 10,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: _teamGold,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TeamFilterSummaryChip extends StatelessWidget {
+  const _TeamFilterSummaryChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      avatar: Icon(icon, size: 16, color: _teamGold),
+      label: Text(
+        label,
+        style: const TextStyle(
+          color: _teamInk,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      backgroundColor: _teamSurface,
+      side: const BorderSide(color: _teamBorder),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
+      ),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+class _TeamFiltersSheet extends StatefulWidget {
+  const _TeamFiltersSheet({
+    required this.statusFilter,
+    required this.allowOnlineBookingFilter,
+    required this.dateFilter,
+    required this.serviceOptions,
+    required this.selectedServiceIds,
+    required this.isLoadingServices,
+    required this.showAllServices,
+    required this.onStatusChanged,
+    required this.onOnlineBookingChanged,
+    required this.onPickDate,
+    required this.onClearDate,
+    required this.onServiceToggled,
+    required this.onClearServices,
+    required this.onToggleShowAllServices,
+    required this.onClearAll,
+  });
+
+  final String statusFilter;
+  final bool? allowOnlineBookingFilter;
+  final DateTime? dateFilter;
+  final List<_TeamServiceFilterOption> serviceOptions;
+  final Set<int> selectedServiceIds;
+  final bool isLoadingServices;
+  final bool showAllServices;
+  final ValueChanged<String> onStatusChanged;
+  final ValueChanged<bool?> onOnlineBookingChanged;
+  final Future<void> Function(DateTime picked) onPickDate;
+  final VoidCallback onClearDate;
+  final ValueChanged<int> onServiceToggled;
+  final VoidCallback onClearServices;
+  final VoidCallback onToggleShowAllServices;
+  final VoidCallback onClearAll;
+
+  @override
+  State<_TeamFiltersSheet> createState() => _TeamFiltersSheetState();
+}
+
+class _TeamFiltersSheetState extends State<_TeamFiltersSheet> {
+  late String _statusFilter;
+  late bool? _allowOnlineBookingFilter;
+  DateTime? _dateFilter;
+  late final Set<int> _selectedServiceIds;
+  late bool _showAllServices;
+
+  @override
+  void initState() {
+    super.initState();
+    _statusFilter = widget.statusFilter;
+    _allowOnlineBookingFilter = widget.allowOnlineBookingFilter;
+    _dateFilter = widget.dateFilter;
+    _selectedServiceIds = Set<int>.from(widget.selectedServiceIds);
+    _showAllServices = widget.showAllServices;
+  }
+
+  String _dateLabel() {
+    if (_dateFilter == null) return translateText('Date');
+    return DateFormat('EEE, MMM d, yyyy').format(_dateFilter!);
+  }
+
+  Future<void> _pickDate() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateFilter ?? today,
+      firstDate: DateTime(today.year - 5),
+      lastDate: DateTime(today.year + 5),
+    );
+    if (picked == null) return;
+
+    await widget.onPickDate(picked);
+    if (!mounted) return;
+    setState(() => _dateFilter = picked);
+  }
+
+  void _clearDate() {
+    if (_dateFilter == null) return;
+    widget.onClearDate();
+    if (!mounted) return;
+    setState(() => _dateFilter = null);
+  }
+
+  void _setStatus(String value) {
+    final nextValue = _statusFilter == value && value != 'all' ? 'all' : value;
+    if (_statusFilter == nextValue) return;
+    widget.onStatusChanged(nextValue);
+    setState(() => _statusFilter = nextValue);
+  }
+
+  void _setOnlineBooking(bool? value) {
+    final nextValue =
+        _allowOnlineBookingFilter == value && value != null ? null : value;
+    if (_allowOnlineBookingFilter == nextValue) return;
+    widget.onOnlineBookingChanged(nextValue);
+    setState(() => _allowOnlineBookingFilter = nextValue);
+  }
+
+  void _toggleService(int serviceId) {
+    if (_selectedServiceIds.contains(serviceId)) {
+      widget.onServiceToggled(serviceId);
+      setState(() => _selectedServiceIds.remove(serviceId));
+      return;
+    }
+    widget.onServiceToggled(serviceId);
+    setState(() => _selectedServiceIds.add(serviceId));
+  }
+
+  void _clearServices() {
+    if (_selectedServiceIds.isEmpty) return;
+    widget.onClearServices();
+    setState(_selectedServiceIds.clear);
+  }
+
+  void _toggleShowAllServices() {
+    widget.onToggleShowAllServices();
+    setState(() => _showAllServices = !_showAllServices);
+  }
+
+  void _clearAll() {
+    widget.onClearAll();
+    setState(() {
+      _statusFilter = 'all';
+      _allowOnlineBookingFilter = null;
+      _dateFilter = null;
+      _selectedServiceIds.clear();
+      _showAllServices = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleServices = _showAllServices
+        ? widget.serviceOptions
+        : widget.serviceOptions.take(4).toList();
+    final hiddenServiceCount =
+        widget.serviceOptions.length - visibleServices.length;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.88,
+      minChildSize: 0.62,
+      maxChildSize: 0.96,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomInset),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _teamBorder,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          translateText('Filter team members'),
+                          style: const TextStyle(
+                            color: _teamInk,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded),
+                        color: _teamMuted,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView(
+                      controller: scrollController,
+                      children: [
+                        _bottomSheetSection(
+                          title: translateText('Status'),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _FilterChoiceChip(
+                                label: translateText('All'),
+                                selected: _statusFilter == 'all',
+                                onSelected: () => _setStatus('all'),
+                              ),
+                              _FilterChoiceChip(
+                                label: translateText('Active'),
+                                selected: _statusFilter == 'active',
+                                onSelected: () => _setStatus('active'),
+                              ),
+                              _FilterChoiceChip(
+                                label: translateText('Inactive'),
+                                selected: _statusFilter == 'inactive',
+                                onSelected: () => _setStatus('inactive'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _bottomSheetSection(
+                          title: translateText('Online booking'),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _FilterChoiceChip(
+                                label: translateText('All'),
+                                selected: _allowOnlineBookingFilter == null,
+                                onSelected: () => _setOnlineBooking(null),
+                              ),
+                              _FilterChoiceChip(
+                                label: translateText('Yes'),
+                                selected: _allowOnlineBookingFilter == true,
+                                onSelected: () => _setOnlineBooking(true),
+                              ),
+                              _FilterChoiceChip(
+                                label: translateText('No'),
+                                selected: _allowOnlineBookingFilter == false,
+                                onSelected: () => _setOnlineBooking(false),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _bottomSheetSection(
+                          title: translateText('Date'),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _pickDate,
+                                  icon: const Icon(
+                                    Icons.calendar_month_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text(_dateLabel()),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: _teamInk,
+                                    side: const BorderSide(color: _teamBorder),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 14,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (_dateFilter != null) ...[
+                                const SizedBox(width: 10),
+                                IconButton(
+                                  onPressed: _clearDate,
+                                  icon: const Icon(Icons.event_busy_outlined),
+                                  color: _teamMuted,
+                                  tooltip: translateText('Clear date'),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _bottomSheetSection(
+                          title: translateText('Services'),
+                          trailing: widget.serviceOptions.isNotEmpty
+                              ? TextButton(
+                                  onPressed: _toggleShowAllServices,
+                                  child: Text(
+                                    _showAllServices
+                                        ? translateText('Show less')
+                                        : '${translateText('Show more')} ($hiddenServiceCount)',
+                                  ),
+                                )
+                              : null,
+                          child: widget.isLoadingServices
+                              ? LinearProgressIndicator(
+                                  color: AppColors.starColor,
+                                  backgroundColor: _teamGoldLight,
+                                  minHeight: 3,
+                                )
+                              : widget.serviceOptions.isEmpty
+                                  ? Text(
+                                      translateText(
+                                        'No services available for this branch',
+                                      ),
+                                      style: const TextStyle(
+                                        color: _teamMuted,
+                                        fontSize: 12,
+                                      ),
+                                    )
+                                  : Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        ...visibleServices.map(
+                                          (service) => _FilterChoiceChip(
+                                            label: service.name,
+                                            selected: _selectedServiceIds
+                                                .contains(service.id),
+                                            onSelected: () =>
+                                                _toggleService(service.id),
+                                          ),
+                                        ),
+                                        if (_selectedServiceIds.isNotEmpty)
+                                          TextButton.icon(
+                                            onPressed: _clearServices,
+                                            icon: const Icon(
+                                              Icons.cleaning_services_outlined,
+                                              size: 18,
+                                            ),
+                                            label: Text(
+                                              translateText('Clear services'),
+                                            ),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor: _teamMuted,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _clearAll,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: _teamMuted,
+                            side: const BorderSide(color: _teamBorder),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(translateText('Clear all')),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.starColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(translateText('Done')),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _bottomSheetSection({
+    required String title,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _teamSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _teamBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title.toUpperCase(),
+                style: const TextStyle(
+                  color: _teamMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const Spacer(),
+              if (trailing != null) trailing,
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
       ),
     );
   }
