@@ -265,10 +265,42 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  DateTime? _parseClockTime(String rawTime) {
+    final value = rawTime.trim();
+    if (value.isEmpty) return null;
+
+    final twentyFourHour =
+        RegExp(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$').firstMatch(value);
+    if (twentyFourHour != null) {
+      final hour = int.tryParse(twentyFourHour.group(1) ?? '');
+      final minute = int.tryParse(twentyFourHour.group(2) ?? '');
+      if (hour == null ||
+          minute == null ||
+          hour < 0 ||
+          hour > 23 ||
+          minute < 0 ||
+          minute > 59) {
+        return null;
+      }
+      return DateTime(0, 1, 1, hour, minute);
+    }
+
+    try {
+      return DateFormat.jm().parse(value);
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<String> _generateTimeSlots(String startTime, String endTime) {
     final slots = <String>[];
-    DateTime start = DateFormat("HH:mm:ss").parse(startTime);
-    DateTime end = DateFormat("HH:mm:ss").parse(endTime);
+    final parsedStart = _parseClockTime(startTime);
+    final parsedEnd = _parseClockTime(endTime);
+    if (parsedStart == null || parsedEnd == null) return slots;
+
+    var start = parsedStart;
+    final end = parsedEnd;
+
     DateTime effectiveEnd = end.subtract(const Duration(minutes: 15));
     while (
         start.isBefore(effectiveEnd) || start.isAtSameMomentAs(effectiveEnd)) {

@@ -1726,9 +1726,56 @@ class ApiService {
   // ---------------------- HELPERS ----------------------
 
   String _formatTime(String time) {
+    final value = time.trim();
+    if (value.isEmpty) return time;
+
+    final twelveHourMatch = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(value);
+    if (twelveHourMatch != null) {
+      var hour = int.tryParse(twelveHourMatch.group(1) ?? '');
+      final minute = int.tryParse(twelveHourMatch.group(2) ?? '');
+      final meridiem = twelveHourMatch.group(3)?.toUpperCase();
+
+      if (hour == null || minute == null || meridiem == null) {
+        return time;
+      }
+
+      if (meridiem == 'PM' && hour < 12) hour += 12;
+      if (meridiem == 'AM' && hour == 12) hour = 0;
+
+      if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+        return time;
+      }
+
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:00';
+    }
+
+    final twentyFourHourMatch =
+        RegExp(r'^(\d{1,2}):(\d{2})(?::(\d{2}))?$').firstMatch(value);
+    if (twentyFourHourMatch != null) {
+      final hour = int.tryParse(twentyFourHourMatch.group(1) ?? '');
+      final minute = int.tryParse(twentyFourHourMatch.group(2) ?? '');
+      final second = int.tryParse(twentyFourHourMatch.group(3) ?? '') ?? 0;
+
+      if (hour == null ||
+          minute == null ||
+          hour < 0 ||
+          hour > 23 ||
+          minute < 0 ||
+          minute > 59 ||
+          second < 0 ||
+          second > 59) {
+        return time;
+      }
+
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:${second.toString().padLeft(2, '0')}';
+    }
+
     try {
-      DateTime parsedTime = DateFormat.jm().parse(time);
-      return DateFormat('HH:mm').format(parsedTime);
+      final parsedTime = DateFormat.jm().parse(value);
+      return DateFormat('HH:mm:ss').format(parsedTime);
     } catch (e) {
       return time;
     }

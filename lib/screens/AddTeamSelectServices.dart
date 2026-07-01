@@ -92,13 +92,29 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
   }
 // ---------- Helpers: put inside _AddTeamSelectServicesState ----------
 
-  /// Convert "08:00 AM" / "8:00 pm" → "08:00". If already "HH:mm", returns as-is.
+  /// Convert "08:00 AM" / "8:00 pm" → "08:00:00".
   String _to24h(String input) {
     final s = input.trim();
 
-    // already HH:mm (00–23)
-    final reg24 = RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d$');
-    if (reg24.hasMatch(s)) return s;
+    final reg24 = RegExp(r'^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$');
+    final match24 = reg24.firstMatch(s);
+    if (match24 != null) {
+      final hour = int.tryParse(match24.group(1) ?? '');
+      final minute = int.tryParse(match24.group(2) ?? '');
+      final second = int.tryParse(match24.group(3) ?? '') ?? 0;
+      if (hour == null ||
+          minute == null ||
+          hour < 0 ||
+          hour > 23 ||
+          minute < 0 ||
+          minute > 59 ||
+          second < 0 ||
+          second > 59) {
+        return s;
+      }
+
+      return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:${second.toString().padLeft(2, '0')}';
+    }
 
     // match 8:05 am / 08:05 PM / 12:00 am etc.
     final reg12 = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
@@ -111,7 +127,7 @@ class _AddTeamSelectServicesState extends State<AddTeamSelectServices> {
       if (mer == 'PM') h += 12;
       final hh = h.toString().padLeft(2, '0');
       final mm = min.toString().padLeft(2, '0');
-      return '$hh:$mm';
+      return '$hh:$mm:00';
     }
 
     // if we can’t parse, just return as-is (or throw)

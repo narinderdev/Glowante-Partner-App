@@ -1176,7 +1176,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
   String _minutesToApiTime(int totalMinutes) {
     final hour = (totalMinutes ~/ 60).clamp(0, 23);
     final minute = totalMinutes % 60;
-    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}:00';
   }
 }
 

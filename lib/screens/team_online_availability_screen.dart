@@ -336,8 +336,25 @@ class _TeamOnlineAvailabilityScreenState
   String _to24h(String input) {
     final s = input.trim();
 
-    final reg24 = RegExp(r'^(?:[01]\d|2[0-3]):[0-5]\d$');
-    if (reg24.hasMatch(s)) return s;
+    final reg24 = RegExp(r'^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$');
+    final match24 = reg24.firstMatch(s);
+    if (match24 != null) {
+      final hour = int.tryParse(match24.group(1) ?? '');
+      final min = int.tryParse(match24.group(2) ?? '');
+      final second = int.tryParse(match24.group(3) ?? '') ?? 0;
+      if (hour == null ||
+          min == null ||
+          hour < 0 ||
+          hour > 23 ||
+          min < 0 ||
+          min > 59 ||
+          second < 0 ||
+          second > 59) {
+        return s;
+      }
+
+      return '${hour.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}:${second.toString().padLeft(2, '0')}';
+    }
 
     final reg12 = RegExp(r'^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$');
     final m = reg12.firstMatch(s);
@@ -350,7 +367,7 @@ class _TeamOnlineAvailabilityScreenState
       if (h == 12) h = 0;
       if (mer == 'PM') h += 12;
 
-      return '${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}';
+      return '${h.toString().padLeft(2, '0')}:${min.toString().padLeft(2, '0')}:00';
     }
 
     return s;

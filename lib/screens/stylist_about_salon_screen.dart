@@ -112,6 +112,29 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
     return urls;
   }
 
+  String _formatWorkingHours(String rawTime) {
+    final value = rawTime.trim();
+    if (value.isEmpty || value.toLowerCase() == 'null') return '';
+
+    final match = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(value);
+    if (match == null) return value;
+
+    final hour = int.tryParse(match.group(1) ?? '');
+    final minute = int.tryParse(match.group(2) ?? '');
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return value;
+    }
+
+    final isPm = hour >= 12;
+    final displayHour = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+    return '$displayHour:${minute.toString().padLeft(2, '0')} ${isPm ? 'PM' : 'AM'}';
+  }
+
   Widget _infoTile({
     required IconData icon,
     required String title,
@@ -228,7 +251,10 @@ class _StylistAboutSalonScreenState extends State<StylistAboutSalonScreen> {
                 icon: Icons.access_time_outlined,
                 title: context.t('Working Hours'),
                 value: (startTime.isNotEmpty || endTime.isNotEmpty)
-                    ? '$startTime - $endTime'
+                    ? [
+                        _formatWorkingHours(startTime),
+                        _formatWorkingHours(endTime),
+                      ].where((value) => value.isNotEmpty).join(' - ')
                     : '',
               ),
               _infoTile(
