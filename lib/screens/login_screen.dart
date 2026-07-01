@@ -9,6 +9,8 @@ import 'package:bloc_onboarding/services/push_notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const _loginGold = Color(0xFFB88422);
 const _loginDeepGold = Color(0xFF8B6500);
@@ -234,9 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
           _lastSnackTime == null ||
           now.difference(_lastSnackTime!) > _snackCooldown;
       if (shouldShow) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(state.message)));
+        Fluttertoast.showToast(msg: state.message);
         _lastSnackMessage = state.message;
         _lastSnackTime = now;
       }

@@ -16,18 +16,12 @@ class _BranchOption {
   final String address;
 
   String get label {
-    if (salonName.isNotEmpty &&
-        branchName.isNotEmpty &&
-        salonName != branchName) {
-      return '$salonName • $branchName';
-    }
-    return branchName.isNotEmpty ? branchName : salonName;
+    return salonName.isNotEmpty ? salonName : branchName;
   }
 
   String get subtitle {
-    if (salonName.trim().isEmpty) return address;
-    if (address.trim().isEmpty) return salonName;
-    return '$salonName • $address';
+    if (address.trim().isNotEmpty) return address;
+    return branchName;
   }
 }
 

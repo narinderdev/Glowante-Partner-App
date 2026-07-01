@@ -461,7 +461,6 @@ class _OtpScreenState extends State<OtpScreen> {
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 2,
         );
-
         _startCountdown();
       } else {
         setState(() {

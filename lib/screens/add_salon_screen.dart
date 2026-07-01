@@ -15,6 +15,8 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'AddSalonServices.dart';
 import 'set_weekly_schedule_screen.dart';
 import '../widgets/salon_flow_step_header.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 import '../utils/aws_s3_uploader.dart'; // ✅ make sure this import is present
 
 class _FirstLetterUpperFormatter extends TextInputFormatter {
@@ -865,7 +867,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final existing = context.read<AddSalonCubit>().state.images;
     final remainingSlots = 10 - existing.length;
     if (remainingSlots <= 0) {
-      _showImageLimitSnackBar();
+      _showImageLimitToast();
       return;
     }
 
@@ -880,7 +882,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final existing = context.read<AddSalonCubit>().state.images;
     final remainingSlots = 10 - existing.length;
     if (remainingSlots <= 0) {
-      _showImageLimitSnackBar();
+      _showImageLimitToast();
       return;
     }
 
@@ -895,7 +897,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     if (!mounted) return;
     if (files.isEmpty) return;
     if (files.length > remainingSlots) {
-      _showImageLimitSnackBar();
+      _showImageLimitToast();
     }
     final images = [
       ...existing,
@@ -904,16 +906,10 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     context.read<AddSalonCubit>().setImages(images);
   }
 
-  void _showImageLimitSnackBar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText(
+  void _showImageLimitToast() {
+    Fluttertoast.showToast(msg: translateText(
             'You can add up to 10 photos. Remove a photo before choosing another.',
-          ),
-        ),
-      ),
-    );
+          ));
   }
 
   Future<List<String>> _uploadSelectedImageUrls(List<File> images) async {
@@ -1063,11 +1059,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     _syncBufferDraftsFromInputs();
 
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(translateText('Please select start and end time.')),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please select start and end time.'));
       return;
     }
 
@@ -1075,23 +1067,13 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final endMinutes = _timeToMinutes(_endTimeController.text);
 
     if (startMinutes >= endMinutes) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('End time must be greater than start time.'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('End time must be greater than start time.'));
       return;
     }
 
     final address = state.address;
     if (!widget.isEdit && !_isAddressComplete(address)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(translateText('Please add the salon location.')),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please add the salon location.'));
       return;
     }
 
@@ -1277,9 +1259,7 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
         if (saved != true) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Salon updated successfully'))),
-        );
+        Fluttertoast.showToast(msg: translateText('Salon updated successfully'));
 
         Navigator.pop(context, true);
         return;
@@ -1380,15 +1360,11 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         if (state.status == AddSalonStatus.failure &&
             state.errorMessage != null &&
             isCurrent) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.errorMessage!)));
+          Fluttertoast.showToast(msg: state.errorMessage!);
         }
 
         if (state.status == AddSalonStatus.success && isCurrent) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Salon added successfully'))),
-          );
+          Fluttertoast.showToast(msg: translateText('Salon added successfully'));
           if (widget.isEdit) {
             Navigator.pop(context, true);
             return;

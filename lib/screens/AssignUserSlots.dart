@@ -7,6 +7,8 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'team_online_availability_screen.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class _OperatingSlot {
   const _OperatingSlot({
@@ -545,13 +547,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     if ((weeklySchedule['Monday'] ?? const []).isEmpty) {
       setState(() => _copyMondayToAllChecked = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Please add time slots for Monday first.'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please add time slots for Monday first.'));
       return;
     }
 
@@ -622,13 +618,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
   }
 
   void _showClosedDayMessage(String day) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('$day is closed for appointments.'),
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: translateText('$day is closed for appointments.'));
   }
 
   List<Map<String, dynamic>> _buildSchedulePayload() {
@@ -685,11 +675,7 @@ class _AssignUserSlotState extends State<AssignUserSlot> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${translateText('Error')}: $e'),
-        ),
-      );
+      Fluttertoast.showToast(msg: '${translateText('Error')}: $e');
     } finally {
       if (mounted) {
         setState(() => isSubmitting = false);

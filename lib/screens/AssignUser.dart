@@ -4,6 +4,8 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../widgets/multi_step_flow_header.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const Color _assignUserBackground = Color(0xFFFBFAF8);
 const Color _assignUserBorder = Color(0xFFE8DED6);
@@ -197,15 +199,9 @@ class _AssignUserScreenState extends State<AssignUserScreen> {
         availableBranches.firstWhere((b) => b.id == selectedBranchId);
 
     if (!_memberBelongsToSalon(branch.salonId)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText(
+      Fluttertoast.showToast(msg: translateText(
               'This team member is not part of this salon. Add them to this salon before assigning a branch.',
-            ),
-          ),
-        ),
-      );
+            ));
       return;
     }
 

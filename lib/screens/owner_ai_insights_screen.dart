@@ -9,6 +9,8 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 enum _AiInsightRange { week, month }
 
@@ -612,12 +614,7 @@ class _OwnerAiInsightsScreenState extends State<OwnerAiInsightsScreen> {
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content:
-                      Text(context.t('AI report generation is coming soon')),
-                ),
-              );
+              Fluttertoast.showToast(msg: context.t('AI report generation is coming soon'));
             },
             icon: const Icon(Icons.auto_awesome_outlined, size: 16),
             label: Text(context.t('Generate AI Report')),

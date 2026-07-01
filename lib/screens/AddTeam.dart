@@ -16,6 +16,8 @@ import '../utils/aws_s3_uploader.dart';
 import '../utils/colors.dart';
 import '../utils/input_validation.dart';
 import '../widgets/multi_step_flow_header.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const Color _teamMemberAccent = Color(0xFF8B6500);
 const Color _teamMemberSoftFill = Color(0xFFECE7E1);
@@ -1000,10 +1002,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   void _toast(String msg) {
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(msg)));
+    Fluttertoast.showToast(msg: msg);
   }
 
   String _friendlyErrorMessage(Object error) {
@@ -1593,11 +1592,7 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(translateText('Team member updated successfully')),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Team member updated successfully'));
 
       Navigator.pop(context, true);
     } catch (error) {

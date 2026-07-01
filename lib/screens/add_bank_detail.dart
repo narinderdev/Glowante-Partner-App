@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class AddBankDetailScreen extends StatefulWidget {
   const AddBankDetailScreen({super.key});
@@ -42,13 +44,7 @@ class _AddBankDetailScreenState extends State<AddBankDetailScreen> {
     if (form == null || !form.validate()) return;
 
     FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('Bank details saved locally. API integration pending.'),
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: translateText('Bank details saved locally. API integration pending.'));
   }
 
   @override

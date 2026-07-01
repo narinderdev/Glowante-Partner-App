@@ -11,6 +11,8 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class StylistMarkAttendanceScreen extends StatefulWidget {
   const StylistMarkAttendanceScreen({super.key});
@@ -94,7 +96,7 @@ class _StylistMarkAttendanceScreenState
       setState(() {
         _isLoading = false;
       });
-      _showSnackBar(_friendlyErrorMessage(error));
+      _showToast(_friendlyErrorMessage(error));
     }
   }
 
@@ -157,7 +159,7 @@ class _StylistMarkAttendanceScreenState
   Future<void> _startEnrollmentSequence() async {
     final branchId = _branchSelection.branchId;
     if (branchId == null) {
-      _showSnackBar(translateText('Select a branch to continue'));
+      _showToast(translateText('Select a branch to continue'));
       return;
     }
 
@@ -203,9 +205,9 @@ class _StylistMarkAttendanceScreenState
       setState(() {
         _enrollment = enrollment;
       });
-      _showSnackBar(translateText('Face setup completed successfully'));
+      _showToast(translateText('Face setup completed successfully'));
     } catch (error) {
-      _showSnackBar(_friendlyErrorMessage(error));
+      _showToast(_friendlyErrorMessage(error));
     } finally {
       for (final file in result.capturedFilesByPose.values) {
         if (await file.exists()) {
@@ -223,30 +225,30 @@ class _StylistMarkAttendanceScreenState
   Future<void> _startAttendanceAction(StylistAttendanceAction action) async {
     final branchId = _branchSelection.branchId;
     if (branchId == null) {
-      _showSnackBar(translateText('Select a branch to continue'));
+      _showToast(translateText('Select a branch to continue'));
       return;
     }
     final userId = _userId;
     if (userId == null) {
-      _showSnackBar(
+      _showToast(
         translateText('Unable to resolve your account. Please sign in again.'),
       );
       return;
     }
     if (_enrollment?.isComplete != true) {
-      _showSnackBar(translateText('Complete face setup first'));
+      _showToast(translateText('Complete face setup first'));
       return;
     }
     if (action == StylistAttendanceAction.checkIn && _hasCheckedInToday) {
-      _showSnackBar(translateText('Check-in is already marked for today.'));
+      _showToast(translateText('Check-in is already marked for today.'));
       return;
     }
     if (action == StylistAttendanceAction.checkOut && !_hasCheckedInToday) {
-      _showSnackBar(translateText('Check-in must be marked before check-out.'));
+      _showToast(translateText('Check-in must be marked before check-out.'));
       return;
     }
     if (action == StylistAttendanceAction.checkOut && _hasCheckedOutToday) {
-      _showSnackBar(translateText('Check-out is already marked for today.'));
+      _showToast(translateText('Check-out is already marked for today.'));
       return;
     }
     if (_isBusy || _activeAttendanceActionId != null) {
@@ -277,7 +279,7 @@ class _StylistMarkAttendanceScreenState
       }
       capturedFile = result.capturedFile;
       if (capturedFile == null) {
-        _showSnackBar(translateText('Unable to capture attendance image.'));
+        _showToast(translateText('Unable to capture attendance image.'));
         return;
       }
 
@@ -295,13 +297,13 @@ class _StylistMarkAttendanceScreenState
       setState(() {
         _records = <StylistAttendanceRecord>[record, ..._records];
       });
-      _showSnackBar(
+      _showToast(
         action == StylistAttendanceAction.checkIn
             ? translateText('Check-in marked successfully')
             : translateText('Check-out marked successfully'),
       );
     } catch (error) {
-      _showSnackBar(_friendlyErrorMessage(error));
+      _showToast(_friendlyErrorMessage(error));
     } finally {
       if (capturedFile != null && await capturedFile.exists()) {
         await capturedFile.delete();
@@ -363,9 +365,9 @@ class _StylistMarkAttendanceScreenState
         _enrollment = null;
         _records = const <StylistAttendanceRecord>[];
       });
-      _showSnackBar(translateText('Face setup reset successfully'));
+      _showToast(translateText('Face setup reset successfully'));
     } catch (error) {
-      _showSnackBar(_friendlyErrorMessage(error));
+      _showToast(_friendlyErrorMessage(error));
     } finally {
       if (mounted) {
         setState(() {
@@ -378,7 +380,7 @@ class _StylistMarkAttendanceScreenState
   Future<void> _openStoredImages() async {
     final enrollment = _enrollment;
     if (enrollment == null || enrollment.imagePaths.isEmpty) {
-      _showSnackBar(translateText('No stored images found.'));
+      _showToast(translateText('No stored images found.'));
       return;
     }
     await Navigator.push(
@@ -395,11 +397,11 @@ class _StylistMarkAttendanceScreenState
     final branchId = _branchSelection.branchId;
     final userId = _userId;
     if (branchId == null) {
-      _showSnackBar(translateText('Select a branch to continue'));
+      _showToast(translateText('Select a branch to continue'));
       return;
     }
     if (userId == null) {
-      _showSnackBar(
+      _showToast(
         translateText('Unable to resolve your account. Please sign in again.'),
       );
       return;
@@ -419,13 +421,11 @@ class _StylistMarkAttendanceScreenState
     );
   }
 
-  void _showSnackBar(String message) {
+  void _showToast(String message) {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    Fluttertoast.showToast(msg: message);
   }
 
   String _friendlyErrorMessage(Object error) {

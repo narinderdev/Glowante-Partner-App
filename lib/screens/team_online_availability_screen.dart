@@ -7,6 +7,8 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../widgets/multi_step_flow_header.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class TeamOnlineAvailabilityScreen extends StatefulWidget {
   const TeamOnlineAvailabilityScreen.addMember({
@@ -398,11 +400,7 @@ class _TeamOnlineAvailabilityScreenState
       debugPrint(
         '[TeamOnlineAvailability] Save blocked: joining date missing',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(translateText('Please select a joining date')),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please select a joining date'));
       return;
     }
 
@@ -447,13 +445,7 @@ class _TeamOnlineAvailabilityScreenState
         if (!mounted) return;
 
         if (response['success'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                translateText('Team member added successfully'),
-              ),
-            ),
-          );
+          Fluttertoast.showToast(msg: translateText('Team member added successfully'));
 
           await Future.delayed(const Duration(milliseconds: 700));
 
@@ -488,13 +480,7 @@ class _TeamOnlineAvailabilityScreenState
         if (!mounted) return;
 
         if (response['success'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                translateText('Team member updated successfully'),
-              ),
-            ),
-          );
+          Fluttertoast.showToast(msg: translateText('Team member updated successfully'));
 
           await Future.delayed(const Duration(milliseconds: 700));
 
@@ -544,13 +530,7 @@ class _TeamOnlineAvailabilityScreenState
       );
       if (!mounted) return;
       if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText('User assigned successfully'),
-            ),
-          ),
-        );
+        Fluttertoast.showToast(msg: translateText('User assigned successfully'));
 
         await Future.delayed(const Duration(milliseconds: 700));
 
@@ -564,9 +544,7 @@ class _TeamOnlineAvailabilityScreenState
     } catch (error) {
       debugPrint('[TeamOnlineAvailability] Save failed: $error');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_friendlyErrorMessage(error))),
-      );
+      Fluttertoast.showToast(msg: _friendlyErrorMessage(error));
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);

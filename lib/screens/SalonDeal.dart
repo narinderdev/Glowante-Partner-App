@@ -5,6 +5,8 @@ import 'Adddeals.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 // ---- UI constants ----
 const kDropdownFill = Color(0xFFF5F5F5); // grey-100 as const
@@ -107,13 +109,7 @@ class _DealScreenState extends State<DealScreen> {
       } else {
         offers = [];
         debugPrint('❌ Failed to load offers: ${response['message']}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              response['message']?.toString() ?? "Failed to load offers",
-            ),
-          ),
-        );
+        Fluttertoast.showToast(msg: response['message']?.toString() ?? "Failed to load offers");
       }
     });
   }
@@ -131,9 +127,7 @@ class _DealScreenState extends State<DealScreen> {
       await _fetchOffers(selectedSalonId!);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      Fluttertoast.showToast(msg: e.toString());
     } finally {
       if (mounted) {
         setState(() => _statusUpdatingIds.remove(offerId));
@@ -197,9 +191,7 @@ class _DealScreenState extends State<DealScreen> {
 
   Future<void> _deleteOffer(int offerId) async {
     if (selectedSalonId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select a salon first'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Please select a salon first'));
       return;
     }
 
@@ -209,19 +201,11 @@ class _DealScreenState extends State<DealScreen> {
         branchId: selectedSalonId!,
         offerId: offerId,
       );
-
       if (res['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Offer deleted successfully'))),
-        );
+        Fluttertoast.showToast(msg: translateText('Offer deleted successfully'));
         await _fetchOffers(selectedSalonId!);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text(res['message']?.toString() ?? 'Failed to delete deal'),
-          ),
-        );
+        Fluttertoast.showToast(msg: res['message']?.toString() ?? 'Failed to delete deal');
       }
     } finally {
       if (mounted) setState(() => _deletingIds.remove(offerId));
@@ -230,9 +214,7 @@ class _DealScreenState extends State<DealScreen> {
 
   Future<void> _editOffer(Map<String, dynamic> offer) async {
     if (selectedSalon == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText("Please select a salon"))),
-      );
+      Fluttertoast.showToast(msg: translateText("Please select a salon"));
       return;
     }
 
@@ -599,9 +581,7 @@ class _DealScreenState extends State<DealScreen> {
         heroTag: 'salon_deals_add_fab',
         onPressed: () {
           if (selectedSalon == null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(translateText("Please select a salon"))),
-            );
+            Fluttertoast.showToast(msg: translateText("Please select a salon"));
             return;
           }
           Navigator.push(

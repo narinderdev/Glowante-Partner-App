@@ -15,6 +15,8 @@ import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class OwnerBranchClientsScreen extends StatefulWidget {
   const OwnerBranchClientsScreen({super.key});
@@ -1466,7 +1468,7 @@ class _OwnerBranchClientsScreenState extends State<OwnerBranchClientsScreen> {
 
   void _showSnack(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    Fluttertoast.showToast(msg: text);
   }
 
   @override

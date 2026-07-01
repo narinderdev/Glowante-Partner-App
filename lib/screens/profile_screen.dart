@@ -14,6 +14,8 @@ import '../utils/colors.dart';
 import 'add_bank_detail.dart';
 import 'login_screen.dart';
 import 'web_doc_screen.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -96,9 +98,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.pop(ctx);
 
               if (!success) {
-                messenger.showSnackBar(
-                  SnackBar(content: Text(failureText)),
-                );
+                Fluttertoast.showToast(msg: failureText);
               }
 
               await AuthSessionManager.instance.forceLogout(
@@ -200,11 +200,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   (route) => false,
                 );
               } else {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(deleteFailureText),
-                  ),
-                );
+                Fluttertoast.showToast(msg: deleteFailureText);
               }
             }
 

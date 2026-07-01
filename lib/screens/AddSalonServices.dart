@@ -17,6 +17,8 @@ import 'bottom_nav.dart';
 import 'package:bloc_onboarding/bloc/salon/add_salon_cubit.dart';
 import 'package:bloc_onboarding/bloc/salon/salon_list_cubit.dart';
 import 'package:bloc_onboarding/bloc/branch/add_branch_cubit.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class AddSalonServices extends StatefulWidget {
   const AddSalonServices({
@@ -124,9 +126,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
       debugPrintStack(stackTrace: stack);
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to load services: $e')),
-        );
+        Fluttertoast.showToast(msg: 'Unable to load services: $e');
       }
     }
   }
@@ -161,15 +161,11 @@ class _AddSalonServicesState extends State<AddSalonServices> {
       listener: (context, state) async {
         if (state.status == AddSalonStatus.failure &&
             state.errorMessage != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.errorMessage!)),
-          );
+          Fluttertoast.showToast(msg: state.errorMessage!);
         }
 
         if (state.status == AddSalonStatus.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(translateText('Salon added successfully'))),
-          );
+          Fluttertoast.showToast(msg: translateText('Salon added successfully'));
           final savedSelection =
               await StylistBranchSelectionStore.saveFromSalonCreateResponse(
             state.createdSalonResponse,
@@ -710,11 +706,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
     final copyServicesSelected =
         widget.branchFormData != null && _selectedSourceBranchId != null;
     if (!copyServicesSelected && _selectedCodes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(translateText('Please select at least one service.'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Please select at least one service.'));
       return;
     }
 
@@ -764,9 +756,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
         );
 
         if (!mounted) return;
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(translateText('Branch added successfully!'))),
-        );
+        Fluttertoast.showToast(msg: translateText('Branch added successfully!'));
 
         final savedSelection =
             await StylistBranchSelectionStore.saveFromBranchCreateResponse(
@@ -801,9 +791,7 @@ class _AddSalonServicesState extends State<AddSalonServices> {
 
       debugPrint('❌ Failed to add branch: $message');
 
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      Fluttertoast.showToast(msg: message);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

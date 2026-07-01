@@ -11,6 +11,8 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import '../widgets/fixed_slot_otp_field.dart';
 import 'view_all_client_owner.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const Color _bookingGold = Color(0xFF8B6500);
 const Color _bookingGoldLight = Color(0xFFD0A244);
@@ -2842,9 +2844,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_extractApiErrorMessage(e))),
-      );
+      Fluttertoast.showToast(msg: _extractApiErrorMessage(e));
     } finally {
       if (mounted) {
         setState(() => _loadingCart = false);
@@ -3336,7 +3336,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    Fluttertoast.showToast(msg: msg);
   }
 
   @override
@@ -4389,9 +4389,7 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_extractApiErrorMessage(e))),
-      );
+      Fluttertoast.showToast(msg: _extractApiErrorMessage(e));
     } finally {
       if (mounted) {
         setState(() {
@@ -4534,26 +4532,14 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
           widget.serviceMembers[serviceId] ?? const <Map<String, dynamic>>[];
 
       if (members.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText('No team member available for $serviceName'),
-            ),
-          ),
-        );
+        Fluttertoast.showToast(msg: translateText('No team member available for $serviceName'));
         return false;
       }
 
       final selected = _selectedProfessionals[serviceId];
 
       if (selected == null || selected.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText('Please select team member for $serviceName'),
-            ),
-          ),
-        );
+        Fluttertoast.showToast(msg: translateText('Please select team member for $serviceName'));
         return false;
       }
     }
@@ -4822,11 +4808,7 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
     final start = _selectedTime;
 
     if (start == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(translateText('Please select a time slot')),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please select a time slot'));
       return;
     }
 
@@ -4837,7 +4819,6 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       startTime: start,
       endTime: endTime,
     );
-
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
@@ -4981,15 +4962,9 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
         'branchId=$branchId cartItemIds=${widget.cartItemIdsByService}',
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText(
+        Fluttertoast.showToast(msg: translateText(
                 'Please reselect services before checking availability',
-              ),
-            ),
-          ),
-        );
+              ));
       }
       return false;
     }
@@ -5018,22 +4993,14 @@ class _BookingScheduleScreenState extends State<_BookingScheduleScreen> {
       );
 
       if (response['success'] == false && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              response['message']?.toString() ??
-                  translateText('Failed to assign team member'),
-            ),
-          ),
-        );
+        Fluttertoast.showToast(msg: response['message']?.toString() ??
+                  translateText('Failed to assign team member'));
         return false;
       }
       return true;
     } catch (e) {
       if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_apiMessage(e))),
-      );
+      Fluttertoast.showToast(msg: _apiMessage(e));
       return false;
     }
   }

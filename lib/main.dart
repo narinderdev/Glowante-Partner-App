@@ -27,6 +27,8 @@ import 'services/auth_session_manager.dart';
 import 'services/navigation_service.dart';
 import 'services/token_expiration_service.dart';
 import 'screens/login_screen.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 Future<void> main() async {
   await runZonedGuarded<Future<void>>(() async {
@@ -83,11 +85,7 @@ Future<void> main() async {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             final BuildContext? newContext = appNavigatorKey.currentContext;
             if (newContext != null && newContext.mounted) {
-              ScaffoldMessenger.of(newContext).showSnackBar(
-                const SnackBar(
-                  content: Text('Session expired. Please sign in again.'),
-                ),
-              );
+              Fluttertoast.showToast(msg: 'Session expired. Please sign in again.');
             }
           });
         }
@@ -234,9 +232,7 @@ class _CrashlyticsDebugButtonState extends State<_CrashlyticsDebugButton> {
 
     if (mounted) {
       setState(() => _isSending = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Crashlytics ping sent ($timestamp)')),
-      );
+      Fluttertoast.showToast(msg: 'Crashlytics ping sent ($timestamp)');
     }
   }
 
@@ -246,6 +242,7 @@ class _CrashlyticsDebugButtonState extends State<_CrashlyticsDebugButton> {
       elevation: 6,
       borderRadius: BorderRadius.circular(999),
       clipBehavior: Clip.antiAlias,
+      child: const SizedBox.shrink(),
     );
   }
 }

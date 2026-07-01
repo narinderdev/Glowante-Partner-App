@@ -1,5 +1,4 @@
 part of 'owner_profile_operations_screen.dart';
-
 class _InventoryItemFormView extends StatefulWidget {
   const _InventoryItemFormView({
     required this.branchId,
@@ -188,8 +187,7 @@ if (!_formKey.currentState!.validate()) return;
       await widget.onSubmit(payload);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+      Fluttertoast.showToast(msg: error.toString());
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

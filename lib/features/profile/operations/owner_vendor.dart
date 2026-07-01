@@ -1,5 +1,4 @@
 part of 'owner_profile_operations_screen.dart';
-
 class _VendorFormView extends StatefulWidget {
   const _VendorFormView({
     required this.isEdit,
@@ -68,8 +67,7 @@ class _VendorFormViewState extends State<_VendorFormView> {
       });
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+      Fluttertoast.showToast(msg: error.toString());
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

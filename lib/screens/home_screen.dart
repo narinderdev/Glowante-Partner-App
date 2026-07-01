@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -647,8 +649,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         Future<void> onConfirmAll() async {
           if (_selectedBranchId == null) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text(translateText('Please select a branch first.'))));
+            Fluttertoast.showToast(msg: translateText('Please select a branch first.'));
             return;
           }
           if (status != 'PENDING' || apptIds.isEmpty) return;
@@ -684,8 +685,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final msg = fail == 0
               ? 'Confirmed $ok appointment(s).'
               : 'Confirmed $ok, failed $fail.';
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(msg)));
+          Fluttertoast.showToast(msg: msg);
         }
 
         return FractionallySizedBox(

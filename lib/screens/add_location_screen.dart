@@ -10,6 +10,8 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../utils/colors.dart';
 import '../services/language_listener.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({
@@ -158,15 +160,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
       if (!serviceEnabled) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                translateText(
+          Fluttertoast.showToast(msg: translateText(
                   'Turn on location services to use your current location',
-                ),
-              ),
-            ),
-          );
+                ));
         }
         await Geolocator.openLocationSettings();
         return;
@@ -181,15 +177,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
       if (permission == LocationPermission.denied) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                translateText(
+          Fluttertoast.showToast(msg: translateText(
                   'Allow location access to autofill your address details',
-                ),
-              ),
-            ),
-          );
+                ));
         }
         return;
       }
@@ -1195,26 +1185,14 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   // }
   Future<void> _submitLocation() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Please fill all required fields correctly'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please fill all required fields correctly'));
       return;
     }
 
     final composedAddress = _composedAddress();
 
     if (composedAddress.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Please enter or select the complete address.'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please enter or select the complete address.'));
       return;
     }
 
@@ -1254,15 +1232,9 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
         finalLongitude == null ||
         finalLatitude == 0.0 ||
         finalLongitude == 0.0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText(
+      Fluttertoast.showToast(msg: translateText(
               'Could not get coordinates. Please use current location or select a more specific suggestion.',
-            ),
-          ),
-        ),
-      );
+            ));
       return;
     }
 

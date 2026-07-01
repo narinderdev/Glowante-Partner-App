@@ -10,6 +10,8 @@ import '../features/salon/widgets/owner_branch_header_selector.dart';
 import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/localization_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class AdScreen extends StatefulWidget {
   const AdScreen({super.key});
@@ -189,9 +191,7 @@ class _AdScreenState extends State<AdScreen> {
     } catch (error) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to share PDF: $error')),
-      );
+      Fluttertoast.showToast(msg: 'Failed to share PDF: $error');
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
@@ -212,9 +212,7 @@ class _AdScreenState extends State<AdScreen> {
     } catch (error) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to download PDF: $error')),
-      );
+      Fluttertoast.showToast(msg: 'Failed to download PDF: $error');
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }

@@ -17,6 +17,8 @@ import 'salon_detail_screen.dart';
 import '../utils/colors.dart';
 import '../utils/api_service.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const double _salonHeroImageHeight = 240;
 
@@ -323,23 +325,15 @@ class SalonsScreenState extends State<SalonsScreen> {
         await repo.deactivateSalon(salonId);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText(
+      Fluttertoast.showToast(msg: translateText(
               active
                   ? 'Salon activated successfully'
                   : 'Salon deactivated successfully',
-            ),
-          ),
-        ),
-      );
+            ));
       await _refreshSalons();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      Fluttertoast.showToast(msg: error.toString());
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }
@@ -377,15 +371,11 @@ class SalonsScreenState extends State<SalonsScreen> {
       debugPrint('[SalonAction] Delete salon -> salonId=$salonId');
       await repository.deleteSalon(salonId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Salon deleted successfully'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Salon deleted successfully'));
       await _refreshSalons();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      Fluttertoast.showToast(msg: error.toString());
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }
@@ -460,23 +450,15 @@ class SalonsScreenState extends State<SalonsScreen> {
         await repo.deactivateBranch(branchId);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText(
+      Fluttertoast.showToast(msg: translateText(
               active
                   ? 'Branch activated successfully'
                   : 'Branch deactivated successfully',
-            ),
-          ),
-        ),
-      );
+            ));
       await _refreshSalons();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      Fluttertoast.showToast(msg: error.toString());
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }
@@ -514,15 +496,11 @@ class SalonsScreenState extends State<SalonsScreen> {
       debugPrint('[BranchAction] Delete branch -> branchId=$branchId');
       await repository.deleteBranch(branchId);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Branch deleted successfully'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Branch deleted successfully'));
       await _refreshSalons();
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      Fluttertoast.showToast(msg: error.toString());
     } finally {
       if (mounted) setState(() => _isActionLoading = false);
     }

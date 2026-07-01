@@ -19,6 +19,8 @@ import 'package:bloc_onboarding/repositories/salon_repository.dart';
 import '../utils/aws_s3_uploader.dart';
 import '../utils/api_service.dart';
 import 'bottom_nav.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 enum _BranchField { name, phone, startTime, endTime, description }
 
@@ -637,7 +639,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final existing = context.read<AddBranchCubit>().state.images;
     final remainingSlots = 10 - existing.length;
     if (remainingSlots <= 0) {
-      _showImageLimitSnackBar();
+      _showImageLimitToast();
       return;
     }
 
@@ -652,7 +654,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     final existing = context.read<AddBranchCubit>().state.images;
     final remainingSlots = 10 - existing.length;
     if (remainingSlots <= 0) {
-      _showImageLimitSnackBar();
+      _showImageLimitToast();
       return;
     }
 
@@ -667,7 +669,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (!mounted) return;
     if (files.isEmpty) return;
     if (files.length > remainingSlots) {
-      _showImageLimitSnackBar();
+      _showImageLimitToast();
     }
     final images = [
       ...existing,
@@ -676,16 +678,10 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     context.read<AddBranchCubit>().setImages(images);
   }
 
-  void _showImageLimitSnackBar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText(
+  void _showImageLimitToast() {
+    Fluttertoast.showToast(msg: translateText(
             'You can add up to 10 photos. Remove a photo before choosing another.',
-          ),
-        ),
-      ),
-    );
+          ));
   }
 
   Future<List<String>> _uploadSelectedImageUrls(List<File> images) async {
@@ -896,11 +892,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (widget.isEdit &&
         (_startTimeController.text.isEmpty ||
             _endTimeController.text.isEmpty)) {
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(translateText('Please select start and end time.')),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please select start and end time.'));
       return;
     }
     debugPrint('BRANCH ADDRESS = ${state.address?.toJson()}');
@@ -908,11 +900,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     debugPrint('LNG = ${state.address?.longitude}');
     // 🟢 Require address completeness based on new flow
     if (!_isAddressComplete(state.address)) {
-      scaffoldMessenger.showSnackBar(
-        SnackBar(
-          content: Text(translateText('Please choose a branch location.')),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please choose a branch location.'));
       return;
     }
 
@@ -929,9 +917,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
     if (widget.isEdit && widget.initialBranch != null) {
       final branchId = (widget.initialBranch!['id'] as num?)?.toInt();
       if (branchId == null) {
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text(translateText('Missing branch id'))),
-        );
+        Fluttertoast.showToast(msg: translateText('Missing branch id'));
         return;
       }
       Future<void> saveBranchEdit(ScheduleStepResult scheduleResult) async {
@@ -1003,9 +989,7 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
       if (saved != true) return;
 
       if (!mounted) return;
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text(translateText('Branch updated successfully'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Branch updated successfully'));
       Navigator.pop(context, true);
       return;
     }
@@ -1110,24 +1094,15 @@ class _AddBranchScreenState extends State<AddBranchScreen> {
               .replaceAll('Failed to add branch:', '')
               .replaceAll('Exception:', '')
               .trim();
-
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message)));
+          Fluttertoast.showToast(msg: message);
         }
 
         if (state.status == BranchFormStatus.success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                translateText(
+          Fluttertoast.showToast(msg: translateText(
                   widget.isEdit
                       ? 'Branch updated successfully'
                       : 'Branch added successfully',
-                ),
-              ),
-            ),
-          );
+                ));
           if (widget.isEdit) {
             Navigator.pop(context, true);
             return;

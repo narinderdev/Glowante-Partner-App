@@ -7,6 +7,8 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const Color _teamGold = Color(0xFF8B6500);
 const Color _teamInk = Color(0xFF2D2926);
@@ -313,9 +315,7 @@ class _TeamScreenState extends State<TeamScreen> {
     final branchId = selectedBranchId;
 
     if (branchId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select a branch first'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Please select a branch first'));
       return;
     }
 
@@ -349,39 +349,21 @@ class _TeamScreenState extends State<TeamScreen> {
           teamMembersFuture = Future.value(_teamMembersCache);
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText(
+        Fluttertoast.showToast(msg: translateText(
                 makeActive
                     ? 'Team member activated successfully'
                     : 'Team member deactivated successfully',
-              ),
-            ),
-          ),
-        );
+              ));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              response['message']?.toString() ??
+        Fluttertoast.showToast(msg: response['message']?.toString() ??
                   (makeActive
                       ? 'Failed to activate team member'
-                      : 'Failed to deactivate team member'),
-            ),
-          ),
-        );
+                      : 'Failed to deactivate team member'));
       }
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''));
     } finally {
       if (mounted) {
         setState(() {
@@ -512,9 +494,7 @@ class _TeamScreenState extends State<TeamScreen> {
     final branchId = selectedBranchId;
 
     if (branchId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select a branch first'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Please select a branch first'));
       return;
     }
 
@@ -562,34 +542,16 @@ class _TeamScreenState extends State<TeamScreen> {
       if (!mounted) return;
 
       if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText('Team member deleted successfully'),
-            ),
-          ),
-        );
+        Fluttertoast.showToast(msg: translateText('Team member deleted successfully'));
 
         await _refreshTeamMembers();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              response['message']?.toString() ?? 'Failed to delete team member',
-            ),
-          ),
-        );
+        Fluttertoast.showToast(msg: response['message']?.toString() ?? 'Failed to delete team member');
       }
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''));
     } finally {
       if (mounted) {
         setState(() => _deletingMemberIds.remove(userId));
@@ -710,9 +672,7 @@ class _TeamScreenState extends State<TeamScreen> {
       final limitMessage = await _staffLimitBlockMessage();
       if (!mounted) return;
       if (limitMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText(limitMessage))),
-        );
+        Fluttertoast.showToast(msg: translateText(limitMessage));
         return;
       }
 
@@ -731,18 +691,10 @@ class _TeamScreenState extends State<TeamScreen> {
         setState(() {
           teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(translateText("Team member added successfully")),
-          ),
-        );
+        Fluttertoast.showToast(msg: translateText("Team member added successfully"));
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(translateText("Please select a branch first.")),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText("Please select a branch first."));
     }
   }
 

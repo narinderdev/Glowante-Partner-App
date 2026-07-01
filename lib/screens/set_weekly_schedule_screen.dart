@@ -3,6 +3,8 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/salon_flow_step_header.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class ScheduleStepResult {
   const ScheduleStepResult({
@@ -927,13 +929,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
         .toList(growable: false);
 
     if (openDays.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Please enable at least one working day.'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Please enable at least one working day.'));
       return;
     }
 
@@ -943,30 +939,18 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       final endOptions = _endOptionsForStart(entry.value.startTime);
 
       if (endOptions.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText(
+        Fluttertoast.showToast(msg: translateText(
                 '{day} end time must be after start time.',
                 params: {'day': _capitalize(entry.key)},
-              ),
-            ),
-          ),
-        );
+              ));
         return;
       }
 
       if (startMinutes >= endMinutes) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              translateText(
+        Fluttertoast.showToast(msg: translateText(
                 '{day} closing time must be after opening time.',
                 params: {'day': _capitalize(entry.key)},
-              ),
-            ),
-          ),
-        );
+              ));
         return;
       }
     }
@@ -1028,9 +1012,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
         await onContinue(result);
       } catch (error) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Failed: $error'))),
-        );
+        Fluttertoast.showToast(msg: translateText('Failed: $error'));
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
       }
@@ -1050,9 +1032,7 @@ class _SetWeeklyScheduleScreenState extends State<SetWeeklyScheduleScreen> {
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Failed: $error'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Failed: $error'));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

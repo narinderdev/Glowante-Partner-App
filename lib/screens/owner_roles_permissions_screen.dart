@@ -6,6 +6,8 @@ import '../services/stylist_branch_selection.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const Color _rolesBackground = Color(0xFFFBFAF8);
 const Color _rolesBorder = Color(0xFFE8DED6);
@@ -269,11 +271,7 @@ class _OwnerRolesPermissionsScreenState
   }
 
   void _showRoleSaveMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-      ),
-    );
+    Fluttertoast.showToast(msg: message);
   }
 
   @override

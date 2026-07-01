@@ -1,5 +1,4 @@
 part of 'owner_profile_operations_screen.dart';
-
 class _StoreFormView extends StatefulWidget {
   const _StoreFormView({
     required this.isEdit,
@@ -194,9 +193,7 @@ class _StoreFormViewState extends State<_StoreFormView> {
     } catch (error) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      Fluttertoast.showToast(msg: error.toString());
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);

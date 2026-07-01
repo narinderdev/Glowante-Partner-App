@@ -8,6 +8,8 @@ import '../bloc/category/category_cubit.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const Color _serviceGold = Color(0xFF8B6500);
 const Color _serviceGoldLight = Color(0xFFD0A244);
@@ -307,10 +309,7 @@ class _AddServicesState extends State<AddServices> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(translateText("Failed to fetch service catalog"))),
-      );
+      Fluttertoast.showToast(msg: translateText("Failed to fetch service catalog"));
     }
   }
 
@@ -442,17 +441,11 @@ class _AddServicesState extends State<AddServices> {
       if (!mounted) return;
 
       FocusManager.instance.primaryFocus?.unfocus();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText(
+      Fluttertoast.showToast(msg: translateText(
               _isEditMode
                   ? "Service updated successfully"
                   : "Service added successfully!",
-            ),
-          ),
-        ),
-      );
+            ));
       Navigator.pop(context, {
         'updated': true,
         'categoryId': savedCategoryId,
@@ -1073,15 +1066,8 @@ class _AddServicesState extends State<AddServices> {
                                     activeThumbColor: _serviceGold,
                                     onChanged: (value) {
                                       if (value && !_hasValidPrice) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              translateText(
-                                                  "Enter a valid price before enabling commission"),
-                                            ),
-                                          ),
-                                        );
+                                        Fluttertoast.showToast(msg: translateText(
+                                                  "Enter a valid price before enabling commission"));
                                         return;
                                       }
                                       setState(() {

@@ -1,5 +1,4 @@
 part of 'owner_profile_operations_screen.dart';
-
 class _PurchaseOrderFormView extends StatefulWidget {
   const _PurchaseOrderFormView({
     required this.branchId,
@@ -111,22 +110,16 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
 
     if (!_formKey.currentState!.validate()) return;
     if (_selectedVendorId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(vendorRequired)),
-      );
+      Fluttertoast.showToast(msg: vendorRequired);
       return;
     }
     if (_selectedStoreId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(deliveryAddressRequired)),
-      );
+      Fluttertoast.showToast(msg: deliveryAddressRequired);
       return;
     }
     for (final line in _lines) {
       if (line.itemId == null || (_toInt(line.qtyController.text) ?? 0) <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(lineRequired)),
-        );
+        Fluttertoast.showToast(msg: lineRequired);
         return;
       }
     }
@@ -157,8 +150,7 @@ class _PurchaseOrderFormViewState extends State<_PurchaseOrderFormView> {
       });
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.toString())));
+      Fluttertoast.showToast(msg: error.toString());
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

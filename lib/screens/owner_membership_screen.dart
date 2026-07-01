@@ -9,6 +9,8 @@ import '../services/razorpay_checkout/razorpay_checkout_models.dart';
 import '../utils/api_service.dart';
 import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const String _razorpayKeyId = 'rzp_test_KtuXq3FhhX7j5e';
 const Color _membershipBackground = Color(0xFFFBFAF8);
@@ -714,9 +716,7 @@ class _OwnerMembershipScreenState extends State<OwnerMembershipScreen> {
 
   void _showSnack(String message) {
     _logMembership('toast', details: message);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(translateText(message))),
-    );
+    Fluttertoast.showToast(msg: translateText(message));
   }
 
   Future<void> _switchSalon(_MembershipSalonOption salon) async {
@@ -965,9 +965,7 @@ class _PlansHeader extends StatelessWidget {
               inactiveTrackColor: const Color(0xFFE9E1D7),
               onChanged: (value) {
                 if (!value && !allowMonthly) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(context.t(_monthlyBlockedMessage))),
-                  );
+                  Fluttertoast.showToast(msg: context.t(_monthlyBlockedMessage));
                   return;
                 }
                 onBillingChanged(value);
@@ -2507,13 +2505,7 @@ class _RenewMembershipDialogState extends State<_RenewMembershipDialog> {
                         onSelectionChanged: (values) {
                           final nextValue = values.first;
                           if (!nextValue && !widget.allowMonthly) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  context.t(_monthlyBlockedMessage),
-                                ),
-                              ),
-                            );
+                            Fluttertoast.showToast(msg: context.t(_monthlyBlockedMessage));
                             return;
                           }
                           setState(() => _yearlyBilling = nextValue);
@@ -2815,13 +2807,7 @@ class _PurchaseDialogState extends State<_PurchaseDialog> {
                 onSelectionChanged: (values) {
                   final nextValue = values.first;
                   if (!nextValue && _isMonthlyBlocked) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          context.t(_monthlyBlockedMessage),
-                        ),
-                      ),
-                    );
+                    Fluttertoast.showToast(msg: context.t(_monthlyBlockedMessage));
                     return;
                   }
                   setState(() => _yearlyBilling = nextValue);

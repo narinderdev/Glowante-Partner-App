@@ -1,5 +1,4 @@
 part of 'owner_profile_operations_screen.dart';
-
 class _GoodsReceiptNoteFormView extends StatefulWidget {
   const _GoodsReceiptNoteFormView({
     required this.branchId,
@@ -96,19 +95,13 @@ class _GoodsReceiptNoteFormViewState extends State<_GoodsReceiptNoteFormView> {
 
     if (!_formKey.currentState!.validate()) return;
     if (_selectedPoId == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(context.t('PO is required'))));
+      Fluttertoast.showToast(msg: context.t('PO is required'));
       return;
     }
     for (final line in _lines) {
       if ((line.poLineId == null && line.itemId == null) ||
           (_toInt(line.receivedQtyController.text) ?? 0) <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                context.t('Each line requires poLine/item and received qty')),
-          ),
-        );
+        Fluttertoast.showToast(msg: context.t('Each line requires poLine/item and received qty'));
         return;
       }
     }

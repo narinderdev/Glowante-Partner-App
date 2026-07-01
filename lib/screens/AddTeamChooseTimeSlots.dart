@@ -7,6 +7,8 @@ import '../utils/colors.dart';
 import 'AddTeamSelectServices.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class _OperatingSlot {
   const _OperatingSlot({
@@ -684,13 +686,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     final currentCount = weeklySchedule[day]?.length ?? 0;
     if (currentCount >= _maxSlotsPerDay) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('You can add up to $_maxSlotsPerDay slots per day.'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('You can add up to $_maxSlotsPerDay slots per day.'));
       return;
     }
 
@@ -871,23 +867,11 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   }
 
   void _showClosedDayMessage(String day) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('$day is closed for appointments.'),
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: translateText('$day is closed for appointments.'));
   }
 
   void _showNoAvailableSlotMessage(String day) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          translateText('No available time left for $day.'),
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: translateText('No available time left for $day.'));
   }
 
   Widget _timeDropdownField(
@@ -1294,11 +1278,7 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       if (!mounted) return;
 
       if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Team member added successfully'),
-          ),
-        );
+        Fluttertoast.showToast(msg: 'Team member added successfully');
 
         Navigator.pushAndRemoveUntil(
           context,

@@ -10,6 +10,8 @@ import '../widgets/profile_subpage_app_bar.dart';
 import '../../../utils/colors.dart';
 import 'profile_compensation_models.dart';
 import 'profile_compensation_repository.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 part 'owner_payroll.dart';
 part 'owner_commission.dart';
@@ -920,15 +922,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       if (messenger == null) {
         return;
       }
-      messenger
-        ..hideCurrentSnackBar()
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: isError ? AppColors.red : const Color(0xFF1F7A4D),
-          ),
-        );
+      Fluttertoast.showToast(msg: message);
     });
   }
 

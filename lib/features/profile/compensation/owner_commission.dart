@@ -1,5 +1,4 @@
 part of 'profile_compensation_screen.dart';
-
 extension _OwnerCommissionUi on _ProfileCompensationScreenState {
   Widget _buildCommissionScreen() {
     if (_services.isEmpty) {
@@ -549,15 +548,11 @@ class _ServiceRuleEditorCardState extends State<_ServiceRuleEditorCard> {
     final commissionRange =
         translateText('Commission must be between 0 and 100');
     if (parsed == null || parsed < 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(invalidValue)),
-      );
+      Fluttertoast.showToast(msg: invalidValue);
       return;
     }
     if (_ruleType == CommissionRuleTypes.percentage && parsed > 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(commissionRange)),
-      );
+      Fluttertoast.showToast(msg: commissionRange);
       return;
     }
 

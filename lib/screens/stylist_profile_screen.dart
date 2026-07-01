@@ -13,6 +13,8 @@ import 'stylist_about_salon_screen.dart';
 import 'stylist_reviews_screen.dart';
 import 'stylist_schedule_screen.dart';
 import 'stylist_web_doc_screen.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 class StylistProfileScreen extends StatefulWidget {
   const StylistProfileScreen({super.key});
@@ -130,9 +132,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
               Navigator.pop(ctx);
 
               if (!success) {
-                messenger.showSnackBar(
-                  SnackBar(content: Text(failureText)),
-                );
+                Fluttertoast.showToast(msg: failureText);
               }
 
               await AuthSessionManager.instance.forceLogout(
@@ -225,11 +225,7 @@ class _StylistProfileScreenState extends State<StylistProfileScreen> {
                   reason: 'user_delete_account',
                 );
               } else {
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(deleteFailureText),
-                  ),
-                );
+                Fluttertoast.showToast(msg: deleteFailureText);
               }
             }
 

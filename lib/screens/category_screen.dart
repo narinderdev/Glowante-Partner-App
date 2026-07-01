@@ -15,6 +15,8 @@ import '../utils/colors.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../utils/api_service.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const Color _catalogGold = Color(0xFF8B6500);
 const Color _catalogGoldLight = Color(0xFFD0A244);
@@ -674,7 +676,7 @@ class CategoryScreenState extends State<CategoryScreen> {
     final categoryCubit = context.read<CategoryCubit>();
     debugPrint('🗑️ DELETE CATEGORY START categoryId=$deletedCategoryId');
     if (mounted) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context);
     }
 
     try {
@@ -2136,7 +2138,7 @@ class CategoryScreenState extends State<CategoryScreen> {
   // ---------- HELPERS ----------
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    Fluttertoast.showToast(msg: msg);
   }
 }
 

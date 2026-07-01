@@ -212,6 +212,8 @@
 import 'package:flutter/material.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:bloc_onboarding/utils/price_formatter.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 import '../utils/api_service.dart'; // your ApiService (with updateBCategory, deleteBCategory, updateBSubCategory, deleteBSubCategory, updateBService, deleteBService)
 
@@ -335,11 +337,8 @@ class _ServicesTabState extends State<ServicesTab> {
       setState(() => isLoading = false);
       debugPrint('Error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(translateText('Failed to load services: {error}',
-                  params: {'error': e.toString()}))),
-        );
+        Fluttertoast.showToast(msg: translateText('Failed to load services: {error}',
+                  params: {'error': e.toString()}));
       }
     }
   }
@@ -434,20 +433,16 @@ class _ServicesTabState extends State<ServicesTab> {
           serviceData['categories'] = categories;
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(translateText('Updated category "{name}"',
-                    params: {'name': updatedName}))),
-          );
+          Fluttertoast.showToast(msg: translateText('Updated category "{name}"',
+                    params: {'name': updatedName}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(translateText('Update failed: {error}',
-                params: {'error': e.toString()}))));
+        Fluttertoast.showToast(msg: translateText('Update failed: {error}',
+                params: {'error': e.toString()}));
       }
     }
   }
@@ -506,20 +501,16 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(translateText('Deleted "{name}"',
-                    params: {'name': current['displayName']}))),
-          );
+          Fluttertoast.showToast(msg: translateText('Deleted "{name}"',
+                    params: {'name': current['displayName']}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(translateText('Delete failed: {error}',
-                params: {'error': e.toString()}))));
+        Fluttertoast.showToast(msg: translateText('Delete failed: {error}',
+                params: {'error': e.toString()}));
       }
     }
   }
@@ -575,20 +566,16 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(translateText('Deleted "{name}"',
-                    params: {'name': current['displayName']}))),
-          );
+          Fluttertoast.showToast(msg: translateText('Deleted "{name}"',
+                    params: {'name': current['displayName']}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(translateText('Delete failed: {error}',
-                params: {'error': e.toString()}))));
+        Fluttertoast.showToast(msg: translateText('Delete failed: {error}',
+                params: {'error': e.toString()}));
       }
     }
   }
@@ -680,22 +667,16 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(translateText('Updated subcategory "{name}"',
-                    params: {'name': updatedName}))),
-          );
+          Fluttertoast.showToast(msg: translateText('Updated subcategory "{name}"',
+                    params: {'name': updatedName}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(translateText('Update failed: {error}',
-                  params: {'error': e.toString()}))),
-        );
+        Fluttertoast.showToast(msg: translateText('Update failed: {error}',
+                  params: {'error': e.toString()}));
       }
     }
   }
@@ -746,22 +727,16 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(translateText('Deleted "{name}"',
-                    params: {'name': service['displayName']}))),
-          );
+          Fluttertoast.showToast(msg: translateText('Deleted "{name}"',
+                    params: {'name': service['displayName']}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(translateText('Delete failed: {error}',
-                  params: {'error': e.toString()}))),
-        );
+        Fluttertoast.showToast(msg: translateText('Delete failed: {error}',
+                  params: {'error': e.toString()}));
       }
     }
   }
@@ -859,11 +834,7 @@ class _ServicesTabState extends State<ServicesTab> {
                     final price = int.tryParse(priceCtrl.text.trim());
                     final dur = int.tryParse(durationCtrl.text.trim());
                     if (price == null || dur == null) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        SnackBar(
-                            content: Text(
-                                translateText('Enter valid price & duration'))),
-                      );
+                      Fluttertoast.showToast(msg: translateText('Enter valid price & duration'));
                       return;
                     }
                     Navigator.pop(ctx, {
@@ -921,22 +892,16 @@ class _ServicesTabState extends State<ServicesTab> {
           }
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(translateText('Updated "{name}"',
-                    params: {'name': updated['displayName']}))),
-          );
+          Fluttertoast.showToast(msg: translateText('Updated "{name}"',
+                    params: {'name': updated['displayName']}));
         }
       } else {
         throw Exception('Server responded ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(translateText('Update failed: {error}',
-                  params: {'error': e.toString()}))),
-        );
+        Fluttertoast.showToast(msg: translateText('Update failed: {error}',
+                  params: {'error': e.toString()}));
       }
     }
   }

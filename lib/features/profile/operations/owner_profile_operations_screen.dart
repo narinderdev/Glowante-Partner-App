@@ -10,6 +10,8 @@ import '../../../utils/localization_helper.dart';
 import '../../../utils/price_formatter.dart';
 import '../../salon/widgets/owner_branch_header_selector.dart';
 import '../widgets/profile_subpage_app_bar.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 part 'owner_profile_operations_widgets.dart';
 part 'owner_profile_operations_form_shared.dart';
@@ -589,8 +591,7 @@ class _OwnerProfileOperationsScreenState
 
   void _showToast(String message) {
     _logOperations('toast', details: message);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    Fluttertoast.showToast(msg: message);
   }
 
   Future<void> _showFormDialog({

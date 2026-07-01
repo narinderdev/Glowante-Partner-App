@@ -10,6 +10,8 @@ import '../utils/colors.dart';
 import '../utils/localization_helper.dart';
 import '../utils/price_formatter.dart';
 import 'bottom_nav.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 enum OwnerSalesReportModule {
   revenueSales,
@@ -421,9 +423,7 @@ class _OwnerSalesReportsScreenState extends State<OwnerSalesReportsScreen> {
             const SizedBox(width: 10),
             OutlinedButton(
               onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(context.t('Export is coming soon'))),
-                );
+                Fluttertoast.showToast(msg: context.t('Export is coming soon'));
               },
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFF1C1917),

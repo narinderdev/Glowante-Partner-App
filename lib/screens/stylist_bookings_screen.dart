@@ -587,24 +587,16 @@ Future<void> _openCustomerPhoneAction(
 }) async {
   final phone = _phoneLaunchValue(_customerPhone(booking));
   if (phone.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.t('Customer phone number not available'))),
-    );
+    Fluttertoast.showToast(msg: context.t('Customer phone number not available'));
     return;
   }
 
   final uri = Uri(scheme: message ? 'sms' : 'tel', path: phone);
   final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
   if (!opened && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          message
+    Fluttertoast.showToast(msg: message
               ? context.t('Unable to open messages app')
-              : context.t('Unable to open phone app'),
-        ),
-      ),
-    );
+              : context.t('Unable to open phone app'));
   }
 }
 
@@ -3078,24 +3070,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       booking['status'] = _normalizeStatus(
         resp['data']?['status'] ?? 'CONFIRMED',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            resp['message']?.toString() ?? translateText('Booking Confirmed'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: resp['message']?.toString() ?? translateText('Booking Confirmed'));
       await _reloadBookingsForSelectedOption();
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          resp['message']?.toString() ?? 'Failed to confirm appointment',
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to confirm appointment');
   }
 
   int? _selectedDateBranchEndMinute() {
@@ -3316,13 +3296,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     final appointmentId = _asInt(booking['id']);
 
     if (!_canStartJob(booking)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('You can start this job at appointment time'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('You can start this job at appointment time'));
       return;
     }
 
@@ -3351,11 +3325,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
 
     booking['status'] = newStatus;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(resp['message']?.toString() ?? 'Job started'),
-      ),
-    );
+    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Job started');
 
     await _reloadBookingsForSelectedOption();
   }
@@ -3389,24 +3359,12 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       booking['status'] = _normalizeStatus(
         resp['data']?['status'] ?? 'COMPLETED',
       );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            resp['message']?.toString() ?? 'Appointment completed',
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Appointment completed');
       await _reloadBookingsForSelectedOption();
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          resp['message']?.toString() ?? 'Failed to complete appointment',
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to complete appointment');
   }
 
   @override
@@ -7282,13 +7240,7 @@ class _StylistBookingDetailScreenState
 
   Future<void> _handleStartJob() async {
     if (!_canStartJob(_booking)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('You can start this job at appointment time'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('You can start this job at appointment time'));
       return;
     }
 
@@ -7319,11 +7271,7 @@ class _StylistBookingDetailScreenState
 
     _syncElapsedTicker();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(resp['message']?.toString() ?? 'Job started'),
-      ),
-    );
+    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Job started');
   }
 
   Future<void> _handleConfirmJob() async {
@@ -7347,23 +7295,11 @@ class _StylistBookingDetailScreenState
         _booking['status'] = newStatus;
         _didChange = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            resp['message']?.toString() ?? translateText('Booking Confirmed'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: resp['message']?.toString() ?? translateText('Booking Confirmed'));
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          resp['message']?.toString() ?? 'Failed to confirm appointment',
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to confirm appointment');
   }
 
   Future<void> _handleCompleteJob() async {
@@ -7396,45 +7332,25 @@ class _StylistBookingDetailScreenState
         _didChange = true;
       });
       _syncElapsedTicker();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            resp['message']?.toString() ?? 'Appointment completed',
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Appointment completed');
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          resp['message']?.toString() ?? 'Failed to complete appointment',
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to complete appointment');
   }
 
   Future<void> _handleNoShow() async {
     if (_loadingNoShow) return;
 
     if (!_canMarkNoShow(_booking)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('No Show is available 15 minutes after start time'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('No Show is available 15 minutes after start time'));
       return;
     }
 
     final appointmentId = _asInt(_booking['id']);
     final branchId = _bookingBranchId(_booking) ?? widget.branchId;
     if (appointmentId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Invalid appointment'))),
-      );
+      Fluttertoast.showToast(msg: translateText('Invalid appointment'));
       return;
     }
 
@@ -7455,23 +7371,11 @@ class _StylistBookingDetailScreenState
         _didChange = true;
       });
       _syncElapsedTicker();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            resp['message']?.toString() ?? 'Appointment marked no show',
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Appointment marked no show');
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          resp['message']?.toString() ?? 'Failed to mark no show',
-        ),
-      ),
-    );
+    Fluttertoast.showToast(msg: resp['message']?.toString() ?? 'Failed to mark no show');
   }
 
   Future<void> _showAddItemsInfo() async {
@@ -7483,11 +7387,7 @@ class _StylistBookingDetailScreenState
       _didChange = true;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${item.name} added locally for this booking.'),
-      ),
-    );
+    Fluttertoast.showToast(msg: '${item.name} added locally for this booking.');
   }
 
   List<_BookingServiceOption> _extractServiceOptions(dynamic raw) {
@@ -7559,9 +7459,7 @@ class _StylistBookingDetailScreenState
       if (!mounted) return;
       final services = _extractServiceOptions(response['data'] ?? response);
       if (services.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('No services found'))),
-        );
+        Fluttertoast.showToast(msg: translateText('No services found'));
         return;
       }
 
@@ -7702,9 +7600,7 @@ class _StylistBookingDetailScreenState
       });
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      Fluttertoast.showToast(msg: error.toString());
     }
   }
 
@@ -7754,18 +7650,10 @@ class _StylistBookingDetailScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Unable to refresh appointment details'),
-          ),
-        ),
-      );
+      Fluttertoast.showToast(msg: translateText('Unable to refresh appointment details'));
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      Fluttertoast.showToast(msg: error.toString());
     }
   }
 

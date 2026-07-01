@@ -9,6 +9,8 @@ import '../utils/api_service.dart';
 import '../utils/price_formatter.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
+import 'package:fluttertoast/fluttertoast.dart';
+
 
 const Color _dealGold = Color(0xFF8B6500);
 const Color _dealGoldLight = Color(0xFFD0A244);
@@ -1117,22 +1119,13 @@ String? getApiGender(String? gender) {
         if (!mounted) return;
 
         if (res['success'] == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(translateText('Offer updated successfully'))),
-          );
+          Fluttertoast.showToast(msg: translateText('Offer updated successfully'));
 
           widget.onPackageCreated(widget.branchId);
           Navigator.pop(context, true);
           Navigator.pop(context, true);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                res['message']?.toString() ?? 'Failed to update offer',
-              ),
-            ),
-          );
+          Fluttertoast.showToast(msg: res['message']?.toString() ?? 'Failed to update offer');
         }
 
         return;
@@ -1143,21 +1136,13 @@ String? getApiGender(String? gender) {
       if (!mounted) return;
 
       if (res['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(translateText('Offer created successfully'))),
-        );
+        Fluttertoast.showToast(msg: translateText('Offer created successfully'));
 
         widget.onPackageCreated(widget.branchId);
         Navigator.pop(context, true);
         Navigator.pop(context, true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              res['message']?.toString() ?? 'Failed to create offer',
-            ),
-          ),
-        );
+        Fluttertoast.showToast(msg: res['message']?.toString() ?? 'Failed to create offer');
       }
     } finally {
       if (mounted) {
