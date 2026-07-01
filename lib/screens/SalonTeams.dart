@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../utils/api_service.dart';
 import 'Addteam.dart';
 import 'TeamMemberDetails.dart';
@@ -8,7 +11,6 @@ import 'package:bloc_onboarding/utils/localization_helper.dart';
 import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../features/salon/widgets/owner_branch_header_selector.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 const Color _teamGold = Color(0xFF8B6500);
 const Color _teamInk = Color(0xFF2D2926);
@@ -80,6 +82,16 @@ class _TeamRatingSummary {
   final int count;
 }
 
+class _TeamServiceFilterOption {
+  const _TeamServiceFilterOption({
+    required this.id,
+    required this.name,
+  });
+
+  final int id;
+  final String name;
+}
+
 String _teamBranchLabel(Map<String, dynamic>? branch) {
   if (branch == null) return translateText('Select Branch');
   final branchName = branch['branchName']?.toString().trim() ?? '';
@@ -98,6 +110,7 @@ class TeamScreen extends StatefulWidget {
 
 class _TeamScreenState extends State<TeamScreen> {
   late Future<List<Map<String, dynamic>>> branchOptionsFuture;
+  final TextEditingController _teamSearchController = TextEditingController();
 
   int? selectedBranchId;
   Map<String, dynamic>?
@@ -108,13 +121,30 @@ class _TeamScreenState extends State<TeamScreen> {
   Map<int, _TeamRatingSummary> _professionalRatings = const {};
   bool _hasTeamMembers = false;
   bool _autoPicked = false;
+  String _teamStatusFilter = 'all';
+  bool? _allowOnlineBookingFilter;
+  DateTime? _teamDateFilter;
+  List<_TeamServiceFilterOption> _teamServiceOptions =
+      const <_TeamServiceFilterOption>[];
+  final Set<int> _selectedTeamServiceIds = <int>{};
+  bool _isLoadingTeamServices = false;
+  bool _showAllTeamServices = false;
+  Timer? _teamSearchDebounce;
   final Set<int> _statusUpdatingIds = {};
   final Set<int> _deletingMemberIds = {};
 
   @override
   void initState() {
     super.initState();
+    _teamSearchController.addListener(_onTeamSearchChanged);
     branchOptionsFuture = _getBranchOptions(); // single list for the dropdown
+  }
+
+  @override
+  void dispose() {
+    _teamSearchDebounce?.cancel();
+    _teamSearchController.dispose();
+    super.dispose();
   }
 
   /// Flattens salons->branches to branch options:
@@ -199,7 +229,14 @@ class _TeamScreenState extends State<TeamScreen> {
   // }
   Future<List<dynamic>> _getTeamMembersByBranch(int branchId) async {
     try {
-      final response = await ApiService.getTeamMembers(branchId);
+      final response = await ApiService.getTeamMembers(
+        branchId,
+        status: _teamStatusFilter,
+        allowOnlineBooking: _allowOnlineBookingFilter,
+        serviceIds: _selectedTeamServiceIds.toList(growable: false),
+        date: _teamDateFilter,
+        search: _teamSearchController.text.trim(),
+      );
 
       final members = response['success'] == true && response['data'] is List
           ? List<dynamic>.from(response['data'] as List)
@@ -236,6 +273,203 @@ class _TeamScreenState extends State<TeamScreen> {
       teamMembersFuture = future;
     });
     await future;
+  }
+
+  void _reloadTeamMembersForFilters() {
+    final branchId = selectedBranchId;
+    if (branchId == null || !mounted) return;
+    setState(() {
+      teamMembersFuture = _getTeamMembersByBranch(branchId);
+    });
+  }
+
+  void _onTeamSearchChanged() {
+    _teamSearchDebounce?.cancel();
+    _teamSearchDebounce = Timer(
+      const Duration(milliseconds: 350),
+      _reloadTeamMembersForFilters,
+    );
+  }
+
+  void _setStatusFilter(String value) {
+    final nextValue =
+        _teamStatusFilter == value && value != 'all' ? 'all' : value;
+    if (_teamStatusFilter == nextValue) return;
+    setState(() => _teamStatusFilter = nextValue);
+    _reloadTeamMembersForFilters();
+  }
+
+  void _setOnlineBookingFilter(bool? value) {
+    final nextValue =
+        _allowOnlineBookingFilter == value && value != null ? null : value;
+    if (_allowOnlineBookingFilter == nextValue) return;
+    setState(() => _allowOnlineBookingFilter = nextValue);
+    _reloadTeamMembersForFilters();
+  }
+
+  Future<void> _pickTeamDateFilter() async {
+    final today = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _teamDateFilter ?? today,
+      firstDate: DateTime(today.year - 5),
+      lastDate: DateTime(today.year + 5),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _teamDateFilter = picked);
+    _reloadTeamMembersForFilters();
+  }
+
+  void _clearTeamDateFilter() {
+    if (_teamDateFilter == null) return;
+    setState(() => _teamDateFilter = null);
+    _reloadTeamMembersForFilters();
+  }
+
+  bool get _hasActiveTeamFilters =>
+      _teamStatusFilter != 'all' ||
+      _allowOnlineBookingFilter != null ||
+      _teamDateFilter != null ||
+      _selectedTeamServiceIds.isNotEmpty ||
+      _teamSearchController.text.trim().isNotEmpty;
+
+  void _clearTeamFilters() {
+    _teamSearchDebounce?.cancel();
+    setState(() {
+      _teamStatusFilter = 'all';
+      _allowOnlineBookingFilter = null;
+      _teamDateFilter = null;
+      _selectedTeamServiceIds.clear();
+      _showAllTeamServices = false;
+      _teamSearchController.clear();
+    });
+    _reloadTeamMembersForFilters();
+  }
+
+  void _toggleTeamServiceFilter(int serviceId) {
+    setState(() {
+      if (_selectedTeamServiceIds.contains(serviceId)) {
+        _selectedTeamServiceIds.remove(serviceId);
+      } else {
+        _selectedTeamServiceIds.add(serviceId);
+      }
+    });
+    _reloadTeamMembersForFilters();
+  }
+
+  void _clearTeamServiceFilters() {
+    if (_selectedTeamServiceIds.isEmpty) return;
+    setState(_selectedTeamServiceIds.clear);
+    _reloadTeamMembersForFilters();
+  }
+
+  Future<void> _loadTeamServiceOptions(int branchId) async {
+    setState(() {
+      _isLoadingTeamServices = true;
+      _teamServiceOptions = const <_TeamServiceFilterOption>[];
+      _selectedTeamServiceIds.clear();
+      _showAllTeamServices = false;
+    });
+
+    try {
+      final response = await ApiService().getBranchService(branchId: branchId);
+      final categories = response['data'] is Map
+          ? (response['data'] as Map)['categories']
+          : null;
+      final options = _serviceOptionsFromCategories(categories);
+
+      if (!mounted || selectedBranchId != branchId) return;
+      setState(() {
+        _teamServiceOptions = options;
+        _isLoadingTeamServices = false;
+      });
+    } catch (error) {
+      debugPrint('Failed to load team service filters: $error');
+      if (!mounted || selectedBranchId != branchId) return;
+      setState(() => _isLoadingTeamServices = false);
+    }
+  }
+
+  void _toggleShowAllTeamServices() {
+    setState(() => _showAllTeamServices = !_showAllTeamServices);
+  }
+
+  List<_TeamServiceFilterOption> _serviceOptionsFromCategories(
+    dynamic categories,
+  ) {
+    if (categories is! List) return const <_TeamServiceFilterOption>[];
+    final options = <_TeamServiceFilterOption>[];
+    final seen = <int>{};
+
+    void addService(dynamic rawService) {
+      if (rawService is! Map) return;
+      final service = Map<String, dynamic>.from(rawService);
+      final serviceId = _asInt(service['id']);
+      if (serviceId == null || seen.contains(serviceId)) return;
+      final name = (service['displayName'] ??
+              service['name'] ??
+              service['serviceName'] ??
+              'Service #$serviceId')
+          .toString()
+          .trim();
+      options.add(
+        _TeamServiceFilterOption(
+          id: serviceId,
+          name: name.isEmpty ? 'Service #$serviceId' : name,
+        ),
+      );
+      seen.add(serviceId);
+    }
+
+    for (final rawCategory in categories) {
+      if (rawCategory is! Map) continue;
+      final category = Map<String, dynamic>.from(rawCategory);
+      final services = category['services'];
+      if (services is List) {
+        for (final service in services) {
+          addService(service);
+        }
+      }
+      final subCategories = category['subCategories'];
+      if (subCategories is! List) continue;
+      for (final rawSubCategory in subCategories) {
+        if (rawSubCategory is! Map) continue;
+        final subCategory = Map<String, dynamic>.from(rawSubCategory);
+        final subServices = subCategory['services'];
+        if (subServices is List) {
+          for (final service in subServices) {
+            addService(service);
+          }
+        }
+      }
+    }
+
+    options.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
+    return options;
+  }
+
+  Widget _buildTeamFiltersBar() {
+    return _TeamFiltersBar(
+      searchController: _teamSearchController,
+      statusFilter: _teamStatusFilter,
+      allowOnlineBookingFilter: _allowOnlineBookingFilter,
+      dateFilter: _teamDateFilter,
+      serviceOptions: _teamServiceOptions,
+      selectedServiceIds: _selectedTeamServiceIds,
+      isLoadingServices: _isLoadingTeamServices,
+      showAllServices: _showAllTeamServices,
+      hasActiveFilters: _hasActiveTeamFilters,
+      onStatusChanged: _setStatusFilter,
+      onOnlineBookingChanged: _setOnlineBookingFilter,
+      onPickDate: _pickTeamDateFilter,
+      onClearDate: _clearTeamDateFilter,
+      onServiceToggled: _toggleTeamServiceFilter,
+      onClearServices: _clearTeamServiceFilters,
+      onToggleShowAllServices: _toggleShowAllTeamServices,
+      onClearAll: _clearTeamFilters,
+    );
   }
 
   Future<Map<int, _TeamRatingSummary>> _loadProfessionalRatings(
@@ -315,7 +549,8 @@ class _TeamScreenState extends State<TeamScreen> {
     final branchId = selectedBranchId;
 
     if (branchId == null) {
-      Fluttertoast.showToast(msg: translateText('Please select a branch first'));
+      Fluttertoast.showToast(
+          msg: translateText('Please select a branch first'));
       return;
     }
 
@@ -331,39 +566,25 @@ class _TeamScreenState extends State<TeamScreen> {
       if (!mounted) return;
 
       if (response['success'] == true) {
-        _teamMembersCache = _teamMembersCache.map((item) {
-          if (item is! Map) return item;
-
-          final map = Map<String, dynamic>.from(item);
-
-          if (_asInt(map['id']) == userId) {
-            map['active'] = makeActive;
-            map['isActive'] = makeActive;
-            map['status'] = makeActive ? 'ACTIVE' : 'DEACTIVATED';
-          }
-
-          return map;
-        }).toList();
-
-        setState(() {
-          teamMembersFuture = Future.value(_teamMembersCache);
-        });
-
-        Fluttertoast.showToast(msg: translateText(
-                makeActive
-                    ? 'Team member activated successfully'
-                    : 'Team member deactivated successfully',
-              ));
+        Fluttertoast.showToast(
+            msg: translateText(
+          makeActive
+              ? 'Team member activated successfully'
+              : 'Team member deactivated successfully',
+        ));
+        await _refreshTeamMembers();
       } else {
-        Fluttertoast.showToast(msg: response['message']?.toString() ??
-                  (makeActive
-                      ? 'Failed to activate team member'
-                      : 'Failed to deactivate team member'));
+        Fluttertoast.showToast(
+            msg: response['message']?.toString() ??
+                (makeActive
+                    ? 'Failed to activate team member'
+                    : 'Failed to deactivate team member'));
       }
     } catch (e) {
       if (!mounted) return;
 
-      Fluttertoast.showToast(msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''));
+      Fluttertoast.showToast(
+          msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''));
     } finally {
       if (mounted) {
         setState(() {
@@ -494,7 +715,8 @@ class _TeamScreenState extends State<TeamScreen> {
     final branchId = selectedBranchId;
 
     if (branchId == null) {
-      Fluttertoast.showToast(msg: translateText('Please select a branch first'));
+      Fluttertoast.showToast(
+          msg: translateText('Please select a branch first'));
       return;
     }
 
@@ -542,16 +764,20 @@ class _TeamScreenState extends State<TeamScreen> {
       if (!mounted) return;
 
       if (response['success'] == true) {
-        Fluttertoast.showToast(msg: translateText('Team member deleted successfully'));
+        Fluttertoast.showToast(
+            msg: translateText('Team member deleted successfully'));
 
         await _refreshTeamMembers();
       } else {
-        Fluttertoast.showToast(msg: response['message']?.toString() ?? 'Failed to delete team member');
+        Fluttertoast.showToast(
+            msg: response['message']?.toString() ??
+                'Failed to delete team member');
       }
     } catch (e) {
       if (!mounted) return;
 
-      Fluttertoast.showToast(msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''));
+      Fluttertoast.showToast(
+          msg: e.toString().replaceFirst(RegExp(r'^Exception:\s*'), ''));
     } finally {
       if (mounted) {
         setState(() => _deletingMemberIds.remove(userId));
@@ -573,9 +799,16 @@ class _TeamScreenState extends State<TeamScreen> {
     selectedBranch = branchOpt;
     selectedBranchId = _asInt(branchOpt['branchId']);
     _hasTeamMembers = false;
+    _teamServiceOptions = const <_TeamServiceFilterOption>[];
+    _selectedTeamServiceIds.clear();
 
     if (selectedBranchId != null) {
-      teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
+      final branchId = selectedBranchId!;
+      teamMembersFuture = _getTeamMembersByBranch(branchId);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || selectedBranchId != branchId) return;
+        unawaited(_loadTeamServiceOptions(branchId));
+      });
     } else {
       teamMembersFuture = null;
     }
@@ -691,10 +924,12 @@ class _TeamScreenState extends State<TeamScreen> {
         setState(() {
           teamMembersFuture = _getTeamMembersByBranch(selectedBranchId!);
         });
-        Fluttertoast.showToast(msg: translateText("Team member added successfully"));
+        Fluttertoast.showToast(
+            msg: translateText("Team member added successfully"));
       }
     } else {
-      Fluttertoast.showToast(msg: translateText("Please select a branch first."));
+      Fluttertoast.showToast(
+          msg: translateText("Please select a branch first."));
     }
   }
 
@@ -856,101 +1091,124 @@ class _TeamScreenState extends State<TeamScreen> {
                 _pickBranch(branches.first);
               }
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (branches.length > 1) ...[
-                    OwnerBranchHeaderSelector<int>(
-                      label: _teamBranchLabel(selectedBranch),
-                      options: _teamBranchOptions(branches),
-                      selectedValue: selectedBranchId,
-                      placeholder: translateText('Select Branch'),
-                      isInteractive: true,
-                      onSelected: (branchId) {
-                        final branch = branches.firstWhere(
-                          (item) => _asInt(item['branchId']) == branchId,
-                          orElse: () => branches.first,
-                        );
-                        setState(() => _pickBranch(branch));
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  Expanded(
-                    child: RefreshIndicator(
-                      color: AppColors.starColor,
-                      onRefresh: _refreshTeamMembers,
-                      child: FutureBuilder<List<dynamic>>(
-                        future: teamMembersFuture,
-                        builder: (context, snapshot) {
-                          if (snapshot.connectionState ==
-                                  ConnectionState.waiting &&
-                              !snapshot.hasData) {
-                            return _RefreshableTeamState(
-                              child: CircularProgressIndicator(
-                                color: AppColors.starColor,
-                              ),
+              return RefreshIndicator(
+                color: AppColors.starColor,
+                onRefresh: _refreshTeamMembers,
+                child: FutureBuilder<List<dynamic>>(
+                  future: teamMembersFuture,
+                  builder: (context, teamSnapshot) {
+                    final children = <Widget>[
+                      if (branches.length > 1) ...[
+                        OwnerBranchHeaderSelector<int>(
+                          label: _teamBranchLabel(selectedBranch),
+                          options: _teamBranchOptions(branches),
+                          selectedValue: selectedBranchId,
+                          placeholder: translateText('Select Branch'),
+                          isInteractive: true,
+                          onSelected: (branchId) {
+                            final branch = branches.firstWhere(
+                              (item) => _asInt(item['branchId']) == branchId,
+                              orElse: () => branches.first,
                             );
-                          } else if (snapshot.hasError) {
-                            return _RefreshableTeamState(
-                              child: Text("Error: ${snapshot.error}"),
-                            );
-                          } else if (!snapshot.hasData ||
-                              snapshot.data!.isEmpty) {
-                            return _RefreshableTeamState(
-                              center: false,
-                              child: _NoTeamMembersState(
-                                onAddTeamMember: selectedBranch == null
-                                    ? null
-                                    : _openAddMember,
-                              ),
-                            );
-                          }
+                            setState(() => _pickBranch(branch));
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      _buildTeamFiltersBar(),
+                      const SizedBox(height: 16),
+                    ];
 
-                          final members = snapshot.data!
-                              .whereType<Map>()
-                              .map((item) => Map<String, dynamic>.from(item))
-                              .toList();
+                    if (teamSnapshot.connectionState ==
+                            ConnectionState.waiting &&
+                        !teamSnapshot.hasData) {
+                      children.add(
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.45,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.starColor,
+                            ),
+                          ),
+                        ),
+                      );
+                    } else if (teamSnapshot.hasError) {
+                      children.add(
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.45,
+                          child: Center(
+                            child: Text("Error: ${teamSnapshot.error}"),
+                          ),
+                        ),
+                      );
+                    } else if (!teamSnapshot.hasData ||
+                        teamSnapshot.data!.isEmpty) {
+                      children.add(
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.72,
+                          child: _NoTeamMembersState(
+                            onAddTeamMember:
+                                selectedBranch == null ? null : _openAddMember,
+                            message: _hasActiveTeamFilters
+                                ? translateText(
+                                    'No team members match the selected filters',
+                                  )
+                                : null,
+                          ),
+                        ),
+                      );
+                    } else {
+                      final members = teamSnapshot.data!
+                          .whereType<Map>()
+                          .map((item) => Map<String, dynamic>.from(item))
+                          .toList();
 
-                          return _TeamMembersGrid(
-                            members: members,
-                            selectedBranch: selectedBranch,
-                            salons: _salons,
-                            statusUpdatingIds: _statusUpdatingIds,
-                            deletingMemberIds: _deletingMemberIds,
-                            professionalRatings: _professionalRatings,
-                            onEditMember: _openEditMember,
-                            onDeleteMember: _deleteMember,
-                            onToggleMemberActive: _toggleMemberActive,
-                            onViewMember: (member) {
-                              final userId = _asInt(member['id']) ?? 0;
-                              final ratingSummary =
-                                  _professionalRatings[userId] ??
-                                      _TeamRatingSummary.empty;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => TeamMemberDetails(
-                                    member: member,
-                                    salons: _salons,
-                                    professionalRating:
-                                        ratingSummary.average.toDouble(),
-                                    professionalReviewCount:
-                                        ratingSummary.count,
-                                  ),
+                      children.add(
+                        _TeamMembersGrid(
+                          members: members,
+                          selectedBranch: selectedBranch,
+                          salons: _salons,
+                          statusUpdatingIds: _statusUpdatingIds,
+                          deletingMemberIds: _deletingMemberIds,
+                          professionalRatings: _professionalRatings,
+                          onEditMember: _openEditMember,
+                          onDeleteMember: _deleteMember,
+                          onToggleMemberActive: _toggleMemberActive,
+                          onViewMember: (member) {
+                            final userId = _asInt(member['id']) ?? 0;
+                            final ratingSummary =
+                                _professionalRatings[userId] ??
+                                    _TeamRatingSummary.empty;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TeamMemberDetails(
+                                  member: member,
+                                  salons: _salons,
+                                  professionalRating:
+                                      ratingSummary.average.toDouble(),
+                                  professionalReviewCount: ratingSummary.count,
                                 ),
-                              );
-                            },
-                            onAssignMember: _openAssignMember,
-                            assignButtonBuilder: _buildAssignButtonChild,
-                            memberNameBuilder: _memberDisplayName,
-                            memberRoleBuilder: _memberRoleLabel,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ],
+                              ),
+                            );
+                          },
+                          onAssignMember: _openAssignMember,
+                          assignButtonBuilder: _buildAssignButtonChild,
+                          memberNameBuilder: _memberDisplayName,
+                          memberRoleBuilder: _memberRoleLabel,
+                        ),
+                      );
+                    }
+
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        ...children,
+                        const SizedBox(height: 96),
+                      ],
+                    );
+                  },
+                ),
               );
             }
           },
@@ -1014,52 +1272,317 @@ class _TeamMembersGrid extends StatelessWidget {
     final cardHeight = screenWidth >= 700 ? 318.0 : 296.0;
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         _TeamListHeader(
           count: members.length,
         ),
         const SizedBox(height: 14),
-        Expanded(
-          child: GridView.builder(
-            padding: const EdgeInsets.only(bottom: 96),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              mainAxisSpacing: 14,
-              crossAxisSpacing: 14,
-              mainAxisExtent: cardHeight,
-            ),
-            itemCount: members.length,
-            itemBuilder: (context, index) {
-              final member = members[index];
-              final userId = _teamAsInt(member['id']) ?? 0;
-              final isActive = _teamIsActiveEntity(member);
-              final isStatusUpdating = statusUpdatingIds.contains(userId);
-              final isDeleting = deletingMemberIds.contains(userId);
-              final ratingSummary =
-                  professionalRatings[userId] ?? _TeamRatingSummary.empty;
-
-              return _TeamMemberCard(
-                member: member,
-                name: memberNameBuilder(member),
-                role: memberRoleBuilder(member),
-                ratingSummary: ratingSummary,
-                isActive: isActive,
-                isDeleting: isDeleting,
-                isStatusUpdating: isStatusUpdating,
-                isDeleteBlocked: false,
-                isDeactivateBlocked: false,
-                canAssign: selectedBranch != null && salons.isNotEmpty,
-                assignButtonChild: assignButtonBuilder(member),
-                onEdit: () => onEditMember(member),
-                onDelete: () => onDeleteMember(userId),
-                onToggleActive: () => onToggleMemberActive(userId, !isActive),
-                onView: () => onViewMember(member),
-                onAssign: () => onAssignMember(member),
-              );
-            },
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: 14,
+            crossAxisSpacing: 14,
+            mainAxisExtent: cardHeight,
           ),
+          itemCount: members.length,
+          itemBuilder: (context, index) {
+            final member = members[index];
+            final userId = _teamAsInt(member['id']) ?? 0;
+            final isActive = _teamIsActiveEntity(member);
+            final isStatusUpdating = statusUpdatingIds.contains(userId);
+            final isDeleting = deletingMemberIds.contains(userId);
+            final ratingSummary =
+                professionalRatings[userId] ?? _TeamRatingSummary.empty;
+
+            return _TeamMemberCard(
+              member: member,
+              name: memberNameBuilder(member),
+              role: memberRoleBuilder(member),
+              ratingSummary: ratingSummary,
+              isActive: isActive,
+              isDeleting: isDeleting,
+              isStatusUpdating: isStatusUpdating,
+              isDeleteBlocked: false,
+              isDeactivateBlocked: false,
+              canAssign: selectedBranch != null && salons.isNotEmpty,
+              assignButtonChild: assignButtonBuilder(member),
+              onEdit: () => onEditMember(member),
+              onDelete: () => onDeleteMember(userId),
+              onToggleActive: () => onToggleMemberActive(userId, !isActive),
+              onView: () => onViewMember(member),
+              onAssign: () => onAssignMember(member),
+            );
+          },
         ),
       ],
+    );
+  }
+}
+
+class _TeamFiltersBar extends StatelessWidget {
+  const _TeamFiltersBar({
+    required this.searchController,
+    required this.statusFilter,
+    required this.allowOnlineBookingFilter,
+    required this.dateFilter,
+    required this.serviceOptions,
+    required this.selectedServiceIds,
+    required this.isLoadingServices,
+    required this.showAllServices,
+    required this.hasActiveFilters,
+    required this.onStatusChanged,
+    required this.onOnlineBookingChanged,
+    required this.onPickDate,
+    required this.onClearDate,
+    required this.onServiceToggled,
+    required this.onClearServices,
+    required this.onToggleShowAllServices,
+    required this.onClearAll,
+  });
+
+  final TextEditingController searchController;
+  final String statusFilter;
+  final bool? allowOnlineBookingFilter;
+  final DateTime? dateFilter;
+  final List<_TeamServiceFilterOption> serviceOptions;
+  final Set<int> selectedServiceIds;
+  final bool isLoadingServices;
+  final bool showAllServices;
+  final bool hasActiveFilters;
+  final ValueChanged<String> onStatusChanged;
+  final ValueChanged<bool?> onOnlineBookingChanged;
+  final VoidCallback onPickDate;
+  final VoidCallback onClearDate;
+  final ValueChanged<int> onServiceToggled;
+  final VoidCallback onClearServices;
+  final VoidCallback onToggleShowAllServices;
+  final VoidCallback onClearAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final dateLabel = dateFilter == null
+        ? translateText('Date')
+        : DateFormat('yyyy-MM-dd').format(dateFilter!);
+    final visibleServices =
+        showAllServices ? serviceOptions : serviceOptions.take(3).toList();
+    final hiddenServiceCount = serviceOptions.length - visibleServices.length;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _teamBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: searchController,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: translateText('Search by name, phone, or email'),
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: searchController.text.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: translateText('Clear search'),
+                      onPressed: searchController.clear,
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+              filled: true,
+              fillColor: _teamSurface,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _teamBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _teamBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: AppColors.starColor),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _FilterChoiceChip(
+                  label: translateText('All'),
+                  selected: statusFilter == 'all',
+                  onSelected: () => onStatusChanged('all'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChoiceChip(
+                  label: translateText('Active'),
+                  selected: statusFilter == 'active',
+                  onSelected: () => onStatusChanged('active'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChoiceChip(
+                  label: translateText('Inactive'),
+                  selected: statusFilter == 'inactive',
+                  onSelected: () => onStatusChanged('inactive'),
+                ),
+                const SizedBox(width: 8),
+                _FilterChoiceChip(
+                  label: translateText('Online: All'),
+                  selected: allowOnlineBookingFilter == null,
+                  onSelected: () => onOnlineBookingChanged(null),
+                ),
+                const SizedBox(width: 8),
+                _FilterChoiceChip(
+                  label: translateText('Online: Yes'),
+                  selected: allowOnlineBookingFilter == true,
+                  onSelected: () => onOnlineBookingChanged(true),
+                ),
+                const SizedBox(width: 8),
+                _FilterChoiceChip(
+                  label: translateText('Online: No'),
+                  selected: allowOnlineBookingFilter == false,
+                  onSelected: () => onOnlineBookingChanged(false),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: onPickDate,
+                  icon: const Icon(Icons.calendar_today_outlined, size: 17),
+                  label: Text(dateLabel),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.starColor,
+                    side: BorderSide(color: AppColors.starColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                if (dateFilter != null) ...[
+                  const SizedBox(width: 8),
+                  IconButton.outlined(
+                    tooltip: translateText('Clear date'),
+                    onPressed: onClearDate,
+                    icon: const Icon(Icons.event_busy_outlined, size: 18),
+                    color: AppColors.starColor,
+                  ),
+                ],
+                if (hasActiveFilters) ...[
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: onClearAll,
+                    icon: const Icon(Icons.filter_alt_off_outlined, size: 18),
+                    label: Text(translateText('Clear filters')),
+                    style: TextButton.styleFrom(
+                      foregroundColor: _teamMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (isLoadingServices) ...[
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              color: AppColors.starColor,
+              backgroundColor: _teamGoldLight,
+              minHeight: 3,
+            ),
+          ] else if (serviceOptions.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ...visibleServices.expand(
+                    (service) => [
+                      _FilterChoiceChip(
+                        label: service.name,
+                        selected: selectedServiceIds.contains(service.id),
+                        onSelected: () => onServiceToggled(service.id),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+                  if (serviceOptions.length > 3)
+                    TextButton(
+                      onPressed: onToggleShowAllServices,
+                      child: Text(
+                        showAllServices
+                            ? translateText('Show less')
+                            : '${translateText('Show more')} ($hiddenServiceCount)',
+                      ),
+                    ),
+                  if (selectedServiceIds.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: onClearServices,
+                      icon: const Icon(
+                        Icons.cleaning_services_outlined,
+                        size: 18,
+                      ),
+                      label: Text(translateText('Clear services')),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _teamMuted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterChoiceChip extends StatelessWidget {
+  const _FilterChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 180),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      selectedColor: _teamGoldLight,
+      backgroundColor: Colors.white,
+      labelStyle: TextStyle(
+        color: selected ? _teamGold : _teamMuted,
+        fontWeight: FontWeight.w800,
+      ),
+      side: BorderSide(
+        color: selected ? AppColors.starColor : _teamBorder,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
     );
   }
 }
@@ -1579,51 +2102,6 @@ class _TeamIconButton extends StatelessWidget {
   }
 }
 
-// class _RefreshableTeamState extends StatelessWidget {
-//   const _RefreshableTeamState({
-//     required this.child,
-//     this.center = true,
-//   });
-
-//   final Widget child;
-//   final bool center;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return CustomScrollView(
-//       physics: const AlwaysScrollableScrollPhysics(),
-//       slivers: [
-//         SliverFillRemaining(
-//           hasScrollBody: false,
-//           child: center ? Center(child: child) : child,
-//         ),
-//       ],
-//     );
-//   }
-// }
-class _RefreshableTeamState extends StatelessWidget {
-  const _RefreshableTeamState({
-    required this.child,
-    this.center = true,
-  });
-
-  final Widget child;
-  final bool center;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        SizedBox(
-          height: MediaQuery.of(context).size.height * 0.75,
-          child: center ? Center(child: child) : child,
-        ),
-      ],
-    );
-  }
-}
-
 class _NoTeamMembersState extends StatelessWidget {
   const _NoTeamMembersState({
     this.onAddTeamMember,
@@ -1641,15 +2119,42 @@ class _NoTeamMembersState extends StatelessWidget {
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight;
         final compact = availableHeight < 620;
-        final imageHeight =
-            (availableHeight * (compact ? 0.22 : 0.26)).clamp(118.0, 185.0);
-        final quoteFontSize = compact ? 15.0 : 18.0;
-        final quoteLineHeight = compact ? 1.35 : 1.45;
-        final iconSize = compact ? 48.0 : 56.0;
+        final veryCompact = availableHeight < 500;
+        final imageHeight = (availableHeight *
+                (veryCompact
+                    ? 0.16
+                    : compact
+                        ? 0.20
+                        : 0.24))
+            .clamp(76.0, 170.0);
+        final quoteFontSize = veryCompact
+            ? 13.0
+            : compact
+                ? 14.0
+                : 18.0;
+        final quoteLineHeight = veryCompact
+            ? 1.22
+            : compact
+                ? 1.28
+                : 1.45;
+        final iconSize = veryCompact
+            ? 38.0
+            : compact
+                ? 44.0
+                : 56.0;
 
         return Padding(
-          padding: EdgeInsets.fromLTRB(0, compact ? 10 : 18, 0, 8),
+          padding: EdgeInsets.fromLTRB(
+              0,
+              veryCompact
+                  ? 6
+                  : compact
+                      ? 10
+                      : 18,
+              0,
+              veryCompact ? 6 : 8),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
@@ -1670,21 +2175,37 @@ class _NoTeamMembersState extends StatelessWidget {
                   ),
                 ),
               ),
-              SizedBox(height: compact ? 14 : 22),
+              SizedBox(
+                  height: veryCompact
+                      ? 8
+                      : compact
+                          ? 12
+                          : 22),
               Text(
                 '”',
                 style: TextStyle(
                   color: const Color(0xFFD0A244),
-                  fontSize: compact ? 28 : 34,
+                  fontSize: veryCompact
+                      ? 22
+                      : compact
+                          ? 26
+                          : 34,
                   height: 0.6,
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              SizedBox(height: compact ? 2 : 6),
+              SizedBox(
+                  height: veryCompact
+                      ? 0
+                      : compact
+                          ? 2
+                          : 6),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Text(
-                  '"Great things in business are\nnever done by one person.\nThey’re done by a team of\npeople."',
+                  veryCompact
+                      ? '"Great things in business are done by a team."'
+                      : '"Great things in business are\nnever done by one person.\nThey’re done by a team of\npeople."',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: const Color(0xFF6E6863),
@@ -1693,15 +2214,27 @@ class _NoTeamMembersState extends StatelessWidget {
                     fontStyle: FontStyle.italic,
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: veryCompact ? 2 : 4,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              SizedBox(height: compact ? 10 : 14),
+              SizedBox(
+                  height: veryCompact
+                      ? 6
+                      : compact
+                          ? 8
+                          : 14),
               Container(
                 width: 58,
                 height: 1,
                 color: const Color(0xFFD0A244),
               ),
-              SizedBox(height: compact ? 14 : 24),
+              SizedBox(
+                  height: veryCompact
+                      ? 8
+                      : compact
+                          ? 12
+                          : 24),
               Container(
                 width: iconSize,
                 height: iconSize,
@@ -1713,42 +2246,64 @@ class _NoTeamMembersState extends StatelessWidget {
                 child: Icon(
                   Icons.groups_outlined,
                   color: _teamMuted,
-                  size: compact ? 24 : 28,
+                  size: veryCompact
+                      ? 20
+                      : compact
+                          ? 22
+                          : 28,
                 ),
               ),
-              SizedBox(height: compact ? 12 : 18),
+              SizedBox(
+                  height: veryCompact
+                      ? 8
+                      : compact
+                          ? 10
+                          : 18),
               Text(
                 messageText,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: _teamInk,
-                  fontSize: compact ? 19 : 22,
+                  fontSize: veryCompact
+                      ? 16
+                      : compact
+                          ? 18
+                          : 22,
                   fontWeight: FontWeight.w800,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              SizedBox(height: compact ? 6 : 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                child: Text(
-                  translateText(
-                    'Start building your world-class salon team. Add stylists, therapists, and coordinators to manage their schedules and performance.',
+              if (!veryCompact) ...[
+                SizedBox(height: compact ? 5 : 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Text(
+                    translateText(
+                      'Start building your world-class salon team. Add stylists, therapists, and coordinators to manage their schedules and performance.',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: _teamMuted,
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: compact ? 2 : 4,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: _teamMuted,
-                    fontSize: 13,
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: compact ? 3 : 4,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
+              ],
               if (onAddTeamMember != null) ...[
-                const Spacer(),
+                SizedBox(
+                    height: veryCompact
+                        ? 12
+                        : compact
+                            ? 16
+                            : 24),
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: veryCompact ? 44 : 50,
                   child: ElevatedButton.icon(
                     onPressed: onAddTeamMember,
                     icon: const Icon(Icons.add_rounded, size: 22),

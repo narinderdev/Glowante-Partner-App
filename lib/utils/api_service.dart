@@ -325,8 +325,35 @@ class ApiService {
     return "users/constants?branchId=$branchId";
   }
 
-  static String getTeamMember(int id) {
-    return "branches/$id/team";
+  static String getTeamMember(
+    int id, {
+    String status = 'all',
+    bool? allowOnlineBooking,
+    List<int> serviceIds = const <int>[],
+    DateTime? date,
+    String search = '',
+  }) {
+    final query = <String, String>{};
+    final normalizedStatus = status.trim().toLowerCase();
+    if (normalizedStatus.isNotEmpty && normalizedStatus != 'all') {
+      query['status'] = normalizedStatus;
+    }
+    if (allowOnlineBooking != null) {
+      query['allowOnlineBooking'] = allowOnlineBooking.toString();
+    }
+    if (serviceIds.isNotEmpty) {
+      query['serviceIds'] = serviceIds.join(',');
+    }
+    if (date != null) {
+      query['date'] = DateFormat('yyyy-MM-dd').format(date);
+    }
+    final normalizedSearch = search.trim();
+    if (normalizedSearch.isNotEmpty) {
+      query['search'] = normalizedSearch;
+    }
+
+    if (query.isEmpty) return "branches/$id/team";
+    return Uri(path: "branches/$id/team", queryParameters: query).toString();
   }
 
   static String addSalonOffer(int salonId) {
@@ -2932,7 +2959,14 @@ class ApiService {
   }
 
   // ---------------------- GET TEAM MEMBERS ----------------------
-  static Future<Map<String, dynamic>> getTeamMembers(int branchId) async {
+  static Future<Map<String, dynamic>> getTeamMembers(
+    int branchId, {
+    String status = 'all',
+    bool? allowOnlineBooking,
+    List<int> serviceIds = const <int>[],
+    DateTime? date,
+    String search = '',
+  }) async {
     try {
       // Create an instance of ApiService to call the non-static getAuthToken method
       ApiService apiService = ApiService();
@@ -2947,7 +2981,14 @@ class ApiService {
 
       // Construct the API URL using the static method
       final url = Uri.parse(
-        '$baseUrl${getTeamMember(branchId)}',
+        '$baseUrl${getTeamMember(
+          branchId,
+          status: status,
+          allowOnlineBooking: allowOnlineBooking,
+          serviceIds: serviceIds,
+          date: date,
+          search: search,
+        )}',
       ); // Use getTeamMember method to get the endpoint
 
       // Log the URL and headers being sent
