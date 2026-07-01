@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 
 const Color _selectorPrimaryText = Color(0xFF1C1917);
 const Color _selectorSecondaryText = Color(0xFF78716C);
-const Color _selectorAccent = Color(0xFF8B6500);
-const Color _selectorBorder = Color(0xFFE9DFD1);
+const Color _selectorAccent = Color(0xFFC19A6B);
+const Color _selectorBorder = Color(0xFFE7E5E4);
+const Color _selectorChipFill = Color(0xFFF3E8D1);
 
 class OwnerBranchHeaderSelectorOption<T> {
   const OwnerBranchHeaderSelectorOption({
@@ -148,36 +149,29 @@ class _SelectorChrome extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: Container(
           width: double.infinity,
-          constraints: const BoxConstraints(minHeight: 82),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          constraints: const BoxConstraints(minHeight: 70),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFD9CBBB)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x08000000),
-                blurRadius: 14,
-                offset: Offset(0, 8),
-              ),
-            ],
           ),
           child: Row(
             children: [
               Container(
-                width: 54,
-                height: 54,
+                width: 42,
+                height: 42,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF3E8D1),
+                  color: _selectorChipFill,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.location_on_outlined,
                   color: _selectorAccent,
-                  size: 28,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,19 +183,19 @@ class _SelectorChrome extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: _selectorPrimaryText,
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         subtitle,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: _selectorSecondaryText,
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -213,7 +207,7 @@ class _SelectorChrome extends StatelessWidget {
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
                   color: _selectorAccent,
-                  size: 24,
+                  size: 22,
                 ),
             ],
           ),

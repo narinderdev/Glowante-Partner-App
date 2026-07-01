@@ -16,7 +16,9 @@ class _BranchOption {
   final String address;
 
   String get label {
-    return salonName.isNotEmpty ? salonName : branchName;
+    if (branchName.trim().isNotEmpty) return branchName.trim();
+    if (salonName.trim().isNotEmpty) return salonName.trim();
+    return 'Branch #$branchId';
   }
 
   String get subtitle {

@@ -110,7 +110,11 @@ class ProfileBranchOption {
   final String branchName;
   final String address;
 
-  String get label => salonName.trim().isEmpty ? branchName : salonName;
+  String get label {
+    if (branchName.trim().isNotEmpty) return branchName.trim();
+    if (salonName.trim().isNotEmpty) return salonName.trim();
+    return 'Branch #$branchId';
+  }
 
   String get subtitle {
     if (address.trim().isNotEmpty) {
