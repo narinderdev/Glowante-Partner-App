@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -3137,6 +3138,92 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
     if (endMinute == null) return '';
     return _formatMinutesLabel(endMinute);
   }
+
+  String? _noTeamMembersBlockedReason() {
+    if (_teamMemberNames.isNotEmpty) return null;
+
+    switch (_noTeamMembersForDateReason) {
+      case _NoTeamMembersForDateReason.joiningDate:
+        return context.t(
+          'Team members whose joining date is later than the selected date are hidden from the schedule.',
+        );
+      case _NoTeamMembersForDateReason.employmentDate:
+        return context.t(
+          'Team members are hidden when their employment dates do not include the selected date.',
+        );
+      case _NoTeamMembersForDateReason.notScheduled:
+        return context.t(
+          'Team members who do not have working hours on the selected day are hidden from the schedule.',
+        );
+      case _NoTeamMembersForDateReason.none:
+        return context.t('No team member available for this date');
+    }
+  }
+
+  List<String> _addBookingBlockedReasons() {
+    final reasons = <String>[];
+    final selected = _selectedOption;
+
+    if (selected == null) {
+      reasons.add(translateText('Please select a salon'));
+      return reasons;
+    }
+
+    if (!selected.canAcceptBookings) {
+      reasons.add(
+        !selected.isSalonActive
+            ? translateText('This salon is inactive. Booking is disabled.')
+            : translateText('This branch is inactive. Booking is disabled.'),
+      );
+    }
+
+    if (selected.isClosedOnDate(_selectedDate)) {
+      reasons.add(translateText('Salon is closed on the selected date'));
+    }
+
+    if (_isSelectedBranchBookingWindowOver()) {
+      final endTime = _selectedBranchEndTimeLabel();
+      reasons.add(
+        endTime.isEmpty
+            ? translateText('Booking time is over for today')
+            : translateText(
+                'Booking time is over for today. Branch closed at $endTime',
+              ),
+      );
+    }
+
+    if (widget.isOwnerMode && _teamMemberNames.isEmpty) {
+      final reason = _noTeamMembersBlockedReason();
+      if (reason != null && reason.isNotEmpty) {
+        reasons.add(reason);
+      }
+    }
+
+    return reasons;
+  }
+
+  void _showBlockedBookingToast(List<String> reasons) {
+    if (reasons.isEmpty) return;
+
+    final message = reasons.length == 1
+        ? reasons.first
+        : [
+            translateText('Cannot add booking:'),
+            ...reasons.asMap().entries.map(
+                  (entry) => '${entry.key + 1}. ${entry.value}',
+                ),
+          ].join('\n');
+
+    Fluttertoast.showToast(
+      msg: message,
+      toastLength: Toast.LENGTH_LONG,
+      gravity: ToastGravity.BOTTOM,
+      timeInSecForIosWeb: 3,
+      backgroundColor: const Color(0xFF1C1917),
+      textColor: Colors.white,
+      fontSize: 14,
+    );
+  }
   // Future<void> _openAddBooking() async {
   //   final selected = _selectedOption;
   //   if (selected == null) {
@@ -3171,67 +3258,14 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
   //   await _reloadBookingsForSelectedOption();
   // }
   Future<void> _openAddBooking() async {
+    final reasons = _addBookingBlockedReasons();
+    if (reasons.isNotEmpty) {
+      _showBlockedBookingToast(reasons);
+      return;
+    }
+
     final selected = _selectedOption;
-
-    if (selected == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(translateText('Please select a salon'))),
-      );
-      return;
-    }
-    if (!selected.canAcceptBookings) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            !selected.isSalonActive
-                ? translateText('This salon is inactive. Booking is disabled.')
-                : translateText(
-                    'This branch is inactive. Booking is disabled.'),
-          ),
-        ),
-      );
-      return;
-    }
-    if (selected.isClosedOnDate(_selectedDate)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('Salon is closed on the selected date'),
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (_isSelectedBranchBookingWindowOver()) {
-      final endTime = _selectedBranchEndTimeLabel();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            endTime.isEmpty
-                ? translateText('Booking time is over for today')
-                : translateText(
-                    'Booking time is over for today. Branch closed at $endTime',
-                  ),
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (widget.isOwnerMode &&
-        _teamMemberNames.isEmpty &&
-        _selectedBookingView == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            translateText('No team member available for this date'),
-          ),
-        ),
-      );
-      return;
-    }
+    if (selected == null) return;
 
     final result = await Navigator.push(
       context,
@@ -3625,7 +3659,7 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: _ScheduleClientButton(
-                        onTap: disableAddBooking ? null : _openAddBooking,
+                        onTap: _openAddBooking,
                         enabled: !disableAddBooking,
                       ),
                     ),
@@ -3667,18 +3701,15 @@ class _StylistBookingsScreenState extends State<StylistBookingsScreen> {
       ),
       floatingActionButton: widget.isOwnerMode &&
               selectedBookingView == _BookingViewTab.teamMembers
-          ? IgnorePointer(
-              ignoring: disableAddBooking,
-              child: FloatingActionButton(
-                heroTag: 'owner_team_add_booking_fab',
-                onPressed: _openAddBooking,
-                backgroundColor:
-                    disableAddBooking ? const Color(0xFFD6D3D1) : _bookingsGold,
-                foregroundColor:
-                    disableAddBooking ? _bookingsSecondaryText : Colors.white,
-                elevation: disableAddBooking ? 2 : 8,
-                child: const Icon(Icons.add_rounded, size: 30),
-              ),
+          ? FloatingActionButton(
+              heroTag: 'owner_team_add_booking_fab',
+              onPressed: _openAddBooking,
+              backgroundColor:
+                  disableAddBooking ? const Color(0xFFD6D3D1) : _bookingsGold,
+              foregroundColor:
+                  disableAddBooking ? _bookingsSecondaryText : Colors.white,
+              elevation: disableAddBooking ? 2 : 8,
+              child: const Icon(Icons.add_rounded, size: 30),
             )
           : null,
       floatingActionButtonLocation:
