@@ -265,14 +265,15 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
       }
 
       // Edit custom schedule: normalize saved slots inside allowed branch hours.
-      for (final day in _weekDays) {
-        final slots = weeklySchedule[day];
+      // for (final day in _weekDays) {
+      //   final slots = weeklySchedule[day];
 
-        if (slots == null || slots.isEmpty) continue;
+      //   if (slots == null || slots.isEmpty) continue;
 
-        weeklySchedule[day] =
-            slots.map((slot) => _normalizeSlotWithinDay(day, slot)).toList();
-      }
+      //   weeklySchedule[day] =
+      //       slots.map((slot) => _normalizeSlotWithinDay(day, slot)).toList();
+      // }
+      _sortWeeklyScheduleInPlace();
     }
 
     if (!mounted) {

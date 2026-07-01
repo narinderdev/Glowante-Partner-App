@@ -56,6 +56,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   final LayerLink _searchFieldLink = LayerLink();
   final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _completeAddressFieldScrollController =
+    ScrollController();
   final GlobalKey _completeAddressKey = GlobalKey();
   final _formKey = GlobalKey<FormState>();
 
@@ -136,7 +138,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     scoFlatHouseController.dispose();
     streetSectorAreaController.dispose();
     searchLocationController.dispose();
-
+_completeAddressFieldScrollController.dispose();
     super.dispose();
   }
 
@@ -1031,13 +1033,15 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
           KeyedSubtree(
             key: _completeAddressKey,
             child: _buildTextField(
-              controller: completeAddressController,
-              label: 'Complete Address',
-              hint: 'Start typing above to auto-suggest full address...',
-              isRequired: true,
-              minLines: 3,
-              maxLines: 3,
-              maxLength: 180,
+  controller: completeAddressController,
+  label: 'Complete Address',
+  hint: 'Start typing above to auto-suggest full address...',
+  isRequired: true,
+  minLines: 3,
+  maxLines: 3,
+  showScrollbar: true,
+  scrollController: _completeAddressFieldScrollController,
+  maxLength: 180,
               keyboardType: TextInputType.streetAddress,
               textCapitalization: TextCapitalization.sentences,
               regex: null,
@@ -1061,6 +1065,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
               ),
             ),
           ),
+          
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -1262,7 +1267,6 @@ final List<TextInputFormatter> _addressInputFormatters = [
     RegExp(r"[a-zA-Z0-9\s,\/\-\+\.\#\(\)&:']"),
   ),
 ];
-
 Widget _buildTextField({
   required TextEditingController controller,
   required String label,
@@ -1272,6 +1276,8 @@ Widget _buildTextField({
   int? maxLength,
   int? minLines,
   int? maxLines,
+  bool showScrollbar = false,
+  ScrollController? scrollController,
   RegExp? regex,
   TextInputType keyboardType = TextInputType.text,
   List<TextInputFormatter>? inputFormatters,
@@ -1282,6 +1288,109 @@ Widget _buildTextField({
   final translatedLabel = translateText(baseLabel);
   final translatedHint = translateText(hint.trim());
   final isMultiLine = minLines != null || (maxLines ?? 1) > 1;
+
+  final textField = TextFormField(
+    controller: controller,
+    scrollController: scrollController,
+    readOnly: !enabled,
+    maxLength: maxLength,
+    minLines: minLines,
+    maxLines: maxLines ?? 1,
+    keyboardType: keyboardType,
+    inputFormatters: [
+      ...?inputFormatters,
+      if (maxLength != null) LengthLimitingTextInputFormatter(maxLength),
+    ],
+    textCapitalization: textCapitalization,
+    textAlignVertical:
+        isMultiLine ? TextAlignVertical.top : TextAlignVertical.center,
+    style: const TextStyle(
+      color: Color(0xFF1F1B18),
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      height: 1.3,
+    ),
+    cursorColor: _AddLocationScreenState._gold,
+    validator: (value) {
+      final v = value?.trim() ?? '';
+
+      if (isRequired && v.isEmpty) {
+        final errorTemplate = translateText('{field} is required');
+        return errorTemplate.replaceAll('{field}', translatedLabel);
+      }
+
+      if (maxLength != null && v.length > maxLength) {
+        return '$translatedLabel cannot exceed $maxLength characters';
+      }
+
+      if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
+        return '$translatedLabel can contain only alphabets, numbers, spaces, comma, /, -, +, ., # and brackets';
+      }
+
+      return null;
+    },
+    decoration: InputDecoration(
+      counterText: '',
+      hintText: translatedHint,
+      hintStyle: const TextStyle(
+        color: Color(0xFF9A928B),
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
+      filled: true,
+      fillColor: _AddLocationScreenState._fieldFill,
+      contentPadding: EdgeInsets.fromLTRB(
+        12,
+        isMultiLine ? 12 : 0,
+        suffix != null ? 126 : (maxLength == null ? 12 : 70),
+        maxLength == null ? (isMultiLine ? 10 : 0) : 28,
+      ),
+      constraints: BoxConstraints(
+        minHeight: isMultiLine ? 96 : 52,
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(
+          color: _AddLocationScreenState._border,
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(
+          color: _AddLocationScreenState._border,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(
+          color: _AddLocationScreenState._goldLight,
+          width: 1.3,
+        ),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.red, width: 1),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: const BorderSide(color: AppColors.red, width: 1),
+      ),
+      errorStyle: const TextStyle(
+        color: AppColors.red,
+        fontSize: 11,
+      ),
+    ),
+  );
+
+  final fieldWidget = showScrollbar && isMultiLine
+      ? Scrollbar(
+          controller: scrollController,
+          thumbVisibility: true,
+          radius: const Radius.circular(8),
+          thickness: 3,
+          child: textField,
+        )
+      : textField;
 
   return Padding(
     padding: const EdgeInsets.only(bottom: 16),
@@ -1294,99 +1403,7 @@ Widget _buildTextField({
         const SizedBox(height: 8),
         Stack(
           children: [
-            TextFormField(
-              controller: controller,
-              readOnly: !enabled,
-              maxLength: maxLength,
-              minLines: minLines,
-              maxLines: maxLines ?? 1,
-              keyboardType: keyboardType,
-              inputFormatters: [
-                ...?inputFormatters,
-                if (maxLength != null)
-                  LengthLimitingTextInputFormatter(maxLength),
-              ],
-              textCapitalization: textCapitalization,
-              textAlignVertical: isMultiLine
-                  ? TextAlignVertical.top
-                  : TextAlignVertical.center,
-              style: const TextStyle(
-                color: Color(0xFF1F1B18),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                height: 1.3,
-              ),
-              cursorColor: _AddLocationScreenState._gold,
-              validator: (value) {
-                final v = value?.trim() ?? '';
-
-                if (isRequired && v.isEmpty) {
-                  final errorTemplate = translateText('{field} is required');
-                  return errorTemplate.replaceAll('{field}', translatedLabel);
-                }
-
-                if (maxLength != null && v.length > maxLength) {
-                  return '$translatedLabel cannot exceed $maxLength characters';
-                }
-
-                if (regex != null && v.isNotEmpty && !regex.hasMatch(v)) {
-                  return '$translatedLabel can contain only alphabets, numbers, spaces, comma, /, -, +, ., # and brackets';
-                }
-
-                return null;
-              },
-              decoration: InputDecoration(
-                counterText: '',
-                hintText: translatedHint,
-                hintStyle: const TextStyle(
-                  color: Color(0xFF9A928B),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-                filled: true,
-                fillColor: _AddLocationScreenState._fieldFill,
-                contentPadding: EdgeInsets.fromLTRB(
-                  12,
-                  isMultiLine ? 12 : 0,
-                  suffix != null ? 126 : (maxLength == null ? 12 : 70),
-                  maxLength == null ? (isMultiLine ? 10 : 0) : 28,
-                ),
-                constraints: BoxConstraints(
-                  minHeight: isMultiLine ? 96 : 52,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: _AddLocationScreenState._border,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: _AddLocationScreenState._border,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(
-                    color: _AddLocationScreenState._goldLight,
-                    width: 1.3,
-                  ),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.red, width: 1),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: AppColors.red, width: 1),
-                ),
-                errorStyle: const TextStyle(
-                  color: AppColors.red,
-                  fontSize: 11,
-                ),
-              ),
-            ),
+            fieldWidget,
             if (suffix != null)
               Positioned(
                 top: isMultiLine ? 10 : 0,
@@ -1401,6 +1418,32 @@ Widget _buildTextField({
                   ),
                 ),
               ),
+              if (showScrollbar && isMultiLine)
+  Positioned(
+    left: 12,
+    bottom: 10,
+    child: IgnorePointer(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 15,
+            color: _AddLocationScreenState._gold,
+          ),
+          const SizedBox(width: 3),
+          Text(
+            translateText('Scroll down to view full address'),
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: _AddLocationScreenState._gold,
+            ),
+          ),
+        ],
+      ),
+    ),
+  ),
             if (maxLength != null)
               Positioned(
                 right: 12,
@@ -1429,7 +1472,6 @@ Widget _buildTextField({
     ),
   );
 }
-
 class _ThemedCard extends StatelessWidget {
   const _ThemedCard({
     required this.child,
