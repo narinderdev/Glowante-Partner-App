@@ -257,22 +257,75 @@ class CategoryCubit extends Cubit<CategoryState> {
   }
 
   Future<void> deleteSubCategory(int branchId, int subCategoryId) async {
-    await _performMutation(
-      branchId,
-      () => _repository.deleteSubCategory(
+    emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
+
+    try {
+      final result = await _repository.deleteSubCategory(
         branchId: branchId,
         subCategoryId: subCategoryId,
-      ),
-      fallbackMessage: 'Subcategory deleted successfully',
-    );
+      );
+      final success =
+          result['success'] == true || !result.containsKey('success');
+      if (!success) {
+        final reason = _messageFromPayload(result) ?? 'Request failed';
+        throw Exception(reason);
+      }
+
+      final successMessage =
+          _messageFromPayload(result) ?? 'Subcategory deleted successfully';
+      final updatedCategories =
+          _removeSubCategoryFromTree(state.categories, subCategoryId);
+
+      emit(
+        state.copyWith(
+          status: CategoryStatus.actionSuccess,
+          message: successMessage,
+          categories: updatedCategories,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: CategoryStatus.actionFailure,
+          message: _extractErrorMessage(error),
+        ),
+      );
+    }
   }
 
   Future<void> deleteService(int branchId, int serviceId) async {
-    await _performMutation(
-      branchId,
-      () => _repository.deleteService(branchId: branchId, serviceId: serviceId),
-      fallbackMessage: 'Service deleted successfully',
-    );
+    emit(state.copyWith(status: CategoryStatus.submitting, clearMessage: true));
+
+    try {
+      final result = await _repository.deleteService(
+          branchId: branchId, serviceId: serviceId);
+      final success =
+          result['success'] == true || !result.containsKey('success');
+      if (!success) {
+        final reason = _messageFromPayload(result) ?? 'Request failed';
+        throw Exception(reason);
+      }
+
+      final successMessage =
+          _messageFromPayload(result) ?? 'Service deleted successfully';
+      final updatedCategories =
+          _removeServiceFromTree(state.categories, serviceId);
+
+      emit(
+        state.copyWith(
+          status: CategoryStatus.actionSuccess,
+          message: successMessage,
+          categories: updatedCategories,
+        ),
+      );
+    } catch (error) {
+      emit(
+        state.copyWith(
+          status: CategoryStatus.actionFailure,
+          message: _extractErrorMessage(error),
+        ),
+      );
+    }
   }
 
   Future<void> updateService(
@@ -372,6 +425,92 @@ class CategoryCubit extends Cubit<CategoryState> {
     }
 
     return parts.isEmpty ? null : parts.join('\n');
+  }
+
+  List<dynamic> _removeServiceFromTree(
+      List<dynamic> rawCategories, int serviceId) {
+    return rawCategories
+        .whereType<Map>()
+        .map((entry) => _removeServiceFromNode(
+              Map<String, dynamic>.from(entry),
+              serviceId,
+            ))
+        .toList();
+  }
+
+  List<dynamic> _removeSubCategoryFromTree(
+      List<dynamic> rawCategories, int subCategoryId) {
+    return rawCategories
+        .whereType<Map>()
+        .map((entry) => _removeSubCategoryFromNode(
+              Map<String, dynamic>.from(entry),
+              subCategoryId,
+            ))
+        .toList();
+  }
+
+  Map<String, dynamic> _removeServiceFromNode(
+    Map<String, dynamic> node,
+    int serviceId,
+  ) {
+    final cloned = Map<String, dynamic>.from(node);
+
+    final services = (cloned['services'] as List? ?? const [])
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .where((service) => _catalogItemId(service['id']) != serviceId)
+        .toList();
+    cloned['services'] = services;
+
+    final subCategories =
+        (cloned['subCategories'] ?? cloned['subcategories']) as List? ??
+            const [];
+    final clonedSubCategories = subCategories
+        .whereType<Map>()
+        .map(
+          (entry) => _removeServiceFromNode(
+            Map<String, dynamic>.from(entry),
+            serviceId,
+          ),
+        )
+        .toList();
+    cloned['subCategories'] = clonedSubCategories;
+    if (cloned.containsKey('subcategories')) {
+      cloned['subcategories'] = clonedSubCategories;
+    }
+
+    return cloned;
+  }
+
+  Map<String, dynamic> _removeSubCategoryFromNode(
+    Map<String, dynamic> node,
+    int subCategoryId,
+  ) {
+    final cloned = Map<String, dynamic>.from(node);
+
+    final subCategories =
+        (cloned['subCategories'] ?? cloned['subcategories']) as List? ??
+            const [];
+    final filteredSubCategories = subCategories
+        .whereType<Map>()
+        .map((entry) => Map<String, dynamic>.from(entry))
+        .where(
+            (subCategory) => _catalogItemId(subCategory['id']) != subCategoryId)
+        .toList();
+
+    cloned['subCategories'] = filteredSubCategories;
+    if (cloned.containsKey('subcategories')) {
+      cloned['subcategories'] = filteredSubCategories;
+    }
+
+    return cloned;
+  }
+
+  int? _catalogItemId(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   String _extractErrorMessage(Object error) {

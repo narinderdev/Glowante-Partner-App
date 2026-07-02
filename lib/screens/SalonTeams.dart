@@ -1035,23 +1035,23 @@ class _TeamScreenState extends State<TeamScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          translateText("Assigned to"),
+          translateText("Assign to other branch"),
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
         ),
-        if (assignedSalonLabel.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            assignedSalonLabel,
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 9.5, height: 1.15),
-          ),
-        ],
+        // if (assignedSalonLabel.isNotEmpty) ...[
+        //   const SizedBox(height: 2),
+        //   Text(
+        //     assignedSalonLabel,
+        //     textAlign: TextAlign.center,
+        //     maxLines: 2,
+        //     overflow: TextOverflow.ellipsis,
+        //     style: const TextStyle(fontSize: 9.5, height: 1.15),
+        //   ),
+        // ],
       ],
     );
   }

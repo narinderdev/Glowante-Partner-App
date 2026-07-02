@@ -17,7 +17,6 @@ import 'package:bloc_onboarding/utils/price_formatter.dart';
 import '../utils/api_service.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 const Color _catalogGold = Color(0xFF8B6500);
 const Color _catalogGoldLight = Color(0xFFD0A244);
 const Color _catalogInk = Color(0xFF2D2926);
@@ -734,8 +733,6 @@ class CategoryScreenState extends State<CategoryScreen> {
             branchId,
             subCategory['id'] as int,
           );
-
-      await _refreshData();
     } finally {
       _restoreScrollPosition();
     }
@@ -810,8 +807,6 @@ class CategoryScreenState extends State<CategoryScreen> {
     final salonId = _selectedSalon!['branchId'] as int;
     try {
       await context.read<CategoryCubit>().deleteService(salonId, serviceId);
-
-      await _refreshData();
     } finally {
       _restoreScrollPosition();
     }

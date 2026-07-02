@@ -12,7 +12,6 @@ import '../../salon/widgets/owner_branch_header_selector.dart';
 import '../widgets/profile_subpage_app_bar.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 part 'owner_profile_operations_widgets.dart';
 part 'owner_profile_operations_form_shared.dart';
 part 'owner_vendor.dart';
@@ -1339,7 +1338,10 @@ class _OwnerProfileOperationsScreenState
                         },
                         child: const Text('Update Status'),
                       ),
-                    if (status == 'ISSUED')
+                    if (status == 'ISSUED' ||
+                        status == 'ACCEPTED' ||
+                        status == 'DELIVERED' ||
+                        status == 'PARTIALLY_RECEIVED')
                       ElevatedButton(
                         onPressed: () {
                           Navigator.of(dialogContext).pop();
@@ -1382,6 +1384,7 @@ class _OwnerProfileOperationsScreenState
       'ISSUED',
       'ACCEPTED',
       'DELIVERED',
+      'PARTIALLY_RECEIVED',
       'CANCELLED',
       if (canClose) 'CLOSED',
     ];
