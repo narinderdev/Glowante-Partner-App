@@ -1642,33 +1642,34 @@ class ApiService {
   // ---------------------- LOGOUT ----------------------
 
   Future<bool> logoutUserAPI() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('user_token');
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('user_token');
 
-    if (token == null) return false;
+  if (token == null || token.isEmpty) return false;
 
-    final url = Uri.parse(baseUrl + logoutUser);
-    try {
-      final response = await _sharedClient.get(
-        url,
-        headers: {"Authorization": "Bearer $token"},
-      );
+  final url = Uri.parse(baseUrl + logoutUser);
 
-      print("Logout Response: ${response.body}");
+  try {
+    final response = await _sharedClient.post(
+      url,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({}),
+    );
 
-      if (response.statusCode == 200) {
-        await prefs.clear();
-        return true;
-      } else {
-        await prefs.clear();
-        return false;
-      }
-    } catch (e) {
-      print("Error during logout: $e");
-      await prefs.clear();
-      return false;
-    }
+    print("Logout Response: ${response.statusCode} ${response.body}");
+
+    await prefs.clear();
+
+    return response.statusCode >= 200 && response.statusCode < 300;
+  } catch (e) {
+    print("Error during logout: $e");
+    await prefs.clear();
+    return false;
   }
+}
   // ---------------------- DELETE USER ----------------------
 
   Future<bool> deleteUserAPI() async {
