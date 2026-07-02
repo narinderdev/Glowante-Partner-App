@@ -994,7 +994,7 @@ class ApiService {
       debugPrint('[$debugTag] error=$error');
       return {
         'success': false,
-        'message': error.toString(),
+        'message': extractErrorMessage(error),
         'data': const <String, dynamic>{},
       };
     }

@@ -1,4 +1,5 @@
 part of 'owner_profile_operations_screen.dart';
+
 class _InventoryItemFormView extends StatefulWidget {
   const _InventoryItemFormView({
     required this.branchId,
@@ -40,7 +41,7 @@ class _InventoryItemFormViewState extends State<_InventoryItemFormView> {
   late final TextEditingController _costController;
   late final TextEditingController _minStockController;
   late final TextEditingController _maxStockController;
-AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
   bool _active = true;
   bool _isSaving = false;
   bool _isLoadingOptions = true;
@@ -104,11 +105,13 @@ AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
     _selectedStoreId = _toInt(initial['storeId']);
     _loadOptions();
   }
-void _validateOnlyAfterSubmit() {
-  if (_autoValidateMode != AutovalidateMode.disabled) {
-    _formKey.currentState?.validate();
+
+  void _validateOnlyAfterSubmit() {
+    if (_autoValidateMode != AutovalidateMode.disabled) {
+      _formKey.currentState?.validate();
+    }
   }
-}
+
   Future<void> _loadOptions() async {
     setState(() => _isLoadingOptions = true);
     final results = await Future.wait<Map<String, dynamic>>([
@@ -154,7 +157,7 @@ void _validateOnlyAfterSubmit() {
   Future<void> _submit() async {
     setState(() => _autoValidateMode = AutovalidateMode.onUserInteraction);
 
-if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
     setState(() => _isSaving = true);
     try {
       final resolvedItemId = widget.isEdit
@@ -187,7 +190,7 @@ if (!_formKey.currentState!.validate()) return;
       await widget.onSubmit(payload);
     } catch (error) {
       if (!mounted) return;
-      Fluttertoast.showToast(msg: error.toString());
+      Fluttertoast.showToast(msg: extractErrorMessage(error));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -203,8 +206,8 @@ if (!_formKey.currentState!.validate()) return;
       child: _isLoadingOptions
           ? const Center(child: CircularProgressIndicator())
           : Form(
-  key: _formKey,
-  autovalidateMode: _autoValidateMode,
+              key: _formKey,
+              autovalidateMode: _autoValidateMode,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -225,11 +228,11 @@ if (!_formKey.currentState!.validate()) return;
                   TextFormField(
                     maxLength: 120,
                     controller: _skuController,
-                   onChanged: (_) {
-  if (_autoValidateMode != AutovalidateMode.disabled) {
-    _formKey.currentState?.validate();
-  }
-},
+                    onChanged: (_) {
+                      if (_autoValidateMode != AutovalidateMode.disabled) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
                     decoration: InputDecoration(labelText: context.t('SKU')),
                     validator: (value) => _stringValue(value).isEmpty
                         ? context.t('SKU is required')
@@ -239,14 +242,13 @@ if (!_formKey.currentState!.validate()) return;
                   TextFormField(
                     maxLength: 120,
                     controller: _nameController,
-                  onChanged: (_) {
-  if (_autoValidateMode != AutovalidateMode.disabled) {
-    _formKey.currentState?.validate();
-  }
-},
+                    onChanged: (_) {
+                      if (_autoValidateMode != AutovalidateMode.disabled) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
                     decoration:
                         InputDecoration(labelText: context.t('Item Name')),
-                        
                     validator: (value) => _stringValue(value).isEmpty
                         ? context.t('Item name is required')
                         : null,
@@ -271,25 +273,27 @@ if (!_formKey.currentState!.validate()) return;
                   //       setState(() => _selectedCategory = value),
                   // ),
                   DropdownButtonFormField<String>(
-  key: ValueKey<String>('inventory-category-$_selectedCategory'),
-  initialValue: _selectedCategory,
-  decoration: InputDecoration(labelText: context.t('Category')),
-  items: _categories
-      .map(
-        (category) => DropdownMenuItem<String>(
-          value: category,
-          child: Text(category),
-        ),
-      )
-      .toList(),
-  validator: (value) => _stringValue(value).isEmpty
-      ? context.t('Category is required')
-      : null,
- onChanged: (value) {
-  setState(() => _selectedCategory = value);
-  _validateOnlyAfterSubmit();
-},
-),
+                    key: ValueKey<String>(
+                        'inventory-category-$_selectedCategory'),
+                    initialValue: _selectedCategory,
+                    decoration:
+                        InputDecoration(labelText: context.t('Category')),
+                    items: _categories
+                        .map(
+                          (category) => DropdownMenuItem<String>(
+                            value: category,
+                            child: Text(category),
+                          ),
+                        )
+                        .toList(),
+                    validator: (value) => _stringValue(value).isEmpty
+                        ? context.t('Category is required')
+                        : null,
+                    onChanged: (value) {
+                      setState(() => _selectedCategory = value);
+                      _validateOnlyAfterSubmit();
+                    },
+                  ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<String>(
                     key: ValueKey<String>(
@@ -310,10 +314,10 @@ if (!_formKey.currentState!.validate()) return;
                     validator: (value) => _stringValue(value).isEmpty
                         ? context.t('Unit of Measure is required')
                         : null,
-                  onChanged: (value) {
-  setState(() => _selectedUnitOfMeasure = value);
-  _validateOnlyAfterSubmit();
-},
+                    onChanged: (value) {
+                      setState(() => _selectedUnitOfMeasure = value);
+                      _validateOnlyAfterSubmit();
+                    },
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -340,33 +344,34 @@ if (!_formKey.currentState!.validate()) return;
                         InputDecoration(labelText: context.t('Reorder Point')),
                   ),
                   const SizedBox(height: 14),
-                 TextFormField(
-  maxLength: 120,
-  controller: _reorderQtyController,
-onChanged: (_) {
-  if (_autoValidateMode != AutovalidateMode.disabled) {
-    _formKey.currentState?.validate();
-  }
-},
-  keyboardType: TextInputType.number,
-  decoration: InputDecoration(labelText: context.t('Reorder Qty')),
-  validator: (value) {
-    final qty = _toInt(value);
-    if (qty == null || qty < 1) {
-      return context.t('Reorder Qty must be at least 1');
-    }
-    return null;
-  },
-),
+                  TextFormField(
+                    maxLength: 120,
+                    controller: _reorderQtyController,
+                    onChanged: (_) {
+                      if (_autoValidateMode != AutovalidateMode.disabled) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        InputDecoration(labelText: context.t('Reorder Qty')),
+                    validator: (value) {
+                      final qty = _toInt(value);
+                      if (qty == null || qty < 1) {
+                        return context.t('Reorder Qty must be at least 1');
+                      }
+                      return null;
+                    },
+                  ),
                   const SizedBox(height: 14),
                   TextFormField(
                     maxLength: 120,
                     controller: _costController,
                     onChanged: (_) {
-  if (_autoValidateMode != AutovalidateMode.disabled) {
-    _formKey.currentState?.validate();
-  }
-},
+                      if (_autoValidateMode != AutovalidateMode.disabled) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration:
@@ -389,99 +394,110 @@ onChanged: (_) {
                         InputDecoration(labelText: context.t('Min Stock')),
                   ),
                   const SizedBox(height: 14),
-                 TextFormField(
-  maxLength: 120,
-  controller: _maxStockController,
-  onChanged: (_) {
-  if (_autoValidateMode != AutovalidateMode.disabled) {
-    _formKey.currentState?.validate();
-  }
-},
-  keyboardType: TextInputType.number,
-  decoration: InputDecoration(labelText: context.t('Max Stock')),
-  validator: (value) {
-    final maxStock = _toInt(value);
+                  TextFormField(
+                    maxLength: 120,
+                    controller: _maxStockController,
+                    onChanged: (_) {
+                      if (_autoValidateMode != AutovalidateMode.disabled) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
+                    keyboardType: TextInputType.number,
+                    decoration:
+                        InputDecoration(labelText: context.t('Max Stock')),
+                    validator: (value) {
+                      final maxStock = _toInt(value);
 
-    if (maxStock == null) {
-      return context.t('Max Stock is required');
-    }
+                      if (maxStock == null) {
+                        return context.t('Max Stock is required');
+                      }
 
-    if (maxStock < 1) {
-      return context.t('Max Stock must be at least 1');
-    }
+                      if (maxStock < 1) {
+                        return context.t('Max Stock must be at least 1');
+                      }
 
-    return null;
-  },
-),
-                 const SizedBox(height: 14),
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
 
-DropdownButtonFormField<int>(
-  key: ValueKey<String>('inventory-vendor-$_selectedVendorId'),
-  initialValue: _selectedVendorId,
-  decoration: InputDecoration(labelText: context.t('Primary Vendor')),
-  hint: Text(
-    _vendors.isEmpty
-        ? context.t('No vendors found')
-        : context.t('Select Vendor'),
-  ),
-  items: _vendors.map((vendor) {
-    final vendorId = _toInt(
-      vendor['id'] ?? vendor['vendorId'] ?? vendor['primaryVendorDbId'],
-    );
+                  DropdownButtonFormField<int>(
+                    key:
+                        ValueKey<String>('inventory-vendor-$_selectedVendorId'),
+                    initialValue: _selectedVendorId,
+                    decoration: InputDecoration(labelText: context.t('Vendor')),
+                    hint: Text(
+                      _vendors.isEmpty
+                          ? context.t('No vendors found')
+                          : context.t('Select Vendor'),
+                    ),
+                    items: _vendors.map((vendor) {
+                      final vendorId = _toInt(
+                        vendor['id'] ??
+                            vendor['vendorId'] ??
+                            vendor['primaryVendorDbId'],
+                      );
 
-    return DropdownMenuItem<int>(
-      value: vendorId,
-      child: Text(
-        _firstText(
-          vendor,
-          const ['name', 'vendorName', 'primaryVendorName'],
-          fallback: context.t('Vendor'),
-        ),
-      ),
-    );
-  }).toList(),
-  onChanged: (value) {
-    setState(() => _selectedVendorId = value);
-    _validateOnlyAfterSubmit();
-  },
-),
+                      return DropdownMenuItem<int>(
+                        value: vendorId,
+                        child: Text(
+                          _firstText(
+                            vendor,
+                            const ['name', 'vendorName', 'primaryVendorName'],
+                            fallback: context.t('Vendor'),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _selectedVendorId = value);
+                      _validateOnlyAfterSubmit();
+                    },
+                    validator: (value) {
+                      if (_toInt(value) == null) {
+                        return context.t('Vendor is required');
+                      }
+                      return null;
+                    },
+                  ),
 
-if (_vendors.isEmpty) ...[
-  const SizedBox(height: 6),
-  Text(
-    context.t('No vendors found for this branch. Add a vendor first.'),
-    style: const TextStyle(
-      fontSize: 12,
-      color: Color(0xFF78716C),
-    ),
-  ),
-],
+                  if (_vendors.isEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      context.t(
+                          'No vendors found for this branch. Add a vendor first.'),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF78716C),
+                      ),
+                    ),
+                  ],
 
-const SizedBox(height: 14),
+                  const SizedBox(height: 14),
 
-DropdownButtonFormField<int>(
-  key: ValueKey<String>('inventory-store-$_selectedStoreId'),
-  initialValue: _selectedStoreId,
-  decoration: InputDecoration(labelText: context.t('Store')),
-  items: _stores.map((store) {
-    return DropdownMenuItem<int>(
-      value: _toInt(store['id']),
-      child: Text(
-        _firstText(
-          store,
-          const ['name', 'storeName'],
-          fallback: context.t('Store'),
-        ),
-      ),
-    );
-  }).toList(),
-  onChanged: (value) {
-    setState(() => _selectedStoreId = value);
-    _validateOnlyAfterSubmit();
-  },
-),
+                  DropdownButtonFormField<int>(
+                    key: ValueKey<String>('inventory-store-$_selectedStoreId'),
+                    initialValue: _selectedStoreId,
+                    decoration: InputDecoration(labelText: context.t('Store')),
+                    items: _stores.map((store) {
+                      return DropdownMenuItem<int>(
+                        value: _toInt(store['id']),
+                        child: Text(
+                          _firstText(
+                            store,
+                            const ['name', 'storeName'],
+                            fallback: context.t('Store'),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _selectedStoreId = value);
+                      _validateOnlyAfterSubmit();
+                    },
+                  ),
 
-const SizedBox(height: 10),
+                  const SizedBox(height: 10),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(context.t('Active')),
