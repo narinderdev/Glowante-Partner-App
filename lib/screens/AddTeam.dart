@@ -1224,6 +1224,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
                         return CheckboxListTile(
                           value: checked,
+                          activeColor: _teamMemberAccent,
+                          checkColor: Colors.white,
                           onChanged: (v) {
                             if (v == true && !temp.contains(itemName)) {
                               temp.add(itemName);
@@ -2114,6 +2116,19 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
       ),
       body: Theme(
         data: Theme.of(context).copyWith(
+          checkboxTheme: CheckboxThemeData(
+            fillColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return _teamMemberAccent;
+              }
+              if (states.contains(WidgetState.disabled)) {
+                return _teamMemberSoftBorder;
+              }
+              return const Color(0xFFF0E3C8);
+            }),
+            checkColor: WidgetStateProperty.all(Colors.white),
+            side: const BorderSide(color: Color(0xFFD9C8AB)),
+          ),
           textSelectionTheme: const TextSelectionThemeData(
             cursorColor: _teamMemberAccent,
             selectionColor: Color(0x33D3A94C),

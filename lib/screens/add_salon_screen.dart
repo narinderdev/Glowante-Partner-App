@@ -871,11 +871,21 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       return;
     }
 
-    final file = await _picker.pickImage(source: source);
-    if (!mounted) return;
-    if (file == null) return;
-    final images = [...existing, File(file.path)].take(10).toList();
-    context.read<AddSalonCubit>().setImages(images);
+    try {
+      final file = await _picker.pickImage(source: source);
+      if (!mounted) return;
+      if (file == null) return;
+      final images = [...existing, File(file.path)].take(10).toList();
+      context.read<AddSalonCubit>().setImages(images);
+    } catch (error) {
+      debugPrint('Salon camera capture failed: $error');
+      if (!mounted) return;
+      Fluttertoast.showToast(
+        msg: translateText(
+          'Unable to open the camera. Please allow camera permission and try again.',
+        ),
+      );
+    }
   }
 
   Future<void> _pickGalleryImages() async {
@@ -886,30 +896,41 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
       return;
     }
 
-    final List<XFile> files;
-    if (remainingSlots == 1) {
-      final file = await _picker.pickImage(source: ImageSource.gallery);
-      files = file == null ? <XFile>[] : <XFile>[file];
-    } else {
-      files = await _picker.pickMultiImage(limit: remainingSlots);
-    }
+    try {
+      final List<XFile> files;
+      if (remainingSlots == 1) {
+        final file = await _picker.pickImage(source: ImageSource.gallery);
+        files = file == null ? <XFile>[] : <XFile>[file];
+      } else {
+        files = await _picker.pickMultiImage(limit: remainingSlots);
+      }
 
-    if (!mounted) return;
-    if (files.isEmpty) return;
-    if (files.length > remainingSlots) {
-      _showImageLimitToast();
+      if (!mounted) return;
+      if (files.isEmpty) return;
+      if (files.length > remainingSlots) {
+        _showImageLimitToast();
+      }
+      final images = [
+        ...existing,
+        ...files.map((file) => File(file.path)),
+      ].take(10).toList();
+      context.read<AddSalonCubit>().setImages(images);
+    } catch (error) {
+      debugPrint('Salon gallery picker failed: $error');
+      if (!mounted) return;
+      Fluttertoast.showToast(
+        msg: translateText(
+          'Unable to open photos. Please allow storage or photo access and try again.',
+        ),
+      );
     }
-    final images = [
-      ...existing,
-      ...files.map((file) => File(file.path)),
-    ].take(10).toList();
-    context.read<AddSalonCubit>().setImages(images);
   }
 
   void _showImageLimitToast() {
-    Fluttertoast.showToast(msg: translateText(
-            'You can add up to 10 photos. Remove a photo before choosing another.',
-          ));
+    Fluttertoast.showToast(
+        msg: translateText(
+      'You can add up to 10 photos. Remove a photo before choosing another.',
+    ));
   }
 
   Future<List<String>> _uploadSelectedImageUrls(List<File> images) async {
@@ -1059,7 +1080,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     _syncBufferDraftsFromInputs();
 
     if (_startTimeController.text.isEmpty || _endTimeController.text.isEmpty) {
-      Fluttertoast.showToast(msg: translateText('Please select start and end time.'));
+      Fluttertoast.showToast(
+          msg: translateText('Please select start and end time.'));
       return;
     }
 
@@ -1067,13 +1089,15 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
     final endMinutes = _timeToMinutes(_endTimeController.text);
 
     if (startMinutes >= endMinutes) {
-      Fluttertoast.showToast(msg: translateText('End time must be greater than start time.'));
+      Fluttertoast.showToast(
+          msg: translateText('End time must be greater than start time.'));
       return;
     }
 
     final address = state.address;
     if (!widget.isEdit && !_isAddressComplete(address)) {
-      Fluttertoast.showToast(msg: translateText('Please add the salon location.'));
+      Fluttertoast.showToast(
+          msg: translateText('Please add the salon location.'));
       return;
     }
 
@@ -1259,7 +1283,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
 
         if (saved != true) return;
 
-        Fluttertoast.showToast(msg: translateText('Salon updated successfully'));
+        Fluttertoast.showToast(
+            msg: translateText('Salon updated successfully'));
 
         Navigator.pop(context, true);
         return;
@@ -1364,7 +1389,8 @@ class _AddSalonScreenState extends State<AddSalonScreen> {
         }
 
         if (state.status == AddSalonStatus.success && isCurrent) {
-          Fluttertoast.showToast(msg: translateText('Salon added successfully'));
+          Fluttertoast.showToast(
+              msg: translateText('Salon added successfully'));
           if (widget.isEdit) {
             Navigator.pop(context, true);
             return;

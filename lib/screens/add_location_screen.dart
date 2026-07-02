@@ -12,7 +12,6 @@ import '../services/language_listener.dart';
 import 'package:bloc_onboarding/utils/localization_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({
     super.key,
@@ -57,7 +56,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   final FocusNode _searchFocus = FocusNode();
   final ScrollController _scrollController = ScrollController();
   final ScrollController _completeAddressFieldScrollController =
-    ScrollController();
+      ScrollController();
   final GlobalKey _completeAddressKey = GlobalKey();
   final _formKey = GlobalKey<FormState>();
 
@@ -138,7 +137,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     scoFlatHouseController.dispose();
     streetSectorAreaController.dispose();
     searchLocationController.dispose();
-_completeAddressFieldScrollController.dispose();
+    _completeAddressFieldScrollController.dispose();
     super.dispose();
   }
 
@@ -162,9 +161,10 @@ _completeAddressFieldScrollController.dispose();
 
       if (!serviceEnabled) {
         if (mounted) {
-          Fluttertoast.showToast(msg: translateText(
-                  'Turn on location services to use your current location',
-                ));
+          Fluttertoast.showToast(
+              msg: translateText(
+            'Turn on location services to use your current location',
+          ));
         }
         await Geolocator.openLocationSettings();
         return;
@@ -179,9 +179,10 @@ _completeAddressFieldScrollController.dispose();
 
       if (permission == LocationPermission.denied) {
         if (mounted) {
-          Fluttertoast.showToast(msg: translateText(
-                  'Allow location access to autofill your address details',
-                ));
+          Fluttertoast.showToast(
+              msg: translateText(
+            'Allow location access to autofill your address details',
+          ));
         }
         return;
       }
@@ -1033,15 +1034,15 @@ _completeAddressFieldScrollController.dispose();
           KeyedSubtree(
             key: _completeAddressKey,
             child: _buildTextField(
-  controller: completeAddressController,
-  label: 'Complete Address',
-  hint: 'Start typing above to auto-suggest full address...',
-  isRequired: true,
-  minLines: 3,
-  maxLines: 3,
-  showScrollbar: true,
-  scrollController: _completeAddressFieldScrollController,
-  maxLength: 180,
+              controller: completeAddressController,
+              label: 'Complete Address',
+              hint: 'Start typing above to auto-suggest full address...',
+              isRequired: true,
+              minLines: 3,
+              maxLines: 3,
+              showScrollbar: true,
+              scrollController: _completeAddressFieldScrollController,
+              maxLength: 180,
               keyboardType: TextInputType.streetAddress,
               textCapitalization: TextCapitalization.sentences,
               regex: null,
@@ -1065,7 +1066,6 @@ _completeAddressFieldScrollController.dispose();
               ),
             ),
           ),
-          
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -1190,14 +1190,16 @@ _completeAddressFieldScrollController.dispose();
   // }
   Future<void> _submitLocation() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
-      Fluttertoast.showToast(msg: translateText('Please fill all required fields correctly'));
+      Fluttertoast.showToast(
+          msg: translateText('Please fill all required fields correctly'));
       return;
     }
 
     final composedAddress = _composedAddress();
 
     if (composedAddress.isEmpty) {
-      Fluttertoast.showToast(msg: translateText('Please enter or select the complete address.'));
+      Fluttertoast.showToast(
+          msg: translateText('Please enter or select the complete address.'));
       return;
     }
 
@@ -1237,9 +1239,10 @@ _completeAddressFieldScrollController.dispose();
         finalLongitude == null ||
         finalLatitude == 0.0 ||
         finalLongitude == 0.0) {
-      Fluttertoast.showToast(msg: translateText(
-              'Could not get coordinates. Please use current location or select a more specific suggestion.',
-            ));
+      Fluttertoast.showToast(
+          msg: translateText(
+        'Could not get coordinates. Please use current location or select a more specific suggestion.',
+      ));
       return;
     }
 
@@ -1342,8 +1345,8 @@ Widget _buildTextField({
       contentPadding: EdgeInsets.fromLTRB(
         12,
         isMultiLine ? 12 : 0,
-        suffix != null ? 126 : (maxLength == null ? 12 : 70),
-        maxLength == null ? (isMultiLine ? 10 : 0) : 28,
+        12,
+        isMultiLine ? 12 : 0,
       ),
       constraints: BoxConstraints(
         minHeight: isMultiLine ? 96 : 52,
@@ -1401,77 +1404,75 @@ Widget _buildTextField({
           isRequired ? '$translatedLabel *' : translatedLabel,
         ),
         const SizedBox(height: 8),
-        Stack(
-          children: [
-            fieldWidget,
-            if (suffix != null)
-              Positioned(
-                top: isMultiLine ? 10 : 0,
-                right: 12,
-                height: isMultiLine ? 24 : 52,
-                child: IgnorePointer(
-                  child: Align(
-                    alignment: isMultiLine
-                        ? Alignment.topRight
-                        : Alignment.centerRight,
+        if (suffix != null ||
+            (showScrollbar && isMultiLine) ||
+            maxLength != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                if (showScrollbar && isMultiLine)
+                  Expanded(
+                    child: IgnorePointer(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 15,
+                            color: _AddLocationScreenState._gold,
+                          ),
+                          const SizedBox(width: 3),
+                          Flexible(
+                            child: Text(
+                              translateText('Scroll down to view full address'),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: _AddLocationScreenState._gold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  const Spacer(),
+                if (suffix != null) ...[
+                  IgnorePointer(
                     child: suffix,
                   ),
-                ),
-              ),
-              if (showScrollbar && isMultiLine)
-  Positioned(
-    left: 12,
-    bottom: 10,
-    child: IgnorePointer(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 15,
-            color: _AddLocationScreenState._gold,
-          ),
-          const SizedBox(width: 3),
-          Text(
-            translateText('Scroll down to view full address'),
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: _AddLocationScreenState._gold,
+                  if (maxLength != null) const SizedBox(width: 10),
+                ],
+                if (maxLength != null)
+                  IgnorePointer(
+                    child: ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: controller,
+                      builder: (context, value, _) {
+                        return Text(
+                          '${value.text.length} / $maxLength',
+                          style: TextStyle(
+                            color: value.text.length >= maxLength
+                                ? AppColors.red
+                                : const Color(0xFF8B8178),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
             ),
           ),
-        ],
-      ),
-    ),
-  ),
-            if (maxLength != null)
-              Positioned(
-                right: 12,
-                bottom: 10,
-                child: IgnorePointer(
-                  child: ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: controller,
-                    builder: (context, value, _) {
-                      return Text(
-                        '${value.text.length} / $maxLength',
-                        style: TextStyle(
-                          color: value.text.length >= maxLength
-                              ? AppColors.red
-                              : const Color(0xFF8B8178),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-          ],
-        ),
+        fieldWidget,
       ],
     ),
   );
 }
+
 class _ThemedCard extends StatelessWidget {
   const _ThemedCard({
     required this.child,

@@ -46,7 +46,6 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
   String emailError = '';
 
   bool isLoading = false; // Flag to show loader while updating profile
-  bool _isSyncingNameFields = false;
 
   // API service instance
   final ApiService apiService = ApiService();
@@ -236,35 +235,6 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
         .where((part) => part.isNotEmpty)
         .map((part) => part[0].toUpperCase() + part.substring(1))
         .join(' ');
-  }
-
-  void _applySplitNameResult({
-    required String firstName,
-    required String lastName,
-    required bool fromFirstName,
-  }) {
-    if (_isSyncingNameFields) return;
-
-    _isSyncingNameFields = true;
-    try {
-      setState(() {
-        if (fromFirstName) {
-          lastNameController.text = lastName;
-          lastNameController.selection = TextSelection.collapsed(
-            offset: lastNameController.text.length,
-          );
-        } else {
-          firstNameController.text = firstName;
-          firstNameController.selection = TextSelection.collapsed(
-            offset: firstNameController.text.length,
-          );
-        }
-        firstNameError = '';
-        lastNameError = '';
-      });
-    } finally {
-      _isSyncingNameFields = false;
-    }
   }
 
   void _goBackToLogin() {
@@ -582,24 +552,6 @@ class _UpdateUserProfileScreenState extends State<UpdateUserProfileScreen> {
           maxLength: maxLength,
           maxLengthEnforcement: MaxLengthEnforcement.enforced,
           inputFormatters: [
-            if (fieldType == 'firstName')
-              _SplitFullNameInputFormatter(
-                fromFirstName: true,
-                onSplit: (firstName, lastName) => _applySplitNameResult(
-                  firstName: firstName,
-                  lastName: lastName,
-                  fromFirstName: true,
-                ),
-              ),
-            if (fieldType == 'lastName')
-              _SplitFullNameInputFormatter(
-                fromFirstName: false,
-                onSplit: (firstName, lastName) => _applySplitNameResult(
-                  firstName: firstName,
-                  lastName: lastName,
-                  fromFirstName: false,
-                ),
-              ),
             if (isNameField) const _ProfileNameInputFormatter(),
             if (fieldType == 'email')
               FilteringTextInputFormatter.deny(RegExp(r'\s')),
@@ -715,49 +667,6 @@ class _ProfileNameInputFormatter extends TextInputFormatter {
     return TextEditingValue(
       text: filteredText,
       selection: TextSelection.collapsed(offset: selectionOffset),
-      composing: TextRange.empty,
-    );
-  }
-}
-
-class _SplitFullNameInputFormatter extends TextInputFormatter {
-  const _SplitFullNameInputFormatter({
-    required this.fromFirstName,
-    required this.onSplit,
-  });
-
-  final bool fromFirstName;
-  final void Function(String firstName, String lastName) onSplit;
-
-  static final RegExp _spaceLikeCharacters = RegExp(r'[\s\u00A0]+');
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final text = newValue.text.trim().replaceAll(_spaceLikeCharacters, ' ');
-    if (text.isEmpty || !text.contains(' ')) {
-      return newValue;
-    }
-
-    final parts = text.split(' ');
-    if (parts.length < 2) {
-      return newValue;
-    }
-
-    final firstName = parts.first.trim();
-    final lastName = parts.skip(1).join(' ').trim();
-    if (firstName.isEmpty || lastName.isEmpty) {
-      return newValue;
-    }
-
-    onSplit(firstName, lastName);
-
-    final fieldText = fromFirstName ? firstName : lastName;
-    return TextEditingValue(
-      text: fieldText,
-      selection: TextSelection.collapsed(offset: fieldText.length),
       composing: TextRange.empty,
     );
   }

@@ -1425,7 +1425,7 @@ class _TeamMembersGrid extends StatelessWidget {
         : screenWidth >= 700
             ? 2
             : 1;
-    final cardHeight = screenWidth >= 700 ? 318.0 : 296.0;
+    final cardHeight = screenWidth >= 700 ? 342.0 : 320.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -2340,6 +2340,11 @@ class _TeamMemberCard extends StatelessWidget {
   final VoidCallback onAssign;
 
   bool get _isBusy => isDeleting || isStatusUpdating;
+
+  String _cleanText(dynamic value) {
+    return (value?.toString() ?? '').trim();
+  }
+
   int get _teamExperienceValue {
     final branches = member['userBranches'];
 
@@ -2349,6 +2354,156 @@ class _TeamMemberCard extends StatelessWidget {
     }
 
     return int.tryParse(member['experience']?.toString() ?? '') ?? 0;
+  }
+
+  Map<String, dynamic>? get _primaryBranchAssignment {
+    final branches = member['userBranches'];
+    if (branches is! List || branches.isEmpty) return null;
+    for (final rawBranch in branches) {
+      if (rawBranch is Map) {
+        return Map<String, dynamic>.from(rawBranch);
+      }
+    }
+    return null;
+  }
+
+  List<String> get _roleTexts {
+    final labels = <String>[];
+    final assignment = _primaryBranchAssignment;
+
+    void addLabel(dynamic raw) {
+      if (raw is List) {
+        for (final item in raw) {
+          addLabel(item);
+        }
+        return;
+      }
+      if (raw is! Map) {
+        final label = raw?.toString().trim() ?? '';
+        if (label.isEmpty || label.toLowerCase() == 'null') return;
+        final normalized = label.toLowerCase();
+        if (!labels.contains(normalized)) {
+          labels.add(normalized);
+        }
+        return;
+      }
+      final label =
+          (raw['label'] ?? raw['name'] ?? raw['code'] ?? '').toString().trim();
+      if (label.isEmpty || label.toLowerCase() == 'null') return;
+      final normalized = label.toLowerCase();
+      if (!labels.contains(normalized)) {
+        labels.add(normalized);
+      }
+    }
+
+    addLabel(member['roles']);
+    addLabel(member['roleCodes']);
+    addLabel(member['roleIds']);
+    addLabel(member['role']);
+    if (assignment != null) {
+      addLabel(assignment['roles']);
+      addLabel(assignment['roleCodes']);
+      addLabel(assignment['roleIds']);
+      addLabel(assignment['role']);
+      addLabel(assignment['professionalStatus']);
+    }
+    return labels;
+  }
+
+  bool get _isStylistLike {
+    final roles = _roleTexts;
+    if (roles.any(
+      (role) =>
+          role.contains('stylist') ||
+          role.contains('salon_worker') ||
+          role.contains('worker'),
+    )) {
+      return true;
+    }
+
+    final memberStatus = _cleanText(member['professionalStatus']).toLowerCase();
+    if (memberStatus.contains('stylist') || memberStatus.contains('worker')) {
+      return true;
+    }
+
+    final assignmentStatus =
+        _cleanText(_primaryBranchAssignment?['professionalStatus'])
+            .toLowerCase();
+    return assignmentStatus.contains('stylist') ||
+        assignmentStatus.contains('worker');
+  }
+
+  List<String> get _setupMissingFields {
+    if (!_isStylistLike) return const [];
+
+    final missing = <String>[];
+    final firstName = _cleanText(member['firstName']);
+    final lastName = _cleanText(member['lastName']);
+    final email = _cleanText(member['email']);
+    final assignment = _primaryBranchAssignment;
+    final info = _cleanText(
+      assignment?['info'] ??
+          assignment?['brief'] ??
+          member['info'] ??
+          member['brief'] ??
+          member['bio'] ??
+          member['about'],
+    );
+    final experience =
+        _cleanText(assignment?['experience'] ?? member['experience']);
+    final joiningDate = _cleanText(
+      assignment?['joiningDate'] ?? member['joiningDate'],
+    );
+    final branchServices = assignment?['userBranchServices'] ??
+        assignment?['branchServiceIds'] ??
+        member['userBranchServices'] ??
+        member['branchServiceIds'] ??
+        member['services'];
+    final specialities = assignment?['specialities'] ??
+        assignment?['specializations'] ??
+        assignment?['specialties'] ??
+        member['specialities'] ??
+        member['specializations'] ??
+        member['specialties'] ??
+        member['specialitiesList'] ??
+        member['specializationsList'] ??
+        member['specialtiesList'];
+    final address = _cleanText(assignment?['address'] ?? member['address']);
+
+    if (firstName.isEmpty || lastName.isEmpty) {
+      missing.add('name');
+    }
+    if (email.isEmpty) {
+      missing.add('email');
+    }
+    if (experience.isEmpty) {
+      missing.add('experience');
+    }
+    if (joiningDate.isEmpty) {
+      missing.add('joining date');
+    }
+    if (info.isEmpty) {
+      missing.add('about');
+    }
+    if (address.isEmpty) {
+      missing.add('address');
+    }
+    if (branchServices is! List || branchServices.isEmpty) {
+      missing.add('services');
+    }
+    if (specialities is! List || specialities.isEmpty) {
+      missing.add('specializations');
+    }
+
+    return missing;
+  }
+
+  bool get _needsSetupCompletion => _setupMissingFields.isNotEmpty;
+
+  String get _setupCompletionHint {
+    final missing = _setupMissingFields;
+    if (missing.isEmpty) return '';
+    return '${translateText('Complete setup')} • ${missing.join(', ')}';
   }
 
   String get _initials {
@@ -2417,6 +2572,43 @@ class _TeamMemberCard extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (_needsSetupCompletion) ...[
+                      const SizedBox(height: 8),
+                      Tooltip(
+                        message: _setupCompletionHint,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3D5),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(color: const Color(0xFFE5C36A)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                size: 14,
+                                color: _teamGold,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                translateText('Setup incomplete'),
+                                style: const TextStyle(
+                                  color: _teamGold,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

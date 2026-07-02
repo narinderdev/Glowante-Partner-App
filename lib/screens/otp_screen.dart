@@ -97,6 +97,7 @@ class _OtpScreenState extends State<OtpScreen> {
       },
     );
 
+    debugPrint('[OTP Autofill] starting retriever listener');
     _otpTextEditController.startListenRetriever((sms) {
       final text = sms ?? '';
       debugPrint('[OTP Autofill] sms received=${text.isNotEmpty}');
