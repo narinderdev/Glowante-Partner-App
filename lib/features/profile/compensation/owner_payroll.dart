@@ -2,14 +2,27 @@ part of 'profile_compensation_screen.dart';
 
 extension _OwnerPayrollUi on _ProfileCompensationScreenState {
   Widget _buildPayrollDashboard() {
+    final activeTeamCount = _activeTeamMembers.length;
+    final configuredTeamCount = _activeTeamMembers
+        .where((member) => _setupByUserId.containsKey(member.id))
+        .length;
+    final pendingTeamCount = activeTeamCount - configuredTeamCount;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFFFFFCF8),
+                Colors.white,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(color: const Color(0xFFF1EBE6)),
             boxShadow: const [
               BoxShadow(
@@ -47,45 +60,102 @@ extension _OwnerPayrollUi on _ProfileCompensationScreenState {
                 ],
               ),
               const SizedBox(height: 14),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _DashboardStatChip(
+                    icon: Icons.receipt_long_outlined,
+                    label: context.t('Runs'),
+                    value: '${_payrollRuns.length}',
+                  ),
+                  _DashboardStatChip(
+                    icon: Icons.verified_outlined,
+                    label: context.t('Configured'),
+                    value: '$configuredTeamCount',
+                  ),
+                  _DashboardStatChip(
+                    icon: Icons.schedule_outlined,
+                    label: context.t('Pending'),
+                    value: '$pendingTeamCount',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
               if (_payrollRuns.isEmpty)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFCFAF8),
-                    borderRadius: BorderRadius.circular(16),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Color(0xFFFCFAF8),
+                        Color(0xFFFFFBF5),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: const Color(0xFFE9DFD1)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'No payroll runs available',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1C1917),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Complete team setup first. Generated payroll periods will appear here for review.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF6B7280),
-                        ),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFF2D7),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.payments_outlined,
+                              color: Color(0xFFB45309),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'No payroll runs available',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1C1917),
+                                  ),
+                                ),
+                                SizedBox(height: 6),
+                                Text(
+                                  'Complete team setup first. Generated payroll periods will appear here for review.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       if (_isPayrollConfiguredForAllTeam) ...[
-                        const SizedBox(height: 14),
-                        _ActionChipButton(
-                          label: _isActionInProgress
-                              ? context.t('Generating...')
-                              : context.t('Generate Payroll'),
-                          filled: true,
-                          isLoading: _isActionInProgress,
-                          onTap: _isActionInProgress
-                              ? null
-                              : _openGeneratePayrollDialog,
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: _ActionChipButton(
+                            label: _isActionInProgress
+                                ? context.t('Generating...')
+                                : context.t('Generate Payroll'),
+                            filled: true,
+                            isLoading: _isActionInProgress,
+                            onTap: _isActionInProgress
+                                ? null
+                                : _openGeneratePayrollDialog,
+                          ),
                         ),
                       ],
                     ],
@@ -108,6 +178,73 @@ extension _OwnerPayrollUi on _ProfileCompensationScreenState {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DashboardStatChip extends StatelessWidget {
+  const _DashboardStatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 108),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE9DFD1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF2D7),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 16,
+              color: AppColors.starColor,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF7C6F60),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1C1917),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -340,15 +477,23 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
+        final dialogWidth = MediaQuery.sizeOf(dialogContext).width;
+        final dialogHeight = math.min(
+          MediaQuery.sizeOf(dialogContext).height * 0.62,
+          540.0,
+        );
         return AlertDialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
           contentPadding: const EdgeInsets.all(16),
           content: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(dialogContext).width - 24,
+              minWidth: dialogWidth * 0.98,
+              maxWidth: dialogWidth * 0.98,
+              maxHeight: dialogHeight,
             ),
-            child: SingleChildScrollView(
+            child: SizedBox(
+              width: dialogWidth * 0.98,
+              height: dialogHeight,
               child: _PayrollSetupMemberCard(
                 member: member,
                 initialSetup: initial,
@@ -378,7 +523,13 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                       '[OwnerCompensation:payroll] payroll_setup_member_save_failed | '
                       'userId=${member.id}, error=$error',
                     );
-                    rethrow;
+                    final message =
+                        error.toString().replaceFirst('Exception: ', '').trim();
+                    Fluttertoast.showToast(
+                      msg: message.isEmpty
+                          ? 'Something went wrong. Please try again.'
+                          : message,
+                    );
                   } finally {
                     if (mounted) {
                       setState(() => _savingIds.remove(member.id));
@@ -503,120 +654,245 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      ...widget.teamMembers.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final member = entry.value;
-                        final setup = _visibleSetups[member.id];
-                        final payType = setup == null
-                            ? 'Not configured'
-                            : PayrollTypes.label(setup.payrollType);
-                        final salaryText =
-                            setup == null || setup.salaryMinor == 0
-                                ? '-'
-                                : _formatCurrency(setup.salaryMinor);
-                        final commissionText = setup == null ||
-                                setup.commissionPercent == 0
-                            ? '-'
-                            : '${setup.commissionPercent.toStringAsFixed(1)}%';
-                        return Column(
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        member.name,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final tableWidth = constraints.maxWidth < 760
+                              ? 760.0
+                              : constraints.maxWidth;
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            child: SizedBox(
+                              width: tableWidth,
+                              child: Column(
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.only(bottom: 12),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          flex: 3,
+                                          child: Text(
+                                            'Team Member',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        member.role.isEmpty
-                                            ? context.t('Team member')
-                                            : member.role,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF6B7280),
+                                        Expanded(
+                                          flex: 2,
+                                          child: Text(
+                                            'Payroll Type',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    payType,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                                        Expanded(
+                                          child: Text(
+                                            'Salary (₹)',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            'Commission (%)',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: Text(
+                                            'Joining Date',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 96,
+                                          child: Center(
+                                            child: Text(
+                                              'Action',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                color: Color(0xFF6B7280),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    salaryText,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    commissionText,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    setup == null
+                                  const Divider(height: 1),
+                                  const SizedBox(height: 14),
+                                  ...widget.teamMembers
+                                      .asMap()
+                                      .entries
+                                      .map((entry) {
+                                    final index = entry.key;
+                                    final member = entry.value;
+                                    final setup = _visibleSetups[member.id];
+                                    final payType = setup == null
+                                        ? 'Not configured'
+                                        : PayrollTypes.label(setup.payrollType);
+                                    final salaryText = setup == null ||
+                                            setup.salaryMinor == 0
                                         ? '-'
-                                        : DateFormat('dd MMM yyyy')
-                                            .format(setup.effectiveDate),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                OutlinedButton(
-                                  onPressed: _savingIds.contains(member.id)
-                                      ? null
-                                      : () => _openEditDialog(member),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.starColor,
-                                    side:
-                                        BorderSide(color: AppColors.starColor),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    _savingIds.contains(member.id)
-                                        ? context.t('Saving...')
-                                        : context.t('Edit'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (index != widget.teamMembers.length - 1)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 14),
-                                child: Divider(height: 1),
+                                        : _formatCurrency(setup.salaryMinor);
+                                    final commissionText = setup == null ||
+                                            setup.commissionPercent == 0
+                                        ? '-'
+                                        : '${setup.commissionPercent.toStringAsFixed(1)}%';
+                                    return Column(
+                                      children: [
+                                        Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
+                                            Expanded(
+                                              flex: 3,
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    member.name,
+                                                    style: const TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    member.role.isEmpty
+                                                        ? context
+                                                            .t('Team member')
+                                                        : member.role,
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      color: Color(0xFF6B7280),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Text(
+                                                payType,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                salaryText,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                commissionText,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Text(
+                                                setup == null
+                                                    ? '-'
+                                                    : DateFormat('dd MMM yyyy')
+                                                        .format(setup
+                                                            .effectiveDate),
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: 96,
+                                              child: Center(
+                                                child: OutlinedButton(
+                                                  onPressed: _savingIds
+                                                          .contains(member.id)
+                                                      ? null
+                                                      : () => _openEditDialog(
+                                                            member,
+                                                          ),
+                                                  style:
+                                                      OutlinedButton.styleFrom(
+                                                    foregroundColor:
+                                                        AppColors.starColor,
+                                                    side: BorderSide(
+                                                      color:
+                                                          AppColors.starColor,
+                                                    ),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                        14,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    _savingIds.contains(
+                                                      member.id,
+                                                    )
+                                                        ? context.t(
+                                                            'Saving...',
+                                                          )
+                                                        : context.t('Edit'),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        if (index !=
+                                            widget.teamMembers.length - 1)
+                                          const Padding(
+                                            padding: EdgeInsets.symmetric(
+                                              vertical: 14,
+                                            ),
+                                            child: Divider(height: 1),
+                                          ),
+                                      ],
+                                    );
+                                  }),
+                                ],
                               ),
-                          ],
-                        );
-                      }),
+                            ),
+                          );
+                        },
+                      ),
                       const SizedBox(height: 16),
                       Container(
                         width: double.infinity,
@@ -685,8 +961,10 @@ class _PayrollSetupMemberCard extends StatefulWidget {
 
 class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
   final _formKey = GlobalKey<FormState>();
+  final ScrollController _scrollController = ScrollController();
 
   AutovalidateMode _autoValidateMode = AutovalidateMode.disabled;
+  String? _inlineErrorMessage;
   late final DateTime? _joiningDate;
   late String _payrollType;
   late TextEditingController _salaryController;
@@ -716,6 +994,7 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _salaryController.dispose();
     _commissionController.dispose();
     super.dispose();
@@ -745,6 +1024,50 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
       _payrollType == PayrollTypes.commissionOnly ||
       _payrollType == PayrollTypes.salaryCommission;
 
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  void _clearInlineError() {
+    if (_inlineErrorMessage == null) return;
+    setState(() => _inlineErrorMessage = null);
+  }
+
+  String? _validatePayrollSetup() {
+    if (_payrollType.trim().isEmpty) {
+      return translateText('Payroll type is required');
+    }
+
+    if (_requiresSalary) {
+      final salary = int.tryParse(_salaryController.text.trim()) ?? 0;
+      if (salary <= 0) {
+        return translateText('Salary is required');
+      }
+    }
+
+    if (_requiresCommission) {
+      final commission =
+          double.tryParse(_commissionController.text.trim()) ?? 0;
+      if (commission <= 0 || commission > 100) {
+        return translateText('Commission must be between 0 and 100.');
+      }
+    }
+
+    final minimum = _minimumEffectiveDate();
+    if (_effectiveDate.isBefore(minimum)) {
+      return translateText('Effective date cannot be before joining date.');
+    }
+
+    return null;
+  }
+
   DateTime? _dateOnly(DateTime? value) {
     if (value == null) return null;
     return DateTime(value.year, value.month, value.day);
@@ -771,7 +1094,20 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
       _autoValidateMode = AutovalidateMode.onUserInteraction;
     });
 
-    if (!_formKey.currentState!.validate()) return;
+    final validationMessage = _validatePayrollSetup();
+    if (validationMessage != null) {
+      setState(() => _inlineErrorMessage = validationMessage);
+      _formKey.currentState?.validate();
+      _scrollToBottom();
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) {
+      _scrollToBottom();
+      return;
+    }
+
+    setState(() => _inlineErrorMessage = null);
 
     final salary = int.tryParse(_salaryController.text.trim()) ?? 0;
     final commission = double.tryParse(_commissionController.text.trim()) ?? 0;
@@ -792,261 +1128,309 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
     return Form(
       key: _formKey,
       autovalidateMode: _autoValidateMode,
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.member.name,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF1C1917),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.member.role.isEmpty
-                            ? context.t('Team member')
-                            : widget.member.role,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF6B7280),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (widget.initialSetup != null)
-                  _StatusPill(
-                    label: context.t('Configured'),
-                    color: const Color(0xFF157347),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: _payrollType,
-              decoration: InputDecoration(
-                labelText: context.t('Payroll type'),
-                filled: true,
-                fillColor: const Color(0xFFF8F5F2),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-              items: PayrollTypes.values
-                  .map(
-                    (value) => DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(PayrollTypes.label(value)),
-                    ),
-                  )
-                  .toList(),
-              validator: (value) => (value == null || value.trim().isEmpty)
-                  ? translateText('Payroll type is required')
-                  : null,
-              onChanged: widget.isSaving
-                  ? null
-                  : (value) {
-                      if (value != null) {
-                        setState(() => _payrollType = value);
-                        if (_autoValidateMode != AutovalidateMode.disabled) {
-                          _formKey.currentState?.validate();
-                        }
-                      }
-                    },
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _LabeledTextField(
-                    label: context.t('Salary'),
-                    controller: _salaryController,
-                    enabled: _requiresSalary && !widget.isSaving,
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (!_requiresSalary) return null;
-                      final salary = int.tryParse((value ?? '').trim()) ?? 0;
-                      if (salary <= 0) {
-                        return translateText('Salary is required');
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _LabeledTextField(
-                    label: context.t('Commission %'),
-                    controller: _commissionController,
-                    enabled: _requiresCommission && !widget.isSaving,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) {
-                      if (!_requiresCommission) return null;
-                      final commission =
-                          double.tryParse((value ?? '').trim()) ?? 0;
-                      if (commission <= 0 || commission > 100) {
-                        return translateText(
-                          'Commission must be between 0 and 100.',
-                        );
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8F5F2),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFE9DFD1)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.badge_outlined,
-                    size: 18,
-                    color: Color(0xFFB45309),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Text(
-                          context.t('Joining date'),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B7280),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.member.name,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1C1917),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.member.role.isEmpty
+                                    ? context.t('Team member')
+                                    : widget.member.role,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF6B7280),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          () {
-                            final joiningDate = _joiningDate;
-                            return joiningDate == null
-                                ? context.t('Not available')
-                                : DateFormat('dd MMM yyyy').format(joiningDate);
-                          }(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1C1917),
+                        if (widget.initialSetup != null)
+                          _StatusPill(
+                            label: context.t('Configured'),
+                            color: const Color(0xFF157347),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      initialValue: _payrollType,
+                      decoration: InputDecoration(
+                        labelText: context.t('Payroll type'),
+                        filled: true,
+                        fillColor: const Color(0xFFF8F5F2),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      items: PayrollTypes.values
+                          .map(
+                            (value) => DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(PayrollTypes.label(value)),
+                            ),
+                          )
+                          .toList(),
+                      validator: (value) =>
+                          (value == null || value.trim().isEmpty)
+                              ? translateText('Payroll type is required')
+                              : null,
+                      onChanged: widget.isSaving
+                          ? null
+                          : (value) {
+                              if (value != null) {
+                                setState(() => _payrollType = value);
+                                _clearInlineError();
+                                if (_autoValidateMode !=
+                                    AutovalidateMode.disabled) {
+                                  _formKey.currentState?.validate();
+                                }
+                              }
+                            },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _LabeledTextField(
+                            label: context.t('Salary'),
+                            controller: _salaryController,
+                            enabled: _requiresSalary && !widget.isSaving,
+                            keyboardType: TextInputType.number,
+                            maxLength: 10,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            onChanged: (_) => _clearInlineError(),
+                            validator: (value) {
+                              if (!_requiresSalary) return null;
+                              final salary =
+                                  int.tryParse((value ?? '').trim()) ?? 0;
+                              if (salary <= 0) {
+                                return translateText('Salary is required');
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _LabeledTextField(
+                            label: context.t('Commission %'),
+                            controller: _commissionController,
+                            enabled: _requiresCommission && !widget.isSaving,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            maxLength: 3,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r'[0-9.]'),
+                              ),
+                            ],
+                            onChanged: (_) => _clearInlineError(),
+                            validator: (value) {
+                              if (!_requiresCommission) return null;
+                              final commission =
+                                  double.tryParse((value ?? '').trim()) ?? 0;
+                              if (commission <= 0 || commission > 100) {
+                                return translateText(
+                                  'Commission must be between 0 and 100.',
+                                );
+                              }
+                              return null;
+                            },
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F5F2),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFE9DFD1)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.badge_outlined,
+                            size: 18,
+                            color: Color(0xFFB45309),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  context.t('Joining date'),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  () {
+                                    final joiningDate = _joiningDate;
+                                    return joiningDate == null
+                                        ? context.t('Not available')
+                                        : DateFormat('dd MMM yyyy')
+                                            .format(joiningDate);
+                                  }(),
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF1C1917),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    FormField<DateTime>(
+                      initialValue: _effectiveDate,
+                      autovalidateMode: _autoValidateMode,
+                      validator: (value) {
+                        final selected = value ?? _effectiveDate;
+                        final minimum = _minimumEffectiveDate();
+                        if (selected.isBefore(minimum)) {
+                          return translateText(
+                            'Effective date cannot be before joining date.',
+                          );
+                        }
+                        return null;
+                      },
+                      builder: (field) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _DateFieldButton(
+                              label: context.t('Effective date'),
+                              value: _effectiveDate,
+                              onTap: widget.isSaving
+                                  ? () {}
+                                  : () async {
+                                      final minimum = _minimumEffectiveDate();
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate:
+                                            _effectiveDate.isBefore(minimum)
+                                                ? minimum
+                                                : _effectiveDate,
+                                        firstDate: minimum,
+                                        lastDate: DateTime(2100),
+                                      );
+                                      if (picked != null) {
+                                        final clamped =
+                                            _clampEffectiveDate(picked);
+                                        setState(
+                                            () => _effectiveDate = clamped);
+                                        _clearInlineError();
+                                        field.didChange(clamped);
+                                      }
+                                    },
+                            ),
+                            if (field.errorText != null) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                field.errorText!,
+                                style: const TextStyle(
+                                  color: Color(0xFFD32F2F),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: _inlineErrorMessage == null
+                ? const SizedBox.shrink()
+                : Padding(
+                    key: ValueKey(_inlineErrorMessage),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      _inlineErrorMessage!,
+                      style: const TextStyle(
+                        color: Color(0xFFD32F2F),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+          ),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: widget.isSaving ? null : _submit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.starColor,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (widget.isSaving)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    ),
+                  if (widget.isSaving) const SizedBox(width: 10),
+                  Text(
+                    widget.isSaving
+                        ? context.t('Saving...')
+                        : context.t('Save'),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            FormField<DateTime>(
-              initialValue: _effectiveDate,
-              autovalidateMode: _autoValidateMode,
-              validator: (value) {
-                final selected = value ?? _effectiveDate;
-                final minimum = _minimumEffectiveDate();
-                if (selected.isBefore(minimum)) {
-                  return translateText(
-                    'Effective date cannot be before joining date.',
-                  );
-                }
-                return null;
-              },
-              builder: (field) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _DateFieldButton(
-                      label: context.t('Effective date'),
-                      value: _effectiveDate,
-                      onTap: widget.isSaving
-                          ? () {}
-                          : () async {
-                              final minimum = _minimumEffectiveDate();
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: _effectiveDate.isBefore(minimum)
-                                    ? minimum
-                                    : _effectiveDate,
-                                firstDate: minimum,
-                                lastDate: DateTime(2100),
-                              );
-                              if (picked != null) {
-                                final clamped = _clampEffectiveDate(picked);
-                                setState(() => _effectiveDate = clamped);
-                                field.didChange(clamped);
-                              }
-                            },
-                    ),
-                    if (field.errorText != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        field.errorText!,
-                        style: const TextStyle(
-                          color: Color(0xFFD32F2F),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: widget.isSaving ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.starColor,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (widget.isSaving)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      ),
-                    if (widget.isSaving) const SizedBox(width: 10),
-                    Text(
-                      widget.isSaving
-                          ? context.t('Saving...')
-                          : context.t('Save'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

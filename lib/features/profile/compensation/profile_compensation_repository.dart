@@ -716,6 +716,9 @@ class ProfileCompensationRepository {
       case PayrollTypes.salaryCommission:
         return 'SALARY_PLUS_COMMISSION';
 
+      case PayrollTypes.commissionOnly:
+        return 'COMMISSION_ONLY';
+
       default:
         throw Exception(
             'Unsupported salary type for payroll setup: $payrollType');

@@ -1,4 +1,6 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../services/navigation_service.dart';
@@ -11,7 +13,6 @@ import '../../../utils/colors.dart';
 import 'profile_compensation_models.dart';
 import 'profile_compensation_repository.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
 
 part 'owner_payroll.dart';
 part 'owner_commission.dart';
@@ -1105,15 +1106,16 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                   showReason: false,
                 ),
                 const SizedBox(height: 16),
-              _buildPayrollSetupReviewCard(
-  title: 'Team Members Not Included (${excluded.length})',
-  subtitle: 'These team members do not have salary or commission set.',
-  members: excluded,
-  showReason: true,
-  onSetupTap: () {
-    Navigator.of(reviewContext).pop();
-  },
-),
+                _buildPayrollSetupReviewCard(
+                  title: 'Team Members Not Included (${excluded.length})',
+                  subtitle:
+                      'These team members do not have salary or commission set.',
+                  members: excluded,
+                  showReason: true,
+                  onSetupTap: () {
+                    Navigator.of(reviewContext).pop();
+                  },
+                ),
                 const SizedBox(height: 20),
                 Align(
                   alignment: Alignment.centerRight,
@@ -1452,8 +1454,7 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                               filled: true,
                               fillColor: Colors.white,
                               counterText: '',
-                              contentPadding:
-                                  const EdgeInsets.symmetric(
+                              contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                                 vertical: 16,
                               ),
@@ -1530,8 +1531,11 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(22),
                             ),
-                            child: Builder(
-                              builder: (context) {
+                            child: LayoutBuilder(
+                              builder: (context, constraints) {
+                                final tableWidth = constraints.maxWidth < 760
+                                    ? 760.0
+                                    : constraints.maxWidth;
                                 final filteredEmployees =
                                     currentRun.employees.where((employee) {
                                   final matchesSearch = searchQuery.isEmpty ||
@@ -1545,157 +1549,167 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
                                   return matchesSearch && matchesStatus;
                                 }).toList();
 
-                                return ListView.separated(
-                                  padding: const EdgeInsets.all(16),
-                                  itemCount: filteredEmployees.length + 1,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  shrinkWrap: true,
-                                  separatorBuilder: (_, __) =>
-                                      const Divider(height: 24),
-                                  itemBuilder: (context, index) {
-                                    if (index == 0) {
-                                      return const Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              'Employee',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFF6B7280),
+                                return SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  physics: const BouncingScrollPhysics(),
+                                  child: SizedBox(
+                                    width: tableWidth,
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.all(16),
+                                      itemCount: filteredEmployees.length + 1,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      shrinkWrap: true,
+                                      separatorBuilder: (_, __) =>
+                                          const Divider(height: 24),
+                                      itemBuilder: (context, index) {
+                                        if (index == 0) {
+                                          return const Row(
+                                            children: [
+                                              Expanded(
+                                                flex: 3,
+                                                child: Text(
+                                                  'Employee',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Role',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFF6B7280),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  'Role',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Net Payable (₹)',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFF6B7280),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  'Net Payable (₹)',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Status',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFF6B7280),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Text(
+                                                  'Status',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width: 90,
-                                            child: Text(
-                                              'Action',
-                                              textAlign: TextAlign.right,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                color: Color(0xFF6B7280),
+                                              SizedBox(
+                                                width: 96,
+                                                child: Text(
+                                                  'Action',
+                                                  textAlign: TextAlign.right,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                    color: Color(0xFF6B7280),
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    }
+                                            ],
+                                          );
+                                        }
 
-                                    final employee =
-                                        filteredEmployees[index - 1];
-                                    final status = employee.statusLabel;
-                                    return Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            employee.userName,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                              color: Color(0xFF1C1917),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            employee.role.isEmpty
-                                                ? 'Team Member'
-                                                : employee.role,
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              color: Color(0xFF6B7280),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            _formatCurrency(
-                                              employee.netPayableMinor,
-                                            ),
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: _StatusPill(
-                                              label: status,
-                                              color: _statusColor(status),
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(
-                                          width: 90,
-                                          child: Align(
-                                            alignment: Alignment.centerRight,
-                                            child: OutlinedButton(
-                                              onPressed: () async {
-                                                final updated =
-                                                    await _openEmployeeReview(
-                                                  run: currentRun,
-                                                  employee: employee,
-                                                );
-                                                if (updated != null &&
-                                                    screenContext.mounted) {
-                                                  await refreshRun(updated);
-                                                  setSheetState(
-                                                    () => currentRun = updated,
-                                                  );
-                                                }
-                                              },
+                                        final employee =
+                                            filteredEmployees[index - 1];
+                                        final status = employee.statusLabel;
+                                        return Row(
+                                          children: [
+                                            Expanded(
+                                              flex: 3,
                                               child: Text(
-                                                status.toLowerCase() == 'paid'
-                                                    ? 'View'
-                                                    : 'Review',
+                                                employee.userName,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF1C1917),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  },
+                                            Expanded(
+                                              flex: 2,
+                                              child: Text(
+                                                employee.role.isEmpty
+                                                    ? 'Team Member'
+                                                    : employee.role,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Color(0xFF6B7280),
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Text(
+                                                _formatCurrency(
+                                                  employee.netPayableMinor,
+                                                ),
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: _StatusPill(
+                                                  label: status,
+                                                  color: _statusColor(status),
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: 96,
+                                              child: Align(
+                                                alignment: Alignment.center,
+                                                child: OutlinedButton(
+                                                  onPressed: () async {
+                                                    final updated =
+                                                        await _openEmployeeReview(
+                                                      run: currentRun,
+                                                      employee: employee,
+                                                    );
+                                                    if (updated != null &&
+                                                        screenContext.mounted) {
+                                                      await refreshRun(updated);
+                                                      setSheetState(
+                                                        () => currentRun =
+                                                            updated,
+                                                      );
+                                                    }
+                                                  },
+                                                  child: Text(
+                                                    status.toLowerCase() ==
+                                                            'paid'
+                                                        ? 'View'
+                                                        : 'Review',
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 );
                               },
                             ),
@@ -2837,236 +2851,239 @@ class _ProfileCompensationScreenState extends State<ProfileCompensationScreen> {
       ),
     );
   }
-Widget _buildPayrollSetupReviewCard({
-  required String title,
-  required String subtitle,
-  required List<ProfileTeamMember> members,
-  required bool showReason,
-  VoidCallback? onSetupTap,
-}) {
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: const Color(0xFFE8EEF5)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF111827),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          subtitle,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF6B7280),
-          ),
-        ),
-        const SizedBox(height: 18),
 
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          color: const Color(0xFFF8FAFC),
-          child: Row(
-            children: const [
-              Expanded(
-                flex: 3,
-                child: Text(
-                  'Team Member',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(
-                  'Reason',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                ),
-              ),
-              SizedBox(
-                width: 80,
-                child: Text(
-                  'Action',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        if (members.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 14),
-            child: Text(
-              'No team members found.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+  Widget _buildPayrollSetupReviewCard({
+    required String title,
+    required String subtitle,
+    required List<ProfileTeamMember> members,
+    required bool showReason,
+    VoidCallback? onSetupTap,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8EEF5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF111827),
             ),
-          )
-        else
-          ...members.map((member) {
-            final setup = _setupByUserId[member.id];
-
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Row(
-                      children: [
-                      CircleAvatar(
-  radius: 16,
-  backgroundColor: const Color(0xFFFFF3D5),
-  child: Text(
-    member.name.isNotEmpty ? member.name[0].toUpperCase() : 'T',
-    style: const TextStyle(
-      color: AppColors.starColor,
-      fontSize: 12,
-      fontWeight: FontWeight.w800,
-    ),
-  ),
-),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                member.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF111827),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                member.role.isEmpty ? 'Team Member' : member.role,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF6B7280),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  if (showReason) ...[
-                    const Expanded(
-                      flex: 2,
-                      child: Text(
-                        'ⓘ Not setup yet',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFFEA580C),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    SizedBox(
-                      width: 80,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: OutlinedButton(
-                          onPressed: onSetupTap,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFEA580C),
-                            side: const BorderSide(color: Color(0xFFEA580C)),
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            minimumSize: const Size(58, 30),
-                          ),
-                          child: const Text(
-                            'Set up',
-                            style: TextStyle(fontSize: 11),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-  Expanded(
-    flex: 2,
-    child: Text(
-      PayrollTypes.label(
-        setup?.payrollType ?? PayrollTypes.salaryOnly,
-      ),
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: Color(0xFF111827),
-      ),
-    ),
-  ),
-  SizedBox(
-    width: 90,
-    child: Text(
-      _formatCurrency(setup?.salaryMinor ?? 0),
-      textAlign: TextAlign.right,
-      style: const TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w800,
-        color: Color(0xFF111827),
-      ),
-    ),
-  ),
-],
-                ],
-              ),
-            );
-                  }),
-
-        if (!showReason && members.isNotEmpty) ...[
-          const Divider(height: 1, color: Color(0xFFE5E7EB)),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            color: const Color(0xFFF8FAFC),
             child: Row(
-              children: [
-                const Expanded(
+              children: const [
+                Expanded(
+                  flex: 3,
                   child: Text(
-                    'Total Salary',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF111827),
-                    ),
+                    'Team Member',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   ),
                 ),
-                Text(
-                  _formatCurrency(
-                    members.fold<int>(0, (sum, member) {
-                      final setup = _setupByUserId[member.id];
-                      return sum + (setup?.salaryMinor ?? 0);
-                    }),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Reason',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   ),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF22C55E),
+                ),
+                SizedBox(
+                  width: 80,
+                  child: Text(
+                    'Action',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                   ),
                 ),
               ],
             ),
           ),
+          if (members.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 14),
+              child: Text(
+                'No team members found.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+              ),
+            )
+          else
+            ...members.map((member) {
+              final setup = _setupByUserId[member.id];
+
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 16,
+                            backgroundColor: const Color(0xFFFFF3D5),
+                            child: Text(
+                              member.name.isNotEmpty
+                                  ? member.name[0].toUpperCase()
+                                  : 'T',
+                              style: const TextStyle(
+                                color: AppColors.starColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  member.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  member.role.isEmpty
+                                      ? 'Team Member'
+                                      : member.role,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (showReason) ...[
+                      const Expanded(
+                        flex: 2,
+                        child: Text(
+                          'ⓘ Not setup yet',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFFEA580C),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 80,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton(
+                            onPressed: onSetupTap,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFFEA580C),
+                              side: const BorderSide(color: Color(0xFFEA580C)),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
+                              minimumSize: const Size(58, 30),
+                            ),
+                            child: const Text(
+                              'Set up',
+                              style: TextStyle(fontSize: 11),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          PayrollTypes.label(
+                            setup?.payrollType ?? PayrollTypes.salaryOnly,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: 90,
+                        child: Text(
+                          _formatCurrency(setup?.salaryMinor ?? 0),
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF111827),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            }),
+          if (!showReason && members.isNotEmpty) ...[
+            const Divider(height: 1, color: Color(0xFFE5E7EB)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              child: Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Total Salary',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    _formatCurrency(
+                      members.fold<int>(0, (sum, member) {
+                        final setup = _setupByUserId[member.id];
+                        return sum + (setup?.salaryMinor ?? 0);
+                      }),
+                    ),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF22C55E),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
-      ],
-    ),
-  );
-}
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3302,80 +3319,135 @@ class _PayrollRunTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isCompact = constraints.maxWidth < 620;
-        final content = Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: _RunTitleBlock(run: run),
-              ),
-              const SizedBox(width: 12),
-              _RunMetricCard(
-                label: 'Employees',
-                value: '${run.employeeCount}',
-                width: 118,
-              ),
-              const SizedBox(width: 10),
-              _RunMetricCard(
-                label: 'Net',
-                value: _formatCurrency(run.totalAmountMinor),
-                width: 124,
-              ),
-              const SizedBox(width: 10),
-              _RunMetricCard(
-                label: 'Paid',
-                value: _formatCurrency(run.paidAmountMinor),
-                width: 124,
-              ),
-              const SizedBox(width: 10),
-              _RunMetricCard(
-                label: 'Pending',
-                value: _formatCurrency(run.outstandingAmountMinor),
-                width: 124,
-              ),
-              const SizedBox(width: 10),
-              _StatusPill(label: run.statusLabel, color: statusColor),
-              const SizedBox(width: 10),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: onOpen,
-                  child: Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                      borderRadius: BorderRadius.circular(999),
+        final isCompact = constraints.maxWidth < 560;
+        final metricWidth = isCompact
+            ? (constraints.maxWidth - 10) / 2
+            : (constraints.maxWidth - 40) / 4;
+        final metrics = <Widget>[
+          _RunMetricCard(
+            label: 'Employees',
+            value: '${run.employeeCount}',
+            width: metricWidth,
+          ),
+          _RunMetricCard(
+            label: 'Net',
+            value: _formatCurrency(run.totalAmountMinor),
+            width: metricWidth,
+          ),
+          _RunMetricCard(
+            label: 'Paid',
+            value: _formatCurrency(run.paidAmountMinor),
+            width: metricWidth,
+          ),
+          _RunMetricCard(
+            label: 'Pending',
+            value: _formatCurrency(run.outstandingAmountMinor),
+            width: metricWidth,
+          ),
+        ];
+        return Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(22),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: onOpen,
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    Color.alphaBlend(
+                      statusColor.withValues(alpha: 0.07),
+                      const Color(0xFFFFFCF8),
                     ),
-                    child: const Icon(
-                      Icons.remove_red_eye_outlined,
-                      size: 18,
-                      color: Color(0xFF6B7280),
-                    ),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: const Color(0xFFF0E5DA)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0F000000),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
                   ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 4,
+                      child: Container(color: statusColor),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: _RunTitleBlock(run: run),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  _StatusPill(
+                                    label: run.statusLabel,
+                                    color: statusColor,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(999),
+                                      onTap: onOpen,
+                                      child: Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFCFAF8),
+                                          border: Border.all(
+                                            color: const Color(0xFFE5E7EB),
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: const Icon(
+                                          Icons.remove_red_eye_outlined,
+                                          size: 18,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: metrics,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        );
-        return Material(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: onOpen,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: isCompact
-                  ? SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      child: SizedBox(width: 760, child: content),
-                    )
-                  : content,
             ),
           ),
         );
@@ -3748,6 +3820,8 @@ class _LabeledTextField extends StatelessWidget {
     this.keyboardType,
     this.maxLines = 1,
     this.enabled = true,
+    this.maxLength = 120,
+    this.inputFormatters = const <TextInputFormatter>[],
   });
 
   final String label;
@@ -3757,17 +3831,23 @@ class _LabeledTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final int maxLines;
   final bool enabled;
+  final int maxLength;
+  final List<TextInputFormatter> inputFormatters;
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
-      maxLength: 120,
+      maxLength: maxLength,
       controller: controller,
       validator: validator,
       onChanged: onChanged,
       keyboardType: keyboardType,
       maxLines: maxLines,
       enabled: enabled,
+      inputFormatters: [
+        ...inputFormatters,
+        if (maxLength > 0) LengthLimitingTextInputFormatter(maxLength),
+      ],
       decoration: InputDecoration(
         labelText: label,
         filled: true,
