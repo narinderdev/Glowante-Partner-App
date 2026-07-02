@@ -1197,6 +1197,16 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
             });
             try {
               final response = await ApiService().verifyOTP(phone, otp);
+              if (response['success'] != true) {
+                final apiMessage = _extractApiErrorMessage(response);
+                setDialogState(() {
+                  otpError = apiMessage.trim().isEmpty
+                      ? translateText('Invalid OTP')
+                      : apiMessage;
+                });
+                return;
+              }
+
               Map<String, dynamic> customer = {};
               final data = response['data'];
               if (data is Map) {
@@ -3438,6 +3448,21 @@ class _AddBookingScreenState extends State<AddBookingScreen> {
   }
 
   String _extractApiErrorMessage(Object error) {
+    if (error is Map<String, dynamic>) {
+      final message = error['message'];
+      if (message is List && message.isNotEmpty) {
+        return message.first.toString().trim();
+      }
+      if (message is String && message.trim().isNotEmpty) {
+        return message.trim();
+      }
+
+      final errorValue = error['error'];
+      if (errorValue is String && errorValue.trim().isNotEmpty) {
+        return errorValue.trim();
+      }
+    }
+
     var text = error.toString().trim();
     const exceptionPrefix = 'Exception:';
     if (text.startsWith(exceptionPrefix)) {
