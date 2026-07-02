@@ -760,7 +760,7 @@ class _PayrollSetupViewState extends State<_PayrollSetupView> {
                                     final commissionText = setup == null ||
                                             setup.commissionPercent == 0
                                         ? '-'
-                                        : '${setup.commissionPercent.toStringAsFixed(1)}%';
+                                        : '${_formatCommissionPercentText(setup.commissionPercent)}%';
                                     return Column(
                                       children: [
                                         Row(
@@ -979,13 +979,13 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
     _salaryController = TextEditingController(
       text: widget.initialSetup == null || widget.initialSetup!.salaryMinor == 0
           ? ''
-          : '${widget.initialSetup!.salaryMinor}',
+          : _paiseToRupeesText(widget.initialSetup!.salaryMinor),
     );
     _commissionController = TextEditingController(
       text: widget.initialSetup == null ||
               widget.initialSetup!.commissionPercent == 0
           ? ''
-          : widget.initialSetup!.commissionPercent.toStringAsFixed(1),
+          : _formatCommissionPercent(widget.initialSetup!.commissionPercent),
     );
     _effectiveDate = _clampEffectiveDate(
       widget.initialSetup?.effectiveDate ?? DateTime.now(),
@@ -1008,10 +1008,10 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
       _payrollType = widget.initialSetup!.payrollType;
       _salaryController.text = widget.initialSetup!.salaryMinor == 0
           ? ''
-          : '${widget.initialSetup!.salaryMinor}';
+          : _paiseToRupeesText(widget.initialSetup!.salaryMinor);
       _commissionController.text = widget.initialSetup!.commissionPercent == 0
           ? ''
-          : widget.initialSetup!.commissionPercent.toStringAsFixed(1);
+          : _formatCommissionPercent(widget.initialSetup!.commissionPercent);
       _effectiveDate = _clampEffectiveDate(widget.initialSetup!.effectiveDate);
     }
   }
@@ -1023,6 +1023,20 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
   bool get _requiresCommission =>
       _payrollType == PayrollTypes.commissionOnly ||
       _payrollType == PayrollTypes.salaryCommission;
+
+  int _rupeesToPaise(int rupees) => rupees * 100;
+
+  String _paiseToRupeesText(int paise) {
+    if (paise <= 0) return '';
+    return (paise ~/ 100).toString();
+  }
+
+  String _formatCommissionPercent(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toStringAsFixed(0);
+    }
+    return value.toStringAsFixed(1);
+  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1116,7 +1130,7 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
       userId: widget.member.id,
       userName: widget.member.name,
       payrollType: _payrollType,
-      salaryMinor: _requiresSalary ? salary : 0,
+      salaryMinor: _requiresSalary ? _rupeesToPaise(salary) : 0,
       commissionPercent: _requiresCommission ? commission : 0,
       effectiveDate: _clampEffectiveDate(_effectiveDate),
     );
@@ -1396,39 +1410,60 @@ class _PayrollSetupMemberCardState extends State<_PayrollSetupMemberCard> {
                     ),
                   ),
           ),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: widget.isSaving ? null : _submit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.starColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: widget.isSaving
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.starColor,
+                    side: BorderSide(color: AppColors.starColor),
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(context.t('Cancel')),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (widget.isSaving)
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: widget.isSaving ? null : _submit,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.starColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                  if (widget.isSaving) const SizedBox(width: 10),
-                  Text(
-                    widget.isSaving
-                        ? context.t('Saving...')
-                        : context.t('Save'),
                   ),
-                ],
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (widget.isSaving)
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        ),
+                      if (widget.isSaving) const SizedBox(width: 10),
+                      Text(
+                        widget.isSaving
+                            ? context.t('Saving...')
+                            : context.t('Save'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),

@@ -35,6 +35,13 @@ String _formatCurrency(num minorAmount) {
   return '₹${(minorAmount / 100).toStringAsFixed(2)}';
 }
 
+String _formatCommissionPercentText(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toStringAsFixed(0);
+  }
+  return value.toStringAsFixed(1);
+}
+
 class ProfileCompensationScreen extends StatefulWidget {
   const ProfileCompensationScreen({
     super.key,
