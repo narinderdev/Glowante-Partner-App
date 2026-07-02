@@ -150,9 +150,15 @@ class PushNotificationService {
       print(
           'APNS token not available; skipping FCM token registration for now.');
     } else {
-      final token = await _messaging.getToken();
-      await _persistToken(token);
-      print('FCM tokens: $token');
+      try {
+        final token = await _messaging.getToken();
+        await _persistToken(token);
+        print('FCM tokens: $token');
+      } catch (error) {
+        debugPrint(
+          'FCM token initialization failed on startup: $error',
+        );
+      }
     }
 
     _messaging.onTokenRefresh.listen((newToken) async {
@@ -205,9 +211,14 @@ class PushNotificationService {
       return _cachedToken;
     }
 
-    final freshToken = await _messaging.getToken();
-    await _persistToken(freshToken);
-    return freshToken;
+    try {
+      final freshToken = await _messaging.getToken();
+      await _persistToken(freshToken);
+      return freshToken;
+    } catch (error) {
+      debugPrint('FCM token fetch failed: $error');
+      return _cachedToken;
+    }
   }
 
   void _emitBookingEvent(RemoteMessage message, {required bool wasTapped}) {
