@@ -9,7 +9,6 @@ import '../features/profile/widgets/profile_subpage_app_bar.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 class _OperatingSlot {
   const _OperatingSlot({
     required this.startMinutes,
@@ -687,7 +686,9 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     final currentCount = weeklySchedule[day]?.length ?? 0;
     if (currentCount >= _maxSlotsPerDay) {
-      Fluttertoast.showToast(msg: translateText('You can add up to $_maxSlotsPerDay slots per day.'));
+      Fluttertoast.showToast(
+          msg: translateText(
+              'You can add up to $_maxSlotsPerDay slots per day.'));
       return;
     }
 
@@ -868,11 +869,13 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
   }
 
   void _showClosedDayMessage(String day) {
-    Fluttertoast.showToast(msg: translateText('$day is closed for appointments.'));
+    Fluttertoast.showToast(
+        msg: translateText('$day is closed for appointments.'));
   }
 
   void _showNoAvailableSlotMessage(String day) {
-    Fluttertoast.showToast(msg: translateText('No available time left for $day.'));
+    Fluttertoast.showToast(
+        msg: translateText('No available time left for $day.'));
   }
 
   Widget _timeDropdownField(
@@ -1234,6 +1237,12 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     try {
       final List<Map<String, String>> scheduleData = _buildScheduleData();
+      if (scheduleData.isEmpty) {
+        Fluttertoast.showToast(
+          msg: translateText('Please add at least one time slot.'),
+        );
+        return;
+      }
 
       final dynamic rawJoiningDate = widget.formData['joiningDate'];
       String? formattedJoiningDate;
@@ -1304,6 +1313,12 @@ class _ChooseTimeSlotState extends State<AddTeamChooseTimeSlot> {
 
     try {
       final List<Map<String, String>> scheduleData = _buildScheduleData();
+      if (scheduleData.isEmpty) {
+        Fluttertoast.showToast(
+          msg: translateText('Please add at least one time slot.'),
+        );
+        return;
+      }
 
       final dynamic rawJoiningDate = widget.formData['joiningDate'];
       String? formattedJoiningDate;

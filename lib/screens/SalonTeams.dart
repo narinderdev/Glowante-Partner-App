@@ -1035,7 +1035,7 @@ class _TeamScreenState extends State<TeamScreen> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          translateText("Assign to other branch"),
+          translateText("Assign to branch"),
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 10,

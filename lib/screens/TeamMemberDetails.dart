@@ -222,6 +222,16 @@ class TeamMemberDetails extends StatelessWidget {
     return '';
   }
 
+  String _textValue(Map<String, dynamic> item, List<String> keys) {
+    for (final key in keys) {
+      final value = (item[key] ?? '').toString().trim();
+      if (value.isNotEmpty && value.toLowerCase() != 'null') {
+        return value;
+      }
+    }
+    return '';
+  }
+
   Map<String, dynamic>? _primaryAssignment() {
     final rawBranches = member['userBranches'];
     if (rawBranches is! List) return null;
@@ -454,6 +464,20 @@ class TeamMemberDetails extends StatelessWidget {
       member['specialities'] ?? member['specializations'],
       const ['name', 'label', 'code'],
     );
+    final about = _textValue(
+      member,
+      const [
+        'info',
+        'brief',
+        'description',
+        'about',
+        'bio',
+        'aboutMe',
+        'profileSummary',
+        'professionalSummary',
+        'professionalBio',
+      ],
+    );
     final String rating = professionalRating.toStringAsFixed(1);
     final branches = member['userBranches'];
 
@@ -520,6 +544,23 @@ class TeamMemberDetails extends StatelessWidget {
                 value: assignedBranches.length.toString(),
               ),
             ],
+          ),
+          const SizedBox(height: 14),
+          _DetailSectionCard(
+            icon: Icons.info_outline_rounded,
+            title: 'About',
+            child: about.isEmpty
+                ? const _EmptyDetailText(text: 'No about information added')
+                : Text(
+                    about,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 12,
+                      height: 1.55,
+                      fontWeight: FontWeight.w600,
+                      color: _memberDetailText,
+                    ),
+                  ),
           ),
           const SizedBox(height: 14),
           _DetailSectionCard(

@@ -129,6 +129,12 @@ class ApiService {
     return "branches/$branchId";
   }
 
+  static String salonPayoutAccountsAPI(int salonId) =>
+      "salons/$salonId/payout-accounts";
+
+  static String salonPayoutAccountAPI(int salonId, int payoutAccountId) =>
+      "salons/$salonId/payout-accounts/$payoutAccountId";
+
   static String activateBranchAPI(int branchId) {
     return "branches/$branchId/activate";
   }
@@ -1642,34 +1648,34 @@ class ApiService {
   // ---------------------- LOGOUT ----------------------
 
   Future<bool> logoutUserAPI() async {
-  final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('user_token');
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('user_token');
 
-  if (token == null || token.isEmpty) return false;
+    if (token == null || token.isEmpty) return false;
 
-  final url = Uri.parse(baseUrl + logoutUser);
+    final url = Uri.parse(baseUrl + logoutUser);
 
-  try {
-    final response = await _sharedClient.post(
-      url,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer $token",
-      },
-      body: jsonEncode({}),
-    );
+    try {
+      final response = await _sharedClient.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode({}),
+      );
 
-    print("Logout Response: ${response.statusCode} ${response.body}");
+      print("Logout Response: ${response.statusCode} ${response.body}");
 
-    await prefs.clear();
+      await prefs.clear();
 
-    return response.statusCode >= 200 && response.statusCode < 300;
-  } catch (e) {
-    print("Error during logout: $e");
-    await prefs.clear();
-    return false;
+      return response.statusCode >= 200 && response.statusCode < 300;
+    } catch (e) {
+      print("Error during logout: $e");
+      await prefs.clear();
+      return false;
+    }
   }
-}
   // ---------------------- DELETE USER ----------------------
 
   Future<bool> deleteUserAPI() async {
@@ -5061,6 +5067,223 @@ class ApiService {
       print("❌ Error in deleteBService: $e");
       print("StackTrace: $st");
       rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getSalonPayoutAccounts(int salonId) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + salonPayoutAccountsAPI(salonId));
+
+    print("➡️ Calling Get Salon Payout Accounts API");
+    print("➡️ URL: $url");
+    print("➡️ Token: $token");
+
+    try {
+      final response = await _sharedClient.get(
+        url,
+        headers: {
+          "accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      print("⬅️ Status Code: ${response.statusCode}");
+      print("⬅️ Response Body: ${response.body}");
+
+      final body = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (body is Map<String, dynamic>) return body;
+        return {"success": true, "data": body};
+      }
+
+      if (body is Map<String, dynamic>) {
+        return {
+          "success": false,
+          "message": body['message']?.toString() ??
+              'Failed to load salon payout accounts',
+          "statusCode": response.statusCode,
+        };
+      }
+
+      return {
+        "success": false,
+        "message": 'Failed to load salon payout accounts',
+        "statusCode": response.statusCode,
+      };
+    } catch (e) {
+      print("❌ Error in getSalonPayoutAccounts: $e");
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> createSalonPayoutAccount({
+    required int salonId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final token = await getAuthToken();
+    final url = Uri.parse(baseUrl + salonPayoutAccountsAPI(salonId));
+
+    print("➡️ Calling Create Salon Payout Account API");
+    print("➡️ URL: $url");
+    print("➡️ Payload: $payload");
+
+    try {
+      final response = await _sharedClient.post(
+        url,
+        headers: {
+          "content-type": "application/json",
+          "accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode(payload),
+      );
+
+      print("⬅️ Status Code: ${response.statusCode}");
+      print("⬅️ Response Body: ${response.body}");
+
+      final body = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        if (body is Map<String, dynamic>) return body;
+        return {"success": true, "data": body};
+      }
+
+      if (body is Map<String, dynamic>) {
+        return {
+          "success": false,
+          "message": body['message']?.toString() ??
+              'Failed to create salon payout account',
+          "statusCode": response.statusCode,
+        };
+      }
+
+      return {
+        "success": false,
+        "message": 'Failed to create salon payout account',
+        "statusCode": response.statusCode,
+      };
+    } catch (e) {
+      print("❌ Error in createSalonPayoutAccount: $e");
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> updateSalonPayoutAccount({
+    required int salonId,
+    required int payoutAccountId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final token = await getAuthToken();
+    final url =
+        Uri.parse(baseUrl + salonPayoutAccountAPI(salonId, payoutAccountId));
+
+    print("➡️ Calling Update Salon Payout Account API");
+    print("➡️ URL: $url");
+    print("➡️ Payload: $payload");
+
+    try {
+      final response = await _sharedClient.patch(
+        url,
+        headers: {
+          "content-type": "application/json",
+          "accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+        body: jsonEncode(payload),
+      );
+
+      print("⬅️ Status Code: ${response.statusCode}");
+      print("⬅️ Response Body: ${response.body}");
+
+      final body = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        if (body is Map<String, dynamic>) return body;
+        return {"success": true, "data": body};
+      }
+
+      if (body is Map<String, dynamic>) {
+        return {
+          "success": false,
+          "message": body['message']?.toString() ??
+              'Failed to update salon payout account',
+          "statusCode": response.statusCode,
+        };
+      }
+
+      return {
+        "success": false,
+        "message": 'Failed to update salon payout account',
+        "statusCode": response.statusCode,
+      };
+    } catch (e) {
+      print("❌ Error in updateSalonPayoutAccount: $e");
+      return {"success": false, "message": e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteSalonPayoutAccount({
+    required int salonId,
+    required int payoutAccountId,
+  }) async {
+    final token = await getAuthToken();
+    final url =
+        Uri.parse(baseUrl + salonPayoutAccountAPI(salonId, payoutAccountId));
+
+    print("➡️ Calling Delete Salon Payout Account API");
+    print("➡️ URL: $url");
+
+    try {
+      final response = await _sharedClient.delete(
+        url,
+        headers: {
+          "accept": "application/json",
+          "Authorization": "Bearer $token",
+        },
+      );
+
+      print("⬅️ Status Code: ${response.statusCode}");
+      print("⬅️ Response Body: ${response.body}");
+
+      final body = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200 ||
+          response.statusCode == 201 ||
+          response.statusCode == 204) {
+        if (body is Map<String, dynamic>) return body;
+        return {"success": true, "data": body};
+      }
+
+      if (body is Map<String, dynamic>) {
+        return {
+          "success": false,
+          "message": body['message']?.toString() ??
+              'Failed to delete salon payout account',
+          "statusCode": response.statusCode,
+        };
+      }
+
+      return {
+        "success": false,
+        "message": 'Failed to delete salon payout account',
+        "statusCode": response.statusCode,
+      };
+    } catch (e) {
+      print("❌ Error in deleteSalonPayoutAccount: $e");
+      return {"success": false, "message": e.toString()};
     }
   }
 

@@ -18,7 +18,6 @@ import '../utils/input_validation.dart';
 import '../widgets/multi_step_flow_header.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
-
 const Color _teamMemberAccent = Color(0xFF8B6500);
 const Color _teamMemberSoftFill = Color(0xFFECE7E1);
 const Color _teamMemberSoftBorder = Color(0xFFD8C7B3);
@@ -97,7 +96,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
   final Color _fieldFill = const Color(0xFFFAF9F8);
   final BorderRadius _radius = BorderRadius.circular(12);
-  final RegExp _emailRegExp = RegExp(r'^[^@\s]+@[^@\s]+.[^@\s]+$');
+  final RegExp _emailRegExp =
+      RegExp(r'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+  final RegExp _nameRegExp = RegExp(r'^[A-Za-z ]+$');
 
   File? _cameraImage;
   String? imageUrl;
@@ -172,6 +173,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     final x = (v ?? '').trim();
 
     if (x.isEmpty) return translateText('First Name is required');
+    if (!_nameRegExp.hasMatch(x)) {
+      return translateText('Only letters and spaces are allowed.');
+    }
 
     return null;
   }
@@ -182,6 +186,9 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     final x = (v ?? '').trim();
 
     if (x.isEmpty) return translateText('Last Name is required');
+    if (!_nameRegExp.hasMatch(x)) {
+      return translateText('Only letters and spaces are allowed.');
+    }
 
     return null;
   }
@@ -1082,14 +1089,18 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
     _dismissKeyboard();
 
     final today = _todayDateOnly();
-    final initialDate = _joiningDate != null && _joiningDate!.isBefore(today)
-        ? _joiningDate!
-        : today;
+    final firstDate = DateTime(today.year - 50, today.month, today.day);
+    final lastDate = DateTime(today.year + 5, today.month, today.day);
+    final initialDate = _joiningDate == null
+        ? today
+        : _joiningDate!.isBefore(firstDate)
+            ? firstDate
+            : (_joiningDate!.isAfter(lastDate) ? lastDate : _joiningDate!);
 
     final res = await showDatePicker(
       context: context,
-      firstDate: DateTime(today.year - 50),
-      lastDate: today,
+      firstDate: firstDate,
+      lastDate: lastDate,
       initialDate: initialDate,
       builder: (ctx, child) {
         return Theme(
@@ -1592,7 +1603,8 @@ class _AddTeamScreenState extends State<AddTeamScreen> {
 
       if (!mounted) return;
 
-      Fluttertoast.showToast(msg: translateText('Team member updated successfully'));
+      Fluttertoast.showToast(
+          msg: translateText('Team member updated successfully'));
 
       Navigator.pop(context, true);
     } catch (error) {
